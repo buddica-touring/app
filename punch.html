@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BUDDICA TOURING 那覇 打刻</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: linear-gradient(160deg, #0f2027, #203a43, #2c5364);
+    min-height: 100vh; min-height: 100dvh;
+    color: white; display: flex; flex-direction: column;
+  }
+  .header { padding: 28px 20px 8px; text-align: center; }
+  .header .store { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,.5); margin-bottom: 6px; }
+  .header .title { font-size: 24px; font-weight: 900; }
+  .date-box { text-align: center; font-size: 13px; color: rgba(255,255,255,.55); padding: 6px 0 16px; }
+  .main { flex:1; padding: 0 20px 32px; max-width: 420px; margin: 0 auto; width: 100%; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: rgba(255,255,255,.4); margin-bottom: 10px; }
+  .name-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 24px; min-height: 50px; }
+  .name-btn {
+    padding: 14px 6px; border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.08); color: rgba(255,255,255,.8);
+    font-size: 13px; font-weight: 700; cursor: pointer; text-align: center;
+  }
+  .name-btn.sel { border-color: #38bdf8; background: rgba(56,189,248,.25); color: #fff; }
+  .status-row { display: flex; gap: 12px; margin-bottom: 20px; }
+  .st-box { flex:1; text-align:center; padding:12px 8px; border-radius:12px; background:rgba(255,255,255,.06); }
+  .st-box.in  { background: rgba(16,185,129,.2); }
+  .st-box.out { background: rgba(239,68,68,.2); }
+  .st-box .lbl { font-size:10px; color:rgba(255,255,255,.5); font-weight:600; margin-bottom:5px; }
+  .st-box .tm  { font-size:22px; font-weight:900; color:rgba(255,255,255,.2); }
+  .st-box.in  .tm { color:#34d399; }
+  .st-box.out .tm { color:#f87171; }
+  .recv { text-align:center; font-size:11px; color:#34d399; font-weight:700; margin-top:6px; margin-bottom:12px; }
+  .punch-btn {
+    width:100%; padding:22px; border-radius:18px; border:none;
+    font-size:19px; font-weight:900; cursor:pointer; margin-bottom:12px;
+  }
+  .punch-btn.in  { background: linear-gradient(135deg,#059669,#10b981); color:#fff; box-shadow:0 6px 20px rgba(5,150,105,.4); }
+  .punch-btn.out { background: linear-gradient(135deg,#dc2626,#ef4444); color:#fff; box-shadow:0 6px 20px rgba(220,38,38,.4); }
+  .punch-btn.done { background:rgba(255,255,255,.08); color:rgba(255,255,255,.45); font-size:15px; cursor:default; }
+  .punch-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .msg { padding:14px 16px; border-radius:12px; font-size:14px; font-weight:700; text-align:center; margin-top:12px; }
+  .msg.ok  { background:rgba(16,185,129,.2); color:#34d399; border:1px solid rgba(16,185,129,.3); }
+  .msg.err { background:rgba(239,68,68,.2);  color:#f87171; border:1px solid rgba(239,68,68,.3); }
+  .hint { text-align:center; color:rgba(255,255,255,.3); font-size:12px; padding-top:20px; }
+  .back { display:block; text-align:center; color:rgba(255,255,255,.25); font-size:11px; padding:20px; text-decoration:none; }
+  #errbox { color:#f87171; font-size:12px; padding:10px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="store">BUDDICA TOURING NAHA</div>
+  <div class="title">👊 出退勤 打刻</div>
+</div>
+<div class="date-box" id="dateBox">読み込み中...</div>
+
+<div class="main">
+  <div class="section-label">名前を選択</div>
+  <div class="name-grid" id="nameGrid"><div id="errbox">読み込み中...</div></div>
+
+  <div id="punchArea" style="display:none">
+    <div class="status-row">
+      <div class="st-box" id="inBox"><div class="lbl">出勤</div><div class="tm" id="inTm">--:--</div></div>
+      <div class="st-box" id="outBox"><div class="lbl">退勤</div><div class="tm" id="outTm">--:--</div></div>
+    </div>
+    <div class="recv" id="recv" style="display:none">✅ 受領済（自己申告）</div>
+    <button class="punch-btn in"  id="btnIn"  onclick="doPunch('in')">🟢 出勤打刻</button>
+    <button class="punch-btn out" id="btnOut" onclick="doPunch('out')" style="display:none">🔴 退勤打刻</button>
+    <div class="punch-btn done"   id="btnDone" style="display:none">✅ 本日の打刻完了</div>
+    <div class="msg" id="msgBox" style="display:none"></div>
+  </div>
+  <div class="hint" id="hint">名前をタップしてください</div>
+</div>
+<a href="/" class="back">← アプリに戻る</a>
+
+<script>
+var URL_BASE = "https://ggqugvyskyiblxiycpci.supabase.co/rest/v1";
+var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+var TABLE = "bt_attendance";
+var selName = "", punchData = null;
+
+function hdr() {
+  return { "apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json" };
+}
+function sbFetch(path, opts) {
+  return fetch(URL_BASE + path, Object.assign({ headers: hdr() }, opts || {})).then(function(r){ return r.json(); });
+}
+function getToday() { return new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"}); }
+function getNow()   { return new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Tokyo"}); }
+
+// 時計
+function tick() {
+  var now = new Date();
+  document.getElementById("dateBox").textContent =
+    now.toLocaleDateString("ja-JP",{month:"long",day:"numeric",weekday:"short",timeZone:"Asia/Tokyo"}) +
+    "　" + now.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Tokyo"});
+}
+tick(); setInterval(tick, 10000);
+
+// スタッフ読み込み
+function loadStaff() {
+  document.getElementById("errbox").textContent = "読み込み中...";
+  sbFetch("/staff?select=name,type&type=eq.%E3%82%A2%E3%83%AB%E3%83%90%E3%82%A4%E3%83%88&order=sort_order")
+    .then(function(data) {
+      var grid = document.getElementById("nameGrid");
+      if (!data || !data.length) {
+        grid.innerHTML = "<div id='errbox'>スタッフ情報なし</div>"; return;
+      }
+      grid.innerHTML = data.map(function(s) {
+        return "<button class='name-btn' onclick=\"pick('" + s.name + "')\">" + s.name + "</button>";
+      }).join("");
+    })
+    .catch(function(e) {
+      document.getElementById("errbox").textContent = "エラー: " + e.message;
+    });
+}
+
+function pick(name) {
+  selName = name;
+  document.querySelectorAll(".name-btn").forEach(function(b){ b.className = "name-btn" + (b.textContent===name?" sel":""); });
+  document.getElementById("hint").style.display = "none";
+  document.getElementById("punchArea").style.display = "block";
+  document.getElementById("msgBox").style.display = "none";
+  refresh();
+}
+
+function refresh() {
+  sbFetch("/" + TABLE + "?date=eq." + getToday() + "&staff_name=eq." + encodeURIComponent(selName) + "&limit=1")
+    .then(function(rows) {
+      punchData = (rows && rows[0]) || null;
+      var inT  = punchData && punchData.start_time || "";
+      var outT = punchData && punchData.end_time   || "";
+      document.getElementById("inTm").textContent = inT  || "--:--";
+      document.getElementById("outTm").textContent = outT || "--:--";
+      document.getElementById("inBox").className  = "st-box" + (inT  ? " in"  : "");
+      document.getElementById("outBox").className = "st-box" + (outT ? " out" : "");
+      document.getElementById("recv").style.display = (punchData && punchData.approved) ? "block" : "none";
+      var btnIn   = document.getElementById("btnIn");
+      var btnOut  = document.getElementById("btnOut");
+      var btnDone = document.getElementById("btnDone");
+      if (!inT) {
+        btnIn.style.display="block"; btnOut.style.display="none"; btnDone.style.display="none";
+      } else if (!outT) {
+        btnIn.style.display="none"; btnOut.style.display="block"; btnDone.style.display="none";
+      } else {
+        btnIn.style.display="none"; btnOut.style.display="none"; btnDone.style.display="block";
+        btnDone.textContent = "✅ 本日の打刻完了　" + inT + " 〜 " + outT;
+      }
+    });
+}
+
+function doPunch(type) {
+  if (!selName) return;
+  var btn = document.getElementById(type==="in"?"btnIn":"btnOut");
+  btn.disabled = true;
+  var now = getNow();
+  var today = getToday();
+  var inT  = punchData && punchData.start_time || "";
+  var outT = punchData && punchData.end_time   || "";
+  if (type==="in"  && inT)  { showMsg("既に出勤打刻済みです", false); btn.disabled=false; return; }
+  if (type==="out" && outT) { showMsg("既に退勤打刻済みです", false); btn.disabled=false; return; }
+  var body = JSON.stringify({
+    date: today, staff_name: selName,
+    start_time: type==="in"  ? now : inT,
+    end_time:   type==="out" ? now : outT,
+    approved: true, memo: "打刻", absent: false
+  });
+  fetch(URL_BASE + "/" + TABLE, {
+    method: "POST",
+    headers: Object.assign(hdr(), {"Prefer":"resolution=merge-duplicates,return=minimal"}),
+    body: body
+  }).then(function(r) {
+    if (r.ok) {
+      showMsg((type==="in"?"出勤":"退勤") + "打刻しました（" + now + "）", true);
+      refresh();
+    } else {
+      r.text().then(function(t){ showMsg("エラー: " + t, false); btn.disabled=false; });
+    }
+  }).catch(function(e){ showMsg("エラー: "+e.message, false); btn.disabled=false; });
+}
+
+function showMsg(text, ok) {
+  var el = document.getElementById("msgBox");
+  el.textContent = text; el.className = "msg " + (ok?"ok":"err"); el.style.display = "block";
+}
+
+loadStaff();
+</script>
+</body>
+</html>

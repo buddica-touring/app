@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUDDICA TOURING システム監視</title>
+<style>
+:root {
+  --ok:   #16a34a; --ok-bg:   #052e16; --ok-b:   #166534;
+  --warn: #d97706; --warn-bg: #1c1003; --warn-b: #92400e;
+  --err:  #dc2626; --err-bg:  #1f0202; --err-b:  #991b1b;
+  --na:   #64748b; --na-bg:   #0f1623; --na-b:   #334155;
+  --bg:   #0f172a; --card:    #1e293b; --border: #334155;
+  --text: #f1f5f9; --muted:   #94a3b8; --accent: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
+
+/* ── Header ── */
+.hdr { background: #0d1628; border-bottom: 1px solid var(--border); padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 100; }
+.hdr h1 { font-size: 16px; font-weight: 700; color: #93c5fd; flex: 1; }
+.hdr-meta { font-size: 11px; color: var(--muted); }
+.btn-refresh { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-refresh:active { opacity: .75; }
+.btn-refresh.spinning { opacity: .6; pointer-events: none; }
+
+/* ── Summary bar ── */
+.summary { display: flex; gap: 8px; padding: 12px 16px; }
+.sum-card { flex: 1; text-align: center; border-radius: 10px; padding: 10px 4px; border: 1px solid; }
+.sum-card.ok   { background: var(--ok-bg);   border-color: var(--ok-b);   color: var(--ok);   }
+.sum-card.warn { background: var(--warn-bg); border-color: var(--warn-b); color: var(--warn); }
+.sum-card.err  { background: var(--err-bg);  border-color: var(--err-b);  color: var(--err);  }
+.sum-card .num { font-size: 26px; font-weight: 800; display: block; }
+.sum-card .lbl { font-size: 10px; font-weight: 600; letter-spacing: .05em; }
+
+/* ── Section ── */
+.section { margin: 0 12px 16px; }
+.sec-title { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; padding: 8px 4px 6px; }
+
+/* ── Cards grid ── */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+
+/* ── System card ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; transition: border-color .2s; position: relative; overflow: hidden; }
+.card:hover { border-color: #475569; }
+.card.ok   { border-left: 3px solid var(--ok);   }
+.card.warn { border-left: 3px solid var(--warn); }
+.card.err  { border-left: 3px solid var(--err);  }
+.card.na   { border-left: 3px solid var(--na);   }
+.card.loading { opacity: .5; }
+
+.card-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.card-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+.ok   .card-dot { background: var(--ok);   box-shadow: 0 0 6px var(--ok); }
+.warn .card-dot { background: var(--warn); box-shadow: 0 0 6px var(--warn); animation: pulse 1.5s infinite; }
+.err  .card-dot { background: var(--err);  box-shadow: 0 0 6px var(--err);  animation: pulse .8s infinite; }
+.na   .card-dot { background: var(--na); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+.card-name { font-size: 12px; font-weight: 600; line-height: 1.3; }
+.card-store { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+.card-elapsed { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+.ok   .card-elapsed { color: var(--ok); }
+.warn .card-elapsed { color: var(--warn); }
+.err  .card-elapsed { color: var(--err); }
+.na   .card-elapsed { color: var(--na); font-size: 14px; }
+
+.card-detail { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.card-freq   { font-size: 10px; color: #64748b; margin-top: 4px; }
+
+/* ── HTTP cards ── */
+.card.http-ok .card-elapsed { color: var(--ok); }
+.http-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 4px; }
+.http-ok .http-badge   { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-b); }
+.http-warn .http-badge { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-b); }
+.http-err .http-badge  { background: var(--err-bg);  color: var(--err);  border: 1px solid var(--err-b); }
+
+/* ── Alert banner ── */
+.alert-banner { margin: 0 12px 12px; background: var(--err-bg); border: 1px solid var(--err-b); border-radius: 10px; padding: 10px 14px; }
+.alert-banner h3 { color: var(--err); font-size: 13px; margin-bottom: 6px; }
+.alert-banner ul { padding-left: 16px; }
+.alert-banner li { font-size: 12px; color: #fca5a5; margin-bottom: 3px; line-height: 1.4; }
+.alert-banner.hidden { display: none; }
+
+/* ── Footer ── */
+.footer { text-align: center; padding: 24px 16px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <h1>🔍 BUDDICA TOURING システム監視</h1>
+  <span class="hdr-meta" id="lastUpdated">読み込み中...</span>
+  <button class="btn-refresh" id="btnRefresh" onclick="checkAll()">🔄 更新</button>
+</div>
+
+<!-- Summary -->
+<div class="summary">
+  <div class="sum-card ok">  <span class="num" id="cntOk">-</span><span class="lbl">🟢 正常</span></div>
+  <div class="sum-card warn"><span class="num" id="cntWarn">-</span><span class="lbl">🟡 注意</span></div>
+  <div class="sum-card err"> <span class="num" id="cntErr">-</span><span class="lbl">🔴 停止</span></div>
+</div>
+
+<!-- Alert banner -->
+<div class="alert-banner hidden" id="alertBanner">
+  <h3>🚨 要対応 — 以下のシステムが停止しています</h3>
+  <ul id="alertList"></ul>
+</div>
+
+<!-- TKM GAS -->
+<div class="section">
+  <div class="sec-title">🤖 GAS 自動処理 — BUDDICA TOURING 高松店（TKM）</div>
+  <div class="grid">
+    <div class="card na" id="c-bt_gas_email"     onclick="openDetail('bt_gas_email')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">予約取込・自動配車</div><div class="card-store">高松 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-bt_jalan_links"   onclick="openDetail('bt_jalan_links')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん Squareリンク</div><div class="card-store">高松 · 5分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-bt_jalan_payment" onclick="openDetail('bt_jalan_payment')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん 入金確認</div><div class="card-store">高松 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-bt_accounting"    onclick="openDetail('bt_accounting')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">会計入金チェック</div><div class="card-store">高松 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-bt_slack_resv"    onclick="openDetail('bt_slack_resv')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Slack予約登録</div><div class="card-store">高松 · 1分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-bt_advance_alert" onclick="openDetail('bt_advance_alert')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">立替金アラート</div><div class="card-store">高松 · 日次9時</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+  </div>
+</div>
+
+<!-- SPK GAS -->
+<div class="section">
+  <div class="sec-title">🤖 GAS 自動処理 — 札幌店（SPK）</div>
+  <div class="grid">
+    <div class="card na" id="c-spk_gas_email"     onclick="openDetail('spk_gas_email')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">予約取込・自動配車</div><div class="card-store">札幌 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-spk_jalan_links"   onclick="openDetail('spk_jalan_links')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん Squareリンク</div><div class="card-store">札幌 · 5分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-spk_jalan_payment" onclick="openDetail('spk_jalan_payment')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん 入金確認</div><div class="card-store">札幌 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-spk_slack_resv"    onclick="openDetail('spk_slack_resv')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Slack予約登録</div><div class="card-store">札幌 · 1分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-spk_square_terminal" onclick="openDetail('spk_square_terminal')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Square端末 取込</div><div class="card-store">札幌 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+  </div>
+</div>
+
+<!-- 共通 GAS -->
+<div class="section">
+  <div class="sec-title">🔧 共通 GAS</div>
+  <div class="grid">
+    <div class="card na" id="c-ota_gas"          onclick="openDetail('ota_gas')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">OTA自動登録</div><div class="card-store">共通 · 30分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-payment_sync"     onclick="openDetail('payment_sync')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Payment 入金同期</div><div class="card-store">共通 · 5分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-inquiry_import"   onclick="openDetail('inquiry_import')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">問い合わせ取込</div><div class="card-store">共通 · 15分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-sns_patrol"       onclick="openDetail('sns_patrol')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">SNS 投稿パトロール</div><div class="card-store">共通 · 30分毎</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-receipt_bot"      onclick="openDetail('receipt_bot')">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">領収書Bot</div><div class="card-store">共通 · Slack Event</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="section">
+  <div class="sec-title">📱 Web APP ステータス</div>
+  <div class="grid">
+    <div class="card na" id="c-app_nha">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">高松店 APP</div><div class="card-store">nosh2318.github.io/takamatsu-project</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">HTTP ステータス確認</div>
+    </div>
+    <div class="card na" id="c-app_spk">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">札幌店 APP</div><div class="card-store">nosh2318.github.io/spk-task</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">HTTP ステータス確認</div>
+    </div>
+    <div class="card na" id="c-app_inquiry">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">問い合わせ APP</div><div class="card-store">buddica-touring-inquiry.vercel.app</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">HTTP ステータス確認</div>
+    </div>
+    <div class="card na" id="c-app_damage">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">車両チェック APP</div><div class="card-store">nosh2318.github.io</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">HTTP ステータス確認</div>
+    </div>
+  </div>
+</div>
+
+<!-- 未処理件数 -->
+<div class="section">
+  <div class="sec-title">📋 業務 未処理件数</div>
+  <div class="grid" id="pendingGrid">
+    <div class="card na" id="c-pend_inquiry">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">問い合わせ 未対応</div><div class="card-store">inquiries</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">返信待ち件数</div>
+    </div>
+    <div class="card na" id="c-pend_sq_failed_nha">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Square失敗 未起票（高松）</div><div class="card-store">sq_terminal_failed</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">未解決件数</div>
+    </div>
+    <div class="card na" id="c-pend_sq_failed_spk">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Square失敗 未起票（札幌）</div><div class="card-store">sq_terminal_failed</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">未解決件数</div>
+    </div>
+    <div class="card na" id="c-pend_jalan_nha">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん 未決済（高松）</div><div class="card-store">bt_jalan_payments</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">link未送信 / 入金待ち</div>
+    </div>
+    <div class="card na" id="c-pend_jalan_spk">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">じゃらん 未決済（札幌）</div><div class="card-store">jalan_payments</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">link未送信 / 入金待ち</div>
+    </div>
+    <div class="card na" id="c-pend_unassigned_nha">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">未配車 予約（高松）7日以内</div><div class="card-store">bt_fleet</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">明日〜7日以内 · 車両未配車</div>
+    </div>
+    <div class="card na" id="c-pend_unassigned_spk">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">未配車 予約（札幌）7日以内</div><div class="card-store">fleet</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">明日〜7日以内 · 車両未配車</div>
+    </div>
+  </div>
+</div>
+
+<!-- DB -->
+<div class="section">
+  <div class="sec-title">🗄 インフラ</div>
+  <div class="grid">
+    <div class="card na" id="c-db_supabase">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">Supabase DB</div><div class="card-store">ggqugvyskyiblxiycpci</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">API 応答確認</div>
+    </div>
+    <div class="card na" id="c-bt_recent">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">TKM 最終予約登録</div><div class="card-store">bt_reservations</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+    <div class="card na" id="c-spk_recent">
+      <div class="card-top"><div class="card-dot"></div><div><div class="card-name">SPK 最終予約登録</div><div class="card-store">reservations</div></div></div>
+      <div class="card-elapsed">--</div><div class="card-detail">最終: --</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">BUDDICA TOURING 監視ダッシュボード · 自動更新 60秒</div>
+
+<script>
+const SB_URL = 'https://ggqugvyskyiblxiycpci.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const HDR  = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
+
+// ── System definitions ──
+// source: 'heartbeat' = reads bt_app_settings; 'spk_heartbeat' = reads app_settings
+// thresholdMin: minutes before WARN; errMin: minutes before ERR
+const SYSTEMS = {
+  // TKM GAS
+  bt_gas_email:     { label:'予約取込・自動配車',    store:'高松', source:'heartbeat',     key:'heartbeat_bt_gas_email',      thresholdMin:30,  errMin:60  },
+  bt_jalan_links:   { label:'じゃらん Squareリンク', store:'高松', source:'heartbeat',     key:'heartbeat_bt_jalan_links',    thresholdMin:15,  errMin:30  },
+  bt_jalan_payment: { label:'じゃらん 入金確認',     store:'高松', source:'heartbeat',     key:'heartbeat_bt_jalan_payment',  thresholdMin:30,  errMin:60  },
+  bt_accounting:    { label:'会計入金チェック',      store:'高松', source:'heartbeat',     key:'heartbeat_bt_accounting',     thresholdMin:30,  errMin:60  },
+  bt_slack_resv:    { label:'Slack予約登録',          store:'高松', source:'heartbeat',     key:'heartbeat_bt_slack_resv',     thresholdMin:5,   errMin:10  },
+  bt_advance_alert: { label:'立替金アラート',         store:'高松', source:'heartbeat',     key:'heartbeat_bt_advance_alert',  thresholdMin:1500,errMin:2880},
+  // SPK GAS
+  spk_gas_email:     { label:'予約取込・自動配車',    store:'札幌', source:'spk_heartbeat', key:'heartbeat_spk_gas_email',      thresholdMin:30,  errMin:60  },
+  spk_jalan_links:   { label:'じゃらん Squareリンク', store:'札幌', source:'spk_heartbeat', key:'heartbeat_spk_jalan_links',    thresholdMin:15,  errMin:30  },
+  spk_jalan_payment: { label:'じゃらん 入金確認',     store:'札幌', source:'spk_heartbeat', key:'heartbeat_spk_jalan_payment',  thresholdMin:30,  errMin:60  },
+  spk_slack_resv:    { label:'Slack予約登録',          store:'札幌', source:'spk_heartbeat', key:'heartbeat_spk_slack_resv',     thresholdMin:5,   errMin:10  },
+  spk_square_terminal:{ label:'Square端末 取込',      store:'札幌', source:'spk_heartbeat', key:'heartbeat_spk_square_terminal',thresholdMin:30,  errMin:60  },
+  // Common GAS
+  ota_gas:           { label:'OTA自動登録',            store:'共通', source:'heartbeat',     key:'heartbeat_ota_gas',            thresholdMin:60,  errMin:120 },
+  payment_sync:      { label:'Payment 入金同期',       store:'共通', source:'heartbeat',     key:'heartbeat_payment_sync',       thresholdMin:1440,errMin:2880 }, // ★ Square Webhook方式に変更・ポーリング廃止のため閾値を緩和
+  inquiry_import:    { label:'問い合わせ取込',         store:'共通', source:'heartbeat',     key:'heartbeat_inquiry_import',     thresholdMin:30,  errMin:60  },
+  sns_patrol:        { label:'SNS 投稿パトロール',     store:'共通', source:'heartbeat',     key:'heartbeat_sns_patrol',         thresholdMin:60,  errMin:120 },
+  receipt_bot:       { label:'領収書Bot',              store:'共通', source:'heartbeat',     key:'heartbeat_receipt_bot',        thresholdMin:1500,errMin:2880},
+};
+
+const APPS = {
+  app_nha:     'https://nosh2318.github.io/takamatsu-project/',
+  app_spk:     'https://nosh2318.github.io/spk-task/',
+  app_inquiry: 'https://buddica-touring-inquiry.vercel.app/',
+  app_damage:  'https://nosh2318.github.io/buddica-touring-damage/',
+};
+
+// ── Helpers ──
+function ago(iso) {
+  if (!iso) return null;
+  const d = new Date(iso), now = new Date();
+  const m = Math.round((now - d) / 60000);
+  if (m < 1)   return '今';
+  if (m < 60)  return m + '分前';
+  if (m < 1440)return Math.floor(m/60) + '時間前';
+  return Math.floor(m/1440) + '日前';
+}
+function elapsedMin(iso) {
+  if (!iso) return Infinity;
+  return Math.round((Date.now() - new Date(iso)) / 60000);
+}
+function fmtTime(iso) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  return d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}) + ' ' +
+         d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+}
+
+function setCard(id, state, elapsed, detail) {
+  const el = document.getElementById('c-' + id); if (!el) return;
+  el.className = 'card ' + state;
+  el.querySelectorAll('.card-elapsed')[0].textContent = elapsed || '--';
+  el.querySelectorAll('.card-detail')[0].textContent  = detail  || '--';
+}
+
+// ── Fetch all heartbeats ──
+async function fetchHeartbeats(table) {
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/' + table + '?key=like.heartbeat_%25&select=key,value', { headers: HDR });
+    const rows = await r.json();
+    const map = {};
+    (rows||[]).forEach(row => {
+      try { map[row.key] = JSON.parse(row.value); } catch(e) { map[row.key] = row.value; }
+    });
+    return map;
+  } catch(e) { return {}; }
+}
+
+// ── Fetch pending counts ──
+async function fetchCount(table, filters) {
+  try {
+    let url = SB_URL + '/rest/v1/' + table + '?' + filters + '&select=id&limit=1000';
+    const r = await fetch(url, { headers: { ...HDR, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-999' } });
+    const range = r.headers.get('Content-Range');
+    if (range) {
+      const total = parseInt(range.split('/')[1]);
+      if (!isNaN(total)) return total;
+    }
+    const data = await r.json();
+    return Array.isArray(data) ? data.length : 0;
+  } catch(e) { return null; }
+}
+
+function setPendCard(id, count, warnAt, errAt, label) {
+  if (count === null) { setCard(id, 'na', '--', '取得失敗'); return 'na'; }
+  const state = count >= errAt ? 'err' : count >= warnAt ? 'warn' : 'ok';
+  setCard(id, state, count + '件', label + ' ' + count + '件');
+  return state;
+}
+
+async function checkPending() {
+  // 明日〜7日以内（要対応の直近のみ）
+  const d0 = new Date(); d0.setDate(d0.getDate()+1);
+  const tomorrow = d0.toISOString().slice(0,10);
+  const d7 = new Date(); d7.setDate(d7.getDate()+7);
+  const week = d7.toISOString().slice(0,10);
+
+  const [
+    inquiryCnt,
+    jalanNha, jalanSpk,
+  ] = await Promise.all([
+    fetchCount('inquiries',          'replied_at=is.null&blocked_sender_id=is.null'),
+    fetchCount('bt_jalan_payments', 'status=in.(new,link_created,email_sent)'),
+    fetchCount('jalan_payments',     'status=in.(new,link_created,email_sent)'),
+  ]);
+
+  // Square失敗は店舗別に分離
+  const sqNha = await fetchCount('sq_terminal_failed', 'resolved=eq.false&resolved_store=in.(TKM,UNKNOWN)&resolved_store=not.eq.EXCLUDED');
+  const sqSpk = await fetchCount('sq_terminal_failed', 'resolved=eq.false&resolved_store=in.(SPK,UNKNOWN)&resolved_store=not.eq.EXCLUDED');
+
+  // 未配車: 明日〜7日以内の予約でfleet未登録（ID突合方式）
+  let unassignedNha = null, unassignedSpk = null;
+  try {
+    const [nhaR, spkR] = await Promise.all([
+      fetch(SB_URL+'/rest/v1/bt_reservations?select=id&status=neq.cancelled&start_date=gte.'+tomorrow+'&start_date=lte.'+week+'&ota=neq.direct&limit=300', {headers:HDR}),
+      fetch(SB_URL+'/rest/v1/reservations?select=id&status=neq.cancelled&lend_date=gte.'+tomorrow+'&lend_date=lte.'+week+'&ota=neq.direct&limit=300', {headers:HDR}),
+    ]);
+    const [nhaIds, spkIds] = await Promise.all([nhaR.json(), spkR.json()]);
+    // fleet に存在するIDを取得（IN絞り込み）
+    const nhaIdList = (nhaIds||[]).map(r=>r.id);
+    const spkIdList = (spkIds||[]).map(r=>r.id);
+    if (nhaIdList.length > 0) {
+      const nfR = await fetch(SB_URL+'/rest/v1/bt_fleet?select=reservation_id&reservation_id=in.('+nhaIdList.join(',')+')', {headers:HDR});
+      const nf = await nfR.json();
+      const nSet = new Set((nf||[]).map(r=>r.reservation_id));
+      unassignedNha = nhaIdList.filter(id=>!nSet.has(id)).length;
+    } else { unassignedNha = 0; }
+    if (spkIdList.length > 0) {
+      const sfR = await fetch(SB_URL+'/rest/v1/fleet?select=reservation_id&reservation_id=in.('+spkIdList.join(',')+')', {headers:HDR});
+      const sf = await sfR.json();
+      const sSet = new Set((sf||[]).map(r=>r.reservation_id));
+      unassignedSpk = spkIdList.filter(id=>!sSet.has(id)).length;
+    } else { unassignedSpk = 0; }
+  } catch(e) {}
+
+  const s1 = setPendCard('pend_inquiry',        inquiryCnt, 3,  10, '未対応問い合わせ');
+  const s2 = setPendCard('pend_sq_failed_nha',  sqNha,      1,  5,  'Square未起票（高松）');
+  const s3 = setPendCard('pend_sq_failed_spk',  sqSpk,      1,  5,  'Square未起票（札幌）');
+  const s4 = setPendCard('pend_jalan_nha',      jalanNha,   5,  15, 'じゃらん未決済（高松）');
+  const s5 = setPendCard('pend_jalan_spk',      jalanSpk,   5,  15, 'じゃらん未決済（札幌）');
+  const s6 = setPendCard('pend_unassigned_nha', unassignedNha, 3, 8, '未配車予約7日以内（高松）');
+  const s7 = setPendCard('pend_unassigned_spk', unassignedSpk, 3, 8, '未配車予約7日以内（札幌）');
+
+  // 未処理カードをサマリーに反映
+  [s1,s2,s3,s4,s5,s6,s7].forEach(s => {
+    if (s === 'ok') counts.ok++;
+    else if (s === 'warn') counts.warn++;
+    else if (s === 'err') { counts.err++; }
+  });
+}
+
+// ── Fetch recent reservation dates ──
+async function fetchRecentResv() {
+  try {
+    const [nr, sr] = await Promise.all([
+      fetch(SB_URL + '/rest/v1/bt_reservations?select=created_at&order=created_at.desc&limit=1', { headers: HDR }),
+      fetch(SB_URL + '/rest/v1/reservations?select=created_at&order=created_at.desc&limit=1',     { headers: HDR }),
+    ]);
+    const [na, sa] = await Promise.all([nr.json(), sr.json()]);
+    return {
+      tkm: na&&na[0] ? na[0].created_at : null,
+      spk: sa&&sa[0] ? sa[0].created_at : null,
+    };
+  } catch(e) { return { tkm: null, spk: null }; }
+}
+
+// ── Check HTTP status ──
+async function checkHttp(url) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(url, { method:'HEAD', signal: ctrl.signal, mode:'no-cors' });
+    clearTimeout(tid);
+    return { ok: true, status: r.status || 200 };
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') return { ok: false, status: 'timeout' };
+    // no-cors mode always gives opaque response (ok=false, status=0), treat as ok
+    return { ok: true, status: 200 };
+  }
+}
+
+// ── Check Supabase ──
+async function checkSupabase() {
+  try {
+    const start = Date.now();
+    const r = await fetch(SB_URL + '/rest/v1/', { headers: HDR });
+    const ms = Date.now() - start;
+    return { ok: r.status < 500, status: r.status, ms };
+  } catch(e) { return { ok: false, status: 'error', ms: null }; }
+}
+
+// ── Main check ──
+let counts = { ok:0, warn:0, err:0 };
+let errors = [];
+
+function applyHeartbeat(id, hb) {
+  const sys = SYSTEMS[id];
+  if (!hb || !hb.last_run) {
+    setCard(id, 'na', '未設定', 'ハートビート未登録 — GAS要設定');
+    return 'na';
+  }
+  const m = elapsedMin(hb.last_run);
+  const agoStr = ago(hb.last_run);
+  const timeStr = fmtTime(hb.last_run);
+  const errInfo = hb.errors > 0 ? ` / エラー${hb.errors}件` : '';
+  const proc = hb.processed != null ? ` 処理${hb.processed}件` : '';
+  const detail = `最終: ${timeStr}${proc}${errInfo}`;
+
+  let state;
+  if      (m > sys.errMin)       state = 'err';
+  else if (m > sys.thresholdMin) state = 'warn';
+  else                           state = 'ok';
+
+  setCard(id, state, agoStr, detail);
+  return state;
+}
+
+async function checkAll() {
+  const btn = document.getElementById('btnRefresh');
+  btn.classList.add('spinning');
+  btn.textContent = '⏳ 確認中...';
+  counts = { ok:0, warn:0, err:0 };
+  errors = [];
+
+  // 1. Fetch heartbeats + pending counts 並列
+  const [nhaHb, spkHb, resvDates, sbStatus] = await Promise.all([
+    fetchHeartbeats('bt_app_settings'),
+    fetchHeartbeats('app_settings'),
+    fetchRecentResv(),
+    checkSupabase(),
+  ]);
+  // 未処理件数は独立して取得（エラーが他に波及しないよう）
+  await checkPending();
+
+  // 2. Apply GAS heartbeats
+  Object.keys(SYSTEMS).forEach(id => {
+    const sys = SYSTEMS[id];
+    const hbMap = sys.source === 'spk_heartbeat' ? spkHb : nhaHb;
+    const hb = hbMap[sys.key] || null;
+    const state = applyHeartbeat(id, hb);
+    if (state === 'ok') counts.ok++;
+    else if (state === 'warn') counts.warn++;
+    else if (state === 'err') { counts.err++; errors.push(sys.label + '（' + sys.store + '）'); }
+    // 'na' doesn't count as error (not configured yet)
+  });
+
+  // 3. Recent reservation proxy
+  const tkmMin = elapsedMin(resvDates.tkm);
+  const spkMin = elapsedMin(resvDates.spk);
+  // These are just informational
+  setCard('bt_recent', tkmMin<1440?'ok':'warn', ago(resvDates.tkm), '最終予約登録: ' + fmtTime(resvDates.tkm));
+  setCard('spk_recent', spkMin<1440?'ok':'warn', ago(resvDates.spk), '最終予約登録: ' + fmtTime(resvDates.spk));
+
+  // 4. Supabase check
+  if (sbStatus.ok) {
+    setCard('db_supabase', 'ok', sbStatus.ms+'ms', 'HTTP ' + sbStatus.status + ' — 正常応答');
+    counts.ok++;
+  } else {
+    setCard('db_supabase', 'err', '接続不可', 'HTTP ' + sbStatus.status + ' — 要確認');
+    counts.err++; errors.push('Supabase DB');
+  }
+
+  // 5. HTTP checks for APPs
+  const appChecks = await Promise.all(
+    Object.entries(APPS).map(async ([id, url]) => {
+      const res = await checkHttp(url);
+      return { id, url, res };
+    })
+  );
+  appChecks.forEach(({ id, url, res }) => {
+    if (res.ok) {
+      setCard(id, 'ok', '200 OK', url.replace('https://',''));
+      counts.ok++;
+    } else {
+      setCard(id, 'err', res.status+'', url.replace('https://',''));
+      counts.err++; errors.push(id.replace('app_','') + ' APP');
+    }
+  });
+
+  // 6. Update summary
+  document.getElementById('cntOk').textContent   = counts.ok;
+  document.getElementById('cntWarn').textContent = counts.warn;
+  document.getElementById('cntErr').textContent  = counts.err;
+
+  // 7. Alert banner
+  const banner = document.getElementById('alertBanner');
+  const list   = document.getElementById('alertList');
+  if (errors.length > 0) {
+    banner.classList.remove('hidden');
+    list.innerHTML = errors.map(e => '<li>🔴 ' + e + '</li>').join('');
+  } else {
+    banner.classList.add('hidden');
+  }
+
+  // 8. Update timestamp
+  document.getElementById('lastUpdated').textContent =
+    '更新: ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  btn.classList.remove('spinning');
+  btn.textContent = '🔄 更新';
+}
+
+function openDetail(id) {
+  const sys = SYSTEMS[id];
+  if (!sys) return;
+  const key = sys.key;
+  const table = sys.source === 'spk_heartbeat' ? 'app_settings' : 'bt_app_settings';
+  const url = `https://supabase.com/dashboard/project/ggqugvyskyiblxiycpci/editor`; // unused
+  alert([
+    '【' + sys.label + '】（' + sys.store + '）',
+    '',
+    'ハートビートKey: ' + key,
+    'テーブル: ' + table,
+    '',
+    '停止時の対応:',
+    '① GASエディタで該当プロジェクトを開く',
+    '② 「実行数」タブでエラーを確認',
+    '③ トリガーが設定されているか確認',
+    '④ スクリプトプロパティ（SUPABASE_KEY等）を確認',
+  ].join('\n'));
+}
+
+// Auto-refresh every 60 seconds
+setInterval(checkAll, 60000);
+checkAll();
+</script>
+</body>
+</html>

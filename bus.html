@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>BUDDICA TOURING 無料シャトルバス時刻表</title>
+<meta name="theme-color" content="#1e3a5f">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh}
+.header{background:linear-gradient(135deg,#1e3a5f,#2d5a87);padding:20px 16px 16px;text-align:center;color:#fff}
+.header h1{font-size:20px;font-weight:900;margin-bottom:2px}
+.header .sub{font-size:11px;opacity:.75}
+.date-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;background:#1e3a5f;padding:4px 6px;gap:4px;scrollbar-width:none}
+.date-bar::-webkit-scrollbar{display:none}
+.date-btn{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:6px 10px;border:none;background:transparent;cursor:pointer;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:600;min-width:48px;transition:all .15s}
+.date-btn.active{background:#3b82f6;color:#fff}
+.date-btn.today{border:1px solid #3b82f6}
+.date-btn .dow{font-size:9px;margin-bottom:1px}
+.date-btn .day{font-size:14px;font-weight:800}
+.date-btn .count{font-size:8px;margin-top:1px;opacity:.7}
+.info-bar{background:#fff;padding:10px 16px;display:flex;justify-content:center;gap:16px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-weight:600}
+.info-bar span{display:flex;align-items:center;gap:4px}
+.tabs{display:flex;background:#fff;border-bottom:2px solid #e2e8f0}
+.tabs button{flex:1;padding:12px 0;text-align:center;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-bottom:3px solid transparent;transition:all .2s}
+.tabs button.active{font-weight:800;border-bottom-color:currentColor}
+.tabs button[data-tab="all"].active{color:#1e3a5f}
+.tabs button[data-tab="pu"].active{color:#2e7d32}
+.tabs button[data-tab="bd"].active{color:#bf360c}
+.container{max-width:500px;margin:0 auto;padding:8px 12px 80px}
+.slot-card{background:#fff;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.slot-header{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px 6px}
+.slot-time{font-size:26px;font-weight:900;letter-spacing:1px}
+.slot-dir{font-size:10px;font-weight:600;color:#90a4ae;margin-top:2px}
+.slot-seats{text-align:right}
+.slot-seats .num{font-size:32px;font-weight:900;line-height:1}
+.slot-seats .label{font-size:10px;font-weight:600}
+.slot-route{padding:0 16px 8px;font-size:9px;color:#78909c;font-weight:600}
+.progress-bar{height:8px;background:#f1f5f9;margin:0 16px 8px;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .4s}
+.slot-footer{display:flex;justify-content:space-between;padding:8px 16px 12px;font-size:11px;color:#90a4ae;font-weight:600;align-items:center}
+.badge{display:inline-block;font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px}
+.pu-border{border:2px solid #a5d6a7;border-left:5px solid #43a047}
+.bd-border{border:2px solid #ffcc80;border-left:5px solid #e65100}
+.full-border{border:2px solid #ef9a9a;border-left:5px solid #ef5350}
+.few-border{border:2px solid #ffcc80;border-left:5px solid #ffa726}
+.footer{position:fixed;bottom:0;left:0;right:0;background:#1e3a5f;color:#fff;text-align:center;padding:10px 16px;font-size:10px;font-weight:600}
+.empty{text-align:center;padding:40px 20px;color:#94a3b8;font-size:14px}
+.loading{text-align:center;padding:60px 20px;color:#94a3b8}
+.loading .spin{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#2d5a87;border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.refresh-note{text-align:center;font-size:10px;color:#94a3b8;padding:4px 0 8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>BUDDICA TOURING 無料シャトルバス</h1>
+  <div class="sub">那覇空港 ⇔ BUDDICA TOURING ヤード</div>
+</div>
+
+<div class="date-bar" id="dateBar"></div>
+
+<div class="info-bar">
+  <span>🚌 コースター</span>
+  <span>👥 定員20名</span>
+  <span>🔄 毎時運行</span>
+</div>
+
+<div class="tabs">
+  <button data-tab="all" class="active" onclick="setTab('all')">全便</button>
+  <button data-tab="pu" onclick="setTab('pu')">✈ 空港発</button>
+  <button data-tab="bd" onclick="setTab('bd')">🏢 ヤード発</button>
+</div>
+
+<div class="container" id="slotContainer">
+  <div class="loading"><div class="spin"></div>読み込み中...</div>
+</div>
+
+<div class="footer">
+  Rental Car Shop BUDDICA TOURING BUDDICA TOURING 高松店<br>
+  乗り場: 那覇空港 レンタカー送迎バス乗り場 11番
+</div>
+
+<script>
+var SUPABASE_URL = "https://ggqugvyskyiblxiycpci.supabase.co";
+var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+var BUS_CAPACITY = 20;
+var BUS_PU_HOURS = [9,10,11,12,13,14,15,16,17,18,19];
+var BUS_BD_HOURS = [9,10,11,12,13,14,15,16,17,18];
+var NO_BUS_RE = /^(来店|店舗|店頭|ヤード|営業所|PU発|BD発)$/;
+var DOW = ["日","月","火","水","木","金","土"];
+var DATE_RANGE = 30;
+
+var currentTab = "all";
+var selectedDate = "";
+var cachedSlots = null;
+var dateCounts = {};
+var sbClient = null;
+
+// Anonymous Auth（RLS対応）
+async function initAuth() {
+  try {
+    var script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+    await new Promise(function(resolve, reject) { script.onload = resolve; script.onerror = reject; document.head.appendChild(script); });
+    sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var sess = await sbClient.auth.getSession();
+    if (!sess.data.session) {
+      await sbClient.auth.signInAnonymously();
+    }
+    // Realtime
+    sbClient.channel("bus-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bt_tasks" }, function() {
+        load();
+        fetchDateCounts();
+      })
+      .subscribe();
+  } catch(e) {
+    console.warn("Auth/Realtime init failed:", e);
+  }
+}
+
+function fmtDate(d) {
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+
+function todayStr() { return fmtDate(new Date()); }
+
+function isBusRequired(task) {
+  var tp = task["内容"] || "";
+  if (tp !== "PU" && tp !== "BD" && tp !== "PUB" && tp !== "BDB") return false;
+  var place = (task["送迎場所"] || "").trim();
+  if (place && NO_BUS_RE.test(place)) return false;
+  if (/^(DEL|COL)$/i.test(place)) return false;
+  return true;
+}
+
+// Date bar
+function buildDateBar() {
+  var bar = document.getElementById("dateBar");
+  var today = new Date();
+  var html = "";
+  for (var i = 0; i < DATE_RANGE; i++) {
+    var d = new Date(today);
+    d.setDate(d.getDate() + i);
+    var ds = fmtDate(d);
+    var dow = DOW[d.getDay()];
+    var isToday = i === 0;
+    var isSel = ds === selectedDate;
+    var label = isToday ? "今日" : (i === 1 ? "明日" : (d.getMonth()+1) + "/" + d.getDate());
+    var cls = "date-btn" + (isSel ? " active" : "") + (isToday ? " today" : "");
+    var countLabel = dateCounts[ds] ? dateCounts[ds] + "組" : "";
+    html += '<button class="' + cls + '" onclick="selectDate(\'' + ds + '\')">' +
+      '<span class="dow">' + dow + '</span>' +
+      '<span class="day">' + label + '</span>' +
+      (countLabel ? '<span class="count">' + countLabel + '</span>' : '') +
+    '</button>';
+  }
+  bar.innerHTML = html;
+
+  // Scroll active into view
+  setTimeout(function() {
+    var active = bar.querySelector(".active");
+    if (active) active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, 50);
+}
+
+function selectDate(ds) {
+  selectedDate = ds;
+  buildDateBar();
+  load();
+}
+
+// Fetch bus task counts for date bar
+async function fetchDateCounts() {
+  var today = new Date();
+  var startDate = fmtDate(today);
+  var end = new Date(today);
+  end.setDate(end.getDate() + DATE_RANGE);
+  var endDate = fmtDate(end);
+  var url = SUPABASE_URL + "/rest/v1/bt_tasks?date=gte." + startDate + "&date=lt." + endDate +
+    "&select=date," + encodeURIComponent("内容") + "," + encodeURIComponent("送迎場所") + "&limit=5000";
+  try {
+    var res = await fetch(url, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    });
+    if (!res.ok) return;
+    var tasks = await res.json();
+    var counts = {};
+    tasks.forEach(function(t) {
+      if (!isBusRequired(t)) return;
+      if (!counts[t.date]) counts[t.date] = 0;
+      counts[t.date]++;
+    });
+    dateCounts = counts;
+    buildDateBar();
+  } catch(e) {}
+}
+
+async function fetchTasks() {
+  var url = SUPABASE_URL + "/rest/v1/bt_tasks?date=eq." + selectedDate + "&select=" + encodeURIComponent("内容") + "," + encodeURIComponent("時間") + "," + encodeURIComponent("変更") + "," + encodeURIComponent("人数") + "," + encodeURIComponent("送迎場所") + "&limit=500";
+  try {
+    var res = await fetch(url, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch(e) {
+    console.error("Fetch error:", e);
+    return [];
+  }
+}
+
+function computeSlots(tasks) {
+  var puSlots = {};
+  var bdSlots = {};
+  BUS_PU_HOURS.forEach(function(h) { puSlots[h] = { count: 0 }; });
+  BUS_BD_HOURS.forEach(function(h) { bdSlots[h] = { count: 0 }; });
+
+  tasks.forEach(function(t) {
+    if (!isBusRequired(t)) return;
+    var time = t["変更"] || t["時間"] || "";
+    if (!time) return;
+    var hour = parseInt(time.split(":")[0]) || 0;
+    var tp = t["内容"] || "";
+    var isPU = (tp === "PU" || tp === "PUB");
+    var isBD = (tp === "BD" || tp === "BDB");
+    var people = parseInt(t["人数"]) || 1;
+
+    if (isPU && puSlots[hour] !== undefined) {
+      puSlots[hour].count += people;
+    } else if (isBD && bdSlots[hour] !== undefined) {
+      bdSlots[hour].count += people;
+    }
+  });
+
+  return { pu: puSlots, bd: bdSlots };
+}
+
+function renderSlots() {
+  if (!cachedSlots) return;
+  var container = document.getElementById("slotContainer");
+  var allCards = [];
+  var isToday = selectedDate === todayStr();
+  var now = new Date();
+  var currentHour = now.getHours();
+  var currentMin = now.getMinutes();
+
+  BUS_PU_HOURS.forEach(function(h) {
+    if (currentTab === "bd") return;
+    var count = cachedSlots.pu[h] ? cachedSlots.pu[h].count : 0;
+    var passed = isToday && h < currentHour;
+    allCards.push(makeCard(h, "PU", count, passed));
+  });
+
+  BUS_BD_HOURS.forEach(function(h) {
+    if (currentTab === "pu") return;
+    var count = cachedSlots.bd[h] ? cachedSlots.bd[h].count : 0;
+    var passed = isToday && ((h === currentHour && currentMin >= 30) || h < currentHour);
+    allCards.push(makeCard(h, "BD", count, passed));
+  });
+
+  allCards.sort(function(a, b) { return a.sortKey - b.sortKey; });
+
+  var displayCards = isToday ? allCards.filter(function(c) { return !c.passed; }) : allCards;
+  var html = "";
+  if (displayCards.length === 0) {
+    html = '<div class="empty">' + (isToday ? "本日の運行は終了しました" : "この日の運行データはありません") + '</div>';
+  } else {
+    html = '<div class="refresh-note">' + (isToday ? "残席はリアルタイムで更新されます" : selectedDate.replace(/-/g,"/") + " の運行予定") + '</div>';
+    displayCards.forEach(function(c) { html += c.html; });
+  }
+  container.innerHTML = html;
+}
+
+function makeCard(hour, type, count, passed) {
+  var isPU = type === "PU";
+  var timeStr = isPU ? String(hour).padStart(2,"0") + ":00" : String(hour).padStart(2,"0") + ":30";
+  var sortKey = isPU ? hour * 100 : hour * 100 + 30;
+  var remain = Math.max(BUS_CAPACITY - count, 0);
+  var pct = Math.min(count / BUS_CAPACITY * 100, 100);
+  var isFull = remain <= 0;
+  var isFew = remain > 0 && remain <= 5;
+
+  var borderClass = isFull ? "full-border" : isFew ? "few-border" : isPU ? "pu-border" : "bd-border";
+  var barColor = isFull ? "#ef5350" : isFew ? "#ffa726" : isPU ? "#66bb6a" : "#ff8a65";
+  var seatsColor = isFull ? "#c62828" : isFew ? "#e65100" : isPU ? "#2e7d32" : "#bf360c";
+  var timeColor = isPU ? "#2e7d32" : "#bf360c";
+  var statusText = isFull ? "満席" : isFew ? "残りわずか" : "空席あり";
+  var statusBg = isFull ? "#ffebee" : isFew ? "#fff3e0" : isPU ? "#e8f5e9" : "#fff3e0";
+  var statusColor = isFull ? "#c62828" : isFew ? "#e65100" : isPU ? "#2e7d32" : "#bf360c";
+  var dirLabel = isPU ? "✈ 空港出発" : "🏢 ヤード出発";
+  var routeText = isPU
+    ? "🚌 那覇空港 レンタカー送迎バス乗り場11番 → HANDYMAN"
+    : "🚌 BUDDICA TOURING → 那覇空港 出発口";
+
+  var html = '<div class="slot-card ' + borderClass + '">' +
+    '<div class="slot-header">' +
+      '<div><div class="slot-time" style="color:' + timeColor + '">' + timeStr + '</div>' +
+      '<div class="slot-dir">' + dirLabel + '</div></div>' +
+      '<div class="slot-seats"><div class="num" style="color:' + seatsColor + '">' + remain + '<span style="font-size:12px">席</span></div>' +
+      '<div class="label" style="color:' + seatsColor + '">' + (isFull ? "満席" : "空き") + '</div></div>' +
+    '</div>' +
+    '<div class="slot-route">' + routeText + '</div>' +
+    '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
+    '<div class="slot-footer">' +
+      '<span>乗車 ' + count + '名 / 定員' + BUS_CAPACITY + '名</span>' +
+      '<span class="badge" style="background:' + statusBg + ';color:' + statusColor + '">' + statusText + '</span>' +
+    '</div>' +
+  '</div>';
+
+  return { html: html, sortKey: sortKey, passed: passed };
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tabs button").forEach(function(btn) {
+    btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
+  });
+  renderSlots();
+}
+
+async function load() {
+  var tasks = await fetchTasks();
+  cachedSlots = computeSlots(tasks);
+  renderSlots();
+}
+
+// Init
+selectedDate = todayStr();
+buildDateBar();
+initAuth().then(function() {
+  fetchDateCounts();
+  load();
+});
+
+// Auto refresh every 60 seconds
+setInterval(function() { load(); fetchDateCounts(); }, 60000);
+</script>
+</body>
+</html>

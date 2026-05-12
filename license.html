@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>免許証アップロード — BUDDICA TOURING 高松店</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;min-height:100vh;padding:16px}
+.container{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);padding:24px;width:100%;max-width:440px;margin:0 auto}
+h1{font-size:18px;text-align:center;margin-bottom:20px;color:#1a1a2e}
+.back-btn{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;text-decoration:none}
+.back-btn:hover{background:#f1f5f9}
+label{display:block;font-size:14px;font-weight:600;color:#444;margin-bottom:6px}
+input[type="text"]{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;transition:border .2s}
+input:focus{border-color:#3b82f6}
+.field{margin-bottom:16px}
+.person-section{border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px;background:#fafbfc}
+.person-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.person-label{font-size:14px;font-weight:700;color:#1e293b}
+.remove-person{background:none;border:none;color:#ef4444;cursor:pointer;font-size:20px;padding:0 4px}
+.upload-area{border:2px dashed #cbd5e1;border-radius:12px;padding:24px 12px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;margin-bottom:8px}
+.upload-area:hover,.upload-area.dragover{border-color:#3b82f6;background:#eff6ff}
+.upload-area.has-file{border-color:#22c55e;background:#f0fdf4}
+.upload-icon{font-size:32px;margin-bottom:4px}
+.upload-text{color:#64748b;font-size:13px}
+.upload-text.filename{color:#22c55e;font-weight:600;font-size:12px}
+input[type="file"]{display:none}
+.preview{margin-top:8px;max-width:100%;max-height:200px;border-radius:8px;display:none;object-fit:contain}
+.preview.show{display:block}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#3b82f6;color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-primary:disabled{background:#94a3b8;cursor:not-allowed}
+.btn-add{background:#f1f5f9;color:#3b82f6;border:2px dashed #93c5fd;margin-bottom:16px}
+.btn-add:hover{background:#eff6ff}
+.status{margin-top:16px;padding:12px;border-radius:8px;text-align:center;font-size:14px;display:none}
+.status.success{display:block;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+.status.error{display:block;background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.status.uploading{display:block;background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe}
+.status.pending{display:block;background:#fef9c3;color:#92400e;border:1px solid #fde68a}
+.logo{text-align:center;margin-bottom:4px;font-size:12px;color:#94a3b8;letter-spacing:2px}
+.progress{width:100%;height:4px;background:#e2e8f0;border-radius:2px;margin-top:8px;overflow:hidden;display:none}
+.progress.show{display:block}
+.progress-bar{height:100%;background:#3b82f6;border-radius:2px;transition:width .3s;width:0}
+.uploaded-list{margin-top:16px}
+.uploaded-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:6px;font-size:13px}
+.uploaded-item .check{color:#22c55e;font-size:18px}
+.uploaded-item .name{flex:1;color:#334155}
+.person-count{font-size:11px;color:#94a3b8;text-align:center;margin-bottom:8px}
+.sides{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.side-label{font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px}
+.notice{background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400e;line-height:1.6}
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-btn">← 戻る</a>
+
+<div class="container">
+  <div class="logo">BUDDICA TOURING NAHA</div>
+  <h1>🪪 免許証アップロード</h1>
+
+  <!-- 準備中バナー -->
+  <div class="notice">
+    📌 <strong>準備中</strong>：データ格納先を設定後に有効になります。<br>
+    現在はファイル選択・プレビューのみ利用できます。
+  </div>
+
+  <div class="field">
+    <label>予約番号</label>
+    <input type="text" id="resId" placeholder="例: R0KB1GJG">
+  </div>
+
+  <div class="field">
+    <label>氏名</label>
+    <input type="text" id="custName" placeholder="例: ヤマダ タロウ">
+  </div>
+
+  <div class="field">
+    <label>都道府県（免許証住所）</label>
+    <select id="prefSelect" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;background:#fff">
+      <option value="">選択してください</option>
+      <option value="北海道">北海道</option><option value="青森県">青森県</option><option value="岩手県">岩手県</option><option value="宮城県">宮城県</option><option value="秋田県">秋田県</option><option value="山形県">山形県</option><option value="福島県">福島県</option>
+      <option value="茨城県">茨城県</option><option value="栃木県">栃木県</option><option value="群馬県">群馬県</option><option value="埼玉県">埼玉県</option><option value="千葉県">千葉県</option><option value="東京都">東京都</option><option value="神奈川県">神奈川県</option>
+      <option value="新潟県">新潟県</option><option value="富山県">富山県</option><option value="石川県">石川県</option><option value="福井県">福井県</option><option value="山梨県">山梨県</option><option value="長野県">長野県</option><option value="岐阜県">岐阜県</option><option value="静岡県">静岡県</option><option value="愛知県">愛知県</option>
+      <option value="三重県">三重県</option><option value="滋賀県">滋賀県</option><option value="京都府">京都府</option><option value="大阪府">大阪府</option><option value="兵庫県">兵庫県</option><option value="奈良県">奈良県</option><option value="和歌山県">和歌山県</option>
+      <option value="鳥取県">鳥取県</option><option value="島根県">島根県</option><option value="岡山県">岡山県</option><option value="広島県">広島県</option><option value="山口県">山口県</option><option value="徳島県">徳島県</option><option value="香川県">香川県</option><option value="愛媛県">愛媛県</option><option value="高知県">高知県</option>
+      <option value="福岡県">福岡県</option><option value="佐賀県">佐賀県</option><option value="長崎県">長崎県</option><option value="熊本県">熊本県</option><option value="大分県">大分県</option><option value="宮崎県">宮崎県</option><option value="鹿児島県">鹿児島県</option><option value="沖縄県">沖縄県</option>
+      <option value="海外">海外</option>
+    </select>
+  </div>
+
+  <div id="personsContainer"></div>
+
+  <div class="person-count" id="personCount">1 / 8 人</div>
+
+  <button class="btn btn-add" id="addPersonBtn" onclick="addPerson()">＋ 運転者を追加</button>
+
+  <button class="btn btn-primary" id="uploadBtn" onclick="uploadAll()" disabled>アップロード（準備中）</button>
+  <div class="progress" id="progressBar"><div class="progress-bar" id="progressInner"></div></div>
+  <div class="status" id="uploadStatus"></div>
+
+  <div class="uploaded-list" id="uploadedList"></div>
+</div>
+
+<script>
+// ★ データ格納先未接続（検討中）
+// SUPABASE_URL / BUCKET は格納先確定後に設定する
+var STORAGE_ENABLED = false; // false = 未接続モード
+
+var SUPABASE_URL = 'https://ggqugvyskyiblxiycpci.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+var BUCKET = 'licenses_nha'; // ★ 格納先確定後に変更
+var MAX_PERSONS = 8;
+
+var persons = [];
+var personIdx = 0;
+
+// 画像圧縮（最大1200px、JPEG 70%品質）
+function compressImage(file) {
+  return new Promise(function(resolve) {
+    if (!file.type.startsWith('image/')) { resolve(file); return; }
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 1200;
+      var w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(function(blob) {
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.7);
+    };
+    img.onerror = function() { resolve(file); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function addPerson() {
+  if (persons.length >= MAX_PERSONS) return;
+  var idx = personIdx++;
+  persons.push({ idx: idx, front: null, back: null });
+  renderPersons();
+  checkReady();
+}
+
+function removePerson(idx) {
+  persons = persons.filter(function(p) { return p.idx !== idx; });
+  if (persons.length === 0) addPerson();
+  else { renderPersons(); checkReady(); }
+}
+
+function renderPersons() {
+  var c = document.getElementById('personsContainer');
+  c.innerHTML = '';
+  persons.forEach(function(p, i) {
+    var div = document.createElement('div');
+    div.className = 'person-section';
+    div.innerHTML =
+      '<div class="person-header">' +
+        '<span class="person-label">運転者 ' + (i + 1) + '</span>' +
+        (persons.length > 1 ? '<button class="remove-person" onclick="removePerson(' + p.idx + ')">✕</button>' : '') +
+      '</div>' +
+      '<div class="sides">' +
+        '<div>' +
+          '<div class="side-label">表面（必須）</div>' +
+          '<div class="upload-area" id="dropF' + p.idx + '" onclick="document.getElementById(\'fileF' + p.idx + '\').click()">' +
+            '<div class="upload-icon">📄</div>' +
+            '<div class="upload-text" id="txtF' + p.idx + '">タップして選択</div>' +
+            '<input type="file" id="fileF' + p.idx + '" accept="image/*,.pdf" onchange="onFile(this,' + p.idx + ',\'front\')">' +
+            '<img class="preview" id="prevF' + p.idx + '">' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div class="side-label">裏面（任意）</div>' +
+          '<div class="upload-area" id="dropB' + p.idx + '" onclick="document.getElementById(\'fileB' + p.idx + '\').click()">' +
+            '<div class="upload-icon">📄</div>' +
+            '<div class="upload-text" id="txtB' + p.idx + '">タップして選択</div>' +
+            '<input type="file" id="fileB' + p.idx + '" accept="image/*,.pdf" onchange="onFile(this,' + p.idx + ',\'back\')">' +
+            '<img class="preview" id="prevB' + p.idx + '">' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    c.appendChild(div);
+
+    if (p.front) showPreview(p.idx, 'front', p.front);
+    if (p.back) showPreview(p.idx, 'back', p.back);
+  });
+  document.getElementById('personCount').textContent = persons.length + ' / ' + MAX_PERSONS + ' 人';
+  document.getElementById('addPersonBtn').style.display = persons.length >= MAX_PERSONS ? 'none' : 'block';
+}
+
+async function onFile(input, idx, side) {
+  var file = input.files[0];
+  if (!file) return;
+  var p = persons.find(function(x) { return x.idx === idx; });
+  if (!p) return;
+  var compressed = await compressImage(file);
+  p[side] = compressed;
+  showPreview(idx, side, compressed);
+  checkReady();
+}
+
+function showPreview(idx, side, file) {
+  var prefix = side === 'front' ? 'F' : 'B';
+  var drop = document.getElementById('drop' + prefix + idx);
+  var txt = document.getElementById('txt' + prefix + idx);
+  var prev = document.getElementById('prev' + prefix + idx);
+  if (!drop) return;
+
+  drop.classList.add('has-file');
+  txt.className = 'upload-text filename';
+  txt.textContent = '✓ ' + (file.size / 1024).toFixed(0) + 'KB';
+
+  if (file.type && file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      prev.src = e.target.result;
+      prev.className = 'preview show';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function checkReady() {
+  var resId = document.getElementById('resId').value.trim();
+  var custName = document.getElementById('custName').value.trim();
+  var pref = document.getElementById('prefSelect').value;
+  var hasAnyFront = persons.some(function(p) { return !!p.front; });
+  document.getElementById('uploadBtn').disabled = !(resId && custName && pref && hasAnyFront);
+}
+
+document.getElementById('resId').addEventListener('input', checkReady);
+document.getElementById('custName').addEventListener('input', checkReady);
+document.getElementById('prefSelect').addEventListener('change', checkReady);
+
+// URL パラメータから自動入力
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var id = params.get('id');
+  var name = params.get('name');
+  if (id) document.getElementById('resId').value = id;
+  if (name) document.getElementById('custName').value = name;
+})();
+
+// 初期化（1名）
+addPerson();
+
+// ========== アップロード（未接続モード） ==========
+async function uploadAll() {
+  var resId = document.getElementById('resId').value.trim();
+  var custName = document.getElementById('custName').value.trim();
+  if (!resId || !custName) return;
+
+  var toUpload = [];
+  persons.forEach(function(p, i) {
+    if (p.front) toUpload.push({ file: p.front, label: 'person' + (i + 1) + '_front' });
+    if (p.back) toUpload.push({ file: p.back, label: 'person' + (i + 1) + '_back' });
+  });
+  if (toUpload.length === 0) return;
+
+  var st = document.getElementById('uploadStatus');
+
+  // ★ 未接続モード：格納先確定後に STORAGE_ENABLED = true にして有効化
+  if (!STORAGE_ENABLED) {
+    st.className = 'status pending';
+    st.textContent = '📌 データ格納先を設定後に利用できます。ファイル選択・プレビューは確認済みです。';
+    return;
+  }
+
+  // ── 以下は STORAGE_ENABLED = true 時に動作 ──
+  var btn = document.getElementById('uploadBtn');
+  var prog = document.getElementById('progressBar');
+  var progInner = document.getElementById('progressInner');
+
+  btn.disabled = true;
+  btn.textContent = 'アップロード中...';
+  st.className = 'status uploading';
+  st.textContent = 'アップロード中... 0/' + toUpload.length;
+  prog.className = 'progress show';
+  progInner.style.width = '5%';
+
+  var uploaded = [];
+  var errors = [];
+
+  for (var i = 0; i < toUpload.length; i++) {
+    var f = toUpload[i];
+    var ext = f.file.name.split('.').pop().toLowerCase();
+    var ts = Date.now();
+    var fileName = f.label + '_' + ts + '.' + ext;
+    var path = resId + '/' + fileName;
+
+    st.textContent = 'アップロード中... ' + (i + 1) + '/' + toUpload.length;
+    progInner.style.width = (5 + ((i + 1) / toUpload.length) * 90) + '%';
+
+    try {
+      var resp = await fetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + path, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': f.file.type || 'application/octet-stream',
+          'x-upsert': 'true'
+        },
+        body: f.file
+      });
+
+      if (resp.ok) {
+        uploaded.push(f.label);
+      } else {
+        var errText = await resp.text();
+        errors.push(f.label + ': ' + resp.status);
+        console.error('Upload error:', f.label, resp.status, errText);
+      }
+    } catch (e) {
+      errors.push(f.label + ': ' + e.message);
+    }
+  }
+
+  // 氏名を info.txt として保存
+  if (uploaded.length > 0) {
+    try {
+      var infoPath = resId + '/info_' + custName.replace(/[\/\\]/g, '_') + '.txt';
+      await fetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + encodeURI(infoPath), {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'text/plain',
+          'x-upsert': 'true'
+        },
+        body: custName + '\n' + resId + '\n' + new Date().toISOString()
+      });
+    } catch (e) { console.log('info save skip:', e); }
+
+    // ★ 都道府県を bt_reservations に保存（格納先確定後に有効化）
+    var pref = document.getElementById('prefSelect').value;
+    if (pref) {
+      try {
+        await fetch(SUPABASE_URL + '/rest/v1/bt_reservations?id=eq.' + encodeURIComponent(resId), {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prefecture: pref })
+        });
+      } catch (e) { console.log('pref save skip:', e); }
+    }
+  }
+
+  progInner.style.width = '100%';
+
+  if (errors.length > 0) {
+    st.className = 'status error';
+    st.textContent = 'エラー: ' + errors.length + '件失敗 / ' + uploaded.length + '件成功';
+  } else {
+    st.className = 'status success';
+    st.textContent = '✓ ' + persons.length + '名分 ' + uploaded.length + '枚アップロード完了';
+
+    var list = document.getElementById('uploadedList');
+    var item = document.createElement('div');
+    item.className = 'uploaded-item';
+    item.innerHTML = '<span class="check">✓</span><span class="name">' + resId + ' ' + custName + ' (' + persons.length + '名)</span><span style="color:#94a3b8;font-size:11px">' + new Date().toLocaleTimeString('ja-JP') + '</span>';
+    list.prepend(item);
+
+    persons = [];
+    personIdx = 0;
+    addPerson();
+    document.getElementById('resId').value = '';
+    document.getElementById('custName').value = '';
+  }
+
+  btn.textContent = 'アップロード';
+  setTimeout(function() { prog.className = 'progress'; progInner.style.width = '0'; }, 1500);
+  checkReady();
+}
+</script>
+</body>
+</html>

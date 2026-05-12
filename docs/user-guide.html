@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HANDYMAN 那覇空港店 管理APP 操作マニュアル</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans JP', sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.7; }
+  @media print {
+    body { background: #fff; font-size: 11px; line-height: 1.5; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none !important; }
+    section { break-inside: avoid; }
+    .diagram-box { border: 1px solid #ccc !important; }
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #1e40af, #2563eb); color: #fff; padding: 40px 30px; border-radius: 16px; margin-bottom: 32px; text-align: center; }
+  .header h1 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+  .header .sub { font-size: 14px; opacity: 0.8; }
+  .header .url { background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 8px; display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
+
+  /* Section */
+  section { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+  section h2 { font-size: 20px; font-weight: 900; color: #1e40af; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 3px solid #2563eb; display: flex; align-items: center; gap: 10px; }
+  section h3 { font-size: 16px; font-weight: 700; color: #334155; margin: 20px 0 10px; }
+  section h4 { font-size: 13px; font-weight: 700; color: #64748b; margin: 14px 0 6px; }
+  p { margin-bottom: 10px; font-size: 14px; }
+  ul, ol { margin: 8px 0 12px 20px; font-size: 14px; }
+  li { margin-bottom: 4px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+  th { background: #f1f5f9; color: #334155; font-weight: 700; padding: 8px 10px; text-align: left; border: 1px solid #e2e8f0; }
+  td { padding: 7px 10px; border: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* Tab navigation diagram */
+  .tab-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+  .tab-btn { padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: 2px solid #e2e8f0; display: flex; align-items: center; gap: 5px; }
+  .tab-btn.active { background: #1e40af; color: #fff; border-color: #1e40af; }
+  .tab-btn .ico { font-size: 14px; }
+
+  /* Diagram boxes */
+  .diagram-box { border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 16px 0; background: #fafbfc; }
+  .diagram-title { font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 12px; text-align: center; }
+
+  /* Flow diagram */
+  .flow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  .flow-item { padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; text-align: center; min-width: 100px; }
+  .flow-arrow { font-size: 20px; color: #94a3b8; font-weight: 900; }
+  .flow-blue { background: #dbeafe; color: #1e40af; border: 2px solid #93c5fd; }
+  .flow-green { background: #dcfce7; color: #166534; border: 2px solid #86efac; }
+  .flow-red { background: #fee2e2; color: #991b1b; border: 2px solid #fca5a5; }
+  .flow-purple { background: #f3e8ff; color: #6b21a8; border: 2px solid #d8b4fe; }
+  .flow-yellow { background: #fef9c3; color: #854d0e; border: 2px solid #fde047; }
+  .flow-gray { background: #f1f5f9; color: #475569; border: 2px solid #cbd5e1; }
+
+  /* 3-tier diagram */
+  .tier-stack { margin: 16px 0; }
+  .tier { display: flex; align-items: center; padding: 12px 16px; gap: 12px; border-bottom: 1px solid #e2e8f0; }
+  .tier:last-child { border-bottom: none; }
+  .tier-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; flex-shrink: 0; }
+  .tier-label { font-size: 12px; font-weight: 700; width: 80px; flex-shrink: 0; }
+  .tier-desc { font-size: 12px; color: #64748b; flex: 1; }
+  .tier-priority { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+  .tier1 { background: #f8fafc; }
+  .tier1 .tier-num { background: #e2e8f0; color: #64748b; }
+  .tier1 .tier-priority { background: #f1f5f9; color: #94a3b8; }
+  .tier2 { background: #eff6ff; }
+  .tier2 .tier-num { background: #93c5fd; color: #1e40af; }
+  .tier2 .tier-priority { background: #dbeafe; color: #2563eb; }
+  .tier3 { background: #faf5ff; }
+  .tier3 .tier-num { background: #d8b4fe; color: #6b21a8; }
+  .tier3 .tier-priority { background: #f3e8ff; color: #7c3aed; }
+
+  /* Data sync map */
+  .sync-map { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; gap: 8px; align-items: center; margin: 16px 0; }
+  .sync-box { padding: 14px; border-radius: 10px; text-align: center; font-size: 11px; font-weight: 700; }
+  .sync-arrow { text-align: center; font-size: 18px; color: #94a3b8; font-weight: 900; }
+
+  /* Screen mockup */
+  .mockup { border: 2px solid #d1d5db; border-radius: 12px; overflow: hidden; margin: 16px 0; background: #fff; }
+  .mockup-bar { background: #1e293b; color: #fff; padding: 8px 14px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .mockup-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+  .mockup-bar .dot:nth-child(2) { background: #fbbf24; }
+  .mockup-bar .dot:nth-child(3) { background: #22c55e; }
+  .mockup-body { padding: 16px; }
+  .mockup-sidebar { display: flex; gap: 0; }
+  .mockup-sidebar .side { width: 60px; background: #f1f5f9; border-right: 2px solid #e2e8f0; padding: 8px 4px; display: flex; flex-direction: column; gap: 3px; }
+  .mockup-sidebar .side-item { font-size: 7px; padding: 3px 4px; border-radius: 4px; text-align: center; font-weight: 600; color: #64748b; cursor: default; }
+  .mockup-sidebar .side-item.act { background: #1e40af; color: #fff; }
+  .mockup-sidebar .main { flex: 1; padding: 10px; min-height: 200px; }
+
+  /* Fleet timeline mockup */
+  .fleet-mock { margin: 12px 0; overflow-x: auto; }
+  .fleet-mock table { font-size: 10px; min-width: 600px; }
+  .fleet-mock th { padding: 4px 6px; font-size: 9px; background: #f1f5f9; text-align: center; }
+  .fleet-mock td { padding: 0; height: 28px; position: relative; border: 1px solid #e2e8f0; }
+  .fleet-mock .vh { position: sticky; left: 0; background: #fff; z-index: 2; padding: 4px 6px; font-weight: 700; color: #2563eb; font-size: 9px; white-space: nowrap; border-right: 2px solid #94a3b8; }
+  .fleet-mock .bar { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; color: #fff; font-size: 8px; font-weight: 700; display: flex; align-items: center; padding: 0 4px; overflow: hidden; white-space: nowrap; cursor: grab; z-index: 1; }
+  .fleet-mock .bar-res { background: #dc2626; }
+  .fleet-mock .bar-maint { background: #2563eb; }
+  .fleet-mock .bar-drag { background: #f87171; opacity: 0.7; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .fleet-mock .today { background: #eff6ff; }
+  .fleet-mock .drop-ok { outline: 2px solid #22c55e; background: rgba(34,197,94,0.1); }
+  .fleet-mock .drop-ng { outline: 2px dashed #ef4444; background: rgba(239,68,68,0.1); }
+
+  /* Alert/Note boxes */
+  .note { padding: 12px 16px; border-radius: 8px; margin: 12px 0; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+  .note-warn { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
+  .note-info { background: #dbeafe; border: 1px solid #93c5fd; color: #1e40af; }
+  .note-danger { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+  .note-ok { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+  .note-ico { font-size: 18px; flex-shrink: 0; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+
+  /* TOC */
+  .toc { columns: 2; column-gap: 24px; }
+  .toc a { display: block; padding: 4px 0; font-size: 13px; color: #2563eb; text-decoration: none; font-weight: 600; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* DnD illustration */
+  .dnd-illust { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
+  .dnd-car { padding: 10px 16px; border-radius: 8px; font-size: 11px; font-weight: 700; text-align: center; min-width: 120px; }
+  .dnd-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ====== HEADER ====== -->
+<div class="header">
+  <h1>HANDYMAN 那覇空港店</h1>
+  <div class="sub">管理APP 操作マニュアル</div>
+  <div class="url">https://nosh2318.github.io/naha-project/</div>
+  <div style="margin-top:10px;font-size:11px;opacity:0.6">最終更新: 2026年3月28日 | 対応端末: PC / タブレット / スマホ(PWA)</div>
+</div>
+
+<!-- ====== 目次 ====== -->
+<section>
+  <h2><span style="font-size:22px">&#128209;</span> 目次</h2>
+  <div class="toc">
+    <a href="#setup">1. はじめに（セットアップ）</a>
+    <a href="#overview">2. 画面構成の全体像</a>
+    <a href="#csv">3. CSV取込</a>
+    <a href="#op">4. OPシート（メイン業務）</a>
+    <a href="#fleet">5. 配車表</a>
+    <a href="#data">6. データタブ</a>
+    <a href="#vehicle">7. 車両管理</a>
+    <a href="#staff">8. スタッフ・出勤簿</a>
+    <a href="#accounting">9. 会計</a>
+    <a href="#sync">10. データ連動マップ</a>
+    <a href="#edit-list">11. 編集可能箇所一覧</a>
+    <a href="#daily">12. 日常業務フロー</a>
+    <a href="#trouble">13. トラブルシューティング</a>
+  </div>
+</section>
+
+<!-- ====== 1. セットアップ ====== -->
+<section id="setup">
+  <h2><span style="font-size:22px">&#128640;</span> 1. はじめに</h2>
+
+  <h3>初回セットアップ</h3>
+  <div class="flow">
+    <div class="flow-item flow-blue">&#127760; URLにアクセス</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-green">&#128241; ホーム画面に追加</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-purple">&#128272; パスワード入力</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-yellow">&#9989; 利用開始</div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-ico">&#128225;</span>
+    <div><strong>リアルタイム同期</strong>: あるスタッフがOPシートで変更した内容は、他の端末にも数秒以内に自動反映されます。6名同時アクセスOK。</div>
+  </div>
+</section>
+
+<!-- ====== 2. 画面構成 ====== -->
+<section id="overview">
+  <h2><span style="font-size:22px">&#128187;</span> 2. 画面構成の全体像</h2>
+
+  <div class="mockup">
+    <div class="mockup-bar">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span style="margin-left:8px">nosh2318.github.io/naha-project</span>
+    </div>
+    <div class="mockup-sidebar">
+      <div class="side">
+        <div class="side-item act">&#127968; TOP</div>
+        <div class="side-item">&#128196; CSV</div>
+        <div class="side-item">&#128203; OP</div>
+        <div class="side-item">&#128663; 配車表</div>
+        <div class="side-item">&#128202; data</div>
+        <div class="side-item">&#128664; 車両</div>
+        <div class="side-item">&#128100; Staff</div>
+        <div class="side-item">&#128197; 出勤簿</div>
+        <div class="side-item">&#128176; 会計</div>
+        <div class="side-item">&#128179; J決済</div>
+        <div class="side-item">&#128200; 分析</div>
+        <div class="side-item">&#128179; 売上</div>
+        <div class="side-item">&#128247; 免許</div>
+      </div>
+      <div class="main">
+        <div style="text-align:center;color:#94a3b8;padding:40px 0">
+          <div style="font-size:40px;margin-bottom:8px">&#128205;</div>
+          <div style="font-size:13px;font-weight:700">PC: 左サイドバーでタブ切替</div>
+          <div style="font-size:13px;font-weight:700">スマホ: 上部タブバーでスワイプ</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:8px">各タブの詳細は次ページ以降</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>タブ一覧</h3>
+  <div class="tab-nav">
+    <div class="tab-btn"><span class="ico">&#127968;</span>TOP</div>
+    <div class="tab-btn"><span class="ico">&#128196;</span>CSV取込</div>
+    <div class="tab-btn active"><span class="ico">&#128203;</span>OPシート</div>
+    <div class="tab-btn"><span class="ico">&#128663;</span>配車表</div>
+    <div class="tab-btn"><span class="ico">&#128202;</span>データ</div>
+    <div class="tab-btn"><span class="ico">&#128664;</span>車両管理</div>
+    <div class="tab-btn"><span class="ico">&#128100;</span>スタッフ</div>
+    <div class="tab-btn"><span class="ico">&#128197;</span>出勤簿</div>
+    <div class="tab-btn"><span class="ico">&#128176;</span>会計</div>
+    <div class="tab-btn"><span class="ico">&#128179;</span>J決済</div>
+    <div class="tab-btn"><span class="ico">&#128200;</span>顧客分析</div>
+    <div class="tab-btn"><span class="ico">&#128202;</span>売上</div>
+    <div class="tab-btn"><span class="ico">&#128247;</span>免許証</div>
+  </div>
+</section>
+
+<!-- ====== 3. CSV取込 ====== -->
+<section id="csv" class="page-break">
+  <h2><span style="font-size:22px">&#128196;</span> 3. CSV取込</h2>
+  <p>OTA（じゃらん・楽天等）からダウンロードした予約CSVを取り込み、自動配車を実行します。</p>
+
+  <div class="diagram-box">
+    <div class="diagram-title">CSV取込フロー</div>
+    <div class="flow">
+      <div class="flow-item flow-gray">&#128193; OTAからCSV<br>ダウンロード</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-item flow-blue">&#128196; ファイル選択<br>+プレビュー</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-item flow-green">&#9989; 統合実行</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-item flow-purple">&#128663; 自動配車<br>実行</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-item flow-yellow">&#128200; 配車表で<br>結果確認</div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-ico">&#9888;&#65039;</span>
+    <div><strong>注意</strong>: 同じCSVを2回取り込んでも予約番号で重複チェックされるため二重登録はされません。取込中は画面を閉じないでください。</div>
+  </div>
+</section>
+
+<!-- ====== 4. OPシート ====== -->
+<section id="op">
+  <h2><span style="font-size:22px">&#128203;</span> 4. OPシート（メイン業務画面）</h2>
+  <p>1日のオペレーションを時間軸で管理するメイン画面。出発/返却のタスクを管理します。</p>
+
+  <h3>&#9733; 3階層データ構造（最重要）</h3>
+  <p>OPシートの時間・場所データには<strong>優先順位</strong>があります:</p>
+
+  <div class="diagram-box" style="padding:0;overflow:hidden">
+    <div class="tier tier3">
+      <div class="tier-num">3</div>
+      <div class="tier-label" style="color:#7c3aed">&#9997;&#65039; 手動変更</div>
+      <div class="tier-desc">スタッフが直接編集した値。<strong>SS取得しても上書きされない</strong></div>
+      <div class="tier-priority" style="background:#7c3aed;color:#fff">最優先</div>
+    </div>
+    <div class="tier tier2">
+      <div class="tier-num">2</div>
+      <div class="tier-label" style="color:#2563eb">&#128206; SS自動</div>
+      <div class="tier-desc">Googleスプレッドシートから自動取得した値</div>
+      <div class="tier-priority">2番目</div>
+    </div>
+    <div class="tier tier1">
+      <div class="tier-num">1</div>
+      <div class="tier-label" style="color:#94a3b8">&#128196; CSV元値</div>
+      <div class="tier-desc">CSV取込時のオリジナルデータ（読取専用・変更不可）</div>
+      <div class="tier-priority">参考値</div>
+    </div>
+  </div>
+
+  <h3>編集できる項目</h3>
+  <div class="diagram-box">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+      <div style="background:#dbeafe;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#1e40af;text-align:center">&#9200; 送迎時間</div>
+      <div style="background:#dcfce7;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#166534;text-align:center">&#128205; 送迎場所</div>
+      <div style="background:#f3e8ff;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#6b21a8;text-align:center">&#128663; 配車変更</div>
+      <div style="background:#fef9c3;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#854d0e;text-align:center">&#128737;&#65039; 補償変更</div>
+      <div style="background:#fee2e2;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#991b1b;text-align:center">&#128230; B/C/USB</div>
+      <div style="background:#e0f2fe;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#0369a1;text-align:center">&#128221; 種別変更</div>
+      <div style="background:#f1f5f9;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#475569;text-align:center">&#128100; 担当者</div>
+      <div style="background:#f1f5f9;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#475569;text-align:center">&#128221; メモ</div>
+      <div style="background:#f1f5f9;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#475569;text-align:center">&#9745; 約款/LINE/決済</div>
+    </div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-ico">&#128161;</span>
+    <div>変更すると <span class="badge badge-green">&#9989; 保存完了</span> が表示されるまで待ってください。タブ移動で消える場合があります。</div>
+  </div>
+</section>
+
+<!-- ====== 5. 配車表 ====== -->
+<section id="fleet" class="page-break">
+  <h2><span style="font-size:22px">&#128663;</span> 5. 配車表</h2>
+  <p>月間タイムラインで全車両の配車状況を管理。<strong>ドラッグ&ドロップで車両変更</strong>できます。</p>
+
+  <h3>画面イメージ</h3>
+  <div class="fleet-mock">
+    <table>
+      <thead><tr>
+        <th style="min-width:100px;position:sticky;left:0;z-index:2">車両</th>
+        <th>25(火)</th><th>26(水)</th><th style="background:#dbeafe;color:#1e40af;font-weight:800">27(木)今日</th><th>28(金)</th><th>29(土)</th><th>30(日)</th><th>31(月)</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="vh">&#128309; 5831<span style="color:#94a3b8;font-size:8px">(5)</span> ヴォクシー</td>
+          <td style="position:relative" colspan="1"></td>
+          <td style="position:relative" colspan="3"><div class="bar bar-res" style="left:0;right:0">09:00-18:00 山田 様</div></td>
+          <td colspan="3"></td>
+        </tr>
+        <tr style="outline:2px solid #22c55e;background:rgba(34,197,94,0.1)">
+          <td class="vh">&#128994; 1234<span style="color:#94a3b8;font-size:8px">(5)</span> セレナ</td>
+          <td colspan="7" style="text-align:center;color:#22c55e;font-size:10px;font-weight:700">&#11015;&#65039; ここにドロップで車両変更</td>
+        </tr>
+        <tr>
+          <td class="vh">&#128308; 9012<span style="color:#94a3b8;font-size:8px">(5)</span> ノア</td>
+          <td colspan="2"></td>
+          <td style="position:relative" colspan="5"><div class="bar bar-maint" style="left:0;right:0">&#128295; 車検</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>ドラッグ&ドロップ操作</h3>
+  <div class="dnd-illust">
+    <div class="dnd-car" style="background:#fee2e2;border:2px solid #dc2626;color:#991b1b">
+      &#128663; 5831 ヴォクシー<br><div class="dnd-label">山田様の予約バー</div>
+    </div>
+    <div style="font-size:28px;color:#22c55e;font-weight:900">&#10145;&#65039;</div>
+    <div class="dnd-car" style="background:#dcfce7;border:2px solid #22c55e;color:#166534">
+      &#128663; 1234 セレナ<br><div class="dnd-label">別の車両行にドロップ</div>
+    </div>
+    <div style="font-size:28px;color:#2563eb;font-weight:900">&#10145;&#65039;</div>
+    <div class="dnd-car" style="background:#dbeafe;border:2px solid #2563eb;color:#1e40af">
+      &#9989; 配車変更完了<br><div class="dnd-label">OPシートにも自動連動</div>
+    </div>
+  </div>
+
+  <h3>ブロックされるケース</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0">
+    <div class="note note-danger" style="margin:0">
+      <span class="note-ico">&#128295;</span>
+      <div><strong>メンテナンス帯</strong><br>青いブロックの車両には配車不可。赤い点線でドロップ拒否されます。</div>
+    </div>
+    <div class="note note-danger" style="margin:0">
+      <span class="note-ico">&#9940;</span>
+      <div><strong>予約重複</strong><br>同期間に既に別の予約が入っている車両には配車不可。アラートが表示されます。</div>
+    </div>
+  </div>
+
+  <div class="note note-ok">
+    <span class="note-ico">&#128260;</span>
+    <div><strong>CSV取込時も安全</strong>: 自動配車はメンテ車両を自動除外します。手動でも自動でもメンテ帯は絶対にブロックされます。</div>
+  </div>
+</section>
+
+<!-- ====== 6. データタブ ====== -->
+<section id="data">
+  <h2><span style="font-size:22px">&#128202;</span> 6. データタブ（予約一覧）</h2>
+  <p>全予約データの検索・フィルタ・CXL(キャンセル)操作を行います。</p>
+
+  <h3>フィルタ操作</h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">
+    <div class="badge badge-blue" style="font-size:11px;padding:4px 10px">未来</div>
+    <div class="badge badge-blue" style="font-size:11px;padding:4px 10px">月別</div>
+    <div class="badge badge-blue" style="font-size:11px;padding:4px 10px">年別</div>
+    <div class="badge badge-blue" style="font-size:11px;padding:4px 10px">全件</div>
+    <span style="color:#94a3b8;font-size:12px;padding:4px">|</span>
+    <div class="badge badge-green" style="font-size:11px;padding:4px 10px">有効</div>
+    <div class="badge badge-red" style="font-size:11px;padding:4px 10px">CXL</div>
+    <div class="badge badge-purple" style="font-size:11px;padding:4px 10px">全件</div>
+    <span style="color:#94a3b8;font-size:12px;padding:4px">|</span>
+    <div class="badge badge-yellow" style="font-size:11px;padding:4px 10px">J</div>
+    <div class="badge" style="background:#ffe4e6;color:#be123c;font-size:11px;padding:4px 10px">R</div>
+    <div class="badge" style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:4px 10px">S</div>
+    <div class="badge" style="background:#fef9c3;color:#854d0e;font-size:11px;padding:4px 10px">O</div>
+  </div>
+
+  <h3>CXL（キャンセル）と復元</h3>
+  <div class="flow">
+    <div class="flow-item flow-red">&#10060; CXLボタン<br>（データタブのみ）</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-gray">配車自動解除<br>OPシートから除外</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-yellow">&#128203; キャンセル済み<br>リストに移動</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-green">&#128260; 復元ボタン<br>で元に戻せる</div>
+  </div>
+
+  <div class="note note-info" style="margin-top:10px">
+    <span class="note-ico">&#128161;</span>
+    <div>CXL実行後、予約は<strong>「キャンセル済み」リスト</strong>に入ります。データタブ上部のステータスフィルタで「CXL」を選択すると一覧表示できます。復元もこのリストから行えます。</div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-ico">&#9888;&#65039;</span>
+    <div>CXL操作は<strong>データタブからのみ</strong>可能です。OPシート・配車表からはキャンセルできません。</div>
+  </div>
+</section>
+
+<!-- ====== 7. 車両管理 ====== -->
+<section id="vehicle" class="page-break">
+  <h2><span style="font-size:22px">&#128664;</span> 7. 車両管理</h2>
+  <p>車両マスター情報とメンテナンス台帳を管理します。</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0">
+    <div class="diagram-box" style="margin:0">
+      <div class="diagram-title">車両マスター</div>
+      <table style="font-size:10px">
+        <tr><th>項目</th><th>説明</th></tr>
+        <tr><td>車両コード</td><td>3文字（例: A01）重複不可</td></tr>
+        <tr><td>クラス</td><td>A/B/C/D/F/H/S</td></tr>
+        <tr><td>車種名</td><td>例: ヴォクシー</td></tr>
+        <tr><td>ナンバー</td><td>例: 5831</td></tr>
+        <tr><td>定員</td><td>例: 5名</td></tr>
+      </table>
+    </div>
+    <div class="diagram-box" style="margin:0">
+      <div class="diagram-title">メンテナンス登録</div>
+      <div class="flow" style="flex-direction:column;gap:6px;align-items:stretch">
+        <div class="flow-item flow-blue" style="min-width:auto;font-size:11px">車両選択 + 開始日 + 終了日</div>
+        <div style="text-align:center;font-size:16px;color:#94a3b8">&#11015;</div>
+        <div class="flow-item flow-red" style="min-width:auto;font-size:11px">配車表に赤ブロック表示<br>&#9940; この期間は配車不可</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 8. スタッフ・出勤簿 ====== -->
+<section id="staff">
+  <h2><span style="font-size:22px">&#128100;</span> 8. スタッフ・出勤簿</h2>
+
+  <h3>シフトシンボルの意味</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#dbeafe;color:#1e40af;font-size:22px;font-weight:900;border:2px solid #93c5fd">&#9899;</div>
+    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#f1f5f9;color:#64748b;font-size:18px;font-weight:900;border:2px solid #cbd5e1">公</div>
+    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#fef9c3;color:#b45309;font-size:18px;font-weight:900;border:2px solid #fde68a">希</div>
+    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#dcfce7;color:#166534;font-size:18px;font-weight:900;border:2px solid #86efac">有</div>
+    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#f3e8ff;color:#6b21a8;font-size:18px;font-weight:900;border:2px solid #d8b4fe">出</div>
+  </div>
+  <table style="font-size:11px">
+    <tr><th>シンボル</th><th>意味</th><th>人員カウント</th></tr>
+    <tr><td style="text-align:center;font-weight:900;font-size:16px">&#9899;</td><td>出勤</td><td><span class="badge badge-green">正社員: カウント</span></td></tr>
+    <tr><td style="text-align:center;font-weight:900;color:#64748b">公</td><td>公休</td><td><span class="badge badge-red">カウントしない</span></td></tr>
+    <tr><td style="text-align:center;font-weight:900;color:#b45309">希</td><td>希望休</td><td><span class="badge badge-red">カウントしない</span></td></tr>
+    <tr><td style="text-align:center;font-weight:900;color:#166534">有</td><td>有給</td><td><span class="badge badge-red">カウントしない</span></td></tr>
+    <tr><td style="text-align:center;font-weight:900;color:#6b21a8">出</td><td>出張</td><td><span class="badge badge-red">カウントしない</span></td></tr>
+  </table>
+
+  <div class="note note-info">
+    <span class="note-ico">&#128161;</span>
+    <div><strong>正社員の人員カウント</strong>: 正社員は <strong>&#9899;（出勤）のみ</strong> カウント。公/希/有/出はカウントしません。アルバイトは確定シフト(開始/終了時間あり)でカウント。</div>
+  </div>
+</section>
+
+<!-- ====== 9. 会計 ====== -->
+<section id="accounting">
+  <h2><span style="font-size:22px">&#128176;</span> 9. 会計</h2>
+  <p>現金管理・予約外売上・個人立替を記録します。</p>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0">
+    <div class="diagram-box" style="margin:0;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">&#128181;</div>
+      <div style="font-size:12px;font-weight:800;color:#166534">現金入出金</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px">レジ残高記録<br>入金/出金の登録</div>
+    </div>
+    <div class="diagram-box" style="margin:0;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">&#128179;</div>
+      <div style="font-size:12px;font-weight:800;color:#1e40af">予約外売上</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px">オプション販売<br>延長料金など</div>
+    </div>
+    <div class="diagram-box" style="margin:0;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">&#128184;</div>
+      <div style="font-size:12px;font-weight:800;color:#854d0e">個人立替</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px">ガソリン代<br>備品購入など</div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 10. データ連動マップ ====== -->
+<section id="sync" class="page-break">
+  <h2><span style="font-size:22px">&#128260;</span> 10. データ連動マップ</h2>
+  <p>どのタブで変更すると、どこに影響するかの全体図です。</p>
+
+  <div class="diagram-box">
+    <div class="diagram-title">&#127919; reservations（予約マスター）= 全データの源泉</div>
+    <div class="sync-map">
+      <div class="sync-box" style="background:#dbeafe;color:#1e40af;border:2px solid #93c5fd">&#128196; CSV取込<br><span style="font-size:9px">予約データ投入</span></div>
+      <div class="sync-arrow">&rarr;</div>
+      <div class="sync-box" style="background:#fef3c7;color:#92400e;border:3px solid #f59e0b;font-size:13px">&#127919; reservations<br><span style="font-size:10px;font-weight:900">予約マスター</span></div>
+      <div class="sync-arrow">&larr;&rarr;</div>
+      <div class="sync-box" style="background:#f3e8ff;color:#6b21a8;border:2px solid #d8b4fe">&#128203; OPシート<br><span style="font-size:9px">tasks (日別タスク)</span></div>
+    </div>
+    <div style="text-align:center;margin:8px 0">
+      <span style="font-size:20px;color:#94a3b8">&#11015; &#11015; &#11015;</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div class="sync-box" style="background:#dcfce7;color:#166534;border:2px solid #86efac">&#128663; 配車表<br><span style="font-size:9px">fleet</span></div>
+      <div class="sync-box" style="background:#fee2e2;color:#991b1b;border:2px solid #fca5a5">&#128202; データタブ<br><span style="font-size:9px">CXL/復元</span></div>
+      <div class="sync-box" style="background:#e0f2fe;color:#0369a1;border:2px solid #7dd3fc">&#128200; 売上<br><span style="font-size:9px">集計表示</span></div>
+      <div class="sync-box" style="background:#f1f5f9;color:#475569;border:2px solid #cbd5e1">&#128100; 顧客分析<br><span style="font-size:9px">リピーター</span></div>
+    </div>
+  </div>
+
+  <h3>変更の波及パターン</h3>
+  <table>
+    <tr><th>操作</th><th>直接保存先</th><th>自動連動先</th></tr>
+    <tr><td>OPシートで時間変更</td><td>tasks + reservations</td><td>データタブに反映</td></tr>
+    <tr><td>OPシートで配車変更</td><td>fleet + tasks</td><td>配車表 + データタブ</td></tr>
+    <tr><td>配車表でD&D</td><td>fleet + reservations</td><td>OPシート(3日分のtasks更新)</td></tr>
+    <tr><td>データタブでCXL</td><td>reservations + fleet削除</td><td>配車表から消去 + OPシートCXL化</td></tr>
+    <tr><td>車両管理でメンテ登録</td><td>maintenance</td><td>配車表に赤ブロック表示</td></tr>
+    <tr><td>スタッフ編集</td><td>staff</td><td>出勤簿の給与概算</td></tr>
+  </table>
+</section>
+
+<!-- ====== 11. 編集可能箇所一覧 ====== -->
+<section id="edit-list">
+  <h2><span style="font-size:22px">&#128221;</span> 11. 編集可能箇所 完全一覧</h2>
+
+  <h3>OPシート</h3>
+  <table>
+    <tr><th style="width:120px">項目</th><th style="width:140px">操作</th><th>保存先</th><th style="width:100px">連動先</th></tr>
+    <tr><td>&#9200; 送迎時間</td><td>select選択</td><td>tasks + reservations</td><td>データタブ</td></tr>
+    <tr><td>&#128205; 送迎場所</td><td>select or 手入力</td><td>tasks + reservations</td><td>データタブ</td></tr>
+    <tr><td>&#128663; 配車</td><td>select選択</td><td>fleet + tasks</td><td>配車表</td></tr>
+    <tr><td>&#128737;&#65039; 補償</td><td>select(免責/NOC/なし)</td><td>tasks + reservations</td><td>データタブ</td></tr>
+    <tr><td>&#128230; B/C/USB</td><td>数値入力</td><td>tasks.opts + reservations</td><td>データタブ</td></tr>
+    <tr><td>&#128221; 種別</td><td>select(DEL/PU/COL等)</td><td>tasks + reservations</td><td>データタブ</td></tr>
+    <tr><td>&#128100; 担当者</td><td>select選択</td><td>tasks.assignee</td><td>-</td></tr>
+    <tr><td>&#128221; メモ</td><td>テキスト(onBlur保存)</td><td>tasks.memo</td><td>-</td></tr>
+    <tr><td>&#9745; 約款/LINE/決済</td><td>チェックボックス</td><td>tasks</td><td>-</td></tr>
+    <tr><td>&#128197; 予約日</td><td>日付ピッカー</td><td>reservations</td><td>全タブ</td></tr>
+  </table>
+
+  <h3>配車表</h3>
+  <table>
+    <tr><th style="width:120px">項目</th><th style="width:140px">操作</th><th>保存先</th><th style="width:100px">連動先</th></tr>
+    <tr><td>&#128663; 車両割当</td><td>D&D or select</td><td>fleet + tasks(3日分)</td><td>OPシート</td></tr>
+    <tr><td>&#10060; 配車解除</td><td>select→未割当</td><td>fleet削除 + tasks</td><td>OPシート</td></tr>
+    <tr><td>&#128295; メンテ登録</td><td>セルクリック→フォーム</td><td>maintenance</td><td>配車表(赤ブロック)</td></tr>
+    <tr><td>&#10133; 新規予約</td><td>セルクリック→フォーム</td><td>reservations + fleet</td><td>OPシート・データ</td></tr>
+  </table>
+
+  <h3>データタブ</h3>
+  <table>
+    <tr><th style="width:120px">項目</th><th style="width:140px">操作</th><th>保存先</th><th style="width:100px">連動先</th></tr>
+    <tr><td>&#10060; CXL</td><td>行内CXLボタン</td><td>reservations + fleet + tasks</td><td>配車表・OP</td></tr>
+    <tr><td>&#128260; 復元</td><td>CXL済み行の復元ボタン</td><td>reservations + tasks</td><td>配車表・OP</td></tr>
+  </table>
+
+  <h3>出勤簿・シフト</h3>
+  <table>
+    <tr><th style="width:120px">項目</th><th style="width:140px">操作</th><th>保存先</th><th style="width:100px">連動先</th></tr>
+    <tr><td>&#9899; シフト記号</td><td>セルタップ→選択</td><td>shifts</td><td>人員カウント</td></tr>
+    <tr><td>&#9200; シフト時間</td><td>時間入力</td><td>shifts</td><td>給与概算</td></tr>
+    <tr><td>&#128197; 一括登録</td><td>スタッフ+記号→実行</td><td>shifts(月分)</td><td>人員カウント</td></tr>
+    <tr><td>&#9989; 勤怠承認</td><td>承認ボタン</td><td>attendance</td><td>-</td></tr>
+  </table>
+
+  <h3>車両管理・スタッフ・会計</h3>
+  <table>
+    <tr><th style="width:120px">項目</th><th style="width:140px">操作</th><th>保存先</th><th style="width:100px">連動先</th></tr>
+    <tr><td>&#128664; 車両追加/編集</td><td>フォーム入力</td><td>vehicles</td><td>配車表・OP選択肢</td></tr>
+    <tr><td>&#128100; スタッフ追加/編集</td><td>フォーム入力</td><td>staff</td><td>出勤簿・OP担当者</td></tr>
+    <tr><td>&#128176; 会計登録</td><td>フォーム入力</td><td>accounting</td><td>売上ダッシュボード</td></tr>
+  </table>
+</section>
+
+<!-- ====== 12. 日常業務フロー ====== -->
+<section id="daily" class="page-break">
+  <h2><span style="font-size:22px">&#128197;</span> 12. 日常業務フロー</h2>
+
+  <h3>&#127749; 朝の業務開始</h3>
+  <div class="flow" style="justify-content:flex-start">
+    <div class="flow-item flow-blue" style="min-width:80px">&#127968; TOP<br>今日の概要確認</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-purple" style="min-width:80px">&#128203; OPシート<br>出発・返却確認</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-green" style="min-width:80px">&#128663; 配車表<br>車両割当確認</div>
+  </div>
+
+  <h3>&#128232; 新規予約対応</h3>
+  <div class="flow" style="justify-content:flex-start">
+    <div class="flow-item flow-gray" style="min-width:80px">&#128193; OTAから<br>CSVダウンロード</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-blue" style="min-width:80px">&#128196; CSV取込<br>統合実行</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-green" style="min-width:80px">&#128663; 配車表<br>自動配車確認</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-purple" style="min-width:80px">&#128203; OPシート<br>詳細編集</div>
+  </div>
+
+  <h3>&#10060; キャンセル対応</h3>
+  <div class="flow" style="justify-content:flex-start">
+    <div class="flow-item flow-blue" style="min-width:80px">&#128202; データタブ<br>予約検索</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-red" style="min-width:80px">&#10060; CXLボタン<br>キャンセル実行</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-gray" style="min-width:80px">&#9989; 自動で<br>配車解除+OP除外</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-yellow" style="min-width:80px">&#128203; CXL済み<br>リストに移動</div>
+  </div>
+
+  <h3>&#127769; 退勤時</h3>
+  <div class="flow" style="justify-content:flex-start">
+    <div class="flow-item flow-yellow" style="min-width:80px">&#128176; 会計<br>現金残高記録</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-item flow-blue" style="min-width:80px">&#128197; 出勤簿<br>退勤時間入力</div>
+  </div>
+</section>
+
+<!-- ====== 13. トラブルシューティング ====== -->
+<section id="trouble">
+  <h2><span style="font-size:22px">&#128295;</span> 13. トラブルシューティング</h2>
+
+  <table>
+    <tr><th style="width:160px">&#128308; 症状</th><th style="width:140px">原因</th><th>&#9989; 対処法</th></tr>
+    <tr><td>画面が真っ白</td><td>SWキャッシュ不整合</td><td>ブラウザ設定→サイトデータ削除→再アクセス。またはDevToolsコンソールで:<br><code style="font-size:9px;background:#f1f5f9;padding:2px 4px;border-radius:3px">caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))).then(()=>location.reload(true))</code></td></tr>
+    <tr><td>変更が保存されない</td><td>通信エラー</td><td>画面上部の同期バッジ確認→Wi-Fi確認→&#128260;再読み込みボタン</td></tr>
+    <tr><td>配車表でD&Dできない</td><td>メンテ帯 or 重複</td><td>赤枠(メンテ)・赤点線(重複)を確認。スマホは長押し後ドラッグ</td></tr>
+    <tr><td>他端末に反映されない</td><td>Realtime接続切断</td><td>&#128260;再読み込みボタン or アプリ再起動</td></tr>
+    <tr><td>OPの時間が戻る</td><td>保存前にタブ移動</td><td>ステータスが<span class="badge badge-green">保存完了</span>になるまで待つ</td></tr>
+    <tr><td>人員数がおかしい</td><td>古いキャッシュ</td><td>キャッシュクリア（上記コマンド）で解決</td></tr>
+  </table>
+</section>
+
+<!-- ====== フッター ====== -->
+<div style="text-align:center;padding:24px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;margin-top:24px">
+  <div style="font-weight:700;color:#64748b;margin-bottom:4px">HANDYMAN 那覇空港店 - 内部資料</div>
+  <div>本マニュアルの外部共有は禁止です | 不具合は管理者に連絡</div>
+</div>
+
+</div>
+</body>
+</html>

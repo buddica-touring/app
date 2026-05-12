@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HANDYMAN 那覇空港店 — 車両管理 スタッフマニュアル</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'ヒラギノ角ゴ ProN W3', Meiryo, sans-serif; color: #1e293b; background: #fff; font-size: 13px; line-height: 1.7; }
+
+  /* 印刷設定 */
+  @media print {
+    .no-print { display: none; }
+    .page-break { page-break-before: always; }
+    .avoid-break { page-break-inside: avoid; }
+    body { font-size: 11px; }
+    .cover { min-height: 100vh; }
+  }
+
+  /* 表紙 */
+  .cover {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white; text-align: center; padding: 40px;
+  }
+  .cover .logo { width: 80px; height: 80px; background: rgba(255,255,255,.15); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; margin-bottom: 24px; }
+  .cover h1 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+  .cover .subtitle { font-size: 16px; color: rgba(255,255,255,.7); margin-bottom: 32px; }
+  .cover .version { font-size: 12px; color: rgba(255,255,255,.5); }
+  .cover .tabs { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 24px 0; }
+  .cover .tab-badge { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; }
+
+  /* 共通レイアウト */
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+
+  /* 目次 */
+  .toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin: 24px 0; }
+  .toc h2 { font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #2563eb; }
+  .toc ul { list-style: none; }
+  .toc li { padding: 4px 0; }
+  .toc a { color: #2563eb; text-decoration: none; font-weight: 500; }
+  .toc .num { color: #94a3b8; font-size: 11px; margin-right: 8px; }
+
+  /* セクションヘッダー */
+  .section-header { background: linear-gradient(135deg, #1e40af, #2563eb); color: white; padding: 16px 24px; border-radius: 10px; margin: 32px 0 20px 0; display: flex; align-items: center; gap: 12px; }
+  .section-header .num { font-size: 24px; font-weight: 900; opacity: .7; }
+  .section-header h2 { font-size: 18px; font-weight: 800; }
+  .section-header .desc { font-size: 11px; opacity: .8; }
+
+  /* サブセクション */
+  .sub-section { margin: 24px 0; }
+  .sub-section h3 { font-size: 15px; font-weight: 800; color: #1e293b; padding: 8px 14px; background: #eff6ff; border-left: 4px solid #2563eb; border-radius: 0 8px 8px 0; margin-bottom: 12px; }
+
+  /* ステップボックス */
+  .steps { margin: 12px 0; }
+  .step { display: flex; gap: 12px; margin: 8px 0; align-items: flex-start; }
+  .step-num { width: 24px; height: 24px; background: #2563eb; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+  .step-content { flex: 1; }
+  .step-content strong { color: #1e293b; }
+
+  /* 注意・ポイント */
+  .note { background: #fef9c3; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 12px; }
+  .note::before { content: "💡 "; font-weight: 700; }
+  .warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 12px; }
+  .warning::before { content: "⚠️ "; font-weight: 700; }
+  .info { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 12px; }
+  .info::before { content: "ℹ️ "; font-weight: 700; }
+
+  /* テーブル */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+  th { background: #f8fafc; padding: 8px 12px; font-weight: 700; border: 1px solid #e2e8f0; text-align: left; color: #475569; }
+  td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  /* バッジ */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin: 0 2px; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-orange { background: #fff7ed; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+
+  /* 画面イメージ（ダミー） */
+  .screen-mock { background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px; margin: 16px 0; font-size: 11px; color: #64748b; }
+  .screen-mock .mock-header { background: #1e293b; color: white; padding: 8px 12px; border-radius: 8px 8px 0 0; font-weight: 700; margin: -16px -16px 12px -16px; font-size: 12px; }
+  .screen-mock .mock-tabs { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .screen-mock .mock-tab { padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; }
+  .screen-mock .mock-tab.active { background: #2563eb; color: white; }
+  .screen-mock .mock-tab.inactive { background: #f1f5f9; color: #64748b; }
+  .screen-mock .mock-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
+  .screen-mock .mock-label { color: #94a3b8; min-width: 80px; font-size: 10px; }
+
+  /* フロー図 */
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .flow-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; color: #1e40af; text-align: center; }
+  .flow-arrow { color: #94a3b8; font-size: 16px; }
+
+  /* フッター */
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<!-- ========== 表紙 ========== -->
+<div class="cover">
+  <div class="logo">H</div>
+  <h1>車両管理 スタッフマニュアル</h1>
+  <div class="subtitle">HANDYMAN 那覇空港店 タスク管理アプリ</div>
+  <div class="tabs">
+    <div class="tab-badge">🚗 運用サマリー</div>
+    <div class="tab-badge">📋 マスター</div>
+    <div class="tab-badge">🔵 車検/点検</div>
+    <div class="tab-badge">📏 距離管理</div>
+    <div class="tab-badge">🔧 整備管理</div>
+  </div>
+  <div class="version">Ver 3.3 | 2026年4月 | 那覇空港店</div>
+</div>
+
+<!-- ========== 目次 ========== -->
+<div class="container">
+<div class="toc">
+  <h2>目次</h2>
+  <ul>
+    <li><span class="num">1.</span> <strong>車両タブとは</strong> — 5つの管理機能の概要</li>
+    <li><span class="num">2.</span> <strong>運用サマリー</strong> — 今日の車両状態を確認する</li>
+    <li><span class="num">3.</span> <strong>マスター（車両登録管理）</strong> — 車両情報を登録・編集する</li>
+    <li><span class="num">4.</span> <strong>車検/点検</strong> — 車検・半年点検の日程と費用を管理する</li>
+    <li><span class="num">5.</span> <strong>距離管理</strong> — 走行距離・オイル交換を記録する</li>
+    <li><span class="num">6.</span> <strong>整備管理</strong> — 整備記録と費用を管理する</li>
+    <li><span class="num">7.</span> <strong>機能の連動関係</strong> — データがどのように繋がっているか</li>
+    <li><span class="num">8.</span> <strong>よくある操作手順</strong> — ケース別チェックリスト</li>
+  </ul>
+</div>
+
+<!-- ========== 1. 概要 ========== -->
+<div class="section-header">
+  <div class="num">1</div>
+  <div>
+    <h2>車両タブとは</h2>
+    <div class="desc">5つのサブタブで車両の全ライフサイクルを管理します</div>
+  </div>
+</div>
+
+<div class="avoid-break">
+<p>車両管理タブは、レンタカー車両の「稼働状況の把握」「コスト管理」「整備記録」をアプリひとつで完結させるための機能群です。</p>
+
+<table>
+  <tr>
+    <th>タブ名</th>
+    <th>主な用途</th>
+    <th>主な利用者</th>
+    <th>更新頻度</th>
+  </tr>
+  <tr>
+    <td><strong>🚗 運用サマリー</strong></td>
+    <td>今日の車両状態一覧（稼働/貸出/修理）</td>
+    <td>スタッフ全員</td>
+    <td>毎日</td>
+  </tr>
+  <tr>
+    <td><strong>📋 マスター</strong></td>
+    <td>車両情報の登録・編集、ランニングコスト設定</td>
+    <td>管理者</td>
+    <td>車両追加時・変更時</td>
+  </tr>
+  <tr>
+    <td><strong>🔵 車検/点検</strong></td>
+    <td>車検・半年点検の日程確認・確定金額入力</td>
+    <td>管理者・スタッフ</td>
+    <td>車検/点検のたび</td>
+  </tr>
+  <tr>
+    <td><strong>📏 距離管理</strong></td>
+    <td>走行距離の記録、オイル交換の管理</td>
+    <td>スタッフ全員</td>
+    <td>定期的に（週1〜月1）</td>
+  </tr>
+  <tr>
+    <td><strong>🔧 整備管理</strong></td>
+    <td>整備記録の入力・費用管理</td>
+    <td>管理者・スタッフ</td>
+    <td>整備のたび</td>
+  </tr>
+</table>
+
+<div class="note">車両タブの各機能は互いに連動しています。例えば、整備管理で「車検」の金額を入力すると、車検/点検タブに自動で確定金額が反映されます。</div>
+</div>
+
+<!-- ========== 2. 運用サマリー ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">2</div>
+  <div>
+    <h2>運用サマリー</h2>
+    <div class="desc">今日の車両状態を一目で確認する</div>
+  </div>
+</div>
+
+<div class="sub-section">
+<h3>📌 主な用途</h3>
+<p>今日現在、各車両が「稼働中（貸出可）」「貸出中」「整備中」「未稼働」のどの状態かを確認するための一覧画面です。朝のスタッフミーティングや、配車確認のときに使用します。</p>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>👁 画面の見方</h3>
+<table>
+  <tr>
+    <th>表示項目</th>
+    <th>説明</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">稼働</span> N台</td>
+    <td>配車表で「稼働フラグ」が立っている車両数（★マスター設定）</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gray">未稼働</span> N台</td>
+    <td>配車表で稼働フラグがオフの車両（★マスター設定）</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-orange">貸出中</span> N台</td>
+    <td>選択日時点で予約が入っている台数（配車表データ）</td>
+  </tr>
+  <tr>
+    <td>待機中 N台</td>
+    <td>稼働台数 − 貸出中台数（空いている車）</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔽 クラス別アコーディオン</h3>
+<p>各クラス（A/B/C/D/F/H/S）をタップすると展開します。</p>
+<table>
+  <tr>
+    <th>列</th>
+    <th>内容</th>
+  </tr>
+  <tr>
+    <td>車種名 / ナンバー</td>
+    <td>車両名とナンバープレート</td>
+  </tr>
+  <tr>
+    <td>状態</td>
+    <td><span class="badge badge-green">稼働</span> または <span class="badge badge-gray">未稼働</span></td>
+  </tr>
+  <tr>
+    <td>次回車検</td>
+    <td>配車表に登録された次回車検日（青）</td>
+  </tr>
+  <tr>
+    <td>次回点検</td>
+    <td>配車表に登録された次回半年点検日（緑）</td>
+  </tr>
+  <tr>
+    <td>傷箇所</td>
+    <td>傷管理APPから自動取得した傷の箇所数</td>
+  </tr>
+</table>
+
+<div class="note">「日付を変更」ボタンで過去・未来の特定日付の状態を確認できます。貸出件数は選択した日付のデータを参照します。</div>
+</div>
+
+<!-- ========== 3. マスター ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">3</div>
+  <div>
+    <h2>マスター（車両登録管理）</h2>
+    <div class="desc">車両情報の登録・編集・ランニングコスト設定</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📌 主な用途</h3>
+<p>車両の基本情報（車種名・ナンバー・クラス）とランニングコスト（保険・リース・自動車税）を登録・管理します。</p>
+<div class="warning">マスター情報は他のすべてのタブに連動します。車種名やナンバーを変更すると、配車表・整備記録・売上データにも影響します。</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🚗 車両一覧の見方</h3>
+<p>クラスバッジ（A/B/C...）をタップするとそのクラスの車両一覧が展開します。デフォルトは折りたたみ状態です。</p>
+<table>
+  <tr>
+    <th>列</th>
+    <th>内容</th>
+  </tr>
+  <tr>
+    <td>クラス</td>
+    <td>A/B/C/D/F/H/S のクラスバッジ</td>
+  </tr>
+  <tr>
+    <td>車種名</td>
+    <td>アルファード①、セレナH②など</td>
+  </tr>
+  <tr>
+    <td>ナンバー</td>
+    <td>ナンバープレート番号（青字）</td>
+  </tr>
+  <tr>
+    <td>稼働</td>
+    <td><span class="badge badge-green">稼働</span>/<span class="badge badge-red">未稼働</span> の状態</td>
+  </tr>
+  <tr>
+    <td>保険</td>
+    <td><span class="badge badge-orange">保険</span> バッジ = 保険会社所有車（自動配車除外）</td>
+  </tr>
+  <tr>
+    <td>月次原価</td>
+    <td>ランニングコストの月額合計（¥X,XXX）</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>✏️ 車両を編集する手順</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">クラスバッジ（例：[A]）をタップしてアコーディオンを展開する</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">対象車両の右側にある <strong>「編集」</strong> ボタンをタップ</div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">モーダルウィンドウが開く。5つのタブから編集内容を選ぶ：<br>
+      <span class="badge badge-blue">基本情報</span> 車種名・ナンバー・クラスなど<br>
+      <span class="badge badge-blue">保険事業</span> 保険フラグ（保険会社所有車の場合ON）<br>
+      <span class="badge badge-blue">ランニングコスト</span> 保険料・リース代・自動車税<br>
+      <span class="badge badge-blue">メンテナンス</span> 車検・半年点検の記録確認<br>
+      <span class="badge badge-blue">整備管理</span> 整備記録の確認
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">編集後「保存」ボタンをタップ</div>
+  </div>
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>💰 ランニングコストの設定</h3>
+<p>「ランニングコスト」タブで各車両の固定費を設定します。</p>
+<table>
+  <tr>
+    <th>項目</th>
+    <th>入力内容</th>
+    <th>月額計算方法</th>
+  </tr>
+  <tr>
+    <td>保険料（年額）</td>
+    <td>年間の保険料合計（例：120,000）</td>
+    <td>÷12 ヶ月</td>
+  </tr>
+  <tr>
+    <td>リース代（月額）</td>
+    <td>月々のリース・ローン（例：55,000）</td>
+    <td>そのまま</td>
+  </tr>
+  <tr>
+    <td>自動車税（年額）</td>
+    <td>毎年の自動車税（例：45,000）</td>
+    <td>÷12 ヶ月</td>
+  </tr>
+  <tr>
+    <td>車検代（自動算出）</td>
+    <td>配車表から自動計算 ※手入力不可</td>
+    <td>÷24 ヶ月（2年周期）</td>
+  </tr>
+  <tr>
+    <td>半年点検代（自動算出）</td>
+    <td>配車表から自動計算 ※手入力不可</td>
+    <td>÷6 ヶ月（年2回）</td>
+  </tr>
+</table>
+<div class="note">「月額合計（概算）」は自動計算されます。この金額が経営管理タブの粗利計算に使われます。</div>
+</div>
+
+<!-- ========== 4. 車検/点検 ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">4</div>
+  <div>
+    <h2>車検/点検</h2>
+    <div class="desc">車検・半年点検の日程確認と確定金額管理</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📌 3つのサブビュー</h3>
+<table>
+  <tr>
+    <th>タブ</th>
+    <th>内容</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">📋 車両マスター</span></td>
+    <td>各車両の次回車検・点検日と確定金額を一覧表示</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">📅 スケジュール</span></td>
+    <td>年別月次の車検・点検スケジュール一覧（概算・確定金額）</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">💰 資金繰り</span></td>
+    <td>当年〜来年以降の月別コスト推計</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔵 車両マスタービューの使い方</h3>
+<p>各車両の「次回車検日」「次回半年点検日」と費用（概算・確定）を確認できます。</p>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">クラスバッジをタップしてアコーディオンを展開</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">各車両の「次回車検」「次回点検」列で日程を確認</div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">車検・点検が完了したら「<strong>確定入力</strong>」ボタンをタップして実際の費用を入力</div>
+  </div>
+</div>
+
+<div class="info">アラートの見方：<br>
+  <span class="badge badge-red">期限超過</span> — 車検期限が過ぎています（要確認）<br>
+  <span class="badge badge-orange">XX日後</span> — 30日以内に車検が来ます（準備が必要）<br>
+  <span class="badge badge-green">XX日後</span> — 余裕あり
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔗 データの流れ（重要）</h3>
+<div class="flow">
+  <div class="flow-box">配車表<br><small>車検ブロック登録<br>概算予算入力</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">車検/点検タブ<br><small>スケジュール<br>表示</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">整備管理<br><small>実費入力</small></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box">車検/点検タブ<br><small>確定金額に<br>自動反映</small></div>
+</div>
+
+<div class="note">車検・半年点検のスケジュール登録は「配車表」から行います。配車表で該当車両のセルをタップ → 「メンテナンス登録」 → 種別「車検」または「半年点検」を選択。</div>
+</div>
+
+<!-- ========== 5. 距離管理 ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">5</div>
+  <div>
+    <h2>距離管理</h2>
+    <div class="desc">走行距離の記録とオイル交換管理</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📌 主な用途</h3>
+<p>各車両の現在の走行距離を定期的に記録し、オイル交換のタイミングを管理します。スラックでアラートも受け取れます。</p>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📏 走行距離を記録する</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">クラスバッジをタップしてアコーディオンを展開</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">記録したい車両の右側にある <strong>「🚗 走行」</strong> ボタンをタップ</div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">現在の走行距離（km）・日付・メモを入力して「保存」</div>
+  </div>
+</div>
+
+<div class="info">「最新km」列に最新の記録が表示されます。「前回km」列には1つ前の記録が常に表示され、差分（+X,XXXkm）も自動計算されます。</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔧 オイル交換を記録する</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">クラスバッジをタップしてアコーディオンを展開</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">対象車両の <strong>「🔧 OIL」</strong> ボタンをタップ</div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">オイル交換時のkm・交換日・メモ（オイルグレード等）を入力して「保存」</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔴 オイル交換アラートの見方</h3>
+<table>
+  <tr>
+    <th>バッジ</th>
+    <th>状態</th>
+    <th>対応</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">🔴 超過 XXXkm</span></td>
+    <td>目安距離をオーバー、または180日以上経過</td>
+    <td><strong>早急にオイル交換</strong></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-orange">🟡 残 XXXkm</span></td>
+    <td>目安の残り25%以内、または120日以上経過</td>
+    <td>近いうちに交換予約</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">🟢 残 XXXkm</span></td>
+    <td>余裕あり</td>
+    <td>引き続き記録を続ける</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gray">⚪ 未記録</span></td>
+    <td>オイル交換記録なし</td>
+    <td>初回の記録を入力する</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>⚙️ 目安kmを変更する</h3>
+<p>各車両の「目安(km)」列にある数値の右の <strong>「編集」</strong> ボタンをタップすると、その車両専用の目安kmを変更できます（デフォルト：5,000km）。</p>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📣 Slackへアラートを送信する</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">画面右上の <strong>「📣 Slackアラート」</strong> ボタンをタップ</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">#okinawa_operations-team に自動送信されます</div>
+  </div>
+</div>
+<p>送信内容には「🔴 要交換 N台」「🟡 接近 N台」「🟢 正常 N台」と平均走行距離が含まれます。</p>
+</div>
+
+<!-- ========== 6. 整備管理 ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">6</div>
+  <div>
+    <h2>整備管理</h2>
+    <div class="desc">整備記録の入力・費用管理・コスト集計</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📌 主な用途</h3>
+<p>車検・修理・オイル交換などの整備費用を車両ごとに記録し、年間コストを把握します。ここが<strong>車両支出の一元管理場所</strong>です。</p>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔽 車両一覧の構成</h3>
+<p>クラスバッジをタップして展開すると、各車両の状態と整備費用が一行で確認できます。</p>
+<table>
+  <tr>
+    <th>列</th>
+    <th>内容</th>
+  </tr>
+  <tr>
+    <td>車両</td>
+    <td>車両名とナンバー（タップで詳細へ）</td>
+  </tr>
+  <tr>
+    <td>状態</td>
+    <td><span class="badge badge-green">稼働中</span><span class="badge badge-red">修理中</span><span class="badge badge-orange">修理待機中</span></td>
+  </tr>
+  <tr>
+    <td>車検 / 半年点検 / 修理 / OIL / その他</td>
+    <td>当年の各カテゴリ費用合計</td>
+  </tr>
+  <tr>
+    <td>合計</td>
+    <td>当年の整備費合計</td>
+  </tr>
+  <tr>
+    <td>件数</td>
+    <td>整備記録の件数</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>✍️ 整備記録を入力する</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">クラスバッジをタップ → 対象車両の行をタップして詳細画面へ</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">「整備記録」セクションのフォームに記入：<br>
+      <strong>種別</strong>（車検/半年点検/修理/オイル交換/その他）<br>
+      <strong>日付</strong>（整備実施日）<br>
+      <strong>金額</strong>（実費の円数）<br>
+      <strong>詳細</strong>（必須：ブレーキパッド交換、等）
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">「整備記録を追加」ボタンをタップして保存</div>
+  </div>
+</div>
+
+<div class="warning"><strong>車検・半年点検の金額を入力した場合</strong>：自動的に「車検/点検タブ → 車両マスター」の確定金額欄に反映されます。二重入力は不要です。</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📊 コスト集計の見方</h3>
+<p>各クラスヘッダーの下に「小計行」が常時表示されます：</p>
+<div class="screen-mock">
+  <div class="mock-header">整備管理 — コスト一覧</div>
+  <div class="mock-row">
+    <span class="badge badge-blue">A</span>
+    <strong style="flex:1">Aクラス</strong>
+    <span>18台</span>
+    <span style="color:#991b1b;font-weight:700">¥419,966</span>
+    <span style="color:#94a3b8">▼</span>
+  </div>
+  <div class="mock-row" style="background:#f8fafc;font-size:11px">
+    <span style="min-width:60px;font-weight:700;color:#374151">A 小計</span>
+    <span style="color:#1e40af">車検 ¥263,692</span>
+    <span style="color:#92400e;margin-left:8px">半年点検 ¥156,274</span>
+    <span style="margin-left:auto;color:#991b1b;font-weight:700">¥419,966</span>
+  </div>
+</div>
+<p style="margin-top:8px">クラスが折りたたまれていても小計は常に表示されるので、すぐに費用確認ができます。</p>
+</div>
+
+<!-- ========== 7. 機能連動関係 ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">7</div>
+  <div>
+    <h2>機能の連動関係</h2>
+    <div class="desc">データがどのように繋がっているかを理解する</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>🔗 全体のデータフロー</h3>
+<table>
+  <tr>
+    <th>入力場所</th>
+    <th>データ</th>
+    <th>自動反映先</th>
+  </tr>
+  <tr>
+    <td>配車表（タイムライン）</td>
+    <td>車検/半年点検ブロック + 概算予算</td>
+    <td>車検/点検タブ（スケジュール・資金繰り）<br>マスター → ランニングコスト（月額自動算出）</td>
+  </tr>
+  <tr>
+    <td>整備管理 → 整備記録</td>
+    <td>車検/半年点検の実費金額</td>
+    <td>車検/点検タブ → 車両マスター（確定金額）<br>経営管理 → 解析 E. 車両別P&L（支出）</td>
+  </tr>
+  <tr>
+    <td>距離管理 → 🔧 OIL記録</td>
+    <td>オイル交換実施km・日付</td>
+    <td>マスター → メンテナンスタブ（実績自動表示）<br>距離管理 → アラートバッジ更新</td>
+  </tr>
+  <tr>
+    <td>マスター → ランニングコスト</td>
+    <td>保険料・リース代・自動車税</td>
+    <td>経営管理 → 解析 E. 車両別P&L（原価）</td>
+  </tr>
+  <tr>
+    <td>予約データ（OTA/HP）</td>
+    <td>売上・配車情報</td>
+    <td>経営管理 → 解析 E. 車両別P&L（売上）</td>
+  </tr>
+</table>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>💹 粗利の計算式</h3>
+<div style="background:#1e293b;color:white;border-radius:10px;padding:16px 20px;margin:12px 0;font-family:monospace;font-size:13px;line-height:2">
+  <div style="color:#4ade80;font-size:15px;font-weight:900;margin-bottom:4px">粗利 = 売上 − 原価（固定） − 支出（変動）</div>
+  <div style="color:#94a3b8">売上　　　= 予約データ × 配車表から自動集計</div>
+  <div style="color:#fde68a">原価(固定) = 保険/12 + リース + 車税/12 + 車検/24 + 点検/6</div>
+  <div style="color:#fca5a5">支出(変動) = 整備管理の整備記録合計</div>
+</div>
+<p>粗利は「経営管理タブ → 解析タブ → E. 車両別P&L」で確認できます。</p>
+</div>
+
+<!-- ========== 8. よくある操作 ========== -->
+<div class="page-break"></div>
+<div class="section-header">
+  <div class="num">8</div>
+  <div>
+    <h2>よくある操作手順</h2>
+    <div class="desc">ケース別チェックリスト</div>
+  </div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📋 ケース①：車検を実施した後</h3>
+<div class="steps">
+  <div class="step"><div class="step-num">1</div><div class="step-content"><strong>整備管理</strong> → 対象車両の詳細 → 整備記録に「車検、金額、日付」を入力</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content">→ 車検/点検タブ の確定金額に自動反映されるのを確認</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content"><strong>配車表</strong> → 次回の車検ブロックを登録（概算予算も入力）</div></div>
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📋 ケース②：オイル交換を実施した後</h3>
+<div class="steps">
+  <div class="step"><div class="step-num">1</div><div class="step-content"><strong>距離管理</strong> → 対象車両の「🔧 OIL」ボタンをタップ</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content">交換時のkm・日付・メモ（オイルグレード等）を入力して保存</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content">アラートバッジが🟢に変わるのを確認</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-content">（任意）<strong>整備管理</strong> → 整備記録に「オイル交換、費用」も入力するとコスト集計に含まれる</div></div>
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📋 ケース③：修理が発生した後</h3>
+<div class="steps">
+  <div class="step"><div class="step-num">1</div><div class="step-content"><strong>配車表</strong> → 対象車両のセルをタップ → メンテナンス登録 → 種別「修理」で登録（期間・概算）</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content">修理完了後、<strong>整備管理</strong> → 詳細 → 整備記録に実費を入力</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content">配車表のメンテナンスブロックの終了日を実際の完了日に更新</div></div>
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📋 ケース④：新しい車両を追加した後</h3>
+<div class="steps">
+  <div class="step"><div class="step-num">1</div><div class="step-content"><strong>マスター</strong> → 右上の「＋ 車両追加」ボタン → 基本情報を入力して保存</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content">編集画面の「ランニングコスト」タブ → 保険料・リース代・自動車税を入力</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content"><strong>配車表</strong> → 車検ブロックを登録（初回車検日・概算予算）</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-content"><strong>距離管理</strong> → 「🚗 走行」ボタンで現在の走行距離を初回記録</div></div>
+</div>
+</div>
+
+<div class="sub-section avoid-break">
+<h3>📋 ケース⑤：月次の運用確認</h3>
+<div class="steps">
+  <div class="step"><div class="step-num">1</div><div class="step-content"><strong>距離管理</strong> → 各車両の走行距離を更新、オイル交換アラートを確認</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-content"><strong>車検/点検 → 資金繰りタブ</strong> → 翌月以降の車検・点検コストを確認</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-content"><strong>整備管理 → コスト集計</strong> → 当月の整備費用を確認</div></div>
+</div>
+</div>
+
+<div class="footer">
+  <p>HANDYMAN 那覇空港店 タスク管理アプリ — 車両管理マニュアル</p>
+  <p>URL: https://nosh2318.github.io/naha-project/ | パスコード: 2318</p>
+  <p>作成日: 2026年4月 | 質問・不明点はオーナーまで</p>
+</div>
+
+</div><!-- end container -->
+
+<script>
+// 印刷ボタン
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.createElement('button');
+  btn.className = 'no-print';
+  btn.innerHTML = '🖨 PDFとして保存（Ctrl+P）';
+  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.4);z-index:999';
+  btn.onclick = () => window.print();
+  document.body.appendChild(btn);
+});
+</script>
+
+</body>
+</html>

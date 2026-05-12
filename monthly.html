@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>月次収支 — BUDDICA TOURING</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;background:#f3f4f6;color:#1e293b}
+.hdr{background:linear-gradient(135deg,#1e293b,#334155);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+.hdr h1{font-size:14px;font-weight:900;color:#fff;flex:1}
+.back{color:#94a3b8;font-size:12px;text-decoration:none;padding:4px 8px;border-radius:6px;border:1px solid #475569}
+.pin-wrap{max-width:380px;margin:60px auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
+.pin-input{width:100%;padding:12px;border:1.5px solid #d1d5db;border-radius:10px;font-size:22px;text-align:center;letter-spacing:10px;margin-bottom:8px}
+.pin-err{color:#dc2626;font-size:12px;font-weight:600;margin-bottom:8px;display:none}
+.btn-auth{width:100%;padding:12px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-auth:disabled{background:#94a3b8;cursor:not-allowed}
+.ctrl{display:flex;gap:8px;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;position:sticky;top:48px;z-index:99;min-height:44px}
+.sbtn{padding:4px 12px;font-size:11px;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:#e2e8f0;color:#334155}
+.sbtn.on{background:#1e40af;color:#fff}
+.yr-ctrl{display:flex;align-items:center;gap:6px}
+.yr-btn{padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer}
+.yr-label{font-size:13px;font-weight:800;color:#1e293b;min-width:44px;text-align:center}
+.loading{text-align:center;padding:60px;color:#94a3b8;font-size:14px}
+.tbl-wrap{overflow:auto;height:calc(100vh - var(--hdr-h,96px));padding:10px 12px 60px}
+table{border-collapse:collapse;font-size:11px}
+thead th{padding:7px 8px;text-align:right;font-weight:700;color:#475569;background:#f8fafc;border-bottom:2px solid #e2e8f0;border-right:1px solid #e2e8f0;white-space:nowrap;position:sticky;top:0;z-index:10;min-width:80px}
+thead th.ic{text-align:left;min-width:140px;position:sticky;left:0;top:0;z-index:20;background:#f8fafc}
+tbody tr td{padding:6px 8px;border-bottom:1px solid #f1f5f9;border-right:1px solid #f1f5f9;text-align:right;white-space:nowrap;font-size:12px}
+tbody tr td.ic{text-align:left;position:sticky;left:0;z-index:5;background:inherit;min-width:140px;font-size:12px;padding-left:10px}
+tbody tr:nth-child(even) td{background:#fafafa}
+tbody tr:nth-child(even) td.ic{background:#fafafa}
+.row-in td{color:#059669}
+.row-in td.ic{color:#1e293b;font-weight:600}
+.row-ex td{color:#dc2626}
+.row-ex td.ic{color:#1e293b}
+.row-subtotal td{font-weight:800;background:#f0fdf4!important;color:#059669!important}
+.row-subtotal td.ic{position:sticky;left:0;z-index:5;background:#f0fdf4!important;color:#15803d!important}
+.row-exsub td{font-weight:800;background:#fef2f2!important;color:#dc2626!important}
+.row-exsub td.ic{position:sticky;left:0;z-index:5;background:#fef2f2!important;color:#b91c1c!important}
+.row-balance td{font-weight:900;background:#1e293b!important;color:#fff!important;font-size:13px}
+.row-balance td.ic{position:sticky;left:0;z-index:5;background:#1e293b!important;color:#fff!important}
+.positive{color:#86efac!important}
+.negative{color:#fca5a5!important}
+.sec-hdr td{padding:6px 10px;font-weight:800;font-size:11px;position:sticky;left:0;z-index:5;white-space:nowrap;letter-spacing:.05em}
+.row-manual td{background:#faf5ff!important}
+.row-manual td.ic{background:#faf5ff!important;color:#7c3aed;font-weight:700;position:sticky;left:0;z-index:5}
+input.mi{width:72px;border:none;background:transparent;text-align:right;font-size:11px;color:#7c3aed;font-weight:700;padding:1px 2px;font-family:inherit}
+input.mi:focus{outline:2px solid #7c3aed;border-radius:3px;background:#faf5ff}
+input.mi::placeholder{color:#d4b8ff}
+/* 予算入力 */
+input.bi{width:72px;border:none;background:transparent;text-align:right;font-size:11px;color:#d97706;font-weight:700;padding:1px 2px;font-family:inherit}
+input.bi:focus{outline:2px solid #f59e0b;border-radius:3px;background:#fffbeb}
+input.bi::placeholder{color:#fde68a}
+.row-budget-in td{background:#fffbeb!important}
+.row-budget-in td.ic{background:#fffbeb!important;color:#92400e;font-weight:600;position:sticky;left:0;z-index:5}
+.mode-sep{color:#cbd5e1;padding:0 2px;font-size:16px;font-weight:300}
+.row-sub2 td{font-weight:700;background:#e0f2fe!important;color:#0369a1!important}
+.row-sub2 td.ic{position:sticky;left:0;z-index:5;background:#e0f2fe!important;color:#075985!important}
+/* ナビ再設計 */
+.nav-theme{display:flex;align-items:center;gap:8px;background:#0f172a;padding:8px 14px;position:sticky;top:0;z-index:101;flex-wrap:wrap}
+.nav-sub{display:flex;align-items:center;gap:6px;background:#f8fafc;border-bottom:2px solid #e2e8f0;padding:8px 14px;position:sticky;top:44px;z-index:100;flex-wrap:wrap}
+.nb{font-size:12px;font-weight:800;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;transition:all .12s}
+.nb-theme{font-size:13px;padding:7px 18px;border-radius:8px}
+.grp-lbl{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.06em;white-space:nowrap}
+.state-bar{margin-left:auto;background:#1e293b;border-radius:20px;padding:4px 14px;display:flex;align-items:center;gap:8px}
+.state-chip{font-size:11px;font-weight:700;color:#fff;opacity:.9}
+.state-sep{font-size:11px;color:#475569}
+</style>
+<style>
+/* iframe内ではヘッダー非表示（経営管理タブから組込時） */
+.in-iframe .hdr { display: none !important; }
+.in-iframe .nav-theme { display: none !important; }
+</style>
+<script>
+if (window.self !== window.top) {
+  document.documentElement.classList.add('in-iframe');
+  window.addEventListener('DOMContentLoaded', function() {
+    document.body.classList.add('in-iframe');
+  });
+}
+</script>
+</head>
+<body>
+
+<!-- ★ 2026-05-11: 戻るボタン追加（直接遷移方式変更後、戻る手段が無かったため復活） -->
+<div style="background:#1e293b;padding:8px 12px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(0,0,0,.15)">
+  <a href="./index.html" style="color:#fff;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:6px;border:1px solid #475569;background:#334155;display:inline-flex;align-items:center;gap:4px">← APPに戻る</a>
+  <span style="color:#cbd5e1;font-size:12px;font-weight:600">📊 月次収支（予算実績）</span>
+</div>
+
+<!-- ★ 2026-05-08: パスコード認証撤廃（APP内 iframe からの利用前提） -->
+<div id="mc">
+  <!-- ① 大テーマ行（PL / CF） -->
+  <div class="nav-theme">
+    <span class="grp-lbl">テーマ</span>
+    <button id="bpl" onclick="setTheme('pl')" class="nb nb-theme" style="background:#2563eb;color:#fff">📊 PL</button>
+    <button id="bcf" onclick="setTheme('cf')" class="nb nb-theme" style="background:#334155;color:#64748b">💰 CF</button>
+    <div class="state-bar">
+      <span id="sc-theme" class="state-chip">PL</span>
+      <span class="state-sep">›</span>
+      <span id="sc-mode" class="state-chip">実績</span>
+      <span class="state-sep">›</span>
+      <span id="sc-store" class="state-chip">高松</span>
+      <span class="state-sep">›</span>
+      <span id="sc-year" class="state-chip">2026年</span>
+    </div>
+    <a id="cost-link" href="./costmatrix.html?store=tkm" style="margin-left:auto;padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;background:#f59e0b;color:#fff;text-decoration:none;white-space:nowrap">📊 コスト内訳</a>
+  </div>
+  <!-- ② サブ行（モード / 店舗 / 年） -->
+  <div class="nav-sub">
+    <span class="grp-lbl">モード</span>
+    <button class="nb" id="bmy" onclick="setMode('yosan')" style="background:#fef3c7;color:#92400e">📋 予算</button>
+    <button class="nb on" id="bmj" onclick="setMode('jisseki')" style="background:#1e40af;color:#fff">📊 実績</button>
+    <button class="nb" id="bmh" onclick="setMode('hikaku')" style="background:#e2e8f0;color:#334155">📊 予実比較</button>
+    <span style="width:1px;height:24px;background:#e2e8f0;margin:0 4px"></span>
+    <span class="grp-lbl">店舗</span>
+    <button class="nb on" id="bn" onclick="sw('tkm')" style="background:#0e7490;color:#fff">高松</button>
+    <button class="nb" id="bs" onclick="sw('spk')" style="background:#7c3aed;color:#fff;display:none">札幌</button>
+
+    <span style="width:1px;height:24px;background:#e2e8f0;margin:0 4px"></span>
+    <span class="grp-lbl">年</span>
+    <div class="yr-ctrl">
+      <button class="yr-btn" onclick="cy(-1)">◀</button>
+      <span class="yr-label" id="yl">2026</span>
+      <button class="yr-btn" onclick="cy(1)">▶</button>
+    </div>
+    <span id="status" style="font-size:10px;color:#94a3b8;margin-left:8px"></span>
+  </div>
+  <div id="ct"><div class="loading">読み込み中...</div></div>
+</div>
+<script>
+const SU='https://ggqugvyskyiblxiycpci.supabase.co';
+const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const MS=['01','02','03','04','05','06','07','08','09','10','11','12'];
+const _urlStore=new URLSearchParams(location.search).get('store');
+const _fixedStore=(_urlStore==='tkm'||_urlStore==='spk')?_urlStore:null; // 固定store(URLパラメータ)
+let store=_fixedStore||'tkm', year=new Date().getFullYear();
+let mode='jisseki'; // 'yosan' | 'jisseki'
+let theme='pl'; // 'pl' | 'cf'
+function _updateStateBar(){
+  const storeL={'tkm':'高松','spk':'札幌','total':'両店合計'};
+  const modeL={'yosan':'予算','jisseki':'実績','hikaku':'予実比較'};
+  const el=id=>document.getElementById(id);
+  if(el('sc-theme'))el('sc-theme').textContent=theme==='pl'?'PL':'CF';
+  if(el('sc-mode'))el('sc-mode').textContent=modeL[mode]||mode;
+  if(el('sc-store'))el('sc-store').textContent=storeL[store]||store;
+  if(el('sc-year'))el('sc-year').textContent=year+'年';
+  var cl=document.getElementById('cost-link');
+  if(cl)cl.href='./costmatrix.html?store='+(store==='total'?'tkm':store)+'&t='+Date.now();
+}
+function setTheme(t){
+  theme=t;
+  // テーマボタン
+  document.getElementById('bpl').style.background=t==='pl'?'#2563eb':'#334155';
+  document.getElementById('bpl').style.color=t==='pl'?'#fff':'#64748b';
+  document.getElementById('bcf').style.background=t==='cf'?'#059669':'#334155';
+  document.getElementById('bcf').style.color=t==='cf'?'#fff':'#64748b';
+  _updateStateBar();
+  load();
+}
+
+// ===== 予算データ {base:{mm:v}, opt:{mm:v}, ..., manual:{items:[...]}} =====
+let budgetData={};
+function parseBudgetRaw(v){if(!v)return{};try{return JSON.parse(v);}catch(e){return{};}}
+async function loadBudget(y){
+  try{
+    if(store==='total'){
+      const[nv,sv]=await Promise.all([sbgkey('bt_app_settings','budget_nha_'+y),sbgkey('bt_app_settings','budget_spk_'+y)]);
+      const nd=parseBudgetRaw(nv),sd=parseBudgetRaw(sv);
+      budgetData={};
+      ['base','opt','disc','extra','cashin','sga','cogs','repay'].forEach(k=>{
+        budgetData[k]={};MS.forEach(m=>{budgetData[k][m]=(nd[k]&&nd[k][m]||0)+(sd[k]&&sd[k][m]||0);});
+      });
+      const ni=nd.manual&&nd.manual.items||[],si=sd.manual&&sd.manual.items||[];
+      budgetData.manual={items:[...ni.map(it=>({...it,_s:'高松'})),...si.map(it=>({...it,_s:'札幌'}))]};
+    }else{
+      const v=await sbgkey('bt_app_settings','budget_'+store+'_'+y);
+      budgetData=parseBudgetRaw(v);
+      if(!budgetData.manual)budgetData.manual={items:[]};
+    }
+  }catch(e){budgetData={manual:{items:[]}};}
+}
+async function _saveBudgetData(){
+  if(store==='total')return;
+  const key='budget_'+store+'_'+year;
+  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(budgetData)})});
+}
+function computeBudgetD(){
+  const BD={};
+  MS.forEach(m=>{
+    const g=k=>budgetData[k]&&budgetData[k][m]||0;
+    const items=budgetData.manual&&budgetData.manual.items||[];
+    const manualExtra=items.reduce((s,it)=>s+(it.values&&it.values[m]||0),0);
+    const rev=g('rev');  // ★ 予算は「売上」一本化（基本/付帯/割引/予約外を統合）
+    const cashin=g('cashin');
+    const sga=g('sga'),cogs=g('cogs'),repay=g('repay');
+    // PL: 売上（rev）= 実績側の小計に対応
+    const plRev=rev+manualExtra;
+    const sub2=rev; // 予実比較用: 予算rev vs 実績小計
+    const totalCost=sga+cogs;
+    const operatingProfit=plRev-totalCost; // PL営業利益
+    // CF: 現金ベース
+    const cfNet=operatingProfit+cashin-repay; // CF残高
+    const totalIn=plRev+cashin; // 後方互換用
+    BD[m]={rev,sub2,cashin,sga,sgaTotal:sga,cogs,repay,manualExtra,
+           plRev,totalIn,totalCost,operatingProfit,cfNet};
+  });
+  return BD;
+}
+async function saveBudgetCell(key,m,val){
+  if(!budgetData[key])budgetData[key]={};
+  budgetData[key][m]=parseInt(val)||0;
+  renderBudget();
+  await _saveBudgetData();
+}
+async function addBudgetItem(){
+  const name=prompt('小項目名を入力（例: 臨時収入）');
+  if(!name||!name.trim())return;
+  if(!budgetData.manual)budgetData.manual={items:[]};
+  budgetData.manual.items.push({id:'mb_'+Date.now(),name:name.trim(),values:{}});
+  renderBudget();await _saveBudgetData();
+}
+async function deleteBudgetItem(id){
+  if(!confirm('削除しますか？'))return;
+  budgetData.manual.items=(budgetData.manual.items||[]).filter(i=>i.id!==id);
+  renderBudget();await _saveBudgetData();
+}
+async function renameBudgetItem(id){
+  const it=(budgetData.manual.items||[]).find(i=>i.id===id);if(!it)return;
+  const n=prompt('新しい名前',it.name);if(!n||!n.trim())return;
+  it.name=n.trim();renderBudget();await _saveBudgetData();
+}
+async function saveBudgetManual(m,val,id){
+  const it=(budgetData.manual.items||[]).find(i=>i.id===id);if(!it)return;
+  if(!it.values)it.values={};
+  it.values[m]=parseInt(val)||0;
+  renderBudget();await _saveBudgetData();
+}
+function setMode(m){
+  mode=m;
+  const cfg={bmy:{v:'yosan',on:'#f59e0b',onC:'#fff',off:'#fef3c7',offC:'#92400e'},
+              bmj:{v:'jisseki',on:'#1e40af',onC:'#fff',off:'#e2e8f0',offC:'#334155'},
+              bmh:{v:'hikaku',on:'#0284c7',onC:'#fff',off:'#e2e8f0',offC:'#334155'}};
+  Object.entries(cfg).forEach(([id,c])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const isOn=(m===c.v);
+    el.className='nb'+(isOn?' on':'');
+    el.style.background=isOn?c.on:c.off;
+    el.style.color=isOn?c.onC:c.offC;
+  });
+  _updateStateBar();
+  load();
+}
+function renderBudget(){
+  const BD=computeBudgetD();
+  const ro=store==='total';
+  const ann={};
+  ['rev','sub2','cashin','sga','cogs','repay','plRev','totalCost','operatingProfit','cfNet'].forEach(k=>{
+    ann[k]=MS.reduce((s,m)=>s+(BD[m][k]||0),0);
+  });
+  ann.manualExtra=MS.reduce((s,m)=>s+(BD[m].manualExtra||0),0);
+  const rows=theme==='cf'?[
+    {t:'sh',label:'◆ CF収支',bg:'#f0fdf4',color:'#15803d'},
+    {t:'inp',label:'現金入金',key:'cashin'},
+    {t:'inp',label:'🏦 返済（▲）',key:'repay',bg:'#f5f3ff',tc:'#6d28d9',neg:true},
+    {t:'sh',label:'◆ CF残高',bg:'#0f172a',color:'#94a3b8'},
+    {t:'calcProfit',label:'💰 CF残高（営業利益＋入金－返済）',key:'cfNet'},
+  ]:[
+    {t:'inp',label:'売上（小計）',key:'rev',bg:'#eff6ff',tc:'#1d4ed8'},
+    {t:'manual_b'},
+    {t:'calc',label:'PL売上合計',key:'plRev',cls:'row-subtotal'},
+    {t:'sh',label:'◆ コスト',bg:'#fef2f2',color:'#b91c1c'},
+    {t:'inp',label:'📋 販管費',key:'sga',bg:'#fff5f5',tc:'#991b1b'},
+    {t:'inp',label:'📦 売上原価',key:'cogs',bg:'#fffbeb',tc:'#92400e'},
+    {t:'calcBal',label:'🔴 PL支出合計',key:'totalCost',cls:'row-balance'},
+    {t:'calcProfit',label:'💹 PL営業利益',key:'operatingProfit'},
+  ];
+  let h=`<div class="tbl-wrap"><table>`;
+  h+=`<thead><tr><th class="ic">項目</th>`;
+  MS.forEach(m=>h+=`<th>${parseInt(m)}月</th>`);
+  h+=`<th style="background:#1e293b;color:#fff;border-right:none;position:sticky;top:0;z-index:10">年計</th></tr></thead><tbody>`;
+  rows.forEach(row=>{
+    if(row.t==='theme'){
+      h+=`<tr><td colspan="${MS.length+2}" style="padding:14px 12px;font-size:14px;font-weight:900;color:#fff;background:#1e293b;border-top:4px solid #2563eb;letter-spacing:.08em">${row.label}</td></tr>`;return;
+    }
+    if(row.t==='sh'){
+      h+=`<tr class="sec-hdr"><td colspan="${MS.length+2}" style="background:${row.bg};color:${row.color}">${row.label}</td></tr>`;return;
+    }
+    if(row.t==='manual_b'){
+      const items=budgetData.manual&&budgetData.manual.items||[];
+      h+=`<tr style="background:#fef9c3"><td class="ic" colspan="${MS.length+2}" style="background:#fef9c3;color:#92400e;font-weight:800;font-size:11px;padding:6px 10px">✍️ その他売上（手動）${!ro?`<button onclick="addBudgetItem()" style="margin-left:10px;padding:2px 8px;font-size:10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700">＋ 小項目追加</button>`:''}</td></tr>`;
+      if(items.length===0){h+=`<tr class="row-budget-in"><td class="ic" colspan="${MS.length+2}" style="text-align:center;color:#d97706;font-size:11px;padding:10px">${ro?'小項目が登録されていません':'↑「＋ 小項目追加」で追加してください'}</td></tr>`;}
+      items.forEach(it=>{
+        let rowTot=0;
+        h+=`<tr class="row-budget-in"><td class="ic" style="padding-left:18px">`;
+        if(!ro){h+=`<span ondblclick="renameBudgetItem('${it.id}')" title="ダブルクリックで名前変更" style="color:#d97706;font-weight:600;cursor:pointer">${it.name}</span><button onclick="deleteBudgetItem('${it.id}')" style="margin-left:5px;padding:1px 4px;font-size:9px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:3px;cursor:pointer">✕</button>`;}
+        else{h+=`<span style="color:#d97706;font-weight:600">${it.name}${it._s?' ('+it._s+')':''}</span>`;}
+        h+=`</td>`;
+        MS.forEach(m=>{const v=(it.values&&it.values[m])||0;rowTot+=v;h+=`<td style="padding:2px 4px;background:#fffbeb"><input class="bi" type="number" value="${v||''}" placeholder="0" ${ro?'readonly':''} onchange="saveBudgetManual('${m}',this.value,'${it.id}')"/></td>`;});
+        h+=`<td style="background:#fffbeb;color:#d97706;font-weight:700;text-align:right">${rowTot>0?'¥'+rowTot.toLocaleString():''}</td></tr>`;
+      });
+      if(items.length>0){
+        let gt=0;h+=`<tr style="background:#fef3c7"><td class="ic" style="background:#fef3c7;color:#92400e;font-weight:800;font-size:11px;padding-left:10px">小計</td>`;
+        MS.forEach(m=>{const t=items.reduce((s,it)=>s+(it.values&&it.values[m]||0),0);gt+=t;h+=`<td style="background:#fef3c7;color:#d97706;font-weight:700;text-align:right">${t>0?'¥'+t.toLocaleString():''}</td>`;});
+        h+=`<td style="background:#fef3c7;color:#92400e;font-weight:900;text-align:right">${gt>0?'¥'+gt.toLocaleString():''}</td></tr>`;
+      }
+      return;
+    }
+    if(row.t==='inp'){
+      const isCm=row.bg;
+      h+=`<tr class="row-budget-in"${isCm?` style="background:${row.bg}"`:''}><td class="ic"${isCm?` style="color:${row.tc};font-weight:700"`:''}>` +row.label+`</td>`;
+      let rowAnn=0;
+      MS.forEach(m=>{const v=BD[m][row.key]||0;rowAnn+=v;h+=`<td style="padding:2px 4px;background:${row.bg||'#fffbeb'}"><input class="bi" type="number" value="${v||''}" placeholder="0" ${ro?'readonly':''} onchange="saveBudgetCell('${row.key}','${m}',this.value)"/></td>`;});
+      h+=`<td style="background:${row.bg||'#fffbeb'};color:${row.tc||'#d97706'};font-weight:700;text-align:right">${rowAnn>0?(row.neg?'-':'')+`¥${rowAnn.toLocaleString()}`:''}</td></tr>`;
+      return;
+    }
+    // calc rows
+    const v2c=(v,neg)=>v>0?(neg?'-¥':v>0?'¥':'')+v.toLocaleString():'';
+    const calcRow=(key,cls,isBal,isProfit)=>{
+      h+=`<tr class="${cls||''}">`;
+      h+=`<td class="ic">${row.label}</td>`;
+      MS.forEach(m=>{
+        const v=BD[m][key]||0;
+        let disp='',style='';
+        if(isBal){disp=v>0?'¥'+v.toLocaleString():'';style=`style="color:#fff;font-weight:900"`;}
+        else if(isProfit){disp=(v>0?'+¥':v<0?'-¥':'¥')+Math.abs(v).toLocaleString();style=`style="background:${v>0?'#dcfce7':v<0?'#fee2e2':'#f8fafc'};color:${v>0?'#15803d':v<0?'#b91c1c':'#94a3b8'};font-weight:800;text-align:right"`;}
+        else{disp=v>0?'¥'+v.toLocaleString():'';}
+        if(v===0)disp='';
+        h+=`<td ${style}>${disp}</td>`;
+      });
+      const av=ann[key]||0;
+      let adisp='',astyle='';
+      if(isBal){adisp=av>0?'¥'+av.toLocaleString():'';astyle=`style="color:#fff;font-weight:900"`;}
+      else if(isProfit){adisp=(av>0?'+¥':av<0?'-¥':'¥')+Math.abs(av).toLocaleString();astyle=`style="background:${av>0?'#dcfce7':av<0?'#fee2e2':'#f8fafc'};color:${av>0?'#15803d':av<0?'#b91c1c':'#94a3b8'};font-weight:900;text-align:right"`;}
+      else{adisp=av>0?'¥'+av.toLocaleString():'';}
+      if(av===0)adisp='';
+      h+=`<td ${astyle}>${adisp}</td></tr>`;
+    };
+    if(row.t==='calc')calcRow(row.key,row.cls,false,false);
+    else if(row.t==='calcBal')calcRow(row.key,row.cls,true,false);
+    else if(row.t==='calcProfit')calcRow(row.key,row.cls,false,true);
+  });
+  h+=`</tbody></table></div>`;
+  document.getElementById('ct').innerHTML=h;
+  document.getElementById('status').textContent=`${year}年 予算 (${store==='tkm'?'高松':store==='spk'?'札幌':'合計'})`;
+}
+
+// その他売上（手動）: {items:[{id,name,values:{mm:amount}}]}
+let manualData={items:[]};
+
+function parseManualRaw(v){
+  if(!v)return{items:[]};
+  try{
+    const d=JSON.parse(v);
+    if(d&&Array.isArray(d.items))return d; // 新形式
+    // 旧形式 {mm:amount} → items配列に変換
+    if(typeof d==='object'){
+      const vals={};MS.forEach(m=>{if(d[m])vals[m]=d[m];});
+      if(Object.keys(vals).length>0)return{items:[{id:'legacy',name:'その他売上',values:vals}]};
+    }
+  }catch(e){}
+  return{items:[]};
+}
+
+async function loadManualExtra(y){
+  try{
+    if(store==='total'){
+      const[nv,sv]=await Promise.all([sbgkey('bt_app_settings','extra_manual_nha_'+y),sbgkey('bt_app_settings','extra_manual_spk_'+y)]);
+      const nd=parseManualRaw(nv),sd=parseManualRaw(sv);
+      manualData={items:[
+        ...(nd.items||[]).map(it=>({...it,_s:'高松'})),
+        ...(sd.items||[]).map(it=>({...it,_s:'札幌'})),
+      ]};
+    }else{
+      const v=await sbgkey('bt_app_settings','extra_manual_'+store+'_'+y);
+      manualData=parseManualRaw(v);
+    }
+  }catch(e){manualData={items:[]};}
+}
+
+async function _saveManualData(){
+  if(store==='total')return;
+  const key='extra_manual_'+store+'_'+year;
+  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(manualData)})});
+}
+
+function _recalcManual(){
+  if(!window._monthlyD)return;
+  MS.forEach(m=>{
+    const tot=(manualData.items||[]).reduce((s,it)=>s+(it.values&&it.values[m]||0),0);
+    const D=window._monthlyD[m];
+    D.manualExtra=tot;
+    D.plRev=D.base+D.opt-D.disc+D.extra+tot;           // ★ plRev更新（PL売上合計）
+    D.totalIn=D.plRev+D.cashin;                          // 後方互換
+    D.operatingProfit=D.plRev-D.totalCost;               // PL営業利益
+    D.cfNet=D.operatingProfit+D.cashin-D.repay;          // CF残高
+  });
+}
+
+async function saveManualExtra(m,val,itemId){
+  const it=(manualData.items||[]).find(i=>i.id===itemId);
+  if(!it)return;
+  if(!it.values)it.values={};
+  it.values[m]=parseInt(val)||0;
+  _recalcManual();
+  render(window._monthlyD);
+  await _saveManualData();
+}
+
+async function addManualItem(){
+  const name=prompt('小項目名を入力してください（例: 駐車場代、その他収入）');
+  if(!name||!name.trim())return;
+  if(!manualData.items)manualData.items=[];
+  manualData.items.push({id:'me_'+Date.now(),name:name.trim(),values:{}});
+  _recalcManual();
+  render(window._monthlyD);
+  await _saveManualData();
+}
+
+async function deleteManualItem(itemId){
+  if(!confirm('この小項目を削除しますか？'))return;
+  manualData.items=(manualData.items||[]).filter(i=>i.id!==itemId);
+  _recalcManual();
+  render(window._monthlyD);
+  await _saveManualData();
+}
+
+async function renameManualItem(itemId){
+  const it=(manualData.items||[]).find(i=>i.id===itemId);
+  if(!it)return;
+  const name=prompt('新しい名前',it.name);
+  if(!name||!name.trim())return;
+  it.name=name.trim();
+  render(window._monthlyD);
+  await _saveManualData();
+}
+
+function updateTblHeight(){
+  const hdr=document.querySelector('.hdr');
+  const navTheme=document.querySelector('.nav-theme');
+  const navSub=document.querySelector('.nav-sub');
+  const tblWrap=document.querySelector('.tbl-wrap');
+  if(tblWrap){
+    const h=Math.ceil(
+      (hdr?hdr.getBoundingClientRect().height:48)+
+      (navTheme?navTheme.getBoundingClientRect().height:40)+
+      (navSub?navSub.getBoundingClientRect().height:44)
+    );
+    document.documentElement.style.setProperty('--hdr-h',h+'px');
+    tblWrap.style.height=(window.innerHeight-h)+'px';
+  }
+}
+window.addEventListener('resize',updateTblHeight);
+// ★ 2026-05-08: 起動時に自動的にデータロード（パスコード認証撤廃）
+window.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('yl').textContent=year;
+  // iframe内（アプリから呼ばれる場合）はヘッダーを非表示
+  if(_fixedStore){
+    var hdr=document.getElementById('main-hdr');
+    if(hdr)hdr.style.display='none';
+    // ナビバーのtopをゼロに
+    var nt=document.querySelector('.nav-theme'),ns=document.querySelector('.nav-sub');
+    if(nt)nt.style.top='0';if(ns)ns.style.top='48px';
+    // 固定storeに応じてボタン表示切替・反対側を隠す
+    var bn=document.getElementById('bn'),bs=document.getElementById('bs');
+    if(_fixedStore==='tkm'){if(bn)bn.style.display='';if(bs)bs.style.display='none';}
+    else{if(bn)bn.style.display='none';if(bs){bs.style.display='';bs.style.background='#7c3aed';bs.style.color='#fff';}}
+    store=_fixedStore;
+  }
+  updateTblHeight();
+  _updateStateBar();
+  load();
+});
+function sw(s){
+  store=s;
+  const cfg={bn:{v:'tkm',on:'#0e7490',onC:'#fff',off:'#e2e8f0',offC:'#334155'},
+              bs:{v:'spk',on:'#7c3aed',onC:'#fff',off:'#e2e8f0',offC:'#334155'},
+              bt:{v:'total',on:'#1e293b',onC:'#fff',off:'#e2e8f0',offC:'#334155'}};
+  Object.entries(cfg).forEach(([id,c])=>{
+    const el=document.getElementById(id);if(!el)return;
+    const isOn=(s===c.v);el.className='nb'+(isOn?' on':'');el.style.background=isOn?c.on:c.off;el.style.color=isOn?c.onC:c.offC;
+  });
+  _updateStateBar();load();
+}
+function cy(d){year+=d;document.getElementById('yl').textContent=year;_updateStateBar();load();}
+function fmt(n){return n!==0?Math.abs(n).toLocaleString():'';}
+function fmtS(n){return n>0?'+¥'+n.toLocaleString():n<0?'-¥'+Math.abs(n).toLocaleString():'¥0';}
+
+async function sbq(tbl,qs){
+  // Supabase max=1000行/クエリのためページネーションで全件取得
+  const all=[];let offset=0;
+  while(true){
+    const r=await fetch(`${SU}/rest/v1/${tbl}?${qs}&limit=1000&offset=${offset}`,{headers:{apikey:SK,'Authorization':'Bearer '+SK,'Range-Unit':'items','Prefer':'count=none'}});
+    const batch=await r.json();
+    if(!Array.isArray(batch)||batch.length===0)break;
+    all.push(...batch);
+    if(batch.length<1000)break;
+    offset+=1000;
+  }
+  return all;
+}
+async function sbgkey(tbl,key){
+  const r=await fetch(`${SU}/rest/v1/${tbl}?key=eq.${encodeURIComponent(key)}&select=key,value`,{headers:{apikey:SK,'Authorization':'Bearer '+SK}});
+  const d=await r.json();return d&&d[0]?d[0].value:null;
+}
+
+async function load(){
+  document.getElementById('ct').innerHTML='<div class="loading">読み込み中...</div>';
+  document.getElementById('status').textContent='';
+  const y=String(year);
+  // 予算モード
+  if(mode==='yosan'){await loadBudget(y);renderBudget();return;}
+  // 比較モード
+  if(mode==='hikaku'){await Promise.all([loadBudget(y),loadManualExtra(y)]);if(store==='total'){await loadTotal(y);return;}await loadAndRenderForHikaku(y);return;}
+  // 実績モード
+  if(store==='total'){
+    await loadManualExtra(y);await loadTotal(y);return;
+  }
+  // その他売上 手動データ読込
+  await loadManualExtra(y);
+
+  const aTbl=store==='tkm'?'bt_accounting':'spk_accounting';
+  const sTbl='bt_app_settings'; // 両店舗とも bt_app_settings に保存
+  const vTbl=store==='tkm'?'bt_vehicles':'vehicles';
+  const logsT=store==='tkm'?'bt_logs':'logs'; // ★ 整備記録（costmatrixと同じソース）
+  const logsQs=store==='tkm'
+    ?`select=type,cost,date&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other)`
+    :`select=type,cost,date&store_id=eq.sapporo&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other,oil)`;
+
+  // 全データ並列取得: ST構造 + cm_キー + 会計 + 車両保険 + 整備記録
+  const [accts,cmRaws,vehRaw,stRaw,logsData]=await Promise.all([
+    sbq(aTbl,`select=type,category,amount,date&date=gte.${y}-01-01&date=lte.${y}-12-31`),
+    Promise.all(MS.map(m=>sbgkey(sTbl,`cm_${store}_${y}-${m}`))),
+    sbq(vTbl,`select=insurance_annual`),
+    sbgkey(sTbl,`cm_st_${store}`), // costmatrixのST構造
+    sbq(logsT, logsQs)
+  ]);
+
+  // 月別集計
+  const D={};
+  MS.forEach(m=>{D[m]={base:0,opt:0,disc:0,extra:0,manualExtra:0,cashin:0,sga:0,cogs:0,acctActual:0,repay:0};});
+
+  // 売上: 常にSupabaseから直接取得（キャッシュは使用しない）
+  const rTbl=store==='tkm'?'bt_reservations':'reservations';
+  const dCol=store==='tkm'?'end_date':'return_date';
+  try{
+    const resvs=await sbq(rTbl,`select=base_price,option_price,discount,price,status,${dCol}&${dCol}=gte.${y}-01-01&${dCol}=lte.${y}-12-31&status=neq.cancelled`);
+    (resvs||[]).forEach(r=>{
+      const m=(r[dCol]||'').slice(5,7);if(!D[m])return;
+      const bp=r.base_price||0,op=r.option_price||0,dc=r.discount||0;
+      if(bp>0||op>0){D[m].base+=bp;D[m].opt+=op;D[m].disc+=dc;}
+      else D[m].base+=r.price||0;
+    });
+    document.getElementById('status').textContent='✅ Supabase直接取得';
+  }catch(e){document.getElementById('status').textContent='収入データ取得エラー';}
+  // ── 会計実績: 修理/車検/点検は bt_logs から取得するため除外 ──
+  (accts||[]).forEach(r=>{
+    const m=(r.date||'').slice(5,7);if(!D[m])return;
+    const a=r.amount||0,cat=r.category||'';
+    if(r.type==='extra_sales')D[m].extra+=a;
+    else if(r.type==='cash_in')D[m].cashin+=a;
+    else if(r.type==='cash_out'||r.type==='card_pay'){
+      // 整備カテゴリは bt_logs（車両費）で計上済みのため除外
+      const isMaint=/修理|車検|点検|整備/.test(cat);
+      if(!isMaint) D[m].acctActual+=a;
+    }
+  });
+  // ★ 整備記録（costmatrixと同じソース）から車検/点検/修理を売上原価に加算
+  (logsData||[]).forEach(r=>{
+    const m=(r.date||'').slice(5,7);if(!D[m])return;
+    const cost=Number(r.cost)||0;
+    D[m].cogs+=cost;
+  });
+  // ── 車両保険（月額）→ 売上原価 ──
+  const vIns=(vehRaw||[]).reduce(function(s,v){return s+(v.insurance_annual||0);},0);
+  MS.forEach(function(m){D[m].cogs+=vIns;});
+  // ── 販管費①・売上原価: costmatrixのST構造を読んで動的にID集合を構築 ──
+  // カスタム項目（広告費等）も含めて完全一致させる
+  const AUTO_SGA=['sga_social_ins']; // 自動計算（給与×15%）
+  const AUTO_COGS=['cogs_insurance']; // 自動計算（車両タブ）
+  const SGA_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h','s3a','s3b','s3c','s3d','s4','s4a','s11','s11a','s12','s12a','s13','s13a','s14','s14a']);
+  const COGS_IDS=new Set(['c1a','c1b','c1c','c1d','c1e','c6a','c6b','c6c','c6d','c6e','c6f','c7']); // c3/c4/c5は会計実績から自動計上
+  const SALARY_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h']);
+  const REPAY_IDS=new Set(['r1','r2','r3','r4','r5','r6','r7','r8']); // ★ CF返済項目
+  // STが取得できれば動的にオーバーライド（カスタム項目対応）
+  try{
+    if(stRaw){
+      const st=JSON.parse(stRaw);
+      const sgSec=st.find(function(s){return s.id==='sg';});
+      const cgSec=st.find(function(s){return s.id==='cg';});
+      if(sgSec){
+        SGA_IDS.clear();SALARY_IDS.clear();
+        (sgSec.items||[]).forEach(function(item){
+          if(AUTO_SGA.includes(item.code))return;
+          if(item.g){(item.subs||[]).forEach(function(sub){
+            SGA_IDS.add(sub.id);
+            if(item.code==='sga_salary')SALARY_IDS.add(sub.id);
+          });}else{SGA_IDS.add(item.id);}
+        });
+        // 旧IDフォールバック（グループ化前のデータ対応）
+        ['s4','s11','s12','s13','s14'].forEach(function(id){SGA_IDS.add(id);});
+      }
+      if(cgSec){
+        COGS_IDS.clear();
+        (cgSec.items||[]).forEach(function(item){
+          if(AUTO_COGS.includes(item.code))return;
+          if(item.g){(item.subs||[]).forEach(function(sub){COGS_IDS.add(sub.id);});}
+          else{COGS_IDS.add(item.id);}
+        });
+        // 旧IDフォールバック（c3/c4/c5は会計実績自動計上のため除外）
+        ['c7'].forEach(function(id){COGS_IDS.add(id);});
+      }
+    }
+  }catch(e){}
+  // ST読み込み状況をステータスに表示
+  const stLoaded=stRaw?true:false;
+  const sgIdCount=SGA_IDS.size;
+  document.getElementById('status').textContent=(stLoaded?'✅ ST読込済（'+sgIdCount+'項目）':'⚠️ ST未取得（costmatrixを先に開いてください）')+' 読込中...';
+  cmRaws.forEach(function(raw,i){
+    if(!raw)return;
+    try{
+      const d=JSON.parse(raw);
+      let salarySum=0;
+      // ★ ST rg セクションから返済IDを動的取得
+      if(stRaw){try{const st=JSON.parse(stRaw);const rg=st.find(function(s){return s.id==='rg';});if(rg){REPAY_IDS.clear();(rg.items||[]).forEach(function(i){REPAY_IDS.add(i.id);});}}catch(e){}}
+      Object.entries(d).forEach(function([id,amount]){
+        const a=Number(amount)||0;if(a<=0)return;
+        if(SGA_IDS.has(id))D[MS[i]].sga+=a;
+        if(SALARY_IDS.has(id))salarySum+=a;
+        if(COGS_IDS.has(id))D[MS[i]].cogs+=a;
+        if(REPAY_IDS.has(id))D[MS[i]].repay+=a; // ★ CF返済
+      });
+      D[MS[i]].sga+=Math.round(salarySum*0.15); // 社会保険（給与×15%）
+    }catch(e){}
+  });
+
+  // その他売上 手動データをDに適用
+  MS.forEach(m=>{D[m].manualExtra=(manualData.items||[]).reduce((s,it)=>s+(it.values&&it.values[m]||0),0);});
+  // 各月の合計
+  MS.forEach(m=>{
+    D[m].plRev=D[m].base+D[m].opt-D[m].disc+D[m].extra+D[m].manualExtra;  // PL売上
+    D[m].totalIn=D[m].plRev+D[m].cashin;                                   // 後方互換
+    D[m].sub2=D[m].base+D[m].opt-D[m].disc+D[m].extra;    // 小計（予実比較用）
+    D[m].sgaTotal=D[m].sga+D[m].acctActual;               // 販管費合計
+    D[m].totalCost=D[m].sgaTotal+D[m].cogs;               // PL支出
+    D[m].operatingProfit=D[m].plRev-D[m].totalCost;                        // PL営業利益
+    D[m].cfNet=D[m].operatingProfit+D[m].cashin-D[m].repay;                // CF残高
+  });
+  window._monthlyD=D; // 手動入力の即時反映用
+
+  render(D);
+  document.getElementById('status').textContent=`${year}年 読込完了`;
+}
+
+// ★ 合算モード: TKM + SPK を合算して表示
+async function loadTotal(y){
+  const sTbl='bt_app_settings';
+  const [nhAccts,spkAccts,nhCmRaws,spkCmRaws,nhVeh,spkVeh,nhSt,spkSt,nhResvs,spkResvs,nhLogs,spkLogs]=await Promise.all([
+    sbq('bt_accounting',`select=type,category,amount,date&date=gte.${y}-01-01&date=lte.${y}-12-31`),
+    sbq('spk_accounting',`select=type,category,amount,date&date=gte.${y}-01-01&date=lte.${y}-12-31`),
+    Promise.all(MS.map(m=>sbgkey(sTbl,`cm_bt_${y}-${m}`))),
+    Promise.all(MS.map(m=>sbgkey(sTbl,`cm_spk_${y}-${m}`))),
+    sbq('bt_vehicles',`select=insurance_annual`),
+    sbq('vehicles',`select=insurance_annual`),
+    sbgkey(sTbl,'cm_st_nha'),
+    sbgkey(sTbl,'cm_st_spk'),
+    sbq('bt_reservations',`select=base_price,option_price,discount,price,status,end_date&end_date=gte.${y}-01-01&end_date=lte.${y}-12-31&status=neq.cancelled`),
+    sbq('reservations',`select=base_price,option_price,discount,price,status,return_date&return_date=gte.${y}-01-01&return_date=lte.${y}-12-31&status=neq.cancelled`),
+    sbq('bt_logs',`select=type,cost,date&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other)`),
+    sbq('logs',`select=type,cost,date&store_id=eq.sapporo&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other,oil)`),
+  ]);
+  const D={};
+  MS.forEach(m=>{D[m]={base:0,opt:0,disc:0,extra:0,manualExtra:0,cashin:0,sga:0,cogs:0,acctActual:0,repay:0};});
+  // 収入: 常にSupabaseから直接取得（キャッシュ廃止）
+  const applyResvs=function(resvs,dCol){
+    (resvs||[]).forEach(function(r){const m=(r[dCol]||'').slice(5,7);if(!D[m])return;const bp=r.base_price||0,op=r.option_price||0,dc=r.discount||0;if(bp>0||op>0){D[m].base+=bp;D[m].opt+=op;D[m].disc+=dc;}else D[m].base+=r.price||0;});
+  };
+  applyResvs(nhResvs,'end_date');
+  applyResvs(spkResvs,'return_date');
+  // 会計実績: 両店合算（修理/車検/点検は整備記録から取得するため除外）
+  [...(nhAccts||[]),...(spkAccts||[])].forEach(r=>{
+    const m=(r.date||'').slice(5,7);if(!D[m])return;
+    const a=r.amount||0,cat=r.category||'';
+    if(r.type==='extra_sales')D[m].extra+=a;
+    else if(r.type==='cash_in')D[m].cashin+=a;
+    else if(r.type==='cash_out'||r.type==='card_pay'){if(!/修理|車検|点検|整備/.test(cat))D[m].acctActual+=a;}
+  });
+  // ★ 整備記録（costmatrixと同じソース）から車検/点検/修理/その他を売上原価に加算
+  [...(nhLogs||[]),...(spkLogs||[])].forEach(r=>{
+    const m=(r.date||'').slice(5,7);if(!D[m])return;
+    const cost=Number(r.cost)||0;
+    D[m].cogs+=cost;
+  });
+  // 車両保険: 両店合算
+  const nhIns=(nhVeh||[]).reduce((s,v)=>s+(v.insurance_annual||0),0);
+  const spkIns=(spkVeh||[]).reduce((s,v)=>s+(v.insurance_annual||0),0);
+  MS.forEach(m=>{D[m].cogs+=nhIns+spkIns;});
+  // costmatrix手動入力: 両店合算
+  [[nhCmRaws,nhSt,'tkm'],[spkCmRaws,spkSt,'spk']].forEach(function([cmRaws,stRaw,s]){
+    const SGA_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h','s3a','s3b','s3c','s3d','s4','s4a','s11','s11a','s12','s12a','s13','s13a','s14','s14a']);
+    const COGS_IDS=new Set(['c1a','c1b','c1c','c1d','c1e','c6a','c6b','c6c','c6d','c6e','c6f','c7']);
+    const SALARY_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h']);
+    const REPAY_IDS=new Set(['r1','r2','r3','r4','r5','r6','r7','r8']);
+    // ★ 単店舗ロードと同様にST構造から動的にID集合を再構築
+    if(stRaw){try{
+      const st=JSON.parse(stRaw);
+      const sgSec=st.find(function(s){return s.id==='sg';});
+      const cgSec=st.find(function(s){return s.id==='cg';});
+      const rgSec=st.find(function(s){return s.id==='rg';});
+      if(sgSec){
+        SGA_IDS.clear();SALARY_IDS.clear();
+        (sgSec.items||[]).forEach(function(item){
+          if(item.code==='sga_social_ins')return;
+          if(item.g){(item.subs||[]).forEach(function(sub){SGA_IDS.add(sub.id);if(item.code==='sga_salary')SALARY_IDS.add(sub.id);});}
+          else{SGA_IDS.add(item.id);}
+        });
+        ['s4','s11','s12','s13','s14'].forEach(function(id){SGA_IDS.add(id);});
+      }
+      if(cgSec){
+        COGS_IDS.clear();
+        (cgSec.items||[]).forEach(function(item){
+          if(item.code==='cogs_insurance')return;
+          if(item.g){(item.subs||[]).forEach(function(sub){COGS_IDS.add(sub.id);});}
+          else{COGS_IDS.add(item.id);}
+        });
+        COGS_IDS.add('c7');
+      }
+      if(rgSec){REPAY_IDS.clear();(rgSec.items||[]).forEach(function(i){REPAY_IDS.add(i.id);});}
+    }catch(e){}}
+    cmRaws.forEach(function(raw,i){if(!raw)return;try{const d=JSON.parse(raw);let sal=0;Object.entries(d).forEach(function([id,amt]){const a=Number(amt)||0;if(a<=0)return;if(SGA_IDS.has(id))D[MS[i]].sga+=a;if(SALARY_IDS.has(id))sal+=a;if(COGS_IDS.has(id))D[MS[i]].cogs+=a;if(REPAY_IDS.has(id))D[MS[i]].repay+=a;});D[MS[i]].sga+=Math.round(sal*0.15);}catch(e){}});
+  });
+  MS.forEach(m=>{D[m].manualExtra=(manualData.items||[]).reduce((s,it)=>s+(it.values&&it.values[m]||0),0);D[m].sub2=D[m].base+D[m].opt-D[m].disc+D[m].extra;D[m].plRev=D[m].sub2+D[m].manualExtra;D[m].totalIn=D[m].plRev+D[m].cashin;D[m].sgaTotal=D[m].sga+D[m].acctActual;D[m].totalCost=D[m].sgaTotal+D[m].cogs;D[m].operatingProfit=D[m].plRev-D[m].totalCost;D[m].cfNet=D[m].operatingProfit+D[m].cashin-D[m].repay;});
+  window._monthlyD=D;
+  if(mode==='hikaku'){renderHikaku(D);}else{render(D);}
+  document.getElementById('status').textContent=`✅ ${y}年 高松＋札幌 合算`;
+}
+
+function render(D){
+  const rows=theme==='cf'?[
+    {type:'sh',label:'◆ CF収支',bg:'#f0fdf4',color:'#15803d'},
+    {type:'in',label:'現金入金',key:'cashin'},
+    {type:'cm',label:'🏦 返済合計',key:'repay',bg:'#f5f3ff',tc:'#6d28d9'},
+    {type:'sh',label:'◆ CF残高',bg:'#0f172a',color:'#94a3b8'},
+    {type:'profit',label:'💰 CF残高（営業利益＋入金－返済）',key:'cfNet'},
+  ]:[
+    {type:'sub2',label:'売上（小計）',cls:'row-sub2'},
+    {type:'manual',label:'✍️ その他売上（手動）'},
+    {type:'sub',label:'PL売上合計',key:'plRev',cls:'row-subtotal'},
+    {type:'sh',label:'◆ コスト',bg:'#fef2f2',color:'#b91c1c'},
+    {type:'cm',label:'📋 販管費',key:'sgaTotal',bg:'#fff5f5',tc:'#991b1b'},
+    {type:'cm',label:'📦 売上原価',key:'cogs',bg:'#fffbeb',tc:'#92400e'},
+    {type:'total',label:'🔴 PL支出合計',key:'totalCost',cls:'row-balance'},
+    {type:'profit',label:'💹 PL営業利益',key:'operatingProfit'},
+  ];
+
+  // 年計
+  const ann={};
+  ['base','opt','disc','extra','sub2','manualExtra','cashin','sga','sgaTotal','cogs','acctActual','plRev','totalIn','totalCost','operatingProfit','repay','cfNet'].forEach(k=>{
+    ann[k]=MS.reduce((s,m)=>s+(D[m][k]||0),0);
+  });
+
+  let h=`<div class="tbl-wrap"><table>`;
+  h+=`<thead><tr><th class="ic">項目</th>`;
+  MS.forEach(m=>h+=`<th>${parseInt(m)}月</th>`);
+  h+=`<th style="background:#1e293b;color:#fff;border-right:none;position:sticky;top:96px;z-index:10">年計</th></tr></thead><tbody>`;
+
+  rows.forEach(row=>{
+    if(row.type==='theme'){
+      h+=`<tr><td colspan="${MS.length+2}" style="padding:14px 12px;font-size:14px;font-weight:900;color:#fff;background:#1e293b;border-top:4px solid #2563eb;letter-spacing:.08em">${row.label}</td></tr>`;return;
+    }
+    if(row.type==='sh'){
+      h+=`<tr class="sec-hdr"><td colspan="${MS.length+2}" style="background:${row.bg};color:${row.color}">${row.label}</td></tr>`;
+      return;
+    }
+    if(row.type==='manual'){
+      const items=manualData.items||[];
+      const ro=store==='total';
+      // ▼ セクションヘッダー
+      h+=`<tr style="background:#f5f3ff"><td class="ic" colspan="${MS.length+2}" style="background:#f5f3ff;color:#6d28d9;font-weight:800;font-size:11px;letter-spacing:.05em;padding:6px 10px">✍️ その他売上（手動）${!ro?`<button onclick="addManualItem()" style="margin-left:10px;padding:2px 8px;font-size:10px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700">＋ 小項目追加</button>`:''}</td></tr>`;
+      // ▼ 小項目なし
+      if(items.length===0){
+        h+=`<tr class="row-manual"><td class="ic" colspan="${MS.length+2}" style="text-align:center;color:#a78bfa;font-size:11px;padding:10px">${ro?'小項目が登録されていません':'↑「＋ 小項目追加」で追加してください'}</td></tr>`;
+      }
+      // ▼ 各小項目
+      items.forEach(it=>{
+        let rowTot=0;
+        h+=`<tr class="row-manual"><td class="ic" style="padding-left:18px">`;
+        if(!ro){
+          h+=`<span ondblclick="renameManualItem('${it.id}')" title="ダブルクリックで名前変更" style="color:#7c3aed;font-weight:600;cursor:pointer">${it.name}</span>`;
+          h+=`<button onclick="deleteManualItem('${it.id}')" style="margin-left:5px;padding:1px 4px;font-size:9px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:3px;cursor:pointer">✕</button>`;
+        }else{
+          h+=`<span style="color:#7c3aed;font-weight:600">${it.name}${it._s?' ('+it._s+')':''}</span>`;
+        }
+        h+=`</td>`;
+        MS.forEach(m=>{
+          const v=(it.values&&it.values[m])||0; rowTot+=v;
+          h+=`<td style="padding:2px 4px;background:#faf5ff"><input class="mi" type="number" value="${v||''}" placeholder="0" ${ro?'readonly':''} onchange="saveManualExtra('${m}',this.value,'${it.id}')"/></td>`;
+        });
+        h+=`<td style="background:#faf5ff;color:#7c3aed;font-weight:700;text-align:right">${rowTot>0?'¥'+rowTot.toLocaleString():''}</td></tr>`;
+      });
+      // ▼ 小計行
+      if(items.length>0){
+        let grandTot=0;
+        h+=`<tr style="background:#ede9fe"><td class="ic" style="background:#ede9fe;color:#6d28d9;font-weight:800;font-size:11px;padding-left:10px">小計</td>`;
+        MS.forEach(m=>{
+          const t=items.reduce((s,it)=>s+(it.values&&it.values[m]||0),0); grandTot+=t;
+          h+=`<td style="background:#ede9fe;color:#7c3aed;font-weight:700;text-align:right">${t>0?'¥'+t.toLocaleString():''}</td>`;
+        });
+        h+=`<td style="background:#ede9fe;color:#6d28d9;font-weight:900;text-align:right">${grandTot>0?'¥'+grandTot.toLocaleString():''}</td></tr>`;
+      }
+      return;
+    }
+    // ★ 小計（予約売上＋予約外）= 基本+付帯-割引+予約外
+    if(row.type==='sub2'){
+      const annSub2=(ann.base||0)+(ann.opt||0)-(ann.disc||0)+(ann.extra||0);
+      h+=`<tr class="${row.cls||'row-sub2'}"><td class="ic" style="padding-left:14px;font-size:11px">${row.label}</td>`;
+      MS.forEach(m=>{const v=(D[m].base||0)+(D[m].opt||0)-(D[m].disc||0)+(D[m].extra||0);h+=`<td>${v>0?'¥'+v.toLocaleString():'—'}</td>`;});
+      h+=`<td>${annSub2>0?'¥'+annSub2.toLocaleString():'—'}</td></tr>`;
+      return;
+    }
+    const cls=row.cls||'';
+    const isNeg=row.neg;
+    const isCm=row.type==='cm';
+    const isTotal=row.type==='total';
+    const isProfit=row.type==='profit';
+    const trStyle=isCm?` style="background:${row.bg}"`:'';
+    const tdStyle=isCm?` style="color:${row.tc};font-weight:700"`:'';
+    h+=`<tr class="${cls}"${trStyle}><td class="ic"${tdStyle}>${row.label}</td>`;
+    MS.forEach(m=>{
+      const v=D[m][row.key]||0;
+      let disp='';
+      if(v!==0){
+        if(row.type==='bal'||isTotal){disp=v>0?'¥'+v.toLocaleString():'';}
+        else if(isProfit){disp=(v>0?'+¥':'-¥')+Math.abs(v).toLocaleString();}
+        else if(isNeg){disp=v>0?'-¥'+v.toLocaleString():'';}
+        else{disp=v>0?'¥'+v.toLocaleString():'';}
+      }
+      let style='';
+      if(row.type==='bal'){style=`style="color:${v>=0?'#86efac':'#fca5a5'}"`;}
+      else if(isTotal){style=`style="color:#fff;font-weight:900"`;}
+      else if(isCm){style=`style="background:${row.bg};color:${v>0?row.tc:'#94a3b8'};font-weight:${v>0?700:400}"`;}
+      else if(isProfit){style=`style="background:${v>0?'#dcfce7':v<0?'#fee2e2':'#f8fafc'};color:${v>0?'#15803d':v<0?'#b91c1c':'#94a3b8'};font-weight:800;text-align:right"`;}
+      h+=`<td ${style}>${disp}</td>`;
+    });
+    // 年計
+    const av=ann[row.key]||0;
+    let adisp='';
+    if(av!==0){
+      if(row.type==='bal'||isTotal){adisp=av>0?'¥'+av.toLocaleString():'';}
+      else if(isProfit){adisp=(av>0?'+¥':'-¥')+Math.abs(av).toLocaleString();}
+      else if(isNeg){adisp=av>0?'-¥'+av.toLocaleString():'';}
+      else{adisp=av>0?'¥'+av.toLocaleString():'';}
+    }
+    let astyle='';
+    if(row.type==='bal'){astyle=`style="color:${av>=0?'#86efac':'#fca5a5'}"`;}
+    else if(isTotal){astyle=`style="color:#fff;font-weight:900"`;}
+    else if(isCm){astyle=`style="background:${row.bg};color:${av>0?row.tc:'#94a3b8'};font-weight:${av>0?700:400}"`;}
+    else if(isProfit){astyle=`style="background:${av>0?'#dcfce7':av<0?'#fee2e2':'#f8fafc'};color:${av>0?'#15803d':av<0?'#b91c1c':'#94a3b8'};font-weight:900;text-align:right"`;}
+    h+=`<td ${astyle}>${adisp}</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  document.getElementById('ct').innerHTML=h;
+}
+
+// ===== 予実比較 =====
+async function loadAndRenderForHikaku(y){
+  // 実績を load() の単店舗パスで取得してから比較レンダー
+  const aTbl=store==='tkm'?'bt_accounting':'spk_accounting';
+  const sTbl='bt_app_settings';
+  const vTbl=store==='tkm'?'bt_vehicles':'vehicles';
+  const rTbl=store==='tkm'?'bt_reservations':'reservations';
+  const dCol=store==='tkm'?'end_date':'return_date';
+  const logsT2=store==='tkm'?'bt_logs':'logs';
+  const logsQs2=store==='tkm'
+    ?`select=type,cost,date&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other)`
+    :`select=type,cost,date&store_id=eq.sapporo&date=gte.${y}-01-01&date=lte.${y}-12-31&type=in.(inspection,semi_annual,repair,other,oil)`;
+  const[accts,cmRaws,vehRaw,stRaw,resvs,logsD]=await Promise.all([
+    sbq(aTbl,`select=type,category,amount,date&date=gte.${y}-01-01&date=lte.${y}-12-31`),
+    Promise.all(MS.map(m=>sbgkey(sTbl,`cm_${store}_${y}-${m}`))),
+    sbq(vTbl,`select=insurance_annual`),
+    sbgkey(sTbl,'cm_st_'+store),
+    sbq(rTbl,`select=base_price,option_price,discount,price,status,${dCol}&${dCol}=gte.${y}-01-01&${dCol}=lte.${y}-12-31&status=neq.cancelled`),
+    sbq(logsT2, logsQs2),
+  ]);
+  const D={};MS.forEach(m=>{D[m]={base:0,opt:0,disc:0,extra:0,manualExtra:0,cashin:0,sga:0,cogs:0,acctActual:0,repay:0};});
+  (resvs||[]).forEach(r=>{const m=(r[dCol]||'').slice(5,7);if(!D[m])return;const bp=r.base_price||0,op=r.option_price||0,dc=r.discount||0;if(bp>0||op>0){D[m].base+=bp;D[m].opt+=op;D[m].disc+=dc;}else D[m].base+=r.price||0;});
+  (accts||[]).forEach(r=>{const m=(r.date||'').slice(5,7);if(!D[m])return;const a=r.amount||0,cat=r.category||'';if(r.type==='extra_sales')D[m].extra+=a;else if(r.type==='cash_in')D[m].cashin+=a;else if(r.type==='cash_out'||r.type==='card_pay'){if(!/修理|車検|点検|整備/.test(cat))D[m].acctActual+=a;}});
+  (logsD||[]).forEach(r=>{const m=(r.date||'').slice(5,7);if(!D[m])return;D[m].cogs+=(Number(r.cost)||0);});
+  const vIns=(vehRaw||[]).reduce((s,v)=>s+(v.insurance_annual||0),0);
+  MS.forEach(m=>{D[m].cogs+=vIns;});
+  const SGA_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h','s3a','s3b','s3c','s3d','s4','s4a','s11','s11a','s12','s12a','s13','s13a','s14','s14a']);
+  const COGS_IDS=new Set(['c1a','c1b','c1c','c1d','c1e','c6a','c6b','c6c','c6d','c6e','c6f','c7']);
+  const SALARY_IDS=new Set(['s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h']);
+  const REPAY_IDS=new Set(['r1','r2','r3','r4','r5','r6','r7','r8']);
+  if(stRaw){try{const st=JSON.parse(stRaw);const rg=st.find(s=>s.id==='rg');if(rg){REPAY_IDS.clear();(rg.items||[]).forEach(i=>REPAY_IDS.add(i.id));}}catch(e){}}
+  cmRaws.forEach((raw,i)=>{if(!raw)return;try{const d=JSON.parse(raw);let sal=0;Object.entries(d).forEach(([id,amt])=>{const a=Number(amt)||0;if(a<=0)return;if(SGA_IDS.has(id))D[MS[i]].sga+=a;if(SALARY_IDS.has(id))sal+=a;if(COGS_IDS.has(id))D[MS[i]].cogs+=a;if(REPAY_IDS.has(id))D[MS[i]].repay+=a;});D[MS[i]].sga+=Math.round(sal*0.15);}catch(e){}});
+  MS.forEach(m=>{D[m].manualExtra=(manualData.items||[]).reduce((s,it)=>s+(it.values&&it.values[m]||0),0);D[m].sub2=D[m].base+D[m].opt-D[m].disc+D[m].extra;D[m].plRev=D[m].sub2+D[m].manualExtra;D[m].totalIn=D[m].plRev+D[m].cashin;D[m].sgaTotal=D[m].sga+D[m].acctActual;D[m].totalCost=D[m].sgaTotal+D[m].cogs;D[m].operatingProfit=D[m].plRev-D[m].totalCost;D[m].cfNet=D[m].operatingProfit+D[m].cashin-D[m].repay;});
+  window._monthlyD=D;
+  renderHikaku(D);
+}
+
+function renderHikaku(JD){
+  const BD=computeBudgetD();
+  const KEYS=theme==='cf'?[
+    {key:'cashin',label:'現金入金',profit:false},
+    {key:'repay',label:'返済（▲）',profit:false,neg:true},
+    {key:'cfNet',label:'💰 CF残高',profit:true,bold:true},
+  ]:[
+    {key:'sub2',label:'売上（小計）',profit:false},
+  ];
+  const f=v=>v!==0?'¥'+Math.abs(v).toLocaleString():'';
+  const pctStyle=v=>v===0?'color:#94a3b8':v>=1?'color:#15803d;font-weight:700':'color:#dc2626';
+  const pct=(b,j)=>b>0?Math.round(j/b*100)+'%':'-';
+  // 比較ヘッダー: 月ごとに 予算|実績|達成率 の3列
+  let h=`<div class="tbl-wrap" style="overflow:auto"><table style="font-size:10px">`;
+  h+=`<thead><tr><th class="ic" rowspan="2" style="min-width:140px">項目</th>`;
+  MS.forEach(m=>h+=`<th colspan="3" style="text-align:center;background:#f8fafc;border-left:2px solid #e2e8f0">${parseInt(m)}月</th>`);
+  h+=`<th colspan="3" style="text-align:center;background:#1e293b;color:#fff;border-left:2px solid #475569">年計</th></tr>`;
+  h+=`<tr>`;
+  [...MS,null].forEach(()=>{
+    h+=`<th style="font-size:9px;background:#fffbeb;color:#d97706;min-width:60px">予算</th>`;
+    h+=`<th style="font-size:9px;background:#f0fdf4;color:#15803d;min-width:60px">実績</th>`;
+    h+=`<th style="font-size:9px;background:#eff6ff;color:#2563eb;min-width:50px">達成率</th>`;
+  });
+  h+=`</tr></thead><tbody>`;
+  KEYS.forEach(row=>{
+    if(row.theme){
+      h+=`<tr><td colspan="${MS.length*3+4}" style="padding:12px 10px;font-size:13px;font-weight:900;color:#fff;background:#1e293b;border-top:4px solid #2563eb;letter-spacing:.08em">${row.theme}</td></tr>`;return;
+    }
+    const isP=row.profit;
+    const isSub=row.sub; // 実績参照行（予算列は「—」表示）
+    const negSign=row.neg?-1:1;
+    h+=`<tr${isSub?' style="background:#f8fafc"':''}><td class="ic" style="font-weight:${row.bold?800:400};font-size:${isSub?10:11}px;color:${isSub?'#64748b':'inherit'}">${row.label}</td>`;
+    let annB=0,annJ=0;
+    MS.forEach(m=>{
+      const b=BD[m][row.key]||0,j=(JD[m][row.key]||0)*negSign;
+      annB+=b;annJ+=j;
+      if(isSub){
+        // 実績参照行: 予算列は「—」、実績のみ表示
+        h+=`<td style="background:#f8fafc;text-align:right;border-left:2px solid #fef3c7;color:#94a3b8;font-size:10px">—</td>`;
+        h+=`<td style="background:#f0fdf4;text-align:right;color:#059669;font-size:10px;font-weight:${j!==0?600:400}">${f(Math.abs(j))}</td>`;
+        h+=`<td style="background:#eff6ff;text-align:right;font-size:9px;color:#94a3b8">—</td>`;
+      }else{
+        const pv=b>0?j/b:0;
+        const ps=b>0?pctStyle(pv):'color:#94a3b8';
+        h+=`<td style="background:#fffbeb;text-align:right;border-left:2px solid #fef3c7;color:#d97706">${f(b)}</td>`;
+        h+=`<td style="background:#f0fdf4;text-align:right;color:${isP?(j>0?'#15803d':j<0?'#dc2626':'#94a3b8'):'#059669'};font-weight:${j!==0?600:400}">${f(j)}</td>`;
+        h+=`<td style="background:#eff6ff;text-align:right;font-size:10px;${ps}">${b>0?pct(b,j):'-'}</td>`;
+      }
+    });
+    if(isSub){
+      h+=`<td style="background:#f8fafc;text-align:right;font-weight:600;border-left:2px solid #475569;color:#94a3b8;font-size:10px">—</td>`;
+      h+=`<td style="background:#dcfce7;text-align:right;font-weight:600;color:#059669;font-size:10px">${f(Math.abs(annJ))}</td>`;
+      h+=`<td style="background:#dbeafe;text-align:right;font-size:9px;color:#94a3b8">—</td>`;
+    }else{
+      const ap=annB>0?pct(annB,annJ):'-';
+      const aps=annB>0?pctStyle(annB>0?annJ/annB:0):'color:#94a3b8';
+      h+=`<td style="background:#fffde7;text-align:right;font-weight:700;border-left:2px solid #475569;color:#d97706">${f(annB)}</td>`;
+      h+=`<td style="background:#dcfce7;text-align:right;font-weight:700;color:${isP?(annJ>0?'#15803d':annJ<0?'#dc2626':'#94a3b8'):'#059669'}">${f(annJ)}</td>`;
+      h+=`<td style="background:#dbeafe;text-align:right;font-weight:700;${aps}">${ap}</td>`;
+    }
+    h+=`</tr>`;
+  });
+  // ★ その他売上（手動）個別比較: 予算と実績の項目名でマッチング
+  if(theme==='pl'){
+    const bItems=(budgetData.manual&&budgetData.manual.items)||[];
+    const jItems=manualData.items||[];
+    const allNames=[...new Set([...bItems.map(i=>i.name),...jItems.map(i=>i.name)])];
+    if(allNames.length>0){
+      h+=`<tr><td colspan="${MS.length*3+4}" style="padding:6px 10px;font-size:11px;font-weight:800;color:#6d28d9;background:#f5f3ff;border-top:2px solid #c4b5fd">✍️ その他売上（手動）</td></tr>`;
+      allNames.forEach(name=>{
+        const bi=bItems.find(i=>i.name===name);
+        const ji=jItems.find(i=>i.name===name);
+        h+=`<tr><td class="ic" style="padding-left:20px;color:#7c3aed">${name}</td>`;
+        let annB=0,annJ=0;
+        MS.forEach(m=>{
+          const b=(bi&&bi.values&&bi.values[m])||0;
+          const j=(ji&&ji.values&&ji.values[m])||0;
+          annB+=b;annJ+=j;
+          const pv=b>0?j/b:0;
+          const ps=b>0?pctStyle(pv):'color:#94a3b8';
+          h+=`<td style="background:#faf5ff;text-align:right;border-left:2px solid #fef3c7;color:#d97706">${f(b)}</td>`;
+          h+=`<td style="background:#faf5ff;text-align:right;color:#059669;font-weight:${j!==0?600:400}">${f(j)}</td>`;
+          h+=`<td style="background:#faf5ff;text-align:right;font-size:10px;${ps}">${b>0?pct(b,j):'-'}</td>`;
+        });
+        const ap=annB>0?pct(annB,annJ):'-';
+        const aps=annB>0?pctStyle(annB>0?annJ/annB:0):'color:#94a3b8';
+        h+=`<td style="background:#f3e8ff;text-align:right;font-weight:700;border-left:2px solid #475569;color:#d97706">${f(annB)}</td>`;
+        h+=`<td style="background:#f3e8ff;text-align:right;font-weight:700;color:#059669">${f(annJ)}</td>`;
+        h+=`<td style="background:#f3e8ff;text-align:right;font-weight:700;${aps}">${ap}</td>`;
+        h+=`</tr>`;
+      });
+      // 小計行
+      const bTotal=MS.reduce((s,m)=>s+bItems.reduce((s2,i)=>s2+((i.values&&i.values[m])||0),0),0);
+      const jTotal=MS.reduce((s,m)=>s+jItems.reduce((s2,i)=>s2+((i.values&&i.values[m])||0),0),0);
+      const totRows=MS.map(m=>({b:bItems.reduce((s,i)=>s+((i.values&&i.values[m])||0),0),j:jItems.reduce((s,i)=>s+((i.values&&i.values[m])||0),0)}));
+      h+=`<tr style="background:#ede9fe"><td class="ic" style="font-weight:800;color:#6d28d9">　小計</td>`;
+      totRows.forEach(({b,j})=>{const pv=b>0?j/b:0;const ps=b>0?pctStyle(pv):'color:#94a3b8';h+=`<td style="background:#ede9fe;text-align:right;font-weight:700;border-left:2px solid #fef3c7;color:#d97706">${f(b)}</td><td style="background:#ede9fe;text-align:right;font-weight:700;color:#059669">${f(j)}</td><td style="background:#ede9fe;text-align:right;${ps}">${b>0?pct(b,j):'-'}</td>`;});
+      const ap2=bTotal>0?pct(bTotal,jTotal):'-';const aps2=bTotal>0?pctStyle(bTotal>0?jTotal/bTotal:0):'color:#94a3b8';
+      h+=`<td style="background:#ddd6fe;text-align:right;font-weight:800;border-left:2px solid #475569;color:#d97706">${f(bTotal)}</td><td style="background:#ddd6fe;text-align:right;font-weight:800;color:#059669">${f(jTotal)}</td><td style="background:#ddd6fe;text-align:right;font-weight:800;${aps2}">${ap2}</td></tr>`;
+    }
+  }
+  // ★ その他売上の後: PL売上合計 → コスト → PL支出 → 営業利益（予算/実績と同じ順序）
+  const trailKeys=[
+    {key:'plRev',label:'PL売上合計',bold:true,profit:false},
+    {key:'totalCost',label:'PL支出合計',bold:true,profit:false,neg:true},
+    {key:'sgaTotal',label:'　販管費',profit:false,neg:true},
+    {key:'cogs',label:'　売上原価',profit:false,neg:true},
+    {key:'operatingProfit',label:'💹 PL営業利益',profit:true,bold:true},
+  ];
+  trailKeys.forEach(row=>{
+    const isP=row.profit;
+    h+=`<tr${row.bold?' style="background:#f0f9ff"':''}><td class="ic" style="font-weight:${row.bold?800:400}">${row.label}</td>`;
+    let annB=0,annJ=0;
+    MS.forEach(m=>{
+      const b=BD[m][row.key]||0,j=JD[m][row.key]||0;
+      annB+=b;annJ+=j;
+      const pv=b>0?j/b:0;const ps=b>0?pctStyle(pv):'color:#94a3b8';
+      h+=`<td style="background:#fffbeb;text-align:right;border-left:2px solid #fef3c7;color:#d97706">${f(b)}</td>`;
+      h+=`<td style="background:#f0fdf4;text-align:right;color:${isP?(j>0?'#15803d':j<0?'#dc2626':'#94a3b8'):'#059669'};font-weight:${j!==0?600:400}">${f(j)}</td>`;
+      h+=`<td style="background:#eff6ff;text-align:right;font-size:10px;${ps}">${b>0?pct(b,j):'-'}</td>`;
+    });
+    const ap=annB>0?pct(annB,annJ):'-';const aps=annB>0?pctStyle(annB>0?annJ/annB:0):'color:#94a3b8';
+    h+=`<td style="background:#fffde7;text-align:right;font-weight:700;border-left:2px solid #475569;color:#d97706">${f(annB)}</td>`;
+    h+=`<td style="background:#dcfce7;text-align:right;font-weight:700;color:${isP?(annJ>0?'#15803d':annJ<0?'#dc2626':'#94a3b8'):'#059669'}">${f(annJ)}</td>`;
+    h+=`<td style="background:#dbeafe;text-align:right;font-weight:700;${aps}">${ap}</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  document.getElementById('ct').innerHTML=h;
+  document.getElementById('status').textContent=`${year}年 予実比較 (${store==='tkm'?'高松':store==='spk'?'札幌':'合計'})`;
+}
+
+const STORE_LABEL='BUDDICA TOURING_高松店';
+
+// === CSV出力（月次収支表） ===
+function exportCSV() {
+  const tbl = document.querySelector('#ct table');
+  if (!tbl) { alert('データが読み込まれていません'); return; }
+  let csv = '\uFEFF';
+  tbl.querySelectorAll('tr').forEach(tr => {
+    const cells = [];
+    tr.querySelectorAll('th,td').forEach(td => {
+      let v = td.innerText.replace(/\r?\n/g, ' ').trim();
+      if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+        v = '"' + v.replace(/"/g, '""') + '"';
+      }
+      cells.push(v);
+    });
+    csv += cells.join(',') + '\n';
+  });
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = STORE_LABEL + '_月次収支_' + year + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+</script>
+</body>
+</html>
