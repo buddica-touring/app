@@ -20190,7 +20190,7 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.25-BT";
+const APP_VERSION="v1.0.26-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -20259,12 +20259,11 @@ function DbErrorBadge(){
 }
 function Root(){
   const[ready,setReady]=useState(sbAuthReady);
-  const[auth,setAuth]=useState(!SB_ENABLED||localStorage.getItem("bt_auth")==="1");
+  // v1.0.26-BT: チームパスワード画面（旧LoginScreen）廃止。Supabase Auth (ensureAuthenticated) のみで認証
   useEffect(()=>{
     if(!ready) sbAuthPromise.then(()=>setReady(true));
   },[]);
   if(!ready) return null;
-  if(!auth)return <LoginScreen onLogin={()=>setAuth(true)}/>;
   return <><App/><DbErrorBadge/><div style={{position:"fixed",bottom:2,right:8,fontSize:11,color:"#64748b",fontWeight:700,zIndex:9999,pointerEvents:"none",background:"rgba(255,255,255,.8)",padding:"1px 6px",borderRadius:4}}>{APP_VERSION}</div></>;
 }
 ReactDOM.render(<Root/>,document.getElementById("root"));
