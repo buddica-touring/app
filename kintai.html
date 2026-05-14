@@ -92,6 +92,7 @@ table.ann thead th{background:#f1f5f9;font-weight:600;color:#475569;position:sti
   <div class="mo">
     <h3 id="mo-title">スタッフ設定</h3>
     <div class="fr"><label>希望休 年間上限（日）</label><input id="f-kibo" type="number" value="16" min="0" max="365"></div>
+    <div class="fr"><label>調整枠（既消化日数・シフト外）</label><input id="f-adjust" type="number" value="0" min="0" max="365"><small style="color:#94a3b8;font-size:10px">残 = 上限 − 調整枠 − シフト集計の希</small></div>
     <div class="fr"><label>公休 規定日数（月）</label><input id="f-kokyu" type="number" value="8" min="0" max="31"></div>
     <input type="hidden" id="f-sname">
     <div class="fa">
@@ -118,7 +119,7 @@ let overtimeMap = {};
 
 function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}; }catch(e){ return {}; } }
 function saveSettingsStore(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
-function getStaffCfg(name){ const all=loadSettings(); return all[name]||{kibo:16,kokyu:8}; }
+function getStaffCfg(name){ const all=loadSettings(); return all[name]||{kibo:16,adjust:0,kokyu:8}; }
 function setStaffCfg(name,cfg){ const all=loadSettings(); all[name]=cfg; saveSettingsStore(all); }
 
 function calcOTHours(s,e){
@@ -227,7 +228,7 @@ function renderCard(name){
   MONTHS.forEach(m=>{ otMonthHours[m]=Math.round((om[m]||[]).reduce((s,ev)=>s+ev.hours,0)*10)/10; });
   const otTotalHours=Math.round(Object.values(otMonthHours).reduce((s,h)=>s+h,0)*10)/10;
   const allOtEvents=MONTHS.flatMap(m=>(om[m]||[]).map(ev=>({...ev,_mm:m})));
-  const kiboUsed=totals['希']; const kiboRemain=cfg.kibo-kiboUsed; const kiboOver=kiboUsed>cfg.kibo;
+  const kiboUsed=(cfg.adjust||0)+totals['希']; const kiboRemain=cfg.kibo-kiboUsed; const kiboOver=kiboUsed>cfg.kibo;
   let badges='';
   if(kiboOver)badges+='<span class="bdg bdg-ng">希望休超過</span>';
   if(totals['欠']>0)badges+='<span class="bdg bdg-warn">欠勤 '+totals['欠']+'日</span>';
@@ -263,7 +264,7 @@ function renderCard(name){
     otSection=`<div class="ot-section"><div class="ot-toggle" id="${tid}" onclick="toggleOT('${did}','${tid}')">🟠 残業記録<span class="ot-total">${otTotalHours}h / ${allOtEvents.length}件</span><span class="ot-arr" id="${tid}-arr">▼</span></div><div class="ot-detail" id="${did}"><table><thead><tr><th class="c">日付</th><th class="c">時間帯</th><th class="c">時間数</th><th>内容</th></tr></thead><tbody>${detailRows}${totalRow}</tbody></table></div></div>`;
   }
 
-  return `<div class="card"><div class="card-head"><div><span class="card-name">${name}</span>${badges}</div><div class="card-meta"><span>希望休 <b>${cfg.kibo}日/年 残${kiboRemain}日</b></span><span>公休 <b>規定${cfg.kokyu}日/月</b></span>${otTotalHours>0?`<span style="color:#f97316">残業 <b>年${otTotalHours}h</b></span>`:''}</div><button class="card-edit" onclick="openEdit('${name}')">⚙️ 設定</button></div><div class="tbl-wrap"><table class="ann"><thead><tr><th class="row-label" style="background:#f1f5f9">項目</th>${MONTH_LABELS.map(l=>`<th>${l}月</th>`).join('')}<th class="col-total">年計</th><th class="col-fixed">固定数</th><th class="col-remain">残 / 状態</th></tr></thead><tbody>${tableRows}${otRow}</tbody></table></div>${otSection}</div>`;
+  return `<div class="card"><div class="card-head"><div><span class="card-name">${name}</span>${badges}</div><div class="card-meta"><span>希望休 <b>${cfg.kibo}日/年</b></span>${cfg.adjust>0?`<span>調整済 <b>${cfg.adjust}日</b></span>`:''}<span style="color:${kiboOver?'#dc2626':kiboRemain<=3?'#d97706':'#059669'}">残 <b>${kiboRemain}日</b></span><span>公休 <b>規定${cfg.kokyu}日/月</b></span>${otTotalHours>0?`<span style="color:#f97316">残業 <b>年${otTotalHours}h</b></span>`:''}</div><button class="card-edit" onclick="openEdit('${name}')">⚙️ 設定</button></div><div class="tbl-wrap"><table class="ann"><thead><tr><th class="row-label" style="background:#f1f5f9">項目</th>${MONTH_LABELS.map(l=>`<th>${l}月</th>`).join('')}<th class="col-total">年計</th><th class="col-fixed">固定数</th><th class="col-remain">残 / 状態</th></tr></thead><tbody>${tableRows}${otRow}</tbody></table></div>${otSection}</div>`;
 }
 
 function toggleOT(did,tid){
@@ -275,14 +276,14 @@ function openEdit(name){
   const cfg=getStaffCfg(name);
   document.getElementById('mo-title').textContent=name+' の設定';
   document.getElementById('f-sname').value=name;
-  document.getElementById('f-yukyu').value=cfg.yukyu;
   document.getElementById('f-kibo').value=cfg.kibo;
+  document.getElementById('f-adjust').value=cfg.adjust||0;
   document.getElementById('f-kokyu').value=cfg.kokyu;
   document.getElementById('mo-edit').style.display='flex';
 }
 function saveSettings(){
   const name=document.getElementById('f-sname').value;
-  setStaffCfg(name,{kibo:parseInt(document.getElementById('f-kibo').value)||16,kokyu:parseInt(document.getElementById('f-kokyu').value)||8});
+  setStaffCfg(name,{kibo:parseInt(document.getElementById('f-kibo').value)||16,adjust:parseInt(document.getElementById('f-adjust').value)||0,kokyu:parseInt(document.getElementById('f-kokyu').value)||8});
   closeMo(); render();
 }
 function closeMo(){ document.getElementById('mo-edit').style.display='none'; }
