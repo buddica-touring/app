@@ -310,9 +310,13 @@ function loadST(){
   return JSON.parse(JSON.stringify(DEFAULT[store]));
 }
 function saveST(){
-  const json=JSON.stringify(ST);
+  // ★ _auto: マスタ連動 sub は永続化から除外（リロード時に動的再生成）
+  const clean=JSON.parse(JSON.stringify(ST));
+  clean.forEach(function(sec){(sec.items||[]).forEach(function(item){
+    if(item.subs)item.subs=item.subs.filter(function(s){return !s._auto;});
+  });});
+  const json=JSON.stringify(clean);
   localStorage.setItem(stKey(),json);
-  // Supabaseにも保存 → monthly.htmlが構造を読める
   var tbl='bt_app_settings';
   sbu(tbl,'cm_st_'+store,json);
 }
@@ -363,7 +367,7 @@ async function init(){
     Promise.all(MS.map(m=>sbg(tbl,`cm_${store}_${year}-${m}`))),           // 実績
     Promise.all(MS.map(m=>sbg(tbl,`cm_budget_${store}_${year}-${m}`))),    // 予算
     sbqA(acctKey,`type=in.(card_pay,cash_out)&date=gte.${year}-01-01&date=lte.${year}-12-31&select=type,category,amount,date`),
-    sbqA(vTbl,`select=insurance_annual`),
+    sbqA(vTbl,`select=code,name,plate_no,type,active,insurance_annual,lease_monthly,car_tax,shaken_cost,tenken_cost&active=eq.true&order=type,code`),
     sbqA(logsTable,`select=type,cost,date${logsStoreFilter}&date=gte.${year}-01-01&date=lte.${year}-12-31&type=in.(inspection,semi_annual,repair,other,oil)`)
   ]);
   const ps=ps2;
@@ -376,8 +380,44 @@ async function init(){
     const cat=r.category||'その他';
     window._acctData[m][grp][cat]=(window._acctData[m][grp][cat]||0)+(r.amount||0);
   });
-  // 車両タブ保険総額（月額合計）
-  window._vehicleIns=(vehRaw||[]).reduce((s,v)=>s+(v.insurance_annual||0),0);
+  // ★ 車両マスター連動（全コスト項目を月額換算）
+  const _vehs=(vehRaw||[]).filter(v=>v.active!==false);
+  window._vehicleIns=_vehs.reduce((s,v)=>s+(Number(v.insurance_annual)||0),0); // 月額
+  window._vehicleTaxMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.car_tax)||0),0)/12); // 年額÷12
+  window._vehicleShakenMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.shaken_cost)||0),0)/24); // 2年周期÷24
+  window._vehicleTenkenMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.tenken_cost)||0),0)/6); // 半年×2/年→÷6
+  // ★ リース: 車両ごとに sub を動的生成（_auto:'lease' で保存対象外フラグ）
+  window._vehicleLeaseMap={};
+  const _leaseSubs=_vehs.map(v=>{
+    const id='lease_'+v.code;
+    window._vehicleLeaseMap[id]=Number(v.lease_monthly)||0;
+    const nm=v.name||v.code;
+    const no=v.plate_no?' '+v.plate_no:'';
+    return {id,n:nm+no,_auto:'lease'};
+  });
+  // ST.cg.c1 のサブを動的置換（リース/ローン合計）
+  (ST||[]).forEach(function(sec){
+    if(sec.id!=='cg')return;
+    (sec.items||[]).forEach(function(item){
+      if(item.code==='cogs_lease'){
+        // 既存の自動subを除外、手動subのみ残す（カスタム追加対応）
+        const manual=(item.subs||[]).filter(s=>!s._auto);
+        item.subs=_leaseSubs.concat(manual);
+        item.g=true;
+      }
+    });
+  });
+  // ★ 税金: s11 (sga_tax) に自動車税 sub を追加
+  (ST||[]).forEach(function(sec){
+    if(sec.id!=='sg')return;
+    (sec.items||[]).forEach(function(item){
+      if(item.code==='sga_tax'){
+        const manual=(item.subs||[]).filter(s=>!s._auto);
+        item.subs=[{id:'auto_car_tax',n:'🚗 自動車税（マスター連動）',_auto:'car_tax'}].concat(manual);
+        item.g=true;
+      }
+    });
+  });
   // ★ 整備記録（bt_logs/hm_logs）から車検・点検・修理を月別集計（車両タブ 月別推移と同じ値）
   window._maintData={inspection:{},maintenance:{},repair:{},other:{}};
   (logsRaw||[]).forEach(function(r){
@@ -491,11 +531,19 @@ function getSocialInsurance_(ym){
   if(!salaryItem)return 0;
   return Math.round(gv(salaryItem,ym)*0.15);
 }
-function _getV(id,ym){return mode==='yosan'?((budgetVals[id]&&budgetVals[id][ym])||0):((vals[id]&&vals[id][ym])||0);}
+function _getV(id,ym){
+  // ★ マスタ自動連動値（リース・自動車税）
+  if(window._vehicleLeaseMap&&Object.prototype.hasOwnProperty.call(window._vehicleLeaseMap,id))return window._vehicleLeaseMap[id]||0;
+  if(id==='auto_car_tax')return window._vehicleTaxMonth||0;
+  return mode==='yosan'?((budgetVals[id]&&budgetVals[id][ym])||0):((vals[id]&&vals[id][ym])||0);
+}
 function gv(item,ym){
   if(item.g)return(item.subs||[]).reduce((s,b)=>s+_getV(b.id,ym),0);
   if(item.code==='sga_social_ins')return getSocialInsurance_(ym);
   if(item.code==='cogs_insurance')return window._vehicleIns||0;
+  // ★ マスタ自動: 車検（÷24）・半年点検（÷6）
+  if(item.code==='cogs_inspection')return mode==='yosan'?_getV(item.id,ym):(window._vehicleShakenMonth||0);
+  if(item.code==='cogs_maintenance')return mode==='yosan'?_getV(item.id,ym):(window._vehicleTenkenMonth||0);
   if(_isMaintCode(item.code))return mode==='yosan'?_getV(item.id,ym):_maintVal(item.code,ym);
   return _getV(item.id,ym);
 }
