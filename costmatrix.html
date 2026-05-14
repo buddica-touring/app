@@ -162,6 +162,30 @@ function getAuthToken(){
   return SK;
 }
 const AUTH_HEADERS=()=>({apikey:SK,Authorization:'Bearer '+getAuthToken()});
+// 認証状態を画面に表示（読込前・読込後）
+function showAuthStatus(){
+  const tok=getAuthToken();
+  const isAuth=tok!==SK;
+  let el=document.getElementById('cm_auth_status');
+  if(!el){
+    el=document.createElement('div');
+    el.id='cm_auth_status';
+    el.style.cssText='position:fixed;top:8px;right:8px;z-index:9999;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.15);font-family:sans-serif';
+    document.body.appendChild(el);
+  }
+  if(isAuth){
+    el.style.cssText+=';background:#dcfce7;color:#15803d;border:1px solid #86efac';
+    el.textContent='🟢 認証OK・データ読込可';
+    setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 1s';},3000);
+    setTimeout(()=>{el.remove();},5000);
+  }else{
+    el.style.cssText+=';background:#fee2e2;color:#991b1b;border:2px solid #dc2626;cursor:pointer';
+    el.innerHTML='🔴 未ログイン<br><span style="font-weight:400">親APPにログインしてください</span>';
+    el.onclick=()=>{window.open('./','_blank');};
+  }
+}
+document.addEventListener('DOMContentLoaded',showAuthStatus);
+setTimeout(showAuthStatus,1500);
 const MS=['01','02','03','04','05','06','07','08','09','10','11','12'];
 
 // デフォルト構造
