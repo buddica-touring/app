@@ -151,41 +151,40 @@ if (window.self !== window.top) {
 <script>
 const SU='https://ggqugvyskyiblxiycpci.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
-// 親APP（/app/）のSupabase認証セッションをlocalStorage経由で共有（RLS通過用）
+// ★ NHA成功パターンを完全コピー（2026-05-14）：親APP の Supabase Auth トークンを共有（RLS authenticated 経路）
+// Supabase JS V2 の localStorage 形式が複数あり得るので全フォーマットに対応
+function _extractAccessToken(d){
+  if(!d)return null;
+  if(typeof d==='string')return d;
+  if(d.access_token)return d.access_token;
+  if(d.currentSession&&d.currentSession.access_token)return d.currentSession.access_token;
+  if(d.session&&d.session.access_token)return d.session.access_token;
+  if(Array.isArray(d)&&typeof d[0]==='string')return d[0];
+  return null;
+}
 function getAuthToken(){
   try{
-    const keys=Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
-    for(const k of keys){
-      try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.access_token)return v.access_token;}catch(e){}
+    const v=localStorage.getItem('sb-ggqugvyskyiblxiycpci-auth-token');
+    if(v){
+      try{const tok=_extractAccessToken(JSON.parse(v));if(tok)return tok;}catch(e){}
     }
-  }catch(e){}
-  return SK;
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith('sb-')&&k.indexOf('auth-token')>=0){
+        const val=localStorage.getItem(k);
+        if(!val)continue;
+        try{const tok=_extractAccessToken(JSON.parse(val));if(tok)return tok;}catch(e){}
+      }
+    }
+    return null;
+  }catch(e){return null;}
 }
-const AUTH_HEADERS=()=>({apikey:SK,Authorization:'Bearer '+getAuthToken()});
-// 認証状態を画面に表示（読込前・読込後）
-function showAuthStatus(){
-  const tok=getAuthToken();
-  const isAuth=tok!==SK;
-  let el=document.getElementById('cm_auth_status');
-  if(!el){
-    el=document.createElement('div');
-    el.id='cm_auth_status';
-    el.style.cssText='position:fixed;top:8px;right:8px;z-index:9999;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.15);font-family:sans-serif';
-    document.body.appendChild(el);
-  }
-  if(isAuth){
-    el.style.cssText+=';background:#dcfce7;color:#15803d;border:1px solid #86efac';
-    el.textContent='🟢 認証OK・データ読込可';
-    setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 1s';},3000);
-    setTimeout(()=>{el.remove();},5000);
-  }else{
-    el.style.cssText+=';background:#fee2e2;color:#991b1b;border:2px solid #dc2626;cursor:pointer';
-    el.innerHTML='🔴 未ログイン<br><span style="font-weight:400">親APPにログインしてください</span>';
-    el.onclick=()=>{window.open('./','_blank');};
-  }
+let _authWarned=false;
+function authHeader(){
+  const t=getAuthToken();
+  if(!t&&!_authWarned){_authWarned=true;console.warn('[costmatrix] No auth token - data may be empty under RLS');}
+  return 'Bearer '+(t||SK);
 }
-document.addEventListener('DOMContentLoaded',showAuthStatus);
-setTimeout(showAuthStatus,1500);
 const MS=['01','02','03','04','05','06','07','08','09','10','11','12'];
 
 // デフォルト構造
@@ -340,33 +339,11 @@ function setMode(m){collectInputs();mode=m;localStorage.setItem('cm_last_mode',m
 function setTheme(t){collectInputs();theme=t;localStorage.setItem('cm_last_theme',t);['pl','cf'].forEach(id=>{var el=document.getElementById('cm_theme_'+id);if(el)el.className='sbtn'+(theme===id?' on':'');});render();}
 function _modeLabel(){return mode==='yosan'?'📋 予算':mode==='jisseki'?'📊 実績':'📊 比較';}
 
-async function sbqA(t,qs){try{const r=await fetch(`${SU}/rest/v1/${t}?${qs}&limit=5000`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken()}});return await r.json();}catch(e){return[];}}
-async function sbg(t,k){try{const r=await fetch(`${SU}/rest/v1/${t}?key=eq.${encodeURIComponent(k)}&select=key,value`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken()}});const d=await r.json();return d&&d[0]?d[0].value:null;}catch(e){return null;}}
+async function sbqA(t,qs){try{const r=await fetch(`${SU}/rest/v1/${t}?${qs}&limit=5000`,{headers:{apikey:SK,'Authorization':authHeader()}});return await r.json();}catch(e){return[];}}
+async function sbg(t,k){try{const r=await fetch(`${SU}/rest/v1/${t}?key=eq.${encodeURIComponent(k)}&select=key,value`,{headers:{apikey:SK,'Authorization':authHeader()}});const d=await r.json();return d&&d[0]?d[0].value:null;}catch(e){return null;}}
 async function sbu(t,k,v){
-  // bt_app_settings は authenticated でのみ INSERT/UPDATE 可（getAuthTokenでセッショントークン使用）
-  const tok=getAuthToken();
-  const isAnon=tok===SK;
-  try{
-    const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v})});
-    if(!r.ok){
-      const txt=await r.text();
-      console.error('[sbu] save failed',{key:k,status:r.status,body:txt,authMode:isAnon?'ANON(NG)':'AUTH(OK)'});
-      // ユーザーに見えるエラー表示
-      if(!window._sbuErrShown){
-        window._sbuErrShown=true;
-        const msg=isAnon
-          ? '⚠️ 保存に失敗しました（未ログイン）\n親APPでログインしてから再度お試しください'
-          : '⚠️ 保存に失敗しました\nHTTP'+r.status+': '+txt.slice(0,200);
-        alert(msg);
-        setTimeout(()=>{window._sbuErrShown=false;},5000);
-      }
-      throw new Error('save failed: '+r.status);
-    }
-    return r;
-  }catch(e){
-    console.error('[sbu] exception',e);
-    throw e;
-  }
+  // ★ NHA 成功パターン完全コピー：authHeader() でセッショントークン経由
+  return fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{apikey:SK,'Authorization':authHeader(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v})});
 }
 
 async function init(){
