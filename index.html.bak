@@ -756,7 +756,7 @@ const DB = {
     async deleteLog(id){if(!sb){const ls=(DB.hm._lsLoad("logs")||[]).filter(l=>l.id!==id);DB.hm._lsSave("logs",ls);return;}await sb.from("bt_logs").delete().eq("id",id);},
     async fetchClasses(){
       if(!sb){const ls=DB.hm._lsLoad("classes");if(ls&&ls.length)return ls;if(typeof INIT_CLASSES!=="undefined")return INIT_CLASSES.map(c=>({id:c.type,store_id:"takamatsu",name:c.label}));return[];}
-      const{data,error}=await sb.from("bt_classes").select("*").eq("store_id",DB.hm.STORE);if(error){dbLog("hm.classes",false,error.message);return[];}return data||[];
+      const{data,error}=await sb.from("bt_classes").select("*").eq("store_id",DB.hm.STORE).order("sort_order",{ascending:true});if(error){dbLog("hm.classes",false,error.message);return[];}return data||[];
     },
     async saveClass(cls){if(!sb){const ls=DB.hm._lsLoad("classes")||[];const idx=ls.findIndex(c=>c.id===cls.id);if(idx>=0)ls[idx]=cls;else ls.push(cls);DB.hm._lsSave("classes",ls);return;}const{error}=await sb.from("bt_classes").upsert(cls,{onConflict:"id"});if(error)dbLog("hm.saveCls",false,error.message);},
     async deleteClass(id){if(!sb){const ls=(DB.hm._lsLoad("classes")||[]).filter(c=>c.id!==id);DB.hm._lsSave("classes",ls);return;}await sb.from("bt_classes").delete().eq("id",id);},
@@ -6565,7 +6565,7 @@ function VehicleProfitTable({u,nowYm,vehicleCosts,dbVehs}){
       tnk:Math.round(Number(veh.tenken_cost||0)/6)
     };
   };
-  const classOrder=["A","B","C","D","F","H","S"];
+  const classOrder=["AA","A","B","C","S","H","F"];
   const grouped={};
   Object.entries(u.perVeh).forEach(([code,d])=>{
     const tp=d.type||"?";if(!grouped[tp])grouped[tp]=[];
@@ -6671,8 +6671,8 @@ function VehicleProfitTable({u,nowYm,vehicleCosts,dbVehs}){
 /* ===== クラス別売上カード ===== */
 function ClsRevCard({u,nowYm}){
   if(!u)return null;
-  const CLS_C={A:"#7c3aed",B:"#0284c7",C:"#059669",D:"#374151",F:"#db2877",H:"#64748b",S:"#d97706"};
-  const classOrder=["A","B","C","D","F","H","S"];
+  const CLS_C={AA:"#facc15",A:"#dc2626",B:"#2563eb",C:"#16a34a",S:"#ea580c",H:"#475569",F:"#7c3aed"};
+  const classOrder=["AA","A","B","C","S","H","F"];
   const clsMap={};
   Object.values(u.perVeh).forEach(d=>{
     const t=d.type||"?";
@@ -6732,8 +6732,8 @@ function VehicleCostManager({vehicles,store}){
     await sb.from(tbl).upsert({key:"vehicle_costs",value:JSON.stringify(costs)},{onConflict:"key"});
     setSaving(false);setSavedMsg("✅ 保存しました");setTimeout(()=>setSavedMsg(""),2500);
   };
-  const CLS_C={A:"#7c3aed",B:"#0284c7",C:"#059669",D:"#374151",F:"#db2877",H:"#64748b",S:"#d97706"};
-  const CLS_ORDER=["A","B","C","D","F","H","S"];
+  const CLS_C={AA:"#facc15",A:"#dc2626",B:"#2563eb",C:"#16a34a",S:"#ea580c",H:"#475569",F:"#7c3aed"};
+  const CLS_ORDER=["AA","A","B","C","S","H","F"];
   const grouped={};
   vehicles.forEach(v=>{const t=v.type||"?";if(!grouped[t])grouped[t]=[];grouped[t].push(v);});
   const inpS={width:"100%",border:"1px solid #e2e8f0",borderRadius:4,padding:"3px 6px",fontSize:11,textAlign:"right",background:"#fffbeb"};
@@ -11569,7 +11569,7 @@ function VacancyWidget({data,vehicles,fleet,maintenance}){
       else if(washCodes.has(v.code))byClass[c].wash++;
       else byClass[c].vacantCodes.push(v.code);
     });
-    const order=["A","B","C","D","F","H","S"];
+    const order=["AA","A","B","C","S","H","F"];
     const allClasses=[...new Set([...order,...Object.keys(byClass)])].filter(c=>byClass[c]);
     const rows=allClasses.map(c=>{
       const b=byClass[c];
@@ -20305,7 +20305,7 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.33-BT";
+const APP_VERSION="v1.0.34-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
