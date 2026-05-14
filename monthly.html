@@ -535,8 +535,11 @@ async function sbq(tbl,qs){
   return all;
 }
 async function sbgkey(tbl,key){
-  const r=await fetch(`${SU}/rest/v1/${tbl}?key=eq.${encodeURIComponent(key)}&select=key,value`,{headers:{apikey:SK,'Authorization':authHeader()}});
-  const d=await r.json();return d&&d[0]?d[0].value:null;
+  try{
+    const r=await fetch(`${SU}/rest/v1/${tbl}?key=eq.${encodeURIComponent(key)}&select=key,value`,{headers:{apikey:SK,'Authorization':authHeader()}});
+    const d=await r.json();
+    return Array.isArray(d)&&d[0]?d[0].value:null;
+  }catch(e){return null;}
 }
 
 async function load(){

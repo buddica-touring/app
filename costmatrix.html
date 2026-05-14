@@ -340,8 +340,8 @@ function setMode(m){collectInputs();mode=m;localStorage.setItem('cm_last_mode',m
 function setTheme(t){collectInputs();theme=t;localStorage.setItem('cm_last_theme',t);['pl','cf'].forEach(id=>{var el=document.getElementById('cm_theme_'+id);if(el)el.className='sbtn'+(theme===id?' on':'');});render();}
 function _modeLabel(){return mode==='yosan'?'📋 予算':mode==='jisseki'?'📊 実績':'📊 比較';}
 
-async function sbqA(t,qs){try{const r=await fetch(`${SU}/rest/v1/${t}?${qs}&limit=5000`,{headers:{apikey:SK,'Authorization':authHeader()}});return await r.json();}catch(e){return[];}}
-async function sbg(t,k){try{const r=await fetch(`${SU}/rest/v1/${t}?key=eq.${encodeURIComponent(k)}&select=key,value`,{headers:{apikey:SK,'Authorization':authHeader()}});const d=await r.json();return d&&d[0]?d[0].value:null;}catch(e){return null;}}
+async function sbqA(t,qs){try{const r=await fetch(`${SU}/rest/v1/${t}?${qs}&limit=5000`,{headers:{apikey:SK,'Authorization':authHeader()}});const d=await r.json();return Array.isArray(d)?d:[];}catch(e){return[];}}
+async function sbg(t,k){try{const r=await fetch(`${SU}/rest/v1/${t}?key=eq.${encodeURIComponent(k)}&select=key,value`,{headers:{apikey:SK,'Authorization':authHeader()}});const d=await r.json();return Array.isArray(d)&&d[0]?d[0].value:null;}catch(e){return null;}}
 async function sbu(t,k,v){
   // ★ NHA 成功パターン完全コピー：authHeader() でセッショントークン経由
   return fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{apikey:SK,'Authorization':authHeader(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v})});
