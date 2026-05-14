@@ -386,23 +386,45 @@ async function init(){
   window._vehicleTaxMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.car_tax)||0),0)/12); // 年額÷12
   window._vehicleShakenMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.shaken_cost)||0),0)/24); // 2年周期÷24
   window._vehicleTenkenMonth=Math.round(_vehs.reduce((s,v)=>s+(Number(v.tenken_cost)||0),0)/6); // 半年×2/年→÷6
-  // ★ リース: 車両ごとに sub を動的生成（_auto:'lease' で保存対象外フラグ）
+  // ★ クラス定義取得（bt_classes でクラス名・色・順序を取得）
+  let _classDefs=[];
+  try{
+    const r=await fetch(`${SU}/rest/v1/bt_classes?store_id=eq.tkm&order=sort_order&select=*`,{headers:{apikey:SK,'Authorization':authHeader()}});
+    const d=await r.json();
+    if(Array.isArray(d))_classDefs=d;
+  }catch(e){}
+  const _classMap={};_classDefs.forEach(c=>{_classMap[c.id]={name:c.name,color:c.color,sort:c.sort_order};});
+  // ★ リース: 車両ごとに sub を動的生成 + クラス別グルーピング
   window._vehicleLeaseMap={};
-  const _leaseSubs=_vehs.map(v=>{
+  // クラス順 → 車両コード順 でソート
+  const _sortedVehs=[..._vehs].sort((a,b)=>{
+    const sa=_classMap[a.type]?.sort||999;
+    const sb=_classMap[b.type]?.sort||999;
+    if(sa!==sb)return sa-sb;
+    return (a.code||'').localeCompare(b.code||'');
+  });
+  const _leaseSubs=[];
+  let _prevClass=null;
+  _sortedVehs.forEach(v=>{
+    // クラスが変わったらヘッダ追加
+    if(v.type!==_prevClass){
+      const cls=_classMap[v.type]||{name:v.type||'未分類',color:'#64748b'};
+      _leaseSubs.push({id:'cls_header_'+v.type,n:`${v.type} ${cls.name}`,_auto:'class_header',_color:cls.color});
+      _prevClass=v.type;
+    }
     const id='lease_'+v.code;
     window._vehicleLeaseMap[id]=Number(v.lease_monthly)||0;
     const nm=v.name||v.code;
     const no=v.plate_no?' '+v.plate_no:'';
-    return {id,n:nm+no,_auto:'lease'};
+    _leaseSubs.push({id,n:nm+no,_auto:'lease'});
   });
   // ST.cg.c1 のサブを動的置換（リース/ローン合計）
+  // ★ 自動連動以外の legacy hardcoded subs(A,B,C,D,E,c1a-e等)は破棄。マスター連動のみ表示
   (ST||[]).forEach(function(sec){
     if(sec.id!=='cg')return;
     (sec.items||[]).forEach(function(item){
       if(item.code==='cogs_lease'){
-        // 既存の自動subを除外、手動subのみ残す（カスタム追加対応）
-        const manual=(item.subs||[]).filter(s=>!s._auto);
-        item.subs=_leaseSubs.concat(manual);
+        item.subs=_leaseSubs;
         item.g=true;
       }
     });
@@ -997,16 +1019,29 @@ function render(){
         h+=`<td style="font-weight:700;color:#374151"><span id="an_${item.id}">${fmt(ga(item))}</span></td></tr>`;
         // サブ行（折りたたみ時は非表示）
         if(!icCollapsed)(item.subs||[]).forEach(sub=>{
-          h+=`<tr class="sr"><td class="ic"><div class="nm-cell" style="padding-left:4px">
+          // ★ クラスヘッダ行（_auto:'class_header'）はラベル行として描画
+          if(sub._auto==='class_header'){
+            h+=`<tr class="sr"><td colspan="${MS.length+2}" style="padding:5px 10px 4px 18px;background:linear-gradient(90deg,${sub._color||'#94a3b8'}15,#fff);border-left:3px solid ${sub._color||'#94a3b8'};font-size:10px;font-weight:800;color:${sub._color||'#374151'};letter-spacing:.05em">▸ ${sub.n}</td></tr>`;
+            return;
+          }
+          // ★ 自動連動 sub は読み取り専用表示
+          const isAuto=!!sub._auto;
+          const padL=isAuto?12:4;
+          h+=`<tr class="sr"><td class="ic"><div class="nm-cell" style="padding-left:${padL}px">
             <span style="color:#94a3b8;flex-shrink:0;margin-right:2px">└</span>
-            <span class="nm-txt" ondblclick="editNm('${sec.id}','${item.id}','${sub.id}',this)">${sub.n}</span>
-            <div class="nm-ops">
-              <button class="op del" onclick="delItem('${sec.id}','${item.id}','${sub.id}')">✕</button>
-            </div>
+            <span class="nm-txt"${isAuto?'':` ondblclick="editNm('${sec.id}','${item.id}','${sub.id}',this)"`}>${sub.n}${isAuto?' <span style="font-size:9px;color:#6366f1;font-weight:600;background:#eef2ff;padding:1px 4px;border-radius:3px;margin-left:4px">🔗マスタ</span>':''}</span>
+            ${isAuto?'':`<div class="nm-ops"><button class="op del" onclick="delItem('${sec.id}','${item.id}','${sub.id}')">✕</button></div>`}
           </div></td>`;
-          MS.forEach(m=>{const ym=`${year}-${m}`;const v=_getV(sub.id,ym);const dv=v>0?v.toLocaleString():'';
-            h+=`<td><input type="text" inputmode="numeric" class="ci" id="inp_${sub.id}_${m}" data-id="${sub.id}" data-ym="${ym}" value="${dv}" oninput="(mode==='yosan'?onchBudget:onch)('${sub.id}','${ym}',this.value)"></td>`;});
-          h+=`<td style="color:#64748b"><span id="an_${sub.id}">${fmt(ga({id:sub.id,g:false}))}</span></td></tr>`;
+          if(isAuto){
+            // 自動値: 全月同額表示・入力欄なし
+            MS.forEach(m=>{const ym=`${year}-${m}`;const v=_getV(sub.id,ym);
+              h+=`<td style="text-align:right;padding:4px 6px;color:#6366f1;font-weight:600;background:#f8fafc">${v>0?'¥'+v.toLocaleString():'—'}</td>`;});
+            h+=`<td style="color:#374151;font-weight:700">${fmt(ga({id:sub.id,g:false}))}</td></tr>`;
+          }else{
+            MS.forEach(m=>{const ym=`${year}-${m}`;const v=_getV(sub.id,ym);const dv=v>0?v.toLocaleString():'';
+              h+=`<td><input type="text" inputmode="numeric" class="ci" id="inp_${sub.id}_${m}" data-id="${sub.id}" data-ym="${ym}" value="${dv}" oninput="(mode==='yosan'?onchBudget:onch)('${sub.id}','${ym}',this.value)"></td>`;});
+            h+=`<td style="color:#64748b"><span id="an_${sub.id}">${fmt(ga({id:sub.id,g:false}))}</span></td></tr>`;
+          }
         });
       }else if(item.code==='sga_social_ins'){
         // 社会保険：給与合計×15% 自動計算（読み取り専用）
