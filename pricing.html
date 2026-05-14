@@ -830,9 +830,12 @@ function renderSettings() {
     </div>`;
 
     const segNames = state.classNames || CLASS_NAMES;
+    // AA（ハイエンド）セグメントでは「タイプAA」固定表示。プロパーはスロット文字（A/B/C/H/S/F）
+    const isHighend = state.segment === 'highend';
     let html = '<thead><tr><th style="background:#374151;color:white;padding:4px 6px;border:1px solid #d1d5db;text-align:center;font-size:9pt">ティア＼クラス</th>';
     CLASSES.forEach(c => {
-      html += `<th style="background:#1e3a8a;color:white;padding:3px 4px;border:1px solid #d1d5db;text-align:center;font-size:8.5pt;line-height:1.2"><span style="opacity:.75;font-size:7.5pt">タイプ${c}</span><br><input type="text" data-classname="${c}" value="${segNames[c]||c}" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:2px 5px;border-radius:3px;text-align:center;font-size:9pt;font-weight:700;width:95%;margin-top:1px" placeholder="${c}"></th>`;
+      const typeLabel = isHighend ? 'AA' : c;
+      html += `<th style="background:#1e3a8a;color:white;padding:3px 4px;border:1px solid #d1d5db;text-align:center;font-size:8.5pt;line-height:1.2"><span style="opacity:.75;font-size:7.5pt">タイプ${typeLabel}</span><br><input type="text" data-classname="${c}" value="${segNames[c]||c}" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:2px 5px;border-radius:3px;text-align:center;font-size:9pt;font-weight:700;width:95%;margin-top:1px" placeholder="${isHighend?'ブランド名':c}"></th>`;
     });
     html += '</tr></thead><tbody>';
     ['A','B','C'].forEach(t => {
@@ -887,7 +890,7 @@ function renderSettings() {
           state.monthlyTierClassPrices[ym][t][c] = v;
         }
         saveState(); renderSettings(); renderCalendar();
-        showToast(`${y}年${m}月 ${t}日 タイプ${c} = ${formatPrice(v)}`);
+        showToast(`${y}年${m}月 ${t}日 タイプ${state.segment==='highend'?'AA':c}（${(state.classNames||{})[c]||c}）= ${formatPrice(v)}`);
       });
     });
   }
