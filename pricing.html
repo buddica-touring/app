@@ -408,11 +408,12 @@ body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:#f3f
 // ============================================================
 // 定数
 // ============================================================
-const STORAGE_KEY = 'bt_takamatsu_seasonal_v5';
-const CLASSES = ['A','B','C','D','E','F'];
-const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'CSUV',D:'セダン',E:'SUV',F:'コンパクト'};
-const CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',D:'カムリ等',E:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
-const DEFAULT_BASE = {A:18000,B:12000,C:9500,D:10000,E:13000,F:7500};
+// v1.0.32-BT: クラスIDを車両管理と統一 — A/B/C/H/S/F（D→H、E→S）
+const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
+const CLASSES = ['A','B','C','H','S','F'];
+const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
+const CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',H:'カムリ等',S:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
+const DEFAULT_BASE = {A:18000,B:12000,C:9500,H:10000,S:13000,F:7500};
 const DEFAULT_COEF = {A:1.50,B:1.00,C:0.80};
 const DEFAULT_WEIGHTS = {E:0.10,T:0.40,R:0.35,H:0.15};
 const DEFAULT_THRESHOLDS = {A:5.5,B:3.0};
@@ -438,11 +439,13 @@ function buildDefaultTierClassPrices(baseMap) {
   return r;
 }
 
-const DEFAULT_PROPER_CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'CSUV',D:'セダン',E:'SUV',F:'コンパクト'};
-const DEFAULT_PROPER_CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',D:'カムリ等',E:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
-const DEFAULT_HIGHEND_CLASS_NAMES = {A:'ベンツ',B:'ランボルギーニ',C:'ロールスロイス',D:'ベントレー',E:'フェラーリ',F:'ポルシェ'};
-const DEFAULT_HIGHEND_CLASS_EXAMPLES = {A:'GL500/S550',B:'ウルス/ウラカン',C:'ゴースト/ファントム',D:'コンチネンタル',E:'F8/SF90',F:'911/カイエン'};
-const DEFAULT_HIGHEND_BASE = {A:60000,B:80000,C:100000,D:70000,E:90000,F:50000};
+// プロパーセグメント — 車両管理クラスIDと統一（A/B/C/H/S/F）
+const DEFAULT_PROPER_CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
+const DEFAULT_PROPER_CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',H:'カムリ等',S:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
+// ハイエンドセグメント — 同じID体系に揃える（次フェーズで AA 統合検討）
+const DEFAULT_HIGHEND_CLASS_NAMES = {A:'ベンツ',B:'ランボルギーニ',C:'ロールスロイス',H:'ベントレー',S:'フェラーリ',F:'ポルシェ'};
+const DEFAULT_HIGHEND_CLASS_EXAMPLES = {A:'GL500/S550',B:'ウルス/ウラカン',C:'ゴースト/ファントム',H:'コンチネンタル',S:'F8/SF90',F:'911/カイエン'};
+const DEFAULT_HIGHEND_BASE = {A:60000,B:80000,C:100000,H:70000,S:90000,F:50000};
 
 function buildSegment(type) {
   if (type === 'proper') {
