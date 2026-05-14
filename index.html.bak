@@ -474,8 +474,8 @@ const DB = {
     return entries.length>0?entries[0].hourly_wage:null;
   },
   // --- 車両 ---
-  async fetchVehicles(){if(!sb)return null;const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return null;}dbLog("fetchVehicles",true,data.length+"件");return(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false}));},
-  async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
+  async fetchVehicles(){if(!sb)return null;const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return null;}dbLog("fetchVehicles",true,data.length+"件");return(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false}));},
+  async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
   async deleteVehicle(code){if(!sb)return;const{error}=await sb.from("bt_vehicles").delete().eq("code",code);if(error)dbLog("deleteVehicle",false,error.message);else dbLog("deleteVehicle",true,code);},
   // --- シフト ---
   _shiftsLsKey:"bt_shifts_backup",
@@ -3918,7 +3918,7 @@ function CSVPanel({onImport,onUpdatePlaces,dataCount,pendingPlaces,onSetPendingP
    車両管理画面
    ========================================== */
 function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicle,highlightVehicle,maintenance}){
-  const EMPTY={name:"",no:"",type:"A",grade:"",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:""};
+  const EMPTY={name:"",no:"",type:"A",grade:"",brand:"",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:""};
   const[modal,setModal]=useState(null);
   const[form,setForm]=useState(EMPTY);
   const[mTab,setMTab]=useState("basic");
@@ -3956,7 +3956,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
 
   const openAdd=()=>{setForm(EMPTY);setModal({mode:"add",v:null});setMTab("basic");setMaintRecs([]);setUpdType(null);setAddingService(false);};
   const openEdit=(v)=>{
-    setForm({name:v.name||"",no:v.no||"",type:v.type||"A",grade:v.grade||"",seats:v.seats||5,insuranceVeh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.insPrice||"",memo:v.memo||"",insuranceAnnual:Number(v.insuranceAnnual)||0,leaseMonthly:Number(v.leaseMonthly)||0,shakenCost:Number(v.shakenCost)||0,tenkenCost:Number(v.tenkenCost)||0,carTax:Number(v.carTax)||0,inspectionDueDate:v.inspectionDueDate||"",inspectionNextDate:v.inspectionNextDate||"",tenkenDueDate:v.tenkenDueDate||"",tenkenNextDate:v.tenkenNextDate||""});
+    setForm({name:v.name||"",no:v.no||"",type:v.type||"A",grade:v.grade||"",brand:v.brand||"",seats:v.seats||5,insuranceVeh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.insPrice||"",memo:v.memo||"",insuranceAnnual:Number(v.insuranceAnnual)||0,leaseMonthly:Number(v.leaseMonthly)||0,shakenCost:Number(v.shakenCost)||0,tenkenCost:Number(v.tenkenCost)||0,carTax:Number(v.carTax)||0,inspectionDueDate:v.inspectionDueDate||"",inspectionNextDate:v.inspectionNextDate||"",tenkenDueDate:v.tenkenDueDate||"",tenkenNextDate:v.tenkenNextDate||""});
     setModal({mode:"edit",v});setMTab("basic");setUpdType(null);setAddingService(false);
     loadMaint(v.code);
   };
@@ -3981,7 +3981,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
       }
       // 直接DBに保存して成否を確認
       if(sb&&vToSave){
-        const row={code:vToSave.code,name:vToSave.name,plate_no:vToSave.no,type:vToSave.type,grade:vToSave.grade||"",seats:vToSave.seats,insurance_veh:!!vToSave.insuranceVeh,year:vToSave.year||"",color:vToSave.color||"",equip:vToSave.equip||"",ins_price:vToSave.insPrice||"",memo:vToSave.memo||"",insurance_annual:Number(vToSave.insuranceAnnual)||0,lease_monthly:Number(vToSave.leaseMonthly)||0,shaken_cost:Number(vToSave.shakenCost)||0,tenken_cost:Number(vToSave.tenkenCost)||0,car_tax:Number(vToSave.carTax)||0,oil_interval_km:Number(vToSave.oilIntervalKm)||5000,inspection_due_date:vToSave.inspectionDueDate||null,inspection_next_date:vToSave.inspectionNextDate||null,tenken_due_date:vToSave.tenkenDueDate||null,tenken_next_date:vToSave.tenkenNextDate||null,active:vToSave.active!==false};
+        const row={code:vToSave.code,name:vToSave.name,plate_no:vToSave.no,type:vToSave.type,grade:vToSave.grade||"",brand:vToSave.brand||"",seats:vToSave.seats,insurance_veh:!!vToSave.insuranceVeh,year:vToSave.year||"",color:vToSave.color||"",equip:vToSave.equip||"",ins_price:vToSave.insPrice||"",memo:vToSave.memo||"",insurance_annual:Number(vToSave.insuranceAnnual)||0,lease_monthly:Number(vToSave.leaseMonthly)||0,shaken_cost:Number(vToSave.shakenCost)||0,tenken_cost:Number(vToSave.tenkenCost)||0,car_tax:Number(vToSave.carTax)||0,oil_interval_km:Number(vToSave.oilIntervalKm)||5000,inspection_due_date:vToSave.inspectionDueDate||null,inspection_next_date:vToSave.inspectionNextDate||null,tenken_due_date:vToSave.tenkenDueDate||null,tenken_next_date:vToSave.tenkenNextDate||null,active:vToSave.active!==false};
         const{error}=await sb.from("bt_vehicles").upsert(row,{onConflict:"code"});
         if(error)throw new Error(error.message);
         // ★ 保存成功後にDBから再取得してローカルstateを確実に更新
@@ -4057,7 +4057,10 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
           ?<div style={{border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}}>
             {g.items.map((v,i)=>{const ks=getKpiStatus(v.code);const mc2=Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12);return<div key={v.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#fafafa",outline:highlightVehicle===v.code?"2px solid #fbbf24":"none"}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>{v.name}</div>
+                <div style={{fontSize:13,fontWeight:700,color:"#1e293b",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  {v.type==="AA"&&v.brand&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:5,background:"linear-gradient(135deg,#fef3c7,#fde68a)",color:"#92400e",fontWeight:900,letterSpacing:.5,border:"1px solid #facc15"}}>🏎️ {v.brand}</span>}
+                  <span>{v.name}</span>
+                </div>
                 <div style={{display:"flex",gap:6,alignItems:"center",marginTop:3,flexWrap:"wrap"}}>
                   <span style={{fontSize:12,fontFamily:"monospace",color:"#2563eb",fontWeight:700}}>{v.no}</span>
                   {v.year&&<span style={{fontSize:10,color:"#94a3b8"}}>{v.year}年式</span>}
@@ -4081,8 +4084,8 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
                 {["クラス","車種名","グレード","ナンバー","定員","年式","稼働","保険","月次原価",""].map((h,i)=><th key={i} style={{padding:"6px 10px",textAlign:i>5?"center":"left",fontSize:10,fontWeight:700,color:i===8?"#d97706":"#64748b",borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}
               </tr></thead>
               <tbody>{g.items.map((v,i)=>{const ks=getKpiStatus(v.code);return<tr key={v.id} style={{background:i%2===0?"#fff":"#fafafa",outline:highlightVehicle===v.code?"2px solid #fbbf24":"none"}}>
-                <td style={{padding:"7px 10px",textAlign:"center"}}><span style={{fontSize:11,fontWeight:900,padding:"2px 8px",borderRadius:6,background:"#dbeafe",color:"#1e40af"}}>{v.type}</span></td>
-                <td style={{padding:"7px 10px",fontWeight:600}}>{v.name}</td>
+                <td style={{padding:"7px 10px",textAlign:"center"}}><span style={{fontSize:11,fontWeight:900,padding:"2px 8px",borderRadius:6,background:v.type==="AA"?"#fef3c7":"#dbeafe",color:v.type==="AA"?"#92400e":"#1e40af"}}>{v.type}</span></td>
+                <td style={{padding:"7px 10px",fontWeight:600}}>{v.type==="AA"&&v.brand&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:5,background:"linear-gradient(135deg,#fef3c7,#fde68a)",color:"#92400e",fontWeight:900,marginRight:6,border:"1px solid #facc15"}}>🏎️ {v.brand}</span>}{v.name}</td>
                 <td style={{padding:"7px 10px",color:"#64748b",fontSize:11}}>{v.grade||"-"}</td>
                 <td style={{padding:"7px 10px",fontFamily:"monospace",color:"#2563eb",fontWeight:700}}>{v.no}</td>
                 <td style={{padding:"7px 10px"}}>{v.seats}名</td>
@@ -4124,8 +4127,24 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
           {mTab==="basic"&&<div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={lS}>クラス</label><select value={form.type} onChange={e=>upF("type",e.target.value)} style={fS}>{vehicleClasses.map(c=><option key={c.type} value={c.type}>{c.type} — {c.label}</option>)}</select></div>
-              <div><label style={lS}>車種名</label><input value={form.name} onChange={e=>upF("name",e.target.value)} style={fS} placeholder="アルファード①"/></div>
-              <div><label style={lS}>グレード</label><input value={form.grade} onChange={e=>upF("grade",e.target.value)} style={fS} placeholder="2.5S Cパッケージ"/></div>
+              {form.type==="AA"
+                ? <div><label style={{...lS,color:"#b45309",fontWeight:700}}>🏎️ ブランド <span style={{fontWeight:400,color:"#92400e"}}>(必須)</span></label>{(()=>{
+                    // pricing.html のハイエンド AA セグメント classNames から候補を読み込む
+                    let aaBrands=[];
+                    try{
+                      const raw=localStorage.getItem("bt_takamatsu_seasonal_v6");
+                      if(raw){const st=JSON.parse(raw);const hi=st&&st.segments&&st.segments.highend;if(hi&&hi.classNames){aaBrands=Object.values(hi.classNames).filter(Boolean);}}
+                    }catch(e){}
+                    if(aaBrands.length===0)aaBrands=["ベンツ","ランボルギーニ","ロールスロイス","ベントレー","フェラーリ","ポルシェ"];
+                    return <select value={form.brand||""} onChange={e=>upF("brand",e.target.value)} style={{...fS,borderColor:form.brand?"#d1d5db":"#dc2626",background:form.brand?"#fff":"#fef2f2"}}>
+                      <option value="">— 選択してください —</option>
+                      {aaBrands.map(b=><option key={b} value={b}>{b}</option>)}
+                    </select>;
+                  })()}</div>
+                : <div><label style={lS}>車種名</label><input value={form.name} onChange={e=>upF("name",e.target.value)} style={fS} placeholder="アルファード①"/></div>
+              }
+              {form.type==="AA"&&<div style={{gridColumn:"1/-1"}}><label style={lS}>車種・モデル名</label><input value={form.name} onChange={e=>upF("name",e.target.value)} style={fS} placeholder="例: Mercedes GL500 / Lamborghini Urus"/></div>}
+              <div><label style={lS}>グレード</label><input value={form.grade} onChange={e=>upF("grade",e.target.value)} style={fS} placeholder={form.type==="AA"?"S550 等":"2.5S Cパッケージ"}/></div>
               <div><label style={lS}>ナンバー</label><input value={form.no} onChange={e=>upF("no",e.target.value)} style={fS} placeholder="2340"/></div>
               <div><label style={lS}>定員</label><input type="number" value={form.seats} onChange={e=>upF("seats",e.target.value)} style={fS}/></div>
               <div><label style={lS}>年式</label><input value={form.year} onChange={e=>upF("year",e.target.value)} style={fS} placeholder="2022"/></div>
@@ -20305,7 +20324,7 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.35-BT";
+const APP_VERSION="v1.0.36-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
