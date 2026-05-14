@@ -1275,11 +1275,51 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 // ============================================================
+// Supabase: 車両マスター（bt_classes）からプロパー側のクラス名を動的取得
+// ============================================================
+const SB_URL = 'https://ggqugvyskyiblxiycpci.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+async function syncProperClassNamesFromMaster() {
+  try {
+    // 親APPのSupabase認証セッションを使う（同origin localStorage 共有）
+    let token = SB_ANON;
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+      for (const k of keys) {
+        try { const v = JSON.parse(localStorage.getItem(k)); if (v && v.access_token) { token = v.access_token; break; } } catch(e){}
+      }
+    } catch(e){}
+    const res = await fetch(`${SB_URL}/rest/v1/bt_classes?store_id=eq.tkm&order=sort_order.asc&select=*`,
+      { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + token, 'Accept-Profile': 'public' } });
+    if (!res.ok) { console.warn('[bt_classes fetch]', res.status); return; }
+    const rows = await res.json();
+    if (!rows || rows.length === 0) return;
+    // プロパー側のクラスID（AA以外）のみ反映
+    const properClasses = rows.filter(r => r.id !== 'AA');
+    const namesMap = {};
+    properClasses.forEach(r => { namesMap[r.id] = r.name; });
+    // state.segments.proper.classNames を上書き（DB が真実）
+    if (state.segments && state.segments.proper) {
+      state.segments.proper.classNames = { ...state.segments.proper.classNames, ...namesMap };
+    }
+    // 現在プロパー表示中なら即時反映
+    if (state.segment === 'proper') {
+      state.classNames = state.segments.proper.classNames;
+      if (typeof renderSettings === 'function') renderSettings();
+      if (typeof renderCalendar === 'function') renderCalendar();
+    }
+    console.log('[bt_classes synced]', namesMap);
+  } catch(e) { console.warn('[bt_classes sync error]', e); }
+}
+
+// ============================================================
 // 起動
 // ============================================================
 loadState();
 // 起動時はエントリ画面を表示（state.segment は null）
 backToEntry();
+// 車両マスターからクラス名を非同期取得（ログイン済みなら即反映）
+syncProperClassNamesFromMaster();
 
 </script>
 </body>
