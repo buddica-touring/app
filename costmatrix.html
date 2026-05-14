@@ -144,6 +144,7 @@ if (window.self !== window.top) {
       <span id="autosave_indicator" style="font-size:10px;color:#059669;font-weight:600"></span>
       <button class="save-btn" id="sb" onclick="saveAll()">💾 保存</button>
       <button class="save-btn" onclick="exportCSV()" style="background:#16a34a">📥 CSV</button>
+      <button class="save-btn" onclick="completeReset()" style="background:#dc2626" title="DB+ローカル全部リセット">🗑️ 完全リセット</button>
     </div>
   </div>
   <div id="ct" class="tbl-wrap"><p style="padding:40px;text-align:center;color:#94a3b8">読み込み中...</p></div>
@@ -538,9 +539,40 @@ function collectInputs(){
     }
   });
 }
+// 🗑️ 完全リセット（DB+localStorage全クリア）
+async function completeReset(){
+  if(!confirm('⚠️ コスト内訳の全データを削除します（DB + ブラウザキャッシュ）\n\n実行しますか？'))return;
+  try{
+    // 1. localStorage の cm_* キーを全削除
+    const removed=[];
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(k&&(k.startsWith('cm_')||k.startsWith('cost_'))){removed.push(k);localStorage.removeItem(k);}
+    }
+    console.log('[reset] localStorage cleared:',removed);
+    // 2. DB の cm_*/cost_*/cm_budget_* を削除
+    const patterns=['cm_tkm_*','cost_tkm_*','cm_budget_tkm_*','cm_spk_*','cost_spk_*','cm_budget_spk_*'];
+    for(const p of patterns){
+      await fetch(`${SU}/rest/v1/bt_app_settings?key=like.${encodeURIComponent(p)}`,{
+        method:'DELETE',
+        headers:{apikey:SK,'Authorization':authHeader()}
+      });
+    }
+    alert('✅ 完全リセット完了\nページを再読込します');
+    // 3. autoSaveを止めてからリロード（再書込み防止）
+    clearTimeout(autoSaveTimer);
+    clearTimeout(window._autoSaveT2);
+    window._cmResetting=true;
+    setTimeout(()=>{location.reload();},300);
+  }catch(e){
+    alert('❌ リセット失敗: '+e.message);
+    console.error('[reset]',e);
+  }
+}
 // 自動保存（入力確定のたびにSupabaseへ保存）
 var autoSaveTimer=null;
 function autoSave(){
+  if(window._cmResetting)return; // リセット中は保存しない
   clearTimeout(autoSaveTimer);
   autoSaveTimer=setTimeout(function(){
     var tbl='bt_app_settings';
