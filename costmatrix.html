@@ -434,17 +434,26 @@ function saveAccountCodeKeys(){
 }
 
 async function saveAll(){
+  collectInputs(); // 入力中の値もvals/budgetValsに集める
   const tbl='bt_app_settings';
   const btn=document.getElementById('sb');btn.textContent='保存中...';btn.disabled=true;
   const ps=[];
   MS.forEach(m=>{
     const ym=`${year}-${m}`;
+    // 実績データ (vals → cm_${store}_${ym})
     const mv={};
     ST.forEach(sec=>sec.items.forEach(item=>{
       if(item.g)(item.subs||[]).forEach(sub=>{if(vals[sub.id]&&vals[sub.id][ym])mv[sub.id]=vals[sub.id][ym];});
       else if(vals[item.id]&&vals[item.id][ym])mv[item.id]=vals[item.id][ym];
     }));
     if(Object.keys(mv).length>0)ps.push(sbu(tbl,`cm_${store}_${ym}`,JSON.stringify(mv)));
+    // 予算データ (budgetVals → cm_budget_${store}_${ym})
+    const bv={};
+    ST.forEach(sec=>sec.items.forEach(item=>{
+      if(item.g)(item.subs||[]).forEach(sub=>{if(budgetVals[sub.id]&&budgetVals[sub.id][ym])bv[sub.id]=budgetVals[sub.id][ym];});
+      else if(budgetVals[item.id]&&budgetVals[item.id][ym])bv[item.id]=budgetVals[item.id][ym];
+    }));
+    if(Object.keys(bv).length>0)ps.push(sbu(tbl,`cm_budget_${store}_${ym}`,JSON.stringify(bv)));
     const en=[];
     // 手動入力の予算コスト
     ST.forEach(sec=>sec.items.forEach(item=>{if(!item.code)return;const v=gv(item,ym);if(v>0)en.push({account_code:item.code,amount:v,note:item.n});}));
