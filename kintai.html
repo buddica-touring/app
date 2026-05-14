@@ -127,22 +127,22 @@ function calcOTHours(s,e){
   const[sh,sm]=s.split(':').map(Number);const[eh,em]=e.split(':').map(Number);
   const diff=(eh*60+em)-(sh*60+sm); return diff>0?Math.round(diff/60*10)/10:0;
 }
-function currentFiscalYear(){ const now=new Date(); return now.getMonth()>=3?now.getFullYear():now.getFullYear()-1; }
-function fiscalYearStart(fy){ return fy+'-04-01'; }
-function fiscalYearEnd(fy){ return (fy+1)+'-03-31'; }
+function currentFiscalYear(){ return new Date().getFullYear(); }
+function fiscalYearStart(y){ return y+'-01-01'; }
+function fiscalYearEnd(y){ return y+'-12-31'; }
 
 window.onload = async function(){
   const sy=document.getElementById('sel-year');
   const fy=currentFiscalYear();
   for(let y=fy-2;y<=fy+2;y++){
     const o=document.createElement('option');
-    o.value=y; o.textContent=y+'年度'; if(y===fy)o.selected=true; sy.appendChild(o);
+    o.value=y; o.textContent=y+'年'; if(y===fy)o.selected=true; sy.appendChild(o);
   }
   year=fy;
-  document.getElementById('year-tag').textContent=year+'年度';
+  document.getElementById('year-tag').textContent=year+'年';
   await loadAll();
 };
-function onYearChange(){ year=parseInt(document.getElementById('sel-year').value); document.getElementById('year-tag').textContent=year+'年度'; loadAll(); }
+function onYearChange(){ year=parseInt(document.getElementById('sel-year').value); document.getElementById('year-tag').textContent=year+'年'; loadAll(); }
 async function reload(){ await loadAll(); }
 
 async function loadAll(){
@@ -203,8 +203,8 @@ async function loadAll(){
   }catch(e){ document.getElementById('cards').innerHTML='<div class="empty">エラー: '+e.message+'</div>'; }
 }
 
-const MONTHS=['04','05','06','07','08','09','10','11','12','01','02','03'];
-const MONTH_LABELS=['4','5','6','7','8','9','10','11','12','1','2','3'];
+const MONTHS=['01','02','03','04','05','06','07','08','09','10','11','12'];
+const MONTH_LABELS=['1','2','3','4','5','6','7','8','9','10','11','12'];
 const JDOW=['日','月','火','水','木','金','土'];
 const ROWS=[
   {key:'希',label:'希望休',checkType:'yearly',color:'#d97706'},
