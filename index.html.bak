@@ -675,12 +675,10 @@ const DB = {
     _lsLoad(k){try{const s=localStorage.getItem(DB.hm._lsKey(k));return s?JSON.parse(s):null;}catch(e){return null;}},
     _lsSave(k,v){try{localStorage.setItem(DB.hm._lsKey(k),JSON.stringify(v));}catch(e){}},
     _buildCarsFromMaster(vehiclesState){
-      // 常にマスター車両＋送迎車から車両リストを生成（Single Source of Truth）
+      // 常にマスター車両（bt_vehicles）から車両リストを生成（Single Source of Truth）
+      // v1.0.40-BT: 送迎車（NHA固有のハイエース・コースター）撤去。BTは送迎なし運用
       const src=vehiclesState||INIT_VEHICLES||[];
       const cars=src.map(v=>({id:v.code,store_id:"takamatsu",name:v.name,plate:v.no,class_id:v.type,status:"active",notes:""}));
-      // 送迎車を末尾に追加（マスターにない場合）
-      const SHUTTLE=[{id:"HIA01",name:"ハイエース①",plate:"7062",class_id:"送迎車"},{id:"HIA02",name:"ハイエース②",plate:"1713",class_id:"送迎車"},{id:"COS01",name:"コースター",plate:"2515",class_id:"送迎車"}];
-      SHUTTLE.forEach(s=>{if(!cars.find(c=>c.plate===s.plate))cars.push({...s,store_id:"takamatsu",status:"active",notes:""});});
       // localStorageの状態(status,notes)をマージ
       const ls=DB.hm._lsLoad("cars")||[];
       const lsMap={};ls.forEach(c=>{lsMap[c.id||c.plate]=c;});
@@ -5001,13 +4999,9 @@ function VehicleMaintenanceBook({vehicles}){
   const getMaint=(plate)=>maintData[plate]||{inspectionDate:"",oilChangeDate:"",oilChangeKm:0,currentOdo:0,alert:0,odoMonthEnd:{},oilExchange:"",batteryExchange:"",tireExchange:"",tireCost:0,coolant:"",seatClean:"",glassCoat:"",bodyCoat:"",repairs:[{place:"",date:""},{place:"",date:""},{place:"",date:""}]};
   const updateMaint=(plate,updates)=>{const cur=getMaint(plate);const next={...maintData,[plate]:{...cur,...updates}};persistMaint(next);};
 
-  // 送迎車定義
-  const SHUTTLE=[{code:"HIA01",name:"ハイエース①",no:"7062",type:"送迎車"},{code:"HIA02",name:"ハイエース②",no:"1713",type:"送迎車"},{code:"COS01",name:"コースター",no:"2515",type:"送迎車"}];
-
-  // マスター車両＋送迎車 → 表示リスト（常にマスター基準）
+  // v1.0.40-BT: NHA固有の送迎車定義は撤去。BTはマスター車両（bt_vehicles）のみ
   const rows=useMemo(()=>{
     const list=[...(vehicles||[])];
-    SHUTTLE.forEach(s=>{if(!list.find(v=>v.no===s.no))list.push(s);});
     return list.map(v=>{const m=getMaint(v.no);return{...v,plate:v.no,classCode:v.type,vehicleCode:v.code?.replace(/\d+$/,"")||v.name,...m};});
   },[vehicles,maintData]);
 
@@ -19571,7 +19565,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -19596,7 +19590,7 @@ function App(){
     </div>}
     <div style={{display:showOP?"none":"flex",flex:1,overflow:"hidden",flexDirection:"column"}}>
       <div className={"top-nav"+(tab==="top"?" hide-on-top":"")}>
-        {navItems.filter(n=>{const always=["top","import","vehicle","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
+        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
         <button onClick={()=>setTab("top")} style={{color:"#60a5fa"}}><span className="ico">🏠</span>TOP</button>
         {SB_ENABLED&&<button onClick={reloadAll} disabled={reloading===1} style={{background:reloading===2?"#d1fae5":"none",border:"none",cursor:reloading===1?"wait":"pointer",fontSize:14,padding:"2px 4px",borderRadius:6,opacity:reloading===1?0.5:1,transition:"background .3s"}}>{reloading===1?"⏳":reloading===2?"✅":"🔄"}</button>}
         {SB_ENABLED&&<SyncBadge connected={sbConnected} inline={true}/>}
@@ -19604,7 +19598,7 @@ function App(){
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
       <div className={"sidebar"+(tab==="top"?" hide-on-top":"")}>
         <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:14,marginBottom:8}}>O</div>
-        {navItems.filter(n=>{const always=["top","import","vehicle","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
+        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
         <button onClick={()=>setTab("top")} style={{marginTop:4,background:"linear-gradient(135deg,#1e40af,#2563eb)",color:"#fff",borderRadius:10}}><span className="ico">🏠</span><span style={{fontSize:8}}>TOP</span></button>
       </div>
       <div className="main-area" style={{flex:1,overflow:tab==="fleet"?"hidden":"auto",padding:tab==="fleet"?0:12,display:"flex",flexDirection:"column"}}>
@@ -19656,6 +19650,7 @@ function App(){
               ]},
               {title:"設定",color:"#64748b",items:[
                 {id:"vehicle",ico:"🔧",l:"車両",desc:"車両マスタ・クラス管理"},
+                {id:"vehicle_rank",ico:"🏆",l:"車両ランキング",desc:"全車両の月粗利・稼働率を点数化"},
               ]},
             ];
             return <div style={{maxWidth:700,margin:"0 auto",paddingBottom:20}}>
@@ -20281,6 +20276,7 @@ function App(){
           {tab==="fleet"&&<FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>}
           {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
+          {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt"/>}
           {tab==="dashboard"&&<PASGuard label="経営管理（オーナー専用）"><ManagementTab store="tkm"/></PASGuard>}
           {tab==="parking"&&<div style={{maxWidth:700,margin:"0 auto",textAlign:"center",padding:40}}>
             <div style={{fontSize:48,marginBottom:12}}>🅿️</div>
@@ -20305,7 +20301,275 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.39-BT";
+// ===== 🏆 車両ランキング（オーナー定義 v4 2026-05-14）=====
+// 6項目: ①合計売上 ②月平均売上 ③平均稼働率 ④固定費合計 ⑤予想粗利 月平均粗利
+// 期間: BUDDICAは予約データの最初の月から起点動的（予約が入ったら動く）
+// 点数化(100点): ①25 + ②15 + ③25 + ⑤35 = 100  ランク: S(80+)/A(60+)/B(40+)/C(20+)/D
+const KPI_PERIOD_START={spk:"2026-02",nha:"2026-04",bt:"2026-05"};
+const KPI_TABLE_MAP={spk:"vehicle_monthly_kpi",nha:"nha_vehicle_monthly_kpi",bt:"bt_vehicle_monthly_kpi"};
+function VehicleRankingTab({vehicles,data,fleet,store}){
+  const st=store||"spk";
+  let PERIOD_START=KPI_PERIOD_START[st]||"2026-02";
+  const KPI_TABLE=KPI_TABLE_MAP[st]||"vehicle_monthly_kpi";
+  const [kpiAll,setKpiAll]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [lastUpdate,setLastUpdate]=useState(new Date());
+  useEffect(()=>{
+    let alive=true;
+    const load=async()=>{
+      if(!sb){setLoading(false);return;}
+      try{
+        const{data:k}=await sb.from(KPI_TABLE).select("vehicle_code,year_month,active");
+        if(!alive)return;
+        setKpiAll(k||[]);
+      }catch(e){console.warn("[VehicleRanking]",e);}
+      if(alive){setLoading(false);setLastUpdate(new Date());}
+    };
+    load();
+    const iv=setInterval(load,5*60*1000);
+    return()=>{alive=false;clearInterval(iv);};
+  },[KPI_TABLE]);
+  const ranking=useMemo(()=>{
+    if(!vehicles||!vehicles.length)return{rows:[],classRows:[],period:"",months:0,empty:false};
+    const today=new Date();
+    const todayYM=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}`;
+    let effectiveStart=PERIOD_START;
+    if(st==="bt"){
+      const firstYms=(data||[]).filter(r=>r.status!=="cancelled"&&r.lendDate).map(r=>r.lendDate.slice(0,7)).sort();
+      if(firstYms.length===0)return{rows:[],classRows:[],period:"予約待ち",months:0,empty:true};
+      effectiveStart=firstYms[0];
+    }
+    const monthList=[];
+    let [cy,cm]=effectiveStart.split("-").map(Number);
+    const ey=today.getFullYear(),em=today.getMonth()+1;
+    while(cy<ey||(cy===ey&&cm<=em)){
+      monthList.push(`${cy}-${String(cm).padStart(2,"0")}`);
+      cm++;if(cm>12){cm=1;cy++;}
+    }
+    const n_months=monthList.length;
+    if(n_months<=0)return{rows:[],classRows:[],period:"",months:0,empty:false};
+    const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const activeResv=(data||[]).filter(r=>r.status!=="cancelled"&&r.lendDate&&r.lendDate>=effectiveStart+"-01"&&r.lendDate<=todayStr);
+    const resvMap={};activeResv.forEach(r=>{resvMap[r.id]=r;});
+    const vehStat={};
+    Object.entries(fleet||{}).forEach(([rid,vc])=>{
+      const r=resvMap[rid];if(!r)return;
+      const ld=r.lendDate,rd=r.returnDate;
+      if(!ld||!rd)return;
+      let d2=new Date(rd);if(d2>today)d2=today;
+      const d1=new Date(ld);
+      const days=Math.max(1,Math.floor((d2-d1)/86400000)+1);
+      if(!vehStat[vc])vehStat[vc]={cnt:0,rev:0,days:0};
+      vehStat[vc].cnt+=1;
+      vehStat[vc].rev+=Number(r.price)||0;
+      vehStat[vc].days+=days;
+    });
+    const kpiByMonth={};
+    (kpiAll||[]).forEach(k=>{
+      if(!kpiByMonth[k.year_month])kpiByMonth[k.year_month]={};
+      kpiByMonth[k.year_month][k.vehicle_code]=k.active;
+    });
+    const activeDaysByVeh={};
+    monthList.forEach(ym=>{
+      const [yy,mm]=ym.split("-").map(Number);
+      let daysInM;
+      if(yy===today.getFullYear()&&mm===today.getMonth()+1){daysInM=today.getDate();}
+      else{daysInM=new Date(yy,mm,0).getDate();}
+      const monthKpi=kpiByMonth[ym]||{};
+      (vehicles||[]).forEach(v=>{
+        if(!v.active)return;
+        const isActive=v.code in monthKpi?monthKpi[v.code]:true;
+        if(isActive){activeDaysByVeh[v.code]=(activeDaysByVeh[v.code]||0)+daysInM;}
+      });
+    });
+    const rows=(vehicles||[]).filter(v=>v.active).map(v=>{
+      const s=vehStat[v.code]||{cnt:0,rev:0,days:0};
+      const lease=Number(v.leaseMonthly||v.lease_monthly)||0;
+      const ins=Number(v.insuranceAnnual||v.insurance_annual)||0;
+      const shaken=(Number(v.shakenCost||v.shaken_cost)||0)/24;
+      const tenken=(Number(v.tenkenCost||v.tenken_cost)||0)/6;
+      const fixedMonthly=lease+ins+shaken+tenken;
+      const revTotal=s.rev;
+      const monthlyAvg=revTotal/n_months;
+      const capDays=activeDaysByVeh[v.code]||0;
+      const utilPct=capDays?(s.days/capDays*100):0;
+      const fixedTotal=fixedMonthly*n_months;
+      const profit=revTotal-fixedTotal;
+      const monthlyProfit=profit/n_months;
+      const isActiveNow=(()=>{
+        const monthKpi=kpiByMonth[todayYM]||{};
+        return v.code in monthKpi?monthKpi[v.code]:true;
+      })();
+      return{...v,plate:v.no||v.plate_no||"",
+        cnt:s.cnt,usedDays:s.days,capDays,
+        revTotal,monthlyAvg,utilPct,fixedMonthly,fixedTotal,profit,monthlyProfit,
+        isActiveNow,fixedBreak:{lease,ins,shaken,tenken}};
+    });
+    const maxRev=Math.max(1,...rows.filter(r=>r.revTotal>0).map(r=>r.revTotal));
+    const maxAvg=Math.max(1,...rows.filter(r=>r.monthlyAvg>0).map(r=>r.monthlyAvg));
+    const maxUtil=Math.max(1,...rows.filter(r=>r.utilPct>0).map(r=>r.utilPct));
+    const maxProfit=Math.max(1,...rows.filter(r=>r.profit>0).map(r=>r.profit));
+    const calc=(v,mx,w)=>{if(v<=0||mx<=0)return 0;return Math.min(w,v/mx*w);};
+    rows.forEach(r=>{
+      r.sRev=Math.round(calc(r.revTotal,maxRev,25)*10)/10;
+      r.sAvg=Math.round(calc(r.monthlyAvg,maxAvg,15)*10)/10;
+      r.sUtil=Math.round(calc(r.utilPct,maxUtil,25)*10)/10;
+      r.sProfit=Math.round(calc(r.profit,maxProfit,35)*10)/10;
+      r.totalScore=Math.round((r.sRev+r.sAvg+r.sUtil+r.sProfit)*10)/10;
+      const t=r.totalScore;
+      r.rank=t>=80?"S":t>=60?"A":t>=40?"B":t>=20?"C":"D";
+    });
+    rows.sort((a,b)=>b.totalScore-a.totalScore);
+    const byClass={};
+    rows.forEach(r=>{
+      const c=r.type||"?";
+      if(!byClass[c])byClass[c]={class:c,vehicles:[],totalRev:0,totalProfit:0,totalFixed:0,totalDays:0,totalCapDays:0,count:0};
+      byClass[c].vehicles.push(r);
+      byClass[c].totalRev+=r.revTotal;
+      byClass[c].totalProfit+=r.profit;
+      byClass[c].totalFixed+=r.fixedTotal;
+      byClass[c].totalDays+=r.usedDays;
+      byClass[c].totalCapDays+=r.capDays;
+      byClass[c].count+=1;
+    });
+    const classRows=Object.values(byClass).map(c=>({
+      ...c,
+      monthlyAvg:c.totalRev/n_months,
+      utilPct:c.totalCapDays?(c.totalDays/c.totalCapDays*100):0,
+      monthlyProfit:c.totalProfit/n_months,
+      best:c.vehicles[0],
+    })).sort((a,b)=>b.totalProfit-a.totalProfit);
+    return{rows,classRows,period:`${effectiveStart} 〜 ${todayYM}`,months:n_months,empty:false};
+  },[vehicles,data,fleet,kpiAll,st,PERIOD_START]);
+  const rankColors={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
+  const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
+  if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
+  if(ranking.empty)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}><div style={{fontSize:48,marginBottom:12}}>🏆</div><div style={{fontSize:18,fontWeight:700,marginBottom:8}}>車両ランキング</div><div>予約データが入ると自動で集計を開始します</div></div>;
+  return <div style={{padding:"0 4px 24px"}}>
+    <div style={{background:"linear-gradient(135deg,#1e3a8a,#1e40af)",color:"#fff",padding:"16px 20px",borderRadius:12,marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
+        <span style={{fontSize:28}}>🏆</span>
+        <div>
+          <div style={{fontSize:18,fontWeight:800}}>車両ランキング（5項目評価）</div>
+          <div style={{fontSize:11,opacity:0.9}}>期間: {ranking.period}（{ranking.months}ヶ月）</div>
+        </div>
+      </div>
+      <div style={{fontSize:11,opacity:0.85,marginTop:8}}>①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35 = 100点</div>
+      <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
+    </div>
+    <div style={{marginBottom:20}}>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス別ランキング（粗利順）</div>
+      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1100}}>
+            <thead>
+              <tr style={{background:"#0f172a",color:"#fff"}}>
+                <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
+                <th style={{padding:"10px 8px",textAlign:"center",width:60}}>クラス</th>
+                <th style={{padding:"10px 8px",textAlign:"center",width:60}}>台数</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>①合計売上</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>②月平均</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>③稼働率</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>④固定費合計</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>⑤予想粗利</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>月平均粗利</th>
+                <th style={{padding:"10px 8px",textAlign:"left"}}>1位車両</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranking.classRows.map((c,i)=>(
+                <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
+                  <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>¥{Math.round(c.totalRev).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right"}}>¥{Math.round(c.monthlyAvg).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right",color:c.utilPct>=40?"#059669":c.utilPct>=20?"#d97706":"#dc2626"}}>{c.utilPct.toFixed(1)}%</td>
+                  <td style={{padding:"8px",textAlign:"right",color:"#64748b"}}>¥{Math.round(c.totalFixed).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:c.totalProfit>=0?"#059669":"#dc2626"}}>
+                    {c.totalProfit>=0?"+":""}¥{Math.round(c.totalProfit).toLocaleString()}
+                  </td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:600,color:c.monthlyProfit>=0?"#059669":"#dc2626"}}>
+                    {c.monthlyProfit>=0?"+":""}¥{Math.round(c.monthlyProfit).toLocaleString()}
+                  </td>
+                  <td style={{padding:"8px",fontSize:11,color:"#64748b"}}>
+                    {c.best?<><span style={{fontWeight:700,color:"#1e293b"}}>{c.best.name}</span> {c.best.plate} <span style={{color:rankColors[c.best.rank],fontWeight:800,marginLeft:4}}>{c.best.rank}</span></>:"-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🚗 全車両ランキング</div>
+    <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1300}}>
+          <thead>
+            <tr style={{background:"#1e293b",color:"#fff"}}>
+              <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
+              <th style={{padding:"10px 8px",textAlign:"center",width:48}}>ﾗﾝｸ</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:56}}>点数</th>
+              <th style={{padding:"10px 8px",textAlign:"center",width:40}}>ｸﾗｽ</th>
+              <th style={{padding:"10px 8px",textAlign:"left"}}>車両名</th>
+              <th style={{padding:"10px 8px",textAlign:"left",width:80}}>ﾅﾝﾊﾞｰ</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>①合計売上</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:100}}>②月平均</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:80}}>③稼働率</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>④固定費合計</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>⑤予想粗利</th>
+              <th style={{padding:"10px 8px",textAlign:"right",width:100}}>月平均粗利</th>
+              <th style={{padding:"10px 8px",textAlign:"center",width:60}}>稼働中</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.rows.map((r,i)=>(
+              <tr key={r.code} style={{background:rankBg[r.rank],borderBottom:"1px solid #e2e8f0"}}>
+                <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
+                <td style={{padding:"8px",textAlign:"center"}}>
+                  <span style={{display:"inline-block",padding:"2px 10px",borderRadius:12,background:rankColors[r.rank],color:"#fff",fontWeight:800,fontSize:13}}>{r.rank}</span>
+                </td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>{r.totalScore}</td>
+                <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#1e40af"}}>{r.type}</td>
+                <td style={{padding:"8px",fontWeight:600}}>{r.name||"-"}</td>
+                <td style={{padding:"8px",color:"#64748b",fontSize:11}}>{r.plate||"-"}</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>¥{Math.round(r.revTotal).toLocaleString()}</td>
+                <td style={{padding:"8px",textAlign:"right"}}>¥{Math.round(r.monthlyAvg).toLocaleString()}</td>
+                <td style={{padding:"8px",textAlign:"right",color:r.utilPct>=40?"#059669":r.utilPct>=20?"#d97706":"#dc2626"}}>{r.utilPct.toFixed(1)}%</td>
+                <td style={{padding:"8px",textAlign:"right",color:"#64748b"}}>¥{Math.round(r.fixedTotal).toLocaleString()}</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:r.profit>=0?"#059669":"#dc2626"}}>
+                  {r.profit>=0?"+":""}¥{Math.round(r.profit).toLocaleString()}
+                </td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.monthlyProfit>=0?"#059669":"#dc2626"}}>
+                  {r.monthlyProfit>=0?"+":""}¥{Math.round(r.monthlyProfit).toLocaleString()}
+                </td>
+                <td style={{padding:"8px",textAlign:"center"}}>{r.isActiveNow?<span style={{color:"#059669"}}>○</span>:<span style={{color:"#cbd5e1"}}>✕</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
+      <summary style={{cursor:"pointer",fontWeight:700,padding:"6px 0"}}>📋 計算定義（オーナー定義 v4）</summary>
+      <div style={{padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginTop:6,lineHeight:1.8}}>
+        <div><strong>期間</strong>: BUDDICAは予約データの最初の月〜当月（予約が入ったら動く）</div>
+        <div><strong>① 合計売上</strong> = 期間内の予約price合計</div>
+        <div><strong>② 月平均売上</strong> = ① ÷ 期間月数</div>
+        <div><strong>③ 平均稼働率</strong> = 期間稼働日数 ÷ active月の暦日数 × 100%</div>
+        <div><strong>④ 固定費合計</strong> = (リース + 保険 + 車検/24 + 点検/6) × 期間月数 ※自動車税は除外</div>
+        <div><strong>⑤ 予想粗利</strong> = ① − ④</div>
+        <div><strong>月平均粗利</strong> = ⑤ ÷ 期間月数</div>
+        <div style={{marginTop:8}}><strong>点数化（合計100点）</strong>: ①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35</div>
+        <div><strong>ランク</strong>: S(80+) / A(60+) / B(40+) / C(20+) / D(&lt;20)</div>
+        <div style={{marginTop:6,fontSize:10,color:"#94a3b8"}}>※ オーナー定義 2026-05-14 / 計算式は HANDYMAN_KPI_MASTER.md 経由でのみ変更</div>
+      </div>
+    </details>
+  </div>;
+}
+
+const APP_VERSION="v1.0.40-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
