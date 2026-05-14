@@ -107,7 +107,16 @@ const sbAuthPromise = (async () => {
   sbAuthReady = true;
 })();
 
-/* ===== Auth UI (ログイン画面) ===== */
+/* ===== Auth UI (ログイン画面) =====
+   ユーザー名 → Email マッピングテーブル（v1.0.28-BT）
+   スタッフはユーザー名と4桁パスコードでログイン → 内部で Supabase Auth (email) に変換 */
+const BT_USER_MAP = {
+  'toshima':  'hiroya.toshima@buddica.co.jp',
+  'saito':    'saito.touring@buddica.co.jp',
+  'oshita':   'oshita.touring@buddica.co.jp',
+  'takeyama': 'takeyama.touring@buddica.co.jp',
+  'member':   'member@buddica.co.jp',
+};
 async function ensureAuthenticated() {
   await sbAuthPromise;
   if (sbCurrentUser) return true;
@@ -116,7 +125,7 @@ async function ensureAuthenticated() {
     overlay.id = 'bt-auth-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;';
     overlay.innerHTML = `
-      <div style="background:white;padding:40px;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.3);width:90%;max-width:400px">
+      <div style="background:white;padding:40px;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.3);width:90%;max-width:380px">
         <div style="text-align:center;margin-bottom:24px">
           <div style="font-size:10pt;color:#6b7280;letter-spacing:.3em;margin-bottom:4px">B U D D I C A &nbsp; T O U R I N G</div>
           <div style="font-size:18pt;font-weight:700;color:#1e3a8a">高松店 管理APP</div>
@@ -124,30 +133,36 @@ async function ensureAuthenticated() {
         </div>
         <div id="bt-auth-msg" style="display:none;padding:8px 12px;background:#fef2f2;color:#991b1b;border-radius:4px;margin-bottom:12px;font-size:10pt"></div>
         <div style="margin-bottom:12px">
-          <label style="display:block;font-size:9pt;font-weight:600;color:#374151;margin-bottom:4px">メールアドレス</label>
-          <input id="bt-auth-email" type="email" autocomplete="username" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:11pt" placeholder="staff@buddica.co.jp">
+          <label style="display:block;font-size:9pt;font-weight:600;color:#374151;margin-bottom:4px">ユーザー名</label>
+          <input id="bt-auth-user" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:5px;font-size:13pt" placeholder="oshita">
         </div>
         <div style="margin-bottom:18px">
-          <label style="display:block;font-size:9pt;font-weight:600;color:#374151;margin-bottom:4px">パスワード</label>
-          <input id="bt-auth-pass" type="password" autocomplete="current-password" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:11pt">
+          <label style="display:block;font-size:9pt;font-weight:600;color:#374151;margin-bottom:4px">パスコード</label>
+          <input id="bt-auth-pass" type="password" inputmode="numeric" autocomplete="current-password" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:5px;font-size:13pt;letter-spacing:6px;text-align:center" placeholder="0000">
         </div>
-        <button id="bt-auth-submit" style="width:100%;padding:10px;background:#1e3a8a;color:white;border:none;border-radius:5px;font-size:11pt;font-weight:600;cursor:pointer">ログイン</button>
+        <button id="bt-auth-submit" style="width:100%;padding:12px;background:#1e3a8a;color:white;border:none;border-radius:5px;font-size:11pt;font-weight:600;cursor:pointer">ログイン</button>
         <div style="margin-top:12px;text-align:center;font-size:8.5pt;color:#9ca3af">
           BUDDICA TOURING 内部システム
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
-    const emailInp = document.getElementById('bt-auth-email');
+    const userInp = document.getElementById('bt-auth-user');
     const passInp = document.getElementById('bt-auth-pass');
     const submitBtn = document.getElementById('bt-auth-submit');
     const msg = document.getElementById('bt-auth-msg');
-    setTimeout(() => emailInp.focus(), 100);
+    setTimeout(() => userInp.focus(), 100);
     async function doLogin() {
-      const email = emailInp.value.trim();
+      const username = (userInp.value || '').trim().toLowerCase();
       const pass = passInp.value;
-      if (!email || !pass) {
-        msg.textContent = 'メールアドレスとパスワードを入力してください';
+      if (!username || !pass) {
+        msg.textContent = 'ユーザー名とパスコードを入力してください';
+        msg.style.display = 'block';
+        return;
+      }
+      const email = BT_USER_MAP[username];
+      if (!email) {
+        msg.textContent = 'ユーザー名が違います（toshima / saito / oshita / takeyama / member）';
         msg.style.display = 'block';
         return;
       }
@@ -161,7 +176,7 @@ async function ensureAuthenticated() {
         document.body.removeChild(overlay);
         resolve(true);
       } catch (e) {
-        msg.textContent = 'ログイン失敗: ' + (e.message || '認証エラー');
+        msg.textContent = 'パスコードが違います';
         msg.style.display = 'block';
         submitBtn.disabled = false;
         submitBtn.textContent = 'ログイン';
@@ -169,7 +184,7 @@ async function ensureAuthenticated() {
     }
     submitBtn.onclick = doLogin;
     passInp.onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
-    emailInp.onkeydown = (e) => { if (e.key === 'Enter') passInp.focus(); };
+    userInp.onkeydown = (e) => { if (e.key === 'Enter') passInp.focus(); };
   });
 }
 
@@ -20290,7 +20305,7 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.27-BT";
+const APP_VERSION="v1.0.28-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
