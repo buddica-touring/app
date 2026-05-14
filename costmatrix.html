@@ -319,8 +319,30 @@ function _modeLabel(){return mode==='yosan'?'📋 予算':mode==='jisseki'?'📊
 async function sbqA(t,qs){try{const r=await fetch(`${SU}/rest/v1/${t}?${qs}&limit=5000`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken()}});return await r.json();}catch(e){return[];}}
 async function sbg(t,k){try{const r=await fetch(`${SU}/rest/v1/${t}?key=eq.${encodeURIComponent(k)}&select=key,value`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken()}});const d=await r.json();return d&&d[0]?d[0].value:null;}catch(e){return null;}}
 async function sbu(t,k,v){
-  // bt_app_settings は anonymous UPDATE 可 → resolution=merge-duplicates で upsert
-  return fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v})});
+  // bt_app_settings は authenticated でのみ INSERT/UPDATE 可（getAuthTokenでセッショントークン使用）
+  const tok=getAuthToken();
+  const isAnon=tok===SK;
+  try{
+    const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v})});
+    if(!r.ok){
+      const txt=await r.text();
+      console.error('[sbu] save failed',{key:k,status:r.status,body:txt,authMode:isAnon?'ANON(NG)':'AUTH(OK)'});
+      // ユーザーに見えるエラー表示
+      if(!window._sbuErrShown){
+        window._sbuErrShown=true;
+        const msg=isAnon
+          ? '⚠️ 保存に失敗しました（未ログイン）\n親APPでログインしてから再度お試しください'
+          : '⚠️ 保存に失敗しました\nHTTP'+r.status+': '+txt.slice(0,200);
+        alert(msg);
+        setTimeout(()=>{window._sbuErrShown=false;},5000);
+      }
+      throw new Error('save failed: '+r.status);
+    }
+    return r;
+  }catch(e){
+    console.error('[sbu] exception',e);
+    throw e;
+  }
 }
 
 async function init(){
