@@ -3407,21 +3407,22 @@ const INIT_SHIFTS={};
 function useMobile(){const[m,setM]=useState(()=>window.innerWidth<=768);useEffect(()=>{const h=()=>setM(window.innerWidth<=768);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);return m;}
 
 // 高松店 車両クラスマスター
-// BUDDICA TOURING 高松店 クラス定義（pricing.html と同一の A〜F 6クラス）
+// BUDDICA TOURING 高松店 クラス定義（7クラス：AA/A/B/C/S/H/F）
 const INIT_CLASSES=[
-  {type:"A",label:"高級系MV（アルファード/D5）",seats:8},
-  {type:"B",label:"一般MV（ノア/セレナ）",seats:8},
-  {type:"C",label:"CSUV（ロッキー/ヤリスクロス）",seats:5},
-  {type:"D",label:"セダン（カムリ等）",seats:5},
-  {type:"E",label:"SUV（ハリアー/RAV4）",seats:5},
-  {type:"F",label:"コンパクト（アクア/ヴィッツ）",seats:5},
+  {type:"AA",label:"ハイエンド車両",seats:5},
+  {type:"A",label:"高級系MV",seats:8},
+  {type:"B",label:"一般MV",seats:8},
+  {type:"C",label:"コンパクトSUV",seats:5},
+  {type:"S",label:"SUV",seats:5},
+  {type:"H",label:"セダン",seats:5},
+  {type:"F",label:"コンパクト",seats:5},
 ];
 // BUDDICA TOURING 高松店 車両マスター（初期データなし）
 const INIT_VEHICLES=[];
 // 車輌保守管理 初期データ（空）
 const INIT_VMT=[];
 // 高松店 車両カラー（クラス別配色）
-const V_COLORS=(()=>{const c={};const cm={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#0891b2",E:"#ea580c",F:"#7c3aed"};
+const V_COLORS=(()=>{const c={};const cm={AA:"#facc15",A:"#dc2626",B:"#2563eb",C:"#16a34a",S:"#ea580c",H:"#475569",F:"#7c3aed"};
 INIT_VEHICLES.forEach(v=>{c[v.code]=cm[v.type]||"#6b7280";});return c;})();
 
 function toLD(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
@@ -9567,7 +9568,7 @@ function ManagementTab({store}){
       const vMap={};dbVehs.forEach(v=>{vMap[v.code]=v;});
       const active=dbResvs.filter(r=>r.status!=="cancelled"&&r.status!=="キャンセル"&&r.status!=="cancel");
       // クラス別集計
-      const types=isSpk?["A","B","C","S","F","H"]:["A","B","C","D","E","F"];
+      const types=isSpk?["A","B","C","S","F","H"]:["AA","A","B","C","S","H","F"];
       const typeStat={};
       types.forEach(t=>{typeStat[t]={rev:0,cnt:0,vehs:dbVehs.filter(v=>(v.type||"")==t&&v.active!==false).length};});
       active.forEach(r=>{
@@ -20304,7 +20305,7 @@ function App(){
   </div>;
 }
 
-const APP_VERSION="v1.0.30-BT";
+const APP_VERSION="v1.0.31-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
