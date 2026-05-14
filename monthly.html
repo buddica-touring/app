@@ -135,6 +135,8 @@ if (window.self !== window.top) {
 <script>
 const SU='https://ggqugvyskyiblxiycpci.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+// 親APPの認証セッション共有（RLS通過用）
+function getAuthToken(){try{const keys=Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));for(const k of keys){try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.access_token)return v.access_token;}catch(e){}}}catch(e){}return SK;}
 const MS=['01','02','03','04','05','06','07','08','09','10','11','12'];
 const _urlStore=new URLSearchParams(location.search).get('store');
 const _fixedStore=(_urlStore==='tkm'||_urlStore==='spk')?_urlStore:null; // 固定store(URLパラメータ)
@@ -187,7 +189,7 @@ async function loadBudget(y){
 async function _saveBudgetData(){
   if(store==='total')return;
   const key='budget_'+store+'_'+year;
-  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(budgetData)})});
+  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(budgetData)})});
 }
 function computeBudgetD(){
   const BD={};
@@ -385,7 +387,7 @@ async function loadManualExtra(y){
 async function _saveManualData(){
   if(store==='total')return;
   const key='extra_manual_'+store+'_'+year;
-  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(manualData)})});
+  await fetch(SU+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({key,value:JSON.stringify(manualData)})});
 }
 
 function _recalcManual(){
@@ -494,7 +496,7 @@ async function sbq(tbl,qs){
   // Supabase max=1000行/クエリのためページネーションで全件取得
   const all=[];let offset=0;
   while(true){
-    const r=await fetch(`${SU}/rest/v1/${tbl}?${qs}&limit=1000&offset=${offset}`,{headers:{apikey:SK,'Authorization':'Bearer '+SK,'Range-Unit':'items','Prefer':'count=none'}});
+    const r=await fetch(`${SU}/rest/v1/${tbl}?${qs}&limit=1000&offset=${offset}`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken(),'Range-Unit':'items','Prefer':'count=none'}});
     const batch=await r.json();
     if(!Array.isArray(batch)||batch.length===0)break;
     all.push(...batch);
@@ -504,7 +506,7 @@ async function sbq(tbl,qs){
   return all;
 }
 async function sbgkey(tbl,key){
-  const r=await fetch(`${SU}/rest/v1/${tbl}?key=eq.${encodeURIComponent(key)}&select=key,value`,{headers:{apikey:SK,'Authorization':'Bearer '+SK}});
+  const r=await fetch(`${SU}/rest/v1/${tbl}?key=eq.${encodeURIComponent(key)}&select=key,value`,{headers:{apikey:SK,'Authorization':'Bearer '+getAuthToken()}});
   const d=await r.json();return d&&d[0]?d[0].value:null;
 }
 

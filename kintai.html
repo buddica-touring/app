@@ -108,7 +108,16 @@ table.ann thead th{background:#f1f5f9;font-weight:600;color:#475569;position:sti
 const SB_URL = "https://ggqugvyskyiblxiycpci.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 let sb;
-try{ sb = window.supabase.createClient(SB_URL, SB_KEY); }catch(e){ console.error("Supabase init failed",e); }
+try{
+  sb = window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true,storageKey:'sb-ggqugvyskyiblxiycpci-auth-token'}});
+  // 親APP（/app/）の認証セッションを localStorage 経由で同期（RLS通過用）
+  (async()=>{try{
+    const keys=Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
+    for(const k of keys){
+      try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.access_token&&v.refresh_token){await sb.auth.setSession({access_token:v.access_token,refresh_token:v.refresh_token});console.log('[kintai] auth session synced');break;}}catch(e){}
+    }
+  }catch(e){console.warn('[kintai] auth sync failed',e);}})();
+}catch(e){ console.error("Supabase init failed",e); }
 
 const SETTINGS_KEY = 'hdm_kintai_bt_settings_v1';
 const store = 'nha'; // TeamCalendarと同じ（BUDDICA Supabase内でのstore識別）

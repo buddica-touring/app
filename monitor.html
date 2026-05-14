@@ -276,7 +276,8 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 <script>
 const SB_URL = 'https://ggqugvyskyiblxiycpci.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
-const HDR  = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
+function getAuthToken(){try{const keys=Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));for(const k of keys){try{const v=JSON.parse(localStorage.getItem(k));if(v&&v.access_token)return v.access_token;}catch(e){}}}catch(e){}return SB_KEY;}
+const HDR = () => ({ apikey: SB_KEY, Authorization: 'Bearer ' + getAuthToken() });
 
 // ── System definitions ──
 // source: 'heartbeat' = reads bt_app_settings; 'spk_heartbeat' = reads app_settings
@@ -341,7 +342,7 @@ function setCard(id, state, elapsed, detail) {
 // ── Fetch all heartbeats ──
 async function fetchHeartbeats(table) {
   try {
-    const r = await fetch(SB_URL + '/rest/v1/' + table + '?key=like.heartbeat_%25&select=key,value', { headers: HDR });
+    const r = await fetch(SB_URL + '/rest/v1/' + table + '?key=like.heartbeat_%25&select=key,value', { headers: HDR() });
     const rows = await r.json();
     const map = {};
     (rows||[]).forEach(row => {
@@ -355,7 +356,7 @@ async function fetchHeartbeats(table) {
 async function fetchCount(table, filters) {
   try {
     let url = SB_URL + '/rest/v1/' + table + '?' + filters + '&select=id&limit=1000';
-    const r = await fetch(url, { headers: { ...HDR, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-999' } });
+    const r = await fetch(url, { headers: { ...HDR(), 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-999' } });
     const range = r.headers.get('Content-Range');
     if (range) {
       const total = parseInt(range.split('/')[1]);
@@ -397,21 +398,21 @@ async function checkPending() {
   let unassignedNha = null, unassignedSpk = null;
   try {
     const [nhaR, spkR] = await Promise.all([
-      fetch(SB_URL+'/rest/v1/bt_reservations?select=id&status=neq.cancelled&start_date=gte.'+tomorrow+'&start_date=lte.'+week+'&ota=neq.direct&limit=300', {headers:HDR}),
-      fetch(SB_URL+'/rest/v1/reservations?select=id&status=neq.cancelled&lend_date=gte.'+tomorrow+'&lend_date=lte.'+week+'&ota=neq.direct&limit=300', {headers:HDR}),
+      fetch(SB_URL+'/rest/v1/bt_reservations?select=id&status=neq.cancelled&start_date=gte.'+tomorrow+'&start_date=lte.'+week+'&ota=neq.direct&limit=300', {headers: HDR()}),
+      fetch(SB_URL+'/rest/v1/reservations?select=id&status=neq.cancelled&lend_date=gte.'+tomorrow+'&lend_date=lte.'+week+'&ota=neq.direct&limit=300', {headers: HDR()}),
     ]);
     const [nhaIds, spkIds] = await Promise.all([nhaR.json(), spkR.json()]);
     // fleet に存在するIDを取得（IN絞り込み）
     const nhaIdList = (nhaIds||[]).map(r=>r.id);
     const spkIdList = (spkIds||[]).map(r=>r.id);
     if (nhaIdList.length > 0) {
-      const nfR = await fetch(SB_URL+'/rest/v1/bt_fleet?select=reservation_id&reservation_id=in.('+nhaIdList.join(',')+')', {headers:HDR});
+      const nfR = await fetch(SB_URL+'/rest/v1/bt_fleet?select=reservation_id&reservation_id=in.('+nhaIdList.join(',')+')', {headers: HDR()});
       const nf = await nfR.json();
       const nSet = new Set((nf||[]).map(r=>r.reservation_id));
       unassignedNha = nhaIdList.filter(id=>!nSet.has(id)).length;
     } else { unassignedNha = 0; }
     if (spkIdList.length > 0) {
-      const sfR = await fetch(SB_URL+'/rest/v1/fleet?select=reservation_id&reservation_id=in.('+spkIdList.join(',')+')', {headers:HDR});
+      const sfR = await fetch(SB_URL+'/rest/v1/fleet?select=reservation_id&reservation_id=in.('+spkIdList.join(',')+')', {headers: HDR()});
       const sf = await sfR.json();
       const sSet = new Set((sf||[]).map(r=>r.reservation_id));
       unassignedSpk = spkIdList.filter(id=>!sSet.has(id)).length;
@@ -438,8 +439,8 @@ async function checkPending() {
 async function fetchRecentResv() {
   try {
     const [nr, sr] = await Promise.all([
-      fetch(SB_URL + '/rest/v1/bt_reservations?select=created_at&order=created_at.desc&limit=1', { headers: HDR }),
-      fetch(SB_URL + '/rest/v1/reservations?select=created_at&order=created_at.desc&limit=1',     { headers: HDR }),
+      fetch(SB_URL + '/rest/v1/bt_reservations?select=created_at&order=created_at.desc&limit=1', { headers: HDR() }),
+      fetch(SB_URL + '/rest/v1/reservations?select=created_at&order=created_at.desc&limit=1',     { headers: HDR() }),
     ]);
     const [na, sa] = await Promise.all([nr.json(), sr.json()]);
     return {
@@ -469,7 +470,7 @@ async function checkHttp(url) {
 async function checkSupabase() {
   try {
     const start = Date.now();
-    const r = await fetch(SB_URL + '/rest/v1/', { headers: HDR });
+    const r = await fetch(SB_URL + '/rest/v1/', { headers: HDR() });
     const ms = Date.now() - start;
     return { ok: r.status < 500, status: r.status, ms };
   } catch(e) { return { ok: false, status: 'error', ms: null }; }
