@@ -138,6 +138,14 @@ body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:#f3f
 .b-C{background:#dbeafe;color:#1e40af}
 .saved-toast{position:fixed;bottom:20px;right:20px;background:#059669;color:white;padding:9px 18px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-weight:600;font-size:10.5pt;opacity:0;pointer-events:none;transition:opacity .3s;z-index:300}
 .saved-toast.show{opacity:1}
+
+/* 価格セル: 💾 ボタンと保存後フラッシュ */
+button.cell-save-pr{display:none}
+button.cell-save-pr.show{display:inline-flex !important;align-items:center;justify-content:center;animation:cellSavePulse .5s 1}
+button.cell-save-pr:hover{background:#15803d !important;transform:scale(1.1)}
+button.cell-reset-pr:hover{background:#fee2e2 !important}
+input[data-tier].cell-saved{background:#dcfce7 !important;border:2px solid #22c55e !important;color:#15803d !important;font-weight:800 !important;transition:all .15s}
+@keyframes cellSavePulse{0%{transform:scale(.4)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 .doc{background:white;padding:24px 30px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);line-height:1.8}
 .doc h2{font-size:16pt;color:#1e3a8a;margin:18px 0 8px 0;padding-bottom:5px;border-bottom:2px solid #93c5fd}
 .doc h2:first-child{margin-top:0}
@@ -844,9 +852,19 @@ function renderSettings() {
       CLASSES.forEach(c => {
         const p = tierPriceFor(t, c, y, m);
         const ov = isTierPriceMonthOverridden(t, c, y, m);
+        const common = state.tierClassPrices[t] && state.tierClassPrices[t][c] != null ? state.tierClassPrices[t][c] : '-';
         const ovStyle = ov ? 'background:#ecfdf5;color:#059669;border-color:#10b981;font-weight:700' : '';
-        html += `<td style="border:1px solid #d1d5db;padding:2px 3px;text-align:center;background:${ts.bg}30">
-          <input type="number" step="100" min="0" data-tier="${t}" data-cls="${c}" value="${p}" style="border:1px solid #d1d5db;padding:3px 5px;border-radius:3px;font-size:10pt;font-family:monospace;text-align:right;width:95%;${ovStyle}">
+        html += `<td style="border:1px solid #d1d5db;padding:4px;text-align:center;background:${ts.bg}30;vertical-align:top">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;gap:3px;align-items:center">
+              <input type="number" step="100" min="0" data-tier="${t}" data-cls="${c}" value="${p}" style="flex:1;min-width:0;border:1.5px solid #d1d5db;padding:5px 4px;border-radius:4px;font-size:10.5pt;font-family:'Menlo',monospace;text-align:right;font-weight:600;${ovStyle}">
+              <button class="cell-save-pr" data-tier="${t}" data-cls="${c}" style="display:none;background:#16a34a;color:#fff;border:none;width:26px;height:26px;border-radius:4px;font-size:11pt;cursor:pointer;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(22,163,74,.3)" title="この数字を保存（Enterでも可）">💾</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:7.5pt;font-family:'Menlo',monospace;color:#9ca3af;min-height:14px">
+              <span>共通 <span style="font-weight:700;color:#6b7280">¥${typeof common === 'number' ? common.toLocaleString() : common}</span></span>
+              ${ov ? `<button class="cell-reset-pr" data-tier="${t}" data-cls="${c}" style="background:none;color:#dc2626;border:none;padding:0 4px;font-size:9pt;cursor:pointer;font-weight:700;line-height:1;border-radius:3px" title="月別カスタムを解除して共通価格に戻す">↺ 戻す</button>` : ''}
+            </div>
+          </div>
         </td>`;
       });
       html += '</tr>';
@@ -872,25 +890,87 @@ function renderSettings() {
         showToast(`クラス${c}の名前を「${v}」に変更`);
       });
     });
-    tbl.querySelectorAll('input[data-tier]').forEach(inp => {
-      inp.addEventListener('change', e => {
-        const t = e.target.dataset.tier, c = e.target.dataset.cls;
-        const v = parseInt(e.target.value, 10) || 0;
-        const commonPrice = state.tierClassPrices[t][c];
-        if (v === commonPrice) {
-          // 共通価格と同じなら月別オーバーライドを削除
-          if (state.monthlyTierClassPrices[ym] && state.monthlyTierClassPrices[ym][t]) {
-            delete state.monthlyTierClassPrices[ym][t][c];
-            if (Object.keys(state.monthlyTierClassPrices[ym][t]).length === 0) delete state.monthlyTierClassPrices[ym][t];
-            if (Object.keys(state.monthlyTierClassPrices[ym]).length === 0) delete state.monthlyTierClassPrices[ym];
-          }
-        } else {
-          if (!state.monthlyTierClassPrices[ym]) state.monthlyTierClassPrices[ym] = {};
-          if (!state.monthlyTierClassPrices[ym][t]) state.monthlyTierClassPrices[ym][t] = {};
-          state.monthlyTierClassPrices[ym][t][c] = v;
+    // ===== 各セルの保存処理（💾ボタン or Enter キー）=====
+    function savePriceCell(t, c, v){
+      const commonPrice = state.tierClassPrices[t][c];
+      if (v === commonPrice) {
+        if (state.monthlyTierClassPrices[ym] && state.monthlyTierClassPrices[ym][t]) {
+          delete state.monthlyTierClassPrices[ym][t][c];
+          if (Object.keys(state.monthlyTierClassPrices[ym][t]).length === 0) delete state.monthlyTierClassPrices[ym][t];
+          if (Object.keys(state.monthlyTierClassPrices[ym]).length === 0) delete state.monthlyTierClassPrices[ym];
         }
-        saveState(); renderSettings(); renderCalendar();
-        showToast(`${y}年${m}月 ${t}日 タイプ${state.segment==='highend'?'AA':c}（${(state.classNames||{})[c]||c}）= ${formatPrice(v)}`);
+      } else {
+        if (!state.monthlyTierClassPrices[ym]) state.monthlyTierClassPrices[ym] = {};
+        if (!state.monthlyTierClassPrices[ym][t]) state.monthlyTierClassPrices[ym][t] = {};
+        state.monthlyTierClassPrices[ym][t][c] = v;
+      }
+      saveState();
+      // セル装飾を一旦緑フラッシュ
+      const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
+      if(inp){
+        inp.classList.add('cell-saved');
+        setTimeout(()=>inp.classList.remove('cell-saved'),1200);
+      }
+      // 保存ボタン消す
+      const btn = tbl.querySelector(`button.cell-save-pr[data-tier="${t}"][data-cls="${c}"]`);
+      if(btn) btn.style.display = 'none';
+      showToast(`💾 ${y}年${m}月 ${t}${t==='A'?'繁忙':t==='B'?'通常':'閑散'} タイプ${state.segment==='highend'?'AA':c} = ${formatPrice(v)}`);
+      // カレンダーだけ即更新（matrixは触らない=フォーカス維持）
+      renderCalendar();
+    }
+    window._savePriceCell = savePriceCell;  // 💾ボタンクリック用
+
+    tbl.querySelectorAll('input[data-tier]').forEach(inp => {
+      const t = inp.dataset.tier, c = inp.dataset.cls;
+      const originalSaved = parseInt(inp.value, 10) || 0;
+      inp.dataset.savedValue = originalSaved;  // 保存済み値を保持
+
+      // 入力中（oninput）: dirty 検出して 💾 出現
+      inp.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10) || 0;
+        const sv = parseInt(e.target.dataset.savedValue, 10) || 0;
+        const btn = tbl.querySelector(`button.cell-save-pr[data-tier="${t}"][data-cls="${c}"]`);
+        if(btn){
+          if(v !== sv){ btn.style.display = 'inline-flex'; }
+          else{ btn.style.display = 'none'; }
+        }
+      });
+
+      // Enter キーで保存
+      inp.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          const v = parseInt(e.target.value, 10) || 0;
+          e.target.dataset.savedValue = v;
+          savePriceCell(t, c, v);
+        }
+      });
+
+      // blur では保存しない（明示的に 💾 または Enter で保存）
+    });
+
+    // 💾 ボタンクリックハンドラ
+    tbl.querySelectorAll('button.cell-save-pr').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const t = btn.dataset.tier, c = btn.dataset.cls;
+        const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
+        if(!inp) return;
+        const v = parseInt(inp.value, 10) || 0;
+        inp.dataset.savedValue = v;
+        savePriceCell(t, c, v);
+      });
+    });
+
+    // ↺ 戻す ボタンクリックハンドラ（共通価格に戻す）
+    tbl.querySelectorAll('button.cell-reset-pr').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const t = btn.dataset.tier, c = btn.dataset.cls;
+        const common = state.tierClassPrices[t][c];
+        const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
+        if(!inp) return;
+        inp.value = common;
+        inp.dataset.savedValue = common;
+        savePriceCell(t, c, common);
       });
     });
   }
