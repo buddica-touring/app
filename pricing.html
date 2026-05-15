@@ -184,9 +184,7 @@ input[data-tier].cell-saved{background:#dcfce7 !important;border:2px solid #22c5
   <div class="tabs-row">
     <div class="act-row">
       <button class="act" id="back-btn" onclick="backToEntry()" style="display:none;background:#fef3c7;color:#92400e">⏪ 戻る</button>
-      <button class="act" onclick="exportJSON()">💾</button>
-      <button class="act" onclick="importJSON()">📂</button>
-      <button class="act warn" onclick="resetAll()">🔄</button>
+      <a class="act" href="./import-prices.html" target="_blank" style="background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:6px 14px">📝 編集する</a>
       <button class="act" onclick="window.print()">🖨</button>
     </div>
     <div class="tabs" id="main-tabs" style="display:none">
@@ -194,6 +192,10 @@ input[data-tier].cell-saved{background:#dcfce7 !important;border:2px solid #22c5
       <button class="tab" data-view="method">📖 方法論</button>
     </div>
   </div>
+</div>
+<div style="background:#fef3c7;border-bottom:1px solid #fbbf24;padding:8px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:10pt;color:#78350f">
+  <div>📖 <b>このページは表示専用</b>です。価格マスターデータの編集は「価格インポート確認」ページから行ってください。</div>
+  <a href="./import-prices.html" target="_blank" style="background:#16a34a;color:#fff;padding:4px 12px;border-radius:5px;text-decoration:none;font-weight:700;font-size:9.5pt">📝 価格インポート確認を開く →</a>
 </div>
 
 <div class="container">
@@ -829,15 +831,12 @@ function renderSettings() {
       C: {bg:'#dbeafe',color:'#1e40af',label:'C 閑散'},
     };
 
-    // モード表示＋ボタン
+    // モード表示（read-only）
     let header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:8px;flex-wrap:wrap">
       <div style="font-size:10pt;font-weight:600;color:#1e3a8a">
         💰 ${y}年${m}月 の価格 ${isCustom ? '<span style="background:#fbbf24;color:#78350f;padding:1px 6px;border-radius:3px;font-size:8.5pt;margin-left:4px">月別カスタム</span>' : '<span style="color:#6b7280;font-weight:400;font-size:8.5pt;margin-left:4px">(全月共通)</span>'}
       </div>
-      <div style="display:flex;gap:4px">
-        <button class="act" onclick="copyToAllMonths()" style="margin:0;font-size:8.5pt;padding:3px 8px">📋 この月を全月に適用</button>
-        ${isCustom ? '<button class="act warn" onclick="resetMonthCustom()" style="margin:0;font-size:8.5pt;padding:3px 8px">↺ 共通価格に戻す</button>' : ''}
-      </div>
+      <a href="./import-prices.html" target="_blank" style="background:#1e40af;color:#fff;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;text-decoration:none">📝 編集する（価格インポート確認へ）</a>
     </div>`;
 
     const segNames = state.classNames || CLASS_NAMES;
@@ -846,7 +845,8 @@ function renderSettings() {
     let html = '<thead><tr><th style="background:#374151;color:white;padding:4px 6px;border:1px solid #d1d5db;text-align:center;font-size:9pt">ティア＼クラス</th>';
     CLASSES.forEach(c => {
       const typeLabel = isHighend ? 'AA' : c;
-      html += `<th style="background:#1e3a8a;color:white;padding:3px 4px;border:1px solid #d1d5db;text-align:center;font-size:8.5pt;line-height:1.2"><span style="opacity:.75;font-size:7.5pt">タイプ${typeLabel}</span><br><input type="text" data-classname="${c}" value="${segNames[c]||c}" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:2px 5px;border-radius:3px;text-align:center;font-size:9pt;font-weight:700;width:95%;margin-top:1px" placeholder="${isHighend?'ブランド名':c}"></th>`;
+      // ★ read-only: input → span に変換
+      html += `<th style="background:#1e3a8a;color:white;padding:5px 4px;border:1px solid #d1d5db;text-align:center;font-size:8.5pt;line-height:1.3"><span style="opacity:.75;font-size:7.5pt">タイプ${typeLabel}</span><br><span style="display:block;background:rgba(255,255,255,.15);padding:3px 5px;border-radius:3px;font-size:9.5pt;font-weight:700;margin-top:2px">${segNames[c]||c}</span></th>`;
     });
     html += '</tr></thead><tbody>';
     ['A','B','C'].forEach(t => {
@@ -857,16 +857,17 @@ function renderSettings() {
         const ov = isTierPriceMonthOverridden(t, c, y, m);
         const common = state.tierClassPrices[t] && state.tierClassPrices[t][c] != null ? state.tierClassPrices[t][c] : '-';
         const ovStyle = ov ? 'background:#ecfdf5;color:#059669;border-color:#10b981;font-weight:700' : '';
-        // 入力フィールドの placeholder にも原案を入れて視覚的にうっすら見せる
+        // ★ read-only: input → 表示テキスト
+        const priceColor = ov ? '#059669' : '#1e3a8a';
+        const priceBg = ov ? '#ecfdf5' : '#fff';
+        const priceBorder = ov ? '#10b981' : '#e5e7eb';
         html += `<td style="border:1px solid #d1d5db;padding:5px;text-align:center;background:${ts.bg}30;vertical-align:top">
-          <div style="display:flex;flex-direction:column;gap:4px;position:relative">
-            <div style="display:flex;gap:3px;align-items:center;position:relative">
-              <input type="number" step="100" min="0" data-tier="${t}" data-cls="${c}" value="${p}" style="flex:1;min-width:0;border:1.5px solid #d1d5db;padding:6px 6px;border-radius:4px;font-size:11.5pt;font-family:'Menlo',monospace;text-align:right;font-weight:700;color:#1e3a8a;${ovStyle}">
-              <button class="cell-save-pr" data-tier="${t}" data-cls="${c}" style="display:none;background:#16a34a;color:#fff;border:none;width:28px;height:28px;border-radius:4px;font-size:12pt;cursor:pointer;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(22,163,74,.3)" title="この数字を保存（Enterでも可）">💾</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="background:${priceBg};border:1.5px solid ${priceBorder};border-radius:4px;padding:7px 8px;text-align:right;font-size:12pt;font-family:'Menlo',monospace;font-weight:800;color:${priceColor}">
+              ¥${p.toLocaleString()}
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8.5pt;font-family:'Menlo',monospace;color:#cbd5e1;min-height:16px;padding:0 2px">
-              <span style="opacity:.7">原案 <span style="font-weight:600;color:#94a3b8">¥${typeof common === 'number' ? common.toLocaleString() : common}</span></span>
-              ${ov ? `<button class="cell-reset-pr" data-tier="${t}" data-cls="${c}" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:1px 6px;font-size:9pt;cursor:pointer;font-weight:700;line-height:1.2;border-radius:3px" title="月別カスタムを解除して共通価格に戻す">↺ 戻す</button>` : ''}
+            <div style="font-size:8pt;font-family:'Menlo',monospace;color:#94a3b8;text-align:left;padding:0 2px;opacity:.85">
+              ${ov ? '<span style="color:#059669;font-weight:700">月別</span>' : '<span>共通</span>'} ¥${typeof common === 'number' ? common.toLocaleString() : common}
             </div>
           </div>
         </td>`;
@@ -894,126 +895,33 @@ function renderSettings() {
         showToast(`クラス${c}の名前を「${v}」に変更`);
       });
     });
-    // ===== 各セルの保存処理（💾ボタン or Enter キー）=====
-    function savePriceCell(t, c, v){
-      const commonPrice = state.tierClassPrices[t][c];
-      if (v === commonPrice) {
-        if (state.monthlyTierClassPrices[ym] && state.monthlyTierClassPrices[ym][t]) {
-          delete state.monthlyTierClassPrices[ym][t][c];
-          if (Object.keys(state.monthlyTierClassPrices[ym][t]).length === 0) delete state.monthlyTierClassPrices[ym][t];
-          if (Object.keys(state.monthlyTierClassPrices[ym]).length === 0) delete state.monthlyTierClassPrices[ym];
-        }
-      } else {
-        if (!state.monthlyTierClassPrices[ym]) state.monthlyTierClassPrices[ym] = {};
-        if (!state.monthlyTierClassPrices[ym][t]) state.monthlyTierClassPrices[ym][t] = {};
-        state.monthlyTierClassPrices[ym][t][c] = v;
-      }
-      saveState();
-      // セル装飾を一旦緑フラッシュ
-      const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
-      if(inp){
-        inp.classList.add('cell-saved');
-        setTimeout(()=>inp.classList.remove('cell-saved'),1200);
-      }
-      // 保存ボタン消す
-      const btn = tbl.querySelector(`button.cell-save-pr[data-tier="${t}"][data-cls="${c}"]`);
-      if(btn) btn.style.display = 'none';
-      showToast(`💾 ${y}年${m}月 ${t}${t==='A'?'繁忙':t==='B'?'通常':'閑散'} タイプ${state.segment==='highend'?'AA':c} = ${formatPrice(v)}`);
-      // カレンダーだけ即更新（matrixは触らない=フォーカス維持）
-      renderCalendar();
-    }
-    window._savePriceCell = savePriceCell;  // 💾ボタンクリック用
-
-    tbl.querySelectorAll('input[data-tier]').forEach(inp => {
-      const t = inp.dataset.tier, c = inp.dataset.cls;
-      const originalSaved = parseInt(inp.value, 10) || 0;
-      inp.dataset.savedValue = originalSaved;  // 保存済み値を保持
-
-      // 入力中（oninput）: dirty 検出して 💾 出現
-      inp.addEventListener('input', e => {
-        const v = parseInt(e.target.value, 10) || 0;
-        const sv = parseInt(e.target.dataset.savedValue, 10) || 0;
-        const btn = tbl.querySelector(`button.cell-save-pr[data-tier="${t}"][data-cls="${c}"]`);
-        if(btn){
-          if(v !== sv){ btn.style.display = 'inline-flex'; }
-          else{ btn.style.display = 'none'; }
-        }
-      });
-
-      // Enter キーで保存
-      inp.addEventListener('keydown', e => {
-        if(e.key === 'Enter'){
-          e.preventDefault();
-          const v = parseInt(e.target.value, 10) || 0;
-          e.target.dataset.savedValue = v;
-          savePriceCell(t, c, v);
-        }
-      });
-
-      // blur では保存しない（明示的に 💾 または Enter で保存）
-    });
-
-    // 💾 ボタンクリックハンドラ
-    tbl.querySelectorAll('button.cell-save-pr').forEach(btn => {
-      btn.addEventListener('click', e => {
-        const t = btn.dataset.tier, c = btn.dataset.cls;
-        const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
-        if(!inp) return;
-        const v = parseInt(inp.value, 10) || 0;
-        inp.dataset.savedValue = v;
-        savePriceCell(t, c, v);
-      });
-    });
-
-    // ↺ 戻す ボタンクリックハンドラ（共通価格に戻す）
-    tbl.querySelectorAll('button.cell-reset-pr').forEach(btn => {
-      btn.addEventListener('click', e => {
-        const t = btn.dataset.tier, c = btn.dataset.cls;
-        const common = state.tierClassPrices[t][c];
-        const inp = tbl.querySelector(`input[data-tier="${t}"][data-cls="${c}"]`);
-        if(!inp) return;
-        inp.value = common;
-        inp.dataset.savedValue = common;
-        savePriceCell(t, c, common);
-      });
-    });
+    // ★ 編集機能は import-prices.html に移管済み。pricing.html は read-only。
   }
 
-  // ===== 方法論タブ：係数・重み・閾値 =====
+  // ===== 方法論タブ：係数・重み・閾値（read-only 表示）=====
   ['A','B','C'].forEach(t => {
     const inp = document.getElementById('coef-' + t);
     if (!inp) return;
     inp.value = state.tierCoef[t];
-    inp.onchange = e => {
-      state.tierCoef[t] = parseFloat(e.target.value)||0;
-      // 既存のtierClassPricesも係数変更に応じて再生成（手動編集を尊重して上書きしない場合は別途）
-      if (confirm('係数を変更すると、現在の価格マトリクスも係数で再計算されます。よろしいですか？\n（個別編集した価格は失われます）')) {
-        CLASSES.forEach(c => {
-          state.tierClassPrices[t][c] = Math.round(state.basePrices[c] * state.tierCoef[t]);
-        });
-        saveState(); renderSettings(); renderCalendar(); showToast('係数 更新 & 価格再計算');
-      } else {
-        e.target.value = state.tierCoef[t]; // revert
-      }
-    };
+    inp.readOnly = true;
+    inp.style.background = '#f3f4f6';
+    inp.style.cursor = 'not-allowed';
   });
   ['E','T','R','H'].forEach(k => {
     const inp = document.getElementById('w-' + k);
     if (!inp) return;
     inp.value = state.weights[k];
-    inp.onchange = e => {
-      state.weights[k] = parseFloat(e.target.value)||0;
-      saveState(); renderCalendar(); showToast('重み 更新');
-    };
+    inp.readOnly = true;
+    inp.style.background = '#f3f4f6';
+    inp.style.cursor = 'not-allowed';
   });
   ['A','B'].forEach(t => {
     const inp = document.getElementById('th-' + t);
     if (!inp) return;
     inp.value = state.thresholds[t];
-    inp.onchange = e => {
-      state.thresholds[t] = parseFloat(e.target.value)||0;
-      saveState(); renderCalendar(); showToast('閾値 更新');
-    };
+    inp.readOnly = true;
+    inp.style.background = '#f3f4f6';
+    inp.style.cursor = 'not-allowed';
   });
 }
 
@@ -1116,10 +1024,10 @@ function renderCalendar() {
     <table class="cal"><tr><th class="sun">日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th class="sat">土</th></tr>${body}</table>`;
   root.appendChild(mDiv);
 
-  // セルクリック
-  root.querySelectorAll('td[data-date]').forEach(td => {
-    td.addEventListener('click', () => openModal(td.dataset.date));
-  });
+  // ★ read-only: セルクリックでモーダル開かない（import-prices.html で編集）
+  // root.querySelectorAll('td[data-date]').forEach(td => {
+  //   td.addEventListener('click', () => openModal(td.dataset.date));
+  // });
 
   // 月タブの統計値を更新（重み/閾値変更時の反映用）
   const mTabs = document.getElementById('month-tabs');
@@ -1139,6 +1047,10 @@ function renderCalendar() {
 let modalDate = null, modalScores = {E:0,T:0,R:0,H:0}, modalTierOverride = null, modalPrices = {};
 
 function openModal(dateKey) {
+  // ★ read-only: モーダルは開かない（編集は import-prices.html）
+  showToast('編集は「価格インポート確認」ページで行ってください');
+  return;
+  // 以下デッドコード（互換のため残置）
   modalDate = dateKey;
   const [y,m,d] = dateKey.split('-').map(Number);
   const date = new Date(y, m-1, d);
