@@ -299,21 +299,30 @@ function doImport(){
   const tcp = proper.monthlyTierClassPrices;
 
   log('===== インポート開始 =====', 'success');
-  let cnt = 0, skip = 0;
+  let inputCnt = 0, resetCnt = 0, skipCnt = 0;
   Object.entries(editState).forEach(([ym, s]) => {
-    if(s.skip){ skip++; return; }
+    if(s.skip){ skipCnt++; return; }
     tcp[ym] = { A:{...s.A}, B:{...s.B}, C:{...s.C} };
-    log('  ✓ ' + ym + (s.special?' ★':'') + (s.reset?' (0)':'') + ' B Aクラス=¥' + (s.B.A||0).toLocaleString());
-    cnt++;
+    if(s.reset){
+      resetCnt++;
+      log('  🗑️ ' + ym + ' 全0リセット');
+    }else{
+      inputCnt++;
+      log('  ✓ ' + ym + (s.special?' ★':'') + ' B Aクラス=¥' + (s.B.A||0).toLocaleString());
+    }
   });
-  log('入力済み: ' + cnt + 'ヶ月 / 触らず: ' + skip + 'ヶ月', 'success');
+  log('価格入力: ' + inputCnt + 'ヶ月 / 0リセット: ' + resetCnt + 'ヶ月 / 触らず: ' + skipCnt + 'ヶ月', 'success');
 
   proper.basePrices = {...PROPOSAL['2026-07'].B};
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   log('localStorage 書き込み完了', 'success');
   log('🔗 pricing.html を開いてカレンダー確認', 'warning');
 
-  alert('✅ インポート完了\n\n入力済み: ' + cnt + 'ヶ月\n触らず: ' + skip + 'ヶ月\n\npricing.html を開いて確認してください');
+  alert('✅ インポート完了\n\n' +
+        '価格入力: ' + inputCnt + 'ヶ月（2026/7-12月）\n' +
+        '0リセット: ' + resetCnt + 'ヶ月（2027年）\n' +
+        '触らず: ' + skipCnt + 'ヶ月（2026/1-6月）\n\n' +
+        'pricing.html を開いて確認してください');
 }
 
 // 初期化
