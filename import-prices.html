@@ -53,9 +53,36 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
 .matrix-table tr.tier-a td{background:#fffbeb30}
 .matrix-table tr.tier-b td{background:#eff6ff30}
 .matrix-table tr.tier-c td{background:#f8fafc30}
-.matrix-table input{width:95%;padding:5px 5px;border:1px solid #d1d5db;border-radius:3px;text-align:right;font-family:"Menlo",monospace;font-size:10pt;background:#fff}
+/* ===== Cell layout: 入力 + 原案 + 保存ボタン ===== */
+.matrix-table td{padding:3px;vertical-align:top}
+.cell-wrap{display:flex;flex-direction:column;gap:2px;align-items:stretch}
+.cell-input-row{display:flex;gap:2px;align-items:center}
+.matrix-table input{flex:1;min-width:0;padding:5px 5px;border:1px solid #d1d5db;border-radius:3px;text-align:right;font-family:"Menlo",monospace;font-size:10pt;background:#fff}
 .matrix-table input.special{background:#fef3c7;color:#92400e;font-weight:700;border-color:#fbbf24}
 .matrix-table input.zero{background:#fee2e2;color:#dc2626}
+.matrix-table input.dirty{background:#fef9c3;color:#854d0e;border:2px solid #fbbf24;font-weight:800}
+.matrix-table input.saved{background:#dcfce7;color:#15803d;border:2px solid #22c55e;font-weight:800}
+.cell-save{background:#16a34a;color:#fff;border:none;width:28px;height:28px;border-radius:4px;font-size:11pt;cursor:pointer;display:none;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.cell-save:hover{background:#15803d;transform:scale(1.08)}
+.cell-save.show{display:inline-flex;align-items:center;justify-content:center;animation:pulseHi .6s 1}
+@keyframes pulseHi{0%{transform:scale(.5)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.cell-info{display:flex;justify-content:space-between;align-items:center;gap:3px;font-size:7.5pt;font-family:"Menlo",monospace;color:#9ca3af;min-height:14px}
+.cell-info .orig-label{font-weight:400}
+.cell-info .orig-val{font-weight:700;color:#6b7280}
+.cell-info.diff .orig-val{color:#dc2626}
+.cell-info .reset-btn{background:none;color:#6b7280;border:none;padding:0 3px;font-size:9pt;cursor:pointer;font-family:inherit;line-height:1;display:none}
+.cell-info.diff .reset-btn{display:inline;color:#dc2626;font-weight:700}
+.cell-info .reset-btn:hover{background:#fee2e2;border-radius:3px}
+
+/* Dirty indicator on month tab */
+.month-tab.dirty{box-shadow:0 0 0 2px #f59e0b}
+.month-tab.dirty::after{content:'●';color:#f59e0b;font-size:10pt;margin-left:2px;line-height:1}
+.month-tab.active.dirty{box-shadow:0 0 0 2px #fbbf24}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;font-size:11pt;box-shadow:0 4px 12px rgba(22,163,74,.4);opacity:0;transition:all .3s;z-index:9999;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.warn{background:#f59e0b}
+.toast.error{background:#dc2626}
 
 /* ===== Footer actions ===== */
 .footer-actions{background:#fff;border-radius:12px;padding:14px;box-shadow:0 -2px 12px rgba(0,0,0,.08);margin-top:14px;position:sticky;bottom:8px;border:2px solid #dbeafe;display:flex;flex-direction:column;gap:8px}
@@ -136,12 +163,15 @@ const PROPOSAL = {
 
 // ===== 内部状態（編集可）=====
 const editState = {}; // {ym: {A:{cls:price}, B:{...}, C:{...}, special:bool}}
+const originalState = {}; // 原案（提案資料の値・絶対不変）
+const savedState = {}; // localStorage に書込み済の値（差分計算用）
 
 function buildInitial(){
   // 2026/1-6 = 空（インポート時は触らない）
   for(let m = 1; m <= 6; m++){
     const ym = '2026-' + String(m).padStart(2,'0');
     editState[ym] = { skip: true };
+    originalState[ym] = { skip: true };
   }
   // 2026/7-12 = 提案価格
   Object.entries(PROPOSAL).forEach(([ym, data]) => {
@@ -151,6 +181,8 @@ function buildInitial(){
       C[c] = Math.round(data.B[c] * COEF_C);
     });
     editState[ym] = { A, B, C, special: !!data.A, specialLabel: data.special };
+    // 原案（ディープコピー）
+    originalState[ym] = { A:{...A}, B:{...B}, C:{...C}, special:!!data.A, specialLabel:data.special };
   });
   // 2027 全12月 = 0
   for(let m = 1; m <= 12; m++){
@@ -158,6 +190,7 @@ function buildInitial(){
     const A = {}, B = {}, C = {};
     CLASSES.forEach(c => { A[c] = 0; B[c] = 0; C[c] = 0; });
     editState[ym] = { A, B, C, special: false, reset: true };
+    originalState[ym] = { A:{...A}, B:{...B}, C:{...C}, special:false, reset:true };
   }
 }
 
@@ -169,6 +202,12 @@ function renderYearTabs(){
   el.innerHTML = [2026, 2027].map(y => `<button class="year-tab ${y===curYear?'active':''}" onclick="selYear(${y})">${y}年</button>`).join('');
 }
 function selYear(y){ curYear = y; curMonth = (y === 2026 ? 7 : 1); renderAll(); }
+
+function isMonthDirty(ym){
+  const cur = editState[ym], orig = originalState[ym];
+  if(!cur || cur.skip || !orig) return false;
+  return ['A','B','C'].some(t => cur[t] && CLASSES.some(c => (cur[t][c]||0) !== (orig[t]?.[c]||0)));
+}
 
 function renderMonthTabs(){
   const el = document.getElementById('month-tabs');
@@ -182,7 +221,8 @@ function renderMonthTabs(){
     const summary = skip ? '触らない' : (reset ? 'リセット' : (s.B ? 'A' + Math.round(s.A.A/1000) + '/B' + Math.round(s.B.A/1000) + '/C' + Math.round(s.C.A/1000) : ''));
     const cls = curMonth === m ? 'active' : '';
     const sclass = reset ? 'zero' : (sp ? 'special' : '');
-    html += `<button class="month-tab ${cls} ${sclass}" onclick="selMonth(${m})">
+    const dclass = isMonthDirty(ym) ? 'dirty' : '';
+    html += `<button class="month-tab ${cls} ${sclass} ${dclass}" onclick="selMonth(${m})">
       <span class="num">${m}月</span>
       <span class="sub">${summary}</span>
     </button>`;
@@ -190,6 +230,16 @@ function renderMonthTabs(){
   el.innerHTML = html;
 }
 function selMonth(m){ curMonth = m; renderAll(); }
+
+function showToast(msg, type){
+  let t = document.getElementById('toast');
+  if(!t){ t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.appendChild(t); }
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  setTimeout(()=>t.classList.add('show'),10);
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.remove('show'), 2500);
+}
 
 function renderMatrix(){
   const area = document.getElementById('matrix-area');
@@ -230,15 +280,30 @@ function renderMatrix(){
     </thead>
     <tbody>`;
 
+  const orig = originalState[ym] || {};
   TIERS.forEach(([tk, label]) => {
     html += `<tr class="tier-${tk.toLowerCase()}">`;
     html += `<td>${tk} ${label}</td>`;
     CLASSES.forEach(c => {
       const v = s[tk] ? s[tk][c] : 0;
+      const origV = orig[tk] ? (orig[tk][c]||0) : 0;
       const isSpecial = s.special && tk === 'A';
       const isZero = v === 0;
-      const inputCls = isSpecial ? 'special' : (isZero ? 'zero' : '');
-      html += `<td><input type="number" class="${inputCls}" value="${v}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" onchange="updateCell(this)" min="0" step="100"></td>`;
+      const isDirty = v !== origV;
+      const inputCls = (isDirty ? 'dirty' : (isSpecial ? 'special' : (isZero ? 'zero' : '')));
+      const diffCls = isDirty ? 'diff' : '';
+      html += `<td>
+        <div class="cell-wrap">
+          <div class="cell-input-row">
+            <input type="number" class="${inputCls}" value="${v}" id="cell-${ym}-${tk}-${c}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" oninput="updateCell(this)" onchange="updateCell(this)" min="0" step="100">
+            <button class="cell-save ${isDirty?'show':''}" onclick="saveCell('${ym}','${tk}','${c}')" title="このセルだけ localStorage に保存">💾</button>
+          </div>
+          <div class="cell-info ${diffCls}" id="info-${ym}-${tk}-${c}">
+            <span class="orig-label">原案 <span class="orig-val">¥${origV.toLocaleString()}</span></span>
+            <button class="reset-btn" onclick="resetCell('${ym}','${tk}','${c}')" title="原案に戻す">↺ 戻す</button>
+          </div>
+        </div>
+      </td>`;
     });
     html += `</tr>`;
   });
@@ -253,8 +318,78 @@ function updateCell(input){
   const v = parseInt(input.value) || 0;
   if(!editState[ym]) return;
   editState[ym][tier][cls] = v;
-  renderMonthTabs(); // タブのサマリ更新
+  // 該当セルの dirty 表示を即時更新
+  const orig = originalState[ym]?.[tier]?.[cls] || 0;
+  const isDirty = v !== orig;
+  const info = document.getElementById('info-' + ym + '-' + tier + '-' + cls);
+  const saveBtn = input.parentElement.querySelector('.cell-save');
+  if(isDirty){
+    input.classList.add('dirty');
+    input.classList.remove('saved','special','zero');
+    info?.classList.add('diff');
+    saveBtn?.classList.add('show');
+  }else{
+    input.classList.remove('dirty');
+    info?.classList.remove('diff');
+    saveBtn?.classList.remove('show');
+  }
+  renderMonthTabs();
 }
+
+function resetCell(ym, tier, cls){
+  const v = originalState[ym]?.[tier]?.[cls] || 0;
+  editState[ym][tier][cls] = v;
+  const inp = document.getElementById('cell-' + ym + '-' + tier + '-' + cls);
+  if(inp){ inp.value = v; updateCell(inp); }
+  showToast('↺ 原案に戻しました（¥' + v.toLocaleString() + '）','warn');
+}
+
+// セル単位で localStorage に保存
+function saveCell(ym, tier, cls){
+  const v = editState[ym]?.[tier]?.[cls];
+  if(v == null){ showToast('保存失敗（データなし）','error'); return; }
+
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){ showToast('pricing.html を一度開いてください','error'); return; }
+  let state;
+  try{ state = JSON.parse(raw); }catch(e){ showToast('JSON解析失敗','error'); return; }
+  if(!state.segments?.proper){ showToast('プロパーセグメントなし','error'); return; }
+
+  // pricing.html の ymKey は non-padded（"2026-8"）
+  const [y, m] = ym.split('-');
+  const key = y + '-' + parseInt(m, 10);
+
+  // 既存の padded key 残骸クリア
+  const proper = state.segments.proper;
+  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
+  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
+  if(proper.monthlyTierClassPrices[ym]) delete proper.monthlyTierClassPrices[ym];
+  if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
+
+  // 該当セルのみ更新
+  if(!proper.monthlyTierClassPrices[key]) proper.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
+  if(!proper.monthlyTierClassPrices[key][tier]) proper.monthlyTierClassPrices[key][tier] = {};
+  proper.monthlyTierClassPrices[key][tier][cls] = v;
+  // top-level も同期
+  if(!state.monthlyTierClassPrices[key]) state.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
+  if(!state.monthlyTierClassPrices[key][tier]) state.monthlyTierClassPrices[key][tier] = {};
+  state.monthlyTierClassPrices[key][tier][cls] = v;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+  // 視覚フィードバック
+  const inp = document.getElementById('cell-' + ym + '-' + tier + '-' + cls);
+  if(inp){
+    inp.classList.remove('dirty');
+    inp.classList.add('saved');
+    setTimeout(()=>inp.classList.remove('saved'), 1200);
+    const saveBtn = inp.parentElement.querySelector('.cell-save');
+    saveBtn?.classList.remove('show');
+  }
+  showToast('💾 ' + key + ' / ' + tier + tier2Label(tier) + ' / タイプ' + cls + ' = ¥' + v.toLocaleString() + ' を保存');
+}
+
+function tier2Label(t){return t==='A'?'繁忙':t==='B'?'通常':'閑散';}
 
 function copyToAllMonths(){
   const ym = curKey();
