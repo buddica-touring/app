@@ -149,7 +149,9 @@ table.cal-tbl th{background:#1e293b;color:#fff;padding:5px 4px;text-align:center
 table.cal-tbl .sun{color:#fca5a5}
 table.cal-tbl .sat{color:#93c5fd}
 .cal-empty{background:#f8fafc;border:1px solid #e2e8f0}
-.cal-day{border:1px solid #e2e8f0;padding:4px;vertical-align:top;min-width:60px}
+.cal-day{border:1px solid #e2e8f0;padding:4px;vertical-align:top;min-width:60px;cursor:pointer}
+.cal-day:hover{filter:brightness(.97)}
+.cal-day.has-ov{outline:2px solid #7c3aed;outline-offset:-2px}
 .cal-day.tier-A{background:#fff1f2}
 .cal-day.tier-B{background:#eff6ff}
 .cal-day.tier-C{background:#f8fafc}
@@ -214,6 +216,25 @@ table.cal-tbl .sat{color:#93c5fd}
   <div class="year-tabs" id="year-tabs"></div>
   <div class="month-tabs" id="month-tabs"></div>
   <div id="matrix-area"></div>
+
+  <!-- 日別tier上書きモーダル -->
+  <div id="dm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:22px 24px;width:90%;max-width:320px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <div style="font-size:14pt;font-weight:800;color:#1e3a8a;margin-bottom:4px" id="dm-title"></div>
+      <div style="font-size:10pt;color:#64748b;margin-bottom:14px" id="dm-auto"></div>
+      <div style="font-size:10pt;font-weight:600;color:#374151;margin-bottom:8px">ティアを選択（pricing.htmlに即反映）</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="dm-A" onclick="setDayTierOverride(_modalDk,'A')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626">A 繁忙</button>
+        <button id="dm-B" onclick="setDayTierOverride(_modalDk,'B')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#dbeafe;color:#1e40af">B 通常</button>
+        <button id="dm-C" onclick="setDayTierOverride(_modalDk,'C')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#f1f5f9;color:#64748b">C 閑散</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="resetDayTier()" style="flex:1;padding:8px;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-size:10pt;font-weight:600;cursor:pointer">↺ 自動判定に戻す</button>
+        <button onclick="closeDayModal()" style="padding:8px 14px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-size:10pt;font-weight:600;cursor:pointer">閉じる</button>
+      </div>
+      <div style="margin-top:10px;font-size:8.5pt;color:#94a3b8">現在: <span id="dm-cur" style="font-weight:700;color:#1e293b"></span> &nbsp;✎ = 手動設定済み</div>
+    </div>
+  </div>
 
   <!-- カレンダービュー -->
   <div class="cal-section" id="cal-section">
@@ -289,75 +310,120 @@ function calScoreTier(sc){
   const s=autoScoreT_cal(sc);
   if(s>=8)return'A';if(s>=5)return'B';return'C';
 }
-function calGetTier(date,pricingState){
+// ===== masterState: シーズナルデータのマスター管理（import-prices.html がオーナー） =====
+let masterState = null;
+function loadMasterState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    masterState=raw?JSON.parse(raw):{};
+  }catch(e){ masterState={}; }
+  if(!masterState.dayTiers) masterState.dayTiers={};
+  if(!masterState.dayScores) masterState.dayScores={};
+  if(!masterState.weights) masterState.weights={E:1,T:2,R:1,H:2};
+  if(!masterState.thresholds) masterState.thresholds={A:5.5,B:3.0};
+  if(!masterState.segments) masterState.segments={proper:{monthlyTierClassPrices:{}},cp:{monthlyTierClassPrices:{}}};
+}
+function saveMasterState(){
+  if(!masterState)return;
+  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(masterState)); }catch(e){}
+}
+
+function calGetTier(date){
+  loadMasterState();
   const k=calDateKey(date.getFullYear(),date.getMonth()+1,date.getDate());
-  if(pricingState&&pricingState.dayTiers&&pricingState.dayTiers[k])return pricingState.dayTiers[k];
+  if(masterState.dayTiers[k]) return masterState.dayTiers[k];
   const sc=autoScoreT_cal(date);
-  if(sc>=8)return'A';if(sc>=4)return'B';return'C';
+  if(sc>=8)return'A'; if(sc>=4)return'B'; return'C';
 }
 function calGetEvent(date){
   const k=calDateKey(date.getFullYear(),date.getMonth()+1,date.getDate());
-  if(HOLIDAYS_CAL[k])return HOLIDAYS_CAL[k];
-  return null;
-}
-function calGetPrice(date,cls,ym,pricingState){
-  // editState から当月価格を取得
-  const s=editState[ym];
-  if(!s||s.skip||s.reset)return null;
-  const tier=calGetTier(date,pricingState);
-  return s[tier]?.[cls]||null;
+  return HOLIDAYS_CAL[k]||null;
 }
 
-// ===== カレンダー描画 =====
+// ===== 日別tier上書き（pricing.htmlへ即反映） =====
+function setDayTierOverride(dk, tier){
+  loadMasterState();
+  if(!tier){ delete masterState.dayTiers[dk]; }
+  else { masterState.dayTiers[dk]=tier; }
+  saveMasterState();
+  renderCalendar();
+  showToast(`📅 ${dk} → ${tier||'自動判定'}に設定`);
+  closeDayModal();
+}
+
+// ===== 日クリックモーダル =====
+let _modalDk=null;
+function openDayModal(dk,currentTier,autTier,event){
+  _modalDk=dk;
+  const[y,m,d]=dk.split('-');
+  document.getElementById('dm-title').textContent=`${y}年${m}月${d}日`;
+  document.getElementById('dm-auto').textContent=`自動判定: ${autTier}${event?' ('+event+')':''}`;
+  document.getElementById('dm-cur').textContent=currentTier;
+  ['A','B','C'].forEach(t=>{
+    const btn=document.getElementById('dm-'+t);
+    if(btn) btn.classList.toggle('active',currentTier===t);
+  });
+  document.getElementById('dm-overlay').style.display='flex';
+}
+function closeDayModal(){ document.getElementById('dm-overlay').style.display='none'; _modalDk=null; }
+function resetDayTier(){
+  if(!_modalDk)return;
+  setDayTierOverride(_modalDk,null);
+}
+
+// ===== カレンダー描画（pricing.htmlと同仕様・全6クラス表示） =====
 function renderCalendar(){
+  loadMasterState();
   const ym=curKey();
-  const [y,m]=[curYear,curMonth];
+  const[y,m]=[curYear,curMonth];
   const label=document.getElementById('cal-ym-label');
-  if(label)label.textContent=`${y}年${m}月`;
+  if(label) label.textContent=`${y}年${m}月`;
   const body=document.getElementById('cal-body');
   if(!body)return;
-  // pricing.html の状態を読み込み（dayTiers 参照）
-  let pState=null;
-  try{const raw=localStorage.getItem(STORAGE_KEY);if(raw)pState=JSON.parse(raw);}catch(e){}
   const s=editState[ym];
   const lastDay=new Date(y,m,0).getDate();
   const firstWd=new Date(y,m-1,1).getDay();
   const counts={A:0,B:0,C:0};
   let html='<tr>';
-  for(let i=0;i<firstWd;i++)html+='<td class="cal-empty"></td>';
-  const SHOW_CLASSES=['A','B','C','F']; // カレンダーで表示するクラス（4つに絞る）
+  for(let i=0;i<firstWd;i++) html+='<td class="cal-empty"></td>';
   for(let d=1;d<=lastDay;d++){
     const date=new Date(y,m-1,d),wd=date.getDay();
-    const tier=calGetTier(date,pState);
+    const dk=calDateKey(y,m,d);
+    const autoTier=calGetTier(date); // masterState.dayTiersを参照
+    const isOverridden=!!(masterState.dayTiers[dk]);
+    const tier=autoTier;
     counts[tier]=(counts[tier]||0)+1;
     const event=calGetEvent(date);
-    const isHol=(wd===0||!!HOLIDAYS_CAL[calDateKey(y,m,d)]);
-    const isSat=wd===6,isSun=wd===0;
-    const dnCls=isHol?'dn hol':(isSat?'dn sat':'dn');
+    const isSun=wd===0,isSat=wd===6;
+    const isHol=isSun||!!HOLIDAYS_CAL[dk];
+    const dnCls=isSun?'dn sun':(isSat?'dn sat':'dn');
+    // 全6クラスの価格
     let pricesHtml='';
     if(s&&!s.skip&&!s.reset){
       pricesHtml='<div class="cal-prices">';
-      SHOW_CLASSES.forEach(cls=>{
+      CLASSES.forEach(cls=>{
         const p=s[tier]?.[cls];
         if(p==null)return;
-        pricesHtml+=`<div class="cal-pr-row"><span class="cal-pr-cls">${cls}</span><span class="cal-pr-val">¥${Math.round(p/1000)}k</span></div>`;
+        pricesHtml+=`<div class="cal-pr-row"><span class="cal-pr-cls">${cls}</span><span class="cal-pr-val${isOverridden?' ov':''}">¥${Math.round(p/1000)}k</span></div>`;
       });
       pricesHtml+='</div>';
     }else{
       pricesHtml='<div style="font-size:8pt;color:#94a3b8;padding:4px 0">—</div>';
     }
     const evHtml=event?`<div class="cal-ev">${event}</div>`:'';
-    html+=`<td class="cal-day tier-${tier}">
-      <div class="cal-num"><span class="${dnCls}">${d}</span><span class="tier-badge tb-${tier}">${tier}</span></div>
+    const ovMark=isOverridden?`<span style="font-size:7pt;color:#7c3aed;margin-left:2px">✎</span>`:'';
+    // pricing.htmlと同仕様のセル
+    html+=`<td class="cal-day tier-${tier}${isOverridden?' has-ov':''}" data-dk="${dk}" data-tier="${tier}" onclick="openDayModal('${dk}','${tier}','${tier}',${event?`'${event}'`:'null'})">
+      <div class="cal-num"><span class="${dnCls}">${d}${ovMark}</span><span class="tier-badge tb-${tier}">${tier}</span></div>
       ${evHtml}${pricesHtml}</td>`;
-    if(wd===6&&d!==lastDay)html+='</tr><tr>';
+    if(wd===6&&d!==lastDay) html+='</tr><tr>';
   }
   const lastWd2=new Date(y,m-1,lastDay).getDay();
-  for(let i=lastWd2+1;i<=6;i++)html+='<td class="cal-empty"></td>';
+  for(let i=lastWd2+1;i<=6;i++) html+='<td class="cal-empty"></td>';
   html+='</tr>';
   body.innerHTML=html;
   const statsEl=document.getElementById('cal-stats');
-  if(statsEl)statsEl.textContent=`A:${counts.A||0} / B:${counts.B||0} / C:${counts.C||0} = ${lastDay}日`;
+  if(statsEl) statsEl.textContent=`A:${counts.A||0} / B:${counts.B||0} / C:${counts.C||0} = ${lastDay}日`;
 }
 
 // ===== 価格提案（2026/7-12）=====
@@ -1008,6 +1074,7 @@ function verifyStorage(){
 }
 
 // 初期化
+loadMasterState(); // masterState をロード（シーズナルデータのマスター）
 buildInitial();
 loadHistory();
 // 各月で V1=原案 を保証 + editState を採用中バージョンと同期
