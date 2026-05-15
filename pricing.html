@@ -857,15 +857,16 @@ function renderSettings() {
         const ov = isTierPriceMonthOverridden(t, c, y, m);
         const common = state.tierClassPrices[t] && state.tierClassPrices[t][c] != null ? state.tierClassPrices[t][c] : '-';
         const ovStyle = ov ? 'background:#ecfdf5;color:#059669;border-color:#10b981;font-weight:700' : '';
-        html += `<td style="border:1px solid #d1d5db;padding:4px;text-align:center;background:${ts.bg}30;vertical-align:top">
-          <div style="display:flex;flex-direction:column;gap:3px">
-            <div style="display:flex;gap:3px;align-items:center">
-              <input type="number" step="100" min="0" data-tier="${t}" data-cls="${c}" value="${p}" style="flex:1;min-width:0;border:1.5px solid #d1d5db;padding:5px 4px;border-radius:4px;font-size:10.5pt;font-family:'Menlo',monospace;text-align:right;font-weight:600;${ovStyle}">
-              <button class="cell-save-pr" data-tier="${t}" data-cls="${c}" style="display:none;background:#16a34a;color:#fff;border:none;width:26px;height:26px;border-radius:4px;font-size:11pt;cursor:pointer;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(22,163,74,.3)" title="この数字を保存（Enterでも可）">💾</button>
+        // 入力フィールドの placeholder にも原案を入れて視覚的にうっすら見せる
+        html += `<td style="border:1px solid #d1d5db;padding:5px;text-align:center;background:${ts.bg}30;vertical-align:top">
+          <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+            <div style="display:flex;gap:3px;align-items:center;position:relative">
+              <input type="number" step="100" min="0" data-tier="${t}" data-cls="${c}" value="${p}" style="flex:1;min-width:0;border:1.5px solid #d1d5db;padding:6px 6px;border-radius:4px;font-size:11.5pt;font-family:'Menlo',monospace;text-align:right;font-weight:700;color:#1e3a8a;${ovStyle}">
+              <button class="cell-save-pr" data-tier="${t}" data-cls="${c}" style="display:none;background:#16a34a;color:#fff;border:none;width:28px;height:28px;border-radius:4px;font-size:12pt;cursor:pointer;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(22,163,74,.3)" title="この数字を保存（Enterでも可）">💾</button>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:7.5pt;font-family:'Menlo',monospace;color:#9ca3af;min-height:14px">
-              <span>共通 <span style="font-weight:700;color:#6b7280">¥${typeof common === 'number' ? common.toLocaleString() : common}</span></span>
-              ${ov ? `<button class="cell-reset-pr" data-tier="${t}" data-cls="${c}" style="background:none;color:#dc2626;border:none;padding:0 4px;font-size:9pt;cursor:pointer;font-weight:700;line-height:1;border-radius:3px" title="月別カスタムを解除して共通価格に戻す">↺ 戻す</button>` : ''}
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8.5pt;font-family:'Menlo',monospace;color:#cbd5e1;min-height:16px;padding:0 2px">
+              <span style="opacity:.7">原案 <span style="font-weight:600;color:#94a3b8">¥${typeof common === 'number' ? common.toLocaleString() : common}</span></span>
+              ${ov ? `<button class="cell-reset-pr" data-tier="${t}" data-cls="${c}" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:1px 6px;font-size:9pt;cursor:pointer;font-weight:700;line-height:1.2;border-radius:3px" title="月別カスタムを解除して共通価格に戻す">↺ 戻す</button>` : ''}
             </div>
           </div>
         </td>`;
