@@ -20511,7 +20511,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
     const n_months=monthList.length;
     if(n_months<=0)return{rows:[],classRows:[],period:"",months:0,empty:false};
     const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
-    const activeResv=(data||[]).filter(r=>{if(r.status==="cancelled")return false;if(!r.lendDate)return false;if(r.lendDate<effectiveStart+"-01"||r.lendDate>todayStr)return false;if(otaFilter!=="ALL"){const ota=r.ota==="A"?"O":(r.ota||"?");if(ota!==otaFilter)return false;}return true;});
+    const activeResv=(data||[]).filter(r=>{if(r.status==="cancelled")return false;if(!r.lendDate)return false;if(r.lendDate<effectiveStart+"-01")return false;if(otaFilter!=="ALL"){const ota=r.ota==="A"?"O":(r.ota||"?");if(ota!==otaFilter)return false;}return true;});
     const resvMap={};activeResv.forEach(r=>{resvMap[r.id]=r;});
     const vehStat={};
     Object.entries(fleet||{}).forEach(([rid,vc])=>{
@@ -20770,7 +20770,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.43-BT";
+const APP_VERSION="v1.0.44-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
