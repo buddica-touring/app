@@ -20671,7 +20671,39 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
         </div>
       </div>
     </div>
-    <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🚗 全車両ランキング</div>
+    {/* 📋 予約数ランキング（シンプル） */}
+    <div style={{marginBottom:20}}>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📋 予約数ランキング（{otaFilter==="ALL"?"全OTA":otaFilter==="HP"?"HP直販":otaFilter==="J"?"じゃらん":otaFilter==="R"?"楽天":otaFilter==="S"?"スカイ":otaFilter==="O"?"エアトリ":otaFilter==="RC"?"RC":otaFilter==="G"?"GoGoOut":otaFilter==="SP"?"Slack":otaFilter==="direct"?"手動":otaFilter}・件数順）</div>
+      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
+            <thead>
+              <tr style={{background:"#0f172a",color:"#fff"}}>
+                <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
+                <th style={{padding:"10px 8px",textAlign:"center",width:48}}>クラス</th>
+                <th style={{padding:"10px 8px",textAlign:"left"}}>車両名</th>
+                <th style={{padding:"10px 8px",textAlign:"left",width:80}}>ナンバー</th>
+                <th style={{padding:"10px 8px",textAlign:"right",width:60}}>予約数</th>
+                <th style={{padding:"10px 8px",textAlign:"right",width:110}}>売上合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...ranking.rows].sort((a,b)=>b.cnt-a.cnt||b.revTotal-a.revTotal).filter(r=>r.cnt>0).map((r,i)=>(
+                <tr key={r.code} style={{borderBottom:"1px solid #e2e8f0",background:i%2===0?"#fff":"#f8fafc"}}>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#1e40af"}}>{r.type}</td>
+                  <td style={{padding:"8px",fontWeight:600}}>{r.name||"-"}</td>
+                  <td style={{padding:"8px",color:"#64748b",fontSize:11}}>{r.plate||"-"}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:"#1e293b",fontSize:14}}>{r.cnt}件</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:"#059669"}}>¥{Math.round(r.revTotal).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🚗 全車両ランキング（点数評価）</div>
     <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1300}}>
@@ -20738,7 +20770,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.42-BT";
+const APP_VERSION="v1.0.43-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
