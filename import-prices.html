@@ -217,22 +217,35 @@ table.cal-tbl .sat{color:#93c5fd}
   <div class="month-tabs" id="month-tabs"></div>
   <div id="matrix-area"></div>
 
-  <!-- 日別tier上書きモーダル -->
-  <div id="dm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:14px;padding:22px 24px;width:90%;max-width:320px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
-      <div style="font-size:14pt;font-weight:800;color:#1e3a8a;margin-bottom:4px" id="dm-title"></div>
-      <div style="font-size:10pt;color:#64748b;margin-bottom:14px" id="dm-auto"></div>
-      <div style="font-size:10pt;font-weight:600;color:#374151;margin-bottom:8px">ティアを選択（pricing.htmlに即反映）</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button id="dm-A" onclick="setDayTierOverride(_modalDk,'A')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626">A 繁忙</button>
-        <button id="dm-B" onclick="setDayTierOverride(_modalDk,'B')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#dbeafe;color:#1e40af">B 通常</button>
-        <button id="dm-C" onclick="setDayTierOverride(_modalDk,'C')" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#f1f5f9;color:#64748b">C 閑散</button>
+  <!-- 日別設定モーダル（tier + 全クラス個別価格） -->
+  <div id="dm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:12px">
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">
+      <!-- ヘッダー -->
+      <div style="font-size:14pt;font-weight:800;color:#1e3a8a;margin-bottom:3px" id="dm-title"></div>
+      <div style="font-size:9.5pt;color:#64748b;margin-bottom:12px" id="dm-auto"></div>
+
+      <!-- tier選択 -->
+      <div style="font-size:10pt;font-weight:700;color:#374151;margin-bottom:7px">🎯 ティア選択</div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button id="dm-A" onclick="selectModalTier('A')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#fee2e2;color:#991b1b">A 繁忙</button>
+        <button id="dm-B" onclick="selectModalTier('B')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#fef3c7;color:#92400e">B 通常</button>
+        <button id="dm-C" onclick="selectModalTier('C')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#dbeafe;color:#1e40af">C 閑散</button>
       </div>
-      <div style="display:flex;gap:6px">
+
+      <!-- 個別価格入力（全6クラス） -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <div style="font-size:10pt;font-weight:700;color:#374151">💰 クラス別個別価格</div>
+        <button onclick="resetDayPrices()" style="font-size:8.5pt;padding:3px 9px;background:#f1f5f9;color:#475569;border:none;border-radius:5px;cursor:pointer">↺ ティア標準に戻す</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px" id="dm-price-grid"></div>
+
+      <!-- アクション -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
         <button onclick="resetDayTier()" style="flex:1;padding:8px;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-size:10pt;font-weight:600;cursor:pointer">↺ 自動判定に戻す</button>
-        <button onclick="closeDayModal()" style="padding:8px 14px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-size:10pt;font-weight:600;cursor:pointer">閉じる</button>
+        <button onclick="saveDayModal()" style="flex:1;padding:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:8px;font-size:10pt;font-weight:700;cursor:pointer">💾 保存</button>
+        <button onclick="closeDayModal()" style="padding:8px 12px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-size:10pt;font-weight:600;cursor:pointer">閉じる</button>
       </div>
-      <div style="margin-top:10px;font-size:8.5pt;color:#94a3b8">現在: <span id="dm-cur" style="font-weight:700;color:#1e293b"></span> &nbsp;✎ = 手動設定済み</div>
+      <div style="font-size:8.5pt;color:#94a3b8">現在tier: <span id="dm-cur" style="font-weight:700;color:#1e293b"></span> &nbsp;|&nbsp; 個別価格: <span id="dm-price-count" style="font-weight:700;color:#7c3aed"></span></div>
     </div>
   </div>
 
@@ -340,8 +353,146 @@ function calGetEvent(date){
   return HOLIDAYS_CAL[k]||null;
 }
 
-// ===== 日別tier上書き（pricing.htmlへ即反映） =====
-function setDayTierOverride(dk, tier){
+// ===== 日クリックモーダル（tier + 個別価格） =====
+let _modalDk=null;
+let _modalTier=null; // 現在選択中のtier
+
+// editState から当月の価格を取得
+function getEditStateForDk(dk){
+  const[y,m]=dk.split('-');
+  const paddedM=String(parseInt(m)).padStart(2,'0');
+  return editState[y+'-'+paddedM]||null;
+}
+
+function openDayModal(dk,currentTier,autoTier,eventName){
+  _modalDk=dk;
+  _modalTier=currentTier;
+  loadMasterState();
+  const[y,m,d]=dk.split('-');
+  document.getElementById('dm-title').textContent=`${y}年${m}月${d}日`;
+  document.getElementById('dm-auto').textContent=`自動判定: ${autoTier}${eventName&&eventName!=='null'?' ('+eventName+')':''}`;
+  document.getElementById('dm-cur').textContent=masterState.dayTiers[dk]||'自動';
+  _renderModalTierBtns(currentTier);
+  _renderModalPriceGrid(dk, currentTier);
+  document.getElementById('dm-overlay').style.display='flex';
+}
+
+function _renderModalTierBtns(tier){
+  const styles={A:{bg:'#fee2e2',color:'#991b1b'},B:{bg:'#fef3c7',color:'#92400e'},C:{bg:'#dbeafe',color:'#1e40af'}};
+  ['A','B','C'].forEach(t=>{
+    const btn=document.getElementById('dm-'+t);
+    if(!btn)return;
+    const sel=(t===tier);
+    btn.style.border=sel?`3px solid ${styles[t].color}`:'2px solid #e5e7eb';
+    btn.style.boxShadow=sel?`0 0 0 2px ${styles[t].color}33`:'none';
+    btn.style.fontWeight=sel?'900':'700';
+  });
+}
+
+function _renderModalPriceGrid(dk, tier){
+  const es=getEditStateForDk(dk);
+  const existingDayPrices=masterState.dayPrices?.[dk]||{};
+  const CLASS_LABELS={A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
+  let html='';
+  CLASSES.forEach(cls=>{
+    const tierPrice=(es&&!es.skip&&!es.reset)?(es[tier]?.[cls]||0):0;
+    const isOv=existingDayPrices[cls]!=null;
+    const val=isOv?existingDayPrices[cls]:tierPrice;
+    html+=`<div style="background:${isOv?'#f0fdf4':'#f8fafc'};border:1px solid ${isOv?'#86efac':'#e5e7eb'};border-radius:6px;padding:6px 8px">
+      <div style="font-size:8pt;font-weight:700;color:#374151;margin-bottom:3px">${cls} <span style="font-weight:400;color:#9ca3af">${CLASS_LABELS[cls]}</span></div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="font-size:9pt;color:#64748b">¥</span>
+        <input type="number" id="dp-${cls}" value="${val}" min="0" step="100"
+          style="flex:1;border:1px solid ${isOv?'#22c55e':'#d1d5db'};border-radius:4px;padding:4px 6px;font-size:10pt;font-family:monospace;font-weight:700;color:${isOv?'#15803d':'#1e3a8a'};background:${isOv?'#dcfce7':'#fff'};text-align:right"
+          oninput="onDpInput('${cls}',${tierPrice})">
+      </div>
+      ${isOv?`<div style="font-size:7.5pt;color:#6b7280;margin-top:2px">ティア標準: ¥${tierPrice.toLocaleString()}</div>`:`<div style="font-size:7.5pt;color:#94a3b8;margin-top:2px">ティア標準</div>`}
+    </div>`;
+  });
+  document.getElementById('dm-price-grid').innerHTML=html;
+  _updateModalPriceCount(dk);
+}
+
+function onDpInput(cls, tierPrice){
+  const inp=document.getElementById('dp-'+cls);
+  if(!inp)return;
+  const v=parseInt(inp.value)||0;
+  const isOv=(v!==tierPrice);
+  inp.style.border=`1px solid ${isOv?'#22c55e':'#d1d5db'}`;
+  inp.style.color=isOv?'#15803d':'#1e3a8a';
+  inp.style.background=isOv?'#dcfce7':'#fff';
+}
+
+function _updateModalPriceCount(dk){
+  const el=document.getElementById('dm-price-count');
+  if(!el)return;
+  const cnt=Object.keys(masterState.dayPrices?.[dk]||{}).length;
+  el.textContent=cnt>0?`${cnt}クラス上書き中`:'なし（全てtier標準）';
+}
+
+function selectModalTier(tier){
+  _modalTier=tier;
+  _renderModalTierBtns(tier);
+  // 価格インプットをこのtierの標準値に更新（既存上書きは保持）
+  if(!_modalDk)return;
+  const es=getEditStateForDk(_modalDk);
+  const existingDayPrices=masterState.dayPrices?.[_modalDk]||{};
+  CLASSES.forEach(cls=>{
+    if(existingDayPrices[cls]!=null)return; // 手動上書き済みはそのまま
+    const tierPrice=(es&&!es.skip&&!es.reset)?(es[tier]?.[cls]||0):0;
+    const inp=document.getElementById('dp-'+cls);
+    if(inp){ inp.value=tierPrice; onDpInput(cls,tierPrice); }
+  });
+}
+
+function resetDayPrices(){
+  if(!_modalDk)return;
+  loadMasterState();
+  delete masterState.dayPrices[_modalDk];
+  saveMasterState();
+  _renderModalPriceGrid(_modalDk, _modalTier||'B');
+  showToast('↺ 価格をtier標準に戻しました','warn');
+}
+
+function saveDayModal(){
+  if(!_modalDk)return;
+  loadMasterState();
+  // tier 保存
+  if(_modalTier){ masterState.dayTiers[_modalDk]=_modalTier; }
+  // 個別価格 保存
+  const es=getEditStateForDk(_modalDk);
+  const priceOverrides={};
+  CLASSES.forEach(cls=>{
+    const tierPrice=(es&&!es.skip&&!es.reset)?(es[_modalTier]?.[cls]||0):0;
+    const inp=document.getElementById('dp-'+cls);
+    const v=inp?parseInt(inp.value)||0:tierPrice;
+    if(v!==tierPrice) priceOverrides[cls]=v;
+  });
+  if(!masterState.dayPrices) masterState.dayPrices={};
+  if(Object.keys(priceOverrides).length>0){
+    masterState.dayPrices[_modalDk]=priceOverrides;
+  }else{
+    delete masterState.dayPrices[_modalDk];
+  }
+  saveMasterState();
+  renderCalendar();
+  const cnt=Object.keys(priceOverrides).length;
+  showToast(`💾 ${_modalDk} tier:${_modalTier}${cnt>0?' + '+cnt+'クラス個別価格':''}を保存`);
+  closeDayModal();
+}
+
+function resetDayTier(){
+  if(!_modalDk)return;
+  loadMasterState();
+  delete masterState.dayTiers[_modalDk];
+  delete masterState.dayPrices[_modalDk];
+  saveMasterState();
+  renderCalendar();
+  showToast(`↺ ${_modalDk} を自動判定に戻しました`,'warn');
+  closeDayModal();
+}
+
+function setDayTierOverride(dk,tier){
   loadMasterState();
   if(!tier){ delete masterState.dayTiers[dk]; }
   else { masterState.dayTiers[dk]=tier; }
@@ -351,25 +502,7 @@ function setDayTierOverride(dk, tier){
   closeDayModal();
 }
 
-// ===== 日クリックモーダル =====
-let _modalDk=null;
-function openDayModal(dk,currentTier,autTier,event){
-  _modalDk=dk;
-  const[y,m,d]=dk.split('-');
-  document.getElementById('dm-title').textContent=`${y}年${m}月${d}日`;
-  document.getElementById('dm-auto').textContent=`自動判定: ${autTier}${event?' ('+event+')':''}`;
-  document.getElementById('dm-cur').textContent=currentTier;
-  ['A','B','C'].forEach(t=>{
-    const btn=document.getElementById('dm-'+t);
-    if(btn) btn.classList.toggle('active',currentTier===t);
-  });
-  document.getElementById('dm-overlay').style.display='flex';
-}
-function closeDayModal(){ document.getElementById('dm-overlay').style.display='none'; _modalDk=null; }
-function resetDayTier(){
-  if(!_modalDk)return;
-  setDayTierOverride(_modalDk,null);
-}
+function closeDayModal(){ document.getElementById('dm-overlay').style.display='none'; _modalDk=null; _modalTier=null; }
 
 // ===== カレンダー描画（pricing.htmlと同仕様・全6クラス表示） =====
 function renderCalendar(){
@@ -401,10 +534,13 @@ function renderCalendar(){
     let pricesHtml='';
     if(s&&!s.skip&&!s.reset){
       pricesHtml='<div class="cal-prices">';
+      const dayPriceOv=masterState.dayPrices?.[dk]||{};
       CLASSES.forEach(cls=>{
-        const p=s[tier]?.[cls];
+        // 個別価格上書き優先、なければtier価格
+        const isPriceOv=dayPriceOv[cls]!=null;
+        const p=isPriceOv?dayPriceOv[cls]:(s[tier]?.[cls]);
         if(p==null)return;
-        pricesHtml+=`<div class="cal-pr-row"><span class="cal-pr-cls">${cls}</span><span class="cal-pr-val${isOverridden?' ov':''}">¥${p.toLocaleString()}</span></div>`;
+        pricesHtml+=`<div class="cal-pr-row"><span class="cal-pr-cls">${cls}</span><span class="cal-pr-val${isPriceOv?' ov':''}">¥${p.toLocaleString()}</span></div>`;
       });
       pricesHtml+='</div>';
     }else{
