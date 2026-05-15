@@ -311,17 +311,27 @@ function doImport(){
 
   log('===== インポート開始 =====', 'success');
   let inputCnt = 0, resetCnt = 0, skipCnt = 0;
+  // ★ pricing.html の ymKey(y,m) は `${y}-${m}` でゼロパディングなし
+  //   なので "2026-08" → "2026-8" に変換して書き込む
+  const toUnpaddedYm = (ym) => {
+    const [y, m] = ym.split('-');
+    return y + '-' + parseInt(m, 10);
+  };
+  // 既存の padded key 残骸を一旦クリア（"2026-08" 等を削除）
+  Object.keys(tcp).forEach(k => { if(/^\d{4}-0\d$/.test(k) || /^\d{4}-1[0-2]$/.test(k)) delete tcp[k]; });
+  Object.keys(tcp2).forEach(k => { if(/^\d{4}-0\d$/.test(k) || /^\d{4}-1[0-2]$/.test(k)) delete tcp2[k]; });
   Object.entries(editState).forEach(([ym, s]) => {
     if(s.skip){ skipCnt++; return; }
     const data = { A:{...s.A}, B:{...s.B}, C:{...s.C} };
-    tcp[ym] = data;
-    tcp2[ym] = data;  // ★ 2箇所書き込み（race condition対策）
+    const key = toUnpaddedYm(ym);  // ★ "2026-08" → "2026-8"
+    tcp[key] = data;
+    tcp2[key] = data;  // ★ 2箇所書き込み（race condition対策）
     if(s.reset){
       resetCnt++;
-      log('  🗑️ ' + ym + ' 全0リセット');
+      log('  🗑️ ' + key + ' 全0リセット');
     }else{
       inputCnt++;
-      log('  ✓ ' + ym + (s.special?' ★':'') + ' B Aクラス=¥' + (s.B.A||0).toLocaleString());
+      log('  ✓ ' + key + (s.special?' ★':'') + ' B Aクラス=¥' + (s.B.A||0).toLocaleString());
     }
   });
   log('価格入力: ' + inputCnt + 'ヶ月 / 0リセット: ' + resetCnt + 'ヶ月 / 触らず: ' + skipCnt + 'ヶ月', 'success');
@@ -339,15 +349,17 @@ function doImport(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   log('localStorage 書き込み完了', 'success');
 
-  // ★ 即時検証（2箇所）
+  // ★ 即時検証（2箇所、non-padded key で確認）
   const verifyRaw = localStorage.getItem(STORAGE_KEY);
   const verifyState = JSON.parse(verifyRaw);
-  const v1 = verifyState?.segments?.proper?.monthlyTierClassPrices?.['2026-07']?.B?.A;
-  const v2 = verifyState?.monthlyTierClassPrices?.['2026-07']?.B?.A;
-  if(v1 === 17000 && v2 === 17000){
-    log('✅ 検証OK: 2箇所とも 2026-07 B Aクラス=¥17,000', 'success');
+  const v1jul = verifyState?.segments?.proper?.monthlyTierClassPrices?.['2026-7']?.B?.A;
+  const v2jul = verifyState?.monthlyTierClassPrices?.['2026-7']?.B?.A;
+  const v1aug = verifyState?.segments?.proper?.monthlyTierClassPrices?.['2026-8']?.A?.A;
+  const v2aug = verifyState?.monthlyTierClassPrices?.['2026-8']?.A?.A;
+  if(v1jul === 17000 && v2jul === 17000 && v1aug === 22000 && v2aug === 22000){
+    log('✅ 検証OK: 2026-7 B Aクラス=¥17,000 / 2026-8 A Aクラス=¥22,000', 'success');
   }else{
-    log('⚠ 検証: segments.proper=¥' + (v1||0) + ' / top-level=¥' + (v2||0), 'warning');
+    log('⚠ 検証: 7月 segments=¥' + (v1jul||0) + ' top=¥' + (v2jul||0) + ' / 8月 segments=¥' + (v1aug||0) + ' top=¥' + (v2aug||0), 'warning');
   }
 
   log('', '');
@@ -376,12 +388,17 @@ function verifyStorage(){
     if(!tcp){ log('❌ proper.monthlyTierClassPrices が見つかりません', 'error'); return; }
     log('===== 現在のlocalStorage（proper.monthlyTierClassPrices）=====', 'success');
     log('保存月数: ' + Object.keys(tcp).length);
-    const samples = ['2026-07','2026-08','2026-12','2027-01'];
+    log('★ pricing.html は ymKey=`2026-8` 形式（ゼロパディングなし）で読みます', 'warning');
+    // non-padded と padded 両方サンプル確認
+    const samples = ['2026-7','2026-8','2026-12','2027-1','2026-07','2026-08'];
     samples.forEach(ym => {
       const v = tcp[ym];
       if(!v){ log('  ' + ym + ' : 未設定', 'warning'); return; }
       log('  ' + ym + ' A=' + (v.A?.A||0) + ' / B=' + (v.B?.A||0) + ' / C=' + (v.C?.A||0) + '（Aクラス）');
     });
+    log('');
+    log('▼ 全キー一覧 ▼');
+    log(Object.keys(tcp).sort().join(', '));
     log('');
     log('▼ 全データ JSON ▼');
     log(JSON.stringify(tcp, null, 2));
