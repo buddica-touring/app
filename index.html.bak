@@ -13781,6 +13781,48 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
               <span style={{fontWeight:900,fontSize:14}}>支給額</span>
               <span style={{fontWeight:900,fontSize:18,color:"#1e40af"}}>¥{d.actualTotal.toLocaleString()}</span>
             </div>
+            {/* 日別勤怠内訳 */}
+            {(()=>{
+              const WK=["日","月","火","水","木","金","土"];
+              const dayRows=d.days.filter(dy=>dy.att&&dy.att.approved&&!dy.att.absent&&!(dy.att.memo&&dy.att.memo.startsWith("協議中")));
+              if(!dayRows.length)return null;
+              return <div style={{marginTop:10,borderTop:"1px dashed #e2e8f0",paddingTop:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:6}}>📋 日別勤怠内訳</div>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead>
+                    <tr style={{background:"#f8fafc"}}>
+                      <th style={{padding:"4px 6px",textAlign:"center",color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9",width:32}}>日</th>
+                      <th style={{padding:"4px 6px",textAlign:"center",color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9",width:24}}>曜</th>
+                      <th style={{padding:"4px 6px",textAlign:"center",color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9"}}>時間帯</th>
+                      <th style={{padding:"4px 6px",textAlign:"right",color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9",width:44}}>時間数</th>
+                      {isP&&<th style={{padding:"4px 6px",textAlign:"right",color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9",width:60}}>賃金</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayRows.map(dy=>{
+                      const h=calcHours(dy.att.start,dy.att.end);
+                      const w=dy._wage||(si.hourlyWage||0);
+                      const wage=isP?Math.round(w*h):null;
+                      const isSun=dy.dow===0;const isSat=dy.dow===6;
+                      const dc=isSun?"#dc2626":isSat?"#2563eb":"#374151";
+                      return <tr key={dy.date} style={{borderBottom:"1px solid #f8fafc"}}>
+                        <td style={{padding:"3px 6px",textAlign:"center",fontWeight:600,color:dc}}>{dy.day}</td>
+                        <td style={{padding:"3px 6px",textAlign:"center",color:dc}}>{WK[dy.dow]}</td>
+                        <td style={{padding:"3px 6px",textAlign:"center",color:"#475569"}}>{dy.att.start}〜{dy.att.end}</td>
+                        <td style={{padding:"3px 6px",textAlign:"right",fontWeight:700,color:"#059669"}}>{h}h</td>
+                        {isP&&<td style={{padding:"3px 6px",textAlign:"right",color:"#64748b"}}>¥{wage.toLocaleString()}</td>}
+                      </tr>;
+                    })}
+                    <tr style={{background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
+                      <td colSpan={2} style={{padding:"4px 6px",textAlign:"right",fontWeight:700,fontSize:11,color:"#374151"}}>合計</td>
+                      <td style={{padding:"4px 6px",textAlign:"center",fontSize:11,color:"#64748b"}}>{dayRows.length}日</td>
+                      <td style={{padding:"4px 6px",textAlign:"right",fontWeight:900,color:"#059669"}}>{d.actualHours.toFixed(1)}h</td>
+                      {isP&&<td style={{padding:"4px 6px",textAlign:"right",fontWeight:700,color:"#1e40af"}}>¥{d.actualWage.toLocaleString()}</td>}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>;
+            })()}
           </div>
         </div>;
       })}
