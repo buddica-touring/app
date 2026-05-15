@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>シーズナル設定 — BUDDICA TOURING</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;color:#1f2937;line-height:1.5}
+.header{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header-left .brand{font-size:9pt;opacity:.7;letter-spacing:.25em}
+.header-left h1{font-size:17pt;font-weight:700}
+.header-right{display:flex;gap:8px;align-items:center}
+.hbtn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 14px;border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;text-decoration:none}
+.hbtn.home{background:#fff;color:#1e3a8a}
+.container{max-width:1100px;margin:0 auto;padding:14px}
+
+/* ===== 年度タブ ===== */
+.year-tabs{display:flex;gap:4px;margin-bottom:14px}
+.year-tab{padding:8px 22px;border:none;border-radius:8px;font-size:11.5pt;font-weight:700;cursor:pointer;background:#e2e8f0;color:#475569;transition:all .15s}
+.year-tab.active{background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(30,58,138,.3)}
+
+/* ===== エリアバッジ ===== */
+.area-badge{display:inline-flex;align-items:center;gap:6px;background:#dbeafe;color:#1e3a8a;padding:4px 12px;border-radius:20px;font-size:10pt;font-weight:700;margin-bottom:12px}
+
+/* ===== セクションカード ===== */
+.sec-card{background:#fff;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.07);margin-bottom:14px;overflow:hidden}
+.sec-head{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.sec-head h3{font-size:11pt;font-weight:800;color:#1e293b;display:flex;align-items:center;gap:8px;margin:0}
+.sec-head .arr{color:#94a3b8;font-size:10pt;transition:transform .2s}
+.sec-head.open .arr{transform:rotate(180deg)}
+.sec-body{padding:14px 16px}
+
+/* ===== コンテンツ（Coming soon） ===== */
+.coming{text-align:center;padding:40px 20px;color:#94a3b8}
+.coming .ico{font-size:32pt;margin-bottom:12px}
+.coming p{font-size:11pt;font-weight:600}
+.coming small{font-size:9.5pt;color:#cbd5e1}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="brand">B U D D I C A &nbsp; T O U R I N G</div>
+    <h1>🗓 シーズナル設定</h1>
+  </div>
+  <div class="header-right">
+    <a href="price-hub.html" class="hbtn home">🏠 ハブに戻る</a>
+    <a href="pricing.html" class="hbtn" id="calendar-link" target="_blank">📅 カレンダー確認</a>
+    <a href="import-prices.html" class="hbtn" id="prices-link">💰 価格マトリクスへ</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- エリアバッジ -->
+  <div class="area-badge" id="area-badge">🏔 高松店</div>
+
+  <!-- 年度タブ -->
+  <div class="year-tabs">
+    <button class="year-tab active" onclick="selYear(2026)" id="yt-2026">2026年度</button>
+    <button class="year-tab" onclick="selYear(2027)" id="yt-2027">2027年度</button>
+  </div>
+
+  <!-- セクション1: 期間プリセット -->
+  <div class="sec-card">
+    <div class="sec-head open" onclick="toggleSec(this)">
+      <h3>📅 期間プリセット（tier一括設定）</h3>
+      <span class="arr">▼</span>
+    </div>
+    <div class="sec-body" id="sec-presets">
+      <div class="coming">
+        <div class="ico">🚧</div>
+        <p>期間プリセット設定</p>
+        <small>GW・お盆・年末年始など期間ごとにtierを一括設定できます</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- セクション2: スコアリング設定 -->
+  <div class="sec-card">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <h3>⚖️ E/T/R/H スコアリング設定</h3>
+      <span class="arr">▼</span>
+    </div>
+    <div class="sec-body" style="display:none" id="sec-scoring">
+      <div class="coming">
+        <div class="ico">🚧</div>
+        <p>スコアリング設定</p>
+        <small>4要素の重み・tier閾値を設定できます</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- セクション3: カレンダープレビュー -->
+  <div class="sec-card">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <h3>📅 カレンダープレビュー</h3>
+      <span class="arr">▼</span>
+    </div>
+    <div class="sec-body" style="display:none" id="sec-calendar">
+      <div class="coming">
+        <div class="ico">🚧</div>
+        <p>カレンダープレビュー</p>
+        <small>設定適用後の年間tier分布を確認できます</small>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// URLパラメータからエリア取得
+const urlParams = new URLSearchParams(location.search);
+const area = urlParams.get('area') || 'tkm';
+const AREA_NAMES = {tkm:'🏔 高松店', nha:'✈️ 那覹空港店', spk:'🏔 札幌デリバリー店'};
+document.getElementById('area-badge').textContent = AREA_NAMES[area] || area;
+document.getElementById('calendar-link').href = `pricing.html?area=${area}`;
+document.getElementById('prices-link').href = `import-prices.html?area=${area}`;
+
+// 年度選択
+let curYear = 2026;
+function selYear(y){
+  curYear = y;
+  document.querySelectorAll('.year-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('yt-'+y).classList.add('active');
+  // TODO: 年度別データ表示
+}
+
+// セクション開閉
+function toggleSec(head){
+  const body = head.nextElementSibling;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  head.classList.toggle('open', !isOpen);
+}
+</script>
+</body>
+</html>
