@@ -131,6 +131,46 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
 /* ===== Notice ===== */
 .notice{background:#fef3c7;border-left:4px solid #f59e0b;padding:8px 12px;font-size:10.5pt;color:#92400e;border-radius:6px;line-height:1.6;margin-bottom:10px}
 
+/* ===== Segment tabs ===== */
+.seg-tabs{display:flex;gap:4px;margin-bottom:10px}
+.seg-tab{background:#f1f5f9;color:#475569;padding:8px 20px;border:none;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;transition:all .15s}
+.seg-tab.active{background:#1e3a8a;color:#fff;box-shadow:0 2px 6px rgba(30,58,138,.3)}
+.seg-tab.cp{border:2px solid #e9d5ff}
+.seg-tab.cp.active{background:#7c3aed;border-color:#7c3aed;box-shadow:0 2px 6px rgba(124,58,237,.3)}
+.seg-label{display:inline-block;font-size:8pt;background:rgba(255,255,255,.25);border-radius:4px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+
+/* ===== Calendar ===== */
+.cal-section{background:#fff;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.07);margin-bottom:12px;overflow:hidden}
+.cal-head{background:#0f172a;color:#fff;padding:10px 14px;font-size:11pt;font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.cal-head .sub{font-size:9pt;opacity:.6}
+.cal-stats{font-size:9.5pt;background:rgba(255,255,255,.1);padding:3px 10px;border-radius:6px;font-family:monospace;letter-spacing:.3px}
+table.cal-tbl{border-collapse:collapse;width:100%;font-size:9pt}
+table.cal-tbl th{background:#1e293b;color:#fff;padding:5px 4px;text-align:center;border:1px solid #334155;font-size:9pt}
+table.cal-tbl .sun{color:#fca5a5}
+table.cal-tbl .sat{color:#93c5fd}
+.cal-empty{background:#f8fafc;border:1px solid #e2e8f0}
+.cal-day{border:1px solid #e2e8f0;padding:4px;vertical-align:top;min-width:60px}
+.cal-day.tier-A{background:#fff1f2}
+.cal-day.tier-B{background:#eff6ff}
+.cal-day.tier-C{background:#f8fafc}
+.cal-day.tier-X{background:#fff7ed}
+.cal-day.holiday{opacity:.85}
+.cal-num{font-size:9.5pt;font-weight:700;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.cal-num .dn{color:#1e293b}
+.cal-num .dn.sun{color:#dc2626}
+.cal-num .dn.sat{color:#2563eb}
+.cal-num .dn.hol{color:#dc2626}
+.tier-badge{font-size:8pt;font-weight:800;padding:1px 5px;border-radius:3px}
+.tb-A{background:#dc2626;color:#fff}
+.tb-B{background:#1e40af;color:#fff}
+.tb-C{background:#64748b;color:#fff}
+.cal-ev{font-size:7.5pt;color:#92400e;background:#fef3c7;border-radius:2px;padding:1px 3px;margin-bottom:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cal-prices{display:flex;flex-direction:column;gap:1px}
+.cal-pr-row{display:flex;justify-content:space-between;font-size:8pt}
+.cal-pr-cls{font-weight:700;color:#6b7280;min-width:14px}
+.cal-pr-val{font-family:monospace;font-weight:600;color:#1e293b}
+.cal-pr-val.ov{color:#7c3aed;font-weight:800}
+
 .tier-legend{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;font-size:9pt;align-items:center}
 .tier-legend .item{padding:2px 8px;border-radius:4px;font-weight:600}
 .lg-a{background:#fee2e2;color:#dc2626}
@@ -156,6 +196,12 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
 
   <div class="notice">⚠️ 実行前に必ず <a href="./pricing.html" target="_blank" style="color:#92400e;font-weight:700">pricing.html</a> を一度開いてください（初期データ作成のため）</div>
 
+  <!-- セグメントタブ -->
+  <div class="seg-tabs" id="seg-tabs">
+    <button class="seg-tab active" onclick="selSeg('proper')">📗 プロパー<span class="seg-label">通常料金</span></button>
+    <button class="seg-tab cp" onclick="selSeg('cp')">🎯 CP（キャンペーン）<span class="seg-label">同価格</span></button>
+  </div>
+
   <div class="tier-legend">
     <span>凡例:</span>
     <span class="item lg-a">A 繁忙</span>
@@ -168,6 +214,18 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
   <div class="year-tabs" id="year-tabs"></div>
   <div class="month-tabs" id="month-tabs"></div>
   <div id="matrix-area"></div>
+
+  <!-- カレンダービュー -->
+  <div class="cal-section" id="cal-section">
+    <div class="cal-head">
+      <span>📅 カレンダービュー — <span id="cal-ym-label"></span></span>
+      <span class="cal-stats" id="cal-stats"></span>
+      <span class="sub">tier × 価格を日別に確認</span>
+    </div>
+    <div style="overflow-x:auto"><table class="cal-tbl"><thead><tr>
+      <th class="sun">日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th class="sat">土</th>
+    </tr></thead><tbody id="cal-body"></tbody></table></div>
+  </div>
 
   <div class="footer-actions">
     <button class="btn-import" onclick="doImport()">🚀 この価格表で localStorage に反映する</button>
@@ -185,6 +243,122 @@ const CLASSES = ['A','B','C','H','S','F'];
 const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
 const TIERS = [['A','繁忙','#dc2626','#fee2e2'],['B','通常','#1e40af','#dbeafe'],['C','閑散','#64748b','#f1f5f9']];
 const COEF_A = 1.50, COEF_C = 0.80;
+
+// ===== セグメント（プロパー/CP） =====
+let curSegment = 'proper'; // 'proper' | 'cp'
+function selSeg(seg){
+  curSegment = seg;
+  document.querySelectorAll('.seg-tab').forEach((b,i)=>{
+    b.classList.toggle('active', (i===0&&seg==='proper')||(i===1&&seg==='cp'));
+  });
+  renderAll();
+}
+
+// ===== 祝日・tier スコアリング（pricing.htmlと同一ロジック） =====
+const HOLIDAYS_CAL = {
+  '2026-1-1':'元日','2026-1-12':'成人の日','2026-2-11':'建国記念','2026-2-23':'天皇誕生',
+  '2026-3-20':'春分の日','2026-4-29':'昭和の日','2026-5-3':'憲法記念','2026-5-4':'みどり',
+  '2026-5-5':'こども','2026-5-6':'振替休日','2026-7-20':'海の日','2026-8-11':'山の日',
+  '2026-9-21':'敬老','2026-9-23':'秋分','2026-10-12':'スポーツ','2026-11-3':'文化','2026-11-23':'勤労感謝',
+  '2027-1-1':'元日','2027-1-11':'成人の日','2027-2-11':'建国記念','2027-2-23':'天皇誕生',
+  '2027-3-21':'春分の日','2027-3-22':'振替休日','2027-4-29':'昭和の日','2027-5-3':'憲法記念',
+  '2027-5-4':'みどり','2027-5-5':'こども','2027-7-19':'海の日','2027-8-11':'山の日',
+  '2027-9-20':'敬老','2027-9-23':'秋分','2027-10-11':'スポーツ','2027-11-3':'文化','2027-11-23':'勤労感謝',
+};
+function calDateKey(y,m,d){return y+'-'+m+'-'+d;}
+function autoScoreT_cal(date){
+  const y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate(),wd=date.getDay();
+  const isHoliday=!!HOLIDAYS_CAL[calDateKey(y,m,d)];
+  const weekend=(wd===0||wd===6);
+  if((m===12&&d>=27)||(m===1&&d<=4))return 10;
+  if((m===8&&d>=10&&d<=16))return 10;
+  if(y===2026&&m===4&&d>=27)return 10;if(y===2026&&m===5&&d>=1&&d<=6)return 10;
+  if(y===2027&&m===4&&d>=29)return 10;if(y===2027&&m===5&&d<=5)return 10;
+  if(y===2026&&m===9&&d>=19&&d<=23)return 8;if(y===2027&&m===9&&[18,19,20,23,24,25,26].includes(d))return 8;
+  if(m===11&&[13,14,15].includes(d))return 9;
+  if((m===7&&d>=21)||(m===8&&d>=21))return 7;
+  if(m===4&&d<=15)return 7;if(m===11&&d>=1&&d<=20)return 7;
+  if([[2026,1,[10,11,12]],[2027,1,[9,10,11]],[2026,3,[20,21,22]],[2026,7,[17,18,19,20]],[2026,10,[9,10,11,12]],[2026,11,[20,21,22,23]]].some(([yy,mm,ds])=>y===yy&&m===mm&&ds.includes(d)))return 7;
+  if(weekend)return 4;if(isHoliday)return 5;
+  if((m===1&&d>=13)||(m===2))return 1;if(m===6||(m===7&&d<=10))return 0;
+  if(m===12&&d<=22)return 2;
+  return 2;
+}
+function calScoreTier(sc){
+  // 簡易判定: score>=5.5→A, >=3→B, else C
+  const s=autoScoreT_cal(sc);
+  if(s>=8)return'A';if(s>=5)return'B';return'C';
+}
+function calGetTier(date,pricingState){
+  const k=calDateKey(date.getFullYear(),date.getMonth()+1,date.getDate());
+  if(pricingState&&pricingState.dayTiers&&pricingState.dayTiers[k])return pricingState.dayTiers[k];
+  const sc=autoScoreT_cal(date);
+  if(sc>=8)return'A';if(sc>=4)return'B';return'C';
+}
+function calGetEvent(date){
+  const k=calDateKey(date.getFullYear(),date.getMonth()+1,date.getDate());
+  if(HOLIDAYS_CAL[k])return HOLIDAYS_CAL[k];
+  return null;
+}
+function calGetPrice(date,cls,ym,pricingState){
+  // editState から当月価格を取得
+  const s=editState[ym];
+  if(!s||s.skip||s.reset)return null;
+  const tier=calGetTier(date,pricingState);
+  return s[tier]?.[cls]||null;
+}
+
+// ===== カレンダー描画 =====
+function renderCalendar(){
+  const ym=curKey();
+  const [y,m]=[curYear,curMonth];
+  const label=document.getElementById('cal-ym-label');
+  if(label)label.textContent=`${y}年${m}月`;
+  const body=document.getElementById('cal-body');
+  if(!body)return;
+  // pricing.html の状態を読み込み（dayTiers 参照）
+  let pState=null;
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(raw)pState=JSON.parse(raw);}catch(e){}
+  const s=editState[ym];
+  const lastDay=new Date(y,m,0).getDate();
+  const firstWd=new Date(y,m-1,1).getDay();
+  const counts={A:0,B:0,C:0};
+  let html='<tr>';
+  for(let i=0;i<firstWd;i++)html+='<td class="cal-empty"></td>';
+  const SHOW_CLASSES=['A','B','C','F']; // カレンダーで表示するクラス（4つに絞る）
+  for(let d=1;d<=lastDay;d++){
+    const date=new Date(y,m-1,d),wd=date.getDay();
+    const tier=calGetTier(date,pState);
+    counts[tier]=(counts[tier]||0)+1;
+    const event=calGetEvent(date);
+    const isHol=(wd===0||!!HOLIDAYS_CAL[calDateKey(y,m,d)]);
+    const isSat=wd===6,isSun=wd===0;
+    const dnCls=isHol?'dn hol':(isSat?'dn sat':'dn');
+    let pricesHtml='';
+    if(s&&!s.skip&&!s.reset){
+      pricesHtml='<div class="cal-prices">';
+      SHOW_CLASSES.forEach(cls=>{
+        const p=s[tier]?.[cls];
+        if(p==null)return;
+        pricesHtml+=`<div class="cal-pr-row"><span class="cal-pr-cls">${cls}</span><span class="cal-pr-val">¥${Math.round(p/1000)}k</span></div>`;
+      });
+      pricesHtml+='</div>';
+    }else{
+      pricesHtml='<div style="font-size:8pt;color:#94a3b8;padding:4px 0">—</div>';
+    }
+    const evHtml=event?`<div class="cal-ev">${event}</div>`:'';
+    html+=`<td class="cal-day tier-${tier}">
+      <div class="cal-num"><span class="${dnCls}">${d}</span><span class="tier-badge tb-${tier}">${tier}</span></div>
+      ${evHtml}${pricesHtml}</td>`;
+    if(wd===6&&d!==lastDay)html+='</tr><tr>';
+  }
+  const lastWd2=new Date(y,m-1,lastDay).getDay();
+  for(let i=lastWd2+1;i<=6;i++)html+='<td class="cal-empty"></td>';
+  html+='</tr>';
+  body.innerHTML=html;
+  const statsEl=document.getElementById('cal-stats');
+  if(statsEl)statsEl.textContent=`A:${counts.A||0} / B:${counts.B||0} / C:${counts.C||0} = ${lastDay}日`;
+}
 
 // ===== 価格提案（2026/7-12）=====
 const PROPOSAL = {
@@ -533,18 +707,20 @@ function applyActiveToLocalStorage(ym){
   // pricing.html の ymKey は non-padded
   const [y, m] = ym.split('-');
   const key = y + '-' + parseInt(m, 10);
-  const proper = state.segments.proper;
-  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
-  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
-  // padded 残骸クリア
-  if(proper.monthlyTierClassPrices[ym]) delete proper.monthlyTierClassPrices[ym];
-  if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
-
   const data = { A:{...v.A}, B:{...v.B}, C:{...v.C} };
-  proper.monthlyTierClassPrices[key] = data;
+
+  // プロパー＆CP 両方に書き込む（同じ数字を共有）
+  ['proper','cp'].forEach(seg => {
+    if(!state.segments[seg]) state.segments[seg] = { monthlyTierClassPrices:{} };
+    if(!state.segments[seg].monthlyTierClassPrices) state.segments[seg].monthlyTierClassPrices = {};
+    if(state.segments[seg].monthlyTierClassPrices[ym]) delete state.segments[seg].monthlyTierClassPrices[ym];
+    state.segments[seg].monthlyTierClassPrices[key] = {...data};
+  });
+  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
+  if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
   state.monthlyTierClassPrices[key] = data;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  showToast(`📥 ${key} ${v.id.toUpperCase()}: ${v.label} を pricing.html に反映しました`);
+  showToast(`📥 ${key} ${v.id.toUpperCase()}: ${v.label} → プロパー＆CP 両方に反映`);
 }
 
 // 入力中（oninput）= フォーカス保ちつつデータと当該セル装飾のみ更新（軽量）
@@ -589,22 +765,20 @@ function saveCellNow(ym, tier, cls){
   try{ state = JSON.parse(raw); }catch(e){ showToast('JSON解析失敗','error'); return; }
   if(!state.segments?.proper){ showToast('プロパーセグメントなし','error'); return; }
 
-  // pricing.html の ymKey は non-padded（"2026-8"）
   const [y, m] = ym.split('-');
   const key = y + '-' + parseInt(m, 10);
 
-  // padded 残骸クリア
-  const proper = state.segments.proper;
-  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
+  // プロパー＆CP 両方のセルを更新
+  ['proper','cp'].forEach(seg=>{
+    if(!state.segments[seg]) state.segments[seg] = { monthlyTierClassPrices:{} };
+    if(!state.segments[seg].monthlyTierClassPrices) state.segments[seg].monthlyTierClassPrices = {};
+    if(state.segments[seg].monthlyTierClassPrices[ym]) delete state.segments[seg].monthlyTierClassPrices[ym];
+    if(!state.segments[seg].monthlyTierClassPrices[key]) state.segments[seg].monthlyTierClassPrices[key]={A:{},B:{},C:{}};
+    if(!state.segments[seg].monthlyTierClassPrices[key][tier]) state.segments[seg].monthlyTierClassPrices[key][tier]={};
+    state.segments[seg].monthlyTierClassPrices[key][tier][cls] = v;
+  });
   if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
-  if(proper.monthlyTierClassPrices[ym]) delete proper.monthlyTierClassPrices[ym];
   if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
-
-  // 該当セルのみ更新
-  if(!proper.monthlyTierClassPrices[key]) proper.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
-  if(!proper.monthlyTierClassPrices[key][tier]) proper.monthlyTierClassPrices[key][tier] = {};
-  proper.monthlyTierClassPrices[key][tier][cls] = v;
-  // top-level も同期
   if(!state.monthlyTierClassPrices[key]) state.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
   if(!state.monthlyTierClassPrices[key][tier]) state.monthlyTierClassPrices[key][tier] = {};
   state.monthlyTierClassPrices[key][tier][cls] = v;
@@ -694,6 +868,7 @@ function renderAll(){
   renderYearTabs();
   renderMonthTabs();
   renderMatrix();
+  renderCalendar();
 }
 
 function log(msg, cls){
@@ -717,10 +892,15 @@ function doImport(){
   try{ state = JSON.parse(raw); }catch(e){ alert('❌ JSON失敗'); return; }
   if(!state.segments?.proper){ alert('❌ プロパーセグメントが見つかりません'); return; }
 
+  // プロパー＆CP 両方初期化（同じ数字を共有）
+  ['proper','cp'].forEach(seg=>{
+    if(!state.segments[seg]) state.segments[seg] = { monthlyTierClassPrices:{} };
+    if(!state.segments[seg].monthlyTierClassPrices) state.segments[seg].monthlyTierClassPrices = {};
+  });
   const proper = state.segments.proper;
-  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
+  const cpSeg = state.segments.cp;
   const tcp = proper.monthlyTierClassPrices;
-  // ★ top-level state.monthlyTierClassPrices にも書く（segment selection時の参照）
+  const tcpCp = cpSeg.monthlyTierClassPrices;
   if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
   const tcp2 = state.monthlyTierClassPrices;
 
@@ -744,7 +924,8 @@ function doImport(){
     const data = { A:{...s.A}, B:{...s.B}, C:{...s.C} };
     const key = toUnpaddedYm(ym);  // ★ "2026-08" → "2026-8"
     tcp[key] = data;
-    tcp2[key] = data;  // ★ 2箇所書き込み（race condition対策）
+    tcpCp[key] = {...data}; // ★ CP にも同じ価格を書き込み
+    tcp2[key] = data;  // ★ top-level も同期
     if(s.reset){
       resetCnt++;
       log('  🗑️ ' + key + ' 全0リセット');
