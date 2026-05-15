@@ -414,7 +414,7 @@ function renderMatrix(){
       const diffCls = isDirty ? 'diff' : '';
       html += `<td>
         <div class="cell-wrap">
-          <input type="number" class="${inputCls}" value="${v}" id="cell-${ym}-${tk}-${c}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" oninput="updateCell(this)" onchange="updateCell(this)" min="0" step="100">
+          <input type="number" class="${inputCls}" value="${v}" id="cell-${ym}-${tk}-${c}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" oninput="updateCellLite(this)" onchange="updateCell(this)" min="0" step="100">
           <div class="cell-info ${diffCls}" id="info-${ym}-${tk}-${c}">
             <span class="orig-label">原案 <span class="orig-val">¥${origV.toLocaleString()}</span></span>
             <button class="reset-btn" onclick="resetCell('${ym}','${tk}','${c}')" title="原案に戻す">↺ 戻す</button>
@@ -539,14 +539,14 @@ function applyActiveToLocalStorage(ym){
   showToast(`📥 ${key} ${v.id.toUpperCase()}: ${v.label} を pricing.html に反映しました`);
 }
 
-function updateCell(input){
+// 入力中（oninput）= フォーカス保ちつつデータと当該セル装飾のみ更新（軽量）
+function updateCellLite(input){
   const ym = input.dataset.ym;
   const tier = input.dataset.tier;
   const cls = input.dataset.cls;
   const v = parseInt(input.value) || 0;
   if(!editState[ym]) return;
   editState[ym][tier][cls] = v;
-  // 該当セルの dirty 表示を即時更新（原案との比較）
   const orig = originalState[ym]?.[tier]?.[cls] || 0;
   const isDirty = v !== orig;
   const info = document.getElementById('info-' + ym + '-' + tier + '-' + cls);
@@ -558,8 +558,41 @@ function updateCell(input){
     input.classList.remove('dirty');
     info?.classList.remove('diff');
   }
-  // 月タブと履歴バー・アクション行も再描画（draftチップ表示のため）
-  renderAll();
+  // ★ renderAll() は呼ばない（呼ぶとinputが破棄されて入力中断する）
+}
+
+// 確定時（onchange = blur or Enter）= 全体再描画して履歴バー・月タブ等も同期
+function updateCell(input){
+  updateCellLite(input);
+  // 軽い処理を入れて DOM 再構築をフレーム外で実行
+  setTimeout(() => {
+    renderMonthTabs();
+    // 履歴バー・アクション行も再描画
+    rerenderHistoryAndActions();
+  }, 0);
+}
+
+// 履歴バーとアクション行だけ再描画（マトリクスのinputは触らない）
+function rerenderHistoryAndActions(){
+  const area = document.getElementById('matrix-area');
+  if(!area) return;
+  const ym = curKey();
+  if(editState[ym]?.skip) return;
+  const histBar = area.querySelector('.history-bar');
+  const actBar = area.querySelector('.month-actions');
+  // 簡単のためrenderMatrixを呼ぶが、ただし「現在フォーカスしている要素」を保持
+  const focusEl = document.activeElement;
+  const focusId = focusEl?.id;
+  const selStart = focusEl?.selectionStart;
+  const selEnd = focusEl?.selectionEnd;
+  renderMatrix();
+  if(focusId){
+    const newEl = document.getElementById(focusId);
+    if(newEl){
+      newEl.focus();
+      try{ newEl.setSelectionRange(selStart, selEnd); }catch(e){}
+    }
+  }
 }
 
 function resetCell(ym, tier, cls){
