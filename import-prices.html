@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>価格インポート — BUDDICA TOURING</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;color:#fff}
+.card{background:#fff;border-radius:20px;padding:32px;max-width:560px;width:100%;color:#1e293b;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+h1{font-size:22px;color:#1e3a8a;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.subtitle{font-size:12px;color:#64748b;margin-bottom:24px}
+.summary{background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.8}
+.summary strong{color:#1e40af}
+.actions{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.btn{padding:14px 20px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px}
+.btn-primary{background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.4)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(37,99,235,.5)}
+.btn-secondary{background:#f1f5f9;color:#475569}
+.btn-danger{background:#fee2e2;color:#dc2626}
+.notice{background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;font-size:11px;color:#92400e;border-radius:8px;line-height:1.6}
+#log{font-family:"Menlo",monospace;font-size:11px;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;margin-top:16px;display:none;line-height:1.6}
+.success{color:#10b981;font-weight:700}
+.warning{color:#f59e0b}
+.error{color:#ef4444}
+.back-link{display:inline-block;margin-top:16px;color:#64748b;font-size:12px;text-decoration:none}
+.back-link:hover{color:#1e40af}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>💰 価格インポート</h1>
+  <div class="subtitle">BUDDICA TOURING 高松店 — シーズナル価格 一括設定</div>
+
+  <div class="summary">
+    <div><strong>📅 2026/7〜12月</strong>: 提案資料の運用価格を入力</div>
+    <div style="margin-left:12px;color:#64748b;font-size:11px">A繁忙 / B通常 / C閑散 × 全クラス（A/B/C/S/F/H）</div>
+    <div style="margin-top:8px"><strong>📅 2026/1〜6月</strong>: 触らない（既存値そのまま）</div>
+    <div style="margin-top:8px"><strong>📅 2027年</strong>: 全月 × 全ティア × 全クラスを <span style="color:#dc2626;font-weight:700">¥0</span> にリセット</div>
+  </div>
+
+  <div class="notice">
+    ⚠️ <strong>必ず先に</strong> <a href="./pricing.html" target="_blank" style="color:#1e40af;font-weight:700">pricing.html</a> を一度開いてください<br>
+    （初期データが localStorage に作られないとインポートできません）
+  </div>
+
+  <div class="actions" style="margin-top:20px">
+    <button class="btn btn-primary" onclick="doImport()">🚀 価格を一括インポート</button>
+    <button class="btn btn-secondary" onclick="showCurrent()">📋 現在の保存値を確認</button>
+    <button class="btn btn-danger" onclick="resetAll()">🗑️ 全リセット（pricing 全部消す）</button>
+  </div>
+
+  <div id="log"></div>
+
+  <a class="back-link" href="./pricing.html">← pricing.html に戻る</a>
+</div>
+
+<script>
+const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
+const logEl = document.getElementById('log');
+
+function log(msg, cls){
+  logEl.style.display = 'block';
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function showCurrent(){
+  logEl.innerHTML = '';
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){ log('❌ localStorage に保存値がありません', 'error'); log('先に pricing.html を開いてください', 'warning'); return; }
+  try{
+    const state = JSON.parse(raw);
+    const tcp = state.segments?.proper?.monthlyTierClassPrices || {};
+    const keys = Object.keys(tcp).sort();
+    log('===== 現在の monthlyTierClassPrices =====', 'success');
+    log('保存済み月数: ' + keys.length);
+    keys.forEach(ym => {
+      const v = tcp[ym];
+      const sample = v?.B?.A;
+      log('  ' + ym + ' B通常 Aクラス: ¥' + (sample||0).toLocaleString());
+    });
+  }catch(e){
+    log('❌ JSONパース失敗: ' + e.message, 'error');
+  }
+}
+
+function doImport(){
+  logEl.innerHTML = '';
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){ alert('❌ pricing.html を一度開いてから実行してください'); return; }
+
+  let state;
+  try{ state = JSON.parse(raw); }
+  catch(e){ alert('❌ JSONパース失敗'); return; }
+
+  if(!state.segments || !state.segments.proper){
+    alert('❌ プロパーセグメントが見つかりません');
+    return;
+  }
+
+  const proper = state.segments.proper;
+  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
+
+  // ===== 価格提案資料（2026-07〜12）=====
+  const PROPOSAL = {
+    '2026-07': { B:{A:17000,B:14500,C:11500,S:11500,F:6500,H:10500}, A:null },
+    '2026-08': { B:{A:17500,B:16500,C:11500,S:11500,F:6500,H:12500}, A:{A:22000,B:21500,C:21500,S:21500,F:8500,H:15500} },
+    '2026-09': { B:{A:17000,B:13000,C:13000,S:13000,F:6500,H:10500}, A:null },
+    '2026-10': { B:{A:17000,B:16500,C:13000,S:13000,F:7000,H:11500}, A:null },
+    '2026-11': { B:{A:16000,B:15500,C:13000,S:13000,F:6500,H:11500}, A:null },
+    '2026-12': { B:{A:13500,B:15500,C:13000,S:13000,F:6000,H:10500}, A:{A:20000,B:21000,C:14500,S:14500,F:9000,H:15500} },
+  };
+  const COEF_A = 1.50;
+  const COEF_C = 0.80;
+  const CLASSES = ['A','B','C','S','H','F'];
+
+  const tcp = proper.monthlyTierClassPrices;
+  log('===== インポート開始 =====', 'success');
+
+  // 2026/7-12月
+  let count1 = 0;
+  Object.entries(PROPOSAL).forEach(([ym, data]) => {
+    if(!tcp[ym]) tcp[ym] = {};
+    tcp[ym].B = {...data.B};
+    if(data.A){
+      tcp[ym].A = {...data.A};
+    }else{
+      tcp[ym].A = {};
+      Object.entries(data.B).forEach(([cls, v]) => { tcp[ym].A[cls] = Math.round(v * COEF_A); });
+    }
+    tcp[ym].C = {};
+    Object.entries(data.B).forEach(([cls, v]) => { tcp[ym].C[cls] = Math.round(v * COEF_C); });
+    count1++;
+    log('  ✓ ' + ym + ' 入力完了 (B通常 Aクラス=¥' + tcp[ym].B.A.toLocaleString() + ')');
+  });
+  log('2026/7-12月: ' + count1 + 'ヶ月入力 ✅', 'success');
+
+  // 2027年 全0
+  let count2 = 0;
+  for(let m = 1; m <= 12; m++){
+    const ym = '2027-' + String(m).padStart(2,'0');
+    tcp[ym] = {A:{},B:{},C:{}};
+    CLASSES.forEach(c => { tcp[ym].A[c]=0; tcp[ym].B[c]=0; tcp[ym].C[c]=0; });
+    count2++;
+  }
+  log('2027年: ' + count2 + 'ヶ月 0リセット ✅', 'success');
+
+  // basePrices 更新
+  proper.basePrices = {...PROPOSAL['2026-07'].B};
+
+  // 保存
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  log('===== 完了 =====', 'success');
+  log('localStorage 書き込み成功');
+  log('');
+  log('🔗 確認: pricing.html を開いて 7-12月のカレンダーを見てください', 'warning');
+
+  alert('✅ インポート完了\n\n' +
+        '2026/7-12月: ' + count1 + 'ヶ月入力\n' +
+        '2027年: ' + count2 + 'ヶ月 0リセット\n\n' +
+        'pricing.html を開いてカレンダーを確認してください');
+}
+
+function resetAll(){
+  if(!confirm('⚠️ 警告\n\npricing.html の全データ（価格設定・係数・閾値・月別カスタム）を削除します。\n\n本当に実行しますか？'))return;
+  localStorage.removeItem(STORAGE_KEY);
+  logEl.innerHTML = '';
+  log('🗑️ 全データ削除完了', 'success');
+  log('pricing.html を開くと初期状態から始まります');
+  alert('✅ 全リセット完了');
+}
+</script>
+</body>
+</html>
