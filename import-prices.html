@@ -301,12 +301,21 @@ function doImport(){
   const proper = state.segments.proper;
   if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
   const tcp = proper.monthlyTierClassPrices;
+  // ★ top-level state.monthlyTierClassPrices にも書く（segment selection時の参照）
+  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
+  const tcp2 = state.monthlyTierClassPrices;
+
+  // ★ basePrices と tierClassPrices も更新（fallback値として）
+  if(!proper.tierClassPrices) proper.tierClassPrices = {A:{},B:{},C:{}};
+  if(!state.tierClassPrices) state.tierClassPrices = {A:{},B:{},C:{}};
 
   log('===== インポート開始 =====', 'success');
   let inputCnt = 0, resetCnt = 0, skipCnt = 0;
   Object.entries(editState).forEach(([ym, s]) => {
     if(s.skip){ skipCnt++; return; }
-    tcp[ym] = { A:{...s.A}, B:{...s.B}, C:{...s.C} };
+    const data = { A:{...s.A}, B:{...s.B}, C:{...s.C} };
+    tcp[ym] = data;
+    tcp2[ym] = data;  // ★ 2箇所書き込み（race condition対策）
     if(s.reset){
       resetCnt++;
       log('  🗑️ ' + ym + ' 全0リセット');
@@ -317,18 +326,28 @@ function doImport(){
   });
   log('価格入力: ' + inputCnt + 'ヶ月 / 0リセット: ' + resetCnt + 'ヶ月 / 触らず: ' + skipCnt + 'ヶ月', 'success');
 
+  // ★ 2026-07 の B通常 を年間tierClassPrices として設定（fallback値・全月共通価格）
+  const jul = editState['2026-07'];
+  if(jul && !jul.skip){
+    ['A','B','C'].forEach(t => {
+      proper.tierClassPrices[t] = {...jul[t]};
+      state.tierClassPrices[t] = {...jul[t]};
+    });
+  }
   proper.basePrices = {...PROPOSAL['2026-07'].B};
+  state.basePrices = {...PROPOSAL['2026-07'].B};
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   log('localStorage 書き込み完了', 'success');
 
-  // ★ 即時検証
+  // ★ 即時検証（2箇所）
   const verifyRaw = localStorage.getItem(STORAGE_KEY);
   const verifyState = JSON.parse(verifyRaw);
-  const verifyTcp = verifyState?.segments?.proper?.monthlyTierClassPrices;
-  if(verifyTcp && verifyTcp['2026-07'] && verifyTcp['2026-07'].B && verifyTcp['2026-07'].B.A === 17000){
-    log('✅ 検証OK: 2026-07 B Aクラス=¥17,000 確認済み', 'success');
+  const v1 = verifyState?.segments?.proper?.monthlyTierClassPrices?.['2026-07']?.B?.A;
+  const v2 = verifyState?.monthlyTierClassPrices?.['2026-07']?.B?.A;
+  if(v1 === 17000 && v2 === 17000){
+    log('✅ 検証OK: 2箇所とも 2026-07 B Aクラス=¥17,000', 'success');
   }else{
-    log('❌ 検証失敗! localStorage 書込みが反映されていません', 'error');
+    log('⚠ 検証: segments.proper=¥' + (v1||0) + ' / top-level=¥' + (v2||0), 'warning');
   }
 
   log('', '');
