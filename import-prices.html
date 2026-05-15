@@ -53,26 +53,56 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
 .matrix-table tr.tier-a td{background:#fffbeb30}
 .matrix-table tr.tier-b td{background:#eff6ff30}
 .matrix-table tr.tier-c td{background:#f8fafc30}
-/* ===== Cell layout: 入力 + 原案 + 保存ボタン ===== */
-.matrix-table td{padding:3px;vertical-align:top}
-.cell-wrap{display:flex;flex-direction:column;gap:2px;align-items:stretch}
-.cell-input-row{display:flex;gap:2px;align-items:center}
-.matrix-table input{flex:1;min-width:0;padding:5px 5px;border:1px solid #d1d5db;border-radius:3px;text-align:right;font-family:"Menlo",monospace;font-size:10pt;background:#fff}
-.matrix-table input.special{background:#fef3c7;color:#92400e;font-weight:700;border-color:#fbbf24}
+/* ===== Cell layout: 入力 + 原案 ===== */
+.matrix-table td{padding:4px;vertical-align:top}
+.cell-wrap{display:flex;flex-direction:column;gap:3px;align-items:stretch}
+.matrix-table input{width:100%;min-width:0;padding:7px 6px;border:1.5px solid #d1d5db;border-radius:4px;text-align:right;font-family:"Menlo",monospace;font-size:11pt;background:#fff;font-weight:600}
+.matrix-table input.special{background:#fef3c7;color:#92400e;font-weight:800;border-color:#fbbf24}
 .matrix-table input.zero{background:#fee2e2;color:#dc2626}
-.matrix-table input.dirty{background:#fef9c3;color:#854d0e;border:2px solid #fbbf24;font-weight:800}
-.matrix-table input.saved{background:#dcfce7;color:#15803d;border:2px solid #22c55e;font-weight:800}
-.cell-save{background:#16a34a;color:#fff;border:none;width:28px;height:28px;border-radius:4px;font-size:11pt;cursor:pointer;display:none;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.cell-save:hover{background:#15803d;transform:scale(1.08)}
-.cell-save.show{display:inline-flex;align-items:center;justify-content:center;animation:pulseHi .6s 1}
-@keyframes pulseHi{0%{transform:scale(.5)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
-.cell-info{display:flex;justify-content:space-between;align-items:center;gap:3px;font-size:7.5pt;font-family:"Menlo",monospace;color:#9ca3af;min-height:14px}
+.matrix-table input.dirty{background:#fef9c3;color:#854d0e;border:2.5px solid #fbbf24;font-weight:900;box-shadow:0 0 0 2px rgba(251,191,36,.15)}
+.matrix-table input.saved{background:#dcfce7;color:#15803d;border:2.5px solid #22c55e;font-weight:800}
+.cell-info{display:flex;justify-content:space-between;align-items:center;gap:3px;font-size:8pt;font-family:"Menlo",monospace;color:#9ca3af;min-height:14px}
 .cell-info .orig-label{font-weight:400}
 .cell-info .orig-val{font-weight:700;color:#6b7280}
 .cell-info.diff .orig-val{color:#dc2626}
-.cell-info .reset-btn{background:none;color:#6b7280;border:none;padding:0 3px;font-size:9pt;cursor:pointer;font-family:inherit;line-height:1;display:none}
+.cell-info .reset-btn{background:none;color:#6b7280;border:none;padding:0 4px;font-size:9pt;cursor:pointer;font-family:inherit;line-height:1;display:none;border-radius:3px}
 .cell-info.diff .reset-btn{display:inline;color:#dc2626;font-weight:700}
-.cell-info .reset-btn:hover{background:#fee2e2;border-radius:3px}
+.cell-info .reset-btn:hover{background:#fee2e2}
+
+/* ===== Version history chips ===== */
+.history-bar{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.history-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.history-title{font-size:11pt;font-weight:700;color:#1e3a8a;display:flex;align-items:center;gap:6px}
+.history-counter{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:9pt;font-weight:700}
+.history-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:stretch}
+.ver-chip{background:#fff;border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;min-width:130px;text-align:left;font-family:inherit;transition:all .15s;position:relative}
+.ver-chip:hover{border-color:#1e40af;background:#eff6ff;transform:translateY(-1px)}
+.ver-chip.active{border-color:#16a34a;background:#dcfce7}
+.ver-chip.active::after{content:'◎採用中';position:absolute;top:-8px;right:-2px;background:#16a34a;color:#fff;font-size:8pt;padding:1px 6px;border-radius:4px;font-weight:700;letter-spacing:.05em}
+.ver-chip.draft{border-color:#f59e0b;background:#fef3c7;border-style:dashed}
+.ver-chip.draft::after{content:'編集中*';position:absolute;top:-8px;right:-2px;background:#f59e0b;color:#fff;font-size:8pt;padding:1px 6px;border-radius:4px;font-weight:700}
+.ver-chip .ver-num{font-size:11pt;font-weight:800;color:#1e40af;display:block}
+.ver-chip .ver-label{font-size:9.5pt;color:#374151;display:block;font-weight:600;margin-top:2px}
+.ver-chip .ver-date{font-size:7.5pt;color:#9ca3af;display:block;margin-top:2px;font-family:"Menlo",monospace}
+.ver-chip .ver-del{position:absolute;top:2px;right:2px;background:#fee2e2;color:#dc2626;border:none;width:18px;height:18px;border-radius:50%;font-size:9pt;cursor:pointer;display:none;line-height:1;padding:0}
+.ver-chip:hover .ver-del{display:inline-flex;align-items:center;justify-content:center}
+.ver-chip.protected .ver-del{display:none !important}
+
+.btn-add-ver{background:#1e40af;color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:9.5pt;font-weight:700;cursor:pointer;border:2px dashed #93c5fd;background:#eff6ff;color:#1e40af}
+.btn-add-ver:hover:not(:disabled){background:#dbeafe;border-color:#1e40af}
+.btn-add-ver:disabled{opacity:.4;cursor:not-allowed}
+
+/* ===== Action row (下部) ===== */
+.month-actions{background:#fff;border:2px solid #dbeafe;border-radius:10px;padding:14px;margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.month-actions .info{font-size:10pt;color:#475569;flex:1;min-width:160px}
+.month-actions .info b{color:#1e3a8a}
+.month-actions .btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn-apply{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer;box-shadow:0 2px 4px rgba(22,163,74,.3)}
+.btn-apply:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,163,74,.4)}
+.btn-apply:disabled{background:#d1d5db;cursor:not-allowed;box-shadow:none}
+.btn-snapshot{background:#fff;color:#1e40af;border:2px solid #1e40af;padding:8px 16px;border-radius:6px;font-size:10.5pt;font-weight:700;cursor:pointer}
+.btn-snapshot:hover:not(:disabled){background:#eff6ff}
+.btn-snapshot:disabled{opacity:.4;cursor:not-allowed;border-color:#d1d5db;color:#9ca3af}
 
 /* Dirty indicator on month tab */
 .month-tab.dirty{box-shadow:0 0 0 2px #f59e0b}
@@ -161,10 +191,62 @@ const PROPOSAL = {
   '2026-12': { B:{A:13500,B:15500,C:13000,S:13000,F:6000,H:10500}, A:{A:20000,B:21000,C:14500,S:14500,F:9000,H:15500}, special:'年末年始（12/28-1/3）' },
 };
 
-// ===== 内部状態（編集可）=====
-const editState = {}; // {ym: {A:{cls:price}, B:{...}, C:{...}, special:bool}}
+// ===== 内部状態 =====
+const editState = {}; // {ym: {A:{cls:price}, B:{...}, C:{...}, special:bool}} ← 編集中のバッファ
 const originalState = {}; // 原案（提案資料の値・絶対不変）
-const savedState = {}; // localStorage に書込み済の値（差分計算用）
+const historyState = {}; // {ym: [{id, label, savedAt, A, B, C, special, specialLabel}]} 最大5
+const activeVersion = {}; // {ym: versionId} 現在採用中バージョン
+
+const HISTORY_STORAGE_KEY = 'bt_import_history_v1';
+const MAX_VERSIONS = 5;
+
+// ===== 履歴 load/save =====
+function loadHistory(){
+  try{
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    Object.assign(historyState, d.history || {});
+    Object.assign(activeVersion, d.active || {});
+  }catch(e){ console.warn('履歴ロード失敗', e); }
+}
+function persistHistory(){
+  try{
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify({history:historyState, active:activeVersion}));
+  }catch(e){ console.warn('履歴保存失敗', e); }
+}
+
+function ensureV1FromProposal(ym){
+  // V1 = 原案 を絶対1番目に保証（不変）
+  if(!historyState[ym]) historyState[ym] = [];
+  const v1Exists = historyState[ym].some(v => v.id === 'v1');
+  if(!v1Exists && originalState[ym] && !originalState[ym].skip){
+    const o = originalState[ym];
+    historyState[ym].unshift({
+      id: 'v1',
+      label: '原案',
+      savedAt: '提案資料',
+      protected: true,
+      A: {...o.A}, B: {...o.B}, C: {...o.C},
+      special: o.special, specialLabel: o.specialLabel, reset: o.reset
+    });
+  }
+  // 初回はV1をactiveに
+  if(!activeVersion[ym] && historyState[ym].length > 0){
+    activeVersion[ym] = historyState[ym][0].id;
+  }
+}
+
+function getVer(ym, id){ return (historyState[ym]||[]).find(v => v.id === id); }
+function getActiveVer(ym){ return getVer(ym, activeVersion[ym]); }
+
+function isDraftDirty(ym){
+  // editState と activeVersion の data に差分があるか
+  const cur = editState[ym];
+  const act = getActiveVer(ym);
+  if(!cur || cur.skip || !act) return false;
+  return ['A','B','C'].some(t => cur[t] && CLASSES.some(c => (cur[t][c]||0) !== (act[t]?.[c]||0)));
+}
 
 function buildInitial(){
   // 2026/1-6 = 空（インポート時は触らない）
@@ -204,9 +286,8 @@ function renderYearTabs(){
 function selYear(y){ curYear = y; curMonth = (y === 2026 ? 7 : 1); renderAll(); }
 
 function isMonthDirty(ym){
-  const cur = editState[ym], orig = originalState[ym];
-  if(!cur || cur.skip || !orig) return false;
-  return ['A','B','C'].some(t => cur[t] && CLASSES.some(c => (cur[t][c]||0) !== (orig[t]?.[c]||0)));
+  // 月タブ表示用: draft 編集中 = dirty
+  return isDraftDirty(ym);
 }
 
 function renderMonthTabs(){
@@ -255,7 +336,46 @@ function renderMatrix(){
     return;
   }
 
-  let html = `<div class="matrix-card">
+  // 履歴を確実に初期化（V1=原案）
+  ensureV1FromProposal(ym);
+  const versions = historyState[ym] || [];
+  const activeId = activeVersion[ym];
+  const dirty = isDraftDirty(ym);
+
+  // ============ 履歴バー ============
+  let histHtml = `<div class="history-bar">
+    <div class="history-head">
+      <div class="history-title">📚 変更履歴
+        <span class="history-counter">${versions.length} / ${MAX_VERSIONS}</span>
+      </div>
+      <div style="font-size:9pt;color:#6b7280">チップをクリックで読み込み・編集後に「📷 保存」</div>
+    </div>
+    <div class="history-chips">`;
+  versions.forEach(v => {
+    const isActive = v.id === activeId && !dirty;
+    const cls = (isActive ? 'active' : '') + ' ' + (v.protected ? 'protected' : '');
+    histHtml += `<button class="ver-chip ${cls}" onclick="loadVersion('${ym}','${v.id}')">
+      ${!v.protected ? `<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${ym}','${v.id}')" title="このバージョンを削除">×</button>` : ''}
+      <span class="ver-num">${v.id.toUpperCase()}</span>
+      <span class="ver-label">${escapeHtml(v.label)}</span>
+      <span class="ver-date">${v.savedAt}</span>
+    </button>`;
+  });
+  if(dirty){
+    histHtml += `<div class="ver-chip draft" style="cursor:default">
+      <span class="ver-num">V${versions.length+1}</span>
+      <span class="ver-label">編集中</span>
+      <span class="ver-date">未保存</span>
+    </div>`;
+  }
+  const canAdd = versions.length < MAX_VERSIONS;
+  histHtml += `<button class="btn-add-ver" ${canAdd?'':'disabled'} onclick="addVersionFromDraft('${ym}')" title="${canAdd?'現在の編集内容を新規バージョンとして保存':'5バージョン上限に達しています'}">
+    📷 ${canAdd ? '新規バージョン保存' : '上限到達'}
+  </button>`;
+  histHtml += `</div></div>`;
+
+  // ============ マトリクスカード ============
+  let html = histHtml + `<div class="matrix-card">
     <div class="matrix-head">
       <div class="ttl">💰 ${curYear}年${curMonth}月 の価格</div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">`;
@@ -294,10 +414,7 @@ function renderMatrix(){
       const diffCls = isDirty ? 'diff' : '';
       html += `<td>
         <div class="cell-wrap">
-          <div class="cell-input-row">
-            <input type="number" class="${inputCls}" value="${v}" id="cell-${ym}-${tk}-${c}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" oninput="updateCell(this)" onchange="updateCell(this)" min="0" step="100">
-            <button class="cell-save ${isDirty?'show':''}" onclick="saveCell('${ym}','${tk}','${c}')" title="このセルだけ localStorage に保存">💾</button>
-          </div>
+          <input type="number" class="${inputCls}" value="${v}" id="cell-${ym}-${tk}-${c}" data-ym="${ym}" data-tier="${tk}" data-cls="${c}" oninput="updateCell(this)" onchange="updateCell(this)" min="0" step="100">
           <div class="cell-info ${diffCls}" id="info-${ym}-${tk}-${c}">
             <span class="orig-label">原案 <span class="orig-val">¥${origV.toLocaleString()}</span></span>
             <button class="reset-btn" onclick="resetCell('${ym}','${tk}','${c}')" title="原案に戻す">↺ 戻す</button>
@@ -308,7 +425,118 @@ function renderMatrix(){
     html += `</tr>`;
   });
   html += `</tbody></table></div>`;
+
+  // ============ アクション行（下部）============
+  const activeVer = getActiveVer(ym);
+  const actLabel = activeVer ? activeVer.id.toUpperCase() + ': ' + activeVer.label : '未選択';
+  html += `<div class="month-actions">
+    <div class="info">
+      ${dirty
+        ? '<b style="color:#92400e">📝 編集中（未保存）</b><br><span style="font-size:8.5pt;color:#6b7280">「📷 新規バージョン保存」で履歴に追加</span>'
+        : (activeVer ? `<b>採用中:</b> ${escapeHtml(actLabel)}<br><span style="font-size:8.5pt;color:#6b7280">📥 pricing.html に反映済み</span>` : '<b>バージョン未選択</b>')}
+    </div>
+    <div class="btns">
+      <button class="btn-snapshot" ${dirty && canAdd ? '' : 'disabled'} onclick="addVersionFromDraft('${ym}')">📷 新規バージョン保存</button>
+      <button class="btn-apply" ${dirty ? 'disabled' : ''} onclick="applyActiveToLocalStorage('${ym}')" title="採用中バージョンを pricing.html に反映">📥 採用してpricing.htmlへ</button>
+    </div>
+  </div>`;
+
   area.innerHTML = html;
+}
+
+function escapeHtml(s){return String(s||'').replace(/[<>&"']/g,m=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[m]));}
+
+// ===== バージョン操作 =====
+function loadVersion(ym, id){
+  const v = getVer(ym, id);
+  if(!v) return;
+  // editState を v の内容で上書き
+  editState[ym].A = {...v.A};
+  editState[ym].B = {...v.B};
+  editState[ym].C = {...v.C};
+  if(v.special !== undefined) editState[ym].special = v.special;
+  if(v.specialLabel !== undefined) editState[ym].specialLabel = v.specialLabel;
+  activeVersion[ym] = id;
+  persistHistory();
+  showToast(`📖 ${id.toUpperCase()}: ${v.label} を読み込みました`);
+  renderAll();
+}
+
+function addVersionFromDraft(ym){
+  const versions = historyState[ym] || [];
+  if(versions.length >= MAX_VERSIONS){
+    showToast(`⚠️ 上限 ${MAX_VERSIONS} バージョン到達。不要なバージョンを削除してください`,'warn');
+    return;
+  }
+  const label = prompt('バージョンのラベルを入力してください\n（例: 値上げ案 / GW増額 / 通常運用 など）', '');
+  if(label === null) return; // cancel
+  if(!label.trim()){ showToast('ラベルが空です','error'); return; }
+  // 次の ID
+  let n = versions.length + 1;
+  while(versions.some(v => v.id === 'v'+n)) n++;
+  const cur = editState[ym];
+  const today = new Date();
+  const stamp = `${today.getMonth()+1}/${today.getDate()} ${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}`;
+  const newVer = {
+    id: 'v' + n,
+    label: label.trim(),
+    savedAt: stamp,
+    A:{...cur.A}, B:{...cur.B}, C:{...cur.C},
+    special: cur.special, specialLabel: cur.specialLabel, reset: cur.reset
+  };
+  historyState[ym].push(newVer);
+  activeVersion[ym] = newVer.id;
+  persistHistory();
+  showToast(`✅ ${newVer.id.toUpperCase()}: ${newVer.label} を保存しました（採用中）`);
+  renderAll();
+}
+
+function deleteVersion(ym, id){
+  if(id === 'v1'){ showToast('V1（原案）は削除できません','error'); return; }
+  const v = getVer(ym, id);
+  if(!v) return;
+  if(!confirm(`${id.toUpperCase()}: ${v.label} を削除しますか？\nこの操作は取り消せません。`)) return;
+  historyState[ym] = historyState[ym].filter(x => x.id !== id);
+  if(activeVersion[ym] === id){
+    // 採用中が消えた → 直近に切替
+    activeVersion[ym] = historyState[ym][historyState[ym].length-1]?.id || 'v1';
+    const cur = getActiveVer(ym);
+    if(cur){
+      editState[ym].A = {...cur.A};
+      editState[ym].B = {...cur.B};
+      editState[ym].C = {...cur.C};
+    }
+  }
+  persistHistory();
+  showToast(`🗑️ ${id.toUpperCase()} を削除しました`,'warn');
+  renderAll();
+}
+
+// 採用中バージョンを localStorage（pricing.html）に反映
+function applyActiveToLocalStorage(ym){
+  const v = getActiveVer(ym);
+  if(!v){ showToast('採用バージョンなし','error'); return; }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){ showToast('pricing.html を一度開いてください','error'); return; }
+  let state;
+  try{ state = JSON.parse(raw); }catch(e){ showToast('JSON解析失敗','error'); return; }
+  if(!state.segments?.proper){ showToast('プロパーセグメントなし','error'); return; }
+
+  // pricing.html の ymKey は non-padded
+  const [y, m] = ym.split('-');
+  const key = y + '-' + parseInt(m, 10);
+  const proper = state.segments.proper;
+  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
+  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
+  // padded 残骸クリア
+  if(proper.monthlyTierClassPrices[ym]) delete proper.monthlyTierClassPrices[ym];
+  if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
+
+  const data = { A:{...v.A}, B:{...v.B}, C:{...v.C} };
+  proper.monthlyTierClassPrices[key] = data;
+  state.monthlyTierClassPrices[key] = data;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  showToast(`📥 ${key} ${v.id.toUpperCase()}: ${v.label} を pricing.html に反映しました`);
 }
 
 function updateCell(input){
@@ -318,22 +546,20 @@ function updateCell(input){
   const v = parseInt(input.value) || 0;
   if(!editState[ym]) return;
   editState[ym][tier][cls] = v;
-  // 該当セルの dirty 表示を即時更新
+  // 該当セルの dirty 表示を即時更新（原案との比較）
   const orig = originalState[ym]?.[tier]?.[cls] || 0;
   const isDirty = v !== orig;
   const info = document.getElementById('info-' + ym + '-' + tier + '-' + cls);
-  const saveBtn = input.parentElement.querySelector('.cell-save');
   if(isDirty){
     input.classList.add('dirty');
     input.classList.remove('saved','special','zero');
     info?.classList.add('diff');
-    saveBtn?.classList.add('show');
   }else{
     input.classList.remove('dirty');
     info?.classList.remove('diff');
-    saveBtn?.classList.remove('show');
   }
-  renderMonthTabs();
+  // 月タブと履歴バー・アクション行も再描画（draftチップ表示のため）
+  renderAll();
 }
 
 function resetCell(ym, tier, cls){
@@ -342,51 +568,6 @@ function resetCell(ym, tier, cls){
   const inp = document.getElementById('cell-' + ym + '-' + tier + '-' + cls);
   if(inp){ inp.value = v; updateCell(inp); }
   showToast('↺ 原案に戻しました（¥' + v.toLocaleString() + '）','warn');
-}
-
-// セル単位で localStorage に保存
-function saveCell(ym, tier, cls){
-  const v = editState[ym]?.[tier]?.[cls];
-  if(v == null){ showToast('保存失敗（データなし）','error'); return; }
-
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(!raw){ showToast('pricing.html を一度開いてください','error'); return; }
-  let state;
-  try{ state = JSON.parse(raw); }catch(e){ showToast('JSON解析失敗','error'); return; }
-  if(!state.segments?.proper){ showToast('プロパーセグメントなし','error'); return; }
-
-  // pricing.html の ymKey は non-padded（"2026-8"）
-  const [y, m] = ym.split('-');
-  const key = y + '-' + parseInt(m, 10);
-
-  // 既存の padded key 残骸クリア
-  const proper = state.segments.proper;
-  if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
-  if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
-  if(proper.monthlyTierClassPrices[ym]) delete proper.monthlyTierClassPrices[ym];
-  if(state.monthlyTierClassPrices[ym]) delete state.monthlyTierClassPrices[ym];
-
-  // 該当セルのみ更新
-  if(!proper.monthlyTierClassPrices[key]) proper.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
-  if(!proper.monthlyTierClassPrices[key][tier]) proper.monthlyTierClassPrices[key][tier] = {};
-  proper.monthlyTierClassPrices[key][tier][cls] = v;
-  // top-level も同期
-  if(!state.monthlyTierClassPrices[key]) state.monthlyTierClassPrices[key] = {A:{},B:{},C:{}};
-  if(!state.monthlyTierClassPrices[key][tier]) state.monthlyTierClassPrices[key][tier] = {};
-  state.monthlyTierClassPrices[key][tier][cls] = v;
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-
-  // 視覚フィードバック
-  const inp = document.getElementById('cell-' + ym + '-' + tier + '-' + cls);
-  if(inp){
-    inp.classList.remove('dirty');
-    inp.classList.add('saved');
-    setTimeout(()=>inp.classList.remove('saved'), 1200);
-    const saveBtn = inp.parentElement.querySelector('.cell-save');
-    saveBtn?.classList.remove('show');
-  }
-  showToast('💾 ' + key + ' / ' + tier + tier2Label(tier) + ' / タイプ' + cls + ' = ¥' + v.toLocaleString() + ' を保存');
 }
 
 function tier2Label(t){return t==='A'?'繁忙':t==='B'?'通常':'閑散';}
@@ -544,6 +725,20 @@ function verifyStorage(){
 
 // 初期化
 buildInitial();
+loadHistory();
+// 各月で V1=原案 を保証 + editState を採用中バージョンと同期
+Object.keys(editState).forEach(ym => {
+  if(editState[ym].skip) return;
+  ensureV1FromProposal(ym);
+  // 採用中バージョンを editState に反映（初回起動時は V1 = 原案）
+  const act = getActiveVer(ym);
+  if(act){
+    editState[ym].A = {...act.A};
+    editState[ym].B = {...act.B};
+    editState[ym].C = {...act.C};
+  }
+});
+persistHistory();
 renderAll();
 </script>
 </body>
