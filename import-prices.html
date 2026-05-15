@@ -6,58 +6,194 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;color:#fff}
-.card{background:#fff;border-radius:20px;padding:32px;max-width:560px;width:100%;color:#1e293b;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-h1{font-size:22px;color:#1e3a8a;margin-bottom:8px;display:flex;align-items:center;gap:10px}
-.subtitle{font-size:12px;color:#64748b;margin-bottom:24px}
-.summary{background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.8}
-.summary strong{color:#1e40af}
-.actions{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
-.btn{padding:14px 20px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px}
-.btn-primary{background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.4)}
-.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(37,99,235,.5)}
+body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:#f3f4f6;color:#1f2937;line-height:1.5;padding:24px 16px}
+.wrap{max-width:1100px;margin:0 auto}
+header{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,.1)}
+header h1{font-size:24px;font-weight:800;margin-bottom:4px}
+header .sub{font-size:11px;opacity:.85;letter-spacing:.2em}
+header .desc{font-size:13px;margin-top:8px;opacity:.95}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:768px){.cards{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,.06);border-left:4px solid #94a3b8}
+.card.target{border-left-color:#10b981}
+.card.skip{border-left-color:#94a3b8}
+.card.reset{border-left-color:#dc2626}
+.card .label{font-size:11px;font-weight:700;color:#64748b;letter-spacing:.1em}
+.card .value{font-size:18px;font-weight:800;color:#1e3a8a;margin-top:2px}
+.card .desc{font-size:11px;color:#475569;margin-top:4px}
+.section{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.section h2{font-size:17px;font-weight:800;color:#1e3a8a;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #dbeafe;padding-bottom:8px}
+.section h2 .badge{font-size:9px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;letter-spacing:.05em}
+.section h2 .badge.green{background:#d1fae5;color:#065f46}
+.section h2 .badge.red{background:#fee2e2;color:#991b1b}
+.month-table{width:100%;border-collapse:collapse;font-size:11.5pt;margin-bottom:6px}
+.month-table th{background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:6px 10px;font-weight:700;font-size:10pt;text-align:center;border:1px solid #1d4ed8}
+.month-table th.tier-a{background:linear-gradient(135deg,#dc2626,#ef4444)}
+.month-table th.tier-b{background:linear-gradient(135deg,#1e40af,#2563eb)}
+.month-table th.tier-c{background:linear-gradient(135deg,#475569,#64748b)}
+.month-table td{padding:5px 10px;text-align:center;border:1px solid #d1d5db;font-family:"Menlo",monospace;font-size:9.5pt}
+.month-table tr.row-a td{background:#fff7ed}
+.month-table tr.row-a td:first-child{background:#fbbf24;color:#7c2d12;font-weight:700}
+.month-table tr.row-b td{background:#eff6ff}
+.month-table tr.row-b td:first-child{background:#60a5fa;color:#fff;font-weight:700}
+.month-table tr.row-c td{background:#f8fafc}
+.month-table tr.row-c td:first-child{background:#94a3b8;color:#fff;font-weight:700}
+.month-table td.tier-label{text-align:center;font-family:inherit;letter-spacing:.05em;font-size:9pt}
+.month-table td.special{background:#fef3c7!important;font-weight:700;color:#92400e}
+.month-meta{font-size:11px;color:#64748b;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.month-meta .badge{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;font-size:9pt}
+.month-meta .badge.normal{background:#dbeafe;color:#1e40af}
+.actions{position:sticky;bottom:0;background:#fff;padding:14px;border-radius:14px;box-shadow:0 -4px 16px rgba(0,0,0,.1);display:flex;flex-direction:column;gap:8px;margin-top:24px;border:2px solid #dbeafe}
+.btn{padding:14px 20px;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.05em;font-family:inherit;transition:all .15s}
+.btn-primary{background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;box-shadow:0 3px 10px rgba(37,99,235,.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(37,99,235,.45)}
 .btn-secondary{background:#f1f5f9;color:#475569}
 .btn-danger{background:#fee2e2;color:#dc2626}
-.notice{background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;font-size:11px;color:#92400e;border-radius:8px;line-height:1.6}
-#log{font-family:"Menlo",monospace;font-size:11px;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;margin-top:16px;display:none;line-height:1.6}
+.notice{background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;font-size:12px;color:#92400e;border-radius:8px;line-height:1.6;margin-bottom:16px}
+#log{font-family:"Menlo",monospace;font-size:10.5pt;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;max-height:280px;overflow-y:auto;margin-top:12px;display:none;line-height:1.7}
 .success{color:#10b981;font-weight:700}
-.warning{color:#f59e0b}
-.error{color:#ef4444}
-.back-link{display:inline-block;margin-top:16px;color:#64748b;font-size:12px;text-decoration:none}
+.warning{color:#fbbf24}
+.error{color:#f87171}
+.back-link{display:inline-block;margin-top:8px;color:#64748b;font-size:12px;text-decoration:none}
 .back-link:hover{color:#1e40af}
+.tier-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:11px}
+.tier-legend span{padding:3px 9px;border-radius:5px;font-weight:700}
+.lg-a{background:#fbbf24;color:#7c2d12}
+.lg-b{background:#60a5fa;color:#fff}
+.lg-c{background:#94a3b8;color:#fff}
+.reset-section{background:#fef2f2;border-radius:10px;padding:14px;color:#991b1b;font-size:12px;text-align:center}
+.reset-section strong{font-size:14px;display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
-<div class="card">
-  <h1>💰 価格インポート</h1>
-  <div class="subtitle">BUDDICA TOURING 高松店 — シーズナル価格 一括設定</div>
+<div class="wrap">
 
-  <div class="summary">
-    <div><strong>📅 2026/7〜12月</strong>: 提案資料の運用価格を入力</div>
-    <div style="margin-left:12px;color:#64748b;font-size:11px">A繁忙 / B通常 / C閑散 × 全クラス（A/B/C/S/F/H）</div>
-    <div style="margin-top:8px"><strong>📅 2026/1〜6月</strong>: 触らない（既存値そのまま）</div>
-    <div style="margin-top:8px"><strong>📅 2027年</strong>: 全月 × 全ティア × 全クラスを <span style="color:#dc2626;font-weight:700">¥0</span> にリセット</div>
+<header>
+  <div class="sub">B U D D I C A &nbsp; T O U R I N G &nbsp; 高松店</div>
+  <h1>💰 価格インポート 確認 → 反映</h1>
+  <div class="desc">下記の価格表でインポート内容を目視確認 → 画面下のボタンで反映実行</div>
+</header>
+
+<div class="cards">
+  <div class="card target">
+    <div class="label">📅 入力対象</div>
+    <div class="value">2026/7〜12月</div>
+    <div class="desc">価格提案資料の運用価格 → A繁忙/B通常/C閑散</div>
   </div>
-
-  <div class="notice">
-    ⚠️ <strong>必ず先に</strong> <a href="./pricing.html" target="_blank" style="color:#1e40af;font-weight:700">pricing.html</a> を一度開いてください<br>
-    （初期データが localStorage に作られないとインポートできません）
+  <div class="card skip">
+    <div class="label">📅 触らない</div>
+    <div class="value">2026/1〜6月</div>
+    <div class="desc">既存値そのまま（提案資料に無いため）</div>
   </div>
-
-  <div class="actions" style="margin-top:20px">
-    <button class="btn btn-primary" onclick="doImport()">🚀 価格を一括インポート</button>
-    <button class="btn btn-secondary" onclick="showCurrent()">📋 現在の保存値を確認</button>
-    <button class="btn btn-danger" onclick="resetAll()">🗑️ 全リセット（pricing 全部消す）</button>
+  <div class="card reset">
+    <div class="label">📅 0リセット</div>
+    <div class="value">2027年 全月</div>
+    <div class="desc">全ティア × 全クラス を ¥0 に</div>
   </div>
+</div>
 
+<div class="notice">
+  ⚠️ 実行前に必ず <a href="./pricing.html" target="_blank" style="color:#92400e;font-weight:700;text-decoration:underline">pricing.html</a> を一度開いてください（初期データを localStorage に作成するため）
+</div>
+
+<div class="tier-legend">
+  <span class="lg-a">A 繁忙</span>
+  <span class="lg-b">B 通常</span>
+  <span class="lg-c">C 閑散</span>
+  <span style="background:#fef3c7;color:#92400e">★ 提案特別期間（お盆/年末年始）</span>
+</div>
+
+<div id="preview-area"></div>
+
+<div class="section">
+  <h2>🗑️ 2027年 全12ヶ月 <span class="badge red">0リセット</span></h2>
+  <div class="reset-section">
+    <strong>全ティア × 全クラス × 全12ヶ月を ¥0 に上書き</strong>
+    現在の 2027年の価格設定が全部消えます。一旦リセットしてから後で再入力する用途。
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary" onclick="doImport()">🚀 この内容で価格を反映する</button>
+  <button class="btn btn-secondary" onclick="showCurrent()">📋 現在の保存値を確認</button>
+  <button class="btn btn-danger" onclick="resetAll()">🗑️ pricing 全リセット（緊急用）</button>
   <div id="log"></div>
-
   <a class="back-link" href="./pricing.html">← pricing.html に戻る</a>
+</div>
+
 </div>
 
 <script>
 const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
 const logEl = document.getElementById('log');
+
+// ===== 価格提案資料（2026-07〜12）=====
+const PROPOSAL = {
+  '2026-07': { B:{A:17000,B:14500,C:11500,S:11500,F:6500,H:10500}, A:null, label:'7月' },
+  '2026-08': { B:{A:17500,B:16500,C:11500,S:11500,F:6500,H:12500}, A:{A:22000,B:21500,C:21500,S:21500,F:8500,H:15500}, label:'8月', special:'お盆（8/12-14）' },
+  '2026-09': { B:{A:17000,B:13000,C:13000,S:13000,F:6500,H:10500}, A:null, label:'9月' },
+  '2026-10': { B:{A:17000,B:16500,C:13000,S:13000,F:7000,H:11500}, A:null, label:'10月' },
+  '2026-11': { B:{A:16000,B:15500,C:13000,S:13000,F:6500,H:11500}, A:null, label:'11月' },
+  '2026-12': { B:{A:13500,B:15500,C:13000,S:13000,F:6000,H:10500}, A:{A:20000,B:21000,C:14500,S:14500,F:9000,H:15500}, label:'12月', special:'年末年始（12/28-1/3）' },
+};
+const COEF_A = 1.50;
+const COEF_C = 0.80;
+const CLASSES = ['A','B','C','S','H','F'];
+const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',S:'SUV',H:'セダン',F:'コンパクト'};
+const CLASS_EXAMPLES = {A:'アルファード',B:'ノア/セレナ',C:'コンパクトSUV',S:'高級SUV',H:'セダン/HV',F:'コンパクト'};
+
+function buildMonthData(ym, data){
+  const result = { A:{}, B:{}, C:{}, isASpecial: !!data.A };
+  result.B = {...data.B};
+  if(data.A){
+    result.A = {...data.A};
+  }else{
+    CLASSES.forEach(c => { result.A[c] = Math.round(data.B[c] * COEF_A); });
+  }
+  CLASSES.forEach(c => { result.C[c] = Math.round(data.B[c] * COEF_C); });
+  return result;
+}
+
+function fmt(n){ return n>0 ? '¥' + n.toLocaleString() : '—'; }
+
+function renderPreview(){
+  const area = document.getElementById('preview-area');
+  let html = '';
+  Object.entries(PROPOSAL).forEach(([ym, data]) => {
+    const calc = buildMonthData(ym, data);
+    const specialBadge = data.special
+      ? `<span class="badge">特別期間: ${data.special}</span>`
+      : `<span class="badge normal">通常運用月</span>`;
+    html += `
+    <div class="section">
+      <h2>📅 ${ym} ${data.label} ${data.special?'<span class="badge">★</span>':''}</h2>
+      <div class="month-meta">${specialBadge}<span>（A繁忙ティア=${data.A?'<strong style="color:#dc2626">提案特別価格</strong>':'通常×1.5自動算出'}）</span></div>
+      <table class="month-table">
+        <thead>
+          <tr>
+            <th>ティア</th>
+            ${CLASSES.map(c=>`<th>${c}<br><span style="font-size:8.5pt;font-weight:400;opacity:.85">${CLASS_NAMES[c]}</span></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-a">
+            <td class="tier-label">A繁忙</td>
+            ${CLASSES.map(c=>`<td${data.A?' class="special"':''}>${fmt(calc.A[c])}</td>`).join('')}
+          </tr>
+          <tr class="row-b">
+            <td class="tier-label">B通常</td>
+            ${CLASSES.map(c=>`<td>${fmt(calc.B[c])}</td>`).join('')}
+          </tr>
+          <tr class="row-c">
+            <td class="tier-label">C閑散</td>
+            ${CLASSES.map(c=>`<td>${fmt(calc.C[c])}</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  });
+  area.innerHTML = html;
+}
 
 function log(msg, cls){
   logEl.style.display = 'block';
@@ -92,54 +228,29 @@ function doImport(){
   logEl.innerHTML = '';
   const raw = localStorage.getItem(STORAGE_KEY);
   if(!raw){ alert('❌ pricing.html を一度開いてから実行してください'); return; }
+  if(!confirm('上記の価格表で OK ですか？\n\nlocalStorage に書き込みます')) return;
 
   let state;
   try{ state = JSON.parse(raw); }
   catch(e){ alert('❌ JSONパース失敗'); return; }
 
-  if(!state.segments || !state.segments.proper){
-    alert('❌ プロパーセグメントが見つかりません');
-    return;
-  }
+  if(!state.segments?.proper){ alert('❌ プロパーセグメントが見つかりません'); return; }
 
   const proper = state.segments.proper;
   if(!proper.monthlyTierClassPrices) proper.monthlyTierClassPrices = {};
 
-  // ===== 価格提案資料（2026-07〜12）=====
-  const PROPOSAL = {
-    '2026-07': { B:{A:17000,B:14500,C:11500,S:11500,F:6500,H:10500}, A:null },
-    '2026-08': { B:{A:17500,B:16500,C:11500,S:11500,F:6500,H:12500}, A:{A:22000,B:21500,C:21500,S:21500,F:8500,H:15500} },
-    '2026-09': { B:{A:17000,B:13000,C:13000,S:13000,F:6500,H:10500}, A:null },
-    '2026-10': { B:{A:17000,B:16500,C:13000,S:13000,F:7000,H:11500}, A:null },
-    '2026-11': { B:{A:16000,B:15500,C:13000,S:13000,F:6500,H:11500}, A:null },
-    '2026-12': { B:{A:13500,B:15500,C:13000,S:13000,F:6000,H:10500}, A:{A:20000,B:21000,C:14500,S:14500,F:9000,H:15500} },
-  };
-  const COEF_A = 1.50;
-  const COEF_C = 0.80;
-  const CLASSES = ['A','B','C','S','H','F'];
-
   const tcp = proper.monthlyTierClassPrices;
   log('===== インポート開始 =====', 'success');
 
-  // 2026/7-12月
   let count1 = 0;
   Object.entries(PROPOSAL).forEach(([ym, data]) => {
-    if(!tcp[ym]) tcp[ym] = {};
-    tcp[ym].B = {...data.B};
-    if(data.A){
-      tcp[ym].A = {...data.A};
-    }else{
-      tcp[ym].A = {};
-      Object.entries(data.B).forEach(([cls, v]) => { tcp[ym].A[cls] = Math.round(v * COEF_A); });
-    }
-    tcp[ym].C = {};
-    Object.entries(data.B).forEach(([cls, v]) => { tcp[ym].C[cls] = Math.round(v * COEF_C); });
+    const calc = buildMonthData(ym, data);
+    tcp[ym] = { A:calc.A, B:calc.B, C:calc.C };
     count1++;
-    log('  ✓ ' + ym + ' 入力完了 (B通常 Aクラス=¥' + tcp[ym].B.A.toLocaleString() + ')');
+    log('  ✓ ' + ym + ' 入力 (B通常 Aクラス=¥' + calc.B.A.toLocaleString() + ' / A繁忙 Aクラス=¥' + calc.A.A.toLocaleString() + ')');
   });
   log('2026/7-12月: ' + count1 + 'ヶ月入力 ✅', 'success');
 
-  // 2027年 全0
   let count2 = 0;
   for(let m = 1; m <= 12; m++){
     const ym = '2027-' + String(m).padStart(2,'0');
@@ -149,30 +260,26 @@ function doImport(){
   }
   log('2027年: ' + count2 + 'ヶ月 0リセット ✅', 'success');
 
-  // basePrices 更新
   proper.basePrices = {...PROPOSAL['2026-07'].B};
-
-  // 保存
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   log('===== 完了 =====', 'success');
   log('localStorage 書き込み成功');
-  log('');
-  log('🔗 確認: pricing.html を開いて 7-12月のカレンダーを見てください', 'warning');
+  log('🔗 pricing.html を開いて 7-12月のカレンダーを確認してください', 'warning');
 
-  alert('✅ インポート完了\n\n' +
-        '2026/7-12月: ' + count1 + 'ヶ月入力\n' +
-        '2027年: ' + count2 + 'ヶ月 0リセット\n\n' +
-        'pricing.html を開いてカレンダーを確認してください');
+  alert('✅ インポート完了\n\n2026/7-12月: ' + count1 + 'ヶ月入力\n2027年: ' + count2 + 'ヶ月 0リセット\n\npricing.html を開いて確認してください');
 }
 
 function resetAll(){
-  if(!confirm('⚠️ 警告\n\npricing.html の全データ（価格設定・係数・閾値・月別カスタム）を削除します。\n\n本当に実行しますか？'))return;
+  if(!confirm('⚠️ 警告\n\npricing.html の全データ（価格設定・係数・閾値・月別カスタム）を削除します。\n本当に実行しますか？'))return;
   localStorage.removeItem(STORAGE_KEY);
   logEl.innerHTML = '';
   log('🗑️ 全データ削除完了', 'success');
   log('pricing.html を開くと初期状態から始まります');
   alert('✅ 全リセット完了');
 }
+
+// 初期描画
+renderPreview();
 </script>
 </body>
 </html>
