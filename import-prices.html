@@ -109,6 +109,10 @@ body{font-family:-apple-system,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;b
 
   <div class="footer-actions">
     <button class="btn-import" onclick="doImport()">🚀 この価格表で localStorage に反映する</button>
+    <div style="display:flex;gap:6px">
+      <button class="act-btn" style="background:#f1f5f9;color:#475569;flex:1" onclick="verifyStorage()">🔍 localStorage 検証</button>
+      <a class="act-btn" style="background:#dcfce7;color:#15803d;flex:1;text-align:center" href="./pricing.html" target="_blank">📅 pricing.html を新規タブで開く</a>
+    </div>
     <div id="log"></div>
   </div>
 </div>
@@ -316,13 +320,55 @@ function doImport(){
   proper.basePrices = {...PROPOSAL['2026-07'].B};
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   log('localStorage 書き込み完了', 'success');
-  log('🔗 pricing.html を開いてカレンダー確認', 'warning');
+
+  // ★ 即時検証
+  const verifyRaw = localStorage.getItem(STORAGE_KEY);
+  const verifyState = JSON.parse(verifyRaw);
+  const verifyTcp = verifyState?.segments?.proper?.monthlyTierClassPrices;
+  if(verifyTcp && verifyTcp['2026-07'] && verifyTcp['2026-07'].B && verifyTcp['2026-07'].B.A === 17000){
+    log('✅ 検証OK: 2026-07 B Aクラス=¥17,000 確認済み', 'success');
+  }else{
+    log('❌ 検証失敗! localStorage 書込みが反映されていません', 'error');
+  }
+
+  log('', '');
+  log('▼ 確認手順', 'warning');
+  log('1. このタブはそのまま', 'warning');
+  log('2. pricing.html を【新しいタブ】で開く（既存タブは閉じる）', 'warning');
+  log('3. プロパー ボタンをクリック', 'warning');
+  log('4. 7月タブ → カレンダーに価格が表示される', 'warning');
 
   alert('✅ インポート完了\n\n' +
         '価格入力: ' + inputCnt + 'ヶ月（2026/7-12月）\n' +
         '0リセット: ' + resetCnt + 'ヶ月（2027年）\n' +
         '触らず: ' + skipCnt + 'ヶ月（2026/1-6月）\n\n' +
-        'pricing.html を開いて確認してください');
+        '【重要】 pricing.html を必ず新しいタブで開いてください\n' +
+        '（既に開いているタブは閉じてから再オープン）');
+}
+
+function verifyStorage(){
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = '';
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){ log('❌ localStorage に保存値なし', 'error'); return; }
+  try{
+    const state = JSON.parse(raw);
+    const tcp = state?.segments?.proper?.monthlyTierClassPrices;
+    if(!tcp){ log('❌ proper.monthlyTierClassPrices が見つかりません', 'error'); return; }
+    log('===== 現在のlocalStorage（proper.monthlyTierClassPrices）=====', 'success');
+    log('保存月数: ' + Object.keys(tcp).length);
+    const samples = ['2026-07','2026-08','2026-12','2027-01'];
+    samples.forEach(ym => {
+      const v = tcp[ym];
+      if(!v){ log('  ' + ym + ' : 未設定', 'warning'); return; }
+      log('  ' + ym + ' A=' + (v.A?.A||0) + ' / B=' + (v.B?.A||0) + ' / C=' + (v.C?.A||0) + '（Aクラス）');
+    });
+    log('');
+    log('▼ 全データ JSON ▼');
+    log(JSON.stringify(tcp, null, 2));
+  }catch(e){
+    log('❌ パースエラー: ' + e.message, 'error');
+  }
 }
 
 // 初期化
