@@ -20475,6 +20475,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   const [kpiAll,setKpiAll]=useState([]);
   const [loading,setLoading]=useState(true);
   const [lastUpdate,setLastUpdate]=useState(new Date());
+  const [otaFilter,setOtaFilter]=useState("ALL");
   useEffect(()=>{
     let alive=true;
     const load=async()=>{
@@ -20510,7 +20511,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
     const n_months=monthList.length;
     if(n_months<=0)return{rows:[],classRows:[],period:"",months:0,empty:false};
     const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
-    const activeResv=(data||[]).filter(r=>r.status!=="cancelled"&&r.lendDate&&r.lendDate>=effectiveStart+"-01"&&r.lendDate<=todayStr);
+    const activeResv=(data||[]).filter(r=>{if(r.status==="cancelled")return false;if(!r.lendDate)return false;if(r.lendDate<effectiveStart+"-01"||r.lendDate>todayStr)return false;if(otaFilter!=="ALL"){const ota=r.ota==="A"?"O":(r.ota||"?");if(ota!==otaFilter)return false;}return true;});
     const resvMap={};activeResv.forEach(r=>{resvMap[r.id]=r;});
     const vehStat={};
     Object.entries(fleet||{}).forEach(([rid,vc])=>{
@@ -20601,7 +20602,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
       best:c.vehicles[0],
     })).sort((a,b)=>b.totalProfit-a.totalProfit);
     return{rows,classRows,period:`${effectiveStart} 〜 ${todayYM}`,months:n_months,empty:false};
-  },[vehicles,data,fleet,kpiAll,st,PERIOD_START]);
+  },[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter]);
   const rankColors={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
   const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
   if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
@@ -20616,6 +20617,13 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
         </div>
       </div>
       <div style={{fontSize:11,opacity:0.85,marginTop:8}}>①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35 = 100点</div>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🔍 OTAフィルタ:</span>
+        {[{k:"ALL",l:"全て"},{k:"HP",l:"HP直販"},{k:"J",l:"じゃらん"},{k:"R",l:"楽天"},{k:"S",l:"スカイ"},{k:"O",l:"エアトリ"},{k:"RC",l:"RC"},{k:"G",l:"GoGoOut"},{k:"SP",l:"Slack"},{k:"direct",l:"手動"}].map(o=>(
+          <button key={o.k} onClick={()=>setOtaFilter(o.k)} style={{padding:"3px 10px",fontSize:11,borderRadius:6,border:"1px solid rgba(255,255,255,0.3)",background:otaFilter===o.k?"#fbbf24":"rgba(255,255,255,0.1)",color:otaFilter===o.k?"#1e293b":"#fff",fontWeight:otaFilter===o.k?700:500,cursor:"pointer"}}>{o.l}</button>
+        ))}
+        {otaFilter!=="ALL"&&<span style={{fontSize:10,opacity:0.7,marginLeft:6}}>({otaFilter}のみ表示中)</span>}
+      </div>
       <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
     </div>
     <div style={{marginBottom:20}}>
@@ -20730,7 +20738,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.41-BT";
+const APP_VERSION="v1.0.42-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
