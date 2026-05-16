@@ -29,7 +29,15 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
 .sec-body{padding:14px 16px}
 .sec-hidden{display:none}
 
-/* ===== 期間プリセットテーブル ===== */
+/* ===== 期間プリセットカード ===== */
+.period-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden}
+.period-card.disabled{opacity:.5}
+.period-card-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}
+.period-name{font-size:12pt;font-weight:800;color:#1e293b;min-width:120px}
+.period-dates{font-size:10pt;color:#64748b;display:flex;align-items:center;gap:4px}
+.period-card-body{padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tier-label{font-size:9pt;color:#64748b;font-weight:600;margin-right:4px}
+.period-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
 .period-tbl{width:100%;border-collapse:collapse;font-size:10.5pt;margin-bottom:12px}
 .period-tbl th{background:#1e293b;color:#fff;padding:7px 10px;text-align:left;font-weight:600;font-size:9.5pt}
 .period-tbl th.c{text-align:center}
@@ -301,56 +309,44 @@ function toggleSec(name){
   if(isHidden && name==='scoring') renderScoring();
 }
 
-// ===== 期間プリセット描画（A繁忙/B通常/C閑散） =====
+// ===== 期間プリセット描画（カード形式・期間名明示） =====
 function renderPeriodList(){
   const periods = getPeriods();
-  const tierLabels={A:'A 繁忙',B:'B 通常',C:'C 閑散'};
-  const tierColors={A:'#fee2e2',B:'#dbeafe',C:'#fef9c3'};
-  const tierTextColors={A:'#991b1b',B:'#1e40af',C:'#854d0e'};
-  let html=`<table class="period-tbl">
-    <thead><tr>
-      <th style="width:32px" class="c">✅</th>
-      <th>期間名</th>
-      <th class="c">開始</th>
-      <th class="c" style="width:10px"></th>
-      <th class="c">終了</th>
-      <th class="c">tier</th>
-      <th class="c" style="width:32px"></th>
-    </tr></thead><tbody>`;
+  let html='';
   periods.forEach((p,i)=>{
-    const tc=tierColors[p.tier]||'#f1f5f9';
-    const ttc=tierTextColors[p.tier]||'#475569';
-    html+=`<tr>
-      <td class="c"><input type="checkbox" class="enabled-chk" ${p.enabled?'checked':''} onchange="togglePeriod(${i},this.checked)"></td>
-      <td><input type="text" value="${escH(p.label)}" onchange="updatePeriod(${i},'label',this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:10pt;width:100%"></td>
-      <td class="c">
-        <div style="display:flex;gap:3px;align-items:center;justify-content:center">
-          <input type="number" value="${p.fromM}" min="1" max="12" onchange="updatePeriod(${i},'fromM',+this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 4px;font-size:10pt;width:46px;text-align:center">
-          <span style="font-size:9pt;color:#64748b">/</span>
-          <input type="number" value="${p.fromD}" min="1" max="31" onchange="updatePeriod(${i},'fromD',+this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 4px;font-size:10pt;width:46px;text-align:center">
+    const tierBg={A:'#fee2e2',B:'#dbeafe',C:'#fef9c3'}[p.tier]||'#f1f5f9';
+    const tierTxt={A:'#991b1b',B:'#1e40af',C:'#854d0e'}[p.tier]||'#475569';
+    const tierIcon={A:'🔴',B:'🔵',C:'🟡'}[p.tier]||'⚪';
+    html+=`<div class="period-card${p.enabled?'':' disabled'}">
+      <div class="period-card-head">
+        <input type="checkbox" class="enabled-chk" ${p.enabled?'checked':''} onchange="togglePeriod(${i},this.checked)" title="有効/無効">
+        <span class="period-name" style="background:${tierBg};color:${tierTxt};padding:4px 12px;border-radius:6px">${tierIcon} ${escH(p.label)}</span>
+        <div class="period-dates">
+          <input type="number" value="${p.fromM}" min="1" max="12" onchange="updatePeriod(${i},'fromM',+this.value)" style="border:1px solid #d1d5db;border-radius:4px;padding:3px 4px;width:40px;text-align:center;font-size:10pt">
+          <span>/</span>
+          <input type="number" value="${p.fromD}" min="1" max="31" onchange="updatePeriod(${i},'fromD',+this.value)" style="border:1px solid #d1d5db;border-radius:4px;padding:3px 4px;width:40px;text-align:center;font-size:10pt">
+          <span style="margin:0 6px">〜</span>
+          <input type="number" value="${p.toM}" min="1" max="12" onchange="updatePeriod(${i},'toM',+this.value)" style="border:1px solid #d1d5db;border-radius:4px;padding:3px 4px;width:40px;text-align:center;font-size:10pt">
+          <span>/</span>
+          <input type="number" value="${p.toD}" min="1" max="31" onchange="updatePeriod(${i},'toD',+this.value)" style="border:1px solid #d1d5db;border-radius:4px;padding:3px 4px;width:40px;text-align:center;font-size:10pt">
         </div>
-      </td>
-      <td class="c"><span style="color:#94a3b8">〜</span></td>
-      <td class="c">
-        <div style="display:flex;gap:3px;align-items:center;justify-content:center">
-          <input type="number" value="${p.toM}" min="1" max="12" onchange="updatePeriod(${i},'toM',+this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 4px;font-size:10pt;width:46px;text-align:center">
-          <span style="font-size:9pt;color:#64748b">/</span>
-          <input type="number" value="${p.toD}" min="1" max="31" onchange="updatePeriod(${i},'toD',+this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 4px;font-size:10pt;width:46px;text-align:center">
+        <div class="period-actions">
+          <button class="btn-del" onclick="deletePeriod(${i})" title="削除">×</button>
         </div>
-      </td>
-      <td class="c">
-        <div style="display:flex;gap:3px;justify-content:center">
-          ${['A','B','C'].map(t=>{
-            const sel=(p.tier===t);
-            const lbl={A:'A繁忙',B:'B通常',C:'C閑散'}[t];
-            return `<button class="tier-pill tier-pill-${t}${sel?' sel':''}" onclick="updatePeriod(${i},'tier','${t}');renderPeriodList()" style="padding:3px 9px;border-radius:5px;font-size:9.5pt;font-weight:700">${lbl}</button>`;
-          }).join('')}
-        </div>
-      </td>
-      <td class="c"><button class="btn-del" onclick="deletePeriod(${i})">×</button></td>
-    </tr>`;
+      </div>
+      <div class="period-card-body">
+        <span class="tier-label">tier:</span>
+        ${['A','B','C'].map(t=>{
+          const sel=(p.tier===t);
+          const lbl={A:'A繁忙',B:'B通常',C:'C閑散'}[t];
+          return `<button class="tier-pill tier-pill-${t}${sel?' sel':''}" onclick="updatePeriod(${i},'tier','${t}');renderPeriodList()" style="padding:5px 14px;border-radius:6px;font-size:10pt;font-weight:700">${lbl}</button>`;
+        }).join('')}
+        <span style="margin-left:auto;font-size:9pt;color:#64748b">
+          <input type="text" value="${escH(p.label)}" onchange="updatePeriod(${i},'label',this.value)" placeholder="期間名" style="border:1px solid #e2e8f0;border-radius:5px;padding:4px 8px;font-size:9pt;width:120px">
+        </span>
+      </div>
+    </div>`;
   });
-  html+='</tbody></table>';
   document.getElementById('period-list').innerHTML=html;
 }
 
