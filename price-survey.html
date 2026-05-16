@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🔍 価格調査 — BUDDICA TOURING</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
+.header{padding:24px 24px 12px;text-align:center;border-bottom:1px solid #1e293b}
+.header .brand{font-size:9pt;letter-spacing:.3em;color:#64748b;margin-bottom:6px}
+.header h1{font-size:18pt;font-weight:800;color:#fff}
+.header .sub{font-size:9pt;color:#64748b;margin-top:4px}
+.back{display:inline-block;margin-top:8px;color:#0ea5e9;text-decoration:none;font-size:9pt}
+.back:hover{text-decoration:underline}
+.container{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card-title{font-size:12pt;font-weight:800;color:#fff;margin-bottom:4px}
+.card-sub{font-size:8.5pt;color:#94a3b8;margin-bottom:14px}
+
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cfg-field{display:flex;flex-direction:column;gap:4px}
+.cfg-field label{font-size:8.5pt;color:#94a3b8;font-weight:700}
+.cfg-field input,.cfg-field select{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:8px 10px;font-size:9pt;font-family:inherit}
+.cfg-field input:focus,.cfg-field select:focus{outline:none;border-color:#0ea5e9}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{border:none;border-radius:9px;padding:10px 16px;font-size:9.5pt;font-weight:800;cursor:pointer;color:#fff;font-family:inherit}
+.btn.primary{background:#0ea5e9}
+.btn.primary:hover{background:#0284c7}
+.btn.sec{background:#475569}
+.btn.sec:hover{background:#334155}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.status-bar{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px}
+.status-badge{padding:3px 10px;border-radius:5px;font-size:9pt;font-weight:800}
+.status-badge.idle{background:#334155;color:#94a3b8}
+.status-badge.running{background:#fef3c7;color:#92400e}
+.status-badge.completed{background:#d1fae5;color:#065f46}
+.status-badge.failed{background:#fee2e2;color:#991b1b}
+.status-info{font-size:8.5pt;color:#94a3b8;font-family:Menlo,monospace}
+
+.log-panel{margin-top:12px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:8.5pt;color:#cfe;max-height:300px;overflow:auto;line-height:1.5;font-family:Menlo,monospace;white-space:pre-wrap}
+
+.file-list{display:flex;flex-direction:column;gap:6px}
+.file-item{display:flex;align-items:center;justify-content:space-between;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;transition:border-color .15s}
+.file-item:hover{border-color:#0ea5e9}
+.file-name{font-family:Menlo,monospace;font-size:9pt;color:#e2e8f0;flex:1}
+.file-meta{font-size:8pt;color:#64748b;margin-right:12px}
+.file-actions{display:flex;gap:6px}
+.file-btn{background:transparent;border:1px solid #475569;color:#cbd5e1;padding:4px 10px;border-radius:5px;font-size:8.5pt;cursor:pointer}
+.file-btn:hover{border-color:#0ea5e9;color:#fff}
+.file-btn.latest{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
+
+.preview-panel{margin-top:12px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:16px;font-size:9pt;color:#cbd5e1;max-height:500px;overflow:auto;font-family:Menlo,monospace;white-space:pre-wrap;line-height:1.6}
+.muted{color:#64748b}
+
+@media(max-width:600px){
+  .cfg-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">B U D D I C A &nbsp; T O U R I N G</div>
+  <h1>🔍 価格調査</h1>
+  <div class="sub">OTA 5社の市場価格を取得 → 調査MDを出力</div>
+  <a href="price-hub.html" class="back">← 価格戦略マスター TOP に戻る</a>
+</div>
+
+<div class="container">
+
+  <!-- 実行設定 -->
+  <div class="card">
+    <div class="card-title">⚙️ 実行設定</div>
+    <div class="card-sub">ローカル橋渡しサーバー（Node.js）に対して調査リクエストを発行します</div>
+    <div class="cfg-grid">
+      <div class="cfg-field">
+        <label>サーバー URL</label>
+        <input id="server-url" value="http://127.0.0.1:7777">
+      </div>
+      <div class="cfg-field">
+        <label>店舗</label>
+        <select id="store"><option value="tkm">高松店（TKM）</option></select>
+      </div>
+      <div class="cfg-field">
+        <label>調査対象 OTA</label>
+        <select id="ota-set">
+          <option value="all">全 5社（JLN / RKT / SKT / ART / RDC）</option>
+          <option value="main">主軸のみ（JLN / RKT）</option>
+        </select>
+      </div>
+      <div class="cfg-field">
+        <label>タイムアウト（秒）</label>
+        <input id="timeout-sec" type="number" min="60" max="1800" value="600">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="run-btn" onclick="runSurvey()">🔍 価格調査を実行</button>
+      <button class="btn sec" onclick="checkHealth()">疎通確認</button>
+      <button class="btn sec" onclick="loadFiles()">📂 履歴更新</button>
+    </div>
+    <div class="status-bar">
+      <span>ステータス:</span>
+      <span class="status-badge idle" id="status">idle</span>
+      <span class="status-info" id="status-info">— 未実行</span>
+    </div>
+    <div class="log-panel" id="log">[ready] 価格調査ページ起動完了</div>
+  </div>
+
+  <!-- 履歴 -->
+  <div class="card">
+    <div class="card-title">📂 調査MD履歴</div>
+    <div class="card-sub">output/ 配下の調査MDファイル（最新順）</div>
+    <div class="file-list" id="files"><span class="muted">読み込み中...</span></div>
+  </div>
+
+  <!-- プレビュー -->
+  <div class="card">
+    <div class="card-title">📄 最新結果プレビュー</div>
+    <div class="card-sub">履歴から選択するとここに表示されます</div>
+    <div class="preview-panel" id="preview"><span class="muted">（ファイルを選択してください）</span></div>
+  </div>
+
+</div>
+
+<script>
+const CFG_KEY = 'bt_tkm_survey_cfg_v1';
+let currentRun = null;
+let pollTimer = null;
+
+function $(id){ return document.getElementById(id); }
+function ts(){ return new Date().toISOString().replace('T',' ').slice(0,19); }
+
+function logLine(msg){
+  const el = $('log');
+  el.textContent += `\n[${ts()}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+function setStatus(s, info){
+  const el = $('status');
+  el.textContent = s;
+  el.className = 'status-badge ' + s;
+  if(info !== undefined) $('status-info').textContent = info;
+}
+function setBtnDisabled(disabled){
+  $('run-btn').disabled = disabled;
+}
+
+function getCfg(){
+  return {
+    serverUrl: ($('server-url').value || '').trim().replace(/\/+$/,''),
+    store: $('store').value,
+    otaSet: $('ota-set').value,
+    timeoutSec: parseInt($('timeout-sec').value,10) || 600,
+  };
+}
+function saveCfg(){
+  localStorage.setItem(CFG_KEY, JSON.stringify(getCfg()));
+}
+function loadCfg(){
+  try{
+    const raw = localStorage.getItem(CFG_KEY);
+    if(!raw) return;
+    const c = JSON.parse(raw);
+    if(c.serverUrl) $('server-url').value = c.serverUrl;
+    if(c.store) $('store').value = c.store;
+    if(c.otaSet) $('ota-set').value = c.otaSet;
+    if(c.timeoutSec) $('timeout-sec').value = c.timeoutSec;
+  }catch(e){}
+}
+
+async function checkHealth(){
+  const cfg = getCfg();
+  logLine('GET ' + cfg.serverUrl + '/health');
+  try{
+    const r = await fetch(cfg.serverUrl + '/health').then(r=>r.json());
+    logLine('health OK: ' + JSON.stringify(r));
+    setStatus('idle', 'サーバー疎通 OK');
+  }catch(e){
+    logLine('health FAILED: ' + e.message);
+    setStatus('failed', 'サーバーに接続できません');
+  }
+}
+
+async function runSurvey(){
+  saveCfg();
+  const cfg = getCfg();
+  setBtnDisabled(true);
+  setStatus('running', '調査リクエスト送信中...');
+  logLine('POST ' + cfg.serverUrl + '/api/run/research');
+  try{
+    const res = await fetch(cfg.serverUrl + '/api/run/research', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({store:cfg.store, otaSet:cfg.otaSet}),
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    currentRun = data.runId;
+    logLine('runId=' + currentRun + ' — ポーリング開始');
+    setStatus('running', 'runId=' + currentRun);
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollRun, 1500);
+  }catch(e){
+    setBtnDisabled(false);
+    setStatus('failed', e.message);
+    logLine('FAILED: ' + e.message);
+  }
+}
+
+async function pollRun(){
+  if(!currentRun) return;
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/run/' + currentRun).then(r=>r.json());
+    const tailLines = (r.logs||[]).slice(-3).map(l=>`[${l.t}] ${l.s.trim()}`).join(' | ');
+    setStatus(r.status, 'runId=' + currentRun + (tailLines ? ' | ' + tailLines : ''));
+    if(r.status !== 'running'){
+      clearInterval(pollTimer);
+      pollTimer = null;
+      setBtnDisabled(false);
+      const allLogs = (r.logs||[]).map(l=>`[${l.t}] ${l.s}`).join('');
+      logLine('--- 終了 exit=' + r.exitCode + ' ---\n' + allLogs);
+      loadFiles();
+    }
+  }catch(e){
+    logLine('poll error: ' + e.message);
+  }
+}
+
+async function loadFiles(){
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/output/list').then(r=>r.json());
+    const el = $('files');
+    if(!r.files || !r.files.length){
+      el.innerHTML = '<span class="muted">（履歴なし）</span>';
+      return;
+    }
+    el.innerHTML = r.files.map((f,i)=>{
+      const d = new Date(f.mtime).toLocaleString('ja-JP');
+      const sizeKb = (f.size/1024).toFixed(1);
+      return `<div class="file-item">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${sizeKb} KB / ${d}</div>
+        <div class="file-actions">
+          <button class="file-btn ${i===0?'latest':''}" onclick="previewFile('${f.name}')">プレビュー</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    $('files').innerHTML = '<span class="muted">読込失敗: '+e.message+'</span>';
+  }
+}
+
+async function previewFile(name){
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(name)).then(r=>r.json());
+    $('preview').textContent = r.content || '(空)';
+    logLine('preview: ' + name);
+  }catch(e){
+    $('preview').innerHTML = '<span class="muted">読込失敗: '+e.message+'</span>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  loadCfg();
+  loadFiles();
+});
+</script>
+</body>
+</html>
