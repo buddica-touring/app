@@ -307,6 +307,22 @@ const DB = {
     dbLog(label+"-bare",false,e2.message);DB._dbSaveOk=false;
   },
   async upsertTasks(tasks,date){
+    if(!Array.isArray(tasks)||!date)return;
+    // ★ 2026-05-16 BT v1.0.45: NHA同期 - 件数ガード（200件超で拒否）
+    if(tasks.length>200){
+      console.error('[upsertTasks GUARD] 異常件数 '+tasks.length+'件 date='+date+' → 拒否');
+      return;
+    }
+    // ★ 2026-05-16 BT v1.0.45: NHA同期 - date不一致ガード
+    var _mismatch=tasks.filter(function(t){return t&&t.date&&t.date!==date;});
+    if(_mismatch.length>0){
+      console.error('[upsertTasks GUARD] date不一致 '+_mismatch.length+'件 引数date='+date+' → 保存拒否');
+      console.error('[upsertTasks GUARD] 不一致タスク:',_mismatch.map(function(t){return {_id:t._id,date:t.date,type:t.type,resId:t.reservationId};}));
+      try{if(typeof alert==='function')alert('⚠️ タスク保存ガード発動\n他日付('+_mismatch[0].date+'等)のタスク '+_mismatch.length+'件 が混入したため保存を中止しました。\n\nリロードして再試行してください。');}catch(_){}
+      return;
+    }
+    // ★ 念のため強制矯正（防御層二重化）
+    tasks.forEach(function(t){if(t)t.date=date;});
     DB._lsSave(tasks,date);
     if(!sb||!tasks.length)return;
     DB._pendingSave++;
@@ -20770,7 +20786,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.44-BT";
+const APP_VERSION="v1.0.45-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
