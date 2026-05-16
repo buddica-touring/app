@@ -124,7 +124,10 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
     </div>
     <div id="sb-presets" class="sec-body">
       <div id="period-list"></div>
-      <button class="btn-add" onclick="addPeriod()">＋ 期間を追加</button>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn-add" onclick="addPeriod()">＋ 期間を追加</button>
+        <button onclick="resetPresetsToDefault()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:7px 16px;border-radius:7px;font-size:10pt;font-weight:700;cursor:pointer">↺ 初期設定に戻す</button>
+      </div>
       <div class="apply-bar">
         <div class="apply-info">
           <b id="apply-year-label">2026年</b> の全日程にtierを一括適用します<br>
@@ -349,6 +352,19 @@ function deletePeriod(i){
 function addPeriod(){
   getPeriods().push({id:_nextId++,label:'新しい期間',fromM:1,fromD:1,toM:1,toD:31,tier:'B',enabled:true});
   saveScConfig(); renderPeriodList();
+}
+function resetPresetsToDefault(){
+  if(!confirm(`${curYear}年度のプリセットを初期設定に戻しますか？\n現在の変更はすべてリセットされます。`)) return;
+  const defaults = DEFAULT_PRESETS_TKM[String(curYear)];
+  if(!defaults){ showToast('この年度のデフォルトがありません','warn'); return; }
+  if(!scConfig[area]) scConfig[area]={};
+  scConfig[area][curYear] = {
+    periods: JSON.parse(JSON.stringify(defaults)),
+    scoring: JSON.parse(JSON.stringify(DEFAULT_SCORING))
+  };
+  saveScConfig();
+  renderPeriodList();
+  showToast(`↺ ${curYear}年度を初期設定に戻しました`,'warn');
 }
 function escH(s){return String(s||'').replace(/[<>&"']/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));}
 
