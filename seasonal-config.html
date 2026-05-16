@@ -332,10 +332,15 @@ function renderPeriodList(){
         </div>
       </td>
       <td class="c">
-        <select style="padding:4px 8px;border:2px solid ${tc};border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;background:${tc};color:${ttc}"
-          onchange="updatePeriod(${i},'tier',this.value);this.style.background=tierColors[this.value]||'#f1f5f9';this.style.color=tierTextColors[this.value]||'#475569';this.style.borderColor=tierColors[this.value]||'#f1f5f9'">
-          ${['A','B','C'].map(t=>`<option value="${t}" ${p.tier===t?'selected':''}>${tierLabels[t]}</option>`).join('')}
-        </select>
+        <div style="display:flex;gap:3px;justify-content:center">
+          ${['A','B','C'].map(t=>{
+            const sel=(p.tier===t);
+            const bg={A:'#fee2e2',B:'#dbeafe',C:'#f1f5f9'}[t];
+            const color={A:'#991b1b',B:'#1e40af',C:'#475569'}[t];
+            const selStyle=sel?`background:${color};color:#fff;border-color:${color}`:`background:${bg};color:${color};border:1.5px solid ${color}40`;
+            return `<button onclick="updatePeriod(${i},'tier','${t}');renderPeriodList()" style="${selStyle};padding:3px 8px;border-radius:5px;font-size:9.5pt;font-weight:700;cursor:pointer">${t==='A'?'A繁忙':t==='B'?'B通常':'C閑散'}</button>`;
+          }).join('')}
+        </div>
       </td>
       <td class="c"><button class="btn-del" onclick="deletePeriod(${i})">×</button></td>
     </tr>`;
