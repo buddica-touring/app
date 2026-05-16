@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>💡 価格決定 — BUDDICA TOURING</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
+.header{padding:24px 24px 12px;text-align:center;border-bottom:1px solid #1e293b}
+.header .brand{font-size:9pt;letter-spacing:.3em;color:#64748b;margin-bottom:6px}
+.header h1{font-size:18pt;font-weight:800;color:#fff}
+.header .sub{font-size:9pt;color:#64748b;margin-top:4px}
+.back{display:inline-block;margin-top:8px;color:#a855f7;text-decoration:none;font-size:9pt}
+.back:hover{text-decoration:underline}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card-title{font-size:12pt;font-weight:800;color:#fff;margin-bottom:4px}
+.card-sub{font-size:8.5pt;color:#94a3b8;margin-bottom:14px}
+
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cfg-field{display:flex;flex-direction:column;gap:4px}
+.cfg-field label{font-size:8.5pt;color:#94a3b8;font-weight:700}
+.cfg-field input,.cfg-field select{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:8px 10px;font-size:9pt;font-family:inherit}
+.cfg-field input:focus,.cfg-field select:focus{outline:none;border-color:#a855f7}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{border:none;border-radius:9px;padding:10px 16px;font-size:9.5pt;font-weight:800;cursor:pointer;color:#fff;font-family:inherit}
+.btn.primary{background:#7c3aed}
+.btn.primary:hover{background:#6d28d9}
+.btn.sec{background:#475569}
+.btn.sec:hover{background:#334155}
+.btn.go{background:#16a34a;font-size:11pt;padding:14px 32px}
+.btn.go:hover{background:#15803d}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.status-bar{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px}
+.status-badge{padding:3px 10px;border-radius:5px;font-size:9pt;font-weight:800}
+.status-badge.idle{background:#334155;color:#94a3b8}
+.status-badge.running{background:#fef3c7;color:#92400e}
+.status-badge.completed{background:#d1fae5;color:#065f46}
+.status-badge.failed{background:#fee2e2;color:#991b1b}
+.status-info{font-size:8.5pt;color:#94a3b8;font-family:Menlo,monospace}
+
+.log-panel{margin-top:12px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:8.5pt;color:#cfe;max-height:220px;overflow:auto;line-height:1.5;font-family:Menlo,monospace;white-space:pre-wrap}
+
+.rule-list{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:9pt}
+.rule-item{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px}
+.rule-item .rk{color:#a855f7;font-weight:800;font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px}
+.rule-item .rv{color:#e2e8f0;line-height:1.5}
+
+.season-tabs{display:flex;gap:6px;margin-bottom:12px}
+.season-tab{padding:8px 16px;background:#0f172a;border:1px solid #334155;color:#94a3b8;border-radius:8px;cursor:pointer;font-size:9pt;font-weight:700}
+.season-tab.active{background:#7c3aed;border-color:#a855f7;color:#fff}
+
+table.price-tbl{width:100%;border-collapse:collapse;font-size:9pt}
+table.price-tbl th{background:#0f172a;color:#94a3b8;text-align:left;padding:10px 8px;border-bottom:2px solid #334155;font-weight:700;font-size:8.5pt}
+table.price-tbl td{padding:10px 8px;border-bottom:1px solid #1e293b;color:#e2e8f0}
+table.price-tbl tr:hover{background:#0f172a}
+.cls-badge{display:inline-block;background:#334155;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:800;font-size:9pt;min-width:30px;text-align:center}
+.price-cell{font-family:Menlo,monospace;text-align:right}
+.diff-up{color:#22c55e;font-weight:700}
+.diff-down{color:#f87171;font-weight:700}
+.diff-zero{color:#64748b}
+.muted{color:#64748b}
+
+.preview-panel{margin-top:12px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:16px;font-size:9pt;color:#cbd5e1;max-height:400px;overflow:auto;font-family:Menlo,monospace;white-space:pre-wrap;line-height:1.6}
+
+.go-banner{background:linear-gradient(135deg,#14532d,#16a34a);border:2px solid #22c55e;border-radius:12px;padding:20px;text-align:center;margin-top:16px}
+.go-banner.disabled{background:#1e293b;border-color:#334155;opacity:.6}
+.go-banner .gt{font-size:13pt;font-weight:800;color:#fff;margin-bottom:6px}
+.go-banner .gs{font-size:9pt;color:#bbf7d0;margin-bottom:14px}
+.go-banner.disabled .gs{color:#94a3b8}
+
+@media(max-width:600px){
+  .cfg-grid,.rule-list{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">B U D D I C A &nbsp; T O U R I N G</div>
+  <h1>💡 価格決定</h1>
+  <div class="sub">調査MD → 推奨価格を算出 → Goサインで反映</div>
+  <a href="price-hub.html" class="back">← 価格戦略マスター TOP に戻る</a>
+</div>
+
+<div class="container">
+
+  <!-- 実行設定 -->
+  <div class="card">
+    <div class="card-title">⚙️ 実行設定</div>
+    <div class="card-sub">価格決定エージェント（CLI）を起動 — 最新の調査MDを自動で読み込みます</div>
+    <div class="cfg-grid">
+      <div class="cfg-field">
+        <label>サーバー URL</label>
+        <input id="server-url" value="http://127.0.0.1:7777">
+      </div>
+      <div class="cfg-field">
+        <label>店舗</label>
+        <select id="store"><option value="tkm">高松店（TKM）</option></select>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="run-btn" onclick="runDecision()">💡 価格決定を実行</button>
+      <button class="btn sec" onclick="checkHealth()">疎通確認</button>
+      <button class="btn sec" onclick="loadInputs()">📂 入力MD確認</button>
+    </div>
+    <div class="status-bar">
+      <span>ステータス:</span>
+      <span class="status-badge idle" id="status">idle</span>
+      <span class="status-info" id="status-info">— 未実行</span>
+    </div>
+    <div class="log-panel" id="log">[ready] 価格決定ページ起動完了</div>
+  </div>
+
+  <!-- 価格ルール（参照） -->
+  <div class="card">
+    <div class="card-title">📐 価格ルール（CLAUDE.md より固定）</div>
+    <div class="card-sub">価格決定エージェントが従う基本方針</div>
+    <div class="rule-list">
+      <div class="rule-item"><div class="rk">目標ポジション</div><div class="rv">競合5位 × 90%（範囲 85〜95%）</div></div>
+      <div class="rule-item"><div class="rk">最安値追従</div><div class="rv">禁止</div></div>
+      <div class="rule-item"><div class="rk">独占価格</div><div class="rv">C/Sクラスで競合3社未満 → ¥13,000〜14,500</div></div>
+      <div class="rule-item"><div class="rk">価格単位</div><div class="rv">¥3,000台→100円 / ¥4,000以上→500円（端数切捨）</div></div>
+      <div class="rule-item"><div class="rk">OTA統一</div><div class="rv">全OTA同一価格（SKT表示=設定+¥1,100）</div></div>
+      <div class="rule-item"><div class="rk">Goサイン</div><div class="rv">★オーナー承認なしに本ページから反映しない</div></div>
+    </div>
+  </div>
+
+  <!-- 入力ファイル一覧 -->
+  <div class="card">
+    <div class="card-title">📂 入力候補（最新の調査MD）</div>
+    <div class="card-sub">価格決定は最新MDを自動選択します</div>
+    <div id="inputs"><span class="muted">読み込み中...</span></div>
+  </div>
+
+  <!-- 推奨価格テーブル -->
+  <div class="card">
+    <div class="card-title">📊 推奨価格マトリクス</div>
+    <div class="card-sub">パース結果。シーズンタブで切替</div>
+    <div class="season-tabs" id="season-tabs"><span class="muted">（決定実行後に表示）</span></div>
+    <div id="price-tbl-wrap"></div>
+  </div>
+
+  <!-- 生MDプレビュー -->
+  <div class="card">
+    <div class="card-title">📄 決定MD（生テキスト）</div>
+    <div class="card-sub">claude が出力した推奨価格レポート</div>
+    <div class="preview-panel" id="preview"><span class="muted">（決定実行後に表示）</span></div>
+  </div>
+
+  <!-- Goサイン -->
+  <div class="go-banner disabled" id="go-banner">
+    <div class="gt">★ Goサイン</div>
+    <div class="gs">推奨価格をプライシングシステムに反映します（不可逆・要オーナー判断）</div>
+    <button class="btn go" id="go-btn" disabled onclick="alert('Phase 5 で実装予定です')">Goサイン（Phase 5 で実装）</button>
+  </div>
+
+</div>
+
+<script>
+const CFG_KEY = 'bt_tkm_decision_cfg_v1';
+let currentRun = null;
+let pollTimer = null;
+let parsedDecision = null;
+let activeSeason = null;
+
+function $(id){ return document.getElementById(id); }
+function ts(){ return new Date().toISOString().replace('T',' ').slice(0,19); }
+function logLine(msg){ const el=$('log'); el.textContent += `\n[${ts()}] ${msg}`; el.scrollTop = el.scrollHeight; }
+function setStatus(s, info){
+  const el=$('status'); el.textContent=s; el.className='status-badge '+s;
+  if(info!==undefined) $('status-info').textContent = info;
+}
+
+function getCfg(){
+  return {
+    serverUrl: ($('server-url').value||'').trim().replace(/\/+$/,''),
+    store: $('store').value,
+  };
+}
+function saveCfg(){ localStorage.setItem(CFG_KEY, JSON.stringify(getCfg())); }
+function loadCfg(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CFG_KEY)||'null'); if(!c) return;
+    if(c.serverUrl) $('server-url').value = c.serverUrl;
+    if(c.store) $('store').value = c.store;
+  }catch(e){}
+}
+
+async function checkHealth(){
+  const cfg = getCfg();
+  logLine('GET ' + cfg.serverUrl + '/health');
+  try{
+    const r = await fetch(cfg.serverUrl + '/health').then(r=>r.json());
+    logLine('health OK');
+    setStatus('idle','サーバー疎通 OK');
+  }catch(e){
+    logLine('health FAILED: ' + e.message);
+    setStatus('failed','サーバー接続不可');
+  }
+}
+
+async function loadInputs(){
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/output/list').then(r=>r.json());
+    const research = (r.files||[]).filter(f=>f.name.includes('research'));
+    const decision = (r.files||[]).filter(f=>f.name.includes('decision'));
+    if(!research.length){
+      $('inputs').innerHTML = '<span class="muted">⚠️ 調査MDがまだありません。先に「🔍価格調査」を実行してください。</span>';
+      return;
+    }
+    const latestR = research[0];
+    const d = new Date(latestR.mtime).toLocaleString('ja-JP');
+    let html = `<div style="background:#0f172a;border:1px solid #22c55e;border-radius:8px;padding:10px 14px;margin-bottom:8px">`+
+      `<div style="font-size:8.5pt;color:#22c55e;font-weight:800;margin-bottom:4px">✅ 自動選択（最新調査MD）</div>`+
+      `<div style="font-family:Menlo,monospace;font-size:9pt;color:#e2e8f0">${latestR.name}</div>`+
+      `<div style="font-size:8pt;color:#64748b;margin-top:2px">${(latestR.size/1024).toFixed(1)} KB / ${d}</div></div>`;
+    if(research.length > 1){
+      html += `<div style="font-size:8.5pt;color:#64748b">他に ${research.length-1} 件の過去調査MDあり</div>`;
+    }
+    if(decision.length){
+      html += `<div style="font-size:8.5pt;color:#94a3b8;margin-top:8px">📁 過去の決定MD: ${decision.length} 件</div>`;
+    }
+    $('inputs').innerHTML = html;
+  }catch(e){
+    $('inputs').innerHTML = '<span class="muted">読込失敗: '+e.message+'</span>';
+  }
+}
+
+async function runDecision(){
+  saveCfg();
+  const cfg = getCfg();
+  $('run-btn').disabled = true;
+  setStatus('running','決定リクエスト送信中...');
+  logLine('POST ' + cfg.serverUrl + '/api/run/decision');
+  try{
+    const res = await fetch(cfg.serverUrl + '/api/run/decision', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({store:cfg.store}),
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    currentRun = data.runId;
+    logLine('runId=' + currentRun + ' — ポーリング開始');
+    setStatus('running','runId=' + currentRun);
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollRun, 1500);
+  }catch(e){
+    $('run-btn').disabled = false;
+    setStatus('failed', e.message);
+    logLine('FAILED: ' + e.message);
+  }
+}
+
+async function pollRun(){
+  if(!currentRun) return;
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/run/' + currentRun).then(r=>r.json());
+    setStatus(r.status, 'runId=' + currentRun);
+    if(r.status !== 'running'){
+      clearInterval(pollTimer); pollTimer = null;
+      $('run-btn').disabled = false;
+      logLine('--- 終了 exit=' + r.exitCode + ' ---');
+      await loadLatestDecision();
+    }
+  }catch(e){ logLine('poll error: ' + e.message); }
+}
+
+async function loadLatestDecision(){
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/output/list').then(r=>r.json());
+    const decisions = (r.files||[]).filter(f=>f.name.includes('decision'));
+    if(!decisions.length){ logLine('⚠️ 決定MDが見つかりません'); return; }
+    const latest = decisions[0];
+    const c = await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(latest.name)).then(r=>r.json());
+    $('preview').textContent = c.content;
+    parsedDecision = parseDecisionMd(c.content);
+    renderPriceMatrix();
+    if(parsedDecision && Object.keys(parsedDecision.seasons||{}).length){
+      $('go-banner').classList.remove('disabled');
+      // go-btn は Phase 5 で実装。今は disabled のまま。
+    }
+    logLine('決定MD読込・パース完了: ' + latest.name);
+  }catch(e){ logLine('決定MD読込失敗: ' + e.message); }
+}
+
+// 推奨価格テーブルをMDからパース
+// 期待フォーマット:
+//   ### XX シーズン
+//   | クラス | 5位基準値 | 推奨単価（×90%） | 現行 | 変動 | 根拠 |
+function parseDecisionMd(md){
+  const result = { seasons: {}, raw: md };
+  if(!md) return result;
+  const lines = md.split(/\r?\n/);
+  let curSeason = null;
+  for(let i=0;i<lines.length;i++){
+    const ln = lines[i].trim();
+    const seasonMatch = ln.match(/^###\s+(.+?シーズン.*?)$/);
+    if(seasonMatch){
+      curSeason = seasonMatch[1].trim();
+      result.seasons[curSeason] = [];
+      continue;
+    }
+    if(curSeason && ln.startsWith('|') && !ln.startsWith('|--') && !/クラス/.test(ln)){
+      const cells = ln.split('|').map(s=>s.trim()).filter(s=>s.length>0);
+      if(cells.length >= 3){
+        const row = {
+          cls: cells[0],
+          base: parsePrice(cells[1]),
+          recommended: parsePrice(cells[2]),
+          current: cells[3] ? parsePrice(cells[3]) : null,
+          diff: cells[4] || '',
+          note: cells[5] || '',
+        };
+        if(/^(AA|A|B|C|S|H|F)$/.test(row.cls)){
+          result.seasons[curSeason].push(row);
+        }
+      }
+    }
+    // 次セクション開始でリセット
+    if(curSeason && (ln.startsWith('## ') || ln.startsWith('### ')) && !seasonMatch){
+      curSeason = null;
+    }
+  }
+  return result;
+}
+function parsePrice(s){
+  if(!s || s==='—' || s.includes('未定')) return null;
+  const m = s.match(/¥?\s*([\d,]+)/);
+  if(!m) return null;
+  return parseInt(m[1].replace(/,/g,''),10);
+}
+
+function renderPriceMatrix(){
+  const seasons = Object.keys(parsedDecision?.seasons||{});
+  const tabs = $('season-tabs');
+  if(!seasons.length){ tabs.innerHTML='<span class="muted">（パース失敗）</span>'; return; }
+  if(!activeSeason || !seasons.includes(activeSeason)) activeSeason = seasons[0];
+  tabs.innerHTML = seasons.map(s =>
+    `<div class="season-tab ${s===activeSeason?'active':''}" onclick="switchSeason('${s.replace(/'/g,"\\'")}')">${s}</div>`
+  ).join('');
+  renderTable();
+}
+function switchSeason(s){ activeSeason = s; renderPriceMatrix(); }
+function renderTable(){
+  const rows = parsedDecision?.seasons?.[activeSeason] || [];
+  const wrap = $('price-tbl-wrap');
+  if(!rows.length){ wrap.innerHTML = '<span class="muted">（データなし）</span>'; return; }
+  wrap.innerHTML = `<table class="price-tbl">
+    <thead><tr>
+      <th style="width:60px">クラス</th>
+      <th>5位基準値</th>
+      <th>推奨単価 (×90%)</th>
+      <th>現行</th>
+      <th>変動</th>
+      <th>根拠</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>renderRow(r)).join('')}
+    </tbody>
+  </table>`;
+}
+function renderRow(r){
+  const diff = (r.current!=null && r.recommended!=null) ? (r.recommended - r.current) : null;
+  const diffCls = diff==null ? 'diff-zero' : (diff>0 ? 'diff-up' : diff<0 ? 'diff-down' : 'diff-zero');
+  const diffStr = diff==null ? '—' : (diff>0?'+':'') + '¥' + diff.toLocaleString();
+  return `<tr>
+    <td><span class="cls-badge">${r.cls}</span></td>
+    <td class="price-cell">${r.base!=null?'¥'+r.base.toLocaleString():'<span class="muted">—</span>'}</td>
+    <td class="price-cell" style="color:#a855f7;font-weight:800">${r.recommended!=null?'¥'+r.recommended.toLocaleString():'<span class="muted">—</span>'}</td>
+    <td class="price-cell">${r.current!=null?'¥'+r.current.toLocaleString():'<span class="muted">—</span>'}</td>
+    <td class="price-cell ${diffCls}">${diffStr}</td>
+    <td style="font-size:8.5pt;color:#94a3b8">${r.note || ''}</td>
+  </tr>`;
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{ loadCfg(); loadInputs(); });
+</script>
+</body>
+</html>
