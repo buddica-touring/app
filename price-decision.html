@@ -155,12 +155,13 @@ table.price-tbl tr:hover{background:#0f172a}
   <!-- Goサイン -->
   <div class="go-banner disabled" id="go-banner">
     <div class="gt">★ Goサイン</div>
-    <div class="gs">推奨価格をプライシングシステムに反映します（不可逆・要オーナー判断）</div>
-    <button class="btn go" id="go-btn" disabled onclick="alert('Phase 5 で実装予定です')">Goサイン（Phase 5 で実装）</button>
+    <div class="gs">推奨価格をプライシングシステム（プロパー/CP両方）に反映します（不可逆・要オーナー判断）</div>
+    <button class="btn go" id="go-btn" disabled onclick="openGo()">★ Goサイン — 反映へ進む</button>
   </div>
 
 </div>
 
+<script src="apply-decision.js"></script>
 <script>
 const CFG_KEY = 'bt_tkm_decision_cfg_v1';
 let currentRun = null;
@@ -280,14 +281,24 @@ async function loadLatestDecision(){
     const latest = decisions[0];
     const c = await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(latest.name)).then(r=>r.json());
     $('preview').textContent = c.content;
-    parsedDecision = parseDecisionMd(c.content);
+    parsedDecision = ApplyDecision.parseDecisionMd(c.content);
     renderPriceMatrix();
     if(parsedDecision && Object.keys(parsedDecision.seasons||{}).length){
       $('go-banner').classList.remove('disabled');
-      // go-btn は Phase 5 で実装。今は disabled のまま。
+      $('go-btn').disabled = false;
+      $('go-btn').textContent = '★ Goサイン — 反映へ進む';
     }
     logLine('決定MD読込・パース完了: ' + latest.name);
   }catch(e){ logLine('決定MD読込失敗: ' + e.message); }
+}
+
+function openGo(){
+  if(!parsedDecision){ alert('決定MD未取得'); return; }
+  ApplyDecision.openGoSignModal(parsedDecision, {
+    onApplied: (res, checks) => {
+      logLine('★Goサイン反映完了 ' + res.months.length + 'ヶ月 / 確認⑧ ' + checks.filter(c=>c.ok).length + '/' + checks.length + ' OK');
+    }
+  });
 }
 
 // 推奨価格テーブルをMDからパース

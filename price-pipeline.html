@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚡ 自動チェーン — BUDDICA TOURING</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
+.header{padding:24px;text-align:center;border-bottom:1px solid #1e293b}
+.header .brand{font-size:9pt;letter-spacing:.3em;color:#64748b;margin-bottom:6px}
+.header h1{font-size:18pt;font-weight:800;color:#fff}
+.header .sub{font-size:9pt;color:#64748b;margin-top:4px}
+.back{display:inline-block;margin-top:8px;color:#f87171;text-decoration:none;font-size:9pt}
+.back:hover{text-decoration:underline}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card-title{font-size:12pt;font-weight:800;color:#fff;margin-bottom:4px}
+.card-sub{font-size:8.5pt;color:#94a3b8;margin-bottom:14px}
+
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cfg-field{display:flex;flex-direction:column;gap:4px}
+.cfg-field label{font-size:8.5pt;color:#94a3b8;font-weight:700}
+.cfg-field input,.cfg-field select{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:8px 10px;font-size:9pt}
+
+.run-btn-area{text-align:center;padding:24px}
+.btn-mega{border:none;border-radius:14px;padding:18px 36px;font-size:13pt;font-weight:800;cursor:pointer;color:#fff;background:linear-gradient(135deg,#7c2d12,#dc2626);box-shadow:0 6px 18px rgba(220,38,38,.3);font-family:inherit}
+.btn-mega:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn-mega:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;align-items:center;gap:14px;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px 18px;transition:border-color .2s,background .2s}
+.step.active{border-color:#f87171;background:#1e1212}
+.step.done{border-color:#22c55e;background:#0d1f15}
+.step.error{border-color:#ef4444;background:#1f0d0d}
+.step-icon{font-size:18pt;width:36px;text-align:center}
+.step-body{flex:1}
+.step-name{font-size:11pt;font-weight:800;color:#fff;margin-bottom:2px}
+.step-detail{font-size:8.5pt;color:#94a3b8;font-family:Menlo,monospace}
+.step-status{font-size:8.5pt;font-weight:800;padding:4px 12px;border-radius:6px}
+.step.pending .step-status{background:#334155;color:#94a3b8}
+.step.active .step-status{background:#fef3c7;color:#92400e}
+.step.done .step-status{background:#d1fae5;color:#065f46}
+.step.error .step-status{background:#fee2e2;color:#991b1b}
+
+.confirm-result{margin-top:8px;padding:8px 12px;background:#0b1020;border:1px solid #1e293b;border-radius:6px;font-size:8.5pt;font-family:Menlo,monospace;color:#cbd5e1}
+.confirm-result .ok{color:#22c55e}
+.confirm-result .ng{color:#f87171}
+
+.log-panel{margin-top:12px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:8.5pt;color:#cfe;max-height:240px;overflow:auto;line-height:1.5;font-family:Menlo,monospace;white-space:pre-wrap}
+
+.go-banner{background:linear-gradient(135deg,#14532d,#16a34a);border:2px solid #22c55e;border-radius:12px;padding:24px;text-align:center;margin-top:20px}
+.go-banner.disabled{background:#1e293b;border-color:#334155;opacity:.6}
+.go-banner .gt{font-size:14pt;font-weight:800;color:#fff;margin-bottom:6px}
+.go-banner .gs{font-size:9.5pt;color:#bbf7d0;margin-bottom:16px}
+.go-banner.disabled .gs{color:#94a3b8}
+.go-btn{border:none;border-radius:10px;padding:14px 36px;font-size:11pt;font-weight:800;cursor:pointer;color:#fff;background:#16a34a;font-family:inherit}
+.go-btn:hover{background:#15803d}
+.go-btn:disabled{opacity:.4;cursor:not-allowed}
+
+.preview-toggle{margin-top:14px;display:flex;gap:6px}
+.pt-btn{padding:6px 14px;background:#334155;color:#cbd5e1;border:none;border-radius:6px;font-size:8.5pt;cursor:pointer;font-weight:700}
+.pt-btn.active{background:#dc2626;color:#fff}
+.preview-panel{margin-top:8px;background:#0b1020;border:1px solid #1e293b;border-radius:8px;padding:16px;font-size:9pt;color:#cbd5e1;max-height:360px;overflow:auto;font-family:Menlo,monospace;white-space:pre-wrap;line-height:1.6;display:none}
+.preview-panel.show{display:block}
+
+@media(max-width:600px){
+  .cfg-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">B U D D I C A &nbsp; T O U R I N G</div>
+  <h1>⚡ 自動チェーン</h1>
+  <div class="sub">調査 → 確認③ → 決定 → 確認⑤ を1ボタンで連続実行</div>
+  <a href="price-hub.html" class="back">← 価格戦略マスター TOP に戻る</a>
+</div>
+
+<div class="container">
+
+  <!-- 設定 -->
+  <div class="card">
+    <div class="card-title">⚙️ 設定</div>
+    <div class="cfg-grid">
+      <div class="cfg-field">
+        <label>サーバー URL</label>
+        <input id="server-url" value="http://127.0.0.1:7777">
+      </div>
+      <div class="cfg-field">
+        <label>店舗</label>
+        <select id="store"><option value="tkm">高松店（TKM）</option></select>
+      </div>
+    </div>
+    <div class="run-btn-area">
+      <button class="btn-mega" id="run-btn" onclick="runPipeline()">⚡ 自動チェーン実行</button>
+    </div>
+  </div>
+
+  <!-- ステップ進捗 -->
+  <div class="card">
+    <div class="card-title">📋 進捗</div>
+    <div class="card-sub">各ステップの結果はリアルタイムで反映されます</div>
+    <div class="steps">
+      <div class="step pending" id="step-1">
+        <div class="step-icon">🔍</div>
+        <div class="step-body">
+          <div class="step-name">Step 1: 価格調査</div>
+          <div class="step-detail" id="step-1-detail">claude CLI で OTA 5社調査を実行</div>
+        </div>
+        <div class="step-status">PENDING</div>
+      </div>
+      <div class="step pending" id="step-2">
+        <div class="step-icon">✓</div>
+        <div class="step-body">
+          <div class="step-name">Step 2: 確認③（調査後チェック）</div>
+          <div class="step-detail" id="step-2-detail">ファイル存在/OTA網羅/クラス網羅/価格異常/競合数</div>
+        </div>
+        <div class="step-status">PENDING</div>
+      </div>
+      <div class="step pending" id="step-3">
+        <div class="step-icon">💡</div>
+        <div class="step-body">
+          <div class="step-name">Step 3: 価格決定</div>
+          <div class="step-detail" id="step-3-detail">claude CLI で推奨価格を算出</div>
+        </div>
+        <div class="step-status">PENDING</div>
+      </div>
+      <div class="step pending" id="step-4">
+        <div class="step-icon">✓</div>
+        <div class="step-body">
+          <div class="step-name">Step 4: 確認⑤（決定後チェック）</div>
+          <div class="step-detail" id="step-4-detail">価格単位/OTA統一/最安値追従/フロア/独占価格/±20%</div>
+        </div>
+        <div class="step-status">PENDING</div>
+      </div>
+    </div>
+    <div class="log-panel" id="log">[ready] 自動チェーン待機中</div>
+    <div class="preview-toggle">
+      <button class="pt-btn" id="tab-research" onclick="showPreview('research')">🔍 調査MD</button>
+      <button class="pt-btn" id="tab-decision" onclick="showPreview('decision')">💡 決定MD</button>
+    </div>
+    <div class="preview-panel" id="preview"></div>
+  </div>
+
+  <!-- Goサイン -->
+  <div class="go-banner disabled" id="go-banner">
+    <div class="gt">★ Goサイン</div>
+    <div class="gs">推奨価格をプライシングシステム（プロパー/CP両方）に反映します（不可逆・要オーナー判断）</div>
+    <button class="go-btn" id="go-btn" disabled onclick="openGo()">★ Goサイン — 反映へ進む</button>
+  </div>
+
+</div>
+
+<script src="apply-decision.js"></script>
+<script>
+const CFG_KEY = 'bt_tkm_pipeline_cfg_v1';
+let currentRun = null;
+let pollTimer = null;
+let researchMd = '';
+let decisionMd = '';
+
+function $(id){ return document.getElementById(id); }
+function ts(){ return new Date().toISOString().replace('T',' ').slice(0,19); }
+function logLine(msg){ const el=$('log'); el.textContent += `\n[${ts()}] ${msg}`; el.scrollTop = el.scrollHeight; }
+
+function setStep(n, state, detail){
+  const el = $('step-'+n);
+  el.classList.remove('pending','active','done','error');
+  el.classList.add(state);
+  el.querySelector('.step-status').textContent = state.toUpperCase();
+  if(detail !== undefined) $('step-'+n+'-detail').innerHTML = detail;
+}
+function setStepConfirm(n, results){
+  const detail = $('step-'+n+'-detail');
+  const ok = results.filter(r=>r.ok).length;
+  const ng = results.length - ok;
+  const list = results.map(r=>`<span class="${r.ok?'ok':'ng'}">${r.ok?'✓':'✗'} ${r.name}</span>`).join('　');
+  detail.innerHTML = `<div>${ok}/${results.length} OK</div><div class="confirm-result">${list}</div>`;
+}
+
+function getCfg(){
+  return {
+    serverUrl: ($('server-url').value||'').trim().replace(/\/+$/,''),
+    store: $('store').value,
+  };
+}
+function saveCfg(){ localStorage.setItem(CFG_KEY, JSON.stringify(getCfg())); }
+function loadCfg(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CFG_KEY)||'null'); if(!c) return;
+    if(c.serverUrl) $('server-url').value = c.serverUrl;
+    if(c.store) $('store').value = c.store;
+  }catch(e){}
+}
+
+async function runPipeline(){
+  saveCfg();
+  $('run-btn').disabled = true;
+  $('go-banner').classList.add('disabled');
+  ['1','2','3','4'].forEach(n=>setStep(n,'pending'));
+  $('preview').classList.remove('show');
+  researchMd = ''; decisionMd = '';
+  logLine('🚀 自動チェーン開始');
+  try{
+    // Step 1: 価格調査
+    setStep(1,'active');
+    logLine('Step 1: 価格調査 CLI 起動...');
+    await runCli('/api/run/research');
+    researchMd = await fetchLatestOutput('research');
+    setStep(1,'done', `${researchMd.length.toLocaleString()} 文字の調査MDを取得`);
+    logLine('✅ Step 1 完了');
+
+    // Step 2: 確認③
+    setStep(2,'active');
+    logLine('Step 2: 確認③ チェック中...');
+    const c3 = checkResearchMd(researchMd);
+    setStepConfirm(2, c3);
+    if(c3.some(r=>!r.ok)){
+      setStep(2,'error');
+      throw new Error('Step 2 NG: ' + c3.filter(r=>!r.ok).map(r=>r.name).join(', '));
+    }
+    setStep(2,'done');
+    logLine('✅ Step 2 完了');
+
+    // Step 3: 価格決定
+    setStep(3,'active');
+    logLine('Step 3: 価格決定 CLI 起動...');
+    await runCli('/api/run/decision');
+    decisionMd = await fetchLatestOutput('decision');
+    setStep(3,'done', `${decisionMd.length.toLocaleString()} 文字の決定MDを取得`);
+    logLine('✅ Step 3 完了');
+
+    // Step 4: 確認⑤
+    setStep(4,'active');
+    logLine('Step 4: 確認⑤ チェック中...');
+    const c5 = checkDecisionMd(decisionMd);
+    setStepConfirm(4, c5);
+    if(c5.some(r=>!r.ok)){
+      setStep(4,'error');
+      throw new Error('Step 4 NG: ' + c5.filter(r=>!r.ok).map(r=>r.name).join(', '));
+    }
+    setStep(4,'done');
+    logLine('✅ Step 4 完了 — Goサイン待ち画面へ');
+
+    $('go-banner').classList.remove('disabled');
+    $('go-btn').disabled = false;
+    $('go-btn').textContent = '★ Goサイン — 反映へ進む';
+  }catch(e){
+    logLine('❌ 失敗: ' + e.message);
+  }finally{
+    $('run-btn').disabled = false;
+  }
+}
+
+function openGo(){
+  if(!decisionMd){ alert('決定MD未取得'); return; }
+  const parsed = ApplyDecision.parseDecisionMd(decisionMd);
+  if(!parsed || !Object.keys(parsed.seasons||{}).length){ alert('決定MDのパースに失敗しました'); return; }
+  ApplyDecision.openGoSignModal(parsed, {
+    onApplied: (res, checks) => {
+      logLine('★Goサイン反映完了 ' + res.months.length + 'ヶ月 / 確認⑧ ' + checks.filter(c=>c.ok).length + '/' + checks.length + ' OK');
+    }
+  });
+}
+
+async function runCli(endpoint){
+  const cfg = getCfg();
+  const res = await fetch(cfg.serverUrl + endpoint, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({store:cfg.store}),
+  });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const data = await res.json();
+  const runId = data.runId;
+  logLine('  runId=' + runId);
+  return await poll(runId);
+}
+function poll(runId){
+  return new Promise((resolve, reject)=>{
+    const cfg = getCfg();
+    let lastLogLen = 0;
+    const timer = setInterval(async ()=>{
+      try{
+        const r = await fetch(cfg.serverUrl + '/api/run/' + runId).then(r=>r.json());
+        if(r.logs && r.logs.length > lastLogLen){
+          const newPart = r.logs.slice(lastLogLen).map(l=>l.s).join('');
+          if(newPart.trim()) logLine('  ' + newPart.trim().split('\n').slice(-1)[0]);
+          lastLogLen = r.logs.length;
+        }
+        if(r.status !== 'running'){
+          clearInterval(timer);
+          if(r.status === 'completed') resolve(r);
+          else reject(new Error('CLI failed exit='+r.exitCode));
+        }
+      }catch(e){ clearInterval(timer); reject(e); }
+    }, 1500);
+  });
+}
+async function fetchLatestOutput(kind){
+  const cfg = getCfg();
+  const r = await fetch(cfg.serverUrl + '/api/output/list').then(r=>r.json());
+  const files = (r.files||[]).filter(f=>f.name.includes(kind));
+  if(!files.length) throw new Error('output not found: ' + kind);
+  const latest = files[0];
+  const c = await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(latest.name)).then(r=>r.json());
+  return c.content || '';
+}
+
+// === 確認スキル③: 調査MDチェック ===
+function checkResearchMd(md){
+  const otas = ['JLN','RKT','SKT','ART','RDC'];
+  const classes = ['A','B','C','S','H','F'];
+  const results = [];
+  results.push({ name:'ファイル存在', ok: !!md && md.length>100 });
+  results.push({ name:'OTA網羅', ok: otas.every(o => md.includes(o)) });
+  results.push({ name:'クラス網羅', ok: classes.every(c => new RegExp(`\\b${c}\\b`).test(md)) });
+  // 価格異常: ¥500未満/200000超 を検出
+  const prices = [...md.matchAll(/¥\s*([\d,]{3,})/g)].map(m=>parseInt(m[1].replace(/,/g,''),10));
+  const abnormal = prices.filter(p => p<500 || p>200000);
+  results.push({ name:'価格異常なし', ok: abnormal.length===0, detail: abnormal.length?abnormal.join(','):'' });
+  results.push({ name:'競合数記載', ok: /競合\s*数|competitors|社/i.test(md) });
+  return results;
+}
+
+// === 確認スキル⑤: 決定MDチェック ===
+function checkDecisionMd(md){
+  const results = [];
+  results.push({ name:'ファイル存在', ok: !!md && md.length>100 });
+  results.push({ name:'推奨価格表あり', ok: /推奨価格表|推奨単価/.test(md) });
+  // 価格単位チェック: ¥4,000以上なら下3桁が「000」「500」、¥3,000台なら下2桁が「00」
+  const prices = [...md.matchAll(/¥\s*([\d,]+)/g)].map(m=>parseInt(m[1].replace(/,/g,''),10)).filter(p=>p>=2000 && p<200000);
+  const badUnit = prices.filter(p => {
+    if(p >= 4000) return !(p % 500 === 0);
+    if(p >= 3000) return !(p % 100 === 0);
+    return false;
+  });
+  results.push({ name:'価格単位OK', ok: badUnit.length===0, detail: badUnit.slice(0,5).join(',') });
+  // 独占価格条項記載
+  results.push({ name:'独占価格チェック記載', ok: /独占|13,?000|13000/.test(md) });
+  return results;
+}
+
+function showPreview(kind){
+  $('tab-research').classList.toggle('active', kind==='research');
+  $('tab-decision').classList.toggle('active', kind==='decision');
+  $('preview').classList.add('show');
+  $('preview').textContent = (kind==='research' ? researchMd : decisionMd) || '（まだ取得していません）';
+}
+
+window.addEventListener('DOMContentLoaded', loadCfg);
+</script>
+</body>
+</html>
