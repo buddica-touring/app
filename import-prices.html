@@ -154,6 +154,7 @@ table.cal-tbl .sat{color:#93c5fd}
 .cal-day.has-ov{outline:2px solid #7c3aed;outline-offset:-2px}
 .cal-day.tier-A{background:#fee2e2}
 .cal-day.tier-B{background:#dbeafe}
+.cal-day.tier-C{background:#f1f5f9}
 .cal-day.tier-C{background:#dbeafe}
 .cal-day.tier-X{background:#fff7ed}
 .cal-day.holiday{opacity:.85}
@@ -165,6 +166,7 @@ table.cal-tbl .sat{color:#93c5fd}
 .tier-badge{font-size:8pt;font-weight:800;padding:1px 5px;border-radius:3px}
 .tb-A{background:#991b1b;color:#fff}
 .tb-B{background:#1e40af;color:#fff}
+.tb-C{background:#475569;color:#fff}
 .tb-C{background:#1e40af;color:#fff}
 .cal-ev{font-size:7.5pt;color:#92400e;background:#fef3c7;border-radius:2px;padding:1px 3px;margin-bottom:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .cal-prices{display:grid;grid-template-columns:1fr 1fr;gap:2px 4px;font-size:8.5pt;margin-top:3px}
@@ -233,6 +235,7 @@ table.cal-tbl .sat{color:#93c5fd}
     <span>凡例:</span>
     <span class="item lg-a">A 繁忙</span>
     <span class="item lg-b">B 通常</span>
+    <span class="item lg-c">C 閑散</span>
   </div>
 
   <div class="year-tabs" id="year-tabs"></div>
@@ -249,8 +252,9 @@ table.cal-tbl .sat{color:#93c5fd}
       <!-- tier選択 -->
       <div style="font-size:10pt;font-weight:700;color:#374151;margin-bottom:7px">🎯 ティア選択</div>
       <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button id="dm-A" onclick="selectModalTier('A')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#fee2e2;color:#991b1b">A 繁忙</button>
-        <button id="dm-B" onclick="selectModalTier('B')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:11pt;font-weight:700;cursor:pointer;background:#dbeafe;color:#1e40af">B 通常</button>
+        <button id="dm-A" onclick="selectModalTier('A')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#fee2e2;color:#991b1b">A 繁忙</button>
+        <button id="dm-B" onclick="selectModalTier('B')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#dbeafe;color:#1e40af">B 通常</button>
+        <button id="dm-C" onclick="selectModalTier('C')" style="flex:1;padding:9px;border:2px solid #e5e7eb;border-radius:8px;font-size:10.5pt;font-weight:700;cursor:pointer;background:#f1f5f9;color:#475569">C 閑散</button>
       </div>
 
       <!-- 個別価格入力（全6クラス） -->
@@ -296,7 +300,7 @@ table.cal-tbl .sat{color:#93c5fd}
 const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
 const CLASSES = ['A','B','C','H','S','F'];
 const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
-const TIERS = [['A','繁忙','#dc2626','#fee2e2'],['B','通常','#1e40af','#dbeafe']]; // 2パターン（C閑散廃止）
+const TIERS = [['A','繁忙','#dc2626','#fee2e2'],['B','通常','#1e40af','#dbeafe'],['C','閑散','#475569','#f1f5f9']];
 const COEF_A = 1.50, COEF_C = 0.80;
 
 // ===== セグメント（プロパー/CP） =====
@@ -399,8 +403,8 @@ function openDayModal(dk,currentTier,autoTier,eventName){
 }
 
 function _renderModalTierBtns(tier){
-  const styles={A:{bg:'#fee2e2',color:'#991b1b'},B:{bg:'#dbeafe',color:'#1e40af'}};
-  ['A','B'].forEach(t=>{
+  const styles={A:{bg:'#fee2e2',color:'#991b1b'},B:{bg:'#dbeafe',color:'#1e40af'},C:{bg:'#f1f5f9',color:'#475569'}};
+  ['A','B','C'].forEach(t=>{
     const btn=document.getElementById('dm-'+t);
     if(!btn)return;
     const sel=(t===tier);

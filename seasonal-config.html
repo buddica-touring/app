@@ -73,6 +73,7 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
 .cal-sum-chip{padding:5px 14px;border-radius:8px;font-size:10.5pt;font-weight:700}
 .chip-A{background:#fee2e2;color:#991b1b}
 .chip-B{background:#dbeafe;color:#1e40af}
+.chip-C{background:#f1f5f9;color:#475569}
 .chip-C{background:#dbeafe;color:#1e40af}
 .month-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .mini-cal{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px}
@@ -82,6 +83,7 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
 .mini-cal-tbl td{text-align:center;padding:2px 1px;border-radius:3px}
 .mc-A{background:#fee2e2;color:#991b1b;font-weight:700}
 .mc-B{background:#dbeafe;color:#1e40af}
+.mc-C{background:#f1f5f9;color:#475569}
 .mc-C{background:#dbeafe;color:#1e40af}
 .mc-empty{color:transparent}
 
@@ -117,7 +119,7 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
   <!-- セクション1: 期間プリセット -->
   <div class="sec-card">
     <div class="sec-head" onclick="toggleSec('presets')" id="sh-presets">
-      <h3>📅 繁忙期設定　<span style="font-size:9pt;font-weight:400;color:#64748b;margin-left:6px">登録期間=A繁忙 / 未登録=B通常（自動）</span></h3>
+      <h3>📅 期間プリセット（tier一括設定）</h3>
       <span class="arr" id="arr-presets">▼</span>
     </div>
     <div id="sb-presets" class="sec-body">
@@ -125,8 +127,8 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
       <button class="btn-add" onclick="addPeriod()">＋ 期間を追加</button>
       <div class="apply-bar">
         <div class="apply-info">
-          <b id="apply-year-label">2026年</b> の全日程に一括適用します<br>
-          <span style="font-size:8.5pt">✅の期間 → <b style="color:#991b1b">A 繁忙</b>　｜　それ以外の全日 → <b style="color:#92400e">B 通常</b></span>
+          <b id="apply-year-label">2026年</b> の全日程にtierを一括適用します<br>
+          <span style="font-size:8.5pt">✅のプリセットが優先順（A＞B＞C）で適用されます</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-clear" onclick="clearYearTiers()">🗑 年度tier全クリア</button>
@@ -190,27 +192,37 @@ const HOLIDAYS = {
 };
 
 // ===== デフォルトプリセット（高松） =====
-// ===== 繁忙期プリセット（A tier固定・2パターン: 繁忙A / 通常B） =====
 const DEFAULT_PRESETS_TKM = {
   '2026': [
-    {id:1, label:'GW',         fromM:4,  fromD:27, toM:5,  toD:6,  tier:'A', enabled:true},
-    {id:2, label:'お盆',       fromM:8,  fromD:10, toM:8,  toD:16, tier:'A', enabled:true},
-    {id:3, label:'年末年始',   fromM:12, fromD:27, toM:12, toD:31, tier:'A', enabled:true},
-    {id:4, label:'年始',       fromM:1,  fromD:1,  toM:1,  toD:4,  tier:'A', enabled:true},
-    {id:5, label:'桜ピーク',   fromM:3,  fromD:28, toM:4,  toD:10, tier:'A', enabled:true},
-    {id:6, label:'紅葉ピーク', fromM:11, fromD:13, toM:11, toD:20, tier:'A', enabled:true},
-    {id:7, label:'シルバーWK', fromM:9,  fromD:19, toM:9,  toD:23, tier:'A', enabled:true},
-    {id:8, label:'夏休み',     fromM:7,  fromD:21, toM:8,  toD:31, tier:'A', enabled:true},
+    {id:1, label:'GW',          fromM:4,  fromD:27, toM:5,  toD:6,  tier:'A', enabled:true},
+    {id:2, label:'お盆',        fromM:8,  fromD:10, toM:8,  toD:16, tier:'A', enabled:true},
+    {id:3, label:'年末年始',    fromM:12, fromD:27, toM:12, toD:31, tier:'A', enabled:true},
+    {id:4, label:'年始',        fromM:1,  fromD:1,  toM:1,  toD:4,  tier:'A', enabled:true},
+    {id:5, label:'桜ピーク',    fromM:3,  fromD:28, toM:4,  toD:10, tier:'A', enabled:true},
+    {id:6, label:'紅葉ピーク',  fromM:11, fromD:13, toM:11, toD:20, tier:'A', enabled:true},
+    {id:7, label:'シルバーWK',  fromM:9,  fromD:19, toM:9,  toD:23, tier:'A', enabled:true},
+    {id:8, label:'夏休み',      fromM:7,  fromD:21, toM:8,  toD:31, tier:'B', enabled:true},
+    {id:9, label:'春（桜期）',  fromM:3,  fromD:15, toM:4,  toD:26, tier:'B', enabled:true},
+    {id:10,label:'秋（紅葉期）',fromM:11, fromD:1,  toM:11, toD:12, tier:'B', enabled:true},
+    {id:11,label:'梅雨',        fromM:6,  fromD:1,  toM:6,  toD:30, tier:'C', enabled:true},
+    {id:12,label:'冬閑散①',    fromM:1,  fromD:5,  toM:2,  toD:28, tier:'C', enabled:true},
+    {id:13,label:'冬閑散②',    fromM:12, fromD:1,  toM:12, toD:22, tier:'C', enabled:true},
+    {id:14,label:'梅雨明け前',  fromM:7,  fromD:1,  toM:7,  toD:20, tier:'C', enabled:true},
   ],
   '2027': [
-    {id:1, label:'GW',         fromM:4,  fromD:29, toM:5,  toD:5,  tier:'A', enabled:true},
-    {id:2, label:'お盆',       fromM:8,  fromD:10, toM:8,  toD:16, tier:'A', enabled:true},
-    {id:3, label:'年末年始',   fromM:12, fromD:27, toM:12, toD:31, tier:'A', enabled:true},
-    {id:4, label:'年始',       fromM:1,  fromD:1,  toM:1,  toD:4,  tier:'A', enabled:true},
-    {id:5, label:'桜ピーク',   fromM:4,  fromD:3,  toM:4,  toD:11, tier:'A', enabled:true},
-    {id:6, label:'紅葉ピーク', fromM:11, fromD:13, toM:11, toD:20, tier:'A', enabled:true},
-    {id:7, label:'シルバーWK', fromM:9,  fromD:18, toM:9,  toD:26, tier:'A', enabled:true},
-    {id:8, label:'夏休み',     fromM:7,  fromD:19, toM:8,  toD:31, tier:'A', enabled:true},
+    {id:1, label:'GW',          fromM:4,  fromD:29, toM:5,  toD:5,  tier:'A', enabled:true},
+    {id:2, label:'お盆',        fromM:8,  fromD:10, toM:8,  toD:16, tier:'A', enabled:true},
+    {id:3, label:'年末年始',    fromM:12, fromD:27, toM:12, toD:31, tier:'A', enabled:true},
+    {id:4, label:'年始',        fromM:1,  fromD:1,  toM:1,  toD:4,  tier:'A', enabled:true},
+    {id:5, label:'桜ピーク',    fromM:4,  fromD:3,  toM:4,  toD:11, tier:'A', enabled:true},
+    {id:6, label:'紅葉ピーク',  fromM:11, fromD:13, toM:11, toD:20, tier:'A', enabled:true},
+    {id:7, label:'シルバーWK',  fromM:9,  fromD:18, toM:9,  toD:26, tier:'A', enabled:true},
+    {id:8, label:'夏休み',      fromM:7,  fromD:19, toM:8,  toD:31, tier:'B', enabled:true},
+    {id:9, label:'春（桜期）',  fromM:3,  fromD:20, toM:4,  toD:26, tier:'B', enabled:true},
+    {id:10,label:'秋（紅葉期）',fromM:11, fromD:1,  toM:11, toD:12, tier:'B', enabled:true},
+    {id:11,label:'梅雨',        fromM:6,  fromD:1,  toM:6,  toD:30, tier:'C', enabled:true},
+    {id:12,label:'冬閑散①',    fromM:1,  fromD:5,  toM:2,  toD:28, tier:'C', enabled:true},
+    {id:13,label:'冬閑散②',    fromM:12, fromD:1,  toM:12, toD:22, tier:'C', enabled:true},
   ],
 };
 
@@ -279,24 +291,25 @@ function toggleSec(name){
   if(isHidden && name==='scoring') renderScoring();
 }
 
-// ===== 期間プリセット描画（繁忙期=A 固定・通常=B デフォルト） =====
+// ===== 期間プリセット描画（A繁忙/B通常/C閑散） =====
 function renderPeriodList(){
   const periods = getPeriods();
-  let html=`<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:10pt;color:#991b1b;display:flex;align-items:center;gap:8px">
-    <span style="font-size:14pt">🗓</span>
-    <div><b>登録した期間 = A（繁忙期）</b>　｜　<span style="color:#92400e">未登録の日はすべて B（通常）になります</span></div>
-  </div>
-  <table class="period-tbl">
+  const tierLabels={A:'A 繁忙',B:'B 通常',C:'C 閑散'};
+  const tierColors={A:'#fee2e2',B:'#dbeafe',C:'#f1f5f9'};
+  const tierTextColors={A:'#991b1b',B:'#1e40af',C:'#475569'};
+  let html=`<table class="period-tbl">
     <thead><tr>
       <th style="width:32px" class="c">✅</th>
-      <th>期間名（繁忙期）</th>
+      <th>期間名</th>
       <th class="c">開始</th>
-      <th class="c" style="width:14px"></th>
+      <th class="c" style="width:10px"></th>
       <th class="c">終了</th>
-      <th class="c" style="width:80px">区分</th>
+      <th class="c">tier</th>
       <th class="c" style="width:32px"></th>
     </tr></thead><tbody>`;
   periods.forEach((p,i)=>{
+    const tc=tierColors[p.tier]||'#f1f5f9';
+    const ttc=tierTextColors[p.tier]||'#475569';
     html+=`<tr>
       <td class="c"><input type="checkbox" class="enabled-chk" ${p.enabled?'checked':''} onchange="togglePeriod(${i},this.checked)"></td>
       <td><input type="text" value="${escH(p.label)}" onchange="updatePeriod(${i},'label',this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 8px;font-size:10pt;width:100%"></td>
@@ -315,7 +328,12 @@ function renderPeriodList(){
           <input type="number" value="${p.toD}" min="1" max="31" onchange="updatePeriod(${i},'toD',+this.value)" style="border:1px solid #d1d5db;border-radius:5px;padding:5px 4px;font-size:10pt;width:46px;text-align:center">
         </div>
       </td>
-      <td class="c"><span style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:6px;font-size:9.5pt;font-weight:800">A 繁忙</span></td>
+      <td class="c">
+        <select style="padding:4px 8px;border:2px solid ${tc};border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;background:${tc};color:${ttc}"
+          onchange="updatePeriod(${i},'tier',this.value);this.style.background=tierColors[this.value]||'#f1f5f9';this.style.color=tierTextColors[this.value]||'#475569';this.style.borderColor=tierColors[this.value]||'#f1f5f9'">
+          ${['A','B','C'].map(t=>`<option value="${t}" ${p.tier===t?'selected':''}>${tierLabels[t]}</option>`).join('')}
+        </select>
+      </td>
       <td class="c"><button class="btn-del" onclick="deletePeriod(${i})">×</button></td>
     </tr>`;
   });
@@ -329,8 +347,7 @@ function deletePeriod(i){
   getPeriods().splice(i,1); saveScConfig(); renderPeriodList();
 }
 function addPeriod(){
-  // 新しい期間は常にA 繁忙
-  getPeriods().push({id:_nextId++,label:'新しい繁忙期間',fromM:1,fromD:1,toM:1,toD:31,tier:'A',enabled:true});
+  getPeriods().push({id:_nextId++,label:'新しい期間',fromM:1,fromD:1,toM:1,toD:31,tier:'B',enabled:true});
   saveScConfig(); renderPeriodList();
 }
 function escH(s){return String(s||'').replace(/[<>&"']/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -345,29 +362,27 @@ function dateInRange(date, fromM, fromD, toM, toD){
 
 function applyAllPresets(){
   loadMasterState();
-  const busyPeriods = getPeriods().filter(p=>p.enabled);
-  const y = curYear;
-  if(!masterState.dayTiers) masterState.dayTiers = {};
-  let busyCnt=0, normalCnt=0;
-
+  const periods=getPeriods().filter(p=>p.enabled);
+  const y=curYear;
+  if(!masterState.dayTiers) masterState.dayTiers={};
+  const TIER_PRI={A:3,B:2,C:1};
+  const counts={A:0,B:0,C:0};
   for(let m=1;m<=12;m++){
     const last=new Date(y,m,0).getDate();
     for(let d=1;d<=last;d++){
       const date=new Date(y,m-1,d);
       const dk=`${y}-${m}-${d}`;
-      // 繁忙期に該当するか判定
-      const isBusy = busyPeriods.some(p=>dateInRange(date,p.fromM,p.fromD,p.toM,p.toD));
-      if(isBusy){
-        masterState.dayTiers[dk]='A'; // 繁忙期
-        busyCnt++;
-      } else {
-        masterState.dayTiers[dk]='B'; // 通常（明示的にB設定）
-        normalCnt++;
-      }
+      let bestTier=null,bestPri=0;
+      periods.forEach(p=>{
+        if(dateInRange(date,p.fromM,p.fromD,p.toM,p.toD)){
+          if(TIER_PRI[p.tier]>bestPri){bestPri=TIER_PRI[p.tier];bestTier=p.tier;}
+        }
+      });
+      if(bestTier){masterState.dayTiers[dk]=bestTier;counts[bestTier]++;}
     }
   }
   saveMasterState();
-  showToast(`✅ ${y}年 一括適用完了（繁忙期A:${busyCnt}日 / 通常B:${normalCnt}日）`);
+  showToast(`✅ ${y}年 一括適用（A:${counts.A}日 B:${counts.B}日 C:${counts.C}日）`);
   if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
 }
 
