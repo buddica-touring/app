@@ -118,6 +118,42 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;font-size:11pt;box-shadow:0 4px 12px rgba(22,163,74,.4);opacity:0;transition:all .3s;z-index:9999;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.warn{background:#f59e0b}
+
+/* ===== 年間タイムライン（ガントチャート）===== */
+.tl-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow-x:auto;min-width:0}
+.tl-inner{min-width:1000px}
+.tl-months{display:grid;grid-template-columns:repeat(12,1fr);border-bottom:2px solid #1e3a8a;margin-bottom:4px;padding-bottom:3px}
+.tl-month-label{text-align:center;font-size:10pt;font-weight:700;color:#1e3a8a;padding:4px 0;border-right:1px dashed #cbd5e1}
+.tl-month-label:last-child{border-right:none}
+.tl-day-strip{display:flex;height:18px;border:1px solid #e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:14px}
+.tl-day{flex:1;height:100%;border-right:1px solid rgba(255,255,255,.4);transition:opacity .15s;min-width:0}
+.tl-day:hover{opacity:.7;outline:1px solid #1e3a8a;outline-offset:-1px;z-index:5;position:relative}
+.tl-day.tier-A{background:#93c5fd}
+.tl-day.tier-B{background:#fde68a}
+.tl-day.tier-C{background:#fca5a5}
+.tl-day.tier-null{background:#f1f5f9}
+
+.tl-legend{display:flex;gap:10px;align-items:center;font-size:9pt;color:#475569;margin-bottom:8px;flex-wrap:wrap}
+.tl-legend-item{display:flex;gap:4px;align-items:center}
+.tl-legend-sq{width:14px;height:14px;border-radius:3px;border:1px solid #cbd5e1}
+.tl-legend-sq.tA{background:#93c5fd}
+.tl-legend-sq.tB{background:#fde68a}
+.tl-legend-sq.tC{background:#fca5a5}
+.tl-legend-sq.tN{background:#f1f5f9}
+
+.tl-events{position:relative;border:1px dashed #cbd5e1;border-radius:5px;padding:6px;background:#fafbfc;margin-top:6px}
+.tl-event-row{position:relative;height:28px;margin-bottom:4px}
+.tl-event-row:last-child{margin-bottom:0}
+.tl-event{position:absolute;top:0;height:26px;line-height:24px;border-radius:5px;padding:0 8px;font-size:9.5pt;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.4)}
+.tl-event:hover{box-shadow:0 3px 8px rgba(0,0,0,.35);z-index:10;transform:translateY(-1px)}
+.tl-event.tier-A{background:linear-gradient(135deg,#3b82f6,#1e40af)}
+.tl-event.tier-B{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.tl-event.tier-C{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+.tl-event.disabled{opacity:.4;background:repeating-linear-gradient(45deg,#94a3b8 0,#94a3b8 4px,#cbd5e1 4px,#cbd5e1 8px) !important;color:#1e293b !important;text-shadow:0 0 2px rgba(255,255,255,.6)}
+
+.tl-month-divider{position:absolute;top:0;bottom:0;width:1px;background:rgba(30,58,138,.12);pointer-events:none}
+.tl-today-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:#dc2626;z-index:8;pointer-events:none}
+.tl-today-mark::before{content:'今日';position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;font-size:8pt;padding:1px 6px;border-radius:3px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -141,6 +177,26 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
   <div class="year-tabs">
     <button class="year-tab active" onclick="selYear(2026)" id="yt-2026">2026年度</button>
     <button class="year-tab" onclick="selYear(2027)" id="yt-2027">2027年度</button>
+  </div>
+
+  <!-- セクション0: 年間タイムライン（ガントチャート） -->
+  <div class="sec-card">
+    <div class="sec-head" onclick="toggleSec('timeline')" id="sh-timeline">
+      <h3>📊 年間タイムライン（365日 ティア可視化）</h3>
+      <span class="arr" id="arr-timeline">▼</span>
+    </div>
+    <div id="sb-timeline" class="sec-body">
+      <div class="tl-legend">
+        <div class="tl-legend-item"><span class="tl-legend-sq tC"></span>C 繁忙</div>
+        <div class="tl-legend-item"><span class="tl-legend-sq tB"></span>B 通常</div>
+        <div class="tl-legend-item"><span class="tl-legend-sq tA"></span>A 閑散</div>
+        <div class="tl-legend-item"><span class="tl-legend-sq tN"></span>未設定</div>
+        <div style="margin-left:auto;font-size:9pt;color:#64748b">期間バーをクリックで該当行へジャンプ</div>
+      </div>
+      <div class="tl-wrap">
+        <div class="tl-inner" id="timeline-area"></div>
+      </div>
+    </div>
   </div>
 
   <!-- セクション1: 期間プリセット -->
@@ -330,6 +386,7 @@ function selYear(y){
   document.getElementById('apply-year-label').textContent = y+'年';
   silentApplyAll(); // 年切替時も自動適用
   renderPeriodList();
+  renderTimeline();
   renderScoring();
   if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
 }
@@ -413,7 +470,121 @@ function savePeriodRow(i){
   saveScConfig();
   autoApply();
   renderPeriodList();
+  renderTimeline();
   showToast('保存しました','success');
+}
+
+// ===== 年間タイムライン描画 =====
+function renderTimeline(){
+  const wrap = document.getElementById('timeline-area');
+  if(!wrap) return;
+  const y = curYear;
+  const isLeap = (y%4===0 && y%100!==0) || y%400===0;
+  const yearLen = isLeap ? 366 : 365;
+  const dim = [31, isLeap?29:28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const doy = (m,d) => {
+    let total=0;
+    for(let i=0;i<m-1;i++) total+=dim[i];
+    return total+(d-1);
+  };
+  // 各日のtier計算（silentApplyAll と同等ロジック）
+  const TIER_PRI = {A:1,B:2,C:3};
+  const dayTier = new Array(yearLen).fill(null);
+  const periods = getPeriods();
+  periods.filter(p=>p.enabled).forEach(p=>{
+    const s = doy(p.fromM, p.fromD);
+    const e = doy(p.toM, p.toD);
+    for(let i=Math.max(0,s); i<=Math.min(yearLen-1,e); i++){
+      if(!dayTier[i] || TIER_PRI[p.tier] > TIER_PRI[dayTier[i]]) dayTier[i] = p.tier;
+    }
+  });
+
+  // 月ラベル（flexで日数比例幅）
+  let html = `<div style="display:flex;border-bottom:2px solid #1e3a8a;margin-bottom:4px;padding-bottom:3px">`;
+  for(let m=1;m<=12;m++){
+    const w = (dim[m-1]/yearLen)*100;
+    html += `<div style="flex:0 0 ${w}%;text-align:center;font-size:10pt;font-weight:700;color:#1e3a8a;padding:4px 0;border-right:1px dashed #cbd5e1">${m}月</div>`;
+  }
+  html += '</div>';
+
+  // 365日 ストリップ
+  html += '<div class="tl-day-strip">';
+  for(let i=0;i<yearLen;i++){
+    const t = dayTier[i] || 'null';
+    // tooltip 用に month/day を計算
+    let cum=0, mm=1, dd=i+1;
+    for(let j=0;j<12;j++){ if(cum+dim[j]>i){ mm=j+1; dd=i-cum+1; break; } cum+=dim[j]; }
+    const tLabel = t==='A'?'閑散':t==='B'?'通常':t==='C'?'繁忙':'未設定';
+    html += `<div class="tl-day tier-${t}" title="${y}/${mm}/${dd} ${tLabel}"></div>`;
+  }
+  html += '</div>';
+
+  // 今日マーク（同年の場合のみ）
+  const today = new Date();
+  if(today.getFullYear() === y){
+    const todayDoy = doy(today.getMonth()+1, today.getDate());
+    const todayLeft = (todayDoy/yearLen)*100;
+    html += `<div style="position:relative;height:0"><div class="tl-today-mark" style="left:${todayLeft}%"></div></div>`;
+  }
+
+  // 期間バー（行詰め: 重ならないように行に振り分け）
+  const enabledPeriods = periods.map((p,idx)=>({...p, _idx:idx}));
+  // 開始順にソート
+  const sortedP = [...enabledPeriods].sort((a,b)=>{
+    const sa = doy(a.fromM,a.fromD), sb = doy(b.fromM,b.fromD);
+    return sa - sb;
+  });
+  const rows = [];
+  sortedP.forEach(p=>{
+    const s = doy(p.fromM,p.fromD);
+    const e = doy(p.toM,p.toD);
+    // 既存行で重ならないものを探す
+    let placed = false;
+    for(const row of rows){
+      const conflict = row.some(ev => !(e < ev.s || s > ev.e));
+      if(!conflict){
+        row.push({...p, s, e});
+        placed = true;
+        break;
+      }
+    }
+    if(!placed) rows.push([{...p, s, e}]);
+  });
+
+  html += '<div class="tl-events">';
+  rows.forEach(row=>{
+    html += '<div class="tl-event-row">';
+    row.forEach(ev=>{
+      const left = (ev.s/yearLen)*100;
+      const width = ((ev.e-ev.s+1)/yearLen)*100;
+      const dis = ev.enabled ? '' : ' disabled';
+      const lbl = `${ev.label} (${ev.fromM}/${ev.fromD}〜${ev.toM}/${ev.toD})`;
+      html += `<div class="tl-event tier-${ev.tier}${dis}" style="left:${left}%;width:${width}%" title="${lbl}" onclick="scrollToPeriodRow(${ev._idx})">${ev.label}</div>`;
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+
+  wrap.innerHTML = html;
+}
+
+function scrollToPeriodRow(idx){
+  // 期間プリセットセクションを開く
+  const sb = document.getElementById('sb-presets');
+  if(sb && sb.classList.contains('sec-hidden')){
+    toggleSec('presets');
+  }
+  // 該当行までスクロール
+  setTimeout(()=>{
+    const tbl = document.querySelector('.period-tbl tbody');
+    if(!tbl) return;
+    const tr = tbl.querySelectorAll('tr')[idx];
+    if(!tr) return;
+    tr.scrollIntoView({behavior:'smooth', block:'center'});
+    tr.style.transition = 'background .3s';
+    tr.style.background = '#fef9c3';
+    setTimeout(()=>{ tr.style.background = ''; }, 1500);
+  }, 100);
 }
 
 // ===== 変更後に自動適用（一括適用ボタン不要） =====
@@ -449,14 +620,14 @@ function silentApplyAll(){
   saveMasterState();
 }
 
-function updatePeriod(i,key,val){ getPeriods()[i][key]=val; saveScConfig(); autoApply(); }
-function togglePeriod(i,v){ getPeriods()[i].enabled=v; saveScConfig(); autoApply(); }
+function updatePeriod(i,key,val){ getPeriods()[i][key]=val; saveScConfig(); autoApply(); renderTimeline(); }
+function togglePeriod(i,v){ getPeriods()[i].enabled=v; saveScConfig(); autoApply(); renderTimeline(); }
 function deletePeriod(i){
-  getPeriods().splice(i,1); saveScConfig(); renderPeriodList(); autoApply();
+  getPeriods().splice(i,1); saveScConfig(); renderPeriodList(); renderTimeline(); autoApply();
 }
 function addPeriod(){
   getPeriods().push({id:_nextId++,label:'新しい期間',fromM:1,fromD:1,toM:1,toD:31,tier:'B',enabled:true});
-  saveScConfig(); renderPeriodList(); autoApply();
+  saveScConfig(); renderPeriodList(); renderTimeline(); autoApply();
 }
 function resetPresetsToDefault(){
   if(!confirm(`${curYear}年度のプリセットを初期設定に戻しますか？\n現在の変更はすべてリセットされます。`)) return;
@@ -470,6 +641,7 @@ function resetPresetsToDefault(){
   saveScConfig();
   silentApplyAll(); // ← 初期設定後に自動適用
   renderPeriodList();
+  renderTimeline();
   if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
   showToast(`↺ ${curYear}年度を初期設定に戻しました`,'warn');
 }
@@ -634,6 +806,7 @@ loadMasterState();
 ensureAreaYear(area,'2026');
 ensureAreaYear(area,'2027');
 renderPeriodList();
+renderTimeline();
 silentApplyAll(); // 起動時に自動適用
 </script>
 </body>
