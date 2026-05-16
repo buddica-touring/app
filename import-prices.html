@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>価格インポート — BUDDICA TOURING</title>
+<title>プライシングシステム — BUDDICA TOURING</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -210,7 +210,7 @@ table.cal-tbl .sat{color:#93c5fd}
 <div class="header">
   <div>
     <div class="sub">B U D D I C A &nbsp; T O U R I N G &nbsp; 高松店</div>
-    <h1>💰 価格インポート確認</h1>
+    <h1>💰 プライシングシステム</h1>
   </div>
   <div class="actions">
     <a class="act-btn" href="./price-hub.html" style="background:#fff;color:#1e3a8a;font-weight:700">🏠 ハブ</a>
@@ -287,7 +287,7 @@ table.cal-tbl .sat{color:#93c5fd}
   </div>
 
   <div class="footer-actions">
-    <button class="btn-import" onclick="doImport()">🚀 この価格表で localStorage に反映する</button>
+    <button class="btn-import" onclick="doImport()">🚀 価格を確定・カレンダーに反映する</button>
     <div style="display:flex;gap:6px">
       <button class="act-btn" style="background:#f1f5f9;color:#475569;flex:1" onclick="verifyStorage()">🔍 localStorage 検証</button>
       <a class="act-btn" style="background:#dcfce7;color:#15803d;flex:1;text-align:center" href="./pricing.html" target="_blank">📅 pricing.html を新規タブで開く</a>
@@ -737,7 +737,7 @@ function renderMatrix(){
     area.innerHTML = `<div class="matrix-card" style="text-align:center;padding:40px 20px;color:#64748b">
       <div style="font-size:18pt;margin-bottom:10px">📅 ${ym}</div>
       <div style="font-size:11pt;font-weight:700;color:#1e3a8a">既存値そのまま（触りません）</div>
-      <div style="font-size:9.5pt;margin-top:6px">提案資料に無いためインポート対象外</div>
+      <div style="font-size:9.5pt;margin-top:6px">提案資料に無いため設定対象外</div>
     </div>`;
     return;
   }
@@ -1080,7 +1080,7 @@ function copyToAllMonths(){
   const ym = curKey();
   const s = editState[ym];
   if(!s || s.skip || s.reset){ alert('この月はコピー元にできません'); return; }
-  if(!confirm(`${curYear}年${curMonth}月 の価格を ${curYear}年 全月（インポート対象月のみ）に適用します。OK？`)) return;
+  if(!confirm(`${curYear}年${curMonth}月 の価格を ${curYear}年 全月（設定対象月のみ）に適用します。OK？`)) return;
   for(let m = 1; m <= 12; m++){
     const ym2 = curYear + '-' + String(m).padStart(2,'0');
     const s2 = editState[ym2];
@@ -1135,7 +1135,7 @@ function doImport(){
   if(!proper.tierClassPrices) proper.tierClassPrices = {A:{},B:{},C:{}};
   if(!state.tierClassPrices) state.tierClassPrices = {A:{},B:{},C:{}};
 
-  log('===== インポート開始 =====', 'success');
+  log('===== 価格設定 開始 =====', 'success');
   let inputCnt = 0, resetCnt = 0, skipCnt = 0;
   // ★ pricing.html の ymKey(y,m) は `${y}-${m}` でゼロパディングなし
   //   なので "2026-08" → "2026-8" に変換して書き込む
@@ -1196,7 +1196,7 @@ function doImport(){
   log('3. プロパー ボタンをクリック', 'warning');
   log('4. 7月タブ → カレンダーに価格が表示される', 'warning');
 
-  alert('✅ インポート完了\n\n' +
+  alert('✅ 価格設定 完了\n\n' +
         '価格入力: ' + inputCnt + 'ヶ月（2026/7-12月）\n' +
         '0リセット: ' + resetCnt + 'ヶ月（2027年）\n' +
         '触らず: ' + skipCnt + 'ヶ月（2026/1-6月）\n\n' +
