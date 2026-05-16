@@ -284,6 +284,7 @@ function selYear(y){
   document.querySelectorAll('.year-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('yt-'+y).classList.add('active');
   document.getElementById('apply-year-label').textContent = y+'年';
+  silentApplyAll(); // 年切替時も自動適用
   renderPeriodList();
   renderScoring();
   if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
@@ -405,7 +406,9 @@ function resetPresetsToDefault(){
     scoring: JSON.parse(JSON.stringify(DEFAULT_SCORING))
   };
   saveScConfig();
+  silentApplyAll(); // ← 初期設定後に自動適用
   renderPeriodList();
+  if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
   showToast(`↺ ${curYear}年度を初期設定に戻しました`,'warn');
 }
 function escH(s){return String(s||'').replace(/[<>&"']/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));}
