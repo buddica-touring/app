@@ -85,6 +85,7 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f3f4f6;col
 .mc-C{background:#dbeafe;color:#1e40af}
 .mc-empty{color:transparent}
 
+@keyframes pulseSave{0%{transform:scale(.5);opacity:.3}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;font-size:11pt;box-shadow:0 4px 12px rgba(22,163,74,.4);opacity:0;transition:all .3s;z-index:9999;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.warn{background:#f59e0b}
@@ -322,9 +323,15 @@ function renderPeriodList(){
         </div>
       </td>
       <td class="c">
-        <select class="tier-sel tier-${p.tier}" onchange="updatePeriod(${i},'tier',this.value);this.className='tier-sel tier-'+this.value">
-          ${['A','B','C'].map(t=>`<option value="${t}" ${p.tier===t?'selected':''}>${tierLabels[t]}</option>`).join('')}
-        </select>
+        <div style="display:flex;align-items:center;gap:5px;justify-content:center">
+          <select class="tier-sel tier-${p.tier}" id="ts-${i}" onchange="onTierChange(${i},this)">
+            ${['A','B','C'].map(t=>`<option value="${t}" ${p.tier===t?'selected':''}>${tierLabels[t]}</option>`).join('')}
+          </select>
+          <button id="tsb-${i}" onclick="saveTierRow(${i})"
+            style="display:none;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(22,163,74,.4);animation:pulseSave .4s 1">
+            💾 保存
+          </button>
+        </div>
       </td>
       <td class="c"><button class="btn-del" onclick="deletePeriod(${i})">×</button></td>
     </tr>`;
@@ -341,6 +348,66 @@ function deletePeriod(i){
 function addPeriod(){
   getPeriods().push({id:_nextId++,label:'新しい期間',fromM:1,fromD:1,toM:1,toD:31,tier:'B',enabled:true});
   saveScConfig(); renderPeriodList();
+}
+
+// ===== tier 変更 → 💾ボタン表示 =====
+function onTierChange(i, sel){
+  const newTier = sel.value;
+  sel.className = 'tier-sel tier-' + newTier;
+  // 💾ボタンを表示
+  const btn = document.getElementById('tsb-'+i);
+  if(btn){
+    btn.style.display = 'inline-block';
+    btn.style.animation = 'none';
+    void btn.offsetWidth; // reflow
+    btn.style.animation = 'pulseSave .4s 1';
+  }
+  // データは即時更新（保存は💾クリック時）
+  getPeriods()[i].tier = newTier;
+}
+
+// ===== 💾クリック → 保存＋その期間をdayTiersに即適用 =====
+function saveTierRow(i){
+  const p = getPeriods()[i];
+  if(!p) return;
+  // 1. scConfig に保存
+  saveScConfig();
+  // 2. masterState の dayTiers にこの期間を即適用
+  loadMasterState();
+  if(!masterState.dayTiers) masterState.dayTiers = {};
+  const TIER_PRI = {A:3,B:2,C:1};
+  const y = curYear;
+  let applied = 0;
+  for(let m=1;m<=12;m++){
+    const last = new Date(y,m,0).getDate();
+    for(let d=1;d<=last;d++){
+      const date = new Date(y,m-1,d);
+      if(dateInRange(date, p.fromM, p.fromD, p.toM, p.toD)){
+        // 既存tierより優先度が高い場合のみ上書き
+        const dk = `${y}-${m}-${d}`;
+        const existing = masterState.dayTiers[dk];
+        if(!existing || TIER_PRI[p.tier] >= TIER_PRI[existing||'C']){
+          masterState.dayTiers[dk] = p.tier;
+          applied++;
+        }
+      }
+    }
+  }
+  saveMasterState();
+  // 3. 💾ボタンを保存済み表示に変えて非表示
+  const btn = document.getElementById('tsb-'+i);
+  if(btn){
+    btn.textContent = '✅ 保存済み';
+    btn.style.background = '#059669';
+    setTimeout(()=>{
+      btn.style.display = 'none';
+      btn.textContent = '💾 保存';
+      btn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+    }, 1200);
+  }
+  showToast(`💾 「${p.label}」tier:${p.tier} → ${applied}日に適用`);
+  // カレンダープレビューが開いていたら更新
+  if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
 }
 function escH(s){return String(s||'').replace(/[<>&"']/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));}
 
