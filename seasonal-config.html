@@ -344,14 +344,47 @@ function renderPeriodList(){
   document.getElementById('period-list').innerHTML=html;
 }
 
-function updatePeriod(i,key,val){ getPeriods()[i][key]=val; saveScConfig(); }
-function togglePeriod(i,v){ getPeriods()[i].enabled=v; saveScConfig(); }
+// ===== 変更後に自動適用（一括適用ボタン不要） =====
+let _autoApplyTimer = null;
+function autoApply(){
+  clearTimeout(_autoApplyTimer);
+  _autoApplyTimer = setTimeout(()=>{
+    silentApplyAll();
+    if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
+  }, 300);
+}
+function silentApplyAll(){
+  loadMasterState();
+  const periods=getPeriods().filter(p=>p.enabled);
+  const y=curYear;
+  if(!masterState.dayTiers) masterState.dayTiers={};
+  const TIER_PRI={A:3,B:2,C:1};
+  for(let m=1;m<=12;m++){
+    const last=new Date(y,m,0).getDate();
+    for(let d=1;d<=last;d++){
+      const date=new Date(y,m-1,d);
+      const dk=`${y}-${m}-${d}`;
+      let bestTier=null,bestPri=0;
+      periods.forEach(p=>{
+        if(dateInRange(date,p.fromM,p.fromD,p.toM,p.toD)){
+          if(TIER_PRI[p.tier]>bestPri){bestPri=TIER_PRI[p.tier];bestTier=p.tier;}
+        }
+      });
+      if(bestTier) masterState.dayTiers[dk]=bestTier;
+      else delete masterState.dayTiers[dk]; // 未設定の日はauto判定に戻す
+    }
+  }
+  saveMasterState();
+}
+
+function updatePeriod(i,key,val){ getPeriods()[i][key]=val; saveScConfig(); autoApply(); }
+function togglePeriod(i,v){ getPeriods()[i].enabled=v; saveScConfig(); autoApply(); }
 function deletePeriod(i){
-  getPeriods().splice(i,1); saveScConfig(); renderPeriodList();
+  getPeriods().splice(i,1); saveScConfig(); renderPeriodList(); autoApply();
 }
 function addPeriod(){
   getPeriods().push({id:_nextId++,label:'新しい期間',fromM:1,fromD:1,toM:1,toD:31,tier:'B',enabled:true});
-  saveScConfig(); renderPeriodList();
+  saveScConfig(); renderPeriodList(); autoApply();
 }
 function resetPresetsToDefault(){
   if(!confirm(`${curYear}年度のプリセットを初期設定に戻しますか？\n現在の変更はすべてリセットされます。`)) return;
@@ -527,6 +560,7 @@ loadMasterState();
 ensureAreaYear(area,'2026');
 ensureAreaYear(area,'2027');
 renderPeriodList();
+silentApplyAll(); // 起動時に自動適用
 </script>
 </body>
 </html>
