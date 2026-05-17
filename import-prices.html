@@ -301,24 +301,37 @@ function showTierStatsIp(){
           if(t==='A'||t==='B'||t==='C') monthly[mo][t].push(i);
         }
       }
+      // 手動 override (個別日指定)
+      let override = {};
+      try{ override = JSON.parse(localStorage.getItem('bt_tkm_survey_override_v1')||'{}'); }catch(e){}
       // 各 tier の中央値日を代表日として選定（全月で A/B/C 必ず表示・存在しない場合は null）
-      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount}]
+      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount, candidates, isOverride}]
       const WEEKDAY = ['日','月','火','水','木','金','土'];
       for(let mo=1; mo<=12; mo++){
         ['C','B','A'].forEach(tier=>{
           const arr = monthly[mo][tier];
           if(arr.length === 0){
-            reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0});
+            reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0, candidates:[], isOverride:false});
           } else {
-            const mid = arr[Math.floor(arr.length/2)];
-            const date = new Date(yr, mo-1, mid);
+            const ovKey = `${mo}-${tier}`;
+            const ovDay = override[ovKey];
+            const useOverride = ovDay && arr.includes(ovDay);
+            const selectedDay = useOverride ? ovDay : arr[Math.floor(arr.length/2)];
+            const date = new Date(yr, mo-1, selectedDay);
+            // candidates: その月の同 tier 全日（プルダウン用）
+            const candidates = arr.map(d=>{
+              const dt = new Date(yr, mo-1, d);
+              return {day:d, weekday:WEEKDAY[dt.getDay()]};
+            });
             reps.push({
               month: mo,
               tier: tier,
-              day: mid,
-              dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(mid).padStart(2,'0')}`,
+              day: selectedDay,
+              dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`,
               weekday: WEEKDAY[date.getDay()],
               tierCount: arr.length,
+              candidates: candidates,
+              isOverride: useOverride,
             });
           }
         });
@@ -361,17 +374,38 @@ function showTierStatsIp(){
         const cbId = `surv-cb-${mo}-${r.tier}`;
         const cb = `<input type="checkbox" id="${cbId}" ${excluded?'':'checked'} onchange="toggleSurveyDate(${mo},'${r.tier}',this.checked)" style="vertical-align:middle;margin-right:4px;cursor:pointer">`;
         const labelStyle = excluded ? 'opacity:.3;text-decoration:line-through' : '';
-        return `<span style="${labelStyle}">${cb}${TIER_BADGE[r.tier]} ${r.day}日(${r.weekday}) <span style="opacity:.7">[${r.tierCount}日中]</span></span>`;
+        // プルダウン (同月同 tier の全候補日)
+        const ovStyle = r.isOverride ? 'border:1px solid #fbbf24;background:#451a03;color:#fde68a' : 'border:1px solid #475569;background:#0f172a;color:#cbd5e1';
+        const sel = `<select onchange="setSurveyOverride(${r.month},'${r.tier}',this.value)" style="${ovStyle};padding:1px 4px;border-radius:3px;font-size:9pt;cursor:pointer;font-family:Menlo,monospace;margin:0 2px">`+
+          r.candidates.map(c=>`<option value="${c.day}" ${c.day===r.day?'selected':''}>${c.day}日(${c.weekday})</option>`).join('')+`</select>`;
+        const ovMark = r.isOverride ? '<span style="color:#fbbf24;font-size:8pt" title="手動指定">✎</span>' : '';
+        return `<span style="${labelStyle}">${cb}${TIER_BADGE[r.tier]} ${sel}${ovMark} <span style="opacity:.7">[${r.tierCount}日中]</span></span>`;
       });
       lines.push(`<div style="padding:4px 0"><strong style="display:inline-block;width:30px">${mo}月</strong>${moBtn} ${parts.join(' / ')}</div>`);
     });
     lines.push(`<div style="margin-top:10px;padding-top:8px;border-top:1px solid #075985;color:#fff"><strong>実行対象: ${actualCount}日</strong>${excludedCount?` <span style="color:#fca5a5">/ 除外: ${excludedCount}日</span>`:''} を CLI agent が調査します</div>`);
     lines.push(`<div style="margin-top:4px;font-size:8.5pt;color:#7dd3fc">※ 該当なし tier は自動スキップ。チェックを外した日程は除外されます（例: 12月は予約未オープン等）</div>`);
-    lines.push(`<div style="margin-top:6px"><button onclick="excludeAll()" style="background:#7f1d1d;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:8.5pt;cursor:pointer;margin-right:6px">🗑 全除外</button><button onclick="includeAll()" style="background:#065f46;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:8.5pt;cursor:pointer">✓ 全選択</button></div>`);
+    lines.push(`<div style="margin-top:6px"><button onclick="excludeAll()" style="background:#7f1d1d;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:8.5pt;cursor:pointer;margin-right:6px">🗑 全除外</button><button onclick="includeAll()" style="background:#065f46;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:8.5pt;cursor:pointer;margin-right:6px">✓ 全選択</button><button onclick="clearSurveyOverride()" style="background:#7c2d12;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:8.5pt;cursor:pointer">↺ 手動指定解除</button></div>`);
     el.innerHTML = lines.join('');
     // localStorage に保存（Phase 3-5 で CLI に渡す用）
     localStorage.setItem('bt_tkm_survey_dates_v1', JSON.stringify(reps));
   }
+  // 代表日の手動 override (プルダウン変更)
+  function setSurveyOverride(mo, tier, dayStr){
+    try{
+      const ov = JSON.parse(localStorage.getItem('bt_tkm_survey_override_v1')||'{}');
+      const day = parseInt(dayStr,10);
+      ov[`${mo}-${tier}`] = day;
+      localStorage.setItem('bt_tkm_survey_override_v1', JSON.stringify(ov));
+      refreshSurveyDates();
+    }catch(e){ alert('override err: '+e.message); }
+  }
+  function clearSurveyOverride(){
+    if(!confirm('全ての手動指定（プルダウン変更）を解除し、自動選定（中央値）に戻します。よろしいですか？')) return;
+    localStorage.removeItem('bt_tkm_survey_override_v1');
+    refreshSurveyDates();
+  }
+
   // 除外 ON/OFF 操作
   function _getExcludeSet(){
     try{ return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]')); }catch(e){ return new Set(); }
