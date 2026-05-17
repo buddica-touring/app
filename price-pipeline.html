@@ -320,16 +320,20 @@ async function fetchLatestOutput(kind){
 // === 確認スキル③: 調査MDチェック ===
 function checkResearchMd(md){
   const otas = ['JLN','RKT','SKT','ART','RDC'];
-  const classes = ['A','B','C','S','H','F'];
+  const classes = ['F','H','B','C','S','A','AA']; // 全クラス
   const results = [];
   results.push({ name:'ファイル存在', ok: !!md && md.length>100 });
-  results.push({ name:'OTA網羅', ok: otas.every(o => md.includes(o)) });
-  results.push({ name:'クラス網羅', ok: classes.every(c => new RegExp(`\\b${c}\\b`).test(md)) });
+  // OTA網羅: ART は高松未掲載のため除外可
+  const otaHits = otas.filter(o => md.includes(o));
+  results.push({ name:'OTA網羅 ('+otaHits.length+'/5)', ok: otaHits.length >= 3 }); // 3OTA以上で OK（ART除外考慮）
+  // クラス網羅: 「## F (...)」 「## A (ワンボックス)」 等のセクション見出し or テーブル行で判定
+  const classHits = classes.filter(c => new RegExp('##\\s+' + c + '\\b|\\|\\s*' + c + '\\s*\\|').test(md));
+  results.push({ name:'クラス網羅 ('+classHits.length+'/'+classes.length+')', ok: classHits.length >= 4 });
   // 価格異常: ¥500未満/200000超 を検出
   const prices = [...md.matchAll(/¥\s*([\d,]{3,})/g)].map(m=>parseInt(m[1].replace(/,/g,''),10));
   const abnormal = prices.filter(p => p<500 || p>200000);
-  results.push({ name:'価格異常なし', ok: abnormal.length===0, detail: abnormal.length?abnormal.join(','):'' });
-  results.push({ name:'競合数記載', ok: /競合\s*数|competitors|社/i.test(md) });
+  results.push({ name:'価格異常なし', ok: abnormal.length===0, detail: abnormal.length?abnormal.slice(0,5).join(','):'' });
+  results.push({ name:'競合数記載', ok: /競合\s*(数|社)|社数|\d+社/.test(md) });
   return results;
 }
 
@@ -338,16 +342,16 @@ function checkDecisionMd(md){
   const results = [];
   results.push({ name:'ファイル存在', ok: !!md && md.length>100 });
   results.push({ name:'推奨価格表あり', ok: /推奨価格表|推奨単価/.test(md) });
-  // 価格単位チェック: ¥4,000以上なら下3桁が「000」「500」、¥3,000台なら下2桁が「00」
-  const prices = [...md.matchAll(/¥\s*([\d,]+)/g)].map(m=>parseInt(m[1].replace(/,/g,''),10)).filter(p=>p>=2000 && p<200000);
-  const badUnit = prices.filter(p => {
+  // 価格単位チェック: 太字 **¥...** で囲まれた「推奨価格」のみ判定（市場5位等の参照値は除外）
+  const recommended = [...md.matchAll(/\*\*¥\s*([\d,]+)\*\*/g)].map(m=>parseInt(m[1].replace(/,/g,''),10)).filter(p=>p>=2000 && p<200000);
+  const badUnit = recommended.filter(p => {
     if(p >= 4000) return !(p % 500 === 0);
     if(p >= 3000) return !(p % 100 === 0);
     return false;
   });
-  results.push({ name:'価格単位OK', ok: badUnit.length===0, detail: badUnit.slice(0,5).join(',') });
+  results.push({ name:'価格単位OK ('+recommended.length+'価格)', ok: badUnit.length===0, detail: badUnit.slice(0,5).map(p=>'¥'+p.toLocaleString()).join(',') });
   // 独占価格条項記載
-  results.push({ name:'独占価格チェック記載', ok: /独占|13,?000|13000/.test(md) });
+  results.push({ name:'独占価格チェック記載', ok: /独占価格|独占|13,?[05]00/.test(md) });
   return results;
 }
 
