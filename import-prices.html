@@ -217,8 +217,43 @@ table.cal-tbl .sat{color:#93c5fd}
     <a class="act-btn" href="./price-hub.html" style="background:#fff;color:#1e3a8a;font-weight:700">🏠 ハブ</a>
     <a class="act-btn" href="./seasonal-config.html" style="background:#dbeafe;color:#1e40af">🗓 シーズナル設定</a>
     <a class="act-btn" href="./pricing.html" target="_blank">📅 カレンダー確認</a>
+    <button class="act-btn" onclick="showTierStatsIp()" style="background:#7c3aed;color:#fff;border:none;cursor:pointer">📊 tier集計</button>
   </div>
 </div>
+<script>
+function showTierStatsIp(){
+  try{
+    const s = JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');
+    const d = s.dayTiers || {};
+    const cnt = {A:0,B:0,C:0,undef:0};
+    const yr = 2026;
+    Object.keys(d).filter(k=>k.startsWith(yr+'-')).forEach(k=>{
+      const t = d[k]; if(t==='A'||t==='B'||t==='C') cnt[t]++; else cnt.undef++;
+    });
+    const monthLines = [];
+    for(let mo=1; mo<=12; mo++){
+      const last = new Date(yr, mo, 0).getDate();
+      const mcnt = {A:0,B:0,C:0,undef:0};
+      for(let i=1; i<=last; i++){
+        const k = `${yr}-${mo}-${i}`;
+        const t = d[k]; if(t==='A'||t==='B'||t==='C') mcnt[t]++; else mcnt.undef++;
+      }
+      monthLines.push(`${mo}月: A=${mcnt.A} B=${mcnt.B} C=${mcnt.C}${mcnt.undef?' 未='+mcnt.undef:''}`);
+    }
+    const lines = [
+      '=== dayTiers 集計 (2026年) ===',
+      `合計: A=${cnt.A} B=${cnt.B} C=${cnt.C} / 計${cnt.A+cnt.B+cnt.C}日`,
+      cnt.undef > 0 ? `⚠️ 未設定: ${cnt.undef}日` : `✅ 365日全て確定`,
+      '',
+      '月別:',
+      ...monthLines,
+      '',
+      '期待: GW/お盆/年末年始/SW=C / 梅雨6月/冬1-2月=A / それ以外=B',
+    ];
+    alert(lines.join('\n'));
+  }catch(e){ alert('エラー: '+e.message); }
+}
+</script>
 
 <div class="container">
 
