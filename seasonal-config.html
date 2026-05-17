@@ -613,8 +613,8 @@ function silentApplyAll(){
           if(TIER_PRI[p.tier]>bestPri){bestPri=TIER_PRI[p.tier];bestTier=p.tier;}
         }
       });
-      if(bestTier) masterState.dayTiers[dk]=bestTier;
-      else delete masterState.dayTiers[dk]; // 未設定の日はauto判定に戻す
+      // 2026-05-17: 期間プリセット外 = デフォルト B通常 で 365日 tier 確定（Single Source of Truth）
+      masterState.dayTiers[dk] = bestTier || 'B';
     }
   }
   saveMasterState();
@@ -673,11 +673,14 @@ function applyAllPresets(){
           if(TIER_PRI[p.tier]>bestPri){bestPri=TIER_PRI[p.tier];bestTier=p.tier;}
         }
       });
-      if(bestTier){masterState.dayTiers[dk]=bestTier;counts[bestTier]++;}
+      // 2026-05-17: 期間プリセット外 = デフォルト B通常（365日全日 tier 確定）
+      const finalTier = bestTier || 'B';
+      masterState.dayTiers[dk] = finalTier;
+      counts[finalTier]++;
     }
   }
   saveMasterState();
-  showToast(`✅ ${y}年 一括適用（A:${counts.A}日 B:${counts.B}日 C:${counts.C}日）`);
+  showToast(`✅ ${y}年 一括適用（A:${counts.A}日 B:${counts.B}日 C:${counts.C}日 / 計365日）`);
   if(!document.getElementById('sb-calendar').classList.contains('sec-hidden')) renderCalendarPreview();
 }
 
