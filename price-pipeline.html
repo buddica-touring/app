@@ -93,6 +93,19 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;col
         <label>店舗</label>
         <select id="store"><option value="tkm">高松店（TKM）</option></select>
       </div>
+      <div class="cfg-field">
+        <label>🔍 調査開始日</label>
+        <input id="date-from" type="date">
+      </div>
+      <div class="cfg-field">
+        <label>🔍 調査終了日</label>
+        <input id="date-to" type="date">
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:8.5pt;color:#94a3b8">
+      ※ 指定範囲内から CLI agent が <strong>C繁忙×3日 / B通常×3日 / A閑散×3日</strong> をバランス選定して調査。<br>
+      ※ A閑散実調査が欲しい場合: 梅雨6月 or 冬1-2月を範囲に含める。<br>
+      ※ 未指定の場合: 今日〜3ヶ月後を自動使用。
     </div>
     <div class="run-btn-area">
       <button class="btn-mega" id="run-btn" onclick="runPipeline()">⚡ 自動チェーン実行</button>
@@ -194,15 +207,30 @@ function getCfg(){
   return {
     serverUrl: ($('server-url').value||'').trim().replace(/\/+$/,''),
     store: $('store').value,
+    dateFrom: $('date-from').value,
+    dateTo: $('date-to').value,
   };
 }
 function saveCfg(){ localStorage.setItem(CFG_KEY, JSON.stringify(getCfg())); }
 function loadCfg(){
   try{
-    const c = JSON.parse(localStorage.getItem(CFG_KEY)||'null'); if(!c) return;
-    if(c.serverUrl) $('server-url').value = c.serverUrl;
-    if(c.store) $('store').value = c.store;
+    const c = JSON.parse(localStorage.getItem(CFG_KEY)||'null');
+    if(c){
+      if(c.serverUrl) $('server-url').value = c.serverUrl;
+      if(c.store) $('store').value = c.store;
+      if(c.dateFrom) $('date-from').value = c.dateFrom;
+      if(c.dateTo) $('date-to').value = c.dateTo;
+    }
   }catch(e){}
+  // デフォルト値: 今日〜3ヶ月後
+  if(!$('date-from').value){
+    const d = new Date();
+    $('date-from').value = d.toISOString().slice(0,10);
+  }
+  if(!$('date-to').value){
+    const d = new Date(); d.setMonth(d.getMonth()+3);
+    $('date-to').value = d.toISOString().slice(0,10);
+  }
 }
 
 async function runPipeline(){
@@ -278,7 +306,8 @@ function openGo(){
 async function runCli(endpoint){
   const cfg = getCfg();
   const res = await fetch(cfg.serverUrl + endpoint, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({store:cfg.store}),
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({store:cfg.store, dateFrom:cfg.dateFrom, dateTo:cfg.dateTo}),
   });
   if(!res.ok) throw new Error('HTTP '+res.status);
   const data = await res.json();
