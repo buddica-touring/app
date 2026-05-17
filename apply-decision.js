@@ -5,13 +5,16 @@
 (function(global){
   const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
   const HISTORY_KEY = 'bt_tkm_apply_history_v1';
-  const MAPPING_KEY = 'bt_tkm_season_to_tier_v1';
+  const MAPPING_KEY = 'bt_tkm_season_to_tier_v2';  // v2: 1:1対応に変更 (旧v1は破棄)
 
-  // デフォルトのシーズン→tierマッピング
+  // デフォルトのシーズン→tierマッピング (1:1対応・MD命名 = pricing tier命名)
+  // pricing.html / seasonal-config.html の Tier規約: A=閑散 / B=通常 / C=繁忙
+  // 決定MD: C最繁忙 / A繁忙 / B通常
+  // → 同じ文字で対応 (Aの意味が違うのは要運用判断)
   const DEFAULT_MAPPING = {
-    'C最繁忙シーズン': 'A',
-    'A繁忙シーズン':   'B',
-    'B通常シーズン':   'C',
+    'C最繁忙シーズン': 'C',
+    'A繁忙シーズン':   'A',
+    'B通常シーズン':   'B',
   };
   const TIER_CHOICES = ['A','B','C'];
 
