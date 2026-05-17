@@ -346,20 +346,30 @@ function showTierStatsIp(){
       const formattedDate = dateStr ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}` : '不明';
       lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 調査実行日:</strong> ${formattedDate}　<strong>📄 MD:</strong> ${latest.name}　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%</div>`);
 
-      // 現在価格を localStorage の monthlyTierClassPrices から取得 (代表月で判定)
+      // 現在価格を localStorage の monthlyTierClassPrices から取得
+      // 各 tier は月をまたいで同じ値が入るはずなので、「該当 tier の値を持つ最新月」から取得
       const SEASON_TO_TIER = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
-      const SEASON_TO_MONTH = {'C繁忙シーズン':8,'B通常シーズン':5,'A閑散シーズン':6}; // 代表月
       const state = (()=>{ try{return JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');}catch(e){return {};} })();
       const monthly = state.monthlyTierClassPrices || (state.segments && state.segments.proper && state.segments.proper.monthlyTierClassPrices) || {};
+      // tier ごとの最新値を取得する関数
+      const getTierData = (tier)=>{
+        for(let mo=12; mo>=1; mo--){
+          const m = monthly[`2026-${mo}`];
+          if(m && m[tier]) return m[tier];
+        }
+        for(let mo=12; mo>=1; mo--){
+          const m = monthly[`2027-${mo}`];
+          if(m && m[tier]) return m[tier];
+        }
+        return {};
+      };
       const THRESHOLD = 5; // ±5% 以内なら ⭕️
       let okCount = 0, ngCount = 0;
       const ngList = [];
 
       parsed.seasons.forEach(group=>{
         const tier = SEASON_TO_TIER[group.season];
-        const mo = SEASON_TO_MONTH[group.season];
-        const monthData = monthly[`2026-${mo}`] || {};
-        const tierData = monthData[tier] || {};
+        const tierData = getTierData(tier);
         const surveyDates = parsed.surveyDates[group.season] || '不明';
         lines.push(`<div style="margin-top:10px;padding-top:6px;border-top:1px solid #166534"><strong style="color:#fff;font-size:10pt">${group.season}</strong> <span style="font-size:8.5pt;color:#bbf7d0">（調査対象日: ${surveyDates}・希望: 5位×${pct}%）</span></div>`);
         const items = group.rows.filter(r=>r.recommended != null).map(r=>{
