@@ -223,6 +223,55 @@ table.cal-tbl .sat{color:#93c5fd}
 
   <div class="notice">⚠️ 実行前に必ず <a href="./pricing.html" target="_blank" style="color:#92400e;font-weight:700">pricing.html</a> を一度開いてください（初期データ作成のため）</div>
 
+  <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:14px 18px;margin-bottom:14px">
+    <div style="font-size:11pt;font-weight:800;color:#991b1b;margin-bottom:6px">🔧 旧データ修正 (A↔C スワップ)</div>
+    <div style="font-size:9pt;color:#7f1d1d;margin-bottom:10px">過去に A=繁忙(高)/C=閑散(安) で入力されたデータを、新規約 A=閑散(安)/C=繁忙(高) に修正します。<br>※ 1回だけ実行。実行後にこのバナーは消えます。</div>
+    <button onclick="swapACFix()" style="background:#dc2626;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 A↔C スワップ実行</button>
+  </div>
+  <script>
+  function swapACFix(){
+    if(!confirm('全月の原案 V1 と全バージョン履歴で A↔C 価格をスワップします。実行しますか？（不可逆）')) return;
+    try {
+      const k='bt_import_history_v1';
+      const raw=localStorage.getItem(k);
+      if(!raw){ alert('履歴データなし。先に pricing.html → import-prices.html を開いて初期化してください'); return; }
+      const h=JSON.parse(raw);
+      let n=0;
+      Object.keys(h).forEach(ym=>{
+        (h[ym]||[]).forEach(v=>{
+          const tmp=v.A; v.A=v.C; v.C=tmp; n++;
+        });
+      });
+      localStorage.setItem(k, JSON.stringify(h));
+      // pricing.html 側の現行データも修正（segments.proper / cp / ルート）
+      const sk='bt_takamatsu_seasonal_v6';
+      const sraw=localStorage.getItem(sk);
+      if(sraw){
+        const s=JSON.parse(sraw);
+        const swapMap=(m)=>{
+          if(!m) return;
+          Object.keys(m).forEach(ym=>{
+            const o=m[ym]; if(!o) return;
+            const tmp=o.A; o.A=o.C; o.C=tmp;
+          });
+        };
+        if(s.segments){
+          if(s.segments.proper) swapMap(s.segments.proper.monthlyTierClassPrices);
+          if(s.segments.cp) swapMap(s.segments.cp.monthlyTierClassPrices);
+        }
+        swapMap(s.monthlyTierClassPrices);
+        // tierClassPrices (全月共通) もスワップ
+        if(s.tierClassPrices){
+          const tmp=s.tierClassPrices.A; s.tierClassPrices.A=s.tierClassPrices.C; s.tierClassPrices.C=tmp;
+        }
+        localStorage.setItem(sk, JSON.stringify(s));
+      }
+      alert(`✅ A↔C スワップ完了！\n履歴 ${n} バージョン分 + pricing.html 現行データを修正しました。\nリロードします。`);
+      location.reload();
+    } catch(e){ alert('エラー: '+e.message); }
+  }
+  </script>
+
   <!-- セグメントタブ -->
   <div class="seg-tabs" id="seg-tabs">
     <button class="seg-tab active" onclick="selSeg('proper')">📗 プロパー<span class="seg-label">通常料金</span></button>
