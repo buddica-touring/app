@@ -358,7 +358,49 @@ function showPreview(kind){
   $('preview').textContent = (kind==='research' ? researchMd : decisionMd) || '（まだ取得していません）';
 }
 
-window.addEventListener('DOMContentLoaded', loadCfg);
+async function loadExistingResults(){
+  const cfg = getCfg();
+  try{
+    const r = await fetch(cfg.serverUrl + '/api/output/list').then(r=>r.json());
+    const research = (r.files||[]).filter(f=>f.name.includes('research'));
+    const decision = (r.files||[]).filter(f=>f.name.includes('decision'));
+    if(!research.length || !decision.length){
+      logLine('既存MD不完全 (調査=' + research.length + ' 件 / 決定=' + decision.length + ' 件)。「⚡自動チェーン実行」で取得してください');
+      return;
+    }
+    const latestR = research[0], latestD = decision[0];
+    const ageR = ((Date.now() - latestR.mtime) / (1000*60*60*24)).toFixed(1);
+    const ageD = ((Date.now() - latestD.mtime) / (1000*60*60*24)).toFixed(1);
+    logLine('既存MD検出: 調査=' + latestR.name + '(' + ageR + '日前) / 決定=' + latestD.name + '(' + ageD + '日前)');
+
+    researchMd = (await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(latestR.name)).then(r=>r.json())).content || '';
+    decisionMd = (await fetch(cfg.serverUrl + '/api/output/read/' + encodeURIComponent(latestD.name)).then(r=>r.json())).content || '';
+
+    setStep(1, 'done', researchMd.length.toLocaleString() + ' 文字 (' + ageR + '日前)');
+    const c3 = checkResearchMd(researchMd);
+    setStepConfirm(2, c3);
+    setStep(2, c3.some(r=>!r.ok) ? 'error' : 'done');
+
+    setStep(3, 'done', decisionMd.length.toLocaleString() + ' 文字 (' + ageD + '日前)');
+    const c5 = checkDecisionMd(decisionMd);
+    setStepConfirm(4, c5);
+    setStep(4, c5.some(r=>!r.ok) ? 'error' : 'done');
+
+    if(!c3.some(r=>!r.ok) && !c5.some(r=>!r.ok)){
+      $('go-banner').classList.remove('disabled');
+      $('go-btn').disabled = false;
+      $('go-btn').textContent = '★ Goサイン — 反映へ進む';
+      $('run-btn').textContent = '⚡ 再実行（既存MDを上書き）';
+      logLine('✅ 既存MDで Step 1-4 完了。下の★Goサインで反映へ進めます');
+    } else {
+      logLine('⚠️ 既存MDに確認NGあり。「⚡自動チェーン実行」で再取得を推奨');
+    }
+  }catch(e){
+    logLine('既存MDロード失敗: ' + e.message);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', async ()=>{ loadCfg(); await loadExistingResults(); });
 </script>
 </body>
 </html>
