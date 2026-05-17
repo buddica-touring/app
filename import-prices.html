@@ -408,6 +408,9 @@ window.addEventListener('load', ()=>{
       const dateStr = latest.name.match(/(\d{8})/)?.[1] || '';
       const formattedDate = dateStr ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}` : '不明';
       lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 調査実行日:</strong> ${formattedDate}　<strong>📄 MD:</strong> ${latest.name}　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%</div>`);
+      // サマリーバナー (後で actCount 決まったら埋める・一旦プレースホルダ)
+      const summaryPlaceholder = '__SUMMARY_BANNER__';
+      lines.push(summaryPlaceholder);
 
       // 現在価格を localStorage の monthlyTierClassPrices から取得
       // 各 tier は月をまたいで同じ値が入るはずなので、「該当 tier の値を持つ最新月」から取得
@@ -429,6 +432,10 @@ window.addEventListener('load', ()=>{
       const THRESHOLD = 5; // ±5% 以内なら ⭕️
       let okCount = 0, ngCount = 0;
       const ngList = [];
+      // サマリー集計
+      let upCount = 0, downCount = 0, newCount = 0;
+      let upDiffSum = 0, downDiffSum = 0;
+      let maxAbsDiffPct = 0;
 
       parsed.seasons.forEach(group=>{
         const tier = SEASON_TO_TIER[group.season];
@@ -441,19 +448,20 @@ window.addEventListener('load', ()=>{
           let icon, action, comment, color;
           if(cur == null){
             icon = '🆕'; action = '初回設定推奨'; comment = `未設定 → ¥${hope.toLocaleString()} を反映`; color = '#fde68a';
-            ngCount++; ngList.push(`${group.season} ${r.cls}`);
+            ngCount++; newCount++; ngList.push(`${group.season} ${r.cls}`);
           } else {
             const diff = cur - hope;
             const diffPct = Math.abs(diff/hope*100);
+            if(diffPct > maxAbsDiffPct) maxAbsDiffPct = diffPct;
             if(diffPct <= THRESHOLD){
               icon = '⭕️'; action = 'ほぼ希望通り'; comment = `現在 ¥${cur.toLocaleString()} / 希望 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) — 変更不要`; color = '#86efac';
               okCount++;
             } else if(cur < hope){
               icon = '⬆'; action = `${diffPct.toFixed(0)}%安く設定中・上昇余地あり`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (＋¥${Math.abs(diff).toLocaleString()} 上げると希望ポジション)`; color = '#fbbf24';
-              ngCount++; ngList.push(`${group.season} ${r.cls}`);
+              ngCount++; upCount++; upDiffSum += diffPct; ngList.push(`${group.season} ${r.cls}`);
             } else {
               icon = '⬇'; action = `${diffPct.toFixed(0)}%高く設定中・下落リスク`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (−¥${Math.abs(diff).toLocaleString()} 下げると希望ポジション)`; color = '#fca5a5';
-              ngCount++; ngList.push(`${group.season} ${r.cls}`);
+              ngCount++; downCount++; downDiffSum += diffPct; ngList.push(`${group.season} ${r.cls}`);
             }
           }
           return `<div style="padding:4px 0;color:${color};font-size:9.5pt">　${icon} <strong>${r.cls}</strong>: <strong style="color:#fff">${action}</strong><br>　　　<span style="font-size:8.5pt;opacity:.85">${comment}</span></div>`;
@@ -470,6 +478,37 @@ window.addEventListener('load', ()=>{
         lines.push(`<div style="color:#bbf7d0;font-size:8.5pt;margin-top:4px">↓ 下の「④ 価格決定」セクションで最終価格を確認 → 承認</div>`);
       }
       lines.push(`</div>`);
+
+      // サマリーバナー組み立て + プレースホルダ置換
+      const total = okCount + ngCount;
+      const avgUp = upCount ? (upDiffSum/upCount).toFixed(0) : 0;
+      const avgDown = downCount ? (downDiffSum/downCount).toFixed(0) : 0;
+      let actionTitle, actionReason, actionBg;
+      if(total === 0){
+        actionTitle = '判定不能'; actionReason = '決定MDのパース結果が空'; actionBg = '#475569';
+      } else if(ngCount === 0){
+        actionTitle = '何もしなくてOK'; actionReason = '全項目が希望ポジション圏内（±5%以内）'; actionBg = '#16a34a';
+      } else if(maxAbsDiffPct >= 30){
+        actionTitle = '個別確認推奨'; actionReason = `変動率 ${maxAbsDiffPct.toFixed(0)}% を含むハイリスク変更あり。④で個別確認の上、判断を`; actionBg = '#dc2626';
+      } else if(ngCount >= total/2){
+        actionTitle = '⑤Goサインで全反映 推奨'; actionReason = `変更要 ${ngCount}/${total}件 (過半数) が市場希望から乖離。全反映で適正ポジションへ`; actionBg = '#16a34a';
+      } else {
+        actionTitle = '微調整 または 見送り可'; actionReason = `変更要 ${ngCount}/${total}件 (少数)。④で個別確認の上、必要分のみ反映`; actionBg = '#7c3aed';
+      }
+      const banner = `<div style="background:linear-gradient(135deg,#0c1f2e,#0a2818);border:2px solid ${actionBg};border-radius:10px;padding:14px 18px;margin-bottom:14px">`+
+        `<div style="font-size:11pt;font-weight:800;color:#fff;margin-bottom:8px">📊 サマリー判定</div>`+
+        `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;font-size:9pt">`+
+        `<div style="background:#fef3c7;color:#78350f;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${upCount}</strong>件<br>⬆ 上昇余地${upCount?` (平均+${avgUp}%)`:''}</div>`+
+        `<div style="background:#fee2e2;color:#7f1d1d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${downCount}</strong>件<br>⬇ 下落リスク${downCount?` (平均-${avgDown}%)`:''}</div>`+
+        `<div style="background:#dcfce7;color:#14532d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${okCount}</strong>件<br>⭕ 適正</div>`+
+        `<div style="background:#e0e7ff;color:#312e81;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${newCount}</strong>件<br>🆕 未設定</div>`+
+        `</div>`+
+        `<div style="background:${actionBg};color:#fff;padding:10px 14px;border-radius:6px"><div style="font-size:8.5pt;opacity:.9;margin-bottom:2px">🎯 推奨アクション</div><div style="font-size:13pt;font-weight:900;margin-bottom:4px">${actionTitle}</div><div style="font-size:9pt;opacity:.95">${actionReason}</div></div>`+
+        `</div>`;
+      // プレースホルダ置換
+      for(let i=0;i<lines.length;i++){
+        if(lines[i] === '__SUMMARY_BANNER__'){ lines[i] = banner; break; }
+      }
 
       // ④ 価格決定マトリクス (separate section)
       renderDecisionMatrix(parsed, monthly);
