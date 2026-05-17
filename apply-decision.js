@@ -231,7 +231,8 @@
         </div>
 
         <div class="ad-sec">
-          <div class="ad-sec-h">② 適用月（複数選択可）</div>
+          <div class="ad-sec-h">② 価格を書き込む月（複数選択可）</div>
+          <div style="font-size:8.5pt;color:#94a3b8;margin-bottom:6px">推奨価格マトリクスをプライシングシステムの「何月」に書き込むかを選びます。チェックしなかった月には反映されません。</div>
           <div class="ad-month-list" id="ad-months">
             ${allMonths.map(ym => `
               <label class="ad-month-chip ${months.includes(ym)?'checked':''}">
@@ -293,7 +294,7 @@
       // ボタン
       modal.querySelector('#ad-cancel').addEventListener('click', ()=>{ document.body.removeChild(back); });
       modal.querySelector('#ad-confirm').addEventListener('click', ()=>{
-        if(!months.length){ alert('適用月を1つ以上選択してください'); return; }
+        if(!months.length){ alert('書き込み先の月を1つ以上選択してください'); return; }
         if(!confirm(`${months.length}ヶ月分の価格を反映します。\n承認しますか？（不可逆）`)) return;
         saveMapping(mapping);
         const res = applyDecision(parsedDecision, mapping, months);
