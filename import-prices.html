@@ -265,11 +265,92 @@ function showTierStatsIp(){
     <button onclick="swapACFix()" style="background:#dc2626;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 A↔C スワップ実行</button>
   </div>
 
+  <!-- 📅 調査対象日 自動選定（常時表示）-->
+  <div style="background:#0c4a6e;border:2px solid #0ea5e9;border-radius:10px;padding:16px 20px;margin-bottom:14px;color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12pt;font-weight:800;color:#fff">📅 次回 調査対象日（dayTiers から自動選定）</div>
+      <button onclick="refreshSurveyDates()" style="background:#0ea5e9;color:#fff;border:none;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">🔄 更新</button>
+    </div>
+    <div id="survey-dates-list" style="font-size:9.5pt;line-height:1.8;color:#bae6fd;font-family:Menlo,monospace">読み込み中...</div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button id="exec-survey-btn" disabled style="background:#dc2626;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:not-allowed;opacity:.5">⚡ この日程で調査・決定・反映を実行（Phase 3-5 で実装予定）</button>
+      <span style="font-size:8.5pt;color:#7dd3fc">※ いま表示されている日程が次回 CLI agent に渡されます</span>
+    </div>
+  </div>
+
   <div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:14px 18px;margin-bottom:14px">
     <div style="font-size:11pt;font-weight:800;color:#1e3a8a;margin-bottom:6px">🔧 期間プリセット ルール準拠初期化</div>
     <div style="font-size:9pt;color:#1e3a8a;margin-bottom:10px">stores/takamatsu.md のルール (C=お盆/年末/SW/GW/連休 / B=通常週末/平日/春秋 / A=梅雨/冬閑散) に従ってプリセットを初期化し、365日 dayTiers を再計算します。<br>※ 個別の手動上書き (dayTiers) は維持されます。</div>
     <button onclick="resetPresetsAndRecompute()" style="background:#1e40af;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 プリセット初期化 + dayTiers 再計算</button>
   </div>
+
+  <script>
+  // ===== 月別×tier 代表日 自動選定 =====
+  function computeSurveyDates(yr){
+    yr = yr || 2026;
+    try {
+      const s = JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');
+      const d = s.dayTiers || {};
+      const monthly = {}; // {month: {A:[days...], B:[...], C:[...]}}
+      for(let mo=1; mo<=12; mo++){
+        monthly[mo] = {A:[], B:[], C:[]};
+        const last = new Date(yr, mo, 0).getDate();
+        for(let i=1; i<=last; i++){
+          const k = `${yr}-${mo}-${i}`;
+          const t = d[k];
+          if(t==='A'||t==='B'||t==='C') monthly[mo][t].push(i);
+        }
+      }
+      // 各 tier の中央値日を代表日として選定
+      const reps = []; // [{ym, month, tier, day, dateStr}]
+      const WEEKDAY = ['日','月','火','水','木','金','土'];
+      for(let mo=1; mo<=12; mo++){
+        ['C','B','A'].forEach(tier=>{
+          const arr = monthly[mo][tier];
+          if(arr.length === 0) return;
+          const mid = arr[Math.floor(arr.length/2)];
+          const date = new Date(yr, mo-1, mid);
+          reps.push({
+            month: mo,
+            tier: tier,
+            day: mid,
+            dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(mid).padStart(2,'0')}`,
+            weekday: WEEKDAY[date.getDay()],
+            tierCount: arr.length,
+          });
+        });
+      }
+      return reps;
+    } catch(e){ console.error('computeSurveyDates err', e); return []; }
+  }
+
+  function refreshSurveyDates(){
+    const reps = computeSurveyDates(2026);
+    const el = document.getElementById('survey-dates-list');
+    if(!reps.length){ el.innerHTML = '<span style="color:#f87171">⚠️ dayTiers が未設定。先に「🔧 プリセット初期化」を実行してください</span>'; return; }
+    // 月別グルーピング
+    const byMo = {};
+    reps.forEach(r=>{ if(!byMo[r.month]) byMo[r.month]=[]; byMo[r.month].push(r); });
+    const TIER_BADGE = {
+      C:'<span style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:3px;font-weight:800">C 繁忙</span>',
+      B:'<span style="background:#fbbf24;color:#78350f;padding:1px 7px;border-radius:3px;font-weight:800">B 通常</span>',
+      A:'<span style="background:#3b82f6;color:#fff;padding:1px 7px;border-radius:3px;font-weight:800">A 閑散</span>',
+    };
+    const lines = [];
+    Object.keys(byMo).sort((a,b)=>+a-+b).forEach(mo=>{
+      const parts = byMo[mo].map(r => `${TIER_BADGE[r.tier]} ${r.day}日(${r.weekday}) <span style="opacity:.7">[${r.tierCount}日中]</span>`);
+      lines.push(`<div><strong style="display:inline-block;width:30px">${mo}月</strong> ${parts.join(' / ')}</div>`);
+    });
+    lines.push(`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #075985;color:#fff"><strong>合計: ${reps.length}日</strong> を CLI agent が調査します</div>`);
+    el.innerHTML = lines.join('');
+    // localStorage に保存（Phase 3-5 で CLI に渡す用）
+    localStorage.setItem('bt_tkm_survey_dates_v1', JSON.stringify(reps));
+  }
+  // 初回ロード
+  document.addEventListener('DOMContentLoaded', refreshSurveyDates);
+  // dayTiers 変更を検知して自動更新（resetPresetsAndRecompute / swapACFix の後）
+  window._refreshSurveyDates = refreshSurveyDates;
+  </script>
   <script>
   // DEFAULT_PRESETS_TKM (seasonal-config.html L282 と同期)
   const _DEFAULT_PRESETS_2026 = [
