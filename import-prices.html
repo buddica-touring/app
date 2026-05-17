@@ -380,9 +380,20 @@ window.addEventListener('load', ()=>{
     </div>
     <div id="exec-status" style="margin-top:10px;font-size:9pt;color:#fbbf24;display:none"></div>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid #075985">
-      <a href="https://item-underfoot-democracy.ngrok-free.dev/api/survey/csv" target="_blank" style="display:inline-block;background:#0c4a6e;color:#bae6fd;border:1px solid #0ea5e9;padding:6px 14px;border-radius:5px;font-size:9pt;font-weight:700;text-decoration:none">📥 調査結果 CSV ダウンロード</a>
-      <span style="margin-left:8px;font-size:8.5pt;color:#7dd3fc">取得した OTA × クラス × 日付 × 店舗 × 価格 を1ファイルで確認</span>
+      <button onclick="downloadSurveyCsv(false)" style="background:#0c4a6e;color:#bae6fd;border:1px solid #0ea5e9;padding:6px 14px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer;margin-right:6px">📥 選定日だけCSV (今回の調査日のみ)</button>
+      <button onclick="downloadSurveyCsv(true)" style="background:#0c4a6e;color:#bae6fd;border:1px solid #475569;padding:6px 14px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">📥 全件CSV (過去の蓄積含む)</button>
+      <div style="margin-top:5px;font-size:8.5pt;color:#7dd3fc">取得情報の検証用 (OTA×クラス×日付×店舗×価格 を1ファイル)</div>
     </div>
+    <script>
+    function downloadSurveyCsv(allFiles){
+      if(allFiles){ window.open(SERVER_URL + '/api/survey/csv'); return; }
+      const reps = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
+      const excludeSet = (()=>{try{return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]'));}catch(e){return new Set();}})();
+      const dates = [...new Set(reps.filter(r=>r.day!==null && !excludeSet.has(`${r.month}-${r.tier}`)).map(r=>r.dateStr))];
+      if(!dates.length){ alert('選定日がありません。②調査日設定 を確認してください'); return; }
+      window.open(SERVER_URL + '/api/survey/csv?dates=' + encodeURIComponent(dates.join(',')));
+    }
+    </script>
   </div>
 
   <!-- ③ 調査結果報告 (折りたたみ) -->
