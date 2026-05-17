@@ -269,14 +269,24 @@ function showTierStatsIp(){
 </div>
 <script>
 function showBigTab(name){
-  document.querySelectorAll('[data-bigtab]').forEach(el=>{
-    el.style.display = el.dataset.bigtab===name?'':'none';
+  const els = document.querySelectorAll('[data-bigtab]');
+  console.log('[showBigTab]', name, 'targets:', els.length);
+  els.forEach(el=>{
+    el.hidden = (el.dataset.bigtab !== name);
+    el.style.display = (el.dataset.bigtab === name) ? '' : 'none';
   });
-  document.getElementById('bt-setting').classList.toggle('active', name==='setting');
-  document.getElementById('bt-calendar').classList.toggle('active', name==='calendar');
+  const bs = document.getElementById('bt-setting');
+  const bc = document.getElementById('bt-calendar');
+  if(bs) bs.classList.toggle('active', name==='setting');
+  if(bc) bc.classList.toggle('active', name==='calendar');
   localStorage.setItem('bt_tkm_last_bigtab', name);
 }
 document.addEventListener('DOMContentLoaded', ()=>{
+  const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
+  showBigTab(last);
+});
+// 保険: window.load でも実行
+window.addEventListener('load', ()=>{
   const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
   showBigTab(last);
 });
