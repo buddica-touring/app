@@ -264,6 +264,79 @@ function showTierStatsIp(){
     <div style="font-size:9pt;color:#7f1d1d;margin-bottom:10px">過去に A=繁忙(高)/C=閑散(安) で入力されたデータを、新規約 A=閑散(安)/C=繁忙(高) に修正します。<br>※ 1回だけ実行。実行後にこのバナーは消えます。</div>
     <button onclick="swapACFix()" style="background:#dc2626;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 A↔C スワップ実行</button>
   </div>
+
+  <div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:14px 18px;margin-bottom:14px">
+    <div style="font-size:11pt;font-weight:800;color:#1e3a8a;margin-bottom:6px">🔧 期間プリセット ルール準拠初期化</div>
+    <div style="font-size:9pt;color:#1e3a8a;margin-bottom:10px">stores/takamatsu.md のルール (C=お盆/年末/SW/GW/連休 / B=通常週末/平日/春秋 / A=梅雨/冬閑散) に従ってプリセットを初期化し、365日 dayTiers を再計算します。<br>※ 個別の手動上書き (dayTiers) は維持されます。</div>
+    <button onclick="resetPresetsAndRecompute()" style="background:#1e40af;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 プリセット初期化 + dayTiers 再計算</button>
+  </div>
+  <script>
+  // DEFAULT_PRESETS_TKM (seasonal-config.html L282 と同期)
+  const _DEFAULT_PRESETS_2026 = [
+    {id:1, label:'GW',          fromM:4,  fromD:27, toM:5,  toD:6,  tier:'C', enabled:true},
+    {id:2, label:'お盆',        fromM:8,  fromD:10, toM:8,  toD:16, tier:'C', enabled:true},
+    {id:3, label:'年末年始',    fromM:12, fromD:27, toM:12, toD:31, tier:'C', enabled:true},
+    {id:4, label:'年始',        fromM:1,  fromD:1,  toM:1,  toD:4,  tier:'C', enabled:true},
+    {id:5, label:'桜ピーク',    fromM:3,  fromD:28, toM:4,  toD:10, tier:'C', enabled:true},
+    {id:6, label:'紅葉ピーク',  fromM:11, fromD:13, toM:11, toD:20, tier:'C', enabled:true},
+    {id:7, label:'シルバーWK',  fromM:9,  fromD:19, toM:9,  toD:23, tier:'C', enabled:true},
+    {id:8, label:'夏休み',      fromM:7,  fromD:21, toM:8,  toD:31, tier:'B', enabled:true},
+    {id:9, label:'春（桜期）',  fromM:3,  fromD:15, toM:4,  toD:26, tier:'B', enabled:true},
+    {id:10,label:'秋（紅葉期）',fromM:11, fromD:1,  toM:11, toD:12, tier:'B', enabled:true},
+    {id:11,label:'梅雨',        fromM:6,  fromD:1,  toM:6,  toD:30, tier:'A', enabled:true},
+    {id:12,label:'冬閑散①',    fromM:1,  fromD:5,  toM:2,  toD:28, tier:'A', enabled:true},
+    {id:13,label:'冬閑散②',    fromM:12, fromD:1,  toM:12, toD:22, tier:'A', enabled:true},
+    {id:14,label:'梅雨明け前',  fromM:7,  fromD:1,  toM:7,  toD:20, tier:'A', enabled:true},
+  ];
+  function _dateInRange(date, fromM, fromD, toM, toD){
+    const m=date.getMonth()+1, d=date.getDate();
+    const from=fromM*100+fromD, to=toM*100+toD, cur=m*100+d;
+    if(from<=to) return cur>=from && cur<=to;
+    return cur>=from || cur<=to;
+  }
+  function resetPresetsAndRecompute(){
+    if(!confirm('期間プリセットを初期値に戻し、365日 dayTiers を再計算します。\n\n変更される例:\n・夏休み 7/21-8/31 → B 通常 (今 C なら)\n・春(桜期) 3/15-4/26 → B 通常 (今 C なら)\n\n実行しますか？')) return;
+    try {
+      // 1. scConfig (期間プリセット) を初期化
+      const SC_KEY = 'bt_seasonal_config_v2';
+      let sc = {};
+      try{ sc = JSON.parse(localStorage.getItem(SC_KEY)||'{}'); }catch(e){}
+      if(!sc.tkm) sc.tkm = {};
+      if(!sc.tkm['2026']) sc.tkm['2026'] = {};
+      sc.tkm['2026'].periods = JSON.parse(JSON.stringify(_DEFAULT_PRESETS_2026));
+      localStorage.setItem(SC_KEY, JSON.stringify(sc));
+
+      // 2. masterState.dayTiers を期間プリセット基準で再計算 (期間外 = B)
+      const MS_KEY = 'bt_takamatsu_seasonal_v6';
+      let ms = {};
+      try{ ms = JSON.parse(localStorage.getItem(MS_KEY)||'{}'); }catch(e){}
+      if(!ms.dayTiers) ms.dayTiers = {};
+      const TIER_PRI = {A:1,B:2,C:3};
+      const y = 2026;
+      const periods = _DEFAULT_PRESETS_2026.filter(p=>p.enabled);
+      let cnt = {A:0,B:0,C:0};
+      for(let m=1; m<=12; m++){
+        const last = new Date(y,m,0).getDate();
+        for(let d=1; d<=last; d++){
+          const date = new Date(y,m-1,d);
+          const dk = `${y}-${m}-${d}`;
+          let bestTier = null, bestPri = 0;
+          periods.forEach(p=>{
+            if(_dateInRange(date,p.fromM,p.fromD,p.toM,p.toD)){
+              if(TIER_PRI[p.tier] > bestPri){ bestPri = TIER_PRI[p.tier]; bestTier = p.tier; }
+            }
+          });
+          const finalTier = bestTier || 'B';
+          ms.dayTiers[dk] = finalTier;
+          cnt[finalTier]++;
+        }
+      }
+      localStorage.setItem(MS_KEY, JSON.stringify(ms));
+      alert(`✅ 完了\n2026年 dayTiers 再計算: A=${cnt.A} B=${cnt.B} C=${cnt.C} / 計365日`);
+      location.reload();
+    } catch(e){ alert('エラー: '+e.message); }
+  }
+  </script>
   <script>
   function swapACFix(){
     if(!confirm('全月の原案 V1 と全バージョン履歴で A↔C 価格をスワップします。実行しますか？（不可逆）')) return;
