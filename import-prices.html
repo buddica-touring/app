@@ -301,6 +301,100 @@ function showTierStatsIp(){
   document.addEventListener('DOMContentLoaded', loadPositionPct);
   </script>
 
+  <!-- 📊 調査結果報告（決定MDから自動生成）-->
+  <div style="background:#14532d;border:2px solid #22c55e;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12pt;font-weight:800">📊 調査結果報告 <span style="font-size:9pt;color:#bbf7d0;font-weight:400">（直近の決定MDから 変更要/不要 を判定）</span></div>
+      <button onclick="refreshReport()" style="background:#22c55e;color:#fff;border:none;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">🔄 更新</button>
+    </div>
+    <div id="report-list" style="font-size:9pt;line-height:1.6;color:#dcfce7">読み込み中...</div>
+  </div>
+  <script>
+  const SERVER_URL = 'https://item-underfoot-democracy.ngrok-free.dev';
+  async function refreshReport(){
+    const el = document.getElementById('report-list');
+    el.innerHTML = '...';
+    try{
+      const r = await fetch(SERVER_URL + '/api/output/list', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      const decisions = (r.files||[]).filter(f=>f.name.includes('decision'));
+      if(!decisions.length){
+        el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDなし。「⚡実行」で調査→決定を実施してください</span>';
+        return;
+      }
+      const latest = decisions[0];
+      const c = await fetch(SERVER_URL + '/api/output/read/' + encodeURIComponent(latest.name), {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      const md = c.content || '';
+      const parsed = parseReport(md);
+      if(!parsed.length){ el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDのパースに失敗</span>'; return; }
+      // 希望ポジション％取得
+      const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
+      const THRESHOLD_PCT = 3; // ±3% 以内なら変更不要
+      const lines = [];
+      let changeCount = 0, noChangeCount = 0;
+      parsed.forEach(group=>{
+        const items = group.rows.filter(r=>r.recommended != null).map(r=>{
+          const cur = r.current;
+          const rec = r.recommended;
+          let judge, color;
+          if(cur == null){
+            judge = `初回設定: ¥${rec.toLocaleString()} を反映`;
+            color = '#fbbf24';
+            changeCount++;
+          } else {
+            const diff = rec - cur;
+            const diffPct = Math.abs(diff/cur*100);
+            if(diffPct <= THRESHOLD_PCT){
+              judge = `現在¥${cur.toLocaleString()} → 5位×${pct}%圏内 (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更不要`;
+              color = '#86efac';
+              noChangeCount++;
+            } else {
+              judge = `現在¥${cur.toLocaleString()} → 推奨¥${rec.toLocaleString()} (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更必要`;
+              color = '#fbbf24';
+              changeCount++;
+            }
+          }
+          return `<div style="padding:2px 0;color:${color}">　・<strong>${r.cls}</strong>: ${judge}</div>`;
+        });
+        if(items.length){
+          lines.push(`<div style="margin-top:6px"><strong style="color:#fff">${group.season}</strong></div>`);
+          lines.push(items.join(''));
+        }
+      });
+      lines.push(`<div style="margin-top:10px;padding-top:8px;border-top:1px solid #166534;color:#fff"><strong>サマリー: 変更必要 ${changeCount}件 / 変更不要 ${noChangeCount}件</strong>　[${latest.name}]</div>`);
+      el.innerHTML = lines.join('');
+    }catch(e){ el.innerHTML = '<span style="color:#fca5a5">エラー: '+e.message+'</span>'; }
+  }
+  // 決定MDから seasons をパース（apply-decision.js と同等の簡易版）
+  function parseReport(md){
+    const result = [];
+    const lines = md.split(/\r?\n/);
+    let curGroup = null;
+    for(const ln of lines){
+      const sm = ln.trim().match(/^###\s+(.+?シーズン)/);
+      if(sm){
+        const season = sm[1].trim().replace(/[（(].*?[）)]/g,'').trim();
+        curGroup = {season, rows:[]};
+        result.push(curGroup);
+        continue;
+      }
+      if(curGroup && ln.trim().startsWith('|') && !ln.trim().startsWith('|--') && !/クラス/.test(ln)){
+        const cells = ln.split('|').map(s=>s.trim()).filter(s=>s.length>0);
+        if(cells.length >= 3 && /^(AA|A|B|C|S|H|F)$/.test(cells[0])){
+          const parsePrice = (s)=>{ if(!s||s==='—'||s.includes('未定')) return null; const m=s.match(/¥?\s*([\d,]+)/); return m?parseInt(m[1].replace(/,/g,''),10):null; };
+          curGroup.rows.push({
+            cls: cells[0],
+            base: parsePrice(cells[1]),
+            recommended: parsePrice(cells[2]),
+            current: cells[3] ? parsePrice(cells[3]) : null,
+          });
+        }
+      }
+    }
+    return result;
+  }
+  document.addEventListener('DOMContentLoaded', refreshReport);
+  </script>
+
   <!-- 📅 調査対象日 自動選定（常時表示）-->
   <div style="background:#0c4a6e;border:2px solid #0ea5e9;border-radius:10px;padding:16px 20px;margin-bottom:14px;color:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
