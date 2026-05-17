@@ -23,8 +23,12 @@
     let curSeason = null;
     for(let i=0;i<lines.length;i++){
       const ln = lines[i].trim();
-      const sm = ln.match(/^###\s+(.+?シーズン.*?)$/);
-      if(sm){ curSeason = sm[1].trim(); result.seasons[curSeason] = []; continue; }
+      const sm = ln.match(/^###\s+(.+?シーズン)/);  // 「シーズン」までで切る（カッコ等を除外）
+      if(sm){
+        curSeason = sm[1].trim().replace(/[（(].*?[）)]/g,'').trim();  // 念のためカッコ削除
+        result.seasons[curSeason] = [];
+        continue;
+      }
       if(curSeason && ln.startsWith('|') && !ln.startsWith('|--') && !/クラス/.test(ln)){
         const cells = ln.split('|').map(s=>s.trim()).filter(s=>s.length>0);
         if(cells.length >= 3){
