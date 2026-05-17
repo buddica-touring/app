@@ -257,11 +257,14 @@ function showTierStatsIp(){
 
 <div class="container">
 
-<!-- ===== 大タブ ===== -->
+<!-- ===== 大タブ (CSS body class ベース・確実) ===== -->
 <style>
 .big-tab{padding:12px 28px;border:2px solid #334155;border-bottom:none;border-radius:8px 8px 0 0;background:#1e293b;color:#94a3b8;font-weight:800;font-size:11pt;cursor:pointer;margin-right:4px;transition:all .15s}
 .big-tab:hover{background:#334155;color:#cbd5e1}
 .big-tab.active{background:#1e3a8a;color:#fff;border-color:#1e3a8a}
+/* CSS で確実にタブ切替 */
+body.tab-setting [data-bigtab="calendar"]{display:none!important;visibility:hidden!important}
+body.tab-calendar [data-bigtab="setting"]{display:none!important;visibility:hidden!important}
 </style>
 <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:3px solid #1e3a8a;padding-bottom:0">
   <button class="big-tab" id="bt-setting" onclick="showBigTab('setting')">📋 設定・実行</button>
@@ -269,23 +272,24 @@ function showTierStatsIp(){
 </div>
 <script>
 function showBigTab(name){
-  const els = document.querySelectorAll('[data-bigtab]');
-  console.log('[showBigTab]', name, 'targets:', els.length);
-  els.forEach(el=>{
-    el.hidden = (el.dataset.bigtab !== name);
-    el.style.display = (el.dataset.bigtab === name) ? '' : 'none';
-  });
+  document.body.classList.remove('tab-setting','tab-calendar');
+  document.body.classList.add('tab-'+name);
   const bs = document.getElementById('bt-setting');
   const bc = document.getElementById('bt-calendar');
   if(bs) bs.classList.toggle('active', name==='setting');
   if(bc) bc.classList.toggle('active', name==='calendar');
   localStorage.setItem('bt_tkm_last_bigtab', name);
+  console.log('[showBigTab]', name);
 }
+// 即時実行 + DOMContentLoaded + load の3段保険
+(function(){
+  const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
+  document.body && document.body.classList.add('tab-'+last);
+})();
 document.addEventListener('DOMContentLoaded', ()=>{
   const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
   showBigTab(last);
 });
-// 保険: window.load でも実行
 window.addEventListener('load', ()=>{
   const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
   showBigTab(last);
