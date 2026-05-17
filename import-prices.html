@@ -517,10 +517,11 @@ function showTierStatsIp(){
       <button onclick="refreshSurveyDates()" style="background:#0ea5e9;color:#fff;border:none;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">🔄 更新</button>
     </div>
     <div id="survey-dates-list" style="font-size:9.5pt;line-height:1.8;color:#bae6fd;font-family:Menlo,monospace">読み込み中...</div>
-    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-      <button id="exec-survey-btn" disabled style="background:#dc2626;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:not-allowed;opacity:.5">⚡ この日程で調査・決定・反映を実行（Phase 3-5 で実装予定）</button>
-      <span style="font-size:8.5pt;color:#7dd3fc">※ いま表示されている日程が次回 CLI agent に渡されます</span>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="exec-survey-btn" onclick="execSurveyChain()" style="background:#dc2626;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:pointer">⚡ ②調査 → ③④結果報告 を実行（CLI agent 起動）</button>
+      <span style="font-size:8.5pt;color:#7dd3fc">※ ①希望ポジションと②選定日が CLI に渡されます (約10-15分)</span>
     </div>
+    <div id="exec-status" style="margin-top:8px;font-size:9pt;color:#fbbf24;display:none"></div>
   </div>
 
   <div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:14px 18px;margin-bottom:14px">
@@ -635,6 +636,71 @@ function showTierStatsIp(){
     // localStorage に保存（Phase 3-5 で CLI に渡す用）
     localStorage.setItem('bt_tkm_survey_dates_v1', JSON.stringify(reps));
   }
+  // ⚡実行: CLI agent 起動 (調査 + 決定 を順次)
+  async function execSurveyChain(){
+    const btn = document.getElementById('exec-survey-btn');
+    const stat = document.getElementById('exec-status');
+    const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
+    const allReps = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
+    const excludeSet = _getExcludeSet();
+    const surveyDates = allReps.filter(r => r.day !== null && !excludeSet.has(`${r.month}-${r.tier}`));
+    if(!surveyDates.length){ alert('調査対象日がゼロです。除外設定を確認してください'); return; }
+    if(!confirm(`CLI agent を起動します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約10-15分\n\n実行しますか？`)) return;
+
+    btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 実行中...';
+    stat.style.display = 'block'; stat.textContent = '🔄 Step 1: 価格調査 起動中...';
+    try {
+      // Step 1: 価格調査
+      const r1 = await fetch(SERVER_URL + '/api/run/research', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+        body: JSON.stringify({positionPct: pct, surveyDates: surveyDates}),
+      }).then(r=>r.json());
+      const rid1 = r1.runId;
+      stat.textContent = '🔄 Step 1: 価格調査 実行中 (runId=' + rid1 + ')...';
+      await pollRun(rid1, 'Step 1: 価格調査', stat);
+      stat.textContent = '✅ Step 1 完了 → Step 2: 価格決定 起動中...';
+
+      // Step 2: 価格決定
+      const r2 = await fetch(SERVER_URL + '/api/run/decision', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+        body: JSON.stringify({positionPct: pct, surveyDates: surveyDates}),
+      }).then(r=>r.json());
+      const rid2 = r2.runId;
+      stat.textContent = '🔄 Step 2: 価格決定 実行中 (runId=' + rid2 + ')...';
+      await pollRun(rid2, 'Step 2: 価格決定', stat);
+      stat.textContent = '✅ 完了! ③調査結果報告・④価格決定 を更新します';
+
+      // ③④の更新
+      await refreshReport();
+      stat.textContent = '✅ 完了。下の③④で結果を確認、⑤Goサインで反映してください';
+      stat.style.color = '#86efac';
+    } catch(e){
+      stat.textContent = '❌ エラー: ' + e.message;
+      stat.style.color = '#fca5a5';
+    } finally {
+      btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ②調査 → ③④結果報告 を実行（CLI agent 起動）';
+    }
+  }
+  async function pollRun(runId, label, statEl){
+    return new Promise((resolve, reject)=>{
+      const startT = Date.now();
+      const t = setInterval(async ()=>{
+        try{
+          const r = await fetch(SERVER_URL + '/api/run/' + runId, {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+          const elapsed = Math.floor((Date.now() - startT)/1000);
+          statEl.textContent = `🔄 ${label} 実行中 (${elapsed}秒 / status=${r.status})...`;
+          if(r.status !== 'running'){
+            clearInterval(t);
+            if(r.status === 'completed') resolve(r);
+            else reject(new Error(`${label} failed (exit=${r.exitCode})`));
+          }
+        }catch(e){ clearInterval(t); reject(e); }
+      }, 20000); // 20秒おき
+    });
+  }
+
   // 代表日の手動 override (プルダウン変更)
   function setSurveyOverride(mo, tier, dayStr){
     try{
