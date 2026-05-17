@@ -320,48 +320,47 @@ function showTierStatsIp(){
       const c = await fetch(SERVER_URL + '/api/output/read/' + encodeURIComponent(latest.name), {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
       const md = c.content || '';
       const parsed = parseReport(md);
-      if(!parsed.length){ el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDのパースに失敗</span>'; return; }
-      // 希望ポジション％取得
+      if(!parsed.seasons.length){ el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDのパースに失敗</span>'; return; }
       const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
-      const THRESHOLD_PCT = 3; // ±3% 以内なら変更不要
       const lines = [];
-      let changeCount = 0, noChangeCount = 0;
-      parsed.forEach(group=>{
-        const items = group.rows.filter(r=>r.recommended != null).map(r=>{
-          const cur = r.current;
+      // ヘッダー: 調査日付
+      const dateStr = latest.name.match(/(\d{8})/)?.[1] || '';
+      const formattedDate = dateStr ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}` : '不明';
+      lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 調査実行日:</strong> ${formattedDate}　<strong>📄 MD:</strong> ${latest.name}　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%</div>`);
+
+      parsed.seasons.forEach(group=>{
+        // 調査対象日 (parseReport で抽出)
+        const surveyDates = parsed.surveyDates[group.season] || '不明';
+        lines.push(`<div style="margin-top:10px;padding-top:6px;border-top:1px solid #166534"><strong style="color:#fff;font-size:10pt">${group.season}</strong> <span style="font-size:8.5pt;color:#bbf7d0">（調査対象日: ${surveyDates}）</span></div>`);
+        const items = group.rows.filter(r=>r.recommended != null && r.base != null).map(r=>{
+          // 弊社推奨価格が市場5位の何%か = 推定順位
           const rec = r.recommended;
-          let judge, color;
-          if(cur == null){
-            judge = `初回設定: ¥${rec.toLocaleString()} を反映`;
-            color = '#fbbf24';
-            changeCount++;
-          } else {
-            const diff = rec - cur;
-            const diffPct = Math.abs(diff/cur*100);
-            if(diffPct <= THRESHOLD_PCT){
-              judge = `現在¥${cur.toLocaleString()} → 5位×${pct}%圏内 (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更不要`;
-              color = '#86efac';
-              noChangeCount++;
-            } else {
-              judge = `現在¥${cur.toLocaleString()} → 推奨¥${rec.toLocaleString()} (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更必要`;
-              color = '#fbbf24';
-              changeCount++;
-            }
-          }
-          return `<div style="padding:2px 0;color:${color}">　・<strong>${r.cls}</strong>: ${judge}</div>`;
+          const market5 = r.base;
+          const ratio = (rec / market5 * 100);
+          // 順位推定: 5位×100%=ちょうど5位 / ×90%=6-7位 / ×80%=8-10位 / ×110%=3-4位
+          let rankEst, color;
+          if(ratio >= 105){ rankEst = '推定 3-4位 (5位より高い・守り)'; color = '#fde68a'; }
+          else if(ratio >= 95){ rankEst = '推定 5位前後 (5位±)'; color = '#fde68a'; }
+          else if(ratio >= 88){ rankEst = '推定 6-7位 (5位×90%圏)'; color = '#86efac'; }
+          else if(ratio >= 80){ rankEst = '推定 8-10位 (5位×80%・攻め)'; color = '#fbbf24'; }
+          else { rankEst = '推定 10位以下 (最安帯)'; color = '#f87171'; }
+          return `<div style="padding:3px 0;color:#dcfce7">　・<strong>${r.cls}</strong>: 弊社推奨 <strong style="color:#fff">¥${rec.toLocaleString()}</strong> / 市場5位 ¥${market5.toLocaleString()} (5位×${ratio.toFixed(0)}%) → <span style="color:${color};font-weight:700">${rankEst}</span></div>`;
         });
-        if(items.length){
-          lines.push(`<div style="margin-top:6px"><strong style="color:#fff">${group.season}</strong></div>`);
-          lines.push(items.join(''));
-        }
+        lines.push(items.join(''));
       });
-      lines.push(`<div style="margin-top:10px;padding-top:8px;border-top:1px solid #166534;color:#fff"><strong>サマリー: 変更必要 ${changeCount}件 / 変更不要 ${noChangeCount}件</strong>　[${latest.name}]</div>`);
+      // 判断ボタン
+      lines.push(`<div style="margin-top:14px;padding:12px;background:#0a2818;border-radius:6px;text-align:center"><div style="color:#fff;font-size:10pt;margin-bottom:8px">⇒ 上記事実を踏まえ、この推奨価格でプライシングシステムに反映しますか？</div><button onclick="approveReport()" style="background:#16a34a;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer;margin-right:8px">✓ 承認・反映へ進む</button><button onclick="declineReport()" style="background:#7f1d1d;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer">× 今回は見送り</button></div>`);
       el.innerHTML = lines.join('');
     }catch(e){ el.innerHTML = '<span style="color:#fca5a5">エラー: '+e.message+'</span>'; }
   }
-  // 決定MDから seasons をパース（apply-decision.js と同等の簡易版）
+  function approveReport(){
+    alert('★Goサインモーダル起動は Phase 3-5 で実装予定。\n現状は import-prices.html 内で 価格マトリクスを直接編集・保存してください。');
+  }
+  function declineReport(){
+    if(confirm('今回の調査結果を見送ります（価格は変更されません）。よろしいですか？')) alert('見送り完了');
+  }
   function parseReport(md){
-    const result = [];
+    const result = {seasons:[], surveyDates:{}};
     const lines = md.split(/\r?\n/);
     let curGroup = null;
     for(const ln of lines){
@@ -369,8 +368,13 @@ function showTierStatsIp(){
       if(sm){
         const season = sm[1].trim().replace(/[（(].*?[）)]/g,'').trim();
         curGroup = {season, rows:[]};
-        result.push(curGroup);
+        result.seasons.push(curGroup);
         continue;
+      }
+      // 調査対象日抽出: 例「※ B通常代表＝5/21・6/10・7/8 の中央値」等
+      const dm = ln.match(/(C繁忙|B通常|A閑散).{0,15}?[=＝]\s*([\d\/、，,\s・]+)/);
+      if(dm){
+        result.surveyDates[dm[1]+'シーズン'] = dm[2].trim();
       }
       if(curGroup && ln.trim().startsWith('|') && !ln.trim().startsWith('|--') && !/クラス/.test(ln)){
         const cells = ln.split('|').map(s=>s.trim()).filter(s=>s.length>0);
