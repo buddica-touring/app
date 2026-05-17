@@ -237,9 +237,15 @@ table.cal-tbl .sat{color:#93c5fd}
       if(!raw){ alert('履歴データなし。先に pricing.html → import-prices.html を開いて初期化してください'); return; }
       const h=JSON.parse(raw);
       let n=0;
-      Object.keys(h).forEach(ym=>{
-        (h[ym]||[]).forEach(v=>{
-          const tmp=v.A; v.A=v.C; v.C=tmp; n++;
+      // 構造: {history: {ym: [versions]}, active: {ym: vid}}
+      const hist = h.history || h;  // 互換性: 旧形式 (root に ym 直接) も許容
+      Object.keys(hist).forEach(ym=>{
+        const arr = hist[ym];
+        if(!Array.isArray(arr)) return;
+        arr.forEach(v=>{
+          if(v && typeof v === 'object'){
+            const tmp=v.A; v.A=v.C; v.C=tmp; n++;
+          }
         });
       });
       localStorage.setItem(k, JSON.stringify(h));
