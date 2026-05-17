@@ -328,28 +328,55 @@ function showTierStatsIp(){
       const formattedDate = dateStr ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}` : '不明';
       lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 調査実行日:</strong> ${formattedDate}　<strong>📄 MD:</strong> ${latest.name}　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%</div>`);
 
+      // 現在価格を localStorage の monthlyTierClassPrices から取得 (代表月で判定)
+      const SEASON_TO_TIER = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
+      const SEASON_TO_MONTH = {'C繁忙シーズン':8,'B通常シーズン':5,'A閑散シーズン':6}; // 代表月
+      const state = (()=>{ try{return JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');}catch(e){return {};} })();
+      const monthly = state.monthlyTierClassPrices || (state.segments && state.segments.proper && state.segments.proper.monthlyTierClassPrices) || {};
+      const THRESHOLD = 5; // ±5% 以内なら ⭕️
+      let okCount = 0, ngCount = 0;
+      const ngList = [];
+
       parsed.seasons.forEach(group=>{
-        // 調査対象日 (parseReport で抽出)
+        const tier = SEASON_TO_TIER[group.season];
+        const mo = SEASON_TO_MONTH[group.season];
+        const monthData = monthly[`2026-${mo}`] || {};
+        const tierData = monthData[tier] || {};
         const surveyDates = parsed.surveyDates[group.season] || '不明';
-        lines.push(`<div style="margin-top:10px;padding-top:6px;border-top:1px solid #166534"><strong style="color:#fff;font-size:10pt">${group.season}</strong> <span style="font-size:8.5pt;color:#bbf7d0">（調査対象日: ${surveyDates}）</span></div>`);
-        const items = group.rows.filter(r=>r.recommended != null && r.base != null).map(r=>{
-          // 弊社推奨価格が市場5位の何%か = 推定順位
-          const rec = r.recommended;
-          const market5 = r.base;
-          const ratio = (rec / market5 * 100);
-          // 順位推定: 5位×100%=ちょうど5位 / ×90%=6-7位 / ×80%=8-10位 / ×110%=3-4位
-          let rankEst, color;
-          if(ratio >= 105){ rankEst = '推定 3-4位 (5位より高い・守り)'; color = '#fde68a'; }
-          else if(ratio >= 95){ rankEst = '推定 5位前後 (5位±)'; color = '#fde68a'; }
-          else if(ratio >= 88){ rankEst = '推定 6-7位 (5位×90%圏)'; color = '#86efac'; }
-          else if(ratio >= 80){ rankEst = '推定 8-10位 (5位×80%・攻め)'; color = '#fbbf24'; }
-          else { rankEst = '推定 10位以下 (最安帯)'; color = '#f87171'; }
-          return `<div style="padding:3px 0;color:#dcfce7">　・<strong>${r.cls}</strong>: 弊社推奨 <strong style="color:#fff">¥${rec.toLocaleString()}</strong> / 市場5位 ¥${market5.toLocaleString()} (5位×${ratio.toFixed(0)}%) → <span style="color:${color};font-weight:700">${rankEst}</span></div>`;
+        lines.push(`<div style="margin-top:10px;padding-top:6px;border-top:1px solid #166534"><strong style="color:#fff;font-size:10pt">${group.season}</strong> <span style="font-size:8.5pt;color:#bbf7d0">（調査対象日: ${surveyDates}・希望: 5位×${pct}%）</span></div>`);
+        const items = group.rows.filter(r=>r.recommended != null).map(r=>{
+          const cur = tierData[r.cls];   // 現在価格 (localStorage から)
+          const hope = r.recommended;     // 希望ポジション = CLI 推奨 (5位×pct%)
+          let icon, judge, color;
+          if(cur == null){
+            icon = '🆕'; judge = `未設定 → 希望 ¥${hope.toLocaleString()} を反映`; color = '#fde68a';
+            ngCount++; ngList.push(`${group.season} ${r.cls}`);
+          } else {
+            const diff = cur - hope;
+            const diffPct = Math.abs(diff/hope*100);
+            if(diffPct <= THRESHOLD){
+              icon = '⭕️'; judge = `現在 ¥${cur.toLocaleString()} ≒ 希望 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) 変更不要`; color = '#86efac';
+              okCount++;
+            } else {
+              icon = '❌'; judge = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更要`; color = '#fbbf24';
+              ngCount++; ngList.push(`${group.season} ${r.cls}`);
+            }
+          }
+          return `<div style="padding:3px 0;color:${color};font-size:9.5pt">　${icon} <strong>${r.cls}</strong>: ${judge}</div>`;
         });
         lines.push(items.join(''));
       });
+
       // 判断ボタン
-      lines.push(`<div style="margin-top:14px;padding:12px;background:#0a2818;border-radius:6px;text-align:center"><div style="color:#fff;font-size:10pt;margin-bottom:8px">⇒ 上記事実を踏まえ、この推奨価格でプライシングシステムに反映しますか？</div><button onclick="approveReport()" style="background:#16a34a;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer;margin-right:8px">✓ 承認・反映へ進む</button><button onclick="declineReport()" style="background:#7f1d1d;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer">× 今回は見送り</button></div>`);
+      lines.push(`<div style="margin-top:14px;padding:12px;background:#0a2818;border-radius:6px;text-align:center">`);
+      if(ngCount === 0){
+        lines.push(`<div style="color:#86efac;font-size:11pt;font-weight:800">✅ 全 ${okCount} 項目とも希望ポジション圏内・変更不要</div>`);
+      } else {
+        lines.push(`<div style="color:#fff;font-size:10pt;margin-bottom:10px">⇒ ❌ <strong style="color:#fbbf24">${ngCount}件</strong> が希望ポジション外。価格変更しますか？ (⭕️ ${okCount}件は変更不要)</div>`);
+        lines.push(`<button onclick="approveReport()" style="background:#16a34a;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer;margin-right:8px">✓ 承認・全反映へ</button>`);
+        lines.push(`<button onclick="declineReport()" style="background:#7f1d1d;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer">× 全見送り</button>`);
+      }
+      lines.push(`</div>`);
       el.innerHTML = lines.join('');
     }catch(e){ el.innerHTML = '<span style="color:#fca5a5">エラー: '+e.message+'</span>'; }
   }
