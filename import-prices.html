@@ -260,6 +260,18 @@ function showTierStatsIp(){
   <div class="notice">⚠️ 実行前に必ず <a href="./pricing.html" target="_blank" style="color:#92400e;font-weight:700">pricing.html</a> を一度開いてください（初期データ作成のため）</div>
 
 
+  <!-- apply-decision.js 共通モジュール（Goサインモーダル等） -->
+  <script>
+  // ngrok 警告 bypass (apply-decision.js 内の fetch にも適用)
+  const _origFetch = window.fetch;
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {}, {'ngrok-skip-browser-warning':'1'});
+    return _origFetch(url, opts);
+  };
+  </script>
+  <script src="apply-decision.js"></script>
+
   <!-- 🎯 希望ポジション設定（常時表示・編集可能）-->
   <div style="background:#1e3a8a;border:2px solid #fbbf24;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -367,24 +379,75 @@ function showTierStatsIp(){
         lines.push(items.join(''));
       });
 
-      // 判断ボタン
+      // 判断ボタン (③→④へ進む)
       lines.push(`<div style="margin-top:14px;padding:12px;background:#0a2818;border-radius:6px;text-align:center">`);
       if(ngCount === 0){
         lines.push(`<div style="color:#86efac;font-size:11pt;font-weight:800">✅ 全 ${okCount} 項目とも希望ポジション圏内・変更不要</div>`);
       } else {
-        lines.push(`<div style="color:#fff;font-size:10pt;margin-bottom:10px">⇒ ❌ <strong style="color:#fbbf24">${ngCount}件</strong> が希望ポジション外。価格変更しますか？ (⭕️ ${okCount}件は変更不要)</div>`);
-        lines.push(`<button onclick="approveReport()" style="background:#16a34a;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer;margin-right:8px">✓ 承認・全反映へ</button>`);
-        lines.push(`<button onclick="declineReport()" style="background:#7f1d1d;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:11pt;font-weight:800;cursor:pointer">× 全見送り</button>`);
+        lines.push(`<div style="color:#fff;font-size:10pt">⇒ ❌ <strong style="color:#fbbf24">${ngCount}件</strong> が希望ポジション外 (⭕️ ${okCount}件は変更不要)</div>`);
+        lines.push(`<div style="color:#bbf7d0;font-size:8.5pt;margin-top:4px">↓ 下の「④ 価格決定」セクションで最終価格を確認 → 承認</div>`);
       }
       lines.push(`</div>`);
+
+      // ④ 価格決定マトリクス (separate section)
+      renderDecisionMatrix(parsed, monthly);
       el.innerHTML = lines.join('');
     }catch(e){ el.innerHTML = '<span style="color:#fca5a5">エラー: '+e.message+'</span>'; }
   }
   function approveReport(){
-    alert('★Goサインモーダル起動は Phase 3-5 で実装予定。\n現状は import-prices.html 内で 価格マトリクスを直接編集・保存してください。');
+    alert('「④ 価格決定」セクションの [✓ この価格で反映] ボタンを使用してください。');
   }
   function declineReport(){
     if(confirm('今回の調査結果を見送ります（価格は変更されません）。よろしいですか？')) alert('見送り完了');
+  }
+  function renderDecisionMatrix(parsed, currentMonthly){
+    const el = document.getElementById('decision-matrix');
+    if(!el) return;
+    const CLASSES = ['AA','A','B','C','S','H','F'];
+    const SEASON_ORDER = ['C繁忙シーズン','B通常シーズン','A閑散シーズン'];
+    const TIER_OF = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
+    const TIER_BG = {C:'#fee2e2', B:'#fef9c3', A:'#dbeafe'};
+    const TIER_TEXT = {C:'#991b1b', B:'#854d0e', A:'#1e40af'};
+    const TIER_LABEL = {C:'C 繁忙', B:'B 通常', A:'A 閑散'};
+    const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
+    // build matrix
+    let html = `<div style="margin-bottom:8px;color:#fff;font-size:9pt">この価格でプライシングシステムに反映します（希望ポジション: 5位×${pct}%）。月別tier×クラスの最終決定価格:</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:9.5pt;color:#fff">`;
+    html += `<thead><tr><th style="padding:6px 10px;text-align:left;background:#0a2818">シーズン (tier)</th>`;
+    CLASSES.forEach(c=>html += `<th style="padding:6px 10px;text-align:right;background:#0a2818;font-family:Menlo,monospace">${c}</th>`);
+    html += `</tr></thead><tbody>`;
+    SEASON_ORDER.forEach(season=>{
+      const g = parsed.seasons.find(s=>s.season===season);
+      if(!g) return;
+      const tier = TIER_OF[season];
+      html += `<tr><td style="padding:8px 10px;background:${TIER_BG[tier]};color:${TIER_TEXT[tier]};font-weight:800">${TIER_LABEL[tier]}</td>`;
+      CLASSES.forEach(cls=>{
+        const row = g.rows.find(r=>r.cls===cls);
+        const v = row && row.recommended;
+        html += `<td style="padding:8px 10px;text-align:right;background:#0c4a26;font-family:Menlo,monospace;font-weight:700">${v!=null?'¥'+v.toLocaleString():'<span style="opacity:.3">—</span>'}</td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</tbody></table>`;
+    html += `<div style="margin-top:14px;padding:12px;background:#0a2818;border-radius:6px;text-align:center">`;
+    html += `<div style="color:#fff;font-size:10pt;margin-bottom:10px">⇒ この価格を プライシングシステム (プロパー / CP) に反映しますか？</div>`;
+    html += `<button onclick="applyDecisionFromReport()" style="background:#16a34a;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-size:11.5pt;font-weight:800;cursor:pointer;margin-right:8px">✓ この価格で反映 (★Goサイン)</button>`;
+    html += `<button onclick="declineReport()" style="background:#7f1d1d;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-size:11.5pt;font-weight:800;cursor:pointer">× 見送り</button>`;
+    html += `</div>`;
+    el.innerHTML = html;
+  }
+  async function applyDecisionFromReport(){
+    // 既存 apply-decision.js の openGoSignModal を起動
+    try{
+      const r = await fetch(SERVER_URL + '/api/output/list', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      const decisions = (r.files||[]).filter(f=>f.name.includes('decision'));
+      if(!decisions.length){ alert('決定MDなし'); return; }
+      const latest = decisions[0];
+      const c = await fetch(SERVER_URL + '/api/output/read/' + encodeURIComponent(latest.name), {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      const parsed = window.ApplyDecision ? window.ApplyDecision.parseDecisionMd(c.content) : null;
+      if(!parsed){ alert('apply-decision.js が読み込まれていません'); return; }
+      window.ApplyDecision.openGoSignModal(parsed);
+    }catch(e){ alert('エラー: '+e.message); }
   }
   function parseReport(md){
     const result = {seasons:[], surveyDates:{}};
@@ -420,6 +483,12 @@ function showTierStatsIp(){
   }
   document.addEventListener('DOMContentLoaded', refreshReport);
   </script>
+
+  <!-- ④ 価格決定マトリクス（常時表示） -->
+  <div style="background:#0c4a26;border:2px solid #16a34a;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
+    <div style="font-size:12pt;font-weight:800;margin-bottom:8px">📋 ④ 価格決定 <span style="font-size:9pt;color:#bbf7d0;font-weight:400">（希望ポジションに到達する最終価格）</span></div>
+    <div id="decision-matrix">読み込み中...</div>
+  </div>
 
   <!-- 📅 調査対象日 自動選定（常時表示）-->
   <div style="background:#0c4a6e;border:2px solid #0ea5e9;border-radius:10px;padding:16px 20px;margin-bottom:14px;color:#fff">
