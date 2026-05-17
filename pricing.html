@@ -194,6 +194,7 @@ input[data-tier].cell-saved{background:#dcfce7 !important;border:2px solid #22c5
       <a class="act" href="./import-prices.html" style="background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:6px 14px">💰 プライシングシステム</a>
       <button class="act" onclick="location.reload(true)" style="background:#f59e0b;color:#fff;border-color:#f59e0b;font-weight:700">🔄 最新に更新</button>
       <button class="act" onclick="window.print()">🖨</button>
+      <button class="act" onclick="showTierStats()" style="background:#7c3aed;color:#fff;border-color:#7c3aed;font-weight:700">📊 tier集計</button>
     </div>
     <div class="tabs" id="main-tabs" style="display:none">
       <button class="tab active" data-view="seasonal">📅 カレンダー</button>
@@ -800,6 +801,37 @@ function getEvent(date) {
 }
 
 function ymKey(y, m) { return `${y}-${m}`; }
+
+// 2026-05-17: dayTiers 集計表示（デバッグ・確認用）
+function showTierStats(){
+  const d = state.dayTiers || {};
+  const cnt = {A:0, B:0, C:0, undefined:0};
+  const yr = state.selectedYear || 2026;
+  const mo = state.selectedMonth || 1;
+  Object.keys(d).filter(k=>k.startsWith(yr+'-')).forEach(k=>{
+    const t = d[k]; cnt[t] !== undefined ? cnt[t]++ : cnt.undefined++;
+  });
+  // 当月の各日の tier
+  const monthDays = [];
+  const last = new Date(yr, mo, 0).getDate();
+  for(let i=1; i<=last; i++){
+    const k = `${yr}-${mo}-${i}`;
+    monthDays.push(`${i}:${d[k]||'-'}`);
+  }
+  const lines = [
+    `=== dayTiers 集計 ===`,
+    `localStorage key: bt_takamatsu_seasonal_v6`,
+    ``,
+    `${yr}年 合計: A=${cnt.A}日 B=${cnt.B}日 C=${cnt.C}日 / 計${cnt.A+cnt.B+cnt.C}日`,
+    cnt.undefined > 0 ? `⚠️ undefined: ${cnt.undefined}日` : `✅ 365日全て確定`,
+    ``,
+    `${yr}年${mo}月の各日 tier:`,
+    monthDays.join(' / '),
+    ``,
+    `期待: SW(9/19-23)=C / お盆(8/10-16)=C / 梅雨(6月全月)=A / 冬閑散(1/5-2/28)=A / それ以外=B`,
+  ];
+  alert(lines.join('\n'));
+}
 
 function tierPriceFor(tier, cls, year, month) {
   // 月別上書きを最優先
