@@ -265,6 +265,42 @@ function showTierStatsIp(){
     <button onclick="swapACFix()" style="background:#dc2626;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 A↔C スワップ実行</button>
   </div>
 
+  <!-- 🎯 希望ポジション設定（常時表示・編集可能）-->
+  <div style="background:#1e3a8a;border:2px solid #fbbf24;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:12pt;font-weight:800">🎯 希望ポジション設定 <span style="font-size:9pt;color:#fde68a;font-weight:400">（CLI agent が推奨価格算出時に使用）</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div>
+        <span style="font-size:10pt">競合5位の </span>
+        <input type="number" id="position-pct" min="50" max="120" step="1" value="90" style="width:60px;padding:6px 10px;border:1px solid #fbbf24;background:#0f172a;color:#fde68a;font-size:14pt;font-weight:800;border-radius:5px;text-align:center;font-family:Menlo,monospace">
+        <span style="font-size:10pt"> %</span>
+      </div>
+      <button onclick="savePositionPct()" style="background:#fbbf24;color:#78350f;border:none;padding:7px 16px;border-radius:5px;font-size:9.5pt;font-weight:800;cursor:pointer">💾 保存</button>
+      <div style="font-size:8.5pt;color:#fde68a;flex:1;min-width:200px">
+        推奨範囲: 85〜95%（90%が標準）<br>
+        ・90% = 大手中位より少し安い・リーズナブル<br>
+        ・85% = 攻め（最安に近い）・95% = 守り（中位より少し高い）
+      </div>
+    </div>
+    <div id="position-status" style="margin-top:8px;font-size:8.5pt;color:#fbbf24"></div>
+  </div>
+  <script>
+  const POSITION_KEY = 'bt_tkm_pricing_position_v1';
+  function loadPositionPct(){
+    const v = parseInt(localStorage.getItem(POSITION_KEY)||'90', 10);
+    document.getElementById('position-pct').value = v;
+    document.getElementById('position-status').textContent = `現在の設定: 競合5位 × ${v}%`;
+  }
+  function savePositionPct(){
+    const v = parseInt(document.getElementById('position-pct').value, 10);
+    if(isNaN(v) || v<50 || v>120){ alert('50〜120 の範囲で入力してください'); return; }
+    localStorage.setItem(POSITION_KEY, String(v));
+    document.getElementById('position-status').textContent = `✅ 保存しました: 競合5位 × ${v}% (次回 CLI agent 実行時に反映)`;
+  }
+  document.addEventListener('DOMContentLoaded', loadPositionPct);
+  </script>
+
   <!-- 📅 調査対象日 自動選定（常時表示）-->
   <div style="background:#0c4a6e;border:2px solid #0ea5e9;border-radius:10px;padding:16px 20px;margin-bottom:14px;color:#fff">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
