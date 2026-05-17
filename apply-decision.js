@@ -5,18 +5,14 @@
 (function(global){
   const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
   const HISTORY_KEY = 'bt_tkm_apply_history_v1';
-  const MAPPING_KEY = 'bt_tkm_season_to_tier_v3';  // v3: 価格序列対応に変更
+  const MAPPING_KEY = 'bt_tkm_season_to_tier_v4';  // v4: 命名統一・自明な同名対応
 
-  // デフォルトのシーズン→tierマッピング (価格序列対応)
-  // pricing.html 規約: C=繁忙(最高) / B=通常(中) / A=閑散(最低)
-  // 決定MDの3シーズンを価格序列で pricing tier に対応:
-  //   C最繁忙(ピーク・お盆等) → tier C (最高)
-  //   A繁忙(連休・観光)     → tier B (中)
-  //   B通常(通常)           → tier A (最低)
+  // シーズン名と tier 名を完全統一 (C繁忙/B通常/A閑散) → マッピングは自明
+  // pricing.html / seasonal-config.html / 決定MD すべて同じ命名
   const DEFAULT_MAPPING = {
-    'C最繁忙シーズン': 'C',
-    'A繁忙シーズン':   'B',
-    'B通常シーズン':   'A',
+    'C繁忙シーズン': 'C',
+    'B通常シーズン': 'B',
+    'A閑散シーズン': 'A',
   };
   const TIER_CHOICES = ['A','B','C'];
 
