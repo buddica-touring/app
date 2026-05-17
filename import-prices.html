@@ -301,23 +301,26 @@ function showTierStatsIp(){
           if(t==='A'||t==='B'||t==='C') monthly[mo][t].push(i);
         }
       }
-      // 各 tier の中央値日を代表日として選定
-      const reps = []; // [{ym, month, tier, day, dateStr}]
+      // 各 tier の中央値日を代表日として選定（全月で A/B/C 必ず表示・存在しない場合は null）
+      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount}]
       const WEEKDAY = ['日','月','火','水','木','金','土'];
       for(let mo=1; mo<=12; mo++){
         ['C','B','A'].forEach(tier=>{
           const arr = monthly[mo][tier];
-          if(arr.length === 0) return;
-          const mid = arr[Math.floor(arr.length/2)];
-          const date = new Date(yr, mo-1, mid);
-          reps.push({
-            month: mo,
-            tier: tier,
-            day: mid,
-            dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(mid).padStart(2,'0')}`,
-            weekday: WEEKDAY[date.getDay()],
-            tierCount: arr.length,
-          });
+          if(arr.length === 0){
+            reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0});
+          } else {
+            const mid = arr[Math.floor(arr.length/2)];
+            const date = new Date(yr, mo-1, mid);
+            reps.push({
+              month: mo,
+              tier: tier,
+              day: mid,
+              dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(mid).padStart(2,'0')}`,
+              weekday: WEEKDAY[date.getDay()],
+              tierCount: arr.length,
+            });
+          }
         });
       }
       return reps;
@@ -337,11 +340,20 @@ function showTierStatsIp(){
       A:'<span style="background:#3b82f6;color:#fff;padding:1px 7px;border-radius:3px;font-weight:800">A 閑散</span>',
     };
     const lines = [];
+    let actualCount = 0;
     Object.keys(byMo).sort((a,b)=>+a-+b).forEach(mo=>{
-      const parts = byMo[mo].map(r => `${TIER_BADGE[r.tier]} ${r.day}日(${r.weekday}) <span style="opacity:.7">[${r.tierCount}日中]</span>`);
+      // C → B → A の順固定で表示
+      const sorted = byMo[mo].sort((a,b)=>{
+        const order = {C:0, B:1, A:2}; return order[a.tier] - order[b.tier];
+      });
+      const parts = sorted.map(r => {
+        if(r.day === null) return `${TIER_BADGE[r.tier]} <span style="opacity:.4">— 該当なし</span>`;
+        actualCount++;
+        return `${TIER_BADGE[r.tier]} ${r.day}日(${r.weekday}) <span style="opacity:.7">[${r.tierCount}日中]</span>`;
+      });
       lines.push(`<div><strong style="display:inline-block;width:30px">${mo}月</strong> ${parts.join(' / ')}</div>`);
     });
-    lines.push(`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #075985;color:#fff"><strong>合計: ${reps.length}日</strong> を CLI agent が調査します</div>`);
+    lines.push(`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #075985;color:#fff"><strong>合計: ${actualCount}日</strong> を CLI agent が調査します（該当なし tier はスキップ）</div>`);
     el.innerHTML = lines.join('');
     // localStorage に保存（Phase 3-5 で CLI に渡す用）
     localStorage.setItem('bt_tkm_survey_dates_v1', JSON.stringify(reps));
