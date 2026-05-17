@@ -438,22 +438,25 @@ window.addEventListener('load', ()=>{
         const items = group.rows.filter(r=>r.recommended != null).map(r=>{
           const cur = tierData[r.cls];   // 現在価格 (localStorage から)
           const hope = r.recommended;     // 希望ポジション = CLI 推奨 (5位×pct%)
-          let icon, judge, color;
+          let icon, action, comment, color;
           if(cur == null){
-            icon = '🆕'; judge = `未設定 → 希望 ¥${hope.toLocaleString()} を反映`; color = '#fde68a';
+            icon = '🆕'; action = '初回設定推奨'; comment = `未設定 → ¥${hope.toLocaleString()} を反映`; color = '#fde68a';
             ngCount++; ngList.push(`${group.season} ${r.cls}`);
           } else {
             const diff = cur - hope;
             const diffPct = Math.abs(diff/hope*100);
             if(diffPct <= THRESHOLD){
-              icon = '⭕️'; judge = `現在 ¥${cur.toLocaleString()} ≒ 希望 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) 変更不要`; color = '#86efac';
+              icon = '⭕️'; action = 'ほぼ希望通り'; comment = `現在 ¥${cur.toLocaleString()} / 希望 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) — 変更不要`; color = '#86efac';
               okCount++;
+            } else if(cur < hope){
+              icon = '⬆'; action = `${diffPct.toFixed(0)}%安く設定中・上昇余地あり`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (＋¥${Math.abs(diff).toLocaleString()} 上げると希望ポジション)`; color = '#fbbf24';
+              ngCount++; ngList.push(`${group.season} ${r.cls}`);
             } else {
-              icon = '❌'; judge = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (差${diff>=0?'+':''}${diff}円・${diffPct.toFixed(1)}%) ⇒ 変更要`; color = '#fbbf24';
+              icon = '⬇'; action = `${diffPct.toFixed(0)}%高く設定中・下落リスク`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (−¥${Math.abs(diff).toLocaleString()} 下げると希望ポジション)`; color = '#fca5a5';
               ngCount++; ngList.push(`${group.season} ${r.cls}`);
             }
           }
-          return `<div style="padding:3px 0;color:${color};font-size:9.5pt">　${icon} <strong>${r.cls}</strong>: ${judge}</div>`;
+          return `<div style="padding:4px 0;color:${color};font-size:9.5pt">　${icon} <strong>${r.cls}</strong>: <strong style="color:#fff">${action}</strong><br>　　　<span style="font-size:8.5pt;opacity:.85">${comment}</span></div>`;
         });
         lines.push(items.join(''));
       });
