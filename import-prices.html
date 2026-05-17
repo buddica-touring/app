@@ -257,6 +257,34 @@ function showTierStatsIp(){
 
 <div class="container">
 
+<!-- ===== 大タブ ===== -->
+<style>
+.big-tab{padding:12px 28px;border:2px solid #334155;border-bottom:none;border-radius:8px 8px 0 0;background:#1e293b;color:#94a3b8;font-weight:800;font-size:11pt;cursor:pointer;margin-right:4px;transition:all .15s}
+.big-tab:hover{background:#334155;color:#cbd5e1}
+.big-tab.active{background:#1e3a8a;color:#fff;border-color:#1e3a8a}
+</style>
+<div style="display:flex;gap:0;margin-bottom:14px;border-bottom:3px solid #1e3a8a;padding-bottom:0">
+  <button class="big-tab" id="bt-setting" onclick="showBigTab('setting')">📋 設定・実行</button>
+  <button class="big-tab" id="bt-calendar" onclick="showBigTab('calendar')">📅 カレンダー（価格表）</button>
+</div>
+<script>
+function showBigTab(name){
+  document.querySelectorAll('[data-bigtab]').forEach(el=>{
+    el.style.display = el.dataset.bigtab===name?'':'none';
+  });
+  document.getElementById('bt-setting').classList.toggle('active', name==='setting');
+  document.getElementById('bt-calendar').classList.toggle('active', name==='calendar');
+  localStorage.setItem('bt_tkm_last_bigtab', name);
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  const last = localStorage.getItem('bt_tkm_last_bigtab') || 'setting';
+  showBigTab(last);
+});
+</script>
+
+<!-- ===== 📋 設定・実行 タブ ===== -->
+<div data-bigtab="setting">
+
   <div class="notice">⚠️ 実行前に必ず <a href="./pricing.html" target="_blank" style="color:#92400e;font-weight:700">pricing.html</a> を一度開いてください（初期データ作成のため）</div>
 
 
@@ -888,6 +916,10 @@ function showTierStatsIp(){
   }
   </script>
 
+</div><!-- /data-bigtab="setting" -->
+
+<!-- ===== 📅 カレンダー（価格表） タブ ===== -->
+<div data-bigtab="calendar">
   <!-- セグメントタブ -->
   <div class="seg-tabs" id="seg-tabs">
     <button class="seg-tab active" onclick="selSeg('proper')">📗 プロパー<span class="seg-label">通常料金</span></button>
@@ -904,6 +936,7 @@ function showTierStatsIp(){
   <div class="year-tabs" id="year-tabs"></div>
   <div class="month-tabs" id="month-tabs"></div>
   <div id="matrix-area"></div>
+</div><!-- /data-bigtab="calendar" -->
 
   <!-- 日別設定モーダル（tier + 全クラス個別価格） -->
   <div id="dm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:12px">
