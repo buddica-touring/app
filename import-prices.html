@@ -354,13 +354,13 @@ function showTierStatsIp(){
       // 月一括 ON/OFF ボタン
       const moBtn = `<button onclick="toggleMonthExclude(${mo})" style="background:transparent;border:1px solid #7dd3fc;color:#7dd3fc;padding:1px 8px;border-radius:3px;font-size:8pt;cursor:pointer;margin-left:6px">月一括</button>`;
       const parts = sorted.map(r => {
-        if(r.day === null) return `${TIER_BADGE[r.tier]} <span style="opacity:.4">— 該当なし</span>`;
+        if(r.day === null) return `<span style="opacity:.18;font-size:8pt">${r.tier}=なし</span>`;
         const key = `${mo}-${r.tier}`;
         const excluded = excludeSet.has(key);
         if(excluded) excludedCount++; else actualCount++;
         const cbId = `surv-cb-${mo}-${r.tier}`;
         const cb = `<input type="checkbox" id="${cbId}" ${excluded?'':'checked'} onchange="toggleSurveyDate(${mo},'${r.tier}',this.checked)" style="vertical-align:middle;margin-right:4px;cursor:pointer">`;
-        const labelStyle = excluded ? 'opacity:.35;text-decoration:line-through' : '';
+        const labelStyle = excluded ? 'opacity:.3;text-decoration:line-through' : '';
         return `<span style="${labelStyle}">${cb}${TIER_BADGE[r.tier]} ${r.day}日(${r.weekday}) <span style="opacity:.7">[${r.tierCount}日中]</span></span>`;
       });
       lines.push(`<div style="padding:4px 0"><strong style="display:inline-block;width:30px">${mo}月</strong>${moBtn} ${parts.join(' / ')}</div>`);
