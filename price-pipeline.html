@@ -154,6 +154,15 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;col
 
 </div>
 
+<script>
+// ngrok 警告ページ bypass (全 fetch にヘッダー自動付与) — apply-decision.js より先に評価
+const _origFetch = window.fetch;
+window.fetch = function(url, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, {'ngrok-skip-browser-warning':'1'});
+  return _origFetch(url, opts);
+};
+</script>
 <script src="apply-decision.js"></script>
 <script>
 const CFG_KEY = 'bt_tkm_pipeline_cfg_v1';
