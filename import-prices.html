@@ -364,8 +364,9 @@ window.addEventListener('load', ()=>{
     </div>
     <div id="survey-dates-list" style="font-size:9.5pt;line-height:1.8;color:#bae6fd;font-family:Menlo,monospace">読み込み中...</div>
     <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button id="exec-survey-btn" onclick="execSurveyChain()" style="background:#dc2626;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:pointer">⚡ ②調査 → ③④結果報告 を実行（CLI agent 起動）</button>
-      <span style="font-size:8.5pt;color:#7dd3fc">※ ①希望ポジションと②選定日が CLI に渡されます (約10-15分)</span>
+      <button id="exec-research-btn" onclick="execResearchOnly()" style="background:#0ea5e9;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:pointer">⚡ ②調査だけ 実行</button>
+      <button id="exec-decision-btn" onclick="execDecisionOnly()" style="background:#a855f7;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:10.5pt;font-weight:800;cursor:pointer">⚡ ③④決定だけ 実行</button>
+      <span style="font-size:8.5pt;color:#7dd3fc">※ フェーズごとに止まる安全モード。各ステップ約5-10分</span>
     </div>
     <div id="exec-status" style="margin-top:8px;font-size:9pt;color:#fbbf24;display:none"></div>
   </div>
@@ -699,51 +700,63 @@ window.addEventListener('load', ()=>{
     // localStorage に保存（Phase 3-5 で CLI に渡す用）
     localStorage.setItem('bt_tkm_survey_dates_v1', JSON.stringify(reps));
   }
-  // ⚡実行: CLI agent 起動 (調査 + 決定 を順次)
-  async function execSurveyChain(){
-    const btn = document.getElementById('exec-survey-btn');
+  // ⚡②調査だけ 実行 (フェーズ分け・止まる)
+  async function execResearchOnly(){
+    const btn = document.getElementById('exec-research-btn');
     const stat = document.getElementById('exec-status');
     const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
     const allReps = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
     const excludeSet = _getExcludeSet();
     const surveyDates = allReps.filter(r => r.day !== null && !excludeSet.has(`${r.month}-${r.tier}`));
-    if(!surveyDates.length){ alert('調査対象日がゼロです。除外設定を確認してください'); return; }
-    if(!confirm(`CLI agent を起動します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約10-15分\n\n実行しますか？`)) return;
-
-    btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 実行中...';
-    stat.style.display = 'block'; stat.textContent = '🔄 Step 1: 価格調査 起動中...';
+    if(!surveyDates.length){ alert('調査対象日がゼロです'); return; }
+    if(!confirm(`②価格調査だけ実行します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約5-10分\n\n実行後、結果を確認してから ⑤④決定を実行してください。\n\n実行しますか？`)) return;
+    btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 調査中...';
+    stat.style.display = 'block'; stat.textContent = '🔄 価格調査 起動中...';
     try {
-      // Step 1: 価格調査
       const r1 = await fetch(SERVER_URL + '/api/run/research', {
         method:'POST',
         headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
         body: JSON.stringify({positionPct: pct, surveyDates: surveyDates}),
       }).then(r=>r.json());
       const rid1 = r1.runId;
-      stat.textContent = '🔄 Step 1: 価格調査 実行中 (runId=' + rid1 + ')...';
-      await pollRun(rid1, 'Step 1: 価格調査', stat);
-      stat.textContent = '✅ Step 1 完了 → Step 2: 価格決定 起動中...';
+      stat.textContent = '🔄 価格調査 実行中 (runId=' + rid1 + ')...';
+      await pollRun(rid1, '価格調査', stat);
+      stat.textContent = '✅ 価格調査 完了。調査MDが output/ に書き出されました。次は「⚡③④決定だけ 実行」ボタン';
+      stat.style.color = '#86efac';
+    } catch(e){
+      stat.textContent = '❌ 価格調査 エラー: ' + e.message;
+      stat.style.color = '#fca5a5';
+    } finally {
+      btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ②調査だけ 実行';
+    }
+  }
 
-      // Step 2: 価格決定
+  // ⚡③④決定だけ 実行 (フェーズ分け・止まる)
+  async function execDecisionOnly(){
+    const btn = document.getElementById('exec-decision-btn');
+    const stat = document.getElementById('exec-status');
+    const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
+    if(!confirm(`③④価格決定を実行します。\n（最新の調査MDから推奨価格を算出）\n\n希望ポジション: 5位×${pct}%\n所要時間: 約3-5分\n\n実行しますか？`)) return;
+    btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 決定中...';
+    stat.style.display = 'block'; stat.textContent = '🔄 価格決定 起動中...';
+    try {
       const r2 = await fetch(SERVER_URL + '/api/run/decision', {
         method:'POST',
         headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
-        body: JSON.stringify({positionPct: pct, surveyDates: surveyDates}),
+        body: JSON.stringify({positionPct: pct}),
       }).then(r=>r.json());
       const rid2 = r2.runId;
-      stat.textContent = '🔄 Step 2: 価格決定 実行中 (runId=' + rid2 + ')...';
-      await pollRun(rid2, 'Step 2: 価格決定', stat);
-      stat.textContent = '✅ 完了! ③調査結果報告・④価格決定 を更新します';
-
-      // ③④の更新
+      stat.textContent = '🔄 価格決定 実行中 (runId=' + rid2 + ')...';
+      await pollRun(rid2, '価格決定', stat);
+      stat.textContent = '✅ 価格決定 完了。③④を更新します';
       await refreshReport();
-      stat.textContent = '✅ 完了。下の③④で結果を確認、⑤Goサインで反映してください';
+      stat.textContent = '✅ 完了。③調査結果報告・④価格決定 を確認 → ⑤Goサインで反映';
       stat.style.color = '#86efac';
     } catch(e){
-      stat.textContent = '❌ エラー: ' + e.message;
+      stat.textContent = '❌ 価格決定 エラー: ' + e.message;
       stat.style.color = '#fca5a5';
     } finally {
-      btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ②調査 → ③④結果報告 を実行（CLI agent 起動）';
+      btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ③④決定だけ 実行';
     }
   }
   async function pollRun(runId, label, statEl){
