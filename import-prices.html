@@ -652,7 +652,49 @@ window.addEventListener('load', ()=>{
       }
       if(!Object.keys(parsed.seasons).length){ alert('反映可能な価格データがありません'); return; }
       if(!window.ApplyDecision){ alert('apply-decision.js が読み込まれていません'); return; }
-      window.ApplyDecision.openGoSignModal(parsed);
+      // ⑤Goサイン完了時のフック: 履歴保存 + デフォルト復帰 (オーナー要望 2026-05-18)
+      window.ApplyDecision.openGoSignModal(parsed, {
+        onApplied: async (applyRes, checks) => {
+          try {
+            // 一連の調査スナップショットをサーバーに保存 (BIGデータ蓄積)
+            const surveyDates = (function(){
+              try{ return JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]'); }catch(e){ return []; }
+            })();
+            const snapshot = {
+              positionPct: pct,
+              surveyDates,
+              dayTiers,
+              fetcherTotal: r.total_records,
+              fetcherMapped: r.mapped_records,
+              fetcherRecords: r.total_records,
+              decision: r.by_tier,
+              appliedMonths: (applyRes && applyRes.months) || [],
+              verifyChecks: checks,
+              ok: (checks||[]).filter(c=>c.ok).length,
+              ng: (checks||[]).filter(c=>!c.ok).length,
+            };
+            const saveRes = await fetch(SERVER_URL + '/api/history/save', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+              body: JSON.stringify(snapshot)
+            }).then(r=>r.json()).catch(e=>({error:e.message}));
+            console.log('[history/save] result:', saveRes);
+            // モーダル内に「履歴保存 → 5秒後デフォルトに戻る」表示
+            const dlg = document.querySelector('.ad-modal #ad-result-area');
+            if (dlg) {
+              const histInfo = document.createElement('div');
+              histInfo.style.cssText = 'margin-top:12px;padding:10px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#cbd5e1;font-size:9pt';
+              histInfo.innerHTML = `📁 履歴を保存しました: <code>${saveRes.filename||'保存エラー'}</code><br><br>⏳ <strong>5秒後</strong>、画面をリセットして「次の調査」状態に戻ります...`;
+              dlg.appendChild(histInfo);
+            }
+            // 5秒後にリロード = デフォルト状態へ復帰
+            setTimeout(()=>{ location.reload(); }, 5000);
+          } catch(e) {
+            console.error('[onApplied] error:', e);
+            alert('履歴保存/リセットでエラー: '+e.message);
+          }
+        }
+      });
     }catch(e){ alert('エラー: '+e.message); }
   }
   function parseReport(md){
