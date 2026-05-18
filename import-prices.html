@@ -379,6 +379,7 @@ window.addEventListener('load', ()=>{
       </button>
     </div>
     <div id="exec-status" style="margin-top:10px;font-size:9pt;color:#fbbf24;display:none"></div>
+    <div id="exec-history" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;font-size:8.5pt;align-items:center"></div>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid #075985">
       <button onclick="downloadSurveyCsv(false)" style="background:#0c4a6e;color:#bae6fd;border:1px solid #0ea5e9;padding:6px 14px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer;margin-right:6px">📥 選定日だけCSV (今回の調査日のみ)</button>
       <button onclick="downloadSurveyCsv(true)" style="background:#0c4a6e;color:#bae6fd;border:1px solid #475569;padding:6px 14px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">📥 全件CSV (過去の蓄積含む)</button>
@@ -397,7 +398,7 @@ window.addEventListener('load', ()=>{
   </div>
 
   <!-- ③ 調査結果報告 (折りたたみ) -->
-  <details style="background:#14532d;border:2px solid #22c55e;border-radius:10px;padding:0;margin-bottom:14px;color:#fff">
+  <details id="section-report" style="background:#14532d;border:2px solid #22c55e;border-radius:10px;padding:0;margin-bottom:14px;color:#fff">
     <summary style="padding:14px 20px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:12pt;font-weight:800">
         <span style="display:inline-block;background:#22c55e;color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:900;margin-right:8px">③</span>
@@ -627,7 +628,7 @@ window.addEventListener('load', ()=>{
   </script>
 
   <!-- ④ 価格決定 -->
-  <div style="background:#3b1361;border:2px solid #a855f7;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
+  <div id="section-decision" style="background:#3b1361;border:2px solid #a855f7;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
     <div style="font-size:12pt;font-weight:800;margin-bottom:8px">
       <span style="display:inline-block;background:#a855f7;color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:900;margin-right:8px">④</span>
       価格決定 <span style="font-size:9pt;color:#e9d5ff;font-weight:400">（いくらに設定すれば①の希望ポジションになるか）</span>
@@ -788,8 +789,11 @@ window.addEventListener('load', ()=>{
       const rid1 = r1.runId;
       stat.textContent = '🔄 価格調査 実行中 (runId=' + rid1 + ')...';
       await pollRun(rid1, '価格調査', stat);
-      stat.textContent = '✅ 価格調査 完了。調査MDが output/ に書き出されました。次は「⚡③④決定だけ 実行」ボタン';
+      stat.textContent = '✅ 価格調査 完了。③調査結果報告 へ移動します ↓';
       stat.style.color = '#86efac';
+      try { await refreshReport(); } catch(e){}
+      updateExecHistory();
+      flashSection('section-report');
     } catch(e){
       stat.textContent = '❌ 価格調査 エラー: ' + e.message;
       stat.style.color = '#fca5a5';
@@ -817,8 +821,10 @@ window.addEventListener('load', ()=>{
       await pollRun(rid2, '価格決定', stat);
       stat.textContent = '✅ 価格決定 完了。③④を更新します';
       await refreshReport();
-      stat.textContent = '✅ 完了。③調査結果報告・④価格決定 を確認 → ⑤Goサインで反映';
+      stat.textContent = '✅ 完了。④価格決定 へ移動します ↓ → 確認後 ⑤Goサインで反映';
       stat.style.color = '#86efac';
+      updateExecHistory();
+      flashSection('section-decision');
     } catch(e){
       stat.textContent = '❌ 価格決定 エラー: ' + e.message;
       stat.style.color = '#fca5a5';
@@ -826,6 +832,49 @@ window.addEventListener('load', ()=>{
       btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ③④決定だけ 実行';
     }
   }
+  // 実行履歴バッジ更新 (起動時 + 各実行完了時)
+  async function updateExecHistory(){
+    const el = document.getElementById('exec-history');
+    if(!el) return;
+    try{
+      const r = await fetch(SERVER_URL + '/api/output/list', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      const fmt = (mt)=>{
+        const d = new Date(mt);
+        const tod = new Date();
+        const ymd = d.getFullYear()===tod.getFullYear() && d.getMonth()===tod.getMonth() && d.getDate()===tod.getDate();
+        const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+        if(ymd) return '今日 ' + hm;
+        const yd = new Date(tod); yd.setDate(yd.getDate()-1);
+        if(d.getFullYear()===yd.getFullYear() && d.getMonth()===yd.getMonth() && d.getDate()===yd.getDate()) return '昨日 ' + hm;
+        return (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
+      };
+      const research = (r.files||[]).find(f=>f.name.includes('research'));
+      const decision = (r.files||[]).find(f=>f.name.includes('decision'));
+      const chips = [];
+      chips.push(research
+        ? `<span style="background:#065f46;color:#bbf7d0;padding:4px 12px;border-radius:14px;border:1px solid #22c55e;font-weight:700">✅ 前回②調査: ${fmt(research.mtime)}</span>`
+        : `<span style="background:#1e293b;color:#94a3b8;padding:4px 12px;border-radius:14px;border:1px dashed #475569">— ②未実行</span>`);
+      chips.push(decision
+        ? `<span style="background:#581c87;color:#e9d5ff;padding:4px 12px;border-radius:14px;border:1px solid #a855f7;font-weight:700">✅ 前回③④決定: ${fmt(decision.mtime)}</span>`
+        : `<span style="background:#1e293b;color:#94a3b8;padding:4px 12px;border-radius:14px;border:1px dashed #475569">— ③④未実行</span>`);
+      el.innerHTML = chips.join('');
+    }catch(e){}
+  }
+  // 完了時に次セクションへスクロール + ハイライト
+  function flashSection(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(el.tagName === 'DETAILS') el.open = true;
+    setTimeout(()=>{
+      el.scrollIntoView({behavior:'smooth', block:'start'});
+      const orig = el.style.boxShadow;
+      el.style.transition = 'box-shadow .3s';
+      el.style.boxShadow = '0 0 0 6px #fbbf24, 0 0 32px rgba(251,191,36,.6)';
+      setTimeout(()=>{ el.style.boxShadow = orig || ''; }, 3500);
+    }, 200);
+  }
+  document.addEventListener('DOMContentLoaded', updateExecHistory);
+
   async function pollRun(runId, label, statEl){
     return new Promise((resolve, reject)=>{
       const startT = Date.now();
