@@ -428,7 +428,7 @@ window.addEventListener('load', ()=>{
       }).then(r=>r.json());
       if(computeRes.error){ el.innerHTML = '<span style="color:#fca5a5">サーバー集計エラー: '+computeRes.error+'</span>'; return; }
       // by_tier → parsed.seasons 形式へ変換 (既存renderロジック互換)
-      const SEASON_LABELS = [['C','C繁忙シーズン'],['B','B通常シーズン'],['A','A閑散シーズン']];
+      const SEASON_LABELS = [['A','A閑散シーズン'],['B','B通常シーズン'],['C','C繁忙シーズン']];  // A→B→C 統一
       const parsed = { seasons: [], surveyDates: {} };
       const CLASSES_ALL = ['AA','A','B','C','S','H','F'];
       for (const [tier, label] of SEASON_LABELS) {
@@ -565,7 +565,7 @@ window.addEventListener('load', ()=>{
     const el = document.getElementById('decision-matrix');
     if(!el) return;
     const CLASSES = ['AA','A','B','C','S','H','F'];
-    const SEASON_ORDER = ['C繁忙シーズン','B通常シーズン','A閑散シーズン'];
+    const SEASON_ORDER = ['A閑散シーズン','B通常シーズン','C繁忙シーズン'];  // A→B→C 統一
     const TIER_OF = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
     const TIER_BG = {C:'#fee2e2', B:'#fef9c3', A:'#dbeafe'};
     const TIER_TEXT = {C:'#991b1b', B:'#854d0e', A:'#1e40af'};
@@ -606,7 +606,7 @@ window.addEventListener('load', ()=>{
       }).then(r=>r.json());
       if(r.error){ alert('サーバー集計エラー: '+r.error); return; }
       // by_tier (object) → parseDecisionMd 互換構造 ({seasons:{label:[rows]}, raw})
-      const TIER_TO_LABEL = [['C','C繁忙シーズン'],['B','B通常シーズン'],['A','A閑散シーズン']];
+      const TIER_TO_LABEL = [['A','A閑散シーズン'],['B','B通常シーズン'],['C','C繁忙シーズン']];  // A→B→C 統一
       const parsed = { seasons: {}, raw: 'compute-direct' };
       for (const [tier, label] of TIER_TO_LABEL) {
         const tdata = r.by_tier?.[tier] || {};
