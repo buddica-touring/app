@@ -784,7 +784,23 @@ window.addEventListener('load', ()=>{
   }
   function applyFlowVisibility(){
     const s = getFlowState();
-    const isIdle = s.state === 'idle';
+    let isIdle = s.state === 'idle';
+    let completedAtLabel = s.lastCompletedAt;
+    // フォールバック: flowState 未設定でも、価格表にデータがあれば過去⑤完了済 → idle 扱い
+    if (!s.state) {
+      try {
+        const seasonal = JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');
+        const monthly = seasonal.monthlyTierClassPrices || seasonal.segments?.proper?.monthlyTierClassPrices || {};
+        if (Object.keys(monthly).length > 0) {
+          isIdle = true;
+          // 価格表の最終更新時刻から推定（apply history がある場合はそれを優先）
+          try {
+            const hist = JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]');
+            if (hist[0] && hist[0].at) completedAtLabel = hist[0].at;
+          } catch(e) {}
+        }
+      } catch(e) {}
+    }
     const sec_report = document.getElementById('section-report');
     const sec_decision = document.getElementById('section-decision');
     const sec_apply = document.getElementById('section-apply');
@@ -792,10 +808,14 @@ window.addEventListener('load', ()=>{
     [sec_report, sec_decision, sec_apply].forEach(el=>{ if(el) el.style.display = isIdle ? 'none' : ''; });
     if (sec_idle) {
       sec_idle.style.display = isIdle ? 'block' : 'none';
-      if (isIdle && s.lastCompletedAt) {
-        const d = new Date(s.lastCompletedAt);
-        document.getElementById('idle-guide-detail').textContent =
-          `最終完了: ${d.toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
+      if (isIdle) {
+        const detail = document.getElementById('idle-guide-detail');
+        if (completedAtLabel) {
+          const d = new Date(completedAtLabel);
+          if (detail) detail.textContent = `最終完了: ${d.toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
+        } else {
+          if (detail) detail.textContent = '価格表にデータあり（過去の調査結果が反映済み）';
+        }
       }
     }
   }
