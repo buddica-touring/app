@@ -203,8 +203,17 @@
     ensureModalStyles();
     const mapping = loadMapping();
     const today = new Date();
-    let months = genMonths(today, 3);
-    const allMonths = genMonths(today, 12);
+    // ②調査日 (bt_tkm_survey_dates_v1) から「月のユニーク集合」を抽出して反映先に固定
+    const surveyDatesRaw = (()=>{ try{ return JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]'); }catch(e){return [];} })();
+    const excludeSet = (()=>{ try{ return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]')); }catch(e){return new Set();} })();
+    const validReps = (surveyDatesRaw||[]).filter(r=>r && r.day!==null && r.month && !excludeSet.has(`${r.month}-${r.tier}`));
+    const year = today.getFullYear();
+    const monthSetTmp = new Set();
+    validReps.forEach(r => monthSetTmp.add(`${year}-${parseInt(r.month,10)}`));  // non-padded
+    const months = Array.from(monthSetTmp).sort((a,b)=>{
+      const [ay,am]=a.split('-').map(Number); const [by,bm]=b.split('-').map(Number);
+      return ay-by||am-bm;
+    });
 
     const back = document.createElement('div');
     back.className = 'ad-backdrop';
@@ -232,21 +241,10 @@
         </div>
 
         <div class="ad-sec">
-          <div class="ad-sec-h">② 価格を書き込む月（複数選択可）</div>
-          <div style="font-size:8.5pt;color:#94a3b8;margin-bottom:6px">推奨価格マトリクスをプライシングシステムの「何月」に書き込むかを選びます。チェックしなかった月には反映されません。</div>
-          <div class="ad-month-list" id="ad-months">
-            ${allMonths.map(ym => `
-              <label class="ad-month-chip ${months.includes(ym)?'checked':''}">
-                <input type="checkbox" data-ym="${ym}" ${months.includes(ym)?'checked':''}>
-                ${fmtMonth(ym)}
-              </label>
-            `).join('')}
-          </div>
-          <div class="ad-month-actions">
-            <button class="ad-link" data-quick="3">直近3ヶ月</button>
-            <button class="ad-link" data-quick="6">直近6ヶ月</button>
-            <button class="ad-link" data-quick="12">全12ヶ月</button>
-            <button class="ad-link" data-quick="0">全解除</button>
+          <div class="ad-sec-h">② 反映先の月（②調査日 と自動連動・変更不可）</div>
+          <div style="font-size:8.5pt;color:#94a3b8;margin-bottom:6px">②調査日設定で選んだ調査日の月にのみ反映します。月を変えたい場合は ②調査日 を見直してください。</div>
+          <div style="font-size:11pt;color:#bbf7d0;font-weight:700;padding:8px 12px;background:#0a2818;border-radius:5px">
+            ${months.length ? '📅 ' + months.map(fmtMonth).join('・') : '<span style="color:#f87171">⚠️ ②調査日 が未設定です。①〜② を完了してから Goサインを押してください</span>'}
           </div>
         </div>
 
@@ -275,27 +273,11 @@
           renderPreview();
         });
       });
-      // 月チェック
-      modal.querySelectorAll('#ad-months input[type=checkbox]').forEach(cb=>{
-        cb.addEventListener('change', e=>{
-          const ym = cb.getAttribute('data-ym');
-          months = cb.checked ? [...months, ym].sort() : months.filter(x=>x!==ym);
-          cb.parentElement.classList.toggle('checked', cb.checked);
-        });
-      });
-      // クイック選択
-      modal.querySelectorAll('button[data-quick]').forEach(btn=>{
-        btn.addEventListener('click', e=>{
-          e.preventDefault();
-          const n = parseInt(btn.getAttribute('data-quick'),10);
-          months = n>0 ? genMonths(today, n) : [];
-          rerender();
-        });
-      });
+      // 月選択ハンドラは廃止 (②調査日 と自動連動・変更不可)
       // ボタン
       modal.querySelector('#ad-cancel').addEventListener('click', ()=>{ document.body.removeChild(back); });
       modal.querySelector('#ad-confirm').addEventListener('click', ()=>{
-        if(!months.length){ alert('書き込み先の月を1つ以上選択してください'); return; }
+        if(!months.length){ alert('② 調査日が設定されていません。①〜② を完了してから Goサインを押してください'); return; }
         if(!confirm(`${months.length}ヶ月分の価格を反映します。\n承認しますか？（不可逆）`)) return;
         saveMapping(mapping);
         const res = applyDecision(parsedDecision, mapping, months);
