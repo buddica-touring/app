@@ -208,6 +208,27 @@ table.cal-tbl .sat{color:#93c5fd}
 </head>
 <body>
 
+<!-- グローバル実行ステータスバナー (画面トップ固定) -->
+<div id="global-status-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:14px 24px;background:linear-gradient(90deg,#1e40af,#2563eb);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.35);font-family:-apple-system,sans-serif">
+  <div style="display:flex;align-items:center;gap:18px;max-width:1400px;margin:0 auto">
+    <div id="gsb-icon" style="font-size:24px;animation:spin 2s linear infinite">🔄</div>
+    <div style="flex:1">
+      <div id="gsb-title" style="font-size:14pt;font-weight:800;margin-bottom:4px">Step1 価格調査 実行中</div>
+      <div id="gsb-detail" style="font-size:10pt;opacity:0.9">起動中...</div>
+      <div style="margin-top:8px;background:rgba(0,0,0,0.3);height:10px;border-radius:5px;overflow:hidden">
+        <div id="gsb-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width 0.5s"></div>
+      </div>
+    </div>
+    <div id="gsb-pct" style="font-size:20pt;font-weight:900;min-width:60px;text-align:right">0%</div>
+    <button id="gsb-close" onclick="document.getElementById('global-status-banner').style.display='none'" style="display:none;background:rgba(255,255,255,0.2);color:#fff;border:1px solid #fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700">閉じる</button>
+  </div>
+</div>
+<style>
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@keyframes pulse-green { 0%,100%{background:linear-gradient(90deg,#15803d,#16a34a)} 50%{background:linear-gradient(90deg,#16a34a,#22c55e)} }
+.gsb-done { animation:pulse-green 1.5s ease-in-out 3 !important; background:linear-gradient(90deg,#15803d,#16a34a) !important }
+</style>
+
 <div class="header">
   <div>
     <div class="sub">B U D D I C A &nbsp; T O U R I N G &nbsp; 高松店</div>
@@ -917,21 +938,124 @@ window.addEventListener('load', ()=>{
   }
   document.addEventListener('DOMContentLoaded', updateExecHistory);
 
+  function showGlobalBanner(label){
+    const b = document.getElementById('global-status-banner');
+    if(!b) return;
+    b.style.display='block';
+    b.classList.remove('gsb-done');
+    document.getElementById('gsb-icon').textContent='🔄';
+    document.getElementById('gsb-icon').style.animation='spin 2s linear infinite';
+    document.getElementById('gsb-title').textContent = `${label} 実行中`;
+    document.getElementById('gsb-detail').textContent = '起動中...';
+    document.getElementById('gsb-bar').style.width='0%';
+    document.getElementById('gsb-pct').textContent='0%';
+    document.getElementById('gsb-close').style.display='none';
+    document.body.style.paddingTop='100px';
+  }
+  function finishGlobalBanner(label, ok, completedAt){
+    const b = document.getElementById('global-status-banner');
+    if(!b) return;
+    b.classList.add('gsb-done');
+    document.getElementById('gsb-icon').textContent = ok?'✅':'❌';
+    document.getElementById('gsb-icon').style.animation='none';
+    document.getElementById('gsb-title').textContent = ok ? `${label} 完了 ${completedAt}` : `${label} 失敗`;
+    document.getElementById('gsb-detail').textContent = ok ? '下にスクロールして ③ 調査結果 → ④ 価格決定 を確認してください' : 'エラーが発生しました。詳細はコンソールを確認してください';
+    document.getElementById('gsb-bar').style.width='100%';
+    document.getElementById('gsb-pct').textContent = ok?'100%':'!';
+    document.getElementById('gsb-close').style.display='inline-block';
+    // 自動で5秒後に薄くなる
+    setTimeout(()=>{ b.style.opacity='0.85'; }, 5000);
+  }
+
+  // ページ読み込み時: 現在進行中の claude プロセスがあれば自動でバナーを復元
+  async function detectLiveResearch(){
+    try {
+      const r = await fetch(SERVER_URL + '/api/research/livestatus', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      // 直近30分以内に完了済の場合: 完了バナーで通知
+      if (r && r.recentlyCompleted && !r.running) {
+        showGlobalBanner('Step1 価格調査');
+        finishGlobalBanner('Step1 価格調査', true, r.completedAt || '');
+        const detail = document.getElementById('gsb-detail');
+        if (detail) detail.textContent = `${r.minutesAgo}分前に完了 / ${r.fetcherCount}件取得 (${r.pct}%) — 下にスクロールして ③ → ④ を確認`;
+        return;
+      }
+      if (r && r.running) {
+        showGlobalBanner('Step1 価格調査');
+        // 以降は3秒おきにポーリングしてバナーを更新（pollRun と同等動作だが runId 不要）
+        const t = setInterval(async ()=>{
+          try {
+            const p = await fetch(SERVER_URL + '/api/research/livestatus', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+            if (!p.running) {
+              clearInterval(t);
+              const doneAt = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+              finishGlobalBanner('Step1 価格調査', true, doneAt);
+              // 完了で③④を再描画
+              if (typeof refreshReport==='function') refreshReport();
+              if (typeof updateExecHistory==='function') updateExecHistory();
+              return;
+            }
+            const mm = Math.floor(p.elapsedSec/60), ss = String(p.elapsedSec%60).padStart(2,'0');
+            const pct = p.pct || 0;
+            const remainSec = pct>0 ? Math.round(p.elapsedSec / pct * (100-pct)) : null;
+            const remainStr = remainSec!=null ? `残り約${Math.ceil(remainSec/60)}分` : '残り計測中';
+            document.getElementById('gsb-detail').textContent = `経過 ${mm}:${ss}  /  ${remainStr}  /  ${p.fetcherCount}/${p.expectedTotal} 件取得済`;
+            document.getElementById('gsb-bar').style.width = pct + '%';
+            document.getElementById('gsb-pct').textContent = pct + '%';
+          } catch(e) { /* 無視して継続 */ }
+        }, 3000);
+      }
+    } catch(e) { console.warn('livestatus check failed:', e); }
+  }
+  document.addEventListener('DOMContentLoaded', detectLiveResearch);
+
   async function pollRun(runId, label, statEl){
+    showGlobalBanner(label);
     return new Promise((resolve, reject)=>{
       const startT = Date.now();
       const t = setInterval(async ()=>{
         try{
+          // 進捗API（fetcher 件数 + status）
+          let prog = null;
+          try {
+            prog = await fetch(SERVER_URL + '/api/research/progress?runId=' + runId, {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+          } catch(e) {}
+          // 旧API（互換）
           const r = await fetch(SERVER_URL + '/api/run/' + runId, {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
           const elapsed = Math.floor((Date.now() - startT)/1000);
-          statEl.textContent = `🔄 ${label} 実行中 (${elapsed}秒 / status=${r.status})...`;
+          const mm = Math.floor(elapsed/60), ss = String(elapsed%60).padStart(2,'0');
+
+          // ステータス文字列（ボタン横）
+          if(prog && prog.fetcherCount !== undefined){
+            statEl.textContent = `🔄 ${label} ${mm}:${ss} | ${prog.fetcherCount}/${prog.expectedTotal} 完了 (${prog.pct}%)`;
+          } else {
+            statEl.textContent = `🔄 ${label} 実行中 (${elapsed}秒 / status=${r.status})...`;
+          }
+
+          // グローバルバナー更新
+          if(prog && prog.fetcherCount !== undefined){
+            const pct = prog.pct || 0;
+            const remainSec = pct>0 ? Math.round(elapsed / pct * (100-pct)) : null;
+            const remainStr = remainSec!=null ? `残り約${Math.ceil(remainSec/60)}分` : '残り計測中';
+            document.getElementById('gsb-detail').textContent = `経過 ${mm}:${ss}  /  ${remainStr}  /  ${prog.fetcherCount} 件取得済（OTA×クラス×日付）`;
+            document.getElementById('gsb-bar').style.width = pct + '%';
+            document.getElementById('gsb-pct').textContent = pct + '%';
+          } else {
+            document.getElementById('gsb-detail').textContent = `経過 ${mm}:${ss}  /  status=${r.status}`;
+          }
+
           if(r.status !== 'running'){
             clearInterval(t);
-            if(r.status === 'completed') resolve(r);
-            else reject(new Error(`${label} failed (exit=${r.exitCode})`));
+            const doneAt = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+            if(r.status === 'completed') {
+              finishGlobalBanner(label, true, doneAt);
+              resolve(r);
+            } else {
+              finishGlobalBanner(label, false, doneAt);
+              reject(new Error(`${label} failed (exit=${r.exitCode})`));
+            }
           }
-        }catch(e){ clearInterval(t); reject(e); }
-      }, 20000); // 20秒おき
+        }catch(e){ clearInterval(t); finishGlobalBanner(label, false, ''); reject(e); }
+      }, 3000); // 3秒おき (旧20秒 → 体感速い)
     });
   }
 
