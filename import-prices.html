@@ -687,7 +687,9 @@ window.addEventListener('load', ()=>{
               histInfo.innerHTML = `📁 履歴を保存しました: <code>${saveRes.filename||'保存エラー'}</code><br><br>⏳ <strong>5秒後</strong>、画面をリセットして「次の調査」状態に戻ります...`;
               dlg.appendChild(histInfo);
             }
-            // 5秒後にリロード = デフォルト状態へ復帰
+            // フロー状態を idle に → リロード後は idle 案内が表示される
+            if (typeof markFlowIdle === 'function') markFlowIdle();
+            // 5秒後にリロード = デフォルト状態（idle 案内）へ復帰
             setTimeout(()=>{ location.reload(); }, 5000);
           } catch(e) {
             console.error('[onApplied] error:', e);
@@ -742,7 +744,7 @@ window.addEventListener('load', ()=>{
   </div>
 
   <!-- ⑤ 反映（情報表示・実行ボタン）-->
-  <div style="background:#7f1d1d;border:2px solid #dc2626;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
+  <div id="section-apply" style="background:#7f1d1d;border:2px solid #dc2626;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
     <div style="font-size:12pt;font-weight:800;margin-bottom:8px">
       <span style="display:inline-block;background:#dc2626;color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:900;margin-right:8px">⑤</span>
       反映 <span style="font-size:9pt;color:#fecaca;font-weight:400">（④の価格をプライシングシステムに書込・不可逆）</span>
@@ -752,6 +754,67 @@ window.addEventListener('load', ()=>{
       <span style="font-size:9pt;color:#fecaca">→ モーダルで月選択 → 承認で localStorage 書込 → pricing.html に即反映</span>
     </div>
   </div>
+
+  <!-- idle 状態案内 (前回完了済 → 次の調査を待機) -->
+  <div id="section-idle-guide" style="display:none;background:linear-gradient(135deg,#0f172a,#1e293b);border:2px solid #38bdf8;border-radius:12px;padding:24px;margin-bottom:14px;color:#fff;text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">✅</div>
+    <div id="idle-guide-title" style="font-size:14pt;font-weight:800;margin-bottom:6px">前回の調査が完了しています</div>
+    <div id="idle-guide-detail" style="font-size:10pt;color:#94a3b8;margin-bottom:14px">最終完了: -</div>
+    <div style="font-size:10pt;color:#cbd5e1;margin-bottom:16px;line-height:1.6">
+      新しい価格戦略を立てるには、上の<br>
+      <strong style="color:#fbbf24">① 希望ポジション設定</strong> と <strong style="color:#fbbf24">② 調査日設定</strong> を確認してから<br>
+      <strong style="color:#0ea5e9">Step1 を実行</strong> してください
+    </div>
+    <button onclick="resetFlowAndScrollToStep1()" style="background:#0ea5e9;color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:11pt;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(14,165,233,0.4)">⬆ ① へ移動して新しい調査を開始</button>
+    <div style="margin-top:14px;font-size:8.5pt;color:#64748b">
+      <a href="#" onclick="forceShowAllSections();return false;" style="color:#64748b">前回の結果を再表示する</a>
+    </div>
+  </div>
+
+  <script>
+  // ===== フロー状態マシン (idle / running / done) =====
+  // オーナー要望 2026-05-18: ⑤完了したら毎回デフォルト状態に戻す
+  const FLOW_STATE_KEY = 'bt_tkm_flow_state_v1';
+  function getFlowState(){ try{ return JSON.parse(localStorage.getItem(FLOW_STATE_KEY)||'{}'); }catch(e){ return {}; } }
+  function setFlowState(s){ try{ localStorage.setItem(FLOW_STATE_KEY, JSON.stringify(s)); }catch(e){} }
+  function markFlowIdle(){ setFlowState({ state:'idle', lastCompletedAt: new Date().toISOString() }); }
+  function markFlowActive(){
+    const s = getFlowState();
+    setFlowState({ ...s, state:'active', activatedAt: new Date().toISOString() });
+  }
+  function applyFlowVisibility(){
+    const s = getFlowState();
+    const isIdle = s.state === 'idle';
+    const sec_report = document.getElementById('section-report');
+    const sec_decision = document.getElementById('section-decision');
+    const sec_apply = document.getElementById('section-apply');
+    const sec_idle = document.getElementById('section-idle-guide');
+    [sec_report, sec_decision, sec_apply].forEach(el=>{ if(el) el.style.display = isIdle ? 'none' : ''; });
+    if (sec_idle) {
+      sec_idle.style.display = isIdle ? 'block' : 'none';
+      if (isIdle && s.lastCompletedAt) {
+        const d = new Date(s.lastCompletedAt);
+        document.getElementById('idle-guide-detail').textContent =
+          `最終完了: ${d.toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
+      }
+    }
+  }
+  function resetFlowAndScrollToStep1(){
+    // idle 案内を消して①へスクロール (state は idle のまま・Step1 押下で active になる)
+    document.getElementById('section-idle-guide').style.display = 'none';
+    const t = document.getElementById('position-status');
+    if (t) t.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  function forceShowAllSections(){
+    // 「前回の結果を再表示する」リンク用 (一時的に全表示・state は idle のまま)
+    document.getElementById('section-idle-guide').style.display = 'none';
+    ['section-report','section-decision','section-apply'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  }
+  document.addEventListener('DOMContentLoaded', applyFlowVisibility);
+  </script>
 
   <!-- 🔧 メンテナンス (折りたたみ) -->
   <details style="background:#1e293b;border:1px solid #475569;border-radius:8px;padding:0;margin-bottom:14px;color:#cbd5e1">
@@ -882,6 +945,9 @@ window.addEventListener('load', ()=>{
     const excludeSet = _getExcludeSet();
     const surveyDates = allReps.filter(r => r.day !== null && !excludeSet.has(`${r.month}-${r.tier}`));
     if(!surveyDates.length){ alert('調査対象日がゼロです'); return; }
+    // フロー状態を active に切替 + idle 案内を消す → 全セクション表示
+    if (typeof markFlowActive === 'function') markFlowActive();
+    if (typeof applyFlowVisibility === 'function') applyFlowVisibility();
     if(!confirm(`②価格調査だけ実行します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約5-10分\n\n実行後、結果を確認してから ⑤④決定を実行してください。\n\n実行しますか？`)) return;
     btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 調査中...';
     stat.style.display = 'block'; stat.textContent = '🔄 価格調査 起動中...';
