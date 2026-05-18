@@ -457,25 +457,28 @@ window.addEventListener('load', ()=>{
       const SEASON_TO_TIER = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
       // state は冒頭で取得済 (二重宣言回避)
       const monthly = state.monthlyTierClassPrices || (state.segments && state.segments.proper && state.segments.proper.monthlyTierClassPrices) || {};
-      // tier ごとの最新値を取得する関数
+      // 🔹 ②調査月リスト取得 (サマリー判定の母集団)
+      const _surveyDatesCheck = (()=>{ try{return JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');}catch(e){return [];} })();
+      const _excludeSetCheck = (()=>{ try{return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]'));}catch(e){return new Set();} })();
+      const surveyMonths = [...new Set((_surveyDatesCheck||[])
+        .filter(r=>r && r.day!==null && r.month && !_excludeSetCheck.has(`${r.month}-${r.tier}`))
+        .map(r=>parseInt(r.month,10)))].sort((a,b)=>a-b);  // 例: [6,7,8,9,10]
+      // tier ごとの現在価格: ②調査月の中で値がある最新月から取得
       const getTierData = (tier)=>{
-        for(let mo=12; mo>=1; mo--){
-          const m = monthly[`2026-${mo}`];
-          if(m && m[tier]) return m[tier];
-        }
-        for(let mo=12; mo>=1; mo--){
-          const m = monthly[`2027-${mo}`];
+        for(let i=surveyMonths.length-1; i>=0; i--){
+          const m = monthly[`2026-${surveyMonths[i]}`];
           if(m && m[tier]) return m[tier];
         }
         return {};
       };
-      const THRESHOLD = 5; // ±5% 以内なら ⭕️
+      const THRESHOLD = 5; // ±5% 以内なら 市場相当
       let okCount = 0, ngCount = 0;
       const ngList = [];
       // サマリー集計
       let upCount = 0, downCount = 0, newCount = 0;
       let upDiffSum = 0, downDiffSum = 0;
       let maxAbsDiffPct = 0;
+      let maxAbsDetail = null;  // {tier, cls, cur, hope, diffPct} 最大変動の詳細
 
       parsed.seasons.forEach(group=>{
         const tier = SEASON_TO_TIER[group.season];
@@ -492,15 +495,18 @@ window.addEventListener('load', ()=>{
           } else {
             const diff = cur - hope;
             const diffPct = Math.abs(diff/hope*100);
-            if(diffPct > maxAbsDiffPct) maxAbsDiffPct = diffPct;
+            if(diffPct > maxAbsDiffPct){
+              maxAbsDiffPct = diffPct;
+              maxAbsDetail = {tier, cls: r.cls, cur, hope, diffPct, season: group.season};
+            }
             if(diffPct <= THRESHOLD){
-              icon = '⭕️'; action = 'ほぼ希望通り'; comment = `現在 ¥${cur.toLocaleString()} / 希望 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) — 変更不要`; color = '#86efac';
+              icon = '⭕️'; action = '市場相当（±5%）'; comment = `現在 ¥${cur.toLocaleString()} / 推奨 ¥${hope.toLocaleString()} (差${diffPct.toFixed(1)}%) — 変更不要`; color = '#86efac';
               okCount++;
             } else if(cur < hope){
-              icon = '⬆'; action = `${diffPct.toFixed(0)}%安く設定中・上昇余地あり`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (＋¥${Math.abs(diff).toLocaleString()} 上げると希望ポジション)`; color = '#fbbf24';
+              icon = '⬆'; action = `市場より${diffPct.toFixed(0)}%安く設定中 — 値上げ余地`; comment = `現在 ¥${cur.toLocaleString()} → 推奨 ¥${hope.toLocaleString()} (＋¥${Math.abs(diff).toLocaleString()} で市場相当)`; color = '#fbbf24';
               ngCount++; upCount++; upDiffSum += diffPct; ngList.push(`${group.season} ${r.cls}`);
             } else {
-              icon = '⬇'; action = `${diffPct.toFixed(0)}%高く設定中・下落リスク`; comment = `現在 ¥${cur.toLocaleString()} → 希望 ¥${hope.toLocaleString()} (−¥${Math.abs(diff).toLocaleString()} 下げると希望ポジション)`; color = '#fca5a5';
+              icon = '⬇'; action = `市場より${diffPct.toFixed(0)}%高く設定中 — 値下げ要`; comment = `現在 ¥${cur.toLocaleString()} → 推奨 ¥${hope.toLocaleString()} (−¥${Math.abs(diff).toLocaleString()} で市場相当)`; color = '#fca5a5';
               ngCount++; downCount++; downDiffSum += diffPct; ngList.push(`${group.season} ${r.cls}`);
             }
           }
@@ -523,26 +529,30 @@ window.addEventListener('load', ()=>{
       const total = okCount + ngCount;
       const avgUp = upCount ? (upDiffSum/upCount).toFixed(0) : 0;
       const avgDown = downCount ? (downDiffSum/downCount).toFixed(0) : 0;
+      const surveyMonthsLabel = surveyMonths.length ? surveyMonths.map(m=>`${m}月`).join('・') : '未設定';
+      // 最大変動 詳細表示
+      const maxDetailHtml = maxAbsDetail ? `<div style="margin-top:6px;padding:6px 10px;background:#0a2818;border-radius:4px;font-size:8.5pt;color:#bbf7d0">📌 最大変動: <strong style="color:#fff">${maxAbsDetail.season} × ${maxAbsDetail.cls}</strong>: 現在 <strong style="color:#fbbf24">¥${maxAbsDetail.cur.toLocaleString()}</strong> → 推奨 <strong style="color:#86efac">¥${maxAbsDetail.hope.toLocaleString()}</strong> (差 <strong style="color:#f87171">${maxAbsDetail.cur<maxAbsDetail.hope?'+':'−'}${maxAbsDetail.diffPct.toFixed(0)}%</strong>)</div>` : '';
       let actionTitle, actionReason, actionBg;
       if(total === 0){
-        actionTitle = '判定不能'; actionReason = '決定MDのパース結果が空'; actionBg = '#475569';
+        actionTitle = '判定不能'; actionReason = '比較対象データがありません'; actionBg = '#475569';
       } else if(ngCount === 0){
-        actionTitle = '何もしなくてOK'; actionReason = '全項目が希望ポジション圏内（±5%以内）'; actionBg = '#16a34a';
+        actionTitle = '何もしなくてOK'; actionReason = `②調査月（${surveyMonthsLabel}）の全項目が市場相当（±5%）に設定済み`; actionBg = '#16a34a';
       } else if(maxAbsDiffPct >= 30){
-        actionTitle = '個別確認推奨'; actionReason = `変動率 ${maxAbsDiffPct.toFixed(0)}% を含むハイリスク変更あり。④で個別確認の上、判断を`; actionBg = '#dc2626';
+        actionTitle = '個別確認推奨'; actionReason = `差${maxAbsDiffPct.toFixed(0)}% の大幅変更あり。④で内訳を確認し判断を`; actionBg = '#dc2626';
       } else if(ngCount >= total/2){
-        actionTitle = '⑤Goサインで全反映 推奨'; actionReason = `変更要 ${ngCount}/${total}件 (過半数) が市場希望から乖離。全反映で適正ポジションへ`; actionBg = '#16a34a';
+        actionTitle = '⑤Goサインで全反映 推奨'; actionReason = `変更要 ${ngCount}/${total}件 (過半数)。⑤Goサインで市場相当へ揃える`; actionBg = '#16a34a';
       } else {
         actionTitle = '微調整 または 見送り可'; actionReason = `変更要 ${ngCount}/${total}件 (少数)。④で個別確認の上、必要分のみ反映`; actionBg = '#7c3aed';
       }
       const banner = `<div style="background:linear-gradient(135deg,#0c1f2e,#0a2818);border:2px solid ${actionBg};border-radius:10px;padding:14px 18px;margin-bottom:14px">`+
-        `<div style="font-size:11pt;font-weight:800;color:#fff;margin-bottom:8px">📊 サマリー判定</div>`+
-        `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;font-size:9pt">`+
-        `<div style="background:#fef3c7;color:#78350f;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${upCount}</strong>件<br>⬆ 上昇余地${upCount?` (平均+${avgUp}%)`:''}</div>`+
-        `<div style="background:#fee2e2;color:#7f1d1d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${downCount}</strong>件<br>⬇ 下落リスク${downCount?` (平均-${avgDown}%)`:''}</div>`+
-        `<div style="background:#dcfce7;color:#14532d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${okCount}</strong>件<br>⭕ 適正</div>`+
-        `<div style="background:#e0e7ff;color:#312e81;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${newCount}</strong>件<br>🆕 未設定</div>`+
+        `<div style="font-size:11pt;font-weight:800;color:#fff;margin-bottom:4px">📊 サマリー判定 <span style="font-size:8.5pt;font-weight:400;color:#bbf7d0">— ②調査月（${surveyMonthsLabel}）の現在価格 vs 市場推奨価格 を比較</span></div>`+
+        `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;font-size:9pt">`+
+        `<div style="background:#fef3c7;color:#78350f;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${upCount}</strong>件<br>⬆ 市場より安い<br><span style="font-size:8pt">${upCount?`(平均-${avgUp}%・値上げ余地)`:'なし'}</span></div>`+
+        `<div style="background:#fee2e2;color:#7f1d1d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${downCount}</strong>件<br>⬇ 市場より高い<br><span style="font-size:8pt">${downCount?`(平均+${avgDown}%・値下げ要)`:'なし'}</span></div>`+
+        `<div style="background:#dcfce7;color:#14532d;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${okCount}</strong>件<br>⭕ 市場相当<br><span style="font-size:8pt">(±5%・変更不要)</span></div>`+
+        `<div style="background:#e0e7ff;color:#312e81;padding:6px 10px;border-radius:5px;text-align:center"><strong style="font-size:14pt">${newCount}</strong>件<br>🆕 未設定<br><span style="font-size:8pt">(初回反映)</span></div>`+
         `</div>`+
+        maxDetailHtml +
         `<div style="background:${actionBg};color:#fff;padding:10px 14px;border-radius:6px"><div style="font-size:8.5pt;opacity:.9;margin-bottom:2px">🎯 推奨アクション</div><div style="font-size:13pt;font-weight:900;margin-bottom:4px">${actionTitle}</div><div style="font-size:9pt;opacity:.95">${actionReason}</div></div>`+
         `</div>`;
       // プレースホルダ置換
