@@ -417,23 +417,37 @@ window.addEventListener('load', ()=>{
     const el = document.getElementById('report-list');
     el.innerHTML = '...';
     try{
-      const r = await fetch(SERVER_URL + '/api/output/list', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
-      const decisions = (r.files||[]).filter(f=>f.name.includes('decision'));
-      if(!decisions.length){
-        el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDなし。「⚡実行」で調査→決定を実施してください</span>';
-        return;
-      }
-      const latest = decisions[0];
-      const c = await fetch(SERVER_URL + '/api/output/read/' + encodeURIComponent(latest.name), {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
-      const md = c.content || '';
-      const parsed = parseReport(md);
-      if(!parsed.seasons.length){ el.innerHTML = '<span style="color:#fca5a5">⚠️ 決定MDのパースに失敗</span>'; return; }
       const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
+      const state = (()=>{ try{return JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');}catch(e){return {};} })();
+      const dayTiers = state.dayTiers || null;
+      // 🔹 新: サーバー集計エンドポイント /api/decision/compute から直接推奨価格を取得 (CLI agent 経由なし)
+      const computeRes = await fetch(SERVER_URL + '/api/decision/compute', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+        body: JSON.stringify({positionPct: pct, dayTiers})
+      }).then(r=>r.json());
+      if(computeRes.error){ el.innerHTML = '<span style="color:#fca5a5">サーバー集計エラー: '+computeRes.error+'</span>'; return; }
+      // by_tier → parsed.seasons 形式へ変換 (既存renderロジック互換)
+      const SEASON_LABELS = [['C','C繁忙シーズン'],['B','B通常シーズン'],['A','A閑散シーズン']];
+      const parsed = { seasons: [], surveyDates: {} };
+      const CLASSES_ALL = ['AA','A','B','C','S','H','F'];
+      for (const [tier, label] of SEASON_LABELS) {
+        const tdata = computeRes.by_tier?.[tier] || {};
+        const rows = [];
+        for (const cls of CLASSES_ALL) {
+          const d = tdata[cls] || {};
+          rows.push({ cls, recommended: d.recommended ?? null, base: d.n5_median ?? null, current: null });
+        }
+        parsed.seasons.push({season: label, rows});
+        const days = Object.values(tdata).map(d=>d?.sample_days||0).reduce((a,b)=>Math.max(a,b),0);
+        parsed.surveyDates[label] = days ? `サーバー集計 / 採用日数 最大${days}日` : '対象日なし';
+      }
+      if(!parsed.seasons.length){ el.innerHTML = '<span style="color:#fca5a5">⚠️ サーバー集計結果が空</span>'; return; }
       const lines = [];
-      // ヘッダー: 調査日付
-      const dateStr = latest.name.match(/(\d{8})/)?.[1] || '';
-      const formattedDate = dateStr ? `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}` : '不明';
-      lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 調査実行日:</strong> ${formattedDate}　<strong>📄 MD:</strong> ${latest.name}　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%</div>`);
+      // ヘッダー: サーバー集計時刻 + ソース情報
+      const nowStr = new Date().toISOString().slice(0,19).replace('T',' ');
+      const unmapped = (computeRes.unmapped_samples||[]).slice(0,5);
+      lines.push(`<div style="background:#0a2818;padding:8px 12px;border-radius:6px;margin-bottom:10px;color:#fff;font-size:9.5pt"><strong>📅 集計時刻:</strong> ${nowStr}　<strong>📊 ソース:</strong> サーバー直結 (CLI不要)　<strong>🎯 希望ポジション:</strong> 競合5位×${pct}%<br><span style="font-size:8.5pt;color:#bbf7d0">レコード ${computeRes.total_records}件 / 車種マッピング済 ${computeRes.mapped_records}件${unmapped.length?` / 未マップ車種(先頭): ${unmapped.join(', ')}`:''}</span></div>`);
       // サマリーバナー (後で actCount 決まったら埋める・一旦プレースホルダ)
       const summaryPlaceholder = '__SUMMARY_BANNER__';
       lines.push(summaryPlaceholder);
@@ -441,7 +455,7 @@ window.addEventListener('load', ()=>{
       // 現在価格を localStorage の monthlyTierClassPrices から取得
       // 各 tier は月をまたいで同じ値が入るはずなので、「該当 tier の値を持つ最新月」から取得
       const SEASON_TO_TIER = {'C繁忙シーズン':'C','B通常シーズン':'B','A閑散シーズン':'A'};
-      const state = (()=>{ try{return JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');}catch(e){return {};} })();
+      // state は冒頭で取得済 (二重宣言回避)
       const monthly = state.monthlyTierClassPrices || (state.segments && state.segments.proper && state.segments.proper.monthlyTierClassPrices) || {};
       // tier ごとの最新値を取得する関数
       const getTierData = (tier)=>{
