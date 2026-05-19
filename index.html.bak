@@ -9289,35 +9289,7 @@ function ManagementTab({store}){
         </>}
         <button onClick={()=>setSub("dashboard")} style={btn("#0891b2")}>↻ 再読込</button>
         <button onClick={()=>openPdfReport_(dbStore,dashPeriod,dashYm,dashKpi,dashYearly,dbResvs)} style={btn("#059669")}>📄 PDF出力</button>
-        <button onClick={()=>{
-          const isSp=dbStore==="spk";
-          const rdK=isSp?"return_date":"end_date";
-          const ldK=isSp?"lend_date":"start_date";
-          const yr_=dashYm.slice(0,4),mo_=parseInt(dashYm.slice(5));
-          const dim_=new Date(parseInt(yr_),mo_,0).getDate();
-          const mS_=new Date(dashYm+"-01T00:00:00");
-          const mE_=new Date(yr_+"-"+String(mo_).padStart(2,"0")+"-"+String(dim_).padStart(2,"0")+"T23:59:59");
-          const fMap_={};(dbFleet||[]).forEach(x=>{fMap_[x.reservation_id]=x.vehicle_code;});
-          const kpiF_={};(dbKpi||[]).forEach(k=>{if(!kpiF_[k.year_month])kpiF_[k.year_month]={};kpiF_[k.year_month][k.vehicle_code]=k.active;});
-          const kpiM_=kpiF_[dashYm]||{};
-          const actR=(dbResvs||[]).filter(r=>r.status!=="cancelled"&&r.status!=="キャンセル"&&r.status!=="cancel");
-          const byClass_={};
-          (dbVehs||[]).filter(v=>v.active&&(!(v.code in kpiM_)||kpiM_[v.code])).forEach(v=>{
-            const tp=v.type||v.vehicle_class||"?";
-            if(!byClass_[tp])byClass_[tp]={cls:tp,count:0,capDays:0,usedDays:0,rev:0};
-            byClass_[tp].count++;byClass_[tp].capDays+=dim_;
-            let vD=0,vR=0;
-            actR.forEach(r=>{
-              if(fMap_[r.id]!==v.code)return;
-              const ld_=new Date((r[ldK]||"")+"T00:00:00"),rd_=new Date((r[rdK]||"")+"T00:00:00");
-              const s_=ld_<mS_?mS_:ld_,e_=rd_>mE_?mE_:rd_;
-              vD+=Math.max(0,Math.round((e_-s_)/86400000));
-              if(r[rdK]&&r[rdK].slice(0,7)===dashYm){const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;vR+=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);}
-            });
-            byClass_[tp].usedDays+=vD;byClass_[tp].rev+=vR;
-          });
-          openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,byClass_);
-        }} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
+        <button onClick={()=>openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,null)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
         <span style={{fontSize:10,color:"#a78bfa"}}>↑ダッシュボードの月選択と連動</span>
 
         <span style={{marginLeft:"auto",fontSize:10,color:"#94a3b8",fontWeight:600}}>{dashPeriod==="year"?"※ 年モードは加重平均（Σ値/Σ母数）で算出":"※ 月単位の計上ベース"}</span>
