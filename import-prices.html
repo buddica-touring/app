@@ -635,7 +635,14 @@ window.addEventListener('load', ()=>{
         CLASSES.forEach(cls=>{
           const d = row[cls]||{};
           const v = d.recommended;
-          html += `<td style="padding:6px 10px;text-align:right;background:#0c4a26;font-family:Menlo,monospace;font-weight:700;font-size:9.5pt">${v!=null?'¥'+v.toLocaleString():'<span style="opacity:.3">—</span>'}</td>`;
+          const insuf = d.insufficient_sample;
+          const recs = d.sample_records || 0;
+          // 5件未満は警告アイコン + 「データ不足」表示
+          if (insuf && recs > 0) {
+            html += `<td style="padding:6px 10px;text-align:right;background:#3f1d1d;color:#fca5a5;font-family:Menlo,monospace;font-size:9pt" title="サンプル ${recs}件 (5件未満・信頼性低)">⚠️${recs}件</td>`;
+          } else {
+            html += `<td style="padding:6px 10px;text-align:right;background:#0c4a26;font-family:Menlo,monospace;font-weight:700;font-size:9.5pt">${v!=null?'¥'+v.toLocaleString():'<span style="opacity:.3">—</span>'}</td>`;
+          }
         });
         html += `<td style="padding:6px 10px;text-align:center;background:#0c4a26;color:#bae6fd;font-size:8pt">${maxDays}日</td>`;
         html += `</tr>`;
@@ -972,10 +979,35 @@ window.addEventListener('load', ()=>{
       // 手動 override (個別日指定)
       let override = {};
       try{ override = JSON.parse(localStorage.getItem('bt_tkm_survey_override_v1')||'{}'); }catch(e){}
-      // 各 tier の代表日を選定（A/C は2日・B は1日でサンプル増）
-      // オーナー要望 2026-05-18: A閑散/C繁忙 のサンプル偏り解消
-      const SAMPLE_INCREASE = localStorage.getItem('bt_tkm_sample_increase_v1') !== 'false'; // デフォルトON
-      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount, candidates, isOverride, sampleIdx}]
+      // 🔴 改修 2026-05-19 (オーナー要望「定義・ロジック全記録」):
+      // 各 tier 最大3日サンプリング + 業務カレンダー優先日
+      // ─ サンプル増モード = 3日 (中央 + 業務ピーク or 前半端 + 後半端)
+      // ─ サンプル増 OFF = 1日 (中央値日)
+      // ─ B通常 も3日対応 (前回は1日固定だった)
+      const SAMPLE_INCREASE = localStorage.getItem('bt_tkm_sample_increase_v1') !== 'false';
+
+      // 🎯 業務カレンダー優先日辞書 (お盆中日・SW中日・年末等のピーク日を最優先)
+      // フォーマット: `${yr}-${mo}-${tier}`: [day1, day2, day3] (優先順)
+      const PRIORITY_DATES = {
+        // 7月 C繁忙 = 海の日連休 + 夏休み突入
+        [`${yr}-7-C`]: [20, 21, 26],      // 海の日(月祝) / 夏休み開始 / 連休
+        // 8月 C繁忙 = お盆中日 (8/13-15 がピーク・16は連休最終で値下げ傾向)
+        [`${yr}-8-C`]: [14, 13, 15],      // お盆中日 → お盆初日 → お盆三日目
+        // 9月 C繁忙 = シルバーウィーク (9/19-23)
+        [`${yr}-9-C`]: [22, 21, 23],      // SW中日 → SW初日 → SW最終
+        // 12月 C繁忙 = 年末年始ピーク
+        [`${yr}-12-C`]: [30, 29, 31],     // 年末ピーク 12/30
+        // 5月 C繁忙 = GW
+        [`${yr}-5-C`]: [3, 4, 5],         // GW中日
+        // 11月 C繁忙 = 紅葉ピーク
+        [`${yr}-11-C`]: [22, 21, 23],     // 紅葉ピーク中日
+        // 4月 C繁忙 = 桜ピーク
+        [`${yr}-4-C`]: [1, 2, 3],
+        // 1月 C繁忙 = 年始
+        [`${yr}-1-C`]: [2, 1, 3],
+      };
+
+      const reps = [];
       const WEEKDAY = ['日','月','火','水','木','金','土'];
       const pushRep = (mo, tier, selectedDay, arr, override, sampleIdx) => {
         const date = new Date(yr, mo-1, selectedDay);
@@ -990,6 +1022,15 @@ window.addEventListener('load', ()=>{
           sampleIdx: sampleIdx || 0,
         });
       };
+
+      // 業務カレンダー優先日から「該当 tier 内に存在する日」を抽出
+      const pickPriorityDays = (mo, tier, arr) => {
+        const key = `${yr}-${mo}-${tier}`;
+        const priorityList = PRIORITY_DATES[key];
+        if (!priorityList) return [];
+        return priorityList.filter(d => arr.includes(d));
+      };
+
       for(let mo=1; mo<=12; mo++){
         ['C','B','A'].forEach(tier=>{
           const arr = monthly[mo][tier];
@@ -997,19 +1038,37 @@ window.addEventListener('load', ()=>{
             reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0, candidates:[], isOverride:false, sampleIdx:0});
             return;
           }
-          // 1日目: 中央値日 (既存仕様)
+          // 業務カレンダー優先日 (お盆中日等)
+          const priorityDays = pickPriorityDays(mo, tier, arr);
+          const mid = arr[Math.floor(arr.length/2)];
+
+          // 1日目: override > 業務優先 > 中央値日
           const ovKey1 = `${mo}-${tier}`;
           const ovDay1 = override[ovKey1];
-          const day1 = (ovDay1 && arr.includes(ovDay1)) ? ovDay1 : arr[Math.floor(arr.length/2)];
+          const day1 = (ovDay1 && arr.includes(ovDay1)) ? ovDay1
+                    : (priorityDays[0] || mid);
           pushRep(mo, tier, day1, arr, override, 0);
-          // 2日目: A閑散/C繁忙 でサンプル増モード時のみ追加 (中央値日と離れた日)
-          if (SAMPLE_INCREASE && (tier === 'A' || tier === 'C') && arr.length >= 2) {
+
+          if (!SAMPLE_INCREASE) return;  // OFF なら 1日のみ
+
+          // 2日目: 優先日 #2 > 前半端
+          if (arr.length >= 2) {
             const ovKey2 = `${mo}-${tier}-1`;
             const ovDay2 = override[ovKey2];
-            // 中央値以外で「中央値から最も離れた日」を選定
-            const farthest = arr.reduce((best, d) => Math.abs(d - day1) > Math.abs(best - day1) ? d : best, arr[0]);
-            const day2 = (ovDay2 && arr.includes(ovDay2)) ? ovDay2 : farthest;
+            const day2Default = priorityDays[1] || arr[0];  // 優先 #2 or 月初 (前半端)
+            const day2 = (ovDay2 && arr.includes(ovDay2)) ? ovDay2 : day2Default;
             if (day2 !== day1) pushRep(mo, tier, day2, arr, override, 1);
+          }
+
+          // 3日目: 優先日 #3 > 後半端 (3日サンプリングは A/C のみ・B は2日まで)
+          if (arr.length >= 3 && tier !== 'B') {
+            const ovKey3 = `${mo}-${tier}-2`;
+            const ovDay3 = override[ovKey3];
+            const day3Default = priorityDays[2] || arr[arr.length-1];  // 優先 #3 or 月末 (後半端)
+            const day3 = (ovDay3 && arr.includes(ovDay3)) ? ovDay3 : day3Default;
+            // day1, day2 と重複しないように
+            const day2Used = arr.length >= 2 ? (override[`${mo}-${tier}-1`] && arr.includes(override[`${mo}-${tier}-1`]) ? override[`${mo}-${tier}-1`] : (priorityDays[1] || arr[0])) : null;
+            if (day3 !== day1 && day3 !== day2Used) pushRep(mo, tier, day3, arr, override, 2);
           }
         });
       }
