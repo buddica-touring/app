@@ -6846,10 +6846,10 @@ function ClsUtilCard({utilByM,ymList,nowYm,yrList,DB_VEH_TYPES}){
 }
 
 // ══════════════════════════════════════════════════════════════
-// 📋 月次レポートPDF 生成（2026-05-19 新規）
-// openFullMonthlyReport_(store, "YYYY-MM", allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap)
+// 📋 月次レポートPDF 生成（2026-05-19）
+// openFullMonthlyReport_(store, "YYYY-MM", allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM)
 // ══════════════════════════════════════════════════════════════
-function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap){
+function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM){
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"那覇空港店";
   var co="株式会社Global Lines";
@@ -6908,6 +6908,32 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   });
   ltArr.sort(function(a,b){return a-b;});
   var ltMedian=ltArr.length>0?ltArr[Math.floor(ltArr.length/2)]:null;
+
+  // ── 当月予約率（返却月のうち予約発生も同月の割合）
+  var bookedInMonth=monthResv.filter(function(r){
+    var bm=r.booked_at||(r.created_at&&r.created_at.slice(0,10)!=="2026-03-29"?r.created_at:null);
+    return bm&&bm.slice(0,7)===repYm;
+  }).length;
+  var reservationRate=totalCnt>0?Math.round(bookedInMonth/totalCnt*100):0;
+
+  // ── デリバリ利用率
+  var NON_DEL_RE=/(那覇空港|空港|来店|店舗|店頭|ヤード|営業所|HANDYMAN)/;
+  var isDelPlace=function(p){var s=String(p||"").trim();return s&&!NON_DEL_RE.test(s);};
+  var deliveryCnt=monthResv.filter(function(r){
+    if(isSpk)return true;
+    var vt=(r.visit_type||"").toUpperCase(),rt=(r.return_type||"").toUpperCase();
+    if(vt.includes("DEL")||vt==="L")return true;
+    if(rt.includes("COL"))return true;
+    if(isDelPlace(r.del_place)||isDelPlace(r.col_place))return true;
+    return false;
+  }).length;
+  var deliveryRate=totalCnt>0?Math.round(deliveryCnt/totalCnt*100):0;
+
+  // ── RevPACD / 台あたり
+  var revpacd=utilMaxDays>0?Math.round(totalRev/utilMaxDays):0;
+  var extraRev=(extraByM||{})[repYm]||0;
+  var grandTotal=totalRev+extraRev;
+  var perVehicleRev=activeVehs.length>0?Math.round(grandTotal/activeVehs.length):0;
 
   // ── チャンネル別集計
   var byCh={};
@@ -7011,11 +7037,18 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   });
 
   // ══ CSS ══
-  var css="@page{size:A4;margin:12mm 14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif;font-size:9.5pt;color:#1a202c;line-height:1.55}.cv{text-align:center;padding:18px 0 12px;border-bottom:3px solid #1e40af;margin-bottom:14px}.sec{margin-bottom:14px}.st{font-size:10.5pt;font-weight:800;color:#1e40af;border-left:4px solid #1e40af;padding-left:8px;margin-bottom:8px}.hero{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.hc{border-radius:8px;padding:10px 12px;text-align:center}.hcl{font-size:8pt;color:#64748b;margin-bottom:3px;font-weight:600}.hcv{font-size:18pt;font-weight:900;line-height:1.1}.hcs{font-size:8pt;color:#94a3b8;margin-top:2px}.kg{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}.kc{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 8px}.kl{font-size:7.5pt;color:#64748b;margin-bottom:1px}.kv{font-size:12pt;font-weight:900}.ks{font-size:7.5pt;color:#94a3b8}table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#1e40af;color:#fff;padding:5px 7px;font-weight:700;text-align:left;font-size:8pt}td{padding:4px 7px;border-bottom:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{background:#f8fafc}.tr{background:#1e293b!important}.tr td{color:#fff!important}.pb{break-before:page}.clsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:8px}.clsCard{border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.sb{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;min-height:44px}.sl{font-size:7.5pt;color:#94a3b8;margin-bottom:3px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  var css="@page{size:A4;margin:12mm 14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif;font-size:9.5pt;color:#1a202c;line-height:1.55}.cv{text-align:center;padding:18px 0 12px;border-bottom:3px solid #1e40af;margin-bottom:14px}.sec{margin-bottom:14px}.st{font-size:10.5pt;font-weight:800;color:#1e40af;border-left:4px solid #1e40af;padding-left:8px;margin-bottom:8px}"+
+  /* TOPsummary */
+  ".ts-wrap{background:#fffde7;border:1.5px solid #fde68a;border-radius:10px;padding:12px 14px}.ts-hdr{text-align:center;font-size:11pt;font-weight:800;color:#374151;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #fde68a}.ts-body{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ts-left{}.ts-right{border-left:1px solid #fde68a;padding-left:14px}.ts-rev-main{font-size:15pt;font-weight:900;color:#059669;margin-bottom:8px}.ts-rev-lbl{font-size:8.5pt;color:#64748b;font-weight:600}.ts-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f3f4f6}.ts-row:last-child{border-bottom:none}.ts-key{font-size:8.5pt;color:#374151}.ts-val{font-size:9pt;font-weight:700;text-align:right}.ts-val.grn{color:#059669}.ts-val.blu{color:#2563eb}.ts-val.org{color:#d97706}.ts-val.pur{color:#7c3aed}.ts-total-row{display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;padding:5px 8px;border-radius:6px;margin:6px 0}.ts-kpi-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6}.ts-kpi-row:last-child{border-bottom:none}.ts-kpi-lbl{font-size:8.5pt;color:#374151;flex:1}.ts-kpi-val{font-size:11pt;font-weight:900}.ts-kpi-sub{font-size:7.5pt;color:#94a3b8;margin-left:4px}.ts-bar-wrap{flex:1;background:#e2e8f0;border-radius:3px;height:6px;margin:0 8px}.ts-bar{height:6px;border-radius:3px}.ts-pct{font-size:8pt;color:#64748b;width:30px;text-align:right}.ts-vc-row{display:flex;align-items:center;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-top:8px;gap:10px}"+
+  /* テーブル共通 */
+  "table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#1e40af;color:#fff;padding:5px 7px;font-weight:700;text-align:left;font-size:8pt}td{padding:4px 7px;border-bottom:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{background:#f8fafc}.tr{background:#1e293b!important}.tr td{color:#fff!important}.pb{break-before:page}.sign{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.sb{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;min-height:44px}.sl{font-size:7.5pt;color:#94a3b8;margin-bottom:3px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
 
   // ══ HTML組み立て ══
-  var totalExtra=0; // 予約外売上（簡略版。ここでは0として処理）
-  var grandTotal=totalRev+totalExtra;
+  // grandTotal / extraRev は上で計算済み
+
+  // ヘルパー関数（HTML組み立て前に宣言）
+  var bar=function(v,tot,clr){var pct=tot>0?Math.min(100,Math.round(v/tot*100)):0;return'<div class="ts-bar-wrap"><div class="ts-bar" style="width:'+pct+'%;background:'+clr+'"></div></div><span class="ts-pct">'+pct+'%</span>';};
+  var rp=function(v){return v>0?v.toFixed(1)+"%":"-";}; // 比率表示ヘルパー
 
   // 1. 表紙
   var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次レポート '+period+'</title><style>'+css+'</style></head><body>'+
@@ -7027,22 +7060,67 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     '<div style="font-size:8.5pt;color:#94a3b8;margin-top:6px">作成日: '+gd+'</div>'+
   '</div>'+
 
-  // 2. TOPサマリー（ヒーロー数値）
-  '<div class="sec"><div class="st">① TOPサマリー</div>'+
-  '<div class="hero">'+
-    '<div class="hc" style="background:#eff6ff;border:1.5px solid #bfdbfe"><div class="hcl">月次稼働率</div><div class="hcv" style="color:#2563eb">'+utilPct+'%</div><div class="hcs">'+utilDays+'/'+utilMaxDays+'日・'+activeVehs.length+'台</div></div>'+
-    '<div class="hc" style="background:#f0fdf4;border:1.5px solid #bbf7d0"><div class="hcl">月次売上</div><div class="hcv" style="color:#059669;font-size:15pt">'+f(grandTotal)+'</div><div class="hcs">予約:'+f(totalRev)+'</div></div>'+
-    '<div class="hc" style="background:#fefce8;border:1.5px solid #fde68a"><div class="hcl">平均単価</div><div class="hcv" style="color:#d97706">'+f(unitPrice)+'</div><div class="hcs">'+totalCnt+'件 / 平均'+avgNights.toFixed(1)+'泊</div></div>'+
-    '<div class="hc" style="background:#fefce8;border:1.5px solid #fde68a"><div class="hcl">LT中央値</div><div class="hcv" style="color:#92400e">'+(ltMedian!=null?ltMedian+"日":"--")+'</div><div class="hcs">'+ltArr.length+'件サンプル</div></div>'+
-  '</div>'+
-
-  // 稼働率・売上内訳サブ
-  '<div class="kg">'+
-    '<div class="kc"><div class="kl">基本料金</div><div class="kv" style="color:#2563eb">'+f(totalBase)+'</div></div>'+
-    '<div class="kc"><div class="kl">付帯売上</div><div class="kv" style="color:#059669">'+f(totalOpt)+'</div></div>'+
-    '<div class="kc"><div class="kl">割引</div><div class="kv" style="color:#dc2626">-'+f(totalDisc)+'</div></div>'+
-    '<div class="kc"><div class="kl">予約件数</div><div class="kv" style="color:#1e40af">'+totalCnt+'件</div></div>'+
-    '<div class="kc"><div class="kl">RevPACD</div><div class="kv" style="color:#0284c7">'+f(utilMaxDays>0?Math.round(totalRev/utilMaxDays):0)+'</div></div>'+
+  // ① TOPsummary（アプリのSummaryウィジェットそのまま）
+  '<div class="sec"><div class="st">① TOPsummary</div>'+
+  '<div class="ts-wrap">'+
+    '<div class="ts-hdr">'+moStr+'月 返却 '+totalCnt+'件</div>'+
+    '<div class="ts-body">'+
+      // 左: 売上ブロック
+      '<div class="ts-left">'+
+        '<div class="ts-rev-lbl">💰 売上</div>'+
+        '<div class="ts-rev-main">'+f(grandTotal).replace('¥','')+' 万'.replace('万','')+'<span style="font-size:10pt">万</span></div>'+
+        // 実際は万単位で
+        '<div class="ts-rev-main" style="font-size:13pt">¥'+Math.round(grandTotal/10000).toLocaleString()+'<span style="font-size:10pt">万</span></div>'+
+        '<div style="margin-top:6px">'+
+          '<div class="ts-row"><span class="ts-key">基本</span><span style="font-size:8.5pt;color:#374151">'+f(totalBase)+'</span>'+bar(totalBase,grandTotal,"#059669")+'</div>'+
+          '<div class="ts-row"><span class="ts-key">付帯</span><span style="font-size:8.5pt;color:#374151">'+f(totalOpt)+'</span>'+bar(totalOpt,grandTotal,"#34d399")+'</div>'+
+          '<div class="ts-total-row"><span style="font-size:8.5pt;font-weight:700;color:#374151">予約計</span><span style="font-size:10pt;font-weight:900;color:#2563eb">'+f(totalRev)+'</span><span style="font-size:7.5pt;color:#94a3b8;margin-left:4px">基本+付帯</span></div>'+
+          (extraRev>0?'<div class="ts-row"><span class="ts-key">予約外</span><span style="font-size:8.5pt;color:#7c3aed">'+f(extraRev)+'</span>'+bar(extraRev,grandTotal,"#a78bfa")+'</div>':'')+
+        '</div>'+
+        // 台あたり
+        '<div class="ts-vc-row">'+
+          '<span style="font-size:8.5pt;font-weight:700;color:#374151">🎯 台あたり</span>'+
+          '<span style="font-size:12pt;font-weight:900;color:#d97706">¥'+Math.round(perVehicleRev/10000*10)/10+'万</span>'+
+          '<span style="font-size:7.5pt;color:#94a3b8">/ '+activeVehs.length+'台</span>'+
+        '</div>'+
+      '</div>'+
+      // 右: KPIカード群
+      '<div class="ts-right">'+
+        '<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl">📊 当月予約率</span>'+
+          '<span class="ts-kpi-val" style="color:#d97706">'+reservationRate+'<span style="font-size:8pt">%</span></span>'+
+          '<span class="ts-kpi-sub">('+bookedInMonth+'/'+totalCnt+')</span>'+
+        '</div>'+
+        '<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl">⚙️ 稼働率</span>'+
+          '<span class="ts-kpi-val" style="color:'+(utilPct>=70?"#059669":utilPct>=40?"#d97706":"#dc2626")+'">'+utilPct+'<span style="font-size:8pt">%</span></span>'+
+          '<span class="ts-kpi-sub">('+utilDays+'/'+utilMaxDays+'日)</span>'+
+        '</div>'+
+        '<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl">RevPACD</span>'+
+          '<span class="ts-kpi-val" style="color:#0284c7">'+f(revpacd)+'</span>'+
+          '<span class="ts-kpi-sub">'+activeVehs.length+'台</span>'+
+        '</div>'+
+        '<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl">🕐 LT中央値</span>'+
+          '<span class="ts-kpi-val" style="color:#92400e">'+(ltMedian!=null?ltMedian:"--")+'<span style="font-size:8pt">日</span></span>'+
+          '<span class="ts-kpi-sub">'+ltArr.length+'件</span>'+
+        '</div>'+
+        (!isSpk?'<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl">🚗 デリバリ</span>'+
+          '<span class="ts-kpi-val" style="color:#7c3aed">'+deliveryRate+'<span style="font-size:8pt">%</span></span>'+
+          '<span class="ts-kpi-sub">('+deliveryCnt+'/'+totalCnt+')</span>'+
+        '</div>':'')+
+        '<div class="ts-kpi-row" style="margin-top:6px;border-top:1px solid #fde68a;padding-top:6px">'+
+          '<span class="ts-kpi-lbl" style="font-size:8pt">平均単価</span>'+
+          '<span style="font-size:9pt;font-weight:700;color:#374151">'+f(unitPrice)+'</span>'+
+        '</div>'+
+        '<div class="ts-kpi-row">'+
+          '<span class="ts-kpi-lbl" style="font-size:8pt">平均泊数</span>'+
+          '<span style="font-size:9pt;font-weight:700;color:#374151">'+avgNights.toFixed(1)+'泊</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
   '</div></div>'+
 
   // 3. 稼働率（クラス別 月次）
@@ -7056,20 +7134,41 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   '<tr class="tr"><td>合計</td><td style="text-align:right">'+activeVehs.length+'台</td><td style="text-align:right">'+utilDays+'日</td><td style="text-align:right">'+utilMaxDays+'日</td><td style="text-align:right;font-weight:900">'+utilPct+'%</td><td style="text-align:right">'+f(totalRev)+'</td><td style="text-align:right">'+f(activeVehs.length?Math.round(totalRev/activeVehs.length):0)+'</td></tr>'+
   '</tbody></table></div>'+
 
-  // 4. KPI管理表（HP×純広告費 / OTA×手数料18% / 合算：返却月ベース）
+  // ③ KPI管理表（添付画像の全行を記載）
   '<div class="sec pb"><div class="st">③ KPI管理表（チャネル別広告費効率 / 返却月ベース）</div>'+
-  '<table><thead><tr><th>区分</th><th style="text-align:right">売上</th><th style="text-align:right">件数</th><th style="text-align:right">広告費/手数料</th><th style="text-align:right">費用比率</th><th style="text-align:right">CPA</th></tr></thead><tbody>'+
-  '<tr style="background:#dbeafe"><td colspan="6" style="font-weight:800;color:#1e3a8a">🏠 HPチャネル × 純広告費（返却月ベース）— PL基準・合算用</td></tr>'+
-  '<tr><td style="padding-left:20px">HP売上（返却月）</td><td style="text-align:right">'+f(hpSalesR)+'</td><td style="text-align:right">'+hpNR+'件</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:20px">純広告費</td><td style="text-align:right">'+f(adCost)+'</td><td style="text-align:right">-</td><td style="text-align:right">'+f(adCost)+'</td><td style="text-align:right">'+(hpSalesR>0?(hpRate).toFixed(1)+"%" :"-")+'</td><td style="text-align:right">'+cpa(adCost,hpNR)+'</td></tr>'+
-  '<tr style="background:#ede9fe"><td colspan="6" style="font-weight:800;color:#5b21b6">🌐 OTAチャネル × 手数料18%（返却月ベース）</td></tr>'+
-  '<tr><td style="padding-left:20px">OTA売上（返却月）</td><td style="text-align:right">'+f(otaSales)+'</td><td style="text-align:right">'+otaN+'件</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:20px">OTA手数料(18%固定)</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">'+f(otaFee)+'</td><td style="text-align:right">18.0%</td><td style="text-align:right">'+cpa(otaFee,otaN)+'</td></tr>'+
-  (rakutenDisc>0?'<tr><td style="padding-left:20px">楽天事業者クーポン</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">'+f(rakutenDisc)+'</td><td style="text-align:right">'+(otaSales>0?(rakutenDisc/otaSales*100).toFixed(1)+"%":"-")+'</td><td style="text-align:right">-</td></tr>':"")+
-  '<tr><td style="padding-left:20px;font-weight:700">OTA実質広告比率</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">'+f(otaCostTotal)+'</td><td style="text-align:right;font-weight:700">'+(otaSales>0?otaRateActual.toFixed(1)+"%":"-")+'</td><td style="text-align:right">'+cpa(otaCostTotal,otaN)+'</td></tr>'+
-  '<tr style="background:#fef3c7"><td colspan="6" style="font-weight:800;color:#92400e">📊 合算（HP+OTA / 返却月ベース統一）— PL基準</td></tr>'+
-  '<tr><td style="padding-left:20px">HP+OTA合計売上</td><td style="text-align:right">'+f(totalSales)+'</td><td style="text-align:right">'+totalCnt+'件</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:20px;font-weight:700">総広告費（純広告費+手数料）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right">'+f(totalCost)+'</td><td style="text-align:right;font-weight:700">'+(totalSales>0?totalRate.toFixed(1)+"%":"-")+'</td><td style="text-align:right">'+cpa(totalCost,totalCnt)+'</td></tr>'+
+  '<table><thead><tr>'+
+    '<th>項目</th>'+
+    '<th style="text-align:right">金額</th>'+
+    '<th style="text-align:right">件数</th>'+
+    '<th style="text-align:right">比率 / 備考</th>'+
+  '</tr></thead><tbody>'+
+
+  // 🏠 HPチャネル
+  '<tr style="background:#dbeafe"><td colspan="4" style="font-weight:800;color:#1e3a8a;font-size:9pt">🏠 HPチャネル × 純広告費（返却月ベース）— PL基準・合算用</td></tr>'+
+  '<tr><td style="padding-left:16px">💰 HP売上（返却月）</td><td style="text-align:right">'+f(hpSalesR)+'</td><td style="text-align:right">'+hpNR+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🤝 HP件数（返却月）</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+hpNR+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🎁 純広告費（実支出）</td><td style="text-align:right">'+f(adCost)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
+  '<tr style="background:#eff6ff"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 HP広告比率（返却月）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(hpRate)+'</td></tr>'+
+  '<tr style="background:#eff6ff"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 HP CPA（返却月）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(adCost,hpNR)+'</td></tr>'+
+
+  // 🌐 OTAチャネル
+  '<tr style="background:#ede9fe"><td colspan="4" style="font-weight:800;color:#5b21b6;font-size:9pt">🌐 OTAチャネル × 手数料18%（返却月ベース）</td></tr>'+
+  '<tr><td style="padding-left:16px">💰 OTA売上（返却月）</td><td style="text-align:right">'+f(otaSales)+'</td><td style="text-align:right">'+otaN+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🤝 OTA件数</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+otaN+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🎁 OTA手数料 (18%固定)</td><td style="text-align:right">'+f(otaFee)+'</td><td style="text-align:right">-</td><td style="text-align:right">18.0%</td></tr>'+
+  '<tr><td style="padding-left:16px">🏦 楽天事業者クーポン（弊社実負担）</td><td style="text-align:right">'+f(rakutenDisc)+'</td><td style="text-align:right">-</td><td style="text-align:right">'+(otaSales>0?rp(rakutenDisc/otaSales*100):"-")+'</td></tr>'+
+  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#5b21b6">💰 OTAコスト合計（手数料+楽天C）</td><td style="text-align:right;font-weight:800;color:#5b21b6">'+f(otaCostTotal)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
+  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 OTA実質広告比率</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(otaRateActual)+'</td></tr>'+
+  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 OTA CPA（合計）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(otaCostTotal,otaN)+'</td></tr>'+
+
+  // 📊 合算
+  '<tr style="background:#fef3c7"><td colspan="4" style="font-weight:800;color:#92400e;font-size:9pt">📊 合算（HP+OTA / 返却月ベース統一）— PL基準</td></tr>'+
+  '<tr><td style="padding-left:16px">💰 合算売上</td><td style="text-align:right">'+f(totalSales)+'</td><td style="text-align:right">'+totalCnt+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🤝 合算件数</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+totalCnt+'件</td><td style="text-align:right">-</td></tr>'+
+  '<tr><td style="padding-left:16px">🎁 広告費合計（純広告+OTA手数料+楽天C）</td><td style="text-align:right">'+f(totalCost)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
+  '<tr style="background:#fef9c3"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 合算広告比率</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(totalRate)+'</td></tr>'+
+  '<tr style="background:#fef9c3"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 合算 CPA（グロス）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(totalCost,totalCnt)+'</td></tr>'+
+
   '</tbody></table></div>'+
 
   // 5. 車両クラス別ランキング（粗利順・全期間累計）
@@ -7102,6 +7201,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 function openPdfReport_(dbStore,dashPeriod,dashYm,kpi,yr,resvs){
   var isSpk=dbStore==="spk";
@@ -8981,7 +9082,7 @@ function ManagementTab({store}){
         </>}
         <button onClick={()=>setSub("dashboard")} style={btn("#0891b2")}>↻ 再読込</button>
         <button onClick={()=>openPdfReport_(dbStore,dashPeriod,dashYm,dashKpi,dashYearly,dbResvs)} style={btn("#059669")}>📄 PDF出力</button>
-        <button onClick={()=>openFullMonthlyReport_(dbStore,reportYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート</button>
+        <button onClick={()=>openFullMonthlyReport_(dbStore,reportYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート</button>
         <input type="month" value={reportYm} onChange={e=>setReportYm(e.target.value)} style={{padding:"4px 8px",fontSize:12,border:"1px solid #a78bfa",borderRadius:6,color:"#7c3aed",fontWeight:700}}/>
         <span style={{marginLeft:"auto",fontSize:10,color:"#94a3b8",fontWeight:600}}>{dashPeriod==="year"?"※ 年モードは加重平均（Σ値/Σ母数）で算出":"※ 月単位の計上ベース"}</span>
       </div>
