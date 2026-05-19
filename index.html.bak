@@ -7178,7 +7178,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   // ③ KPI管理表（全12ヶ月の時系列 + 当月詳細）
   (function(){
     var yr3=parseInt(yrStr);
-    var months12k=[];for(var mo3k=1;mo3k<=12;mo3k++){months12k.push(yr3+"-"+String(mo3k).padStart(2,"0"));}
+    var months12k=[];for(var mo3k=1;mo3k<=12;mo3k++){var ymk=yr3+"-"+String(mo3k).padStart(2,"0");if(ymk>=ps)months12k.push(ymk);}
     // 月別KPI計算
     var kpiByMonth={};
     months12k.forEach(function(ym){
@@ -7281,7 +7281,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     var mData={};
     yjMos.forEach(function(m){if(m&&m.ym)mData[m.ym]={plBase:m.plBase||0,plOpt:m.plOpt||0,plDisc:m.plDisc||0,plRev:m.plRev||0,extraRev:m.extraRev||0,grand:m.totalRev||((m.plRev||0)+(m.extraRev||0)),cnt:m.plCnt||0,unitPrice:Math.round(m.unitPrice||0),avgNights:m.avgNights||0,dailyRate:Math.round(m.dailyRate||0),utilPct:m.utilPct||0};});
     // dashYearly.monthsがない場合は raw 計算にフォールバック
-    var months12=[];for(var mo12=1;mo12<=12;mo12++){months12.push(yr+"-"+String(mo12).padStart(2,"0"));}
+    var months12=[];for(var mo12=1;mo12<=12;mo12++){var ym12=yr+"-"+String(mo12).padStart(2,"0");if(ym12>=ps)months12.push(ym12);}
     if(yjMos.length===0){
       months12.forEach(function(ym){
         var dIM=new Date(parseInt(ym.slice(0,4)),parseInt(ym.slice(5)),0).getDate();
