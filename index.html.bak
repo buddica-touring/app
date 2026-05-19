@@ -7153,42 +7153,80 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   '<tr class="tr"><td>合計</td><td style="text-align:right">'+activeVehs.length+'台</td><td style="text-align:right">'+utilDays+'日</td><td style="text-align:right">'+utilMaxDays+'日</td><td style="text-align:right;font-weight:900">'+utilPct+'%</td><td style="text-align:right">'+f(totalRev)+'</td><td style="text-align:right">'+f(activeVehs.length?Math.round(totalRev/activeVehs.length):0)+'</td></tr>'+
   '</tbody></table></div>'+
 
-  // ③ KPI管理表（添付画像の全行を記載）
-  '<div class="sec pb"><div class="st">③ KPI管理表（チャネル別広告費効率 / 返却月ベース）</div>'+
-  '<table><thead><tr>'+
-    '<th>項目</th>'+
-    '<th style="text-align:right">金額</th>'+
-    '<th style="text-align:right">件数</th>'+
-    '<th style="text-align:right">比率 / 備考</th>'+
-  '</tr></thead><tbody>'+
-
-  // 🏠 HPチャネル
-  '<tr style="background:#dbeafe"><td colspan="4" style="font-weight:800;color:#1e3a8a;font-size:9pt">🏠 HPチャネル × 純広告費（返却月ベース）— PL基準・合算用</td></tr>'+
-  '<tr><td style="padding-left:16px">💰 HP売上（返却月）</td><td style="text-align:right">'+f(hpSalesR)+'</td><td style="text-align:right">'+hpNR+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🤝 HP件数（返却月）</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+hpNR+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🎁 純広告費（実支出）</td><td style="text-align:right">'+f(adCost)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr style="background:#eff6ff"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 HP広告比率（返却月）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(hpRate)+'</td></tr>'+
-  '<tr style="background:#eff6ff"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 HP CPA（返却月）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(adCost,hpNR)+'</td></tr>'+
-
-  // 🌐 OTAチャネル
-  '<tr style="background:#ede9fe"><td colspan="4" style="font-weight:800;color:#5b21b6;font-size:9pt">🌐 OTAチャネル × 手数料18%（返却月ベース）</td></tr>'+
-  '<tr><td style="padding-left:16px">💰 OTA売上（返却月）</td><td style="text-align:right">'+f(otaSales)+'</td><td style="text-align:right">'+otaN+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🤝 OTA件数</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+otaN+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🎁 OTA手数料 (18%固定)</td><td style="text-align:right">'+f(otaFee)+'</td><td style="text-align:right">-</td><td style="text-align:right">18.0%</td></tr>'+
-  '<tr><td style="padding-left:16px">🏦 楽天事業者クーポン（弊社実負担）</td><td style="text-align:right">'+f(rakutenDisc)+'</td><td style="text-align:right">-</td><td style="text-align:right">'+(otaSales>0?rp(rakutenDisc/otaSales*100):"-")+'</td></tr>'+
-  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#5b21b6">💰 OTAコスト合計（手数料+楽天C）</td><td style="text-align:right;font-weight:800;color:#5b21b6">'+f(otaCostTotal)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 OTA実質広告比率</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(otaRateActual)+'</td></tr>'+
-  '<tr style="background:#faf5ff"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 OTA CPA（合計）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(otaCostTotal,otaN)+'</td></tr>'+
-
-  // 📊 合算
-  '<tr style="background:#fef3c7"><td colspan="4" style="font-weight:800;color:#92400e;font-size:9pt">📊 合算（HP+OTA / 返却月ベース統一）— PL基準</td></tr>'+
-  '<tr><td style="padding-left:16px">💰 合算売上</td><td style="text-align:right">'+f(totalSales)+'</td><td style="text-align:right">'+totalCnt+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🤝 合算件数</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:700">'+totalCnt+'件</td><td style="text-align:right">-</td></tr>'+
-  '<tr><td style="padding-left:16px">🎁 広告費合計（純広告+OTA手数料+楽天C）</td><td style="text-align:right">'+f(totalCost)+'</td><td style="text-align:right">-</td><td style="text-align:right">-</td></tr>'+
-  '<tr style="background:#fef9c3"><td style="padding-left:16px;font-weight:800;color:#1e40af">📊 合算広告比率</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#1e40af">'+rp(totalRate)+'</td></tr>'+
-  '<tr style="background:#fef9c3"><td style="padding-left:16px;font-weight:800;color:#d97706">💰 合算 CPA（グロス）</td><td style="text-align:right">-</td><td style="text-align:right">-</td><td style="text-align:right;font-weight:800;color:#d97706">'+cpa(totalCost,totalCnt)+'</td></tr>'+
-
-  '</tbody></table></div>'+
+  // ③ KPI管理表（全12ヶ月の時系列 + 当月詳細）
+  (function(){
+    var yr3=parseInt(yrStr);
+    var months12k=[];for(var mo3k=1;mo3k<=12;mo3k++){months12k.push(yr3+"-"+String(mo3k).padStart(2,"0"));}
+    // 月別KPI計算
+    var kpiByMonth={};
+    months12k.forEach(function(ym){
+      var ret3=active.filter(function(r){var rd=r[rdKey];return rd&&rd.slice(0,7)===ym;});
+      var hpS=0,hpN=0,otaS=0,otaN_=0,rDisc=0;
+      ret3.forEach(function(r){
+        var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
+        var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
+        if(r.ota==="HP"){hpS+=rev;hpN++;}
+        else if(["J","R","S","O","RC","G"].includes(r.ota)){otaS+=rev;otaN_++;if(r.ota==="R"&&dc>0)rDisc+=dc;}
+      });
+      var ad=getAd(ym);
+      var oFee=Math.round(otaS*0.18);
+      var oCost=oFee+rDisc;
+      var tSales=hpS+otaS,tCost=ad+oCost;
+      kpiByMonth[ym]={hpS:hpS,hpN:hpN,otaS:otaS,otaN:otaN_,rDisc:rDisc,ad:ad,oFee:oFee,oCost:oCost,
+        tSales:tSales,tCnt:ret3.length,tCost:tCost,
+        hpRate:hpS>0?ad/hpS*100:0,
+        otaRate:otaS>0?oCost/otaS*100:0,
+        totalRate:tSales>0?tCost/tSales*100:0};
+    });
+    var fK=function(v){return v?'¥'+Math.round(v/10000)+'万':'-';};
+    var rK=function(v){return v>0?v.toFixed(1)+'%':'-';};
+    var cpaK=function(c,n){return n>0?'¥'+Math.round(c/n).toLocaleString():'-';};
+    var hdr='<tr style="background:#0f172a;color:#fff"><th style="text-align:left;white-space:nowrap;min-width:140px">項目</th>'+
+      months12k.map(function(ym){var mo=parseInt(ym.slice(5));var isR=(ym===repYm);return'<th style="text-align:right;'+(isR?"color:#fbbf24;font-weight:900":"")+'">'+mo+'月</th>';}).join("")+
+      '<th style="text-align:right;color:#6ee7b7">年計</th></tr>';
+    var yTot=function(key){return months12k.reduce(function(s,ym){return s+(kpiByMonth[ym][key]||0);},0);};
+    var row=function(lbl,valFn,bg,bold,color){
+      var cells=months12k.map(function(ym){
+        var v=valFn(kpiByMonth[ym]);
+        var isR=(ym===repYm);
+        return'<td style="text-align:right;'+(isR?"font-weight:900;background:#f0f9ff;":"")+'">'+(v||'-')+'</td>';
+      }).join("");
+      var yrV=valFn({hpS:yTot("hpS"),hpN:yTot("hpN"),otaS:yTot("otaS"),otaN:yTot("otaN"),rDisc:yTot("rDisc"),ad:yTot("ad"),oFee:yTot("oFee"),oCost:yTot("oCost"),tSales:yTot("tSales"),tCnt:yTot("tCnt"),tCost:yTot("tCost"),hpRate:yTot("tSales")>0?(yTot("ad")/yTot("hpS")||0)*100:0,otaRate:yTot("otaS")>0?yTot("oCost")/yTot("otaS")*100:0,totalRate:yTot("tSales")>0?yTot("tCost")/yTot("tSales")*100:0});
+      return'<tr style="background:'+(bg||"")+'"><td style="padding-left:10px;'+(bold?"font-weight:800;":"")+(color?"color:"+color+";":"")+'white-space:nowrap">'+lbl+'</td>'+cells+'<td style="text-align:right;font-weight:700">'+(yrV||'-')+'</td></tr>';
+    };
+    return '<div class="sec pb"><div class="st">③ KPI管理表（チャネル別広告費効率 / 返却月ベース / '+yr3+'年）<span style="font-size:7.5pt;color:#94a3b8;font-weight:400;margin-left:8px">※ 太字青列＝レポート対象月</span></div>'+
+    '<div style="overflow-x:auto"><table style="min-width:900px;font-size:7pt;border-collapse:collapse">'+
+    '<thead>'+
+    '<tr style="background:#dbeafe"><td colspan="14" style="font-weight:800;color:#1e3a8a;padding:4px 8px">🏠 HPチャネル × 純広告費（返却月ベース）— PL基準・合算用</td></tr>'+
+    hdr+
+    '</thead><tbody>'+
+    row('💰 HP売上（返却月）',function(m){return m.hpS?f(m.hpS):'-';})+
+    row('🤝 HP件数（返却月）',function(m){return m.hpN?m.hpN+'件':'-';})+
+    row('🎁 純広告費（実支出）',function(m){return f(m.ad||0);})+
+    row('📊 HP広告比率（返却月）',function(m){return rK(m.hpRate);},'#eff6ff',true,'#1e40af')+
+    row('💰 HP CPA（返却月）',function(m){return cpaK(m.ad,m.hpN);},'#eff6ff',true,'#d97706')+
+    '</tbody><thead>'+
+    '<tr style="background:#ede9fe"><td colspan="14" style="font-weight:800;color:#5b21b6;padding:4px 8px">🌐 OTAチャネル × 手数料18%（返却月ベース）</td></tr>'+
+    hdr+
+    '</thead><tbody>'+
+    row('💰 OTA売上（返却月）',function(m){return m.otaS?f(m.otaS):'-';})+
+    row('🤝 OTA件数',function(m){return m.otaN?m.otaN+'件':'-';})+
+    row('🎁 OTA手数料 (18%固定)',function(m){return m.oFee?f(m.oFee):'-';})+
+    row('🏦 楽天事業者クーポン',function(m){return m.rDisc?f(m.rDisc):'-';})+
+    row('💰 OTAコスト合計（手数料+楽天C）',function(m){return m.oCost?f(m.oCost):'-';},'#faf5ff',true,'#5b21b6')+
+    row('📊 OTA実質広告比率',function(m){return rK(m.otaRate);},'#faf5ff',true,'#1e40af')+
+    row('💰 OTA CPA（合計）',function(m){return cpaK(m.oCost,m.otaN);},'#faf5ff',true,'#d97706')+
+    '</tbody><thead>'+
+    '<tr style="background:#fef3c7"><td colspan="14" style="font-weight:800;color:#92400e;padding:4px 8px">📊 合算（HP+OTA / 返却月ベース統一）— PL基準</td></tr>'+
+    hdr+
+    '</thead><tbody>'+
+    row('💰 合算売上',function(m){return m.tSales?f(m.tSales):'-';})+
+    row('🤝 合算件数',function(m){return m.tCnt?m.tCnt+'件':'-';})+
+    row('🎁 広告費合計（純広告+手数料+楽天C）',function(m){return m.tCost?f(m.tCost):'-';})+
+    row('📊 合算広告比率',function(m){return rK(m.totalRate);},'#fef9c3',true,'#1e40af')+
+    row('💰 合算 CPA（グロス）',function(m){return cpaK(m.tCost,m.tCnt);},'#fef9c3',true,'#d97706')+
+    '</tbody></table></div></div>';
+  })()+
 
   // 5. 車両クラス別ランキング（粗利順・全期間累計）
   '<div class="sec"><div class="st">④ クラス別ランキング（粗利順 / 期間累計: '+ps+'〜'+todayYM2+'・'+nm+'ヶ月）</div>'+
@@ -7320,6 +7358,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 
 
