@@ -381,7 +381,13 @@ window.addEventListener('load', ()=>{
         <span style="display:inline-block;background:#0ea5e9;color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:900;margin-right:8px">②</span>
         調査日設定 <span style="font-size:9pt;color:#bae6fd;font-weight:400">（シーズナル別 代表日）</span>
       </div>
-      <button onclick="refreshSurveyDates()" style="background:#0ea5e9;color:#fff;border:none;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">🔄 更新</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label style="font-size:9pt;color:#bae6fd;display:flex;align-items:center;gap:5px;cursor:pointer;background:#0a2818;padding:4px 10px;border-radius:5px;border:1px solid #38bdf8">
+          <input type="checkbox" id="sample-increase-toggle" checked onchange="toggleSampleIncrease(this.checked)">
+          📈 サンプル増 (A/C を各月2日)
+        </label>
+        <button onclick="refreshSurveyDates()" style="background:#0ea5e9;color:#fff;border:none;padding:5px 12px;border-radius:5px;font-size:9pt;font-weight:700;cursor:pointer">🔄 更新</button>
+      </div>
     </div>
     <div id="survey-dates-list" style="font-size:9.5pt;line-height:1.8;color:#bae6fd;font-family:Menlo,monospace">読み込み中...</div>
     <div style="margin-top:14px;background:#0a2818;border:1px dashed #7dd3fc;border-radius:6px;padding:10px 14px;font-size:9pt;color:#bae6fd">
@@ -873,41 +879,62 @@ window.addEventListener('load', ()=>{
       // 手動 override (個別日指定)
       let override = {};
       try{ override = JSON.parse(localStorage.getItem('bt_tkm_survey_override_v1')||'{}'); }catch(e){}
-      // 各 tier の中央値日を代表日として選定（全月で A/B/C 必ず表示・存在しない場合は null）
-      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount, candidates, isOverride}]
+      // 各 tier の代表日を選定（A/C は2日・B は1日でサンプル増）
+      // オーナー要望 2026-05-18: A閑散/C繁忙 のサンプル偏り解消
+      const SAMPLE_INCREASE = localStorage.getItem('bt_tkm_sample_increase_v1') !== 'false'; // デフォルトON
+      const reps = []; // [{month, tier, day, dateStr, weekday, tierCount, candidates, isOverride, sampleIdx}]
       const WEEKDAY = ['日','月','火','水','木','金','土'];
+      const pushRep = (mo, tier, selectedDay, arr, override, sampleIdx) => {
+        const date = new Date(yr, mo-1, selectedDay);
+        const candidates = arr.map(d=>{ const dt = new Date(yr, mo-1, d); return {day:d, weekday:WEEKDAY[dt.getDay()]}; });
+        const ovKey = sampleIdx > 0 ? `${mo}-${tier}-${sampleIdx}` : `${mo}-${tier}`;
+        reps.push({
+          month: mo, tier: tier, day: selectedDay,
+          dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`,
+          weekday: WEEKDAY[date.getDay()],
+          tierCount: arr.length, candidates: candidates,
+          isOverride: !!(override[ovKey] && arr.includes(override[ovKey])),
+          sampleIdx: sampleIdx || 0,
+        });
+      };
       for(let mo=1; mo<=12; mo++){
         ['C','B','A'].forEach(tier=>{
           const arr = monthly[mo][tier];
           if(arr.length === 0){
-            reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0, candidates:[], isOverride:false});
-          } else {
-            const ovKey = `${mo}-${tier}`;
-            const ovDay = override[ovKey];
-            const useOverride = ovDay && arr.includes(ovDay);
-            const selectedDay = useOverride ? ovDay : arr[Math.floor(arr.length/2)];
-            const date = new Date(yr, mo-1, selectedDay);
-            // candidates: その月の同 tier 全日（プルダウン用）
-            const candidates = arr.map(d=>{
-              const dt = new Date(yr, mo-1, d);
-              return {day:d, weekday:WEEKDAY[dt.getDay()]};
-            });
-            reps.push({
-              month: mo,
-              tier: tier,
-              day: selectedDay,
-              dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`,
-              weekday: WEEKDAY[date.getDay()],
-              tierCount: arr.length,
-              candidates: candidates,
-              isOverride: useOverride,
-            });
+            reps.push({month:mo, tier:tier, day:null, dateStr:'—', weekday:'-', tierCount:0, candidates:[], isOverride:false, sampleIdx:0});
+            return;
+          }
+          // 1日目: 中央値日 (既存仕様)
+          const ovKey1 = `${mo}-${tier}`;
+          const ovDay1 = override[ovKey1];
+          const day1 = (ovDay1 && arr.includes(ovDay1)) ? ovDay1 : arr[Math.floor(arr.length/2)];
+          pushRep(mo, tier, day1, arr, override, 0);
+          // 2日目: A閑散/C繁忙 でサンプル増モード時のみ追加 (中央値日と離れた日)
+          if (SAMPLE_INCREASE && (tier === 'A' || tier === 'C') && arr.length >= 2) {
+            const ovKey2 = `${mo}-${tier}-1`;
+            const ovDay2 = override[ovKey2];
+            // 中央値以外で「中央値から最も離れた日」を選定
+            const farthest = arr.reduce((best, d) => Math.abs(d - day1) > Math.abs(best - day1) ? d : best, arr[0]);
+            const day2 = (ovDay2 && arr.includes(ovDay2)) ? ovDay2 : farthest;
+            if (day2 !== day1) pushRep(mo, tier, day2, arr, override, 1);
           }
         });
       }
       return reps;
     } catch(e){ console.error('computeSurveyDates err', e); return []; }
   }
+
+  // サンプル増モード ON/OFF トグル (オーナー要望: A閑散/C繁忙 サンプル偏り解消)
+  function toggleSampleIncrease(on){
+    try { localStorage.setItem('bt_tkm_sample_increase_v1', on ? 'true' : 'false'); } catch(e) {}
+    refreshSurveyDates();
+  }
+  // 初期化: localStorage の値をチェックボックスに反映 (デフォルト ON)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const v = localStorage.getItem('bt_tkm_sample_increase_v1');
+    const cb = document.getElementById('sample-increase-toggle');
+    if (cb) cb.checked = (v !== 'false'); // null or 'true' なら ON
+  });
 
   function refreshSurveyDates(){
     const reps = computeSurveyDates(2026);
@@ -937,18 +964,23 @@ window.addEventListener('load', ()=>{
       const moBtn = `<button onclick="toggleMonthExclude(${mo})" style="background:transparent;border:1px solid #7dd3fc;color:#7dd3fc;padding:1px 8px;border-radius:3px;font-size:8pt;cursor:pointer;margin-left:6px">月一括</button>`;
       const parts = sorted.map(r => {
         if(r.day === null) return `<span style="opacity:.18;font-size:8pt">${r.tier}=なし</span>`;
-        const key = `${mo}-${r.tier}`;
+        const sidx = r.sampleIdx || 0;
+        const key = `${mo}-${r.tier}`; // チェックボックス除外キーは月×tier (2日目も連動)
         const excluded = excludeSet.has(key);
         if(excluded) excludedCount++; else actualCount++;
-        const cbId = `surv-cb-${mo}-${r.tier}`;
-        const cb = `<input type="checkbox" id="${cbId}" ${excluded?'':'checked'} onchange="toggleSurveyDate(${mo},'${r.tier}',this.checked)" style="vertical-align:middle;margin-right:4px;cursor:pointer">`;
+        const cbId = `surv-cb-${mo}-${r.tier}-${sidx}`; // ID は sampleIdx 込み (HTML 重複回避)
+        const cb = sidx === 0
+          ? `<input type="checkbox" id="${cbId}" ${excluded?'':'checked'} onchange="toggleSurveyDate(${mo},'${r.tier}',this.checked)" style="vertical-align:middle;margin-right:4px;cursor:pointer">`
+          : ''; // 2日目はチェックボックスなし (1日目と連動)
         const labelStyle = excluded ? 'opacity:.3;text-decoration:line-through' : '';
+        const sidxBadge = sidx > 0 ? `<span style="background:#0891b2;color:#fff;padding:0 5px;border-radius:3px;font-size:7.5pt;margin-right:3px">+追加</span>` : '';
         // プルダウン (同月同 tier の全候補日)
         const ovStyle = r.isOverride ? 'border:1px solid #fbbf24;background:#451a03;color:#fde68a' : 'border:1px solid #475569;background:#0f172a;color:#cbd5e1';
-        const sel = `<select onchange="setSurveyOverride(${r.month},'${r.tier}',this.value)" style="${ovStyle};padding:1px 4px;border-radius:3px;font-size:9pt;cursor:pointer;font-family:Menlo,monospace;margin:0 2px">`+
+        const sel = `<select onchange="setSurveyOverride(${r.month},'${r.tier}',this.value,${sidx})" style="${ovStyle};padding:1px 4px;border-radius:3px;font-size:9pt;cursor:pointer;font-family:Menlo,monospace;margin:0 2px">`+
           r.candidates.map(c=>`<option value="${c.day}" ${c.day===r.day?'selected':''}>${c.day}日(${c.weekday})</option>`).join('')+`</select>`;
         const ovMark = r.isOverride ? '<span style="color:#fbbf24;font-size:8pt" title="手動指定">✎</span>' : '';
-        return `<span style="${labelStyle}">${cb}${TIER_BADGE[r.tier]} ${sel}${ovMark} <span style="opacity:.7">[${r.tierCount}日中]</span></span>`;
+        const countBadge = sidx === 0 ? `<span style="opacity:.7">[${r.tierCount}日中]</span>` : '';
+        return `<span style="${labelStyle}">${cb}${sidxBadge}${TIER_BADGE[r.tier]} ${sel}${ovMark} ${countBadge}</span>`;
       });
       lines.push(`<div style="padding:4px 0"><strong style="display:inline-block;width:30px">${mo}月</strong>${moBtn} ${parts.join(' / ')}</div>`);
     });
@@ -1191,11 +1223,12 @@ window.addEventListener('load', ()=>{
   }
 
   // 代表日の手動 override (プルダウン変更)
-  function setSurveyOverride(mo, tier, dayStr){
+  function setSurveyOverride(mo, tier, dayStr, sampleIdx){
     try{
       const ov = JSON.parse(localStorage.getItem('bt_tkm_survey_override_v1')||'{}');
       const day = parseInt(dayStr,10);
-      ov[`${mo}-${tier}`] = day;
+      const key = (sampleIdx && sampleIdx > 0) ? `${mo}-${tier}-${sampleIdx}` : `${mo}-${tier}`;
+      ov[key] = day;
       localStorage.setItem('bt_tkm_survey_override_v1', JSON.stringify(ov));
       refreshSurveyDates();
     }catch(e){ alert('override err: '+e.message); }
