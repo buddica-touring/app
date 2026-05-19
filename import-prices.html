@@ -1181,6 +1181,18 @@ window.addEventListener('load', ()=>{
   async function detectLiveResearch(){
     try {
       const r = await fetch(SERVER_URL + '/api/research/livestatus', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+      // キャンセル検出 → flowState を強制リセット (Step1ボタン enabled に戻す)
+      if (r && r.cancelled && !r.running) {
+        const s = getFlowState();
+        if (s.state === 'step1_running' || s.state === 'step5_running') {
+          markFlowIdle();
+        }
+        // バナーも消す
+        const b = document.getElementById('global-status-banner');
+        if (b) b.style.display = 'none';
+        document.body.style.paddingTop = '';
+        return; // 完了バナーも表示しない (キャンセルされたため)
+      }
       // 直近30分以内に完了済の場合: 完了バナーで通知
       if (r && r.recentlyCompleted && !r.running) {
         showGlobalBanner('Step1 価格調査');
