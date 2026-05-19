@@ -9257,8 +9257,24 @@ function ManagementTab({store}){
         </>}
         <button onClick={()=>setSub("dashboard")} style={btn("#0891b2")}>↻ 再読込</button>
         <button onClick={()=>openPdfReport_(dbStore,dashPeriod,dashYm,dashKpi,dashYearly,dbResvs)} style={btn("#059669")}>📄 PDF出力</button>
-        <button onClick={()=>openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
+        <button onClick={async()=>{
+          let fcm=cmMap,fco=costMap;
+          if(sb){try{
+            const yr=dashYm.slice(0,4);
+            const parse_=(rows,pfx)=>{const m={};(rows||[]).forEach(r=>{const ym=(r.key||"").replace(pfx,"");if(ym)try{m[ym]=typeof r.value==="string"?JSON.parse(r.value):r.value;}catch(e){m[ym]={};}});return m;};
+            const[{data:cn},{data:cs},{data:cnc},{data:csc}]=await Promise.all([
+              sb.from("nha_app_settings").select("key,value").like("key","cm_nha_"+yr+"%").limit(200),
+              sb.from("nha_app_settings").select("key,value").like("key","cm_spk_"+yr+"%").limit(200),
+              sb.from("nha_app_settings").select("key,value").like("key","cost_nha_"+yr+"%").limit(200),
+              sb.from("nha_app_settings").select("key,value").like("key","cost_spk_"+yr+"%").limit(200),
+            ]);
+            fcm={nha:parse_(cn,"cm_nha_"),spk:parse_(cs,"cm_spk_")};
+            fco={nha:parse_(cnc,"cost_nha_"),spk:parse_(csc,"cost_spk_")};
+          }catch(e){}}
+          openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,fcm,fco,extraByM,dashKpi,dashYearly);
+        }} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
         <span style={{fontSize:10,color:"#a78bfa"}}>↑ダッシュボードの月選択と連動</span>
+
         <span style={{marginLeft:"auto",fontSize:10,color:"#94a3b8",fontWeight:600}}>{dashPeriod==="year"?"※ 年モードは加重平均（Σ値/Σ母数）で算出":"※ 月単位の計上ベース"}</span>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:16}}>
