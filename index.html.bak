@@ -7164,47 +7164,41 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     '</div>'+
   '</div></div>'+
 
-  // ② 稼働率（クラス別）— byClassData: ボタン押下時に計算したクラス別売上ウィジェットと同一データを使用
+  // ② クラス別売上（APPのクラス別売上ウィジェットと同一データ・同一形式）
   (function(){
-    // byClassDataが渡されていればそのまま使う（APPのクラス別売上ウィジェットと完全一致）
-    var src=byClassData&&Object.keys(byClassData).length>0?byClassData:clsMonth;
-    var rows=Object.entries(src).sort(function(a,b){return(b[1].usedDays/Math.max(1,b[1].capDays))-(a[1].usedDays/Math.max(1,a[1].capDays));});
-    var totU=0,totC=0,totR=0,totN=0;
-    rows.forEach(function(e){var d=e[1];totU+=d.usedDays;totC+=d.capDays;totR+=d.rev;totN+=d.count;});
-    var totPct=totC?Math.round(totU/totC*100):0;
-    var rowsHtml=rows.map(function(e){
-      var c=e[0],d=e[1];
+    var src=clsMonth;
+    var CLASS_COLORS={A:"#7c3aed",B:"#2563eb",C:"#059669",F:"#db2777",H:"#64748b",S:"#d97706","AA":"#1e293b"};
+    var entries=Object.entries(src).sort(function(a,b){return b[1].rev-a[1].rev;});
+    var totR=0,totU=0,totC=0,totN=0;
+    entries.forEach(function(e){var d=e[1];totR+=d.rev;totU+=d.usedDays;totC+=d.capDays;totN+=d.count;});
+    var cards=entries.map(function(e){
+      var cls=e[0],d=e[1];
       var pct=d.capDays?Math.round(d.usedDays/d.capDays*100):0;
       var perV=d.count?Math.round(d.rev/d.count):0;
-      var bg=pct>=70?"#dcfce7":pct>=40?"#fef9c3":"#fee2e2",tc=pct>=70?"#166534":pct>=40?"#854d0e":"#991b1b";
-      var revW=fW(d.rev),perVW=fW(perV);
-      // 売上構成比
       var share=totR>0?Math.round(d.rev/totR*100):0;
-      return'<tr>'+
-        '<td><b>['+c+']</b></td>'+
-        '<td style="text-align:right">'+d.count+'台</td>'+
-        '<td style="text-align:right;font-weight:700;color:#059669">'+revW+'</td>'+
-        '<td style="text-align:right;font-size:7.5pt;color:#64748b">'+share+'%｜1台'+fW(perV)+'</td>'+
-        '<td style="text-align:center"><span style="background:'+bg+';color:'+tc+';padding:1px 6px;border-radius:4px;font-weight:700">'+pct+'%</span></td>'+
-        '<td style="text-align:right;font-size:8pt">'+d.usedDays+'/'+d.capDays+'日</td>'+
-      '</tr>';
+      var col=CLASS_COLORS[cls]||"#475569";
+      var barW=Math.min(100,pct)+'%';
+      var utilClr=pct>=70?"#059669":pct>=40?"#d97706":"#dc2626";
+      return '<div class="cls-card">'+
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+          '<div class="cls-badge" style="background:'+col+'">'+cls+'</div>'+
+          '<span class="cls-cnt">'+d.count+'台</span>'+
+        '</div>'+
+        '<div class="cls-rev">'+Math.round(d.rev/10000)+'万</div>'+
+        '<div class="cls-sub">'+share+'% | 1台'+Math.round(perV/10000)+'万</div>'+
+        '<div class="cls-bar-bg"><div class="cls-bar" style="width:'+barW+';background:'+col+'"></div></div>'+
+        '<div class="cls-util" style="color:'+utilClr+'">稼働 '+pct+'% · '+d.usedDays+'/'+d.capDays+'日</div>'+
+      '</div>';
     }).join("");
-    return '<div class="sec"><div class="st">② 稼働率（クラス別売上 / '+period+'）</div>'+
-      '<table><thead><tr>'+
-        '<th>クラス</th><th style="text-align:right">台数</th>'+
-        '<th style="text-align:right">月売上</th>'+
-        '<th style="text-align:right">構成比 | 1台</th>'+
-        '<th style="text-align:center">稼働率</th>'+
-        '<th style="text-align:right">稼働日数</th>'+
-      '</tr></thead><tbody>'+
-      rowsHtml+
-      '<tr class="tr"><td>合計</td><td style="text-align:right">'+totN+'台</td>'+
-        '<td style="text-align:right;font-weight:900">'+fW(totR)+'</td>'+
-        '<td style="text-align:right">100%</td>'+
-        '<td style="text-align:center;font-weight:900">'+totPct+'%</td>'+
-        '<td style="text-align:right">'+totU+'/'+totC+'日</td>'+
-      '</tr>'+
-      '</tbody></table></div>';
+    var totPct=totC?Math.round(totU/totC*100):0;
+    return '<div class="sec"><div class="st">② クラス別売上（'+period+'）</div>'+
+      '<div class="cls-grid">'+cards+'</div>'+
+      '<div style="margin-top:8px;display:flex;gap:16px;font-size:8.5pt;color:#374151;padding:6px 10px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0">'+
+        '<span>📊 合計売上: <b>'+fW(totR)+'</b></span>'+
+        '<span>⚙️ 全体稼働率: <b>'+totPct+'%</b></span>'+
+        '<span>稼働: '+totU+'/'+totC+'日</span>'+
+        '<span>台数: '+totN+'台</span>'+
+      '</div></div>';
   })()+
 
   // ③ KPI管理表（全12ヶ月の時系列 + 当月詳細）
