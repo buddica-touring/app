@@ -781,28 +781,42 @@ window.addEventListener('load', ()=>{
   </div>
 
   <script>
-  // ===== フロー状態マシン (idle / running / done) =====
-  // オーナー要望 2026-05-18: ⑤完了したら毎回デフォルト状態に戻す
+  // ===== フロー状態マシン (フェーズ2: 5状態モデル) =====
+  // オーナー要望 2026-05-18: ⑤完了したら毎回デフォルト状態に戻す + フロー駆動UI
+  // 状態遷移: idle → step1_running → step1_done → step5_running → step5_done → idle
+  //          (再fetchで戻る分岐: step1_done → step1_running)
   const FLOW_STATE_KEY = 'bt_tkm_flow_state_v1';
   function getFlowState(){ try{ return JSON.parse(localStorage.getItem(FLOW_STATE_KEY)||'{}'); }catch(e){ return {}; } }
-  function setFlowState(s){ try{ localStorage.setItem(FLOW_STATE_KEY, JSON.stringify(s)); }catch(e){} }
-  function markFlowIdle(){ setFlowState({ state:'idle', lastCompletedAt: new Date().toISOString() }); }
-  function markFlowActive(){
-    const s = getFlowState();
-    setFlowState({ ...s, state:'active', activatedAt: new Date().toISOString() });
+  function setFlowState(s){
+    try{ localStorage.setItem(FLOW_STATE_KEY, JSON.stringify(s)); }catch(e){}
+    if (typeof applyFlowVisibility === 'function') applyFlowVisibility();
   }
+  function markFlowIdle(){ setFlowState({ state:'idle', lastCompletedAt: new Date().toISOString() }); }
+  function markFlowStep1Running(){
+    const s = getFlowState();
+    setFlowState({ ...s, state:'step1_running', step1StartedAt: new Date().toISOString() });
+  }
+  function markFlowStep1Done(){
+    const s = getFlowState();
+    setFlowState({ ...s, state:'step1_done', step1DoneAt: new Date().toISOString() });
+  }
+  function markFlowStep5Running(){
+    const s = getFlowState();
+    setFlowState({ ...s, state:'step5_running', step5StartedAt: new Date().toISOString() });
+  }
+  // 旧API互換 (markFlowActive → step1_running)
+  function markFlowActive(){ markFlowStep1Running(); }
   function applyFlowVisibility(){
     const s = getFlowState();
-    let isIdle = s.state === 'idle';
+    let state = s.state;
     let completedAtLabel = s.lastCompletedAt;
     // フォールバック: flowState 未設定でも、価格表にデータがあれば過去⑤完了済 → idle 扱い
-    if (!s.state) {
+    if (!state) {
       try {
         const seasonal = JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');
         const monthly = seasonal.monthlyTierClassPrices || seasonal.segments?.proper?.monthlyTierClassPrices || {};
         if (Object.keys(monthly).length > 0) {
-          isIdle = true;
-          // 価格表の最終更新時刻から推定（apply history がある場合はそれを優先）
+          state = 'idle';
           try {
             const hist = JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]');
             if (hist[0] && hist[0].at) completedAtLabel = hist[0].at;
@@ -810,11 +824,31 @@ window.addEventListener('load', ()=>{
         }
       } catch(e) {}
     }
+    // body class で CSS 制御
+    document.body.classList.remove('flow-idle','flow-step1-running','flow-step1-done','flow-step5-running');
+    if (state) document.body.classList.add('flow-' + state.replace(/_/g,'-'));
+
     const sec_report = document.getElementById('section-report');
     const sec_decision = document.getElementById('section-decision');
     const sec_apply = document.getElementById('section-apply');
     const sec_idle = document.getElementById('section-idle-guide');
-    [sec_report, sec_decision, sec_apply].forEach(el=>{ if(el) el.style.display = isIdle ? 'none' : ''; });
+
+    // 状態別の可視性ルール
+    // idle: ①②表示 / ③④⑤非表示 / idle案内表示
+    // step1_running: ①②disabled / ③④⑤非表示 / 進捗バナーで完結
+    // step1_done: ①②③④⑤全表示 (通常モード)
+    // step5_running: 全 disabled / モーダル内で完結
+    const isIdle = state === 'idle';
+    const isRunning = state === 'step1_running';
+    const isStep5Running = state === 'step5_running';
+    const showReport = !isIdle && !isRunning;
+    const showDecision = !isIdle && !isRunning;
+    const showApply = !isIdle && !isRunning;
+
+    if (sec_report)   sec_report.style.display   = showReport   ? '' : 'none';
+    if (sec_decision) sec_decision.style.display = showDecision ? '' : 'none';
+    if (sec_apply)    sec_apply.style.display    = showApply    ? '' : 'none';
+
     if (sec_idle) {
       sec_idle.style.display = isIdle ? 'block' : 'none';
       if (isIdle) {
@@ -826,6 +860,14 @@ window.addEventListener('load', ()=>{
           if (detail) detail.textContent = '価格表にデータあり（過去の調査結果が反映済み）';
         }
       }
+    }
+
+    // step1_running 中の case-by-case: ①②セクションを半透明に + Step1ボタンは「実行中」表示
+    const step1Btn = document.getElementById('exec-research-btn');
+    if (step1Btn) {
+      step1Btn.disabled = isRunning || isStep5Running;
+      step1Btn.style.opacity = (isRunning || isStep5Running) ? '0.5' : '';
+      step1Btn.style.cursor = (isRunning || isStep5Running) ? 'not-allowed' : 'pointer';
     }
   }
   function resetFlowAndScrollToStep1(){
@@ -1017,6 +1059,8 @@ window.addEventListener('load', ()=>{
       await pollRun(rid1, '価格調査', stat);
       stat.textContent = '✅ 価格調査 完了。③調査結果報告 へ移動します ↓';
       stat.style.color = '#86efac';
+      // フロー状態を step1_done に遷移 (③④⑤ 表示開始)
+      if (typeof markFlowStep1Done === 'function') markFlowStep1Done();
       try { await refreshReport(); } catch(e){}
       updateExecHistory();
       flashSection('section-report');
