@@ -1039,17 +1039,22 @@ window.addEventListener('load', ()=>{
   // ⚡②調査だけ 実行 (フェーズ分け・止まる)
   async function execResearchOnly(){
     const btn = document.getElementById('exec-research-btn');
+    // 🔴 連打防止: 既に disabled or 実行中なら即 return (重複起動回避)
+    if (btn.disabled || btn.dataset.running === '1') return;
     const stat = document.getElementById('exec-status');
     const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
     const allReps = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
     const excludeSet = _getExcludeSet();
     const surveyDates = allReps.filter(r => r.day !== null && !excludeSet.has(`${r.month}-${r.tier}`));
     if(!surveyDates.length){ alert('調査対象日がゼロです'); return; }
+    if(!confirm(`②価格調査だけ実行します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約5-10分\n\n実行後、結果を確認してから ⑤④決定を実行してください。\n\n実行しますか？`)) return;
+    // confirm 後即座に disabled (確実な連打防止)
+    btn.disabled = true;
+    btn.dataset.running = '1';
+    btn.style.opacity = .5; btn.textContent = '⚡ 調査中...';
     // フロー状態を active に切替 + idle 案内を消す → 全セクション表示
     if (typeof markFlowActive === 'function') markFlowActive();
     if (typeof applyFlowVisibility === 'function') applyFlowVisibility();
-    if(!confirm(`②価格調査だけ実行します。\n\n希望ポジション: 5位×${pct}%\n調査対象: ${surveyDates.length}日\n所要時間: 約5-10分\n\n実行後、結果を確認してから ⑤④決定を実行してください。\n\n実行しますか？`)) return;
-    btn.disabled = true; btn.style.opacity = .5; btn.textContent = '⚡ 調査中...';
     stat.style.display = 'block'; stat.textContent = '🔄 価格調査 起動中...';
     try {
       const r1 = await fetch(SERVER_URL + '/api/run/research', {
@@ -1071,7 +1076,7 @@ window.addEventListener('load', ()=>{
       stat.textContent = '❌ 価格調査 エラー: ' + e.message;
       stat.style.color = '#fca5a5';
     } finally {
-      btn.disabled = false; btn.style.opacity = 1; btn.textContent = '⚡ ②調査だけ 実行';
+      btn.disabled = false; btn.dataset.running = '0'; btn.style.opacity = 1; btn.textContent = '⚡ ②調査だけ 実行';
     }
   }
 
