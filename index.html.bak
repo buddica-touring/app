@@ -2476,6 +2476,17 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     const perVehicleRevenue=activeCount>0?Math.round(totalRevenue/activeCount):0;
     return{totalDays,activeCount,maxDays,pct:maxDays>0?Math.round(totalDays/maxDays*100):0,dim,byClass,classOrder,totalRevenue,totalBase,totalOption,revpacd,perVehicleRevenue};
   },[data,vehicles,fleet,kpiFlags,viewYM]);
+  // ★ クラス別売上ウィジェットの計算結果をグローバルに保存（レポートがそのまま読む）
+  useEffect(()=>{
+    if(!utilStats||!utilStats.byClass)return;
+    window._kpi_byClass=window._kpi_byClass||{};
+    const key=(store||"nha")+"_"+viewYM;
+    const exported={};
+    Object.entries(utilStats.byClass).forEach(function([cls,d]){
+      exported[cls]={count:d.count,capDays:d.maxDays,usedDays:d.days,rev:d.revenue};
+    });
+    window._kpi_byClass[key]=exported;
+  },[utilStats,store,viewYM]);
   const stats=useMemo(()=>{
     if(!data||data.length===0)return null;
     const nowYM=viewYM;
@@ -9307,7 +9318,11 @@ function ManagementTab({store}){
         </>}
         <button onClick={()=>setSub("dashboard")} style={btn("#0891b2")}>↻ 再読込</button>
         <button onClick={()=>openPdfReport_(dbStore,dashPeriod,dashYm,dashKpi,dashYearly,dbResvs)} style={btn("#059669")}>📄 PDF出力</button>
-        <button onClick={()=>openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,null)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
+        <button onClick={()=>{
+          var liveKey=dbStore+"_"+dashYm;
+          var liveByClass=window._kpi_byClass&&window._kpi_byClass[liveKey]||null;
+          openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,liveByClass);
+        }} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
         <span style={{fontSize:10,color:"#a78bfa"}}>↑ダッシュボードの月選択と連動</span>
 
         <span style={{marginLeft:"auto",fontSize:10,color:"#94a3b8",fontWeight:600}}>{dashPeriod==="year"?"※ 年モードは加重平均（Σ値/Σ母数）で算出":"※ 月単位の計上ベース"}</span>
