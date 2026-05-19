@@ -587,8 +587,12 @@ window.addEventListener('load', ()=>{
         if(lines[i] === '__SUMMARY_BANNER__'){ lines[i] = banner; break; }
       }
 
-      // ④ 価格決定マトリクス (separate section)
-      renderDecisionMatrix(parsed, monthly);
+      // ④ 価格決定マトリクス (separate section) - 月別マトリクス対応 2026-05-19
+      if (computeRes.by_month_tier) {
+        renderDecisionMatrixByMonth(computeRes.by_month_tier, pct, monthly);
+      } else {
+        renderDecisionMatrix(parsed, monthly);
+      }
       el.innerHTML = lines.join('');
     }catch(e){ el.innerHTML = '<span style="color:#fca5a5">エラー: '+e.message+'</span>'; }
   }
@@ -598,6 +602,50 @@ window.addEventListener('load', ()=>{
   function declineReport(){
     if(confirm('今回の調査結果を見送ります（価格は変更されません）。よろしいですか？')) alert('見送り完了');
   }
+  // 🔴 月別マトリクス描画 (2026-05-19 追加)
+  function renderDecisionMatrixByMonth(byMonthTier, pct, currentMonthly){
+    const el = document.getElementById('decision-matrix');
+    if(!el) return;
+    const CLASSES = ['AA','A','B','C','S','H','F'];
+    const TIER_BG = {C:'#fee2e2', B:'#fef9c3', A:'#dbeafe'};
+    const TIER_TEXT = {C:'#991b1b', B:'#854d0e', A:'#1e40af'};
+    const TIER_LABEL = {C:'C 繁忙', B:'B 通常', A:'A 閑散'};
+    const sortedMonths = Object.keys(byMonthTier).sort((a,b)=>{
+      const [ya,ma]=a.split('-').map(s=>parseInt(s,10));
+      const [yb,mb]=b.split('-').map(s=>parseInt(s,10));
+      return (ya*100+ma) - (yb*100+mb);
+    });
+    let html = `<div style="margin-bottom:8px;color:#fff;font-size:9pt">この価格でプライシングシステムに反映します（希望ポジション: 5位×${pct}%・<strong>月別マトリクス</strong>）。月ごとに市場実勢が異なるため、月別に独立した価格を反映します。</div>`;
+    for (const ym of sortedMonths) {
+      const tiers = byMonthTier[ym];
+      const availTiers = ['A','B','C'].filter(t => Object.values(tiers[t]||{}).some(d=>d?.recommended != null));
+      if (!availTiers.length) continue;
+      const [y,m] = ym.split('-');
+      html += `<div style="margin:14px 0 6px;color:#fff;font-weight:800;font-size:11pt">📅 ${y}年${m}月</div>`;
+      html += `<table style="width:100%;border-collapse:collapse;font-size:9.5pt;color:#fff;margin-bottom:8px">`;
+      html += `<thead><tr><th style="padding:6px 10px;text-align:left;background:#0a2818;font-size:9pt">tier</th>`;
+      CLASSES.forEach(c=>html += `<th style="padding:6px 10px;text-align:right;background:#0a2818;font-family:Menlo,monospace;font-size:9pt">${c}</th>`);
+      html += `<th style="padding:6px 10px;text-align:center;background:#0a2818;font-size:8pt;color:#bae6fd">日数</th>`;
+      html += `</tr></thead><tbody>`;
+      ['A','B','C'].forEach(t=>{
+        const row = tiers[t]||{};
+        const maxDays = Math.max(...CLASSES.map(c=>row[c]?.sample_days||0));
+        if (maxDays === 0) return;
+        html += `<tr><td style="padding:6px 10px;background:${TIER_BG[t]};color:${TIER_TEXT[t]};font-weight:800;font-size:9pt">${TIER_LABEL[t]}</td>`;
+        CLASSES.forEach(cls=>{
+          const d = row[cls]||{};
+          const v = d.recommended;
+          html += `<td style="padding:6px 10px;text-align:right;background:#0c4a26;font-family:Menlo,monospace;font-weight:700;font-size:9.5pt">${v!=null?'¥'+v.toLocaleString():'<span style="opacity:.3">—</span>'}</td>`;
+        });
+        html += `<td style="padding:6px 10px;text-align:center;background:#0c4a26;color:#bae6fd;font-size:8pt">${maxDays}日</td>`;
+        html += `</tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    html += `<div style="margin-top:10px;font-size:9pt;color:#e9d5ff">↓ この価格で良ければ、下の「⑤ 反映」セクションの ★Goサインボタンを押してください（<strong>各月独立に反映</strong>）</div>`;
+    el.innerHTML = html;
+  }
+
   function renderDecisionMatrix(parsed, currentMonthly){
     const el = document.getElementById('decision-matrix');
     if(!el) return;

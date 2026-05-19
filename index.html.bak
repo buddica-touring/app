@@ -6847,10 +6847,29 @@ function ClsUtilCard({utilByM,ymList,nowYm,yrList,DB_VEH_TYPES}){
 
 // ══════════════════════════════════════════════════════════════
 // 📋 月次レポートPDF 生成（2026-05-19）
-// openFullMonthlyReport_(store, repYm, allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM, dashKpi, dashYearly, byClassData)
-// dashKpi / dashYearly / byClassData: APPが計算済みの値をそのまま使用（再計算なし・数値一致）
-// ══════════════════════════════════════════════════════════════
-function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,byClassData){
+// 📋 月次レポートPDF 生成（2026-05-19）
+// ① window.open → ② 広告費async取得 → ③ レポート生成 → ④ window.write
+// （window.openを先に実行することでpopupブロックを回避しつつ広告費も取得）
+function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,_cmMap,_costMap,extraByM,dashKpi,dashYearly,byClassData){
+  // ★ STEP1: 先にウィンドウを開く（ユーザジェスチャー内 = popupブロック回避）
+  var w=window.open("","_blank","width=1000,height=800");
+  if(!w){alert("ポップアップがブロックされています。\nブラウザのアドレスバーでこのサイトのポップアップを許可してから再度お試しください。");return;}
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="background:#0f172a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><p style="font-size:32px;margin-bottom:8px">📋</p><p style="font-size:16px">月次レポートを生成中...</p><p style="font-size:11px;color:#94a3b8;margin-top:8px">広告費データを取得しています</p></div></body></html>');
+  // ★ STEP2: 広告費データを非同期取得（ウィンドウは既に開いている）
+  var yr=repYm.slice(0,4);
+  var _parse=function(rows,pfx){var m={};(rows||[]).forEach(function(r){var ym=(r.key||"").replace(pfx,"");if(ym)try{m[ym]=typeof r.value==="string"?JSON.parse(r.value):r.value;}catch(e){m[ym]={};}});return m;};
+  var adPromise=(typeof sb!=='undefined'&&sb)?Promise.all([
+    sb.from("nha_app_settings").select("key,value").like("key","cm_nha_"+yr+"%").limit(200),
+    sb.from("nha_app_settings").select("key,value").like("key","cm_spk_"+yr+"%").limit(200),
+    sb.from("nha_app_settings").select("key,value").like("key","cost_nha_"+yr+"%").limit(200),
+    sb.from("nha_app_settings").select("key,value").like("key","cost_spk_"+yr+"%").limit(200),
+  ]).then(function(res){
+    return {cm:{nha:_parse(res[0].data,"cm_nha_"),spk:_parse(res[1].data,"cm_spk_")},
+            co:{nha:_parse(res[2].data,"cost_nha_"),spk:_parse(res[3].data,"cost_spk_")}};
+  }).catch(function(){return{cm:_cmMap,co:_costMap};}):Promise.resolve({cm:_cmMap,co:_costMap});
+  // ★ STEP3: 取得完了後にレポート生成してウィンドウに書き込む
+  adPromise.then(function(ad){
+    var cmMap=ad.cm,costMap=ad.co; // 新鮮なデータで上書き
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"那覇空港店";
   var co="株式会社Global Lines";
@@ -7082,7 +7101,10 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   /* TOPsummary */
   ".ts-wrap{background:#fffde7;border:1.5px solid #fde68a;border-radius:10px;padding:12px 14px}.ts-hdr{text-align:center;font-size:11pt;font-weight:800;color:#374151;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #fde68a}.ts-body{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ts-left{}.ts-right{border-left:1px solid #fde68a;padding-left:14px}.ts-rev-main{font-size:15pt;font-weight:900;color:#059669;margin-bottom:8px}.ts-rev-lbl{font-size:8.5pt;color:#64748b;font-weight:600}.ts-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f3f4f6}.ts-row:last-child{border-bottom:none}.ts-key{font-size:8.5pt;color:#374151}.ts-val{font-size:9pt;font-weight:700;text-align:right}.ts-val.grn{color:#059669}.ts-val.blu{color:#2563eb}.ts-val.org{color:#d97706}.ts-val.pur{color:#7c3aed}.ts-total-row{display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;padding:5px 8px;border-radius:6px;margin:6px 0}.ts-kpi-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6}.ts-kpi-row:last-child{border-bottom:none}.ts-kpi-lbl{font-size:8.5pt;color:#374151;flex:1}.ts-kpi-val{font-size:11pt;font-weight:900}.ts-kpi-sub{font-size:7.5pt;color:#94a3b8;margin-left:4px}.ts-bar-wrap{flex:1;background:#e2e8f0;border-radius:3px;height:6px;margin:0 8px}.ts-bar{height:6px;border-radius:3px}.ts-pct{font-size:8pt;color:#64748b;width:30px;text-align:right}.ts-vc-row{display:flex;align-items:center;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-top:8px;gap:10px}"+
   /* テーブル共通 */
-  "table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#1e40af;color:#fff;padding:5px 7px;font-weight:700;text-align:left;font-size:8pt}td{padding:4px 7px;border-bottom:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{background:#f8fafc}.tr{background:#1e293b!important}.tr td{color:#fff!important}.pb{break-before:page}.sign{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.sb{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;min-height:44px}.sl{font-size:7.5pt;color:#94a3b8;margin-bottom:3px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  "table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#1e40af;color:#fff;padding:5px 7px;font-weight:700;text-align:left;font-size:8pt}td{padding:4px 7px;border-bottom:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{background:#f8fafc}.tr{background:#1e293b!important}.tr td{color:#fff!important}.pb{break-before:page}.sign{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.sb{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;min-height:44px}.sl{font-size:7.5pt;color:#94a3b8;margin-bottom:3px}"+
+  /* クラス別カード */
+  ".cls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:8px}.cls-card{border:2px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff}.cls-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:13pt;font-weight:900;color:#fff;margin-bottom:4px}.cls-cnt{font-size:8pt;color:#94a3b8;margin-left:4px;font-weight:400}.cls-rev{font-size:15pt;font-weight:900;color:#1e293b;margin:4px 0 2px}.cls-sub{font-size:8pt;color:#64748b;margin-bottom:6px}.cls-bar-bg{background:#e2e8f0;border-radius:3px;height:4px;margin:4px 0}.cls-bar{height:4px;border-radius:3px}.cls-util{font-size:8pt;font-weight:700;margin-top:4px}"+
+  "@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
 
   // ══ HTML組み立て ══
   // grandTotal / extraRev は上で計算済み
@@ -7389,20 +7411,10 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   '<div style="text-align:right;font-size:7.5pt;color:#94a3b8;margin-top:8px">HANDYMAN '+sn+' | '+period+' | 作成: '+gd+'<br>本資料はHANDYMAN業務管理システムより自動出力されました。</div>'+
   '</body></html>';
 
-  var w=window.open("","_blank","width=1000,height=800");
-  if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
+  // ★ STEP4: ウィンドウにレポートHTMLを書き込む
+  if(!w.closed){w.document.open();w.document.write(html);w.document.close();setTimeout(function(){if(!w.closed)w.print();},600);}
+  }); // end adPromise.then
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 function openPdfReport_(dbStore,dashPeriod,dashYm,kpi,yr,resvs){
