@@ -7070,6 +7070,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   // ヘルパー関数（HTML組み立て前に宣言）
   var bar=function(v,tot,clr){var pct=tot>0?Math.min(100,Math.round(v/tot*100)):0;return'<div class="ts-bar-wrap"><div class="ts-bar" style="width:'+pct+'%;background:'+clr+'"></div></div><span class="ts-pct">'+pct+'%</span>';};
   var rp=function(v){return v>0?v.toFixed(1)+"%":"-";}; // 比率表示ヘルパー
+  // 万単位表示（例: 5489963 → "¥549.0万"）
+  var fW=function(v){return v?'¥'+(Math.round(v/1000)/10).toFixed(1)+'万':'-';};
 
   // 1. 表紙
   var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次レポート '+period+'</title><style>'+css+'</style></head><body>'+
@@ -7089,17 +7091,17 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
       // 左: 売上ブロック
       '<div class="ts-left">'+
         '<div class="ts-rev-lbl">💰 売上</div>'+
-        '<div class="ts-rev-main">¥'+(Math.round(grandTotal/10000)/10).toFixed(1)+'<span style="font-size:10pt">万</span></div>'+
+        '<div class="ts-rev-main">'+fW(grandTotal)+'</div>'+
         '<div style="margin-top:6px">'+
-          '<div class="ts-row"><span class="ts-key">基本</span><span style="font-size:8.5pt;color:#374151">'+f(totalBase)+'</span>'+bar(totalBase,grandTotal,"#059669")+'</div>'+
-          '<div class="ts-row"><span class="ts-key">付帯</span><span style="font-size:8.5pt;color:#374151">'+f(totalOpt)+'</span>'+bar(totalOpt,grandTotal,"#34d399")+'</div>'+
-          '<div class="ts-total-row"><span style="font-size:8.5pt;font-weight:700;color:#374151">予約計</span><span style="font-size:10pt;font-weight:900;color:#2563eb">'+f(totalRev)+'</span><span style="font-size:7.5pt;color:#94a3b8;margin-left:4px">基本+付帯</span></div>'+
-          (extraRev>0?'<div class="ts-row"><span class="ts-key">予約外</span><span style="font-size:8.5pt;color:#7c3aed">'+f(extraRev)+'</span>'+bar(extraRev,grandTotal,"#a78bfa")+'</div>':'')+
+          '<div class="ts-row"><span class="ts-key">基本</span><span style="font-size:8.5pt;color:#2563eb;font-weight:700">'+fW(totalBase)+'</span>'+bar(totalBase,grandTotal,"#059669")+'</div>'+
+          '<div class="ts-row"><span class="ts-key">付帯</span><span style="font-size:8.5pt;color:#059669;font-weight:700">'+fW(totalOpt)+'</span>'+bar(totalOpt,grandTotal,"#34d399")+'</div>'+
+          '<div class="ts-total-row"><span style="font-size:8.5pt;font-weight:700;color:#374151">予約計</span><span style="font-size:10pt;font-weight:900;color:#2563eb">'+fW(totalRev)+'</span><span style="font-size:7.5pt;color:#94a3b8;margin-left:4px">基本+付帯</span></div>'+
+          (extraRev>0?'<div class="ts-row"><span class="ts-key">予約外</span><span style="font-size:8.5pt;color:#7c3aed;font-weight:700">'+fW(extraRev)+'</span>'+bar(extraRev,grandTotal,"#a78bfa")+'</div>':'')+
         '</div>'+
         // 台あたり
         '<div class="ts-vc-row">'+
           '<span style="font-size:8.5pt;font-weight:700;color:#374151">🎯 台あたり</span>'+
-          '<span style="font-size:12pt;font-weight:900;color:#d97706">¥'+Math.round(perVehicleRev/10000*10)/10+'万</span>'+
+          '<span style="font-size:12pt;font-weight:900;color:#d97706">'+fW(perVehicleRev)+'</span>'+
           '<span style="font-size:7.5pt;color:#94a3b8">/ '+activeVehs.length+'台</span>'+
         '</div>'+
       '</div>'+
@@ -7358,6 +7360,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 
 
