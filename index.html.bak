@@ -6882,16 +6882,22 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var unitPrice=totalCnt>0?Math.round(totalRev/totalCnt):0;
   var avgNights=totalCnt>0?totalNights/totalCnt:0;
 
-  // ── 稼働率（repYm の日数 × アクティブ台数）
+  // ── 稼働率（APPのLeadTimeWidget/KpiTabと同じ計算方式）
+  // 返却月だけでなく、月中に稼働した全予約（月をまたぐ予約も含む）でカウント
   var daysInM=new Date(parseInt(yrStr),parseInt(moStr),0).getDate();
   var monthKpi=kpiF[repYm]||{};
   var activeVehs=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in monthKpi)||monthKpi[v.code]);});
   var utilMaxDays=activeVehs.length*daysInM;
+  var mStart=new Date(repYm+"-01T00:00:00");
+  var mEnd=new Date(yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")+"T23:59:59");
   var utilDays=0;
-  monthResv.forEach(function(r){
+  // 月中に稼働している全予約（start <= 月末 AND end >= 月初）
+  active.filter(function(r){
+    var ld=r[ldKey],rd=r[rdKey];
+    return ld&&rd&&ld<=yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")&&rd>=repYm+"-01";
+  }).forEach(function(r){
     var vc=fMap[r.id];if(!vc)return;
     var ld=new Date(r[ldKey]+"T00:00:00"),rd=new Date(r[rdKey]+"T00:00:00");
-    var mStart=new Date(repYm+"-01T00:00:00"),mEnd=new Date(yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")+"T00:00:00");
     var s=ld<mStart?mStart:ld,e=rd>mEnd?mEnd:rd;
     var d=Math.max(0,Math.round((e-s)/86400000));
     utilDays+=d;
@@ -7015,25 +7021,40 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     return{cls:c.cls,count:c.count,rev:c.rev,profit:c.rev-c.fixed,fixed:c.fixed,utilPct:c.capDays?Math.round(c.days/c.capDays*100):0,monthlyRev:Math.round(c.rev/nm),monthlyProfit:Math.round((c.rev-c.fixed)/nm)};
   }).sort(function(a,b){return b.profit-a.profit;});
 
-  // ── クラス別稼働率（repYm 単月）
+  // ── クラス別稼働率（repYm 単月）APPのKpiTabと同じ計算方式
+  // 稼働日数: 月中に稼働した全予約（月をまたぐ予約も含む）
+  // 売上: 返却月ベース（monthResv）= APP Summaryと同じ
   var clsMonth={};
+  var mS2=new Date(repYm+"-01T00:00:00"),mE2=new Date(yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")+"T23:59:59");
+  var lastDayStr=yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0");
   (allVehs||[]).filter(function(v){return v.active&&(!(v.code in monthKpi)||monthKpi[v.code]);}).forEach(function(v){
     var c=v.type||v.vehicle_class||"?";
     if(!clsMonth[c])clsMonth[c]={count:0,capDays:0,usedDays:0,rev:0};
     clsMonth[c].count++;clsMonth[c].capDays+=daysInM;
   });
-  monthResv.forEach(function(r){
+  // 稼働日数: 月中に稼働した全予約（返却月に限らない）
+  active.filter(function(r){
+    var ld=r[ldKey],rd=r[rdKey];
+    return ld&&rd&&ld<=lastDayStr&&rd>=repYm+"-01";
+  }).forEach(function(r){
     var vc=fMap[r.id];if(!vc)return;
     var v=vMap[vc];if(!v)return;
     var c=v.type||v.vehicle_class||"?";
     if(!clsMonth[c])return;
     var ld2=new Date(r[ldKey]+"T00:00:00"),rd2=new Date(r[rdKey]+"T00:00:00");
-    var mS=new Date(repYm+"-01T00:00:00"),mE=new Date(repYm+"-"+String(daysInM).padStart(2,"0")+"T00:00:00");
-    var s=ld2<mS?mS:ld2,e=rd2>mE?mE:rd2;
+    var s=ld2<mS2?mS2:ld2,e=rd2>mE2?mE2:rd2;
     var d=Math.max(0,Math.round((e-s)/86400000));
+    clsMonth[c].usedDays+=d;
+  });
+  // 売上: 返却月ベース（APP Summaryと同じ）
+  monthResv.forEach(function(r){
+    var vc=fMap[r.id];if(!vc)return;
+    var v=vMap[vc];if(!v)return;
+    var c=v.type||v.vehicle_class||"?";
+    if(!clsMonth[c])return;
     var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
     var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
-    clsMonth[c].usedDays+=d;clsMonth[c].rev+=rev;
+    clsMonth[c].rev+=rev;
   });
 
   // ══ CSS ══
@@ -7068,9 +7089,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
       // 左: 売上ブロック
       '<div class="ts-left">'+
         '<div class="ts-rev-lbl">💰 売上</div>'+
-        '<div class="ts-rev-main">'+f(grandTotal).replace('¥','')+' 万'.replace('万','')+'<span style="font-size:10pt">万</span></div>'+
-        // 実際は万単位で
-        '<div class="ts-rev-main" style="font-size:13pt">¥'+Math.round(grandTotal/10000).toLocaleString()+'<span style="font-size:10pt">万</span></div>'+
+        '<div class="ts-rev-main">¥'+(Math.round(grandTotal/10000)/10).toFixed(1)+'<span style="font-size:10pt">万</span></div>'+
         '<div style="margin-top:6px">'+
           '<div class="ts-row"><span class="ts-key">基本</span><span style="font-size:8.5pt;color:#374151">'+f(totalBase)+'</span>'+bar(totalBase,grandTotal,"#059669")+'</div>'+
           '<div class="ts-row"><span class="ts-key">付帯</span><span style="font-size:8.5pt;color:#374151">'+f(totalOpt)+'</span>'+bar(totalOpt,grandTotal,"#34d399")+'</div>'+
@@ -7201,6 +7220,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 
 
