@@ -7211,6 +7211,106 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   '<tr class="tr"><td>合計</td><td style="text-align:right">'+f(totalRev)+'</td><td style="text-align:right">'+totalCnt+'件</td><td style="text-align:right">'+f(unitPrice)+'</td><td style="text-align:right">100%</td></tr>'+
   '</tbody></table></div>'+
 
+  // ⑥ 年間推移（ダッシュボードと同一ロジック）
+  (function(){
+    var yr=parseInt(yrStr);
+    var months12=[];
+    for(var mo12=1;mo12<=12;mo12++){months12.push(yr+"-"+String(mo12).padStart(2,"0"));}
+    var fM=function(v){return v?"¥"+Math.round(v/10000)+"万":"-";};
+    // 月別集計
+    var mData={};
+    months12.forEach(function(ym){
+      var dIM=new Date(parseInt(ym.slice(0,4)),parseInt(ym.slice(5)),0).getDate();
+      var ret=active.filter(function(r){var rd=r[rdKey];return rd&&rd.slice(0,7)===ym;});
+      var mS3=new Date(ym+"-01T00:00:00"),mE3=new Date(ym+"-"+String(dIM).padStart(2,"0")+"T23:59:59");
+      var lastD=ym+"-"+String(dIM).padStart(2,"0");
+      var plBase3=0,plOpt3=0,plDisc3=0,plRev3=0,plCnt3=ret.length,dSum3=0;
+      ret.forEach(function(r){
+        var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
+        var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
+        var ld=r[ldKey],rd=r[rdKey];
+        var nights=ld&&rd?Math.max(0,Math.round((new Date(rd)-new Date(ld))/86400000)):0;
+        plBase3+=((bp>0||op>0)?bp:(Number(r.price)||0));plOpt3+=op;plDisc3+=dc;plRev3+=rev;dSum3+=nights;
+      });
+      var ex3=(extraByM||{})[ym]||0;
+      var kpiM=kpiF[ym]||{};
+      var actV3=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in kpiM)||kpiM[v.code]);});
+      var maxD3=actV3.length*dIM;
+      var uDays3=0;
+      active.filter(function(r){var ld=r[ldKey],rd=r[rdKey];return ld&&rd&&ld<=lastD&&rd>=ym+"-01";}).forEach(function(r){
+        var vc=fMap[r.id];if(!vc)return;
+        var ld2=new Date(r[ldKey]+"T00:00:00"),rd2=new Date(r[rdKey]+"T00:00:00");
+        var s2=ld2<mS3?mS3:ld2,e2=rd2>mE3?mE3:rd2;
+        uDays3+=Math.max(0,Math.round((e2-s2)/86400000));
+      });
+      var utilPct3=maxD3>0?Math.round(uDays3/maxD3*100):0;
+      var unitPrice3=plCnt3>0?Math.round(plRev3/plCnt3):0;
+      var avgN3=plCnt3>0?plRev3/plCnt3:0; // 泊単価
+      var nightsAvg3=plCnt3>0?dSum3/plCnt3:0;
+      mData[ym]={plBase:plBase3,plOpt:plOpt3,plDisc:plDisc3,plRev:plRev3,extraRev:ex3,grand:plRev3+ex3,cnt:plCnt3,unitPrice:unitPrice3,avgNights:nightsAvg3,dailyRate:uDays3>0?Math.round(plRev3/uDays3):0,utilPct:utilPct3,bar:utilPct3};
+    });
+    // 年計
+    var totBase=0,totOpt=0,totDisc=0,totRev=0,totEx=0,totCnt=0,totDS=0,totUtil=0,totMax=0;
+    months12.forEach(function(ym){var m=mData[ym];totBase+=m.plBase;totOpt+=m.plOpt;totDisc+=m.plDisc;totRev+=m.plRev;totEx+=m.extraRev;totCnt+=m.cnt;});
+    var utilColor3=function(p){return p>=50?"#059669":p>=30?"#d97706":"#dc2626";};
+    var tblRows3=months12.map(function(ym){
+      var m=mData[ym],mo=parseInt(ym.slice(5));
+      var isRepMo=(ym===repYm);
+      var bg=isRepMo?"#eff6ff":"";
+      var bw=isRepMo?"font-weight:700;":"";
+      if(!m.cnt)return'<tr style="background:'+bg+'"><td style="'+bw+'">'+mo+'月</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td style="color:#059669">-</td><td>-</td><td>-</td><td>-</td><td>-</td><td style="text-align:center"><span style="background:#e2e8f0;color:#94a3b8;padding:1px 5px;border-radius:3px;font-size:7.5pt">0%</span></td><td></td></tr>';
+      var uc=utilColor3(m.utilPct);
+      var barW=Math.min(100,m.utilPct*2)+'%';
+      return'<tr style="background:'+bg+'">'+
+        '<td style="'+bw+'font-weight:700">'+mo+'月</td>'+
+        '<td style="text-align:right;color:#2563eb">'+fM(m.plBase)+'</td>'+
+        '<td style="text-align:right;color:#059669">'+fM(m.plOpt)+'</td>'+
+        '<td style="text-align:right;color:#dc2626">'+(m.plDisc>0?'-'+fM(m.plDisc):'-')+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fM(m.plRev)+'</td>'+
+        '<td style="text-align:right;color:#7c3aed">'+(m.extraRev>0?'+'+fM(m.extraRev):'-')+'</td>'+
+        '<td style="text-align:right;font-weight:800;color:#059669">'+fM(m.grand)+'</td>'+
+        '<td style="text-align:right">'+m.cnt+'件</td>'+
+        '<td style="text-align:right">'+f(m.unitPrice)+'</td>'+
+        '<td style="text-align:right">'+(m.avgNights>0?m.avgNights.toFixed(2)+'泊':'-')+'</td>'+
+        '<td style="text-align:right">'+(m.dailyRate>0?f(m.dailyRate):'-')+'</td>'+
+        '<td style="text-align:center"><span style="background:'+(m.utilPct>=50?"#dcfce7":m.utilPct>=30?"#fef9c3":"#fee2e2")+';color:'+uc+';padding:1px 5px;border-radius:3px;font-size:7.5pt;font-weight:700">'+m.utilPct+'%</span></td>'+
+        '<td><div style="height:5px;background:#e2e8f0;border-radius:2px;width:60px"><div style="height:5px;background:'+uc+';border-radius:2px;width:'+barW+'"></div></div></td>'+
+      '</tr>';
+    }).join("");
+    return '<div class="sec pb"><div class="st">⑥ 年間推移（'+yr+'年）<span style="font-size:7.5pt;color:#94a3b8;font-weight:400;margin-left:8px">ダッシュボードと同一ロジックで月別集計</span></div>'+
+    '<div style="overflow-x:auto"><table style="min-width:900px;font-size:7.5pt">'+
+    '<thead><tr style="background:#0f172a;color:#fff">'+
+      '<th style="white-space:nowrap">月</th>'+
+      '<th style="text-align:right;color:#93c5fd">基本料金</th>'+
+      '<th style="text-align:right;color:#6ee7b7">付帯売上</th>'+
+      '<th style="text-align:right;color:#fca5a5">割引</th>'+
+      '<th style="text-align:right">売上計上</th>'+
+      '<th style="text-align:right;color:#c4b5fd">予約外</th>'+
+      '<th style="text-align:right;color:#6ee7b7;font-weight:900">合計売上</th>'+
+      '<th style="text-align:right">件数</th>'+
+      '<th style="text-align:right">客単価</th>'+
+      '<th style="text-align:right">平均泊数</th>'+
+      '<th style="text-align:right">泊単価</th>'+
+      '<th style="text-align:center">稼働率</th>'+
+      '<th style="text-align:center">売上グラフ</th>'+
+    '</tr></thead><tbody>'+
+    tblRows3+
+    '<tr class="tr">'+
+      '<td style="font-weight:700">合計</td>'+
+      '<td style="text-align:right">'+fM(totBase)+'</td>'+
+      '<td style="text-align:right">'+fM(totOpt)+'</td>'+
+      '<td style="text-align:right">'+(totDisc>0?'-'+fM(totDisc):'-')+'</td>'+
+      '<td style="text-align:right;font-weight:800">'+fM(totRev)+'</td>'+
+      '<td style="text-align:right">'+(totEx>0?'+'+fM(totEx):'-')+'</td>'+
+      '<td style="text-align:right;font-weight:900;color:#6ee7b7">'+fM(totRev+totEx)+'</td>'+
+      '<td style="text-align:right">'+totCnt+'件</td>'+
+      '<td style="text-align:right">'+(totCnt>0?f(Math.round(totRev/totCnt)):'-')+'</td>'+
+      '<td style="text-align:center" colspan="3">年平均</td>'+
+      '<td></td>'+
+    '</tr>'+
+    '</tbody></table></div></div>';
+  })()+
+
   // 署名欄
   '<hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">'+
   '<div class="sign"><div><div class="sl">担当者確認欄</div><div class="sb"></div></div><div><div class="sl">承認欄</div><div class="sb"></div></div></div>'+
@@ -7220,6 +7320,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 
 
