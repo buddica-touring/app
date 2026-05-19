@@ -6847,9 +6847,10 @@ function ClsUtilCard({utilByM,ymList,nowYm,yrList,DB_VEH_TYPES}){
 
 // ══════════════════════════════════════════════════════════════
 // 📋 月次レポートPDF 生成（2026-05-19）
-// openFullMonthlyReport_(store, "YYYY-MM", allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM)
+// openFullMonthlyReport_(store, repYm, allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM, dashKpi, dashYearly)
+// dashKpi / dashYearly: APPが計算済みの値をそのまま使用（再計算なし・数値一致）
 // ══════════════════════════════════════════════════════════════
-function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM){
+function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM,dashKpi,dashYearly){
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"那覇空港店";
   var co="株式会社Global Lines";
@@ -6935,11 +6936,30 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   }).length;
   var deliveryRate=totalCnt>0?Math.round(deliveryCnt/totalCnt*100):0;
 
-  // ── RevPACD / 台あたり
+  // ── RevPACD / 台あたり（raw計算）
   var revpacd=utilMaxDays>0?Math.round(totalRev/utilMaxDays):0;
   var extraRev=(extraByM||{})[repYm]||0;
   var grandTotal=totalRev+extraRev;
   var perVehicleRev=activeVehs.length>0?Math.round(grandTotal/activeVehs.length):0;
+
+  // ── dashKpiが渡された場合: APPの計算済み値で上書き（再計算不要・数値完全一致）
+  if(dashKpi){
+    totalRev=dashKpi.plRev||0;
+    totalBase=dashKpi.plBase||0;
+    totalOpt=dashKpi.plOpt||0;
+    totalDisc=dashKpi.plDisc||0;
+    totalCnt=dashKpi.plCnt||0;
+    unitPrice=Math.round(dashKpi.unitPrice||0);
+    avgNights=dashKpi.avgNights||0;
+    utilPct=dashKpi.utilPct||0;
+    utilDays=dashKpi.utilDays||0;
+    utilMaxDays=dashKpi.utilMaxDays||0;
+    var aktCount=dashKpi.utilActiveCount||activeVehs.length;
+    revpacd=utilMaxDays>0?Math.round(totalRev/utilMaxDays):0;
+    extraRev=(extraByM||{})[repYm]||0;
+    grandTotal=totalRev+extraRev;
+    perVehicleRev=aktCount>0?Math.round(grandTotal/aktCount):0;
+  }
 
   // ── チャンネル別集計
   var byCh={};
@@ -7251,47 +7271,33 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   '<tr class="tr"><td>合計</td><td style="text-align:right">'+f(totalRev)+'</td><td style="text-align:right">'+totalCnt+'件</td><td style="text-align:right">'+f(unitPrice)+'</td><td style="text-align:right">100%</td></tr>'+
   '</tbody></table></div>'+
 
-  // ⑥ 年間推移（ダッシュボードと同一ロジック）
+  // ⑥ 年間推移 — dashYearly.monthsをそのまま使用（APPと完全一致・再計算なし）
   (function(){
     var yr=parseInt(yrStr);
-    var months12=[];
-    for(var mo12=1;mo12<=12;mo12++){months12.push(yr+"-"+String(mo12).padStart(2,"0"));}
     var fM=function(v){return v?"¥"+Math.round(v/10000)+"万":"-";};
-    // 月別集計
+    // dashYearly.monthsが渡されていればそのまま使う
+    var yjMos=(dashYearly&&dashYearly.months)||[];
+    // 月別マップ
     var mData={};
-    months12.forEach(function(ym){
-      var dIM=new Date(parseInt(ym.slice(0,4)),parseInt(ym.slice(5)),0).getDate();
-      var ret=active.filter(function(r){var rd=r[rdKey];return rd&&rd.slice(0,7)===ym;});
-      var mS3=new Date(ym+"-01T00:00:00"),mE3=new Date(ym+"-"+String(dIM).padStart(2,"0")+"T23:59:59");
-      var lastD=ym+"-"+String(dIM).padStart(2,"0");
-      var plBase3=0,plOpt3=0,plDisc3=0,plRev3=0,plCnt3=ret.length,dSum3=0;
-      ret.forEach(function(r){
-        var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
-        var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
-        var ld=r[ldKey],rd=r[rdKey];
-        var nights=ld&&rd?Math.max(0,Math.round((new Date(rd)-new Date(ld))/86400000)):0;
-        plBase3+=((bp>0||op>0)?bp:(Number(r.price)||0));plOpt3+=op;plDisc3+=dc;plRev3+=rev;dSum3+=nights;
+    yjMos.forEach(function(m){if(m&&m.ym)mData[m.ym]={plBase:m.plBase||0,plOpt:m.plOpt||0,plDisc:m.plDisc||0,plRev:m.plRev||0,extraRev:m.extraRev||0,grand:m.totalRev||((m.plRev||0)+(m.extraRev||0)),cnt:m.plCnt||0,unitPrice:Math.round(m.unitPrice||0),avgNights:m.avgNights||0,dailyRate:Math.round(m.dailyRate||0),utilPct:m.utilPct||0};});
+    // dashYearly.monthsがない場合は raw 計算にフォールバック
+    var months12=[];for(var mo12=1;mo12<=12;mo12++){months12.push(yr+"-"+String(mo12).padStart(2,"0"));}
+    if(yjMos.length===0){
+      months12.forEach(function(ym){
+        var dIM=new Date(parseInt(ym.slice(0,4)),parseInt(ym.slice(5)),0).getDate();
+        var ret=active.filter(function(r){var rd=r[rdKey];return rd&&rd.slice(0,7)===ym;});
+        var pb=0,po=0,pd=0,pr=0,dS=0;
+        ret.forEach(function(r){var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);var ld=r[ldKey],rd=r[rdKey];var n=ld&&rd?Math.max(0,Math.round((new Date(rd)-new Date(ld))/86400000)):0;pb+=((bp>0||op>0)?bp:(Number(r.price)||0));po+=op;pd+=dc;pr+=rev;dS+=n;});
+        var ex=(extraByM||{})[ym]||0;
+        var kpiM=kpiF[ym]||{};var actV=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in kpiM)||kpiM[v.code]);});
+        var maxD=actV.length*dIM;var uD=0;
+        active.filter(function(r){var ld=r[ldKey],rd=r[rdKey];return ld&&rd&&ld<=ym+"-"+String(dIM).padStart(2,"0")&&rd>=ym+"-01";}).forEach(function(r){var vc=fMap[r.id];if(!vc)return;var mS=new Date(ym+"-01T00:00:00"),mE=new Date(ym+"-"+String(dIM).padStart(2,"0")+"T23:59:59");var ld2=new Date(r[ldKey]+"T00:00:00"),rd2=new Date(r[rdKey]+"T00:00:00");var s=ld2<mS?mS:ld2,e=rd2>mE?mE:rd2;uD+=Math.max(0,Math.round((e-s)/86400000));});
+        mData[ym]={plBase:pb,plOpt:po,plDisc:pd,plRev:pr,extraRev:ex,grand:pr+ex,cnt:ret.length,unitPrice:ret.length?Math.round(pr/ret.length):0,avgNights:ret.length?dS/ret.length:0,dailyRate:uD?Math.round(pr/uD):0,utilPct:maxD?Math.round(uD/maxD*100):0};
       });
-      var ex3=(extraByM||{})[ym]||0;
-      var kpiM=kpiF[ym]||{};
-      var actV3=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in kpiM)||kpiM[v.code]);});
-      var maxD3=actV3.length*dIM;
-      var uDays3=0;
-      active.filter(function(r){var ld=r[ldKey],rd=r[rdKey];return ld&&rd&&ld<=lastD&&rd>=ym+"-01";}).forEach(function(r){
-        var vc=fMap[r.id];if(!vc)return;
-        var ld2=new Date(r[ldKey]+"T00:00:00"),rd2=new Date(r[rdKey]+"T00:00:00");
-        var s2=ld2<mS3?mS3:ld2,e2=rd2>mE3?mE3:rd2;
-        uDays3+=Math.max(0,Math.round((e2-s2)/86400000));
-      });
-      var utilPct3=maxD3>0?Math.round(uDays3/maxD3*100):0;
-      var unitPrice3=plCnt3>0?Math.round(plRev3/plCnt3):0;
-      var avgN3=plCnt3>0?plRev3/plCnt3:0; // 泊単価
-      var nightsAvg3=plCnt3>0?dSum3/plCnt3:0;
-      mData[ym]={plBase:plBase3,plOpt:plOpt3,plDisc:plDisc3,plRev:plRev3,extraRev:ex3,grand:plRev3+ex3,cnt:plCnt3,unitPrice:unitPrice3,avgNights:nightsAvg3,dailyRate:uDays3>0?Math.round(plRev3/uDays3):0,utilPct:utilPct3,bar:utilPct3};
-    });
+    }
     // 年計
-    var totBase=0,totOpt=0,totDisc=0,totRev=0,totEx=0,totCnt=0,totDS=0,totUtil=0,totMax=0;
-    months12.forEach(function(ym){var m=mData[ym];totBase+=m.plBase;totOpt+=m.plOpt;totDisc+=m.plDisc;totRev+=m.plRev;totEx+=m.extraRev;totCnt+=m.cnt;});
+    var totBase=0,totOpt=0,totDisc=0,totRev=0,totEx=0,totCnt=0;
+    months12.forEach(function(ym){var m=mData[ym]||{};totBase+=(m.plBase||0);totOpt+=(m.plOpt||0);totDisc+=(m.plDisc||0);totRev+=(m.plRev||0);totEx+=(m.extraRev||0);totCnt+=(m.cnt||0);});
     var utilColor3=function(p){return p>=50?"#059669":p>=30?"#d97706":"#dc2626";};
     var tblRows3=months12.map(function(ym){
       var m=mData[ym],mo=parseInt(ym.slice(5));
@@ -7360,6 +7366,8 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var w=window.open("","_blank","width=1000,height=800");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
 }
+
+
 
 
 
@@ -9249,8 +9257,8 @@ function ManagementTab({store}){
         </>}
         <button onClick={()=>setSub("dashboard")} style={btn("#0891b2")}>↻ 再読込</button>
         <button onClick={()=>openPdfReport_(dbStore,dashPeriod,dashYm,dashKpi,dashYearly,dbResvs)} style={btn("#059669")}>📄 PDF出力</button>
-        <button onClick={()=>openFullMonthlyReport_(dbStore,reportYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート</button>
-        <input type="month" value={reportYm} onChange={e=>setReportYm(e.target.value)} style={{padding:"4px 8px",fontSize:12,border:"1px solid #a78bfa",borderRadius:6,color:"#7c3aed",fontWeight:700}}/>
+        <button onClick={()=>openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,cmMap,costMap,extraByM,dashKpi,dashYearly)} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
+        <span style={{fontSize:10,color:"#a78bfa"}}>↑ダッシュボードの月選択と連動</span>
         <span style={{marginLeft:"auto",fontSize:10,color:"#94a3b8",fontWeight:600}}>{dashPeriod==="year"?"※ 年モードは加重平均（Σ値/Σ母数）で算出":"※ 月単位の計上ベース"}</span>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:16}}>
