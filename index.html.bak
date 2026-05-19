@@ -6863,13 +6863,25 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     sb.from("nha_app_settings").select("key,value").like("key","cm_spk_"+yr+"%").limit(200),
     sb.from("nha_app_settings").select("key,value").like("key","cost_nha_"+yr+"%").limit(200),
     sb.from("nha_app_settings").select("key,value").like("key","cost_spk_"+yr+"%").limit(200),
+    // ② クラス別売上: monthly_snapshots からAPP計算済みデータを取得（再計算しない）
+    sb.from("monthly_snapshots").select("class_detail").eq("store",dbStore==="spk"?"spk":"nha").eq("year_month",repYm).maybeSingle(),
   ]).then(function(res){
+    var snapCls=null;
+    if(res[4]&&res[4].data&&res[4].data.class_detail){
+      // APPが計算済みのbyClassデータをそのまま使用
+      snapCls={};
+      (res[4].data.class_detail||[]).forEach(function(c){
+        snapCls[c.type]={count:c.count,capDays:c.avail_days,usedDays:c.rental_days,rev:c.revenue};
+      });
+    }
     return {cm:{nha:_parse(res[0].data,"cm_nha_"),spk:_parse(res[1].data,"cm_spk_")},
-            co:{nha:_parse(res[2].data,"cost_nha_"),spk:_parse(res[3].data,"cost_spk_")}};
-  }).catch(function(){return{cm:_cmMap,co:_costMap};}):Promise.resolve({cm:_cmMap,co:_costMap});
+            co:{nha:_parse(res[2].data,"cost_nha_"),spk:_parse(res[3].data,"cost_spk_")},
+            snapCls:snapCls};
+  }).catch(function(){return{cm:_cmMap,co:_costMap,snapCls:null};}):Promise.resolve({cm:_cmMap,co:_costMap,snapCls:null});
   // ★ STEP3: 取得完了後にレポート生成してウィンドウに書き込む
   adPromise.then(function(ad){
-    var cmMap=ad.cm,costMap=ad.co; // 新鮮なデータで上書き
+    var cmMap=ad.cm,costMap=ad.co; // 新鮮な広告費データ
+    var snapCls=ad.snapCls; // APPのmonthly_snapshotsから取得したbyClass（再計算なし）
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"那覇空港店";
   var co="株式会社Global Lines";
@@ -7186,9 +7198,9 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     '</div>'+
   '</div></div>'+
 
-  // ② クラス別売上（APPのクラス別売上ウィジェットと同一データ・同一形式）
+  // ② クラス別売上 — monthly_snapshots(APPが保存済)を優先・なければclsMonthで代替
   (function(){
-    var src=clsMonth;
+    var src=snapCls&&Object.keys(snapCls).length>0?snapCls:clsMonth;
     var CLASS_COLORS={A:"#7c3aed",B:"#2563eb",C:"#059669",F:"#db2777",H:"#64748b",S:"#d97706","AA":"#1e293b"};
     var entries=Object.entries(src).sort(function(a,b){return b[1].rev-a[1].rev;});
     var totR=0,totU=0,totC=0,totN=0;
@@ -7417,7 +7429,6 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
 }
 
 
-function openPdfReport_(dbStore,dashPeriod,dashYm,kpi,yr,resvs){
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"BUDDICA TOURING 高松店";
   var co="株式会社Global Lines";
