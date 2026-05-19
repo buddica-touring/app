@@ -896,7 +896,10 @@ window.addEventListener('load', ()=>{
       <div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:14px 18px">
         <div style="font-size:11pt;font-weight:800;color:#1e3a8a;margin-bottom:6px">🔧 期間プリセット ルール準拠初期化</div>
         <div style="font-size:9pt;color:#1e3a8a;margin-bottom:10px">stores/takamatsu.md のルール (C=お盆/年末/SW/GW/連休 / B=通常週末/平日/春秋 / A=梅雨/冬閑散) に従ってプリセットを初期化し、365日 dayTiers を再計算します。<br>※ 個別の手動上書き (dayTiers) は維持されます。</div>
-        <button onclick="resetPresetsAndRecompute()" style="background:#1e40af;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔧 プリセット初期化 + dayTiers 再計算</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button onclick="recomputeDayTiersOnly()" style="background:#0ea5e9;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:10pt;font-weight:800;cursor:pointer">🔄 dayTiers のみ再計算（プリセット維持・安全）</button>
+          <button onclick="resetPresetsAndRecompute()" style="background:#7f1d1d;color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:9pt;font-weight:700;cursor:pointer">⚠️ プリセット初期化 + 再計算（既存設定を破壊）</button>
+        </div>
       </div>
     </div>
   </details>
@@ -1351,6 +1354,46 @@ window.addEventListener('load', ()=>{
     if(from<=to) return cur>=from && cur<=to;
     return cur>=from || cur<=to;
   }
+  // 🔄 安全な再計算: 既存プリセットを維持したまま dayTiers のみ再構築
+  function recomputeDayTiersOnly(){
+    try {
+      const SC_KEY = 'bt_seasonal_config_v2';
+      const MS_KEY = 'bt_takamatsu_seasonal_v6';
+      let sc = {}, ms = {};
+      try{ sc = JSON.parse(localStorage.getItem(SC_KEY)||'{}'); }catch(e){}
+      try{ ms = JSON.parse(localStorage.getItem(MS_KEY)||'{}'); }catch(e){}
+      const periods = (sc.tkm && sc.tkm['2026'] && sc.tkm['2026'].periods || []).filter(p=>p.enabled);
+      if (!periods.length) {
+        alert('⚠️ 期間プリセットが空です\n\nseasonal-config.html で設定するか、「プリセット初期化」ボタン (赤) を使ってください。');
+        return;
+      }
+      if (!confirm(`現在の期間プリセット ${periods.length}件 から dayTiers (365日) を再計算します。\nプリセット自体は変更しません。\n\n実行しますか？`)) return;
+      if (!ms.dayTiers) ms.dayTiers = {};
+      const TIER_PRI = {A:1,B:2,C:3};
+      const y = 2026;
+      let cnt = {A:0,B:0,C:0};
+      for(let m=1; m<=12; m++){
+        const last = new Date(y,m,0).getDate();
+        for(let d=1; d<=last; d++){
+          const date = new Date(y,m-1,d);
+          const dk = `${y}-${m}-${d}`;
+          let bestTier = null, bestPri = 0;
+          periods.forEach(p=>{
+            if(_dateInRange(date,p.fromM,p.fromD,p.toM,p.toD)){
+              if(TIER_PRI[p.tier] > bestPri){ bestPri = TIER_PRI[p.tier]; bestTier = p.tier; }
+            }
+          });
+          const finalTier = bestTier || 'B';
+          ms.dayTiers[dk] = finalTier;
+          cnt[finalTier]++;
+        }
+      }
+      localStorage.setItem(MS_KEY, JSON.stringify(ms));
+      alert(`✅ dayTiers 再計算完了\n2026年: A=${cnt.A} B=${cnt.B} C=${cnt.C} / 計365日\n（プリセット ${periods.length}件 は維持されています）`);
+      location.reload();
+    } catch(e) { alert('エラー: ' + e.message); }
+  }
+
   function resetPresetsAndRecompute(){
     if(!confirm('期間プリセットを初期値に戻し、365日 dayTiers を再計算します。\n\n変更される例:\n・夏休み 7/21-8/31 → B 通常 (今 C なら)\n・春(桜期) 3/15-4/26 → B 通常 (今 C なら)\n\n実行しますか？')) return;
     try {
