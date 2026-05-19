@@ -3,34 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>📜 反映履歴 — BUDDICA TOURING</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
-.header{padding:24px;text-align:center;border-bottom:1px solid #1e293b}
-.header .brand{font-size:9pt;letter-spacing:.3em;color:#64748b;margin-bottom:6px}
+.header{padding:20px 24px;text-align:center;border-bottom:1px solid #1e293b;background:linear-gradient(180deg,#0b1020,#0f172a)}
+.header .brand{font-size:9pt;letter-spacing:.3em;color:#64748b;margin-bottom:4px}
 .header h1{font-size:18pt;font-weight:800;color:#fff}
 .header .sub{font-size:9pt;color:#64748b;margin-top:4px}
 .back{display:inline-block;margin-top:8px;color:#94a3b8;text-decoration:none;font-size:9pt}
-.back:hover{text-decoration:underline;color:#0ea5e9}
-.container{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
-.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:16px}
-.card-title{font-size:12pt;font-weight:800;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.actions{display:flex;gap:8px;margin-bottom:14px}
+.back:hover{color:#0ea5e9}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+.actions{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
 .btn{border:none;border-radius:8px;padding:8px 14px;font-size:9pt;font-weight:800;cursor:pointer;color:#fff;font-family:inherit}
+.btn.pri{background:#0ea5e9}
 .btn.sec{background:#475569}
 .btn.sec:hover{background:#334155}
 .btn.danger{background:#991b1b}
-.btn.danger:hover{background:#7f1d1d}
-.h-list{display:flex;flex-direction:column;gap:10px}
-.h-item{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px 16px}
-.h-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px}
-.h-date{font-size:10pt;color:#fff;font-weight:800;font-family:Menlo,monospace}
-.h-month-count{background:#1e40af;color:#fff;padding:2px 10px;border-radius:6px;font-size:8.5pt;font-weight:700}
-.h-meta{font-size:8.5pt;color:#94a3b8;margin-bottom:8px}
-.h-meta strong{color:#cbd5e1}
-.h-summary{background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;font-family:Menlo,monospace;font-size:8pt;color:#cbd5e1;line-height:1.6;white-space:pre-wrap;word-break:break-all}
-.muted{color:#64748b;text-align:center;padding:24px}
+.tab{padding:8px 16px;font-size:9pt;font-weight:700;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:8px;cursor:pointer}
+.tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+.h-list{display:flex;flex-direction:column;gap:12px}
+.h-item{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:0;overflow:hidden;transition:border-color .15s}
+.h-item:hover{border-color:#475569}
+.h-header{padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.h-header:hover{background:#283548}
+.h-date{font-size:11pt;color:#fff;font-weight:800;font-family:Menlo,monospace}
+.h-badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:6px;font-size:8.5pt;font-weight:700;background:#334155;color:#cbd5e1}
+.badge.pos{background:#1e40af;color:#fff}
+.badge.days{background:#7c3aed;color:#fff}
+.badge.months{background:#0891b2;color:#fff}
+.badge.ok{background:#15803d;color:#fff}
+.badge.ng{background:#991b1b;color:#fff}
+.h-detail{padding:0 18px 18px;display:none}
+.h-detail.open{display:block}
+.h-detail h4{font-size:10pt;color:#fbbf24;margin:14px 0 8px;font-weight:800}
+.matrix-table{width:100%;border-collapse:collapse;font-size:9pt;font-family:Menlo,monospace;background:#0b1020;border-radius:6px;overflow:hidden}
+.matrix-table th{background:#1e293b;color:#94a3b8;padding:6px 8px;text-align:right;font-weight:700;border-bottom:1px solid #334155}
+.matrix-table th:first-child{text-align:left}
+.matrix-table td{padding:6px 8px;text-align:right;border-bottom:1px solid #1e293b;color:#cbd5e1}
+.matrix-table td:first-child{color:#fff;font-weight:700;text-align:left}
+.matrix-table tr.tier-A td:first-child{color:#60a5fa}
+.matrix-table tr.tier-B td:first-child{color:#fbbf24}
+.matrix-table tr.tier-C td:first-child{color:#f87171}
+.checks{background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;font-size:8.5pt;color:#cbd5e1;max-height:240px;overflow-y:auto;line-height:1.6}
+.check-line{padding:2px 0}
+.check-line.ng{color:#f87171}
+.check-line.ok{color:#86efac}
+.muted{color:#64748b;text-align:center;padding:30px;font-size:10pt}
+.expand-icon{color:#64748b;font-size:9pt;transition:transform .15s}
+.expand-icon.open{transform:rotate(90deg)}
+.summary-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 14px}
+.stat-label{font-size:8pt;color:#94a3b8;margin-bottom:4px}
+.stat-value{font-size:14pt;font-weight:800;color:#fff}
+.dl-link{color:#0ea5e9;text-decoration:none;font-size:8.5pt}
+.dl-link:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -38,59 +67,228 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;col
 <div class="header">
   <div class="brand">B U D D I C A &nbsp; T O U R I N G</div>
   <h1>📜 反映履歴</h1>
-  <div class="sub">Goサインで反映した推奨価格の履歴（直近50件）</div>
+  <div class="sub">⑤Goサイン完了時に自動保存される BIGデータ蓄積</div>
   <a href="price-hub.html" class="back">← 価格戦略マスター TOP に戻る</a>
 </div>
 
 <div class="container">
-  <div class="card">
-    <div class="card-title">📊 履歴一覧</div>
-    <div class="actions">
-      <button class="btn sec" onclick="render()">🔄 更新</button>
-      <button class="btn sec" onclick="exportHistory()">⬇️ JSONダウンロード</button>
-      <button class="btn danger" onclick="clearHistory()">🗑 履歴を全削除</button>
+
+  <!-- サマリー -->
+  <div class="summary-stats" id="summary-stats"></div>
+
+  <!-- アクション -->
+  <div class="actions">
+    <button class="tab active" id="tab-server" onclick="switchTab('server')">🌐 サーバー履歴 (新)</button>
+    <button class="tab" id="tab-local" onclick="switchTab('local')">📁 ローカル履歴 (旧/参考)</button>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn pri" onclick="loadServerHistory()">🔄 更新</button>
+      <button class="btn sec" onclick="exportAll()">⬇️ JSON DL</button>
     </div>
-    <div id="list" class="h-list"></div>
   </div>
+
+  <!-- リスト -->
+  <div id="list" class="h-list"></div>
 </div>
 
-<script src="apply-decision.js"></script>
 <script>
-function render(){
-  const hist = ApplyDecision.loadHistory();
+const SERVER_URL = 'https://item-underfoot-democracy.ngrok-free.dev';
+// ngrok 警告bypass
+(function(){
+  const _f = window.fetch;
+  window.fetch = function(input, init){
+    init = init || {};
+    init.headers = Object.assign({}, init.headers||{}, {'ngrok-skip-browser-warning':'1'});
+    return _f.call(this, input, init);
+  };
+})();
+
+let currentTab = 'server';
+let serverHistory = [];
+
+async function loadServerHistory(){
+  try {
+    const r = await fetch(SERVER_URL + '/api/history/list').then(r=>r.json());
+    serverHistory = r.files || [];
+    if (currentTab === 'server') renderServer();
+    updateSummary();
+  } catch(e) {
+    document.getElementById('list').innerHTML = `<div class="muted">⚠️ サーバー接続エラー: ${e.message}</div>`;
+  }
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  document.getElementById('tab-server').classList.toggle('active', tab==='server');
+  document.getElementById('tab-local').classList.toggle('active', tab==='local');
+  if (tab === 'server') renderServer();
+  else renderLocal();
+}
+
+function renderServer(){
   const el = document.getElementById('list');
-  if(!hist.length){ el.innerHTML = '<div class="muted">（履歴なし）</div>'; return; }
-  el.innerHTML = hist.map(h=>{
-    const d = new Date(h.at).toLocaleString('ja-JP');
-    const months = (h.months||[]).map(ApplyDecision.fmtMonth).join(' / ');
-    const mapStr = Object.entries(h.mapping||{}).map(([s,t])=>`${s}→${t}`).join(' / ');
-    return `<div class="h-item">
-      <div class="h-head">
-        <div class="h-date">${d}</div>
-        <div class="h-month-count">${(h.months||[]).length} ヶ月分</div>
+  if (!serverHistory.length) {
+    el.innerHTML = '<div class="muted">サーバー履歴がまだありません。<br>⑤Goサインで反映を実行すると、ここに自動蓄積されます。</div>';
+    return;
+  }
+  el.innerHTML = serverHistory.map((f, idx) => {
+    const summary = f.summary || {};
+    const d = new Date(f.mtime).toLocaleString('ja-JP');
+    const badges = [
+      summary.positionPct != null ? `<span class="badge pos">5位×${summary.positionPct}%</span>` : '',
+      summary.surveyDates ? `<span class="badge days">調査${summary.surveyDates}日</span>` : '',
+      summary.months ? `<span class="badge months">反映${summary.months}ヶ月</span>` : '',
+      summary.fetcherRecords ? `<span class="badge">${summary.fetcherRecords}件</span>` : '',
+    ].filter(Boolean).join('');
+    return `<div class="h-item" id="item-${idx}">
+      <div class="h-header" onclick="toggleDetail(${idx})">
+        <div>
+          <span class="expand-icon" id="exp-${idx}">▶</span>
+          <span class="h-date">${d}</span>
+        </div>
+        <div class="h-badges">${badges}</div>
       </div>
-      <div class="h-meta"><strong>対象月:</strong> ${months}</div>
-      <div class="h-meta"><strong>マッピング:</strong> ${mapStr}</div>
-      <div class="h-summary">${h.summary || '(サマリなし)'}</div>
+      <div class="h-detail" id="detail-${idx}"></div>
     </div>`;
   }).join('');
 }
-function exportHistory(){
-  const hist = ApplyDecision.loadHistory();
-  const blob = new Blob([JSON.stringify(hist, null, 2)], {type:'application/json'});
+
+async function toggleDetail(idx){
+  const detail = document.getElementById(`detail-${idx}`);
+  const icon = document.getElementById(`exp-${idx}`);
+  if (detail.classList.contains('open')) {
+    detail.classList.remove('open');
+    icon.classList.remove('open');
+    return;
+  }
+  // 詳細データを取得
+  const f = serverHistory[idx];
+  detail.innerHTML = '<div style="padding:14px;color:#64748b;font-size:9pt">読込中...</div>';
+  detail.classList.add('open');
+  icon.classList.add('open');
+  try {
+    const data = await fetch(SERVER_URL + '/api/history/get/' + encodeURIComponent(f.name)).then(r=>r.json());
+    renderDetail(detail, data, f.name);
+  } catch(e) {
+    detail.innerHTML = `<div style="padding:14px;color:#f87171">エラー: ${e.message}</div>`;
+  }
+}
+
+function renderDetail(el, data, filename){
+  const decision = data.decision || {};
+  const CLS = ['AA','A','B','C','S','H','F'];
+  const TIERS = [['A','A閑散'],['B','B通常'],['C','C繁忙']];
+
+  let html = '';
+
+  // 反映価格マトリクス
+  html += '<h4>💰 反映価格マトリクス (5位×' + (data.positionPct||90) + '%)</h4>';
+  html += '<table class="matrix-table"><thead><tr><th>tier</th>';
+  CLS.forEach(c => html += `<th>${c}</th>`);
+  html += '</tr></thead><tbody>';
+  TIERS.forEach(([t, name]) => {
+    html += `<tr class="tier-${t}"><td>${name}</td>`;
+    CLS.forEach(c => {
+      const v = decision[t]?.[c]?.recommended;
+      html += `<td>${v != null ? '¥' + v.toLocaleString() : '—'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // 検証結果
+  if (data.verifyChecks && data.verifyChecks.length) {
+    const okCount = data.verifyChecks.filter(c=>c.ok).length;
+    const ngCount = data.verifyChecks.length - okCount;
+    html += `<h4>✓ 検証結果 (${okCount}/${data.verifyChecks.length} OK${ngCount>0?', '+ngCount+' NG':''})</h4>`;
+    html += '<div class="checks">';
+    data.verifyChecks.forEach(c => {
+      html += `<div class="check-line ${c.ok?'ok':'ng'}">${c.ok?'✓':'✗'} ${c.name}${c.detail?' — '+c.detail:''}</div>`;
+    });
+    html += '</div>';
+  }
+
+  // 調査日
+  if (data.surveyDates && data.surveyDates.length) {
+    html += '<h4>📅 調査日 (' + data.surveyDates.length + '日)</h4>';
+    html += '<div style="font-size:9pt;color:#cbd5e1;background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px">';
+    html += data.surveyDates.map(s => `${s.dateStr||s} (${s.tier||'?'})`).join(' / ');
+    html += '</div>';
+  }
+
+  // メタ情報
+  html += '<h4>📊 集計メタ</h4>';
+  html += '<div style="font-size:9pt;color:#cbd5e1;font-family:Menlo,monospace;background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;line-height:1.7">';
+  html += `保存日時: ${data.savedAt || '-'}<br>`;
+  html += `総 fetcher 件数: ${data.fetcherTotal || data.fetcherRecords || '-'}<br>`;
+  html += `車種マッピング済: ${data.fetcherMapped || '-'}<br>`;
+  html += `反映対象月: ${(data.appliedMonths||[]).join(' / ') || '-'}<br>`;
+  html += `</div>`;
+
+  // ダウンロード
+  html += `<div style="margin-top:12px;text-align:right"><a class="dl-link" href="${SERVER_URL}/api/history/get/${encodeURIComponent(filename)}" target="_blank">⬇️ この履歴のJSONを開く</a></div>`;
+
+  el.innerHTML = html;
+}
+
+function updateSummary(){
+  const stats = document.getElementById('summary-stats');
+  if (!serverHistory.length) {
+    stats.innerHTML = '<div class="stat-card"><div class="stat-label">蓄積件数</div><div class="stat-value">0</div></div>';
+    return;
+  }
+  const totalRecords = serverHistory.reduce((s,f) => s + (f.summary?.fetcherRecords||0), 0);
+  const totalMonths = serverHistory.reduce((s,f) => s + (f.summary?.months||0), 0);
+  const latest = serverHistory[0];
+  const latestDate = latest ? new Date(latest.mtime).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+  const positions = [...new Set(serverHistory.map(f => f.summary?.positionPct).filter(Boolean))].sort();
+  stats.innerHTML = `
+    <div class="stat-card"><div class="stat-label">📁 蓄積件数</div><div class="stat-value">${serverHistory.length}</div></div>
+    <div class="stat-card"><div class="stat-label">📊 総 fetcher 件数</div><div class="stat-value">${totalRecords.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">📅 累計反映月数</div><div class="stat-value">${totalMonths}</div></div>
+    <div class="stat-card"><div class="stat-label">🕐 最新</div><div class="stat-value" style="font-size:11pt">${latestDate}</div></div>
+    <div class="stat-card"><div class="stat-label">🎯 使用ポジション</div><div class="stat-value" style="font-size:11pt">${positions.length ? positions.map(p=>p+'%').join(' / ') : '-'}</div></div>
+  `;
+}
+
+// 旧localStorage履歴
+function renderLocal(){
+  const el = document.getElementById('list');
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]'); } catch(e) {}
+  if (!hist.length) {
+    el.innerHTML = '<div class="muted">ローカル履歴なし</div>';
+    return;
+  }
+  el.innerHTML = hist.map(h => {
+    const d = new Date(h.at).toLocaleString('ja-JP');
+    const months = (h.months||[]).map(ym=>{ const[y,m]=String(ym).split('-');return `${y}年${parseInt(m,10)}月`}).join(' / ');
+    const mapStr = Object.entries(h.mapping||{}).map(([s,t])=>`${s}→${t}`).join(' / ');
+    return `<div class="h-item"><div class="h-header">
+      <div><span class="h-date">${d}</span></div>
+      <div class="h-badges"><span class="badge months">${(h.months||[]).length}ヶ月</span></div>
+    </div><div class="h-detail open" style="display:block">
+      <h4>対象月</h4>
+      <div style="font-size:9pt;color:#cbd5e1">${months}</div>
+      <h4>マッピング</h4>
+      <div style="font-size:9pt;color:#cbd5e1">${mapStr}</div>
+      <h4>サマリ</h4>
+      <pre style="background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;font-size:8.5pt;color:#cbd5e1;font-family:Menlo,monospace;white-space:pre-wrap">${h.summary || '(サマリなし)'}</pre>
+    </div></div>`;
+  }).join('');
+}
+
+function exportAll(){
+  const data = currentTab === 'server' ? serverHistory : (function(){ try{return JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]');}catch(e){return[];} })();
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `bt_tkm_apply_history_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `bt_tkm_history_${currentTab}_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
-function clearHistory(){
-  if(!confirm('反映履歴を全削除します。\n本当に実行しますか？')) return;
-  localStorage.removeItem(ApplyDecision.HISTORY_KEY);
-  render();
-}
-render();
+
+document.addEventListener('DOMContentLoaded', loadServerHistory);
 </script>
 </body>
 </html>
