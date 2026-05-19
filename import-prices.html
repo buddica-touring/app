@@ -1057,14 +1057,30 @@ window.addEventListener('load', ()=>{
     if (typeof applyFlowVisibility === 'function') applyFlowVisibility();
     stat.style.display = 'block'; stat.textContent = '🔄 価格調査 起動中...';
     try {
-      const r1 = await fetch(SERVER_URL + '/api/run/research', {
+      // 🔴 新方式: サーバー側 fetcher 直接管理 (claude エージェント不要・並列度6ハード制御)
+      // 日付リスト + OTA×クラス組合せ を server に渡す
+      const datesArr = [...new Set(surveyDates.map(s=>s.dateStr).filter(Boolean))];
+      const FETCHER_JOBS = [
+        // F (コンパクト): JLN/RKT/SKT
+        {ota:'jalan',cls:'コンパクト'},{ota:'rakuten',cls:'コンパクト'},{ota:'sky',cls:'コンパクト'},
+        // H (セダン/ハイブリッド)
+        {ota:'jalan',cls:'セダン'},{ota:'rakuten',cls:'ハイブリッド'},
+        // B (ミニバン・ワゴン / RV・ミニバン)
+        {ota:'jalan',cls:'ミニバン・ワゴン'},{ota:'rakuten',cls:'RV・ミニバン'},
+        // S (SUV)
+        {ota:'jalan',cls:'SUV'},{ota:'sky',cls:'SUV'},
+        // A (ワンボックス / 1BOX・ワゴン)
+        {ota:'rakuten',cls:'ワンボックス'},{ota:'sky',cls:'1BOX・ワゴン'},
+      ];
+      const r1 = await fetch(SERVER_URL + '/api/fetcher/start', {
         method:'POST',
         headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
-        body: JSON.stringify({positionPct: pct, surveyDates: surveyDates}),
+        body: JSON.stringify({ dates: datesArr, jobs: FETCHER_JOBS, area: '高松' }),
       }).then(r=>r.json());
-      const rid1 = r1.runId;
-      stat.textContent = '🔄 価格調査 実行中 (runId=' + rid1 + ')...';
-      await pollRun(rid1, '価格調査', stat);
+      if (r1.error) throw new Error(r1.error);
+      stat.textContent = `🔄 価格調査 実行中 (${r1.total}ジョブ・並列度${r1.maxParallel})`;
+      // バナー表示 (進捗 polling)
+      await pollFetcherProgress('Step1 価格調査', stat);
       stat.textContent = '✅ 価格調査 完了。③調査結果報告 へ移動します ↓';
       stat.style.color = '#86efac';
       // フロー状態を step1_done に遷移 (③④⑤ 表示開始)
@@ -1078,6 +1094,40 @@ window.addEventListener('load', ()=>{
     } finally {
       btn.disabled = false; btn.dataset.running = '0'; btn.style.opacity = 1; btn.textContent = '⚡ ②調査だけ 実行';
     }
+  }
+
+  // 新 pollFetcherProgress: サーバー側 worker pool の進捗を polling
+  async function pollFetcherProgress(label, statEl){
+    showGlobalBanner(label);
+    return new Promise((resolve, reject)=>{
+      const startT = Date.now();
+      const t = setInterval(async ()=>{
+        try {
+          const p = await fetch(SERVER_URL + '/api/fetcher/progress', {headers:{'ngrok-skip-browser-warning':'1'}}).then(r=>r.json());
+          const elapsed = Math.floor((Date.now() - startT)/1000);
+          const mm = Math.floor(elapsed/60), ss = String(elapsed%60).padStart(2,'0');
+          const remainMin = Math.ceil((p.remainSec || 0) / 60);
+          if (statEl) {
+            statEl.textContent = `🔄 ${label} ${mm}:${ss} | ${p.completed}/${p.total} 完了 (${p.pct}%) | 残り約${remainMin}分 | ${p.running}並列実行中`;
+          }
+          // バナー更新
+          document.getElementById('gsb-detail').textContent =
+            `経過 ${mm}:${ss}  /  残り約${remainMin}分  /  ${p.completed}/${p.total} 完了 (running ${p.running}・queued ${p.queued})`;
+          document.getElementById('gsb-bar').style.width = (p.pct || 0) + '%';
+          document.getElementById('gsb-pct').textContent = (p.pct || 0) + '%';
+
+          if (!p.active && p.queued === 0 && p.running === 0) {
+            clearInterval(t);
+            const doneAt = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+            finishGlobalBanner(label, true, doneAt);
+            resolve(p);
+          }
+        } catch(e) {
+          // 一時的なエラーはリトライ (clearInterval しない)
+          console.warn('progress poll error:', e.message);
+        }
+      }, 3000);
+    });
   }
 
   // ⚡③④決定だけ 実行 (フェーズ分け・止まる)

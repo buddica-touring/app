@@ -6847,10 +6847,10 @@ function ClsUtilCard({utilByM,ymList,nowYm,yrList,DB_VEH_TYPES}){
 
 // ══════════════════════════════════════════════════════════════
 // 📋 月次レポートPDF 生成（2026-05-19）
-// openFullMonthlyReport_(store, repYm, allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM, dashKpi, dashYearly)
-// dashKpi / dashYearly: APPが計算済みの値をそのまま使用（再計算なし・数値一致）
+// openFullMonthlyReport_(store, repYm, allResvs, allVehs, fleetArr, kpiAll, cmMap, costMap, extraByM, dashKpi, dashYearly, byClassData)
+// dashKpi / dashYearly / byClassData: APPが計算済みの値をそのまま使用（再計算なし・数値一致）
 // ══════════════════════════════════════════════════════════════
-function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM,dashKpi,dashYearly){
+function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKpi,cmMap,costMap,extraByM,dashKpi,dashYearly,byClassData){
   var isSpk=dbStore==="spk";
   var sn=isSpk?"札幌デリバリー専門店":"那覇空港店";
   var co="株式会社Global Lines";
@@ -7164,16 +7164,48 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
     '</div>'+
   '</div></div>'+
 
-  // 3. 稼働率（クラス別 月次）
-  '<div class="sec"><div class="st">② 稼働率（クラス別・'+period+'）</div>'+
-  '<table><thead><tr><th>クラス</th><th style="text-align:right">台数</th><th style="text-align:right">稼働日数</th><th style="text-align:right">最大日数</th><th style="text-align:right">稼働率</th><th style="text-align:right">月売上</th><th style="text-align:right">1台平均売上</th></tr></thead><tbody>'+
-  Object.entries(clsMonth).sort(function(a,b){return (b[1].usedDays/Math.max(1,b[1].capDays))-(a[1].usedDays/Math.max(1,a[1].capDays));}).map(function(e){
-    var c=e[0],d=e[1];var pct=d.capDays?Math.round(d.usedDays/d.capDays*100):0;var perV=d.count?Math.round(d.rev/d.count):0;
-    var bg=pct>=70?"#dcfce7":pct>=40?"#fef9c3":"#fee2e2",tc=pct>=70?"#166534":pct>=40?"#854d0e":"#991b1b";
-    return'<tr><td><b>['+c+']</b></td><td style="text-align:right">'+d.count+'台</td><td style="text-align:right">'+d.usedDays+'日</td><td style="text-align:right">'+d.capDays+'日</td><td style="text-align:right"><span style="background:'+bg+';color:'+tc+';padding:1px 6px;border-radius:4px;font-weight:700">'+pct+'%</span></td><td style="text-align:right">'+f(d.rev)+'</td><td style="text-align:right">'+f(perV)+'</td></tr>';
-  }).join("")+
-  '<tr class="tr"><td>合計</td><td style="text-align:right">'+activeVehs.length+'台</td><td style="text-align:right">'+utilDays+'日</td><td style="text-align:right">'+utilMaxDays+'日</td><td style="text-align:right;font-weight:900">'+utilPct+'%</td><td style="text-align:right">'+f(totalRev)+'</td><td style="text-align:right">'+f(activeVehs.length?Math.round(totalRev/activeVehs.length):0)+'</td></tr>'+
-  '</tbody></table></div>'+
+  // ② 稼働率（クラス別）— byClassData: ボタン押下時に計算したクラス別売上ウィジェットと同一データを使用
+  (function(){
+    // byClassDataが渡されていればそのまま使う（APPのクラス別売上ウィジェットと完全一致）
+    var src=byClassData&&Object.keys(byClassData).length>0?byClassData:clsMonth;
+    var rows=Object.entries(src).sort(function(a,b){return(b[1].usedDays/Math.max(1,b[1].capDays))-(a[1].usedDays/Math.max(1,a[1].capDays));});
+    var totU=0,totC=0,totR=0,totN=0;
+    rows.forEach(function(e){var d=e[1];totU+=d.usedDays;totC+=d.capDays;totR+=d.rev;totN+=d.count;});
+    var totPct=totC?Math.round(totU/totC*100):0;
+    var rowsHtml=rows.map(function(e){
+      var c=e[0],d=e[1];
+      var pct=d.capDays?Math.round(d.usedDays/d.capDays*100):0;
+      var perV=d.count?Math.round(d.rev/d.count):0;
+      var bg=pct>=70?"#dcfce7":pct>=40?"#fef9c3":"#fee2e2",tc=pct>=70?"#166534":pct>=40?"#854d0e":"#991b1b";
+      var revW=fW(d.rev),perVW=fW(perV);
+      // 売上構成比
+      var share=totR>0?Math.round(d.rev/totR*100):0;
+      return'<tr>'+
+        '<td><b>['+c+']</b></td>'+
+        '<td style="text-align:right">'+d.count+'台</td>'+
+        '<td style="text-align:right;font-weight:700;color:#059669">'+revW+'</td>'+
+        '<td style="text-align:right;font-size:7.5pt;color:#64748b">'+share+'%｜1台'+fW(perV)+'</td>'+
+        '<td style="text-align:center"><span style="background:'+bg+';color:'+tc+';padding:1px 6px;border-radius:4px;font-weight:700">'+pct+'%</span></td>'+
+        '<td style="text-align:right;font-size:8pt">'+d.usedDays+'/'+d.capDays+'日</td>'+
+      '</tr>';
+    }).join("");
+    return '<div class="sec"><div class="st">② 稼働率（クラス別売上 / '+period+'）</div>'+
+      '<table><thead><tr>'+
+        '<th>クラス</th><th style="text-align:right">台数</th>'+
+        '<th style="text-align:right">月売上</th>'+
+        '<th style="text-align:right">構成比 | 1台</th>'+
+        '<th style="text-align:center">稼働率</th>'+
+        '<th style="text-align:right">稼働日数</th>'+
+      '</tr></thead><tbody>'+
+      rowsHtml+
+      '<tr class="tr"><td>合計</td><td style="text-align:right">'+totN+'台</td>'+
+        '<td style="text-align:right;font-weight:900">'+fW(totR)+'</td>'+
+        '<td style="text-align:right">100%</td>'+
+        '<td style="text-align:center;font-weight:900">'+totPct+'%</td>'+
+        '<td style="text-align:right">'+totU+'/'+totC+'日</td>'+
+      '</tr>'+
+      '</tbody></table></div>';
+  })()+
 
   // ③ KPI管理表（全12ヶ月の時系列 + 当月詳細）
   (function(){
@@ -9271,7 +9303,7 @@ function ManagementTab({store}){
             fcm={nha:parse_(cn,"cm_nha_"),spk:parse_(cs,"cm_spk_")};
             fco={nha:parse_(cnc,"cost_nha_"),spk:parse_(csc,"cost_spk_")};
           }catch(e){}}
-          openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,fcm,fco,extraByM,dashKpi,dashYearly);
+          openFullMonthlyReport_(dbStore,dashYm,dbResvs,dbVehs,dbFleet,dbKpi,fcm,fco,extraByM,dashKpi,dashYearly,byClass_);
         }} style={{...btn("#7c3aed"),fontWeight:800}}>📋 月次レポート（{dashYm}）</button>
         <span style={{fontSize:10,color:"#a78bfa"}}>↑ダッシュボードの月選択と連動</span>
 
