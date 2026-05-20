@@ -840,10 +840,10 @@ window.addEventListener('load', ()=>{
         try { window.renderAll(); } catch(e) { console.warn('renderAll err:', e); }
       }
 
-      // 3. doImport を直接呼ぶ (localStorage 反映)
+      // 3. doImport を直接呼ぶ (localStorage 反映) — skipConfirm=true で確認スキップ
       if (typeof window.doImport === 'function') {
         try {
-          window.doImport();
+          window.doImport(true); // 2重確認回避
           alert('✅ 反映完了\n\n対象: '+targetMonths.length+'ヶ月 '+targetMonths.join(', ')+'\n更新セル: '+updateCount+'\n\n📅 pricing.html (カレンダー) を Cmd+Shift+R でリロードしてください');
           // 履歴保存
           try {
@@ -2712,12 +2712,12 @@ function log(msg, cls){
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function doImport(){
+function doImport(skipConfirm){
   const logEl = document.getElementById('log');
-  logEl.innerHTML = '';
+  if(logEl) logEl.innerHTML = '';
   const raw = localStorage.getItem(STORAGE_KEY);
   if(!raw){ alert('❌ pricing.html を一度開いてから実行してください'); return; }
-  if(!confirm('上記の価格表で localStorage に書き込みます。\n\nOKで実行しますか？')) return;
+  if(!skipConfirm && !confirm('上記の価格表で localStorage に書き込みます。\n\nOKで実行しますか？')) return;
 
   let state;
   try{ state = JSON.parse(raw); }catch(e){ alert('❌ JSON失敗'); return; }
