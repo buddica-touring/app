@@ -120,6 +120,39 @@
       state.monthlyTierClassPrices[ym] = JSON.parse(JSON.stringify(monthData));
     });
 
+    // 🔴 改修 2026-05-20 (重要バグ修正): pricing.html の優先順位は
+    //   dayPrices (日別上書き) > monthlyTierClassPrices (月別) > tierClassPrices (全月共通) > basePrices×tierCoef
+    // 過去の Goサインで dayPrices / tierClassPrices に直接書き込まれた値が残っていると
+    // 新規 monthlyTierClassPrices を上書きしても、それらが優先表示されてカレンダーに反映されない。
+    // → 反映対象月の dayPrices をクリア + tierClassPrices を全削除 (monthlyTierClassPrices だけが効くようにする)
+    if (state.dayPrices) {
+      const monthsToWipe = new Set(months); // "YYYY-M" non-padded
+      Object.keys(state.dayPrices).forEach(dk => {
+        // dayPrices キー: "YYYY-M-D" (例 "2026-7-21")
+        const parts = dk.split('-');
+        if (parts.length === 3) {
+          const dkYM = `${parts[0]}-${parseInt(parts[1],10)}`;
+          if (monthsToWipe.has(dkYM)) delete state.dayPrices[dk];
+        }
+      });
+    }
+    // 全月共通価格は反映後の独立性を保つため全消去 (各月の monthlyTierClassPrices だけが効く)
+    if (state.tierClassPrices) delete state.tierClassPrices;
+    // segments 内にも同等キーがあるかもなので念のため
+    ['proper','cp'].forEach(seg => {
+      if (state.segments[seg]?.tierClassPrices) delete state.segments[seg].tierClassPrices;
+      if (state.segments[seg]?.dayPrices) {
+        const monthsToWipe = new Set(months);
+        Object.keys(state.segments[seg].dayPrices).forEach(dk => {
+          const parts = dk.split('-');
+          if (parts.length === 3) {
+            const dkYM = `${parts[0]}-${parseInt(parts[1],10)}`;
+            if (monthsToWipe.has(dkYM)) delete state.segments[seg].dayPrices[dk];
+          }
+        });
+      }
+    });
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
     // 履歴
