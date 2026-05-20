@@ -333,7 +333,7 @@ window.addEventListener('load', ()=>{
     return _origFetch(url, opts);
   };
   </script>
-  <script src="apply-decision.js"></script>
+  <script src="apply-decision.js?v=20260520b"></script>
 
   <!-- ① 希望ポジション設定 -->
   <div style="background:#1e3a8a;border:2px solid #fbbf24;border-radius:10px;padding:14px 20px;margin-bottom:14px;color:#fff">
@@ -610,12 +610,24 @@ window.addEventListener('load', ()=>{
     const TIER_BG = {C:'#fee2e2', B:'#fef9c3', A:'#dbeafe'};
     const TIER_TEXT = {C:'#991b1b', B:'#854d0e', A:'#1e40af'};
     const TIER_LABEL = {C:'C 繁忙', B:'B 通常', A:'A 閑散'};
-    const sortedMonths = Object.keys(byMonthTier).sort((a,b)=>{
-      const [ya,ma]=a.split('-').map(s=>parseInt(s,10));
-      const [yb,mb]=b.split('-').map(s=>parseInt(s,10));
-      return (ya*100+ma) - (yb*100+mb);
-    });
-    let html = `<div style="margin-bottom:8px;color:#fff;font-size:9pt">この価格でプライシングシステムに反映します（希望ポジション: 5位×${pct}%・<strong>月別マトリクス</strong>）。月ごとに市場実勢が異なるため、月別に独立した価格を反映します。</div>`;
+    // 🔴 改修 2026-05-20: ②調査日の月だけにフィルタ (過去データの6月/12月等を非表示)
+    // バグだった: 過去調査の蓄積データまで表示 → ⑤Goサインの反映対象 (②調査日の月のみ) と整合性破綻
+    const _surveyRaw = (()=>{ try{return JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');}catch(e){return [];}})();
+    const _excludeSet = (()=>{ try{return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]'));}catch(e){return new Set();}})();
+    const _validReps = (_surveyRaw||[]).filter(rr=>rr && rr.day!==null && rr.month && !_excludeSet.has(`${rr.month}-${rr.tier}`));
+    const _year = new Date().getFullYear();
+    const _surveyMonths = new Set();
+    _validReps.forEach(rr => _surveyMonths.add(`${_year}-${parseInt(rr.month,10)}`));
+    const _filterEnabled = _surveyMonths.size > 0;
+    const sortedMonths = Object.keys(byMonthTier)
+      .filter(ym => !_filterEnabled || _surveyMonths.has(ym))  // ②調査日の月だけ
+      .sort((a,b)=>{
+        const [ya,ma]=a.split('-').map(s=>parseInt(s,10));
+        const [yb,mb]=b.split('-').map(s=>parseInt(s,10));
+        return (ya*100+ma) - (yb*100+mb);
+      });
+    const _filterNote = _filterEnabled ? `<span style="color:#bbf7d0">（②調査日の${_surveyMonths.size}ヶ月だけ表示・⑤反映先と一致）</span>` : '';
+    let html = `<div style="margin-bottom:8px;color:#fff;font-size:9pt">この価格でプライシングシステムに反映します（希望ポジション: 5位×${pct}%・<strong>月別マトリクス</strong>）。月ごとに市場実勢が異なるため、月別に独立した価格を反映します。${_filterNote}</div>`;
     for (const ym of sortedMonths) {
       const tiers = byMonthTier[ym];
       const availTiers = ['A','B','C'].filter(t => Object.values(tiers[t]||{}).some(d=>d?.recommended != null));
@@ -697,9 +709,12 @@ window.addEventListener('load', ()=>{
         body: JSON.stringify({positionPct: pct, dayTiers})
       }).then(r=>r.json());
       if(r.error){ alert('サーバー集計エラー: '+r.error); return; }
-      // by_tier (object) → parseDecisionMd 互換構造 ({seasons:{label:[rows]}, raw})
-      const TIER_TO_LABEL = [['A','A閑散シーズン'],['B','B通常シーズン'],['C','C繁忙シーズン']];  // A→B→C 統一
-      const parsed = { seasons: {}, raw: 'compute-direct' };
+      // 🔴 改修 2026-05-20: by_month_tier → parsed.byMonth (月別独立反映)
+      // 旧: by_tier (全月集約) → 全月に同じ価格をコピー反映 ← バグだった
+      // 新: by_month_tier (月別マトリクス) → ②調査日の月だけに各月独立で反映
+      const TIER_TO_LABEL = [['A','A閑散シーズン'],['B','B通常シーズン'],['C','C繁忙シーズン']];
+      const parsed = { seasons: {}, byMonth: {}, raw: 'compute-direct' };
+      // 旧 by_tier 構造 (後方互換用・実際の反映には未使用)
       for (const [tier, label] of TIER_TO_LABEL) {
         const tdata = r.by_tier?.[tier] || {};
         const rows = [];
@@ -711,7 +726,32 @@ window.addEventListener('load', ()=>{
         }
         if (rows.length) parsed.seasons[label] = rows;
       }
-      if(!Object.keys(parsed.seasons).length){ alert('反映可能な価格データがありません'); return; }
+      // 🔴 新仕様: by_month_tier → byMonth 構造 (②調査日の月だけにフィルタ)
+      if (r.by_month_tier) {
+        const _surveyRaw = (()=>{ try{return JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');}catch(e){return [];}})();
+        const _excludeSet = (()=>{ try{return new Set(JSON.parse(localStorage.getItem('bt_tkm_survey_exclude_v1')||'[]'));}catch(e){return new Set();}})();
+        const _validReps = (_surveyRaw||[]).filter(rr=>rr && rr.day!==null && rr.month && !_excludeSet.has(`${rr.month}-${rr.tier}`));
+        const _year = new Date().getFullYear();
+        const _surveyMonths = new Set();
+        _validReps.forEach(rr => _surveyMonths.add(`${_year}-${parseInt(rr.month,10)}`));
+        for (const [ym, monthTiers] of Object.entries(r.by_month_tier)) {
+          if (!_surveyMonths.has(ym)) continue; // ②調査日外の月はスキップ
+          parsed.byMonth[ym] = {};
+          for (const tier of ['A','B','C']) {
+            const tierData = monthTiers[tier] || {};
+            const tierResult = {};
+            for (const cls of ['AA','A','B','C','S','H','F']) {
+              const d = tierData[cls] || {};
+              if (d.recommended != null) tierResult[cls] = d.recommended;
+            }
+            if (Object.keys(tierResult).length) parsed.byMonth[ym][tier] = tierResult;
+          }
+          if (!Object.keys(parsed.byMonth[ym]).length) delete parsed.byMonth[ym];
+        }
+      }
+      if(!Object.keys(parsed.seasons).length && !Object.keys(parsed.byMonth).length){
+        alert('反映可能な価格データがありません'); return;
+      }
       if(!window.ApplyDecision){ alert('apply-decision.js が読み込まれていません'); return; }
       // ⑤Goサイン完了時のフック: 履歴保存 + デフォルト復帰 (オーナー要望 2026-05-18)
       window.ApplyDecision.openGoSignModal(parsed, {

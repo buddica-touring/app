@@ -82,6 +82,9 @@
   }
 
   // 書込実行（ プロパー / CP 両方に同値を反映）
+  // 🔴 改修 2026-05-20: parsed.byMonth (月別マトリクス) を優先使用・月別独立反映
+  // 旧: 全月に同じ monthData を書き込む = 整合性破綻 (画面④の月別表示と⑤の反映が不一致)
+  // 新: 月別 monthData を持って各月独立に書き込む = ④と⑤が完全に一致
   function applyDecision(parsed, mapping, months){
     const raw = localStorage.getItem(STORAGE_KEY) || '{}';
     let state;
@@ -93,16 +96,25 @@
     });
     if(!state.monthlyTierClassPrices) state.monthlyTierClassPrices = {};
 
-    const monthData = {};  // tier別クラス価格
-    Object.entries(mapping).forEach(([season, tier])=>{
-      const rows = (parsed.seasons||{})[season] || [];
-      monthData[tier] = monthData[tier] || {};
-      rows.forEach(r=>{
-        if(r.recommended != null && r.cls) monthData[tier][r.cls] = r.recommended;
+    // 旧仕様 fallback: parsed.byMonth がない時だけ全月同一の monthData を使う
+    const fallbackMonthData = {};
+    if (!parsed.byMonth || !Object.keys(parsed.byMonth).length) {
+      Object.entries(mapping).forEach(([season, tier])=>{
+        const rows = (parsed.seasons||{})[season] || [];
+        fallbackMonthData[tier] = fallbackMonthData[tier] || {};
+        rows.forEach(r=>{
+          if(r.recommended != null && r.cls) fallbackMonthData[tier][r.cls] = r.recommended;
+        });
       });
-    });
+    }
 
+    const writtenByMonth = {};
     months.forEach(ym=>{
+      // 🔴 新仕様: 月別データを優先・なければ fallback
+      const monthData = (parsed.byMonth && parsed.byMonth[ym])
+        ? parsed.byMonth[ym]
+        : fallbackMonthData;
+      writtenByMonth[ym] = monthData;
       state.segments.proper.monthlyTierClassPrices[ym] = JSON.parse(JSON.stringify(monthData));
       state.segments.cp.monthlyTierClassPrices[ym] = JSON.parse(JSON.stringify(monthData));
       state.monthlyTierClassPrices[ym] = JSON.parse(JSON.stringify(monthData));
@@ -116,13 +128,20 @@
       at: new Date().toISOString(),
       months,
       mapping,
-      summary: Object.entries(monthData).map(([t,cls])=>`${t}: ${Object.entries(cls).map(([k,v])=>`${k}=¥${v.toLocaleString()}`).join(' ')}`).join(' / '),
+      monthly: writtenByMonth, // 月別反映データを履歴に記録
+      summary: months.map(ym => {
+        const md = writtenByMonth[ym] || {};
+        return `${fmtMonth(ym)}: ` + Object.entries(md).map(([t,cls])=>
+          `${t}=${Object.entries(cls).map(([k,v])=>`${k}¥${v.toLocaleString()}`).join(',')}`
+        ).join(' / ');
+      }).join(' || '),
     });
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,50)));
-    return { monthData, months };
+    return { writtenByMonth, months };
   }
 
   // 確認⑧（書込後チェック）
+  // 🔴 改修 2026-05-20: byMonth 対応・月別期待値で検証
   function verifyApply(parsed, mapping, months){
     const raw = localStorage.getItem(STORAGE_KEY) || '{}';
     let state; try{ state = JSON.parse(raw); }catch(e){ return [{name:'JSON parse', ok:false, detail:e.message}]; }
@@ -134,17 +153,34 @@
       results.push({name:`${fmtMonth(ym)} プロパー書込`, ok: !!proper});
       results.push({name:`${fmtMonth(ym)} CP書込`, ok: !!cp});
       results.push({name:`${fmtMonth(ym)} ルート互換書込`, ok: !!root});
-      // 値整合性
-      Object.entries(mapping).forEach(([season, tier])=>{
-        const rows = (parsed.seasons||{})[season] || [];
-        const stored = proper?.[tier] || {};
-        const mismatch = rows.filter(r => r.recommended != null && stored[r.cls] !== r.recommended);
-        results.push({
-          name: `${fmtMonth(ym)} ${season}→tier ${tier} 値整合 (${rows.length}件中)`,
-          ok: mismatch.length === 0,
-          detail: mismatch.length ? mismatch.map(r=>`${r.cls}:推奨¥${r.recommended} 実¥${stored[r.cls]}`).join(',') : '',
+
+      // 🔴 新仕様: byMonth がある月は月別期待値で検証
+      if (parsed.byMonth && parsed.byMonth[ym]) {
+        const expected = parsed.byMonth[ym];
+        ['A','B','C'].forEach(tier => {
+          const tierExpected = expected[tier] || {};
+          if (!Object.keys(tierExpected).length) return;
+          const tierStored = proper?.[tier] || {};
+          const mismatch = Object.entries(tierExpected).filter(([cls, v]) => tierStored[cls] !== v);
+          results.push({
+            name: `${fmtMonth(ym)} tier ${tier} 値整合 (月別・${Object.keys(tierExpected).length}件中)`,
+            ok: mismatch.length === 0,
+            detail: mismatch.length ? mismatch.map(([c,v])=>`${c}:推奨¥${v} 実¥${tierStored[c]||'なし'}`).join(',') : '',
+          });
         });
-      });
+      } else {
+        // 旧仕様 fallback
+        Object.entries(mapping).forEach(([season, tier])=>{
+          const rows = (parsed.seasons||{})[season] || [];
+          const stored = proper?.[tier] || {};
+          const mismatch = rows.filter(r => r.recommended != null && stored[r.cls] !== r.recommended);
+          results.push({
+            name: `${fmtMonth(ym)} ${season}→tier ${tier} 値整合 (${rows.length}件中)`,
+            ok: mismatch.length === 0,
+            detail: mismatch.length ? mismatch.map(r=>`${r.cls}:推奨¥${r.recommended} 実¥${stored[r.cls]}`).join(',') : '',
+          });
+        });
+      }
     });
     return results;
   }
@@ -196,7 +232,10 @@
   }
 
   function openGoSignModal(parsedDecision, opts){
-    if(!parsedDecision || !parsedDecision.seasons || !Object.keys(parsedDecision.seasons).length){
+    // 🔴 改修 2026-05-20: byMonth (新仕様) or seasons (旧仕様) のどちらかがあればOK
+    const hasByMonth = parsedDecision && parsedDecision.byMonth && Object.keys(parsedDecision.byMonth).length;
+    const hasSeasons = parsedDecision && parsedDecision.seasons && Object.keys(parsedDecision.seasons).length;
+    if(!parsedDecision || (!hasByMonth && !hasSeasons)){
       alert('決定MDがパースできません。先に価格決定を実行してください。');
       return;
     }
@@ -249,14 +288,14 @@
         </div>
 
         <div class="ad-sec">
-          <div class="ad-sec-h">③ 反映プレビュー</div>
+          <div class="ad-sec-h">③ 反映プレビュー <span style="font-size:8.5pt;color:#94a3b8;font-weight:400">${hasByMonth ? '— 月別独立反映（④画面と完全一致）' : '— 全月共通反映（旧仕様）'}</span></div>
           <table class="ad-tbl">
-            <thead><tr><th>tier</th>${['AA','A','B','C','S','H','F'].map(c=>`<th class="pc">${c}</th>`).join('')}</tr></thead>
+            <thead><tr>${hasByMonth ? '<th>月</th>' : ''}<th>tier</th>${['AA','A','B','C','S','H','F'].map(c=>`<th class="pc">${c}</th>`).join('')}</tr></thead>
             <tbody id="ad-preview-body"></tbody>
           </table>
         </div>
 
-        <div class="ad-warn">⚠️ プロパー価格 / CP価格 の両方に同じ推奨価格が書き込まれます。後から import-prices.html で個別調整可能。</div>
+        <div class="ad-warn">⚠️ プロパー価格 / CP価格 の両方に同じ推奨価格が書き込まれます。${hasByMonth ? '<strong style="color:#fde68a">月別に異なる価格</strong>が反映されます（④マトリクスと完全一致）。' : ''}後から import-prices.html で個別調整可能。</div>
 
         <div id="ad-result-area"></div>
 
@@ -300,14 +339,41 @@
     }
 
     function renderPreview(){
+      const body = modal.querySelector('#ad-preview-body');
+      if(!body) return;
+      // 🔴 改修 2026-05-20: byMonth があれば月別マトリクスを表示 (④画面と完全一致)
+      if (hasByMonth) {
+        const rows = [];
+        months.forEach(ym => {
+          const mdata = parsedDecision.byMonth[ym] || {};
+          const tiersForMonth = ['A','B','C'].filter(t => mdata[t] && Object.keys(mdata[t]).length);
+          if (!tiersForMonth.length) {
+            rows.push(`<tr><td colspan="9" style="color:#94a3b8;font-style:italic;text-align:center">${fmtMonth(ym)} — 反映データなし（サンプル不足等）</td></tr>`);
+            return;
+          }
+          tiersForMonth.forEach((tier, idx) => {
+            const row = mdata[tier] || {};
+            const monthCell = idx === 0
+              ? `<td rowspan="${tiersForMonth.length}" style="background:#0a2818;font-weight:800;color:#bbf7d0;border-right:2px solid #166534">${fmtMonth(ym)}</td>`
+              : '';
+            const tierBadge = {A:'#3b82f6',B:'#fbbf24',C:'#dc2626'}[tier];
+            const tierColor = tier==='B' ? '#78350f' : '#fff';
+            rows.push(`<tr>${monthCell}<td><span style="background:${tierBadge};color:${tierColor};padding:2px 8px;border-radius:3px;font-weight:800;font-size:8.5pt">${tier}</span></td>${['AA','A','B','C','S','H','F'].map(cls => {
+              const v = row[cls];
+              return `<td class="pc">${v!=null ? '¥'+v.toLocaleString() : '<span style="color:#475569">—</span>'}</td>`;
+            }).join('')}</tr>`);
+          });
+        });
+        body.innerHTML = rows.join('');
+        return;
+      }
+      // 旧仕様 fallback (seasons ベース・全月共通)
       const monthData = {};
       Object.entries(mapping).forEach(([season, tier])=>{
         const rows = (parsedDecision.seasons||{})[season] || [];
         monthData[tier] = monthData[tier] || {};
         rows.forEach(r=>{ if(r.recommended != null) monthData[tier][r.cls] = r.recommended; });
       });
-      const body = modal.querySelector('#ad-preview-body');
-      if(!body) return;
       body.innerHTML = ['A','B','C'].map(tier=>{
         const row = monthData[tier] || {};
         return `<tr><td><strong>${tier}</strong></td>${['AA','A','B','C','S','H','F'].map(cls=>{
