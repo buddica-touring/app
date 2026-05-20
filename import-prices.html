@@ -890,6 +890,17 @@ window.addEventListener('load', ()=>{
             }
           } catch(eHist) { console.warn('[applyDecisionFromReport] historyState 同期エラー:', eHist); }
 
+          // 🔴 改修 2026-05-21: ③④の表示更新 (refreshReport で再描画)
+          // 旧バグ: 反映完了アラート出るが ③調査結果報告 / ④価格決定マトリクス が
+          // 古い値のまま表示 → ユーザー「画面が全て変わらない」
+          // → refreshReport() で③④を強制再描画
+          try {
+            if (typeof refreshReport === 'function') {
+              await refreshReport();
+              console.log('[applyDecisionFromReport] refreshReport 完了');
+            }
+          } catch(eRefresh) { console.warn('[applyDecisionFromReport] refreshReport エラー:', eRefresh); }
+
           alert('✅ 反映完了\n\n対象: '+targetMonths.length+'ヶ月 '+targetMonths.join(', ')+'\n更新セル: '+updateCount+'\n\n採用中: AI推奨 (新バージョン) として履歴に保存しました。\n\n📅 pricing.html (カレンダー) を Cmd+Shift+R でリロードしてください');
           // 履歴保存
           try {
