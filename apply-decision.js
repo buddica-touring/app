@@ -86,6 +86,9 @@
   // 旧: 全月に同じ monthData を書き込む = 整合性破綻 (画面④の月別表示と⑤の反映が不一致)
   // 新: 月別 monthData を持って各月独立に書き込む = ④と⑤が完全に一致
   function applyDecision(parsed, mapping, months){
+    // 🔴 デバッグ: 新ロジック発動を視覚的に確認 (キャッシュ問題の切り分け用)
+    const _ver = 'v20260520d';
+    console.log('[ApplyDecision '+_ver+'] START months=', months, 'hasByMonth=', !!(parsed && parsed.byMonth));
     const raw = localStorage.getItem(STORAGE_KEY) || '{}';
     let state;
     try{ state = JSON.parse(raw); }catch(e){ state = {}; }
@@ -170,6 +173,19 @@
       }).join(' || '),
     });
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,50)));
+
+    // 🔴 デバッグ: 反映完了を視覚的に通知 (どの値が書き込まれたか確認可能)
+    try {
+      const sampleMonth = months[0];
+      const sampleData = writtenByMonth[sampleMonth] || {};
+      const sampleTier = Object.keys(sampleData)[0];
+      const sampleClasses = sampleData[sampleTier] || {};
+      const sampleStr = sampleTier
+        ? `${fmtMonth(sampleMonth)} tier${sampleTier}: ${Object.entries(sampleClasses).map(([k,v])=>k+'¥'+v.toLocaleString()).join(' ')}`
+        : '値なし';
+      alert('✅ 反映完了 (新ロジック '+_ver+')\n\n反映対象: '+months.length+'ヶ月 '+months.join(', ')+'\n\n書込サンプル:\n'+sampleStr+'\n\nこのアラートが出ない場合は古いキャッシュが動いています。');
+    } catch(e) { console.warn('[apply] alert err:', e); }
+
     return { writtenByMonth, months };
   }
 
