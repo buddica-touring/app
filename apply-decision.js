@@ -174,6 +174,75 @@
     });
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,50)));
 
+    // 🔴 致命バグ修正 2026-05-20 (v20260520f): 履歴バージョン管理 + 編集UIとの完全連携
+    // 問題: import-prices.html の履歴管理が独立しており、「採用中: V1原案」が pricing.html を支配
+    //       → ⑤Goサインで monthlyTierClassPrices に書き込んでも、リロード時に V1原案 で上書きされる
+    // 修正:
+    //   1) historyState に新バージョン追加 + activeVersion を新IDに設定
+    //   2) editState (画面編集中バッファ) も新値で上書き → 価格マトリクスUIに表示
+    //   3) applyActiveToLocalStorage(ym) を全月で実行 → pricing.html に確実反映
+    //   4) renderAll() で画面再描画
+    try {
+      const IMPORT_HIST_KEY = 'bt_import_history_v1';
+      const ihRaw = localStorage.getItem(IMPORT_HIST_KEY);
+      const ih = ihRaw ? JSON.parse(ihRaw) : {history:{}, active:{}};
+      if (!ih.history) ih.history = {};
+      if (!ih.active) ih.active = {};
+      const aiLabel = 'AI推奨 ' + new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      months.forEach(ym => {
+        const data = writtenByMonth[ym] || {};
+        if (!ih.history[ym]) ih.history[ym] = [];
+        // 既存の V1 (原案) は保持、それ以外は最大4個まで残す → V1 + 新規4 = 5上限
+        const v1 = ih.history[ym].find(v => v.id === 'v1');
+        const others = ih.history[ym].filter(v => v.id !== 'v1').slice(-3); // 直近3個
+        // 新バージョン ID = v(最大番号+1)
+        let maxN = 1;
+        ih.history[ym].forEach(v => {
+          const m = v.id && v.id.match(/^v(\d+)$/);
+          if (m) maxN = Math.max(maxN, parseInt(m[1],10));
+        });
+        const newId = 'v' + (maxN + 1);
+        const newVer = {
+          id: newId,
+          label: aiLabel,
+          savedAt: new Date().toLocaleString('ja-JP'),
+          A: data.A || {},
+          B: data.B || {},
+          C: data.C || {},
+        };
+        ih.history[ym] = v1 ? [v1, ...others, newVer] : [...others, newVer];
+        ih.active[ym] = newId; // 採用中バージョンを新規に切替
+      });
+      localStorage.setItem(IMPORT_HIST_KEY, JSON.stringify(ih));
+      console.log('[ApplyDecision '+_ver+'] historyState 連動更新完了 (採用中=新規AI推奨)');
+
+      // 🔴 editState (画面編集中バッファ) も新値で上書き → 価格マトリクスUIに即座反映
+      if (typeof window !== 'undefined' && window.editState) {
+        months.forEach(ym => {
+          const data = writtenByMonth[ym] || {};
+          if (!window.editState[ym]) window.editState[ym] = {};
+          window.editState[ym].A = {...(data.A || {})};
+          window.editState[ym].B = {...(data.B || {})};
+          window.editState[ym].C = {...(data.C || {})};
+        });
+        console.log('[ApplyDecision '+_ver+'] editState 同期完了');
+      }
+
+      // 🔴 applyActiveToLocalStorage() を全月で呼ぶ → pricing.html (seasonal_v6) に確実反映
+      if (typeof window !== 'undefined' && typeof window.applyActiveToLocalStorage === 'function') {
+        months.forEach(ym => {
+          try { window.applyActiveToLocalStorage(ym); }
+          catch(e) { console.warn('[apply] applyActive err for '+ym+':', e); }
+        });
+        console.log('[ApplyDecision '+_ver+'] applyActiveToLocalStorage 全月実行完了');
+      }
+
+      // 🔴 renderAll() で画面再描画 → 価格マトリクスUI即座更新
+      if (typeof window !== 'undefined' && typeof window.renderAll === 'function') {
+        try { window.renderAll(); } catch(e) { console.warn('[apply] renderAll err:', e); }
+      }
+    } catch(e) { console.warn('[apply] hist sync err:', e); }
+
     // 🔴 デバッグ: 反映完了を視覚的に通知 (どの値が書き込まれたか確認可能)
     try {
       const sampleMonth = months[0];
@@ -183,7 +252,7 @@
       const sampleStr = sampleTier
         ? `${fmtMonth(sampleMonth)} tier${sampleTier}: ${Object.entries(sampleClasses).map(([k,v])=>k+'¥'+v.toLocaleString()).join(' ')}`
         : '値なし';
-      alert('✅ 反映完了 (新ロジック '+_ver+')\n\n反映対象: '+months.length+'ヶ月 '+months.join(', ')+'\n\n書込サンプル:\n'+sampleStr+'\n\nこのアラートが出ない場合は古いキャッシュが動いています。');
+      alert('✅ 反映完了 (新ロジック '+_ver+')\n\n反映対象: '+months.length+'ヶ月 '+months.join(', ')+'\n\n書込サンプル:\n'+sampleStr+'\n\n履歴バージョン管理にも「AI推奨」新バージョンを追加・採用中に設定しました。\n\npricing.html を Cmd+Shift+R リロードしてください。');
     } catch(e) { console.warn('[apply] alert err:', e); }
 
     return { writtenByMonth, months };
