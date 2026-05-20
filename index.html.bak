@@ -2972,7 +2972,7 @@ function AnalyticsTab({data,sheetPlaces}){
         </div>)}
       </div>;})}
     </div>
-    {/* ★ タスク統計分析（PUB/BDB/PU/BD/DEL/COL） */}
+    {/* ★ タスク統計分析（PU/BD/DEL/COL） */}
     <TaskAnalyticsCard selYM={selYM} ymLabel={ymLabel}/>
   </div>;
 }
@@ -3007,10 +3007,8 @@ function TaskAnalyticsCard({selYM,ymLabel}){
 
   const cardS={background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,.06)",border:"1px solid #e2e8f0",marginBottom:12};
   const allTypes=[
-    {key:"PUB",label:"PUB(バス空港発)",color:"#2d6a4f"},
-    {key:"BDB",label:"BDB(バスヤード発)",color:"#8b3a3a"},
-    {key:"PU",label:"PU(HIA空港)",color:"#00796b"},
-    {key:"BD",label:"BD(HIAヤード)",color:"#ad1457"},
+    {key:"PU",label:"PU(空港送迎)",color:"#00796b"},
+    {key:"BD",label:"BD(ヤード送迎)",color:"#ad1457"},
     {key:"DEL",label:"DEL(配送)",color:"#c62828"},
     {key:"COL",label:"COL(回収)",color:"#1565c0"},
     {key:"洗車",label:"洗車",color:"#546e7a"}
@@ -3048,7 +3046,7 @@ function TaskAnalyticsCard({selYM,ymLabel}){
   return <>
     {/* KPIカード */}
     <div style={cardS}>
-      <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:12}}>🚌 タスク統計<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",marginLeft:8}}>{ymLabel(selYM)} ・ {taskData.length}件 ・ {totalPeople}名</span></div>
+      <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:12}}>🚐 タスク統計<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",marginLeft:8}}>{ymLabel(selYM)} ・ {taskData.length}件 ・ {totalPeople}名</span></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:8,marginBottom:12}}>
         {activeTypes.map(tp=>{
           const cnt=typeCounts[tp.key];const ppl=typeTotals[tp.key];
@@ -3329,26 +3327,18 @@ const SLOTS=["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12
 const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","その他"];
 // 旧バージョン（車検/整備/小タスク）で作成されたタスクの後方互換用（フィルタのみ、ドロップダウンには出さない）
 const OTHER_TASK_TYPES_LEGACY=["車検","整備","小タスク"];
-const NHA_PLACE_OPTIONS=["来店","ヤードから空港までの無料バス送迎","空港からヤードまでの無料バス送迎","赤嶺駅からヤードまでの無料バス送迎","ヤードから赤嶺駅までの無料バス送迎","DEL","COL"];
-const TASK_META={PUB:{c:"#047857",bg:"#d1fae5"},BDB:{c:"#be123c",bg:"#ffe4e6"},PU:{c:"#059669",bg:"#ecfdf5"},BD:{c:"#e11d48",bg:"#fff1f2"},"洗車":{c:"#64748b",bg:"#f8fafc"},DEL:{c:"#2563eb",bg:"#eff6ff"},COL:{c:"#ea580c",bg:"#fff7ed"},"送り":{c:"#0891b2",bg:"#ecfeff"},"迎え":{c:"#7c3aed",bg:"#f5f3ff"},"回収":{c:"#f97316",bg:"#fff7ed"},"点検":{c:"#6366f1",bg:"#eef2ff"},"入庫":{c:"#d97706",bg:"#fffbeb"},"その他":{c:"#6b7280",bg:"#f9fafb"},"マニュアル入力":{c:"#84cc16",bg:"#f7fee7"},"来店":{c:"#7c3aed",bg:"#f5f3ff"},"返却":{c:"#d97706",bg:"#fffbeb"},CXL:{c:"#9ca3af",bg:"#e5e7eb"}};
+const NHA_PLACE_OPTIONS=["来店","高松空港","DEL","COL"];
+const TASK_META={PU:{c:"#059669",bg:"#ecfdf5"},BD:{c:"#e11d48",bg:"#fff1f2"},"洗車":{c:"#64748b",bg:"#f8fafc"},DEL:{c:"#2563eb",bg:"#eff6ff"},COL:{c:"#ea580c",bg:"#fff7ed"},"送り":{c:"#0891b2",bg:"#ecfeff"},"迎え":{c:"#7c3aed",bg:"#f5f3ff"},"回収":{c:"#f97316",bg:"#fff7ed"},"点検":{c:"#6366f1",bg:"#eef2ff"},"入庫":{c:"#d97706",bg:"#fffbeb"},"その他":{c:"#6b7280",bg:"#f9fafb"},"マニュアル入力":{c:"#84cc16",bg:"#f7fee7"},"来店":{c:"#7c3aed",bg:"#f5f3ff"},"返却":{c:"#d97706",bg:"#fffbeb"},CXL:{c:"#9ca3af",bg:"#e5e7eb"}};
 
-// ★ マイクロバス運行定数
+// ★ バス運行は廃止（高松店はハイエース送迎のみ）。後方互換のため定数・関数は残存させ「常時無効」化
 const BUS_CAPACITY=20;
-const BUS_PU_HOURS=[9,10,11,12,13,14,15,16,17,18,19]; // 空港→ヤード 毎時00分発
-const BUS_BD_HOURS=[9,10,11,12,13,14,15,16,17,18]; // ヤード→空港 毎時30分発 (最終18:30)
-// バス不要判定パターン: 来店/店舗/ヤード = バス不要
+const BUS_PU_HOURS=[9,10,11,12,13,14,15,16,17,18,19];
+const BUS_BD_HOURS=[9,10,11,12,13,14,15,16,17,18];
 const NO_BUS_RE=/^(来店|店舗|店頭|ヤード|営業所|PU発|BD発)$/;
 
-// バス必要判定: PU/BDはデフォルトでバス利用。来店等の場合のみバス不要
+// ★ バス運用廃止により常に false を返す（ハイエース運用に統一）
 function isBusRequired(task){
-  if(task.type!=="PU"&&task.type!=="BD"&&task.type!=="PUB"&&task.type!=="BDB")return false;
-  const place=(task.place||"").trim();
-  // 場所が明示的に「来店」「店舗」「ヤード」等 → バス不要
-  if(place&&NO_BUS_RE.test(place))return false;
-  // 場所が「DEL」「COL」→ スタッフ配送/回収なのでバス不要
-  if(/^(DEL|COL)$/i.test(place))return false;
-  // それ以外のPU/BD（空港送迎/バス送迎/場所空含む）→ バス利用
-  return true;
+  return false;
 }
 
 // ★ 実行時間取得: 実行時間(timeChange) > 時間(time) の優先順
@@ -3382,7 +3372,7 @@ function computeBusSlots(tasks){
     let bestH=BUS_PU_HOURS.includes(hour)?hour:(BUS_PU_HOURS.find(bh=>bh>=hour)||BUS_PU_HOURS[BUS_PU_HOURS.length-1]);
     const key=String(bestH).padStart(2,"0");
     const ppl=parseInt(t.people)||1;
-    if(t.type==="PU"||t.type==="PUB"){
+    if(t.type==="PU"){
       slots[key].pu.push(t);
       slots[key].puCount+=ppl;
     }else{
@@ -3677,25 +3667,28 @@ function generateTasks(reservations,date,fleet,vehicles){
     const base={reservationId:r.id,ota:r.ota,tel:r.tel||"",mail:r.mail||"",done:false,assignee:"",memo:"",assignedVehicle:fv||"",plateNo:veh?veh.no:"",insuranceChange:"",opts:{b:+(r.optB||0),c:+(r.optC||0),j:+(r.optJ||0),usb:+(r.optUSB||0)},yakkan:false,line:false,payment:false};
     // ★ TKM: DEL/PU判定 = visitType OR お届け場所の有無（Step2 CSV含む）
     // ★ 2026-05-02 v3.4.29: 仕様統一
-    //   visit_type/return_type 明示値（来店/返却/PU/PUB/BD/BDB/DEL/COL）→ そのまま尊重
-    //   空のときだけ place から推論（送迎バス/空港 → PUB/BDB、それ以外 → DEL/COL）
+    //   visit_type/return_type 明示値（来店/返却/PU/BD/DEL/COL）→ そのまま尊重
+    //   ※ PUB/BDB は旧仕様の値。バス運用廃止により PU/BD に降格して扱う
+    //   空のときだけ place から推論（送迎/空港 → PU/BD、それ以外 → DEL/COL）
     const isAirportOrBus=(p)=>p&&/送迎バス|14番のりば|11番|レンタカー送迎バス|高松空港|空港/.test(p);
     const dpOk=r.delPlace&&r.delPlace.trim()&&!/^(来店|店舗|店頭|ヤード|営業所|ー+|-+|なし|無し|FALSE|false|0)$/.test(r.delPlace.trim());
     const cpOk=r.colPlace&&r.colPlace.trim()&&!/^(来店|店舗|店頭|ヤード|営業所|ー+|-+|なし|無し|FALSE|false|0)$/.test(r.colPlace.trim());
     let lendType;
     if(r.visitType==="来店")lendType="来店";
-    else if(["PUB","BDB","PU","BD","DEL","COL"].indexOf(r.visitType)>=0)lendType=r.visitType;
-    else if(isAirportOrBus(r.delPlace))lendType="PU";  // 後で isBusRequired で PUB に昇格
+    else if(["PU","BD","DEL","COL"].indexOf(r.visitType)>=0)lendType=r.visitType;
+    else if(["PUB","BDB"].indexOf(r.visitType)>=0)lendType="PU";  // ★ バス廃止: PUBはPUに降格
+    else if(isAirportOrBus(r.delPlace))lendType="PU";  // ハイエース送迎
     else if(dpOk)lendType="DEL";
     else lendType="PU";
     let retType;
     if(r.returnType==="返却")retType="返却";
-    else if(["PUB","BDB","PU","BD","DEL","COL"].indexOf(r.returnType)>=0)retType=r.returnType;
-    else if(isAirportOrBus(r.colPlace))retType="BD";  // 後で isBusRequired で BDB に昇格
+    else if(["PU","BD","DEL","COL"].indexOf(r.returnType)>=0)retType=r.returnType;
+    else if(["PUB","BDB"].indexOf(r.returnType)>=0)retType="BD";  // ★ バス廃止: BDBはBDに降格
+    else if(isAirportOrBus(r.colPlace))retType="BD";  // ハイエース送迎
     else if(cpOk)retType="COL";
     else retType="BD";
-    if(sD(r.lendDate,date)){const lTask={...base,_id:uid(),type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};if(lTask.type==="PU"&&isBusRequired(lTask))lTask.type="PUB";tasks.push(lTask);}
-    if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:uid(),type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:""};if(rTask.type==="BD"&&isBusRequired(rTask))rTask.type="BDB";tasks.push(rTask);}
+    if(sD(r.lendDate,date)){const lTask={...base,_id:uid(),type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);}
+    if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:uid(),type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:""};tasks.push(rTask);}
   });
   // 洗車タスク: 翌日DELの配車済み車両のみ（未配車分はloadTasks内で追加管理）
   tomorrowDELVehicles.forEach(vc=>{
@@ -13021,7 +13014,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil}){
       <a href="https://buddica-touring.github.io/damage/" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
         <TopIcon icon="🚗" label="車両チェック" subText="↗ 開く" color="#dc2626" onClick={()=>{}}/>
       </a>
-      <TopIcon icon="🚌" label="バス運行表" subText="OPシート" color="#0369a1" onClick={()=>onOpenBus&&onOpenBus()}/>
+      {/* ★ バス運用廃止: バス運行表アイコン削除（ハイエース運用一本） */}
       <TopIcon icon="🔧" label="OIL交換" badge={oilAlertCnt} subText={oilAlertCnt>0?"要確認":"正常"} color="#ea580c" alert={oilAlertCnt>0} onClick={()=>onOpenOil&&onOpenOil()}/>
     </div>
     {expanded==="rec"&&<div style={{marginTop:6}}><TopRecentWidget/></div>}
@@ -14761,6 +14754,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   const monthTasks=useMemo(()=>{
     if(!reservations||!reservations.length)return{};
     const byDate={};
+    // ★ バス廃止: PUB/BDB は集計しない（互換のためキーは残すが常に0）
     const ensure=(d)=>{if(!byDate[d])byDate[d]={洗車:0,PU:0,BD:0,PUB:0,BDB:0,DEL:0,COL:0,来店:0,返却:0,total:0};};
     const NO_BUS=/^(来店|店舗|店頭|ヤード|営業所|ー+|-+|なし|無し|FALSE|false|0)$/;
     reservations.forEach(r=>{
@@ -14771,12 +14765,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
         const dpOk=r.delPlace&&r.delPlace.trim()&&!NO_BUS.test(r.delPlace.trim());
         const lendType=(r.visitType==="DEL"||dpOk)?"DEL":"PU";
         if(lendType==="DEL"){byDate[r.lendDate].DEL++;}
-        else{
-          // PU → PUB判定（場所が来店系でなければバス）
-          const place=(r.delPlace||"").trim();
-          const isBus=!place||!NO_BUS.test(place);
-          if(isBus){byDate[r.lendDate].PUB++;}else{byDate[r.lendDate].PU++;}
-        }
+        else{byDate[r.lendDate].PU++;}  // ★ ハイエース運用一本化（バス廃止）
         byDate[r.lendDate].total++;
       }
       // 返却日のタスク
@@ -14785,11 +14774,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
         const cpOk=r.colPlace&&r.colPlace.trim()&&!NO_BUS.test(r.colPlace.trim());
         const retType=(r.returnType==="COL"||cpOk)?"COL":"BD";
         if(retType==="COL"){byDate[r.returnDate].COL++;}
-        else{
-          const place=(r.colPlace||"").trim();
-          const isBus=!place||!NO_BUS.test(place);
-          if(isBus){byDate[r.returnDate].BDB++;}else{byDate[r.returnDate].BD++;}
-        }
+        else{byDate[r.returnDate].BD++;}  // ★ ハイエース運用一本化（バス廃止）
         byDate[r.returnDate].total++;
       }
       // 洗車（出発前日）
@@ -14982,8 +14967,8 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
               const ratio=hc>0?total/hc:0;const rBg=total===0?"#f0fdf4":ratio>3?"#fecaca":ratio>2?"#fed7aa":"#f0fdf4";
               return <td key={ds} style={{minWidth:42,width:42,padding:"2px 1px",textAlign:"center",fontSize:10,fontWeight:800,background:rBg,borderRight:"1px solid #d1d5db",borderBottom:"1px solid #d1d5db",color:total===0?"#d1d5db":"#1e293b"}}>{total||""}</td>;})}
           </tr>
-          {/* タスク内訳行 */}
-          {[{key:"洗車",label:"洗車",color:"#795548",bg:"#FFFDE7"},{key:"PUB",label:"PUB",color:"#7c3aed",bg:"#f5f3ff"},{key:"BDB",label:"BDB",color:"#ea580c",bg:"#fff7ed"},{key:"PU",label:"PU",color:"#2563eb",bg:"#eff6ff"},{key:"BD",label:"BD",color:"#dc2626",bg:"#fef2f2"},{key:"DEL",label:"DEL",color:"#0891b2",bg:"#ecfeff"},{key:"COL",label:"COL",color:"#0d9488",bg:"#f0fdfa"}].map(cat=>
+          {/* タスク内訳行 ★ バス廃止：PU/BD/DEL/COL のみ */}
+          {[{key:"洗車",label:"洗車",color:"#795548",bg:"#FFFDE7"},{key:"PU",label:"PU",color:"#2563eb",bg:"#eff6ff"},{key:"BD",label:"BD",color:"#dc2626",bg:"#fef2f2"},{key:"DEL",label:"DEL",color:"#0891b2",bg:"#ecfeff"},{key:"COL",label:"COL",color:"#0d9488",bg:"#f0fdfa"}].map(cat=>
           <tr key={cat.key} style={{background:cat.bg}}>
             <td style={{position:"sticky",left:0,zIndex:2,width:72,minWidth:72,padding:"3px 6px",fontSize:8,fontWeight:700,background:cat.bg,borderRight:"2px solid #d1d5db",borderBottom:"1px solid #e5e7eb",color:cat.color}}>{cat.label}</td>
             {dates.map(ds=>{const tc=monthTasks[ds];const cnt=tc?tc[cat.key]:0;
@@ -15248,8 +15233,9 @@ function ReservationForm({onAdd,onBulkAdd,vehicles,vehicleClasses,onClose,prefil
    タイムテーブル
    ========================================== */
 function TimeTable({tasks,staffCount}){
-  const lend=tasks.filter(t=>["DEL","PU","PUB","来店"].includes(t.type));const ret=tasks.filter(t=>["COL","BD","BDB","返却"].includes(t.type));
-  const rows=[{l:"人員",bg:"#e0e7ff",fg:"#4338ca",b:true,data:SLOTS.map(()=>staffCount),total:staffCount},{l:"貸出計",bg:"#dbeafe",fg:"#1e40af",b:true,w:true,data:SLOTS.map(s=>lend.filter(t=>t.time===s).length),total:lend.length},{l:"┗DEL",bg:"#eff6ff",fg:"#2563eb",data:SLOTS.map(s=>tasks.filter(t=>t.type==="DEL"&&t.time===s).length),total:tasks.filter(t=>t.type==="DEL").length},{l:"┗PUB/PU/来店",bg:"#f5f3ff",fg:"#6d28d9",data:SLOTS.map(s=>tasks.filter(t=>(t.type==="PU"||t.type==="PUB"||t.type==="来店")&&t.time===s).length),total:tasks.filter(t=>t.type==="PU"||t.type==="PUB"||t.type==="来店").length},{l:"返却計",bg:"#ffedd5",fg:"#c2410c",b:true,w:true,data:SLOTS.map(s=>ret.filter(t=>t.time===s).length),total:ret.length},{l:"┗COL",bg:"#fff7ed",fg:"#ea580c",data:SLOTS.map(s=>tasks.filter(t=>t.type==="COL"&&t.time===s).length),total:tasks.filter(t=>t.type==="COL").length},{l:"┗返却/BDB/BD",bg:"#fffbeb",fg:"#b45309",data:SLOTS.map(s=>tasks.filter(t=>(t.type==="返却"||t.type==="BD"||t.type==="BDB")&&t.time===s).length),total:tasks.filter(t=>t.type==="返却"||t.type==="BD"||t.type==="BDB").length},{l:"洗車/他",bg:"#f8fafc",fg:"#64748b",data:SLOTS.map(s=>tasks.filter(t=>!["DEL","PU","PUB","来店","COL","BD","BDB","返却"].includes(t.type)&&t.time===s).length),total:tasks.filter(t=>!["DEL","PU","PUB","来店","COL","BD","BDB","返却"].includes(t.type)).length}];
+  // ★ バス廃止：PUB/BDB は集計に含めない（旧データ互換のため type 比較自体は残さない）
+  const lend=tasks.filter(t=>["DEL","PU","来店"].includes(t.type));const ret=tasks.filter(t=>["COL","BD","返却"].includes(t.type));
+  const rows=[{l:"人員",bg:"#e0e7ff",fg:"#4338ca",b:true,data:SLOTS.map(()=>staffCount),total:staffCount},{l:"貸出計",bg:"#dbeafe",fg:"#1e40af",b:true,w:true,data:SLOTS.map(s=>lend.filter(t=>t.time===s).length),total:lend.length},{l:"┗DEL",bg:"#eff6ff",fg:"#2563eb",data:SLOTS.map(s=>tasks.filter(t=>t.type==="DEL"&&t.time===s).length),total:tasks.filter(t=>t.type==="DEL").length},{l:"┗PU/来店",bg:"#f5f3ff",fg:"#6d28d9",data:SLOTS.map(s=>tasks.filter(t=>(t.type==="PU"||t.type==="来店")&&t.time===s).length),total:tasks.filter(t=>t.type==="PU"||t.type==="来店").length},{l:"返却計",bg:"#ffedd5",fg:"#c2410c",b:true,w:true,data:SLOTS.map(s=>ret.filter(t=>t.time===s).length),total:ret.length},{l:"┗COL",bg:"#fff7ed",fg:"#ea580c",data:SLOTS.map(s=>tasks.filter(t=>t.type==="COL"&&t.time===s).length),total:tasks.filter(t=>t.type==="COL").length},{l:"┗返却/BD",bg:"#fffbeb",fg:"#b45309",data:SLOTS.map(s=>tasks.filter(t=>(t.type==="返却"||t.type==="BD")&&t.time===s).length),total:tasks.filter(t=>t.type==="返却"||t.type==="BD").length},{l:"洗車/他",bg:"#f8fafc",fg:"#64748b",data:SLOTS.map(s=>tasks.filter(t=>!["DEL","PU","来店","COL","BD","返却"].includes(t.type)&&t.time===s).length),total:tasks.filter(t=>!["DEL","PU","来店","COL","BD","返却"].includes(t.type)).length}];
   return <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10,whiteSpace:"nowrap"}}><thead><tr style={{background:"#f1f5f9"}}><th style={{position:"sticky",left:0,zIndex:2,background:"#f1f5f9",padding:"4px 5px",textAlign:"left",fontWeight:600,minWidth:60,borderBottom:"1px solid #e2e8f0",fontSize:9}}>TT</th><th style={{padding:"4px 2px",textAlign:"center",fontWeight:600,borderBottom:"1px solid #e2e8f0",fontSize:9}}>計</th>{SLOTS.map(s=><th key={s} style={{padding:"4px 2px",textAlign:"center",fontWeight:500,color:"#64748b",borderBottom:"1px solid #e2e8f0",minWidth:26,fontSize:8}}>{s}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}><td style={{position:"sticky",left:0,zIndex:2,background:r.bg,color:r.fg,padding:"2px 5px",fontWeight:r.b?700:500,fontSize:9}}>{r.l}</td><td style={{background:r.bg,color:r.fg,padding:"2px 2px",textAlign:"center",fontWeight:700,fontSize:9}}>{r.total||""}</td>{r.data.map((v,ci)=>{const over=r.w&&v>staffCount;return <td key={ci} style={{background:over?"#fecaca":r.bg,color:over?"#dc2626":v>0?r.fg:"#e2e8f0",padding:"2px",textAlign:"center",fontWeight:over||v>0?700:400,fontSize:9}}>{v||""}</td>;})}</tr>)}</tbody></table></div></div>;
 }
 
@@ -15674,7 +15660,7 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving}){
    ========================================== */
 function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFleet,vehicles,staff,resOpts,sheetPlaces,onUpdateSheetPlaces,repeaterMap,jalanPay,onReservationUpdate,maintenance,openIntent,onOpenIntentConsumed,initialView}){
   const[dayOff,setDayOff]=useState(0);const selDate=dOff(today,dayOff);const[tasks,setTasks]=useState([]);
-  const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "bus" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit"
+  const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit" (バスタブは廃止)
   const[washAddCat,setWashAddCat]=useState("");const[washAddVc,setWashAddVc]=useState("");const[washAddTime,setWashAddTime]=useState("");const[washAddMemo,setWashAddMemo]=useState("");
   // ★ その他タブ用 state (SPK v4.6.5 から完全コピー)
   const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherEditId,setOtherEditId]=useState(null);
@@ -15844,8 +15830,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       gen.forEach(g=>{
         if(g.reservationId&&!existIds.has(g.reservationId+":"+g.type)){
           const sp=sheetPlaces[g.reservationId];
-          if(sp&&!g.place){if((g.type==="DEL"||g.type==="PU"||g.type==="PUB")&&sp.delPlace)g.place=sp.delPlace;if((g.type==="COL"||g.type==="BD"||g.type==="BDB")&&sp.colPlace)g.place=sp.colPlace;}
-          if(sp&&(g.type==="DEL"||g.type==="PU"||g.type==="PUB")&&!g.colPlace&&sp.colPlace)g.colPlace=sp.colPlace;
+          if(sp&&!g.place){if((g.type==="DEL"||g.type==="PU")&&sp.delPlace)g.place=sp.delPlace;if((g.type==="COL"||g.type==="BD")&&sp.colPlace)g.place=sp.colPlace;}
+          if(sp&&(g.type==="DEL"||g.type==="PU")&&!g.colPlace&&sp.colPlace)g.colPlace=sp.colPlace;
           fixed.push(g);
         }
       });
@@ -15889,7 +15875,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       const dupIds=[];
       fixed.forEach(t=>{
         if(!t.reservationId||t.manual)return;
-        // PU/PUBは同系統、BD/BDBも同系統として重複判定
+        // ★ バス廃止: PU/BD のみで重複判定（旧PUB/BDBデータもグループ統合）
         const baseType=(t.type==="PUB"||t.type==="PU")?"PU_GROUP":(t.type==="BDB"||t.type==="BD")?"BD_GROUP":t.type;
         const key=t.reservationId+":"+baseType;
         if(seenResType.has(key)){dupIds.push(t._id);}
@@ -15900,59 +15886,15 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         fixed=fixed.filter(t=>!dupIds.includes(t._id));
         if(sb)sb.from("bt_tasks").delete().in("_id",dupIds).then(()=>dbLog("dedup",true,dupIds.length)).catch(e=>dbLog("dedup",false,e.message));
       }
-      // ★ STEP1: 既存PU/BD→PUB/BDB自動昇格（まず全員バスに乗せる）
-      // ただし手動でPU/BDに変更されたタスク(_changed.type=true)はスキップ
-      let autoUpgraded=0;
+      // ★ バス運用廃止（高松店はハイエース一本化）: 旧PUB/BDB → PU/BD に自動降格
+      let autoDemoted=0;
       fixed=fixed.map(t=>{
-        if(t._changed&&t._changed.type)return t; // 手動変更済み→スキップ
-        if(t.type==="PU"&&isBusRequired(t)){autoUpgraded++;return{...t,type:"PUB",place:"高松空港",_placeSource:"manual"};}
-        if(t.type==="BD"&&isBusRequired(t)){autoUpgraded++;return{...t,type:"BDB",place:"高松空港",_placeSource:"manual"};}
+        if(t.type==="PUB"){autoDemoted++;return{...t,type:"PU",place:t.place==="高松空港"?"":t.place,_placeSource:"",_changed:{...(t._changed||{}),type:true}};}
+        if(t.type==="BDB"){autoDemoted++;return{...t,type:"BD",place:t.place==="高松空港"?"":t.place,_placeSource:"",_changed:{...(t._changed||{}),type:true}};}
         return t;
       });
-      // ★ STEP2: バス便に振り分けて定員超過分をPU/BDに自動降格
-      const _puSlots={};BUS_PU_HOURS.forEach(h=>{_puSlots[h]={ids:[],count:0,overIds:[]};});
-      const _bdSlots={};BUS_BD_HOURS.forEach(h=>{_bdSlots[h]={ids:[],count:0,overIds:[]};});
-      fixed.forEach(t=>{
-        if(t.type==="PUB"){
-          const time=t.timeChange||t.time||"";if(!time)return;
-          const[hh,mm]=time.split(":").map(Number);
-          let th=Math.ceil((hh*60+mm+30)/60);
-          if(th<BUS_PU_HOURS[0])th=BUS_PU_HOURS[0];
-          if(th>BUS_PU_HOURS[BUS_PU_HOURS.length-1])th=BUS_PU_HOURS[BUS_PU_HOURS.length-1];
-          const ppl=parseInt(t.people)||1;
-          if(_puSlots[th].count+ppl<=BUS_CAPACITY){_puSlots[th].ids.push(t._id);_puSlots[th].count+=ppl;}
-          else{_puSlots[th].overIds.push(t._id);}
-        }
-        if(t.type==="BDB"){
-          const time=t.timeChange||t.time||"";if(!time)return;
-          const[hh,mm]=time.split(":").map(Number);
-          let th=hh;if(mm>30)th=hh+1;
-          if(th<BUS_BD_HOURS[0])th=BUS_BD_HOURS[0];
-          if(th>BUS_BD_HOURS[BUS_BD_HOURS.length-1])th=BUS_BD_HOURS[BUS_BD_HOURS.length-1];
-          const ppl=parseInt(t.people)||1;
-          if(_bdSlots[th].count+ppl<=BUS_CAPACITY){_bdSlots[th].ids.push(t._id);_bdSlots[th].count+=ppl;}
-          else{_bdSlots[th].overIds.push(t._id);}
-        }
-      });
-      const overflowIds=new Set();
-      Object.values(_puSlots).forEach(s=>s.overIds.forEach(id=>overflowIds.add(id)));
-      Object.values(_bdSlots).forEach(s=>s.overIds.forEach(id=>overflowIds.add(id)));
-      let autoDemoted=0;
-      if(overflowIds.size>0){
-        fixed=fixed.map(t=>{
-          if(overflowIds.has(t._id)){
-            autoDemoted++;
-            if(t.type==="PUB")return{...t,type:"PU",place:"",_placeSource:"",_changed:{...(t._changed||{}),type:true,place:true}};
-            if(t.type==="BDB")return{...t,type:"BD",place:"",_placeSource:"",_changed:{...(t._changed||{}),type:true,place:true}};
-          }
-          return t;
-        });
-      }
-      if(autoUpgraded>0||autoDemoted>0){
-        console.log("[loadTasks] auto-upgrade:",autoUpgraded,"件, auto-demote(overflow):",autoDemoted,"件");
-        // 各便の人数を検証ログ出力
-        Object.entries(_puSlots).forEach(([h,s])=>{if(s.count>0)console.log(`[BUS] PUB ${h}:00 → ${s.count}/${BUS_CAPACITY}名 (溢れ:${s.overIds.length}件)`);});
-        Object.entries(_bdSlots).forEach(([h,s])=>{if(s.count>0)console.log(`[BUS] BDB ${h}:30 → ${s.count}/${BUS_CAPACITY}名 (溢れ:${s.overIds.length}件)`);});
+      if(autoDemoted>0){
+        console.log("[loadTasks] バス→ハイエース降格:",autoDemoted,"件");
         DB.upsertTasks(fixed,date);
       }
       // ★ LSにあるmanualタスクがDB結果に欠けていれば復元
@@ -16152,7 +16094,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     }
     return arr;
   },[today,shifts,reservations,fleet]);
-  const CONTENT_OPTIONS=["PUB","BDB","PU","BD","来店","洗車","DEL","COL","送り","迎え","回収","点検","入庫","その他","マニュアル入力"];
+  const CONTENT_OPTIONS=["PU","BD","来店","洗車","DEL","COL","送り","迎え","回収","点検","入庫","その他","マニュアル入力"];
   const[timeLoading,setTimeLoading]=useState(false);
   const updateTimes=async()=>{
     const resIds=[...new Set(tasks.filter(t=>t.reservationId).map(t=>t.reservationId))];
@@ -16169,8 +16111,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           if(!t.reservationId||!timeMap[t.reservationId])return t;
           const tm=timeMap[t.reservationId];
           let newTime=null;
-          if((t.type==="DEL"||t.type==="PU"||t.type==="PUB")&&tm.delTime)newTime=tm.delTime;
-          if((t.type==="COL"||t.type==="BD"||t.type==="BDB")&&tm.colTime)newTime=tm.colTime;
+          if((t.type==="DEL"||t.type==="PU")&&tm.delTime)newTime=tm.delTime;
+          if((t.type==="COL"||t.type==="BD")&&tm.colTime)newTime=tm.colTime;
           if(!newTime)return t;
           const normalized=newTime.replace(/^(\d):/, "0$1:").replace(/\uff1a/g,":").slice(0,5);
           // ★ SS値は常に _ssTime に保存
@@ -16224,8 +16166,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         updatedTasks=prev.map(t=>{
           if(!t.reservationId||!placeMap[t.reservationId])return t;
           const p=placeMap[t.reservationId];
-          const isDel=t.type==="DEL"||t.type==="PU"||t.type==="PUB";
-          const isCol=t.type==="COL"||t.type==="BD"||t.type==="BDB";
+          const isDel=t.type==="DEL"||t.type==="PU";
+          const isCol=t.type==="COL"||t.type==="BD";
           // ★ SS値は常に _ssPlace に保存
           const ssPlace=isDel?p.delPlace:isCol?p.colPlace:"";
           const ssUpdates=ssPlace?{_ssPlace:ssPlace,_ssPlaceAt:new Date().toISOString()}:{};
@@ -16283,8 +16225,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               const tm=timeMap[t.reservationId];
               if(tm){
                 let nw=null;
-                if((t.type==="DEL"||t.type==="PU"||t.type==="PUB")&&tm.delTime)nw=tm.delTime;
-                if((t.type==="COL"||t.type==="BD"||t.type==="BDB")&&tm.colTime)nw=tm.colTime;
+                if((t.type==="DEL"||t.type==="PU")&&tm.delTime)nw=tm.delTime;
+                if((t.type==="COL"||t.type==="BD")&&tm.colTime)nw=tm.colTime;
                 if(nw){
                   const norm=nw.replace(/^(\d):/,"0$1:").replace(/\uff1a/g,":").slice(0,5);
                   if(norm!==t._ssTime){next._ssTime=norm;next._ssTimeAt=new Date().toISOString();changed=true;}
@@ -16297,8 +16239,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               // 場所更新 → _ssPlaceに保存
               const p=placeMap[t.reservationId];
               if(p&&t._placeSource!=="manual"){
-                const isDel=t.type==="DEL"||t.type==="PU"||t.type==="PUB";
-                const isCol=t.type==="COL"||t.type==="BD"||t.type==="BDB";
+                const isDel=t.type==="DEL"||t.type==="PU";
+                const isCol=t.type==="COL"||t.type==="BD";
                 let newPlace=isDel?p.delPlace:isCol?p.colPlace:"";
                 if(newPlace){
                   if(newPlace!==t._ssPlace){next._ssPlace=newPlace;next._ssPlaceAt=new Date().toISOString();changed=true;}
@@ -16366,15 +16308,14 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     }
   };
   // ★ 2026-05-09: 同一予約・同日・同カテゴリ（貸出系 or 返却系）の重複排除
-  //   スプシ側で貸出系(PUB/DEL/来店) ⇄ 返却系(BDB/COL/返却) を分離した結果、
-  //   DBに旧タスク（来店/返却 等）と新タスク（PUB/BDB）が併存するケースの保険。
-  //   優先順位: PUB>DEL>PU>来店 / BDB>COL>BD>返却（同優先度なら sort_order 大きい方）
+  //   ★ バス廃止: 旧PUB/BDB は PU/BD と同優先度で扱う（旧データ互換のため LEND/RET には含める）
+  //   優先順位: DEL>PU(PUB)>来店 / COL>BD(BDB)>返却（同優先度なら sort_order 大きい方）
   //   洗車・点検・送り・迎え等は対象外（独立タスク）
   //   予約番号なしの手動タスクも対象外
   const sortedTasks=useMemo(()=>{
     const LEND_TYPES=["PUB","DEL","PU","来店"];
     const RET_TYPES=["BDB","COL","BD","返却"];
-    const PRIO={PUB:5,BDB:5,DEL:4,COL:4,PU:3,BD:3,来店:2,返却:2};
+    const PRIO={DEL:4,COL:4,PUB:3,BDB:3,PU:3,BD:3,来店:2,返却:2};
     const groups=new Map();
     const others=[];
     tasks.forEach(t=>{
@@ -16450,12 +16391,12 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     {/* ★ 表示切替タブ */}
     <div style={{padding:"4px 8px",background:"#fff",borderBottom:"1px solid #e5e7eb",display:"flex",gap:4,flexShrink:0,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       {[
-        {k:"summary",l:"📊サマリー",cnt:sortedTasks.filter(t=>["PUB","BDB","PU","BD","DEL","COL","洗車"].includes(t.type)).length,ac:"#0f172a"},
-        {k:"bus",l:"🚌バス",cnt:sortedTasks.filter(t=>t.type==="PUB"||t.type==="BDB").length,ac:"#1e40af"},
-        {k:"hia",l:"🚐ハイエース",cnt:sortedTasks.filter(t=>(t.type==="PU"||t.type==="BD")&&isBusRequired(t)).length,ac:"#546e7a"},
+        // ★ バス廃止: 🚌バスタブ削除。ハイエース送迎(PU/BD) は通常タスクとして扱う
+        {k:"summary",l:"📊サマリー",cnt:sortedTasks.filter(t=>["PU","BD","DEL","COL","洗車"].includes(t.type)).length,ac:"#0f172a"},
+        {k:"hia",l:"🚐ハイエース送迎",cnt:sortedTasks.filter(t=>t.type==="PU"||t.type==="BD").length,ac:"#546e7a"},
         {k:"tasks",l:"🚗DEL/COL",cnt:sortedTasks.filter(t=>t.type==="DEL"||t.type==="COL").length,ac:"#2563eb"},
         {k:"wash",l:"🧽洗車",cnt:sortedTasks.filter(t=>t.type==="洗車").length,ac:"#64748b"},
-        {k:"raiten",l:"🏪来店",cnt:sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&/^(来店|店舗|店頭|ヤード|営業所)$/.test((t.place||"").trim()))).length,ac:"#6d4c41"},
+        {k:"raiten",l:"🏪来店",cnt:sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="BD"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&/^(来店|店舗|店頭|ヤード|営業所)$/.test((t.place||"").trim()))).length,ac:"#6d4c41"},
         {k:"other",l:"📌その他",cnt:sortedTasks.filter(t=>(OTHER_TASK_TYPES.includes(t.type)||OTHER_TASK_TYPES_LEGACY.includes(t.type))&&t.manual===true).length,ac:"#4338ca"},
         {k:"master",l:"📋マスター",cnt:0,ac:"#7c3aed"},
         {k:"edit",l:"✏️編集",cnt:0,ac:"#dc2626"}
@@ -16539,44 +16480,22 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           </div>
         </div>;
       })()}
-      {/* ★★★ サマリー（俯瞰ダッシュボード） ★★★ */}
+      {/* ★★★ サマリー（俯瞰ダッシュボード） ★★★ ※ バス廃止: PU/BD はハイエース送迎一本 */}
       {opView==="summary"&&(()=>{
         const isMob=window.innerWidth<=768;
-        const pubTasks=sortedTasks.filter(t=>t.type==="PUB");
-        const bdbTasks=sortedTasks.filter(t=>t.type==="BDB");
-        const puTasks=sortedTasks.filter(t=>t.type==="PU"&&isBusRequired(t));
-        const bdTasks=sortedTasks.filter(t=>t.type==="BD"&&isBusRequired(t));
+        // ★ 旧PUB/BDBデータは PU/BD に統合して扱う
+        const puTasks=sortedTasks.filter(t=>t.type==="PU"||t.type==="PUB");
+        const bdTasks=sortedTasks.filter(t=>t.type==="BD"||t.type==="BDB");
         const delTasks=sortedTasks.filter(t=>t.type==="DEL");
         const colTasks=sortedTasks.filter(t=>t.type==="COL");
         const washTasks=sortedTasks.filter(t=>t.type==="洗車");
         const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
         const pplSum=(arr)=>arr.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         const doneSum=(arr)=>arr.filter(t=>t.done).length;
-        // バス便別集計
-        const busByHour={};
-        BUS_PU_HOURS.forEach(h=>{busByHour[h]={pub:0,bdb:0};});
-        pubTasks.forEach(t=>{
-          const time=t.timeChange||t.time||"";if(!time)return;
-          const[hh,mm]=time.split(":").map(Number);
-          let th=Math.ceil((hh*60+mm+30)/60);
-          if(th<BUS_PU_HOURS[0])th=BUS_PU_HOURS[0];
-          if(th>BUS_PU_HOURS[BUS_PU_HOURS.length-1])th=BUS_PU_HOURS[BUS_PU_HOURS.length-1];
-          busByHour[th].pub+=parseInt(t.people)||1;
-        });
-        bdbTasks.forEach(t=>{
-          const time=t.timeChange||t.time||"";if(!time)return;
-          const[hh,mm]=time.split(":").map(Number);
-          let th=hh;if(mm>30)th=hh+1;
-          if(th<BUS_BD_HOURS[0])th=BUS_BD_HOURS[0];
-          if(th>BUS_BD_HOURS[BUS_BD_HOURS.length-1])th=BUS_BD_HOURS[BUS_BD_HOURS.length-1];
-          if(busByHour[th])busByHour[th].bdb+=parseInt(t.people)||1;
-        });
-        const noFlightPub=pubTasks.filter(t=>!t.flight);
+        // ★ バス便別集計は廃止
         const categories=[
-          {key:"pub",label:"PUB",sub:"バス空港発",icon:"🚌✈",tasks:pubTasks,color:"#2d6a4f",bg:"#e8f5e9",people:pplSum(pubTasks)},
-          {key:"bdb",label:"BDB",sub:"バスヤード発",icon:"🚌🏢",tasks:bdbTasks,color:"#8b3a3a",bg:"#fce4ec",people:pplSum(bdbTasks)},
-          {key:"pu",label:"PU",sub:"ハイエース空港",icon:"🚐✈",tasks:puTasks,color:"#37474f",bg:"#eceff1",people:pplSum(puTasks)},
-          {key:"bd",label:"BD",sub:"ハイエースヤード",icon:"🚐🏢",tasks:bdTasks,color:"#37474f",bg:"#eceff1",people:pplSum(bdTasks)},
+          {key:"pu",label:"PU",sub:"ハイエース空港送迎",icon:"🚐✈",tasks:puTasks,color:"#00796b",bg:"#e0f2f1",people:pplSum(puTasks)},
+          {key:"bd",label:"BD",sub:"ハイエースヤード送迎",icon:"🚐🏢",tasks:bdTasks,color:"#ad1457",bg:"#fce4ec",people:pplSum(bdTasks)},
           {key:"del",label:"DEL",sub:"配送",icon:"🚗",tasks:delTasks,color:"#1565c0",bg:"#e3f2fd",people:pplSum(delTasks)},
           {key:"col",label:"COL",sub:"回収",icon:"🚛",tasks:colTasks,color:"#e65100",bg:"#fff3e0",people:pplSum(colTasks)},
           {key:"raiten",label:"来店",sub:"来店貸出/返却",icon:"🏪",tasks:raitenTasks,color:"#7c3aed",bg:"#f5f3ff",people:pplSum(raitenTasks)},
@@ -16589,12 +16508,12 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             <div style={{fontSize:isMob?10:11,opacity:.7}}>{fmtFull(selDate)} ・ 出勤{staffCount}名 ・ 全{sortedTasks.length}タスク</div>
           </div>
           {/* じゃらん決済状況 */}
-          {(()=>{const jTasks=sortedTasks.filter(t=>(t.type==="DEL"||t.type==="PU"||t.type==="PUB")&&t.ota==="J");if(jTasks.length===0)return null;const paid=jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return njp&&njp.status==="paid";}).length;const unpaid=jTasks.length-paid;return <div style={{background:"#fff",borderRadius:8,border:"1px solid "+(unpaid>0?"#fecaca":"#bbf7d0"),padding:isMob?"10px 12px":"8px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{fontSize:14}}>💳</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#1e293b"}}>じゃらん決済</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#059669"}}>{paid}件 入金済</span>{unpaid>0&&<span style={{fontWeight:800,fontSize:isMob?13:12,color:"#dc2626"}}>{unpaid}件 未入金</span>}{unpaid===0&&jTasks.length>0&&<span style={{fontSize:10,color:"#059669",fontWeight:700}}>✅ 全件入金済</span>}{unpaid>0&&<div style={{width:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:2}}>{jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return !njp||njp.status!=="paid";}).map(t=><span key={t._id} style={{fontSize:9,fontWeight:700,color:"#dc2626",background:"#fef2f2",padding:"1px 6px",borderRadius:4}}>{t.name}</span>)}</div>}</div>;})()}
+          {(()=>{const jTasks=sortedTasks.filter(t=>(t.type==="DEL"||t.type==="PU")&&t.ota==="J");if(jTasks.length===0)return null;const paid=jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return njp&&njp.status==="paid";}).length;const unpaid=jTasks.length-paid;return <div style={{background:"#fff",borderRadius:8,border:"1px solid "+(unpaid>0?"#fecaca":"#bbf7d0"),padding:isMob?"10px 12px":"8px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{fontSize:14}}>💳</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#1e293b"}}>じゃらん決済</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#059669"}}>{paid}件 入金済</span>{unpaid>0&&<span style={{fontWeight:800,fontSize:isMob?13:12,color:"#dc2626"}}>{unpaid}件 未入金</span>}{unpaid===0&&jTasks.length>0&&<span style={{fontSize:10,color:"#059669",fontWeight:700}}>✅ 全件入金済</span>}{unpaid>0&&<div style={{width:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:2}}>{jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return !njp||njp.status!=="paid";}).map(t=><span key={t._id} style={{fontSize:9,fontWeight:700,color:"#dc2626",background:"#fef2f2",padding:"1px 6px",borderRadius:4}}>{t.name}</span>)}</div>}</div>;})()}
           {/* カテゴリカード */}
           <div style={{display:"grid",gridTemplateColumns:isMob?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMob?6:8,marginBottom:8}}>
             {categories.filter(c=>c.tasks.length>0).map(c=>{
               const done=doneSum(c.tasks);
-              return <div key={c.key} onClick={()=>setOpView(c.key==="pub"||c.key==="bdb"?"bus":c.key==="pu"||c.key==="bd"?"hia":c.key==="del"||c.key==="col"?"tasks":"wash")} style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",padding:isMob?"10px":"12px",cursor:"pointer",transition:"all .15s",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+              return <div key={c.key} onClick={()=>setOpView(c.key==="pu"||c.key==="bd"?"hia":c.key==="del"||c.key==="col"?"tasks":"wash")} style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",padding:isMob?"10px":"12px",cursor:"pointer",transition:"all .15s",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <span style={{fontSize:isMob?18:22}}>{c.icon}</span>
                   <span style={{fontSize:isMob?22:28,fontWeight:900,color:c.color}}>{c.tasks.length}</span>
@@ -16611,43 +16530,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               </div>;
             })}
           </div>
-          {/* バス便別乗車人数 */}
-          {(pubTasks.length>0||bdbTasks.length>0)&&<div style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",marginBottom:8,overflow:"hidden"}}>
-            <div style={{background:"#334155",padding:"6px 12px",color:"#e2e8f0",fontWeight:800,fontSize:isMob?12:11}}>🚌 バス便別乗車人数</div>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:isMob?10:9,whiteSpace:"nowrap"}}>
-                <thead><tr style={{background:"#f8fafc"}}>
-                  <th style={{padding:"4px 8px",textAlign:"left",fontWeight:700,color:"#475569",borderBottom:"1px solid #e2e8f0",position:"sticky",left:0,background:"#f8fafc",zIndex:1}}>便</th>
-                  {BUS_PU_HOURS.map(h=>{const k=String(h).padStart(2,"0");return <th key={h} style={{padding:"4px 6px",textAlign:"center",fontWeight:600,color:"#475569",borderBottom:"1px solid #e2e8f0",minWidth:44}}>{k}:00</th>;})}
-                  <th style={{padding:"4px 8px",textAlign:"center",fontWeight:800,color:"#1e293b",borderBottom:"1px solid #e2e8f0",background:"#f1f5f9"}}>計</th>
-                </tr></thead>
-                <tbody>
-                  <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                    <td style={{padding:"4px 8px",fontWeight:700,color:"#2d6a4f",position:"sticky",left:0,background:"#fff",zIndex:1}}>✈PUB</td>
-                    {BUS_PU_HOURS.map(h=>{const v=busByHour[h].pub;return <td key={h} style={{padding:"4px 6px",textAlign:"center",fontWeight:v?700:400,color:v>BUS_CAPACITY?"#c0392b":v?"#2d6a4f":"#d0d0d0",background:v>BUS_CAPACITY?"#fdecea":v?"#f0faf4":"transparent"}}>{v||"-"}</td>;})}
-                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:800,color:"#2d6a4f",background:"#e8f5e9"}}>{pplSum(pubTasks)}</td>
-                  </tr>
-                  <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                    <td style={{padding:"4px 8px",fontWeight:700,color:"#8b3a3a",position:"sticky",left:0,background:"#fff",zIndex:1}}>🏢BDB</td>
-                    {BUS_PU_HOURS.map(h=>{const v=busByHour[h].bdb;return <td key={h} style={{padding:"4px 6px",textAlign:"center",fontWeight:v?700:400,color:v>BUS_CAPACITY?"#c0392b":v?"#8b3a3a":"#d0d0d0",background:v>BUS_CAPACITY?"#fdecea":v?"#fdf0f0":"transparent"}}>{v||"-"}</td>;})}
-                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:800,color:"#8b3a3a",background:"#fce4ec"}}>{pplSum(bdbTasks)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{padding:"4px 8px",fontWeight:700,color:"#37474f",position:"sticky",left:0,background:"#f8fafc",zIndex:1}}>合計</td>
-                    {BUS_PU_HOURS.map(h=>{const v=busByHour[h].pub+busByHour[h].bdb;return <td key={h} style={{padding:"4px 6px",textAlign:"center",fontWeight:v?800:400,color:v>BUS_CAPACITY?"#c0392b":v?"#1e293b":"#d0d0d0",background:v>BUS_CAPACITY?"#fdecea":"#f8fafc"}}>{v||"-"}</td>;})}
-                    <td style={{padding:"4px 8px",textAlign:"center",fontWeight:900,color:"#1e293b",background:"#e2e8f0"}}>{pplSum(pubTasks)+pplSum(bdbTasks)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>}
-          {/* アラート */}
-          {noFlightPub.length>0&&<div style={{background:"#fffdf5",borderRadius:8,border:"1px solid #e0c068",padding:isMob?"8px 10px":"8px 12px",marginBottom:8}}>
-            <div style={{fontWeight:700,fontSize:isMob?11:10,color:"#8b6914",marginBottom:4}}>⚠ 便名未登録 {noFlightPub.length}件（暫定振分中）</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-              {noFlightPub.map(t=><span key={t._id} onClick={()=>setResDetailPopup(t)} style={{fontSize:isMob?10:9,background:"#fff",border:"1px solid #e0c068",padding:"2px 6px",borderRadius:4,cursor:"pointer",fontWeight:600}}>{t.name} {parseInt(t.people)||1}名</span>)}
-            </div>
-          </div>}
+          {/* ★ バス便別乗車人数 / 便名未登録アラート は廃止（バス運用なし） */}
           {/* 時系列スケジュール */}
           {(()=>{
             const timedWash=sortedTasks.filter(t=>t.type==="洗車"&&t.time);
@@ -16658,7 +16541,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             allSchedule.forEach(t=>{const tm=t.timeChange||t._ssTime||t.time||"--:--";const hh=tm.substring(0,2)||"--";if(!timeGroups[hh])timeGroups[hh]=[];timeGroups[hh].push(t);});
             const hours=Object.keys(timeGroups).sort();
             const TM=TASK_META||{};
-            const typeStyle=(tp)=>({PUB:{bg:"#dcfce7",c:"#166534",border:"#86efac"},PU:{bg:"#dbeafe",c:"#1e40af",border:"#93c5fd"},DEL:{bg:"#dbeafe",c:"#1d4ed8",border:"#60a5fa"},BDB:{bg:"#fce4ec",c:"#881337",border:"#fda4af"},BD:{bg:"#fee2e2",c:"#991b1b",border:"#fca5a5"},COL:{bg:"#ffedd5",c:"#9a3412",border:"#fdba74"},"来店":{bg:"#f3e8ff",c:"#6b21a8",border:"#c4b5fd"},"返却":{bg:"#f3e8ff",c:"#6b21a8",border:"#c4b5fd"},"洗車":{bg:"#FFFDE7",c:"#795548",border:"#FFD54F"}})[tp]||{bg:"#f1f5f9",c:"#475569",border:"#cbd5e1"};
+            // ★ バス廃止: PUB/BDB は PU/BD と同じスタイルにフォールバック
+            const typeStyle=(tp)=>({PU:{bg:"#dbeafe",c:"#1e40af",border:"#93c5fd"},PUB:{bg:"#dbeafe",c:"#1e40af",border:"#93c5fd"},DEL:{bg:"#dbeafe",c:"#1d4ed8",border:"#60a5fa"},BD:{bg:"#fee2e2",c:"#991b1b",border:"#fca5a5"},BDB:{bg:"#fee2e2",c:"#991b1b",border:"#fca5a5"},COL:{bg:"#ffedd5",c:"#9a3412",border:"#fdba74"},"来店":{bg:"#f3e8ff",c:"#6b21a8",border:"#c4b5fd"},"返却":{bg:"#f3e8ff",c:"#6b21a8",border:"#c4b5fd"},"洗車":{bg:"#FFFDE7",c:"#795548",border:"#FFD54F"}})[tp]||{bg:"#f1f5f9",c:"#475569",border:"#cbd5e1"};
             return <div style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",overflow:"hidden"}}>
               <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",padding:"8px 12px",color:"#e2e8f0",fontWeight:800,fontSize:isMob?13:12,display:"flex",alignItems:"center",gap:8}}>
                 <span>🗓 スケジュール</span>
@@ -16688,7 +16572,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                         {vn&&<span style={{fontSize:isMob?10:9,color:"#059669",fontWeight:600}}>🚗{vn.name}({vn.no})</span>}
                         {!vn&&t.plateNo&&<span style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:600}}>{t.plateNo}</span>}
                         {!vn&&!t.plateNo&&t.assignedVehicle===""&&t.type!=="来店"&&t.type!=="返却"&&t.type!=="洗車"&&<span style={{fontSize:isMob?9:8,color:"#dc2626",fontWeight:700}}>未配車</span>}
-                        {t.ota==="J"&&(t.type==="DEL"||t.type==="PU"||t.type==="PUB")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
+                        {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
                         {t.assignee&&<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>}
                         {!t.assignee&&t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>}
                       </div>
@@ -16898,10 +16782,11 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const HIA_VEHICLES=2;
         const HIA_TOTAL=HIA_CAPACITY*HIA_VEHICLES;
         const isMob=window.innerWidth<=768;
-        // ★ マスターのPU/BD = ハイエース運行表（来店/店舗等は除く）
-        const isHiaTarget=(t)=>(t.type==="PU"||t.type==="BD")&&isBusRequired(t);
-        const puTasks=sortedTasks.filter(t=>t.type==="PU"&&isBusRequired(t)).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
-        const bdTasks=sortedTasks.filter(t=>t.type==="BD"&&isBusRequired(t)).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+        // ★ バス廃止: PU/BD はすべてハイエース運行表に表示（来店/店舗等を除外する判定は廃止）
+        const NO_HIA_RE=/^(来店|店舗|店頭|ヤード|営業所)$/;
+        const isHiaTarget=(t)=>(t.type==="PU"||t.type==="BD"||t.type==="PUB"||t.type==="BDB")&&!NO_HIA_RE.test((t.place||"").trim());
+        const puTasks=sortedTasks.filter(t=>(t.type==="PU"||t.type==="PUB")&&!NO_HIA_RE.test((t.place||"").trim())).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+        const bdTasks=sortedTasks.filter(t=>(t.type==="BD"||t.type==="BDB")&&!NO_HIA_RE.test((t.place||"").trim())).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
         const totalPU_hia=puTasks.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         const totalBD_hia=bdTasks.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         // Build hourly slots same as bus
@@ -16959,7 +16844,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <span style={{background:"rgba(255,255,255,.2)",padding:"2px 8px",borderRadius:6}}>定員{HIA_TOTAL}名/便(×2台)</span>
             </div>
           </div>
-          {(puTasks.length===0&&bdTasks.length===0)&&<div style={{textAlign:"center",padding:20,color:"#94a3b8",fontSize:13}}>ハイエース運行タスクなし（バス定員超過で溢れた予約がここに表示されます）</div>}
+          {(puTasks.length===0&&bdTasks.length===0)&&<div style={{textAlign:"center",padding:20,color:"#94a3b8",fontSize:13}}>ハイエース送迎タスクなし</div>}
           {(noTimePU.length>0||noTimeBD_hia.length>0)&&<div style={{background:"#fef3c7",borderRadius:10,padding:isMob?"8px 10px":"6px 10px",marginBottom:8,border:"2px solid #f59e0b"}}>
             <div style={{fontWeight:800,fontSize:isMob?12:10,color:"#92400e",marginBottom:4}}>⚠ 時間未設定タスク</div>
             {noTimePU.length>0&&<div style={{marginBottom:4}}>
@@ -17219,8 +17104,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 {isBDB&&<button onClick={()=>changeTaskType(t._id,"BD","")} style={{...btnS,background:"#fff1f2",color:"#e11d48"}}>🚐 BD(HIA)に変更</button>}
                 {(t.type==="PU"||isDEL)&&<button onClick={()=>changeTaskType(t._id,t.type==="PU"?"DEL":"PU",t.type==="PU"?"DEL":"")} style={{...btnS,background:t.type==="PU"?"#eff6ff":"#ecfdf5",color:t.type==="PU"?"#2563eb":"#059669"}}>{t.type==="PU"?"🚗 DELに変更（スタッフ配送）":"🚐 PU(HIA)に変更"}</button>}
                 {(t.type==="BD"||isCOL)&&<button onClick={()=>changeTaskType(t._id,t.type==="BD"?"COL":"BD",t.type==="BD"?"COL":"")} style={{...btnS,background:t.type==="BD"?"#fff7ed":"#fff1f2",color:t.type==="BD"?"#ea580c":"#e11d48"}}>{t.type==="BD"?"🚗 COLに変更（スタッフ回収）":"🚐 BD(HIA)に変更"}</button>}
-                {t.type==="PU"&&<button onClick={()=>changeTaskType(t._id,"PUB","")} style={{...btnS,background:"#d1fae5",color:"#047857"}}>🚌 PUB(バス)に変更</button>}
-                {t.type==="BD"&&<button onClick={()=>changeTaskType(t._id,"BDB","")} style={{...btnS,background:"#ffe4e6",color:"#be123c"}}>🚌 BDB(バス)に変更</button>}
+                {/* ★ バス廃止: PUB/BDB への変更ボタン削除（ハイエース運用一本） */}
                 {/* 便移動 */}
                 {(isPU||isBD)&&<>
                   <div style={{fontSize:9,fontWeight:700,color:"#64748b",padding:"4px 4px 2px",marginTop:4}}>便を変更:</div>
@@ -20340,7 +20224,7 @@ function App(){
     <BgLoadingBar/>
     {SB_ENABLED&&<div className="sync-desktop"><SyncBadge connected={sbConnected}/></div>}
     {showSqFailed&&<SqFailedModal onClose={()=>setShowSqFailed(false)} onResolved={()=>setSqFailedRefreshKey(k=>k+1)}/>}
-    {showOP&&<OPScreen reservations={data} today={today} shifts={shifts} fleet={fleet} onFleetChange={setFleetSync} onClose={()=>{setShowOP(false);setOpInitialView(null);}} onGoFleet={()=>{setShowFloatFleet(f=>!f);}} vehicles={vehicles} staff={staff} resOpts={resOpts} sheetPlaces={sheetPlaces} onUpdateSheetPlaces={saveSheetPlaces} repeaterMap={repeaterInfo.isRepeater} jalanPay={jalanPay} maintenance={maintenance} openIntent={opOpenIntent} onOpenIntentConsumed={()=>setOpOpenIntent(null)} initialView={opInitialView} onReservationUpdate={(resId,fields)=>{setData(prev=>{const next=prev.map(r=>r.id===resId?{...r,...fields}:r);/* ★ OPシートタスクにも連動 */const updated=next.find(r=>r.id===resId);if(updated&&Object.keys(fields).some(k=>["delTime","delPlace","colTime","colPlace","insurance","vehicle","name","people","optB","optC","optJ","optUSB"].includes(k))){const syncF={};if(fields.name!==undefined)syncF.name=fields.name;if(fields.people!==undefined)syncF.people=fields.people;if(fields.insurance!==undefined)syncF.insurance=fields.insurance;if(fields.vehicle!==undefined)syncF.vehicle=fields.vehicle;const syncOpts=(fields.optB!==undefined||fields.optC!==undefined||fields.optJ!==undefined||fields.optUSB!==undefined)?{b:+(fields.optB??updated.optB??0),c:+(fields.optC??updated.optC??0),j:+(fields.optJ??updated.optJ??0),usb:+(fields.optUSB??updated.optUSB??0)}:null;const _syncT=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks||!tks.length)return;/* ★ FIX 2026-05-01 race condition: 該当予約のタスクのみ部分PATCH。旧コードは全タスクをupsertTasks(全件上書き)していたため、別タスクで進行中の DB write(担当変更等)が DB fetch のタイミング次第で空で上書きされ消失していた。今は updateTaskFields(部分PATCH)で該当予約タスクのみを更新する。*/const targetTasks=tks.filter(tk=>tk.reservationId===resId);if(!targetTasks.length)return;for(const tk of targetTasks){const fc={};if(syncF.name!==undefined)fc.name=syncF.name;if(syncF.people!==undefined)fc.people=syncF.people;if(syncF.insurance!==undefined)fc.insurance=syncF.insurance;if(syncF.vehicle!==undefined)fc.vehicle=syncF.vehicle;if(syncOpts)fc.opts=syncOpts;if((tk.type==="DEL"||tk.type==="PU"||tk.type==="PUB")&&tk._timeChangeSource!=="manual"&&fields.delTime!==undefined)fc.time=fields.delTime;if((tk.type==="DEL"||tk.type==="PU"||tk.type==="PUB")&&tk._placeSource!=="manual"&&fields.delPlace!==undefined)fc.place=fields.delPlace;if((tk.type==="COL"||tk.type==="BD"||tk.type==="BDB")&&tk._timeChangeSource!=="manual"&&fields.colTime!==undefined)fc.time=fields.colTime;if((tk.type==="COL"||tk.type==="BD"||tk.type==="BDB")&&tk._placeSource!=="manual"&&fields.colPlace!==undefined)fc.place=fields.colPlace;if(Object.keys(fc).length===0)continue;await DB.updateTaskFields(tk._id,d,fc);}};try{const ld=norm(updated.lendDate),rd=norm(updated.returnDate);_syncT(ld);if(rd!==ld)_syncT(rd);}catch(e){console.error("[resUpdate→tasks sync]",e);}}return next;});}}/>}
+    {showOP&&<OPScreen reservations={data} today={today} shifts={shifts} fleet={fleet} onFleetChange={setFleetSync} onClose={()=>{setShowOP(false);setOpInitialView(null);}} onGoFleet={()=>{setShowFloatFleet(f=>!f);}} vehicles={vehicles} staff={staff} resOpts={resOpts} sheetPlaces={sheetPlaces} onUpdateSheetPlaces={saveSheetPlaces} repeaterMap={repeaterInfo.isRepeater} jalanPay={jalanPay} maintenance={maintenance} openIntent={opOpenIntent} onOpenIntentConsumed={()=>setOpOpenIntent(null)} initialView={opInitialView} onReservationUpdate={(resId,fields)=>{setData(prev=>{const next=prev.map(r=>r.id===resId?{...r,...fields}:r);/* ★ OPシートタスクにも連動 */const updated=next.find(r=>r.id===resId);if(updated&&Object.keys(fields).some(k=>["delTime","delPlace","colTime","colPlace","insurance","vehicle","name","people","optB","optC","optJ","optUSB"].includes(k))){const syncF={};if(fields.name!==undefined)syncF.name=fields.name;if(fields.people!==undefined)syncF.people=fields.people;if(fields.insurance!==undefined)syncF.insurance=fields.insurance;if(fields.vehicle!==undefined)syncF.vehicle=fields.vehicle;const syncOpts=(fields.optB!==undefined||fields.optC!==undefined||fields.optJ!==undefined||fields.optUSB!==undefined)?{b:+(fields.optB??updated.optB??0),c:+(fields.optC??updated.optC??0),j:+(fields.optJ??updated.optJ??0),usb:+(fields.optUSB??updated.optUSB??0)}:null;const _syncT=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks||!tks.length)return;/* ★ FIX 2026-05-01 race condition: 該当予約のタスクのみ部分PATCH。旧コードは全タスクをupsertTasks(全件上書き)していたため、別タスクで進行中の DB write(担当変更等)が DB fetch のタイミング次第で空で上書きされ消失していた。今は updateTaskFields(部分PATCH)で該当予約タスクのみを更新する。*/const targetTasks=tks.filter(tk=>tk.reservationId===resId);if(!targetTasks.length)return;for(const tk of targetTasks){const fc={};if(syncF.name!==undefined)fc.name=syncF.name;if(syncF.people!==undefined)fc.people=syncF.people;if(syncF.insurance!==undefined)fc.insurance=syncF.insurance;if(syncF.vehicle!==undefined)fc.vehicle=syncF.vehicle;if(syncOpts)fc.opts=syncOpts;if((tk.type==="DEL"||tk.type==="PU")&&tk._timeChangeSource!=="manual"&&fields.delTime!==undefined)fc.time=fields.delTime;if((tk.type==="DEL"||tk.type==="PU")&&tk._placeSource!=="manual"&&fields.delPlace!==undefined)fc.place=fields.delPlace;if((tk.type==="COL"||tk.type==="BD")&&tk._timeChangeSource!=="manual"&&fields.colTime!==undefined)fc.time=fields.colTime;if((tk.type==="COL"||tk.type==="BD")&&tk._placeSource!=="manual"&&fields.colPlace!==undefined)fc.place=fields.colPlace;if(Object.keys(fc).length===0)continue;await DB.updateTaskFields(tk._id,d,fc);}};try{const ld=norm(updated.lendDate),rd=norm(updated.returnDate);_syncT(ld);if(rd!==ld)_syncT(rd);}catch(e){console.error("[resUpdate→tasks sync]",e);}}return next;});}}/>}
     {/* ★ フローティング配車表パネル（PC専用） */}
     {showFloatFleet&&<div style={{position:"fixed",bottom:0,right:0,width:floatFleetSize==="full"?"100%":"50%",height:floatFleetSize==="full"?"70vh":"45vh",zIndex:250,background:"#fff",borderTop:"3px solid #059669",borderLeft:floatFleetSize!=="full"?"3px solid #059669":"none",boxShadow:"0 -4px 20px rgba(0,0,0,.2)",display:"flex",flexDirection:"column",borderRadius:floatFleetSize==="full"?"12px 12px 0 0":"12px 0 0 0"}}>
       <div style={{display:"flex",alignItems:"center",padding:"6px 12px",background:"#059669",gap:6,flexShrink:0,borderRadius:floatFleetSize==="full"?"9px 9px 0 0":"9px 0 0 0"}}>
@@ -20947,7 +20831,7 @@ function App(){
               <PaymentSection sqfRefreshKey={sqFailedRefreshKey} onOpenSqFailed={()=>setShowSqFailed(true)} setTab={setTab}/>
               {/* ===== 📊 業務 / 関連APP（4アイコン） ===== */}
               <TopSectionTitle icon="📊" title="業務 / 関連APP"/>
-              <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{setOpInitialView("bus");setShowOP(true);}} onOpenOil={()=>setTab("vehicle")}/>
+              <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")}/>
               {/* ===== 🛠 日常業務以下 アイコングリッド統一 ===== */}
               {sections.map(function(sec){
                 const sectionIco={"日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
@@ -21376,7 +21260,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.44-BT";
+const APP_VERSION="v1.0.45-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
