@@ -87,7 +87,7 @@
   // 新: 月別 monthData を持って各月独立に書き込む = ④と⑤が完全に一致
   function applyDecision(parsed, mapping, months){
     // 🔴 デバッグ: 新ロジック発動を視覚的に確認 (キャッシュ問題の切り分け用)
-    const _ver = 'v20260520d';
+    const _ver = 'v20260520g';
     console.log('[ApplyDecision '+_ver+'] START months=', months, 'hasByMonth=', !!(parsed && parsed.byMonth));
     const raw = localStorage.getItem(STORAGE_KEY) || '{}';
     let state;
@@ -174,72 +174,66 @@
     });
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,50)));
 
-    // 🔴 致命バグ修正 2026-05-20 (v20260520f): 履歴バージョン管理 + 編集UIとの完全連携
-    // 問題: import-prices.html の履歴管理が独立しており、「採用中: V1原案」が pricing.html を支配
-    //       → ⑤Goサインで monthlyTierClassPrices に書き込んでも、リロード時に V1原案 で上書きされる
-    // 修正:
-    //   1) historyState に新バージョン追加 + activeVersion を新IDに設定
-    //   2) editState (画面編集中バッファ) も新値で上書き → 価格マトリクスUIに表示
-    //   3) applyActiveToLocalStorage(ym) を全月で実行 → pricing.html に確実反映
-    //   4) renderAll() で画面再描画
+    // 🔴 致命バグ修正 2026-05-20 (v20260520g): 真の連携 — module内変数を直接更新
+    // 前回バグ: localStorageを直接書いたが、import-prices.html の module スコープ historyState
+    //   /activeVersion は古いまま → applyActiveToLocalStorage() が古い V1原案 を返してしまっていた
+    // 今回: window.historyState / window.activeVersion を直接書き換えてから persistHistory() で永続化
     try {
-      const IMPORT_HIST_KEY = 'bt_import_history_v1';
-      const ihRaw = localStorage.getItem(IMPORT_HIST_KEY);
-      const ih = ihRaw ? JSON.parse(ihRaw) : {history:{}, active:{}};
-      if (!ih.history) ih.history = {};
-      if (!ih.active) ih.active = {};
-      const aiLabel = 'AI推奨 ' + new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      months.forEach(ym => {
-        const data = writtenByMonth[ym] || {};
-        if (!ih.history[ym]) ih.history[ym] = [];
-        // 既存の V1 (原案) は保持、それ以外は最大4個まで残す → V1 + 新規4 = 5上限
-        const v1 = ih.history[ym].find(v => v.id === 'v1');
-        const others = ih.history[ym].filter(v => v.id !== 'v1').slice(-3); // 直近3個
-        // 新バージョン ID = v(最大番号+1)
-        let maxN = 1;
-        ih.history[ym].forEach(v => {
-          const m = v.id && v.id.match(/^v(\d+)$/);
-          if (m) maxN = Math.max(maxN, parseInt(m[1],10));
-        });
-        const newId = 'v' + (maxN + 1);
-        const newVer = {
-          id: newId,
-          label: aiLabel,
-          savedAt: new Date().toLocaleString('ja-JP'),
-          A: data.A || {},
-          B: data.B || {},
-          C: data.C || {},
-        };
-        ih.history[ym] = v1 ? [v1, ...others, newVer] : [...others, newVer];
-        ih.active[ym] = newId; // 採用中バージョンを新規に切替
-      });
-      localStorage.setItem(IMPORT_HIST_KEY, JSON.stringify(ih));
-      console.log('[ApplyDecision '+_ver+'] historyState 連動更新完了 (採用中=新規AI推奨)');
-
-      // 🔴 editState (画面編集中バッファ) も新値で上書き → 価格マトリクスUIに即座反映
-      if (typeof window !== 'undefined' && window.editState) {
+      const W = (typeof window !== 'undefined') ? window : null;
+      if (!W || !W.historyState || !W.activeVersion) {
+        console.warn('[apply '+_ver+'] window.historyState/activeVersion 未公開 → スキップ');
+      } else {
+        const aiLabel = 'AI推奨 ' + new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
         months.forEach(ym => {
           const data = writtenByMonth[ym] || {};
-          if (!window.editState[ym]) window.editState[ym] = {};
-          window.editState[ym].A = {...(data.A || {})};
-          window.editState[ym].B = {...(data.B || {})};
-          window.editState[ym].C = {...(data.C || {})};
+          if (!W.historyState[ym]) W.historyState[ym] = [];
+          // 既存の V1 (原案) は保持、それ以外の直近3個 + 新規 = 5上限
+          const v1 = W.historyState[ym].find(v => v.id === 'v1');
+          const others = W.historyState[ym].filter(v => v.id !== 'v1').slice(-3);
+          let maxN = 1;
+          W.historyState[ym].forEach(v => {
+            const m = v.id && v.id.match(/^v(\d+)$/);
+            if (m) maxN = Math.max(maxN, parseInt(m[1],10));
+          });
+          const newId = 'v' + (maxN + 1);
+          const newVer = {
+            id: newId,
+            label: aiLabel,
+            savedAt: new Date().toLocaleString('ja-JP'),
+            A: data.A || {},
+            B: data.B || {},
+            C: data.C || {},
+          };
+          // ★ module内 historyState を破壊的更新 (新配列でなく既存配列を更新)
+          W.historyState[ym].length = 0;
+          if (v1) W.historyState[ym].push(v1);
+          others.forEach(o => W.historyState[ym].push(o));
+          W.historyState[ym].push(newVer);
+          W.activeVersion[ym] = newId; // ★ 採用中を新IDに切替
+          // editState も同期 (画面編集中バッファ)
+          if (W.editState) {
+            if (!W.editState[ym]) W.editState[ym] = {};
+            W.editState[ym].A = {...(data.A || {})};
+            W.editState[ym].B = {...(data.B || {})};
+            W.editState[ym].C = {...(data.C || {})};
+          }
         });
-        console.log('[ApplyDecision '+_ver+'] editState 同期完了');
-      }
+        // persistHistory で localStorage に永続化 (bt_import_history_v1)
+        if (typeof W.persistHistory === 'function') W.persistHistory();
+        console.log('[ApplyDecision '+_ver+'] historyState/activeVersion 直接更新+persistHistory完了');
 
-      // 🔴 applyActiveToLocalStorage() を全月で呼ぶ → pricing.html (seasonal_v6) に確実反映
-      if (typeof window !== 'undefined' && typeof window.applyActiveToLocalStorage === 'function') {
-        months.forEach(ym => {
-          try { window.applyActiveToLocalStorage(ym); }
-          catch(e) { console.warn('[apply] applyActive err for '+ym+':', e); }
-        });
-        console.log('[ApplyDecision '+_ver+'] applyActiveToLocalStorage 全月実行完了');
-      }
-
-      // 🔴 renderAll() で画面再描画 → 価格マトリクスUI即座更新
-      if (typeof window !== 'undefined' && typeof window.renderAll === 'function') {
-        try { window.renderAll(); } catch(e) { console.warn('[apply] renderAll err:', e); }
+        // applyActiveToLocalStorage を全月で呼ぶ (採用中=新規AI推奨 で実行される)
+        if (typeof W.applyActiveToLocalStorage === 'function') {
+          months.forEach(ym => {
+            try { W.applyActiveToLocalStorage(ym); }
+            catch(e) { console.warn('[apply] applyActive err '+ym+':', e); }
+          });
+          console.log('[ApplyDecision '+_ver+'] applyActiveToLocalStorage 全月実行完了');
+        }
+        // 画面再描画
+        if (typeof W.renderAll === 'function') {
+          try { W.renderAll(); } catch(e) { console.warn('[apply] renderAll err:', e); }
+        }
       }
     } catch(e) { console.warn('[apply] hist sync err:', e); }
 
