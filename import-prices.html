@@ -792,6 +792,85 @@ window.addEventListener('load', ()=>{
       if(!Object.keys(parsed.seasons).length && !Object.keys(parsed.byMonth).length){
         alert('反映可能な価格データがありません'); return;
       }
+
+      // 🔴 改修 2026-05-20 (DIRECT BYPASS): apply-decision.js / openGoSignModal を介さない直接連動
+      // 過去の連携問題 (履歴管理/モジュール変数/キャッシュ) を全部回避するため、
+      // editState を直接更新 → doImport() を呼ぶ シンプル経路で確実に反映
+      const targetMonths = Object.keys(parsed.byMonth).sort((a,b)=>{
+        const [ay,am]=a.split('-').map(Number);const [by,bm]=b.split('-').map(Number);
+        return (ay*100+am)-(by*100+bm);
+      });
+      if (!targetMonths.length) { alert('②調査日に対応する月別データがありません'); return; }
+
+      // 確認モーダル(シンプル版)
+      const summary = targetMonths.map(ym => {
+        const d = parsed.byMonth[ym];
+        const tiers = Object.keys(d).join('/');
+        const sampleTier = Object.keys(d)[0];
+        const sampleA = d[sampleTier]?.A;
+        return `${ym}: ${tiers} (A=${sampleA?'¥'+sampleA.toLocaleString():'-'})`;
+      }).join('\n');
+      if(!confirm(`★Goサイン — 直接反映モード\n\n対象月 ${targetMonths.length}ヶ月:\n${summary}\n\nこの推奨価格を ② マトリクスに書き込み、続けて 🚀 価格を確定・カレンダーに反映する を自動実行します。\n\nOK で実行しますか？`)) return;
+
+      // 1. editState に直接書き込み (padded "YYYY-MM" 形式に変換)
+      const toPaddedYm = (ym) => {
+        const [y, m] = ym.split('-');
+        return y + '-' + String(parseInt(m,10)).padStart(2, '0');
+      };
+      let updateCount = 0;
+      const ES = window.editState || {};
+      targetMonths.forEach(ym_unp => {
+        const ym_pad = toPaddedYm(ym_unp);
+        const data = parsed.byMonth[ym_unp];
+        if (!ES[ym_pad]) ES[ym_pad] = {A:{},B:{},C:{}};
+        ['A','B','C'].forEach(tier => {
+          if (data[tier]) {
+            if (!ES[ym_pad][tier]) ES[ym_pad][tier] = {};
+            Object.entries(data[tier]).forEach(([cls,val])=>{
+              ES[ym_pad][tier][cls] = val;
+              updateCount++;
+            });
+          }
+        });
+      });
+      console.log('[applyDecisionFromReport] editState 直接更新:', updateCount, '値');
+
+      // 2. UI再描画
+      if (typeof window.renderAll === 'function') {
+        try { window.renderAll(); } catch(e) { console.warn('renderAll err:', e); }
+      }
+
+      // 3. doImport を直接呼ぶ (localStorage 反映)
+      if (typeof window.doImport === 'function') {
+        try {
+          window.doImport();
+          alert('✅ 反映完了\n\n対象: '+targetMonths.length+'ヶ月 '+targetMonths.join(', ')+'\n更新セル: '+updateCount+'\n\n📅 pricing.html (カレンダー) を Cmd+Shift+R でリロードしてください');
+          // 履歴保存
+          try {
+            const surveyDates = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
+            const snapshot = {
+              positionPct: pct, surveyDates, dayTiers,
+              fetcherTotal: r.total_records, fetcherMapped: r.mapped_records,
+              decision: r.by_tier, decisionByMonth: r.by_month_tier,
+              appliedMonths: targetMonths, updateCount,
+            };
+            fetch(SERVER_URL + '/api/history/save', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+              body: JSON.stringify(snapshot)
+            }).catch(e=>console.warn('history save err:', e));
+          } catch(e) { console.warn('history snapshot err:', e); }
+          // フロー状態 idle に戻す
+          if (typeof markFlowIdle === 'function') markFlowIdle();
+        } catch(e) {
+          alert('❌ doImport エラー: '+e.message);
+          console.error('[doImport] err:', e);
+        }
+      } else {
+        alert('❌ doImport 関数が見つかりません');
+      }
+      return; // ★ 旧パス (openGoSignModal) には行かない
+
       if(!window.ApplyDecision){ alert('apply-decision.js が読み込まれていません'); return; }
       // ⑤Goサイン完了時のフック: 履歴保存 + デフォルト復帰 (オーナー要望 2026-05-18)
       window.ApplyDecision.openGoSignModal(parsed, {
