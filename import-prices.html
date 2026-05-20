@@ -649,11 +649,10 @@ window.addEventListener('load', ()=>{
     let html = `<div style="margin-bottom:8px;color:#fff;font-size:9pt">この価格でプライシングシステムに反映します（希望ポジション: 5位×${pct}%・<strong>月×tier マトリクス</strong>）。月ごとに市場実勢が異なるため、月×tier 単位で独立した価格を反映します。${_filterNote}</div>`;
     for (const ym of sortedMonths) {
       const tiers = byMonthTier[ym];
-      // 🔴 A案: tier フィルタも適用 (②調査日に含まれない tier はスキップ)
-      const availTiers = ['A','B','C'].filter(t => {
-        if (_filterEnabled && !_surveyMonthTiers.has(`${ym}|${t}`)) return false;
-        return Object.values(tiers[t]||{}).some(d=>d?.recommended != null);
-      });
+      // ②調査日 にある月は全tier表示 (シーズナル定義 A閑散もサーバー側で機械生成済)
+      const monthHasSurvey = _filterEnabled ? ['A','B','C'].some(t => _surveyMonthTiers.has(`${ym}|${t}`)) : true;
+      if (!monthHasSurvey) continue;
+      const availTiers = ['A','B','C'].filter(t => Object.values(tiers[t]||{}).some(d=>d?.recommended != null));
       if (!availTiers.length) continue;
       const [y,m] = ym.split('-');
       html += `<div style="margin:14px 0 6px;color:#fff;font-weight:800;font-size:11pt">📅 ${y}年${m}月</div>`;
@@ -663,11 +662,12 @@ window.addEventListener('load', ()=>{
       html += `<th style="padding:6px 10px;text-align:center;background:#0a2818;font-size:8pt;color:#bae6fd">日数</th>`;
       html += `</tr></thead><tbody>`;
       ['A','B','C'].forEach(t=>{
-        // 🔴 A案: tier フィルタ
-        if (_filterEnabled && !_surveyMonthTiers.has(`${ym}|${t}`)) return;
+        // tier フィルタ撤廃 (シーズナル定義で全tier機械生成のため、全行表示)
         const row = tiers[t]||{};
+        // sample_days は B以外0だが derived_from があれば表示
+        const hasDerived = CLASSES.some(c => row[c]?.derived_from);
         const maxDays = Math.max(...CLASSES.map(c=>row[c]?.sample_days||0));
-        if (maxDays === 0) return;
+        if (maxDays === 0 && !hasDerived) return;
         html += `<tr><td style="padding:6px 10px;background:${TIER_BG[t]};color:${TIER_TEXT[t]};font-weight:800;font-size:9pt">${TIER_LABEL[t]}</td>`;
         CLASSES.forEach(cls=>{
           const d = row[cls]||{};
@@ -775,10 +775,14 @@ window.addEventListener('load', ()=>{
         const _surveyMonthTiers = new Set(); // "YYYY-M|tier" 形式
         _validReps.forEach(rr => _surveyMonthTiers.add(`${_year}-${parseInt(rr.month,10)}|${rr.tier}`));
         for (const [ym, monthTiers] of Object.entries(r.by_month_tier)) {
+          // この月に②調査日tierが1つでもあれば全tierを反映 (シーズナル定義完全反映のため)
+          const monthHasSurvey = ['A','B','C'].some(t => _surveyMonthTiers.has(`${ym}|${t}`));
+          if (!monthHasSurvey) continue;
           parsed.byMonth[ym] = {};
           for (const tier of ['A','B','C']) {
-            if (!_surveyMonthTiers.has(`${ym}|${tier}`)) continue; // ②調査日外の月×tierはスキップ
             const tierData = monthTiers[tier] || {};
+            // サーバー側で derived (基準価格から導出) されたものは ②調査日 に無くても含める
+            // → シーズナル定義 (A=B×0.8 / C=B×1.5) を全月全tierで保証
             const tierResult = {};
             for (const cls of ['AA','A','B','C','S','H','F']) {
               const d = tierData[cls] || {};
