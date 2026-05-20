@@ -461,12 +461,54 @@ window.addEventListener('load', ()=>{
       const pct = parseInt(localStorage.getItem('bt_tkm_pricing_position_v1')||'90', 10);
       const state = (()=>{ try{return JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');}catch(e){return {};} })();
       const dayTiers = state.dayTiers || null;
-      // 🔹 新: サーバー集計エンドポイント /api/decision/compute から直接推奨価格を取得 (CLI agent 経由なし)
-      const computeRes = await fetch(SERVER_URL + '/api/decision/compute', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
-        body: JSON.stringify({positionPct: pct, dayTiers})
-      }).then(r=>r.json());
+      // 🔹 サーバー集計エンドポイント /api/decision/compute から推奨価格を取得
+      // 🔴 改修 2026-05-21: サーバー fetch 失敗時は localStorage 直読みで ③④を表示 (業務継続性)
+      let computeRes;
+      try {
+        computeRes = await fetch(SERVER_URL + '/api/decision/compute', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+          body: JSON.stringify({positionPct: pct, dayTiers})
+        }).then(r=>r.json());
+      } catch(fetchErr) {
+        // サーバー通信失敗 → localStorage の monthlyTierClassPrices から擬似 by_month_tier を構築して fallback 表示
+        console.warn('[refreshReport] サーバー fetch 失敗 → localStorage fallback:', fetchErr.message);
+        const monthly = state.monthlyTierClassPrices || state.segments?.proper?.monthlyTierClassPrices || {};
+        const by_month_tier = {};
+        Object.entries(monthly).forEach(([ym, tierData]) => {
+          by_month_tier[ym] = {};
+          ['A','B','C'].forEach(tier => {
+            by_month_tier[ym][tier] = {};
+            ['AA','A','B','C','S','H','F'].forEach(cls => {
+              const v = tierData?.[tier]?.[cls];
+              by_month_tier[ym][tier][cls] = {
+                recommended: v != null ? v : null,
+                n5_median: null, position_pct: pct, sample_days: 0, sample_records: 0,
+                insufficient_sample: false,
+                fallback_source: 'localStorage', // フォールバック印
+              };
+            });
+          });
+        });
+        // by_tier (summary用) も組み立て
+        const by_tier = {};
+        ['A','B','C'].forEach(tier => {
+          by_tier[tier] = {};
+          ['AA','A','B','C','S','H','F'].forEach(cls => {
+            const ymKeys = Object.keys(monthly);
+            const lastYm = ymKeys[ymKeys.length - 1];
+            const v = lastYm ? monthly[lastYm]?.[tier]?.[cls] : null;
+            by_tier[tier][cls] = { recommended: v != null ? v : null, n5_median: null, sample_days: 0 };
+          });
+        });
+        computeRes = {
+          by_tier, by_month_tier,
+          total_records: 0, mapped_records: 0,
+          unmapped_samples: [],
+          _localStorage_fallback: true,
+        };
+        // ユーザーには静かに fallback (Failed to fetch エラーを画面に出さない)
+      }
       if(computeRes.error){ el.innerHTML = '<span style="color:#fca5a5">サーバー集計エラー: '+computeRes.error+'</span>'; return; }
       // by_tier → parsed.seasons 形式へ変換 (既存renderロジック互換)
       const SEASON_LABELS = [['A','A閑散シーズン'],['B','B通常シーズン'],['C','C繁忙シーズン']];  // A→B→C 統一
