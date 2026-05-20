@@ -1120,32 +1120,59 @@ window.addEventListener('load', ()=>{
   // 旧API互換 (markFlowActive → step1_running)
   function markFlowActive(){ markFlowStep1Running(); }
   function applyFlowVisibility(){
-    // 🔴 改修 2026-05-20: ③④決定完了後にリロードすると idle扱い → セクション非表示の致命バグ修正
-    // 旧: 価格表にデータあり = idle 扱い → ③④⑤非表示 → ユーザー混乱
-    // 新: ③④⑤を常に表示。idle 案内は撤廃 (常に編集可能状態)
+    // 🔴 改修 2026-05-21 (オーナー指示「終わったらデフォに戻るがルール」):
+    // フロー状態に応じて ③④⑤の表示を切替。⑤完了後はデフォ(idle)画面に戻る。
     const s = getFlowState();
-    let state = s.state || 'step1_done'; // デフォルトは作業状態
+    let state = s.state;
+    let completedAtLabel = s.lastCompletedAt;
+    // フォールバック: flowState 未設定だが価格表にデータあり → idle 扱い (過去反映済)
+    if (!state) {
+      try {
+        const seasonal = JSON.parse(localStorage.getItem('bt_takamatsu_seasonal_v6')||'{}');
+        const monthly = seasonal.monthlyTierClassPrices || seasonal.segments?.proper?.monthlyTierClassPrices || {};
+        if (Object.keys(monthly).length > 0) {
+          state = 'idle';
+          try {
+            const hist = JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]');
+            if (hist[0] && hist[0].at) completedAtLabel = hist[0].at;
+          } catch(e) {}
+        }
+      } catch(e) {}
+    }
     document.body.classList.remove('flow-idle','flow-step1-running','flow-step1-done','flow-step5-running');
-    document.body.classList.add('flow-' + state.replace(/_/g,'-'));
+    if (state) document.body.classList.add('flow-' + state.replace(/_/g,'-'));
 
     const sec_report = document.getElementById('section-report');
     const sec_decision = document.getElementById('section-decision');
     const sec_apply = document.getElementById('section-apply');
     const sec_idle = document.getElementById('section-idle-guide');
 
-    // 状態別の可視性ルール (簡素化)
-    //   step1_running: 進捗バナーで完結 → ③④⑤も表示OK (差分なし)
-    //   step5_running: モーダル内で完結
-    //   それ以外 (step1_done / idle / 未設定): ③④⑤常に表示
+    // 状態別の可視性ルール
+    //   idle: ①②表示 / ③④⑤非表示 / idle案内表示 (完了状態)
+    //   step1_running: 進捗バナーで完結 → ③④⑤非表示
+    //   step1_done: ①②③④⑤全表示 (作業中)
+    //   step5_running: 全 disabled / モーダル内で完結
+    const isIdle = state === 'idle';
     const isRunning = state === 'step1_running';
     const isStep5Running = state === 'step5_running';
+    const showAll = !isIdle && !isRunning;
 
-    // ★ ③④⑤を常に表示 (idle 扱いでも非表示しない)
-    if (sec_report)   sec_report.style.display   = '';
-    if (sec_decision) sec_decision.style.display = '';
-    if (sec_apply)    sec_apply.style.display    = '';
-    // idle 案内は常に非表示 (混乱の元)
-    if (sec_idle)     sec_idle.style.display     = 'none';
+    if (sec_report)   sec_report.style.display   = showAll ? '' : 'none';
+    if (sec_decision) sec_decision.style.display = showAll ? '' : 'none';
+    if (sec_apply)    sec_apply.style.display    = showAll ? '' : 'none';
+
+    if (sec_idle) {
+      sec_idle.style.display = isIdle ? 'block' : 'none';
+      if (isIdle) {
+        const detail = document.getElementById('idle-guide-detail');
+        if (completedAtLabel && detail) {
+          const d = new Date(completedAtLabel);
+          detail.textContent = `最終完了: ${d.toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
+        } else if (detail) {
+          detail.textContent = '価格表にデータあり（過去の調査結果が反映済み）';
+        }
+      }
+    }
 
     // step1_running 中の case-by-case: ①②セクションを半透明に + Step1ボタンは「実行中」表示
     const step1Btn = document.getElementById('exec-research-btn');
