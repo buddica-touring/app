@@ -848,7 +848,49 @@ window.addEventListener('load', ()=>{
       if (typeof window.doImport === 'function') {
         try {
           window.doImport(true); // 2重確認回避
-          alert('✅ 反映完了\n\n対象: '+targetMonths.length+'ヶ月 '+targetMonths.join(', ')+'\n更新セル: '+updateCount+'\n\n📅 pricing.html (カレンダー) を Cmd+Shift+R でリロードしてください');
+
+          // 🔴 改修 2026-05-20 (履歴管理同期バグ修正):
+          // doImport が monthlyTierClassPrices を更新しても、historyState の「採用中V1原案」
+          // が残ると、リロード時に ②マトリクスが V1原案で初期化される → APP価格戦略タブとズレる
+          // → historyState に新バージョン「AI推奨」追加 + activeVersion を新IDに切替
+          try {
+            if (window.historyState && window.activeVersion) {
+              const aiLabel = 'AI推奨 ' + new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+              targetMonths.forEach(ym_unp => {
+                const ym_pad = toPaddedYm(ym_unp);
+                const data = parsed.byMonth[ym_unp] || {};
+                if (!window.historyState[ym_pad]) window.historyState[ym_pad] = [];
+                // 既存V1原案は保持 + 直近3個 + 新規 = 5上限
+                const v1 = window.historyState[ym_pad].find(v => v.id === 'v1');
+                const others = window.historyState[ym_pad].filter(v => v.id !== 'v1').slice(-3);
+                let maxN = 1;
+                window.historyState[ym_pad].forEach(v => {
+                  const m = v.id && v.id.match(/^v(\d+)$/);
+                  if (m) maxN = Math.max(maxN, parseInt(m[1],10));
+                });
+                const newId = 'v' + (maxN + 1);
+                const newVer = {
+                  id: newId,
+                  label: aiLabel,
+                  savedAt: new Date().toLocaleString('ja-JP'),
+                  A: data.A || {},
+                  B: data.B || {},
+                  C: data.C || {},
+                };
+                // 破壊的更新 (新配列代入でなく既存配列を変更 → モジュール変数同期)
+                window.historyState[ym_pad].length = 0;
+                if (v1) window.historyState[ym_pad].push(v1);
+                others.forEach(o => window.historyState[ym_pad].push(o));
+                window.historyState[ym_pad].push(newVer);
+                window.activeVersion[ym_pad] = newId;
+              });
+              if (typeof window.persistHistory === 'function') window.persistHistory();
+              if (typeof window.renderAll === 'function') window.renderAll();
+              console.log('[applyDecisionFromReport] historyState 同期完了: 採用中=AI推奨');
+            }
+          } catch(eHist) { console.warn('[applyDecisionFromReport] historyState 同期エラー:', eHist); }
+
+          alert('✅ 反映完了\n\n対象: '+targetMonths.length+'ヶ月 '+targetMonths.join(', ')+'\n更新セル: '+updateCount+'\n\n採用中: AI推奨 (新バージョン) として履歴に保存しました。\n\n📅 pricing.html (カレンダー) を Cmd+Shift+R でリロードしてください');
           // 履歴保存
           try {
             const surveyDates = JSON.parse(localStorage.getItem('bt_tkm_survey_dates_v1')||'[]');
