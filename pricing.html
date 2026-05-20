@@ -178,6 +178,19 @@ input[data-tier].cell-saved{background:#dcfce7 !important;border:2px solid #22c5
 </head>
 <body>
 
+<script>
+// 🔴 2026-05-20: Service Worker 完全削除 (古いキャッシュで価格が更新されない問題対応)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    return Promise.all(regs.map(function(r){return r.unregister();}));
+  }).then(function(){
+    return (typeof caches !== 'undefined') ? caches.keys() : [];
+  }).then(function(keys){
+    return Promise.all((keys||[]).map(function(k){return caches.delete(k);}));
+  }).catch(function(){});
+}
+</script>
+
 <div class="header">
   <div class="header-left">
     <div>

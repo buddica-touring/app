@@ -208,6 +208,20 @@ table.cal-tbl .sat{color:#93c5fd}
 </head>
 <body>
 
+<script>
+// 🔴 2026-05-20: Service Worker 完全削除 (古い apply-decision.js キャッシュ問題対応)
+// 空 sw.js がリロードを妨害 + キャッシュ蓄積で v20260520g などの新コードが読まれない
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    return Promise.all(regs.map(function(r){return r.unregister();}));
+  }).then(function(){
+    return (typeof caches !== 'undefined') ? caches.keys() : [];
+  }).then(function(keys){
+    return Promise.all((keys||[]).map(function(k){return caches.delete(k);}));
+  }).catch(function(){});
+}
+</script>
+
 <!-- グローバル実行ステータスバナー (画面トップ固定) -->
 <div id="global-status-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:14px 24px;background:linear-gradient(90deg,#1e40af,#2563eb);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.35);font-family:-apple-system,sans-serif">
   <div style="display:flex;align-items:center;gap:18px;max-width:1400px;margin:0 auto">
