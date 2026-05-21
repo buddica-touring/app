@@ -1755,31 +1755,20 @@ async function run(){
     }
 
     // ========== [3] 詳細セクション (折り畳み・必要時に開く) ==========
-    html+=`<details><summary>🏗️ 車両稼働 (商品・全ての起点)</summary><div class="detail-body">`;
+    // 詳細セクション (折り畳み・重複セクション削除済み)
+    html+=`<details class="monthly-only"><summary>🏗️ 車両稼働 (商品・全ての起点) — グロス/クラス別/除外車両</summary><div class="detail-body">`;
     if(kpiData)html+=renderVehicleRoot(d,kpiData);
     html+=`</div></details>`;
 
-    html+=`<details><summary>📥 INPUT - 何を元に予測したか</summary><div class="detail-body">`;
-    html+=renderInputSection(d);
-    html+=`</div></details>`;
-
-    html+=`<details><summary>⚙️ ALGORITHM - どうシミュレートしたか (4手法 + 8制約)</summary><div class="detail-body">`;
+    html+=`<details class="monthly-only"><summary>⚙️ ALGORITHM - 予測の根拠 (5手法 + 8制約 + 重み付け)</summary><div class="detail-body">`;
     html+=renderAlgorithmSection(d,methods,weights,integrated,constraints);
     html+=`</div></details>`;
 
-    html+=`<details><summary>📊 OUTPUT - 予測結果の詳細</summary><div class="detail-body">`;
-    html+=renderOutputSection(d,integrated,target);
-    html+=`</div></details>`;
-
-    html+=`<details><summary>🎯 ACTION - 目標達成への必要条件</summary><div class="detail-body">`;
-    html+=renderActionSection(d,integrated,target,constraints);
-    html+=`</div></details>`;
-
-    html+=`<details><summary>📡 PROGRESS - 当月日次累積進捗</summary><div class="detail-body">`;
+    html+=`<details class="monthly-only"><summary>📡 PROGRESS - 当月の日次累積進捗</summary><div class="detail-body">`;
     html+=renderProgressSection(d);
     html+=`</div></details>`;
 
-    html+=`<details><summary>📅 TIMELINE - 予測の日次推移 (毎日自動保存)</summary><div class="detail-body">`;
+    html+=`<details class="monthly-only"><summary>📅 TIMELINE - 予測の日次推移 (毎日自動保存)</summary><div class="detail-body">`;
     html+=renderTimelineSection(d,integrated,target);
     html+=`</div></details>`;
 
