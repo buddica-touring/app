@@ -581,23 +581,60 @@ function checkConstraints(store,year,month,byM,veh,kpi,target,resv){
 }
 
 // ==================== 信頼度スコア & 統合 ====================
-function calcWeights(methods,nMonthsData,monthPhase,daysToStart){
+function calcWeights(methods,nMonthsData,monthPhase,daysToStart,rank){
   const valid=methods.filter(m=>m&&m.value!=null);
   if(valid.length===0)return{};
   const w={};
   const dataScore=Math.min(1,nMonthsData/6);
   const isFarFuture=monthPhase==='future'&&daysToStart>30;
+  const isPeak=rank==='AA'||rank==='A';
   valid.forEach(m=>{
-    let base=0.25;
-    if(m.name.startsWith('M1')){base=isFarFuture?0.50:0.20*(0.5+dataScore*0.5);}
-    else if(m.name.startsWith('M2')){base=isFarFuture?0.05:0.30;}
-    else if(m.name.startsWith('M3')){base=isFarFuture?0.30+dataScore*0.10:0.30+dataScore*0.10;}
-    else if(m.name.startsWith('M4')){base=isFarFuture?0.15+dataScore*0.05:0.15+dataScore*0.05;}
+    let base=0.20;
+    if(m.name.startsWith('M1')){
+      if(isFarFuture){base=isPeak?0.55:0.35;}
+      else{base=0.20*(0.5+dataScore*0.5);}
+    }
+    else if(m.name.startsWith('M2')){base=isFarFuture?0.05:0.25;}
+    else if(m.name.startsWith('M3')){base=isFarFuture?(isPeak?0.10:0.15):0.25+dataScore*0.05;}
+    else if(m.name.startsWith('M4')){base=isFarFuture?(isPeak?0.05:0.10):0.10+dataScore*0.05;}
+    else if(m.name.startsWith('M5')){
+      if(isFarFuture){base=isPeak?0.25:0.35;}
+      else{base=0.20;}
+    }
     w[m.name]=base;
   });
   const sum=Object.values(w).reduce((s,v)=>s+v,0);
   Object.keys(w).forEach(k=>w[k]/=sum);
   return w;
+}
+
+// M5: 予約発生ペース予測
+function method5Velocity(resv,store,year,month,execDate){
+  const endCol=store==='nha'?'end_date':'return_date';
+  const targetYm=`${year}-${String(month).padStart(2,'0')}`;
+  const mEnd=monthEnd(year,month);
+  if(execDate>mEnd)return null;
+  const RELIABLE_FROM='2026-03-30';
+  const cutoff=ymdStr(new Date(execDate.getTime()-30*86400000));
+  let cntTotal=0,subTotal=0,cntRecent=0,subRecent=0;
+  resv.forEach(r=>{
+    if(normStatus(r.status)==='cancelled')return;
+    const ed=(r[endCol]||'').slice(0,10);
+    if(ed.slice(0,7)!==targetYm)return;
+    const sub=revOf(r);
+    cntTotal++;subTotal+=sub;
+    const cr=(r.created_at||'').slice(0,10);
+    if(!cr||cr<RELIABLE_FROM)return;
+    if(cr>=cutoff){cntRecent++;subRecent+=sub;}
+  });
+  const dailyCnt=cntRecent/30;
+  const dailySub=subRecent/30;
+  const remain=Math.max(0,Math.round((mEnd-execDate)/86400000));
+  return{
+    name:'M5: 予約ペース',
+    value:Math.round(subTotal+dailySub*remain),
+    detail:{current_total_cnt:cntTotal,current_total_sub:subTotal,reliable_30day_cnt:cntRecent,daily_velocity:dailyCnt.toFixed(2)+'件/日',remaining_days:remain,projected_add_cnt:Math.round(dailyCnt*remain),projected_add_sub:Math.round(dailySub*remain)}
+  };
 }
 
 function integrate(methods,weights){
@@ -955,25 +992,28 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
     const utilAct=nActive>0?mData.nights/(nActive*mDays):0;
     const perVehAct=nActive>0?mData.sub/nActive:0;
 
-    // 予測 (簡易: M3パターン + extra)
+    // 予測: run() と同じアンサンブル (5手法+重み付き統合) で整合性確保
     const extraByM=extraMonthly(acct);
-    let revFcst=revAct;
-    let m3=method3Pattern(resv,byM,extraByM,store,year,m,execDate);
-    let m1=method1Target(store,year,m,execDate);
-    let m2=method2Linear(byM,extraByM,store,year,m,execDate);
-    const fcstCandidates=[m1,m2,m3].filter(x=>x&&x.value!=null).map(x=>x.value);
-    if(fcstCandidates.length>0){
-      // 中央値ベースで予測
-      fcstCandidates.sort((a,b)=>a-b);
-      revFcst=fcstCandidates[Math.floor(fcstCandidates.length/2)];
-    }
-
-    // 月分類
     const mStart=new Date(year,m-1,1);
     const mEnd=monthEnd(year,m);
     let phase='future';
     if(execDate>=mStart&&execDate<=mEnd)phase='current';
     else if(execDate>mEnd)phase='past';
+    const daysToStart=phase==='future'?Math.round((mStart-execDate)/86400000):0;
+    const rank2=RANKS[store]?.[m]||'B';
+    const m1=method1Target(store,year,m,execDate);
+    const m2=method2Linear(byM,extraByM,store,year,m,execDate);
+    const m3=method3Pattern(resv,byM,extraByM,store,year,m,execDate);
+    const m4=method4Trend(byM,extraByM,store,year,m);
+    const m5=method5Velocity(resv,store,year,m,execDate);
+    const allMethods=[m1,m2,m3,m4,m5];
+    const nMonthsData=Object.keys(byM).filter(ym=>ym<`${year}-${String(m).padStart(2,'0')}`).length;
+    const weights=calcWeights(allMethods,nMonthsData,phase,daysToStart,rank2);
+    let revFcst=revAct;
+    const validMethods=allMethods.filter(x=>x&&x.value!=null);
+    if(validMethods.length>0){
+      revFcst=validMethods.reduce((s,mm)=>s+(weights[mm.name]||0)*mm.value,0);
+    }
 
     // 予測派生
     const cntFcst=aovAct>0?Math.round(revFcst/aovAct):(aovTarget>0?Math.round(revFcst/aovTarget):0);
