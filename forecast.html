@@ -1462,12 +1462,19 @@ function renderForecastChartSection(d,mNum,k,tgtCntV){
   var cumS=[],cumC=[],sumS=0,sumC=0;
   for(var i=0;i<mD;i++){sumS+=dailyS[i];sumC+=dailyC[i];cumS.push(sumS);cumC.push(sumC);}
   var confS=k.actual.rev,confC=k.actual.cnt,fcstS=k.forecast.rev,fcstC=k.forecast.cnt,tgtS=k.target.rev;
+  var todayCumS=todayIdx>=0?cumS[todayIdx]:0;
+  var todayCumC=todayIdx>=0?cumC[todayIdx]:0;
   var ftS=[],ftC=[];
   for(var i=0;i<mD;i++){
     var t,e;
-    if(todayIdx<0){t=(i+1)/mD;ftS.push(fcstS*t);ftC.push(Math.round(fcstC*t));}
-    else if(i<=todayIdx){t=todayIdx>0?(i+1)/(todayIdx+1):1;ftS.push(confS*t);ftC.push(Math.round(confC*t));}
-    else{t=(i-todayIdx)/(mD-todayIdx);e=t<.5?2*t*t:-1+(4-2*t)*t;ftS.push(confS+(fcstS-confS)*e);ftC.push(Math.round(confC+(fcstC-confC)*e));}
+    if(todayIdx<0){
+      t=(i+1)/mD;ftS.push(fcstS*t);ftC.push(Math.round(fcstC*t));
+    }else if(i<=todayIdx){
+      ftS.push(cumS[i]);ftC.push(cumC[i]);
+    }else{
+      t=(i-todayIdx)/(mD-todayIdx);e=t<.5?2*t*t:-1+(4-2*t)*t;
+      ftS.push(todayCumS+(fcstS-todayCumS)*e);ftC.push(Math.round(todayCumC+(fcstC-todayCumC)*e));
+    }
   }
   function mkSVG(aD,fD,tgt,fmt,ttl,col){
     var W=560,H=200,PX=52,PY=24,PB=28,cH=H-PY-PB;
@@ -1475,8 +1482,7 @@ function renderForecastChartSection(d,mNum,k,tgtCntV){
     function yA(v){return PY+cH*(1-v/yMx);}
     function xA(i){return PX+(W-PX-12)*i/(mD-1);}
     var yT=yA(tgt);
-    var aP='';
-    if(todayIdx>=0)aP=Array.from({length:todayIdx+1},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ');
+    var aP=Array.from({length:mD},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ');
     var fs=Math.max(0,todayIdx>=0?todayIdx:0);
     var fP=Array.from({length:mD-fs},function(_,i){var idx=i+fs;return(i===0?'M':'L')+xA(idx).toFixed(1)+','+yA(fD[idx]).toFixed(1);}).join(' ');
     var yLs=[0,.25,.5,.75,1].map(function(t){return{v:yMx*t,y:yA(yMx*t)};});
@@ -1678,7 +1684,7 @@ async function run(){
           const md=k.methodDetails||{};
           const methodLabels={'M1: ターゲット+季節':'🎯 目標+季節+連休','M2: 既予約済み':'💰 既予約済み','M2: 既予約済み(将来)':'💰 既予約済み','M2: 過去実績':'💰 過去実績','M3: パターン(当月)':'📊 過去パターン','M3: パターン(未来)':'📊 過去パターン','M3: 過去実績':'📊 過去実績','M4: 直近トレンド':'📈 直近トレンド','M5: 予約ペース':'⚡ 予約発生ペース'};
           const sorted=Object.entries(md).sort((a,b)=>(b[1].weight||0)-(a[1].weight||0));
-          html+=`<div style="margin:-6px 0 14px;padding:12px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #38bdf8;border-radius:10px;font-size:11.5px;color:#0c4a6e">`;
+          html+=`<div class="monthly-only" style="margin:-6px 0 14px;padding:12px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #38bdf8;border-radius:10px;font-size:11.5px;color:#0c4a6e">`;
           html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:700;color:#0369a1">📐 ${mm.m}月の予測根拠 (5手法アンサンブル)</span></div>`;
           html+=`<table style="width:100%;border-collapse:collapse;font-size:11px"><tbody>`;
           sorted.forEach(([name,info])=>{
@@ -1996,7 +2002,7 @@ function init(){
   if(u.get('month'))ms.value=u.get('month');
   if(u.get('asOf'))document.getElementById('asOf').value=u.get('asOf');
   document.getElementById('status').textContent='ボタンを押してください';
-  run();
+  run().then(function(){if(u.get('view')==='chart')setView('chart');});
 }
 init();
 </script>
