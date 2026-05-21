@@ -383,18 +383,19 @@ function method1Target(store,year,month,execDate){
 }
 
 function method2Linear(byM,extraByM,store,year,month,execDate){
+  // 旧M2線形外挿は created_at の不安定さで暴走 (APP導入時のデータ一括取込問題)
+  // 新M2: 「現状予約ベース」= 既予約済の合計 (返却済 + 未返却の双方)
   const ym=`${year}-${String(month).padStart(2,'0')}`;
-  const mDays=monthDays(year,month);
-  const mEnd=monthEnd(year,month);
-  const mStart=new Date(year,month-1,1);
-  if(execDate<mStart)return null;
-  const cap=execDate<mEnd?execDate:mEnd;
-  const elapsed=Math.max(1,Math.round((cap-mStart)/86400000)+1);
   const m=byM[ym]||{sub:0,cnt:0};
   const extra=extraByM[ym]||0;
   const cur=m.sub+extra;
-  const daily=cur/elapsed;
-  return{name:'M2: 線形外挿',value:Math.round(daily*mDays),detail:{confirmed:cur,elapsed,mDays,daily:Math.round(daily)}};
+  const mEnd=monthEnd(year,month);
+  const mStart=new Date(year,month-1,1);
+  let phase='current';
+  if(execDate<mStart)phase='future';
+  else if(execDate>mEnd)phase='past';
+  const labelMap={past:'M2: 過去実績',current:'M2: 既予約済み',future:'M2: 既予約済み(将来)'};
+  return{name:labelMap[phase],value:Math.round(cur),detail:{booked:cur,cnt:m.cnt,phase,note:'返却済+未返却の合計 (線形外挿は廃止)'}};
 }
 
 function method3Pattern(resv,byM,extraByM,store,year,month,execDate){
@@ -1256,32 +1257,103 @@ async function run(){
 
     // 日次スナップショット保存（自動・1日1回）
     const h=calcHolidayBoost(execDate,year,month);
-    const ymKey=`${year}-${String(month).padStart(2,'0')}`;
-    const curSub=byM[ymKey]?.sub||0;
-    const curCnt=byM[ymKey]?.cnt||0;
-    saveSnapshot(store,year,month,execDate,integrated,methods,target,curSub,curCnt,h);
+    const snapYm=`${year}-${String(month).padStart(2,'0')}`;
+    const snapSub=byM[snapYm]?.sub||0;
+    const snapCnt=byM[snapYm]?.cnt||0;
+    saveSnapshot(store,year,month,execDate,integrated,methods,target,snapSub,snapCnt,h);
 
     // 描画
     let html='';
 
-    // ========== [1] ヒーローカード5枚 (最重要 - 一目で見える) ==========
+    // ========== [1] ヒーローカード — 3列 × 3KPI 比較 + 達成見込み + 信頼度 ==========
     const ach=target>0?integrated.value/target*100:0;
     const achCls=ach>=100?'achieve':ach>=90?'achieve warn':'achieve danger';
     const confMap={STRONG:'strong',MEDIUM:'medium',WEAK:'weak',WEAK_SINGLE:'weak',NO_DATA:'none'};
     const confLabel={STRONG:'🟢 高',MEDIUM:'🟡 中',WEAK:'🟠 低',WEAK_SINGLE:'🟠 単一',NO_DATA:'🔴 不可'};
 
-    // 売上速報値 (現時点の確定済み売上)
     const curYm=`${d.year}-${String(d.month).padStart(2,'0')}`;
     const curMonth=d.byM[curYm]||{cnt:0,sub:0};
-    const actualRate=target>0?curMonth.sub/target*100:0;
+    const curExtra=extraByM[curYm]||0;
+    const curRev=curMonth.sub+curExtra;
+    const curCnt=curMonth.cnt;
+    const curAov=curCnt>0?curMonth.sub/curCnt:0;
+
+    const pastMs=Object.keys(d.byM).filter(ym=>ym<curYm).sort().slice(-3);
+    let pastAov=25000;
+    if(pastMs.length>0){
+      const aovs=pastMs.map(pm=>d.byM[pm].cnt?d.byM[pm].sub/d.byM[pm].cnt:0).filter(v=>v>0);
+      if(aovs.length)pastAov=aovs.reduce((s,v)=>s+v,0)/aovs.length;
+    }
+    const targetCnt=pastAov>0?Math.round(target/pastAov):0;
+
+    const fcstRev=integrated.value;
+    const fcstAov=curAov>0?curAov:pastAov;
+    const fcstCnt=fcstAov>0?Math.round(fcstRev/fcstAov):0;
+    const addCnt=Math.max(0,fcstCnt-curCnt);
+    const addRev=Math.max(0,fcstRev-curRev);
+    const addAov=addCnt>0?addRev/addCnt:fcstAov;
+
+    const mEnd=monthEnd(d.year,d.month);
+    const daysLeft=Math.max(0,Math.round((mEnd-d.execDate)/86400000));
 
     html+=`<div class="hero">`;
-    html+=`<div class="hero-card target"><div class="h-label">🎯 ${d.month}月 目標</div><div class="h-value">${fmtY(target)}</div><div class="h-sub">月別目標 (実力ベース)</div></div>`;
-    html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${d.month}月 売上速報</div><div class="h-value" style="color:#c2410c">${fmtY(curMonth.sub)}</div><div class="h-sub">${curMonth.cnt}件 確定済 · 目標比 ${actualRate.toFixed(1)}%</div></div>`;
-    html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${d.month}月 予測</div><div class="h-value">${fmtY(integrated.value)}</div><div class="h-sub">4手法アンサンブル統合</div></div>`;
-    html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標</div></div>`;
+    html+=`<div class="hero-card target">`;
+    html+=`<div class="h-label">🎯 ${d.month}月 目標</div>`;
+    html+=`<div class="h-value">${fmtY(target)}</div>`;
+    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e">`;
+    html+=`<b>売上 = 件数 × 単価</b><br>`;
+    html+=`= <b>${targetCnt}件</b> × <b>${fmtY(pastAov)}</b>`;
+    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">単価=過去3ヶ月平均</div>`;
+    html+=`</div></div>`;
+
+    html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c">`;
+    html+=`<div class="h-label">💰 ${d.month}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div>`;
+    html+=`<div class="h-value" style="color:#c2410c">${fmtY(curRev)}</div>`;
+    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412">`;
+    html+=`<b>売上 = 件数 × 単価</b><br>`;
+    html+=`= <b>${curCnt}件</b> × <b>${fmtY(curAov)}</b>`;
+    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">目標比: 件数${(curCnt/Math.max(1,targetCnt)*100).toFixed(0)}% / 単価${pastAov>0?(curAov/pastAov*100).toFixed(0):0}%</div>`;
+    html+=`</div></div>`;
+
+    html+=`<div class="hero-card forecast">`;
+    html+=`<div class="h-label">🔮 ${d.month}月 予測</div>`;
+    html+=`<div class="h-value">${fmtY(fcstRev)}</div>`;
+    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af">`;
+    html+=`<b>売上 = 件数 × 単価</b><br>`;
+    html+=`= <b>${fcstCnt}件</b> × <b>${fmtY(fcstAov)}</b>`;
+    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">目標比: 件数${(fcstCnt/Math.max(1,targetCnt)*100).toFixed(0)}% / 単価${pastAov>0?(fcstAov/pastAov*100).toFixed(0):0}%</div>`;
+    html+=`</div></div>`;
+
+    html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標 · 残${daysLeft}日</div></div>`;
     html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${confMap[integrated.confidence]||'none'}">${confLabel[integrated.confidence]||'?'}</span></div><div class="h-sub">${integrated.n}/4手法 · CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
     html+=`</div>`;
+
+    // ========== 予測の根拠 (残期間の +件数×単価) ==========
+    if(addCnt>0||addRev>0){
+      html+=`<div style="margin:0 0 16px;padding:14px 18px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #3b82f6;border-radius:10px">`;
+      html+=`<div style="font-size:12px;color:#1e40af;font-weight:700;margin-bottom:8px">📐 予測の内訳（残${daysLeft}日で何件 × 何円 で売上がこうなる）</div>`;
+      html+=`<div style="font-size:14px;color:#1e40af;line-height:1.8;font-variant-numeric:tabular-nums">`;
+      html+=`<b>速報</b> ${fmtY(curRev)} (${curCnt}件) <span style="color:#64748b">+</span> `;
+      html+=`<b>残期間</b> ${fmtY(addRev)} (<b style="color:#0891b2">+${addCnt}件</b> × <b style="color:#0891b2">${fmtY(addAov)}</b>) <span style="color:#64748b">＝</span> `;
+      html+=`<b>最終予測</b> <span style="color:#dc2626;font-size:16px">${fmtY(fcstRev)}</span> (${fcstCnt}件)`;
+      html+=`</div>`;
+      const dailyAdd=daysLeft>0?addCnt/daysLeft:0;
+      const pastDailyPattern=pastMs.length>0?(()=>{
+        const cnts=pastMs.map(pm=>d.byM[pm].cnt);
+        const avgCnt=cnts.reduce((s,v)=>s+v,0)/cnts.length;
+        return avgCnt/30;
+      })():0;
+      const paceRatio=pastDailyPattern>0?dailyAdd/pastDailyPattern*100:0;
+      const paceCls=paceRatio>150?'#dc2626':paceRatio>110?'#d97706':paceRatio>=70?'#059669':'#0891b2';
+      const paceLabel=paceRatio>150?'⚠️ 過大予測の疑い':paceRatio>110?'🟡 やや強気':paceRatio>=70?'🟢 妥当':'🔵 控えめ';
+      if(pastDailyPattern>0){
+        html+=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #93c5fd;font-size:11.5px;color:#475569">`;
+        html+=`必要ペース: <b>${dailyAdd.toFixed(2)}件/日</b> (残${daysLeft}日) ・ 過去平均: <b>${pastDailyPattern.toFixed(2)}件/日</b> ・ `;
+        html+=`<span style="color:${paceCls};font-weight:700">${paceLabel} (過去の${paceRatio.toFixed(0)}%)</span>`;
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    }
 
     // ========== [2] 年間オーバービュー (チャート + 12ヶ月セル) ==========
     if(kpiData){
