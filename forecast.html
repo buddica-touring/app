@@ -1272,6 +1272,74 @@ async function run(){
     // 描画
     let html='';
 
+    // ========== [0] 📢 スタッフ向け サマリー (3ヶ月先 一目でわかる) ==========
+    if(kpiData){
+      const ks=kpiData.kpis;
+      const _pastMs=Object.keys(d.byM).filter(ym=>ym<`${d.year}-${String(d.month).padStart(2,'0')}`).sort().slice(-3);
+      let _pastAov=25000;
+      if(_pastMs.length>0){
+        const avs=_pastMs.map(pm=>d.byM[pm].cnt?d.byM[pm].sub/d.byM[pm].cnt:0).filter(v=>v>0);
+        if(avs.length)_pastAov=avs.reduce((s,v)=>s+v,0)/avs.length;
+      }
+      const summaryMonths=[];
+      for(let off=0;off<3;off++){
+        let m=d.month+off,y=d.year;
+        while(m>12){m-=12;y++;}
+        const k=ks.find(x=>x.month===m);
+        if(!k)continue;
+        const me=monthEnd(y,m);
+        const daysLeft=k.phase==='past'?0:Math.max(0,Math.round((me-d.execDate)/86400000));
+        const curCnt=k.actual.cnt;
+        const curRev2=k.actual.rev;
+        const fcstCnt=k.phase==='past'?k.actual.cnt:k.forecast.cnt;
+        const fcstRev2=k.phase==='past'?k.actual.rev:k.forecast.rev;
+        const tgt=k.target.rev;
+        const ach=tgt>0?fcstRev2/tgt*100:0;
+        const addCnt=Math.max(0,fcstCnt-curCnt);
+        const addRev=Math.max(0,fcstRev2-curRev2);
+        const dailyAdd=daysLeft>0?addCnt/daysLeft:0;
+        summaryMonths.push({y,m,k,daysLeft,curCnt,curRev:curRev2,fcstCnt,fcstRev:fcstRev2,tgt,ach,addCnt,addRev,dailyAdd});
+      }
+      html+=`<div style="margin-bottom:18px;padding:18px 20px;background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #facc15;border-radius:12px">`;
+      html+=`<div style="font-size:16px;font-weight:800;color:#854d0e;margin-bottom:12px;display:flex;align-items:center;gap:8px">📢 スタッフへ — ひとめでわかる予測サマリー</div>`;
+      html+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">`;
+      summaryMonths.forEach((sm,idx)=>{
+        const isPast=sm.k.phase==='past';
+        const isCur=sm.k.phase==='current';
+        let icon='🟢',verdict='順調',bgCol='#dcfce7',borderCol='#22c55e';
+        if(sm.ach>=100){icon='🟢';verdict='達成見込み・順調';bgCol='#dcfce7';borderCol='#22c55e';}
+        else if(sm.ach>=90){icon='🟡';verdict='ほぼ達成・あと一押し';bgCol='#fef9c3';borderCol='#facc15';}
+        else if(sm.ach>=70){icon='🟠';verdict='要対策・販促強化必要';bgCol='#fed7aa';borderCol='#fb923c';}
+        else{icon='🔴';verdict='大幅未達・緊急対応';bgCol='#fee2e2';borderCol='#ef4444';}
+        const statusLabel=isPast?'(終了)':isCur?`(残${sm.daysLeft}日)`:`(${sm.daysLeft}日後まで)`;
+        const rankColor={AA:'#dc2626',A:'#ea580c',B:'#d97706',C:'#2563eb'}[sm.k.rank]||'#94a3b8';
+        html+=`<div style="background:${bgCol};border:2px solid ${borderCol};border-radius:10px;padding:14px 16px">`;
+        html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+        html+=`<div style="font-size:18px;font-weight:800;color:#1f2937">${sm.m}月 <span style="font-size:11px;color:#6b7280;font-weight:500">${statusLabel}</span></div>`;
+        html+=`<span style="padding:2px 8px;border-radius:5px;background:${rankColor};color:#fff;font-size:11px;font-weight:700">${sm.k.rank}</span>`;
+        html+=`</div>`;
+        html+=`<div style="font-size:24px;margin-bottom:6px">${icon} <span style="font-size:14px;font-weight:700;color:#1f2937">${verdict}</span></div>`;
+        if(isPast){
+          html+=`<div style="font-size:13px;line-height:1.7;color:#1f2937"><b>実績: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> (目標比 ${sm.ach.toFixed(0)}%)</div>`;
+        }else{
+          html+=`<div style="font-size:13px;line-height:1.8;color:#1f2937">`;
+          html+=`現在: <b>${sm.curCnt}件 ${fmtY(sm.curRev)}</b><br>`;
+          if(sm.addCnt>0){
+            html+=`+ あと <b style="color:#0891b2">${sm.addCnt}件 (${fmtY(sm.addRev)})</b><br>`;
+            if(sm.daysLeft>0&&sm.dailyAdd>0){
+              html+=`<span style="font-size:11px;color:#475569">→ 1日 ${sm.dailyAdd.toFixed(1)}件ペース必要</span><br>`;
+            }
+          }
+          html+=`<b style="color:${borderCol};font-size:14px">着地予想: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> <span style="font-size:11px">(目標比 ${sm.ach.toFixed(0)}%)</span>`;
+          html+=`</div>`;
+        }
+        html+=`</div>`;
+      });
+      html+=`</div>`;
+      html+=`<div style="margin-top:10px;font-size:11px;color:#854d0e;text-align:right">クリックで詳細表示 (上のセレクタで月切替)</div>`;
+      html+=`</div>`;
+    }
+
     // ========== [1] ヒーローカード — 3列 × 3KPI 比較 + 達成見込み + 信頼度 ==========
     const ach=target>0?integrated.value/target*100:0;
     const achCls=ach>=100?'achieve':ach>=90?'achieve warn':'achieve danger';
