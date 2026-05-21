@@ -1164,6 +1164,17 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
     if(validMethods.length>0){
       revFcst=validMethods.reduce((s,mm)=>s+(weights[mm.name]||0)*mm.value,0);
     }
+    let _cv=0,_conf='WEAK_SINGLE',_remainDays=0;
+    if(validMethods.length>1){
+      const vals=validMethods.map(x=>x.value);
+      const _mean=vals.reduce((s,v)=>s+v,0)/vals.length;
+      const _std=Math.sqrt(vals.reduce((s,v)=>s+(v-_mean)*(v-_mean),0)/vals.length);
+      _cv=_mean>0?_std/_mean:0;
+      _conf=_cv<0.05?'STRONG':_cv<0.15?'MEDIUM':'WEAK';
+    }
+    if(phase==='current'||phase==='future'){
+      _remainDays=Math.max(0,Math.round((mEnd-execDate)/86400000));
+    }
 
     // 予測派生
     const cntFcst=aovAct>0?Math.round(revFcst/aovAct):(aovTarget>0?Math.round(revFcst/aovTarget):0);
@@ -1172,7 +1183,7 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
     const perVehFcst=nActive>0?revFcst/nActive:0;
 
     result.push({
-      month:m,ym,phase,nActive,mDays,
+      month:m,ym,phase,nActive,mDays,remainDays:_remainDays,confidence:_conf,cv:_cv,nMethods:validMethods.length,
       target:{rev:revTar,cnt:cntTar,aov:aovTarget,util:utilTar,perVeh:perVehTar},
       actual:{rev:revAct,cnt:cntAct,aov:aovAct,util:utilAct,perVeh:perVehAct},
       forecast:{rev:revFcst,cnt:cntFcst,aov:aovFcst,util:utilFcst,perVeh:perVehFcst},
@@ -1466,7 +1477,7 @@ async function run(){
     // 描画
     let html='';
 
-    // ========== [0] 📢 スタッフ向け サマリー (3ヶ月先 一目でわかる) ==========
+    // ========== [0] 📅 直近3ヶ月 ヒーロー (統一フォーマット) ==========
     if(kpiData){
       const ks=kpiData.kpis;
       const _pastMs=Object.keys(d.byM).filter(ym=>ym<`${d.year}-${String(d.month).padStart(2,'0')}`).sort().slice(-3);
@@ -1475,70 +1486,51 @@ async function run(){
         const avs=_pastMs.map(pm=>d.byM[pm].cnt?d.byM[pm].sub/d.byM[pm].cnt:0).filter(v=>v>0);
         if(avs.length)_pastAov=avs.reduce((s,v)=>s+v,0)/avs.length;
       }
-      const summaryMonths=[];
+      const monthsToShow=[];
       for(let off=0;off<3;off++){
         let m=d.month+off,y=d.year;
         while(m>12){m-=12;y++;}
         const k=ks.find(x=>x.month===m);
         if(!k)continue;
-        const me=monthEnd(y,m);
-        const daysLeft=k.phase==='past'?0:Math.max(0,Math.round((me-d.execDate)/86400000));
-        const curCnt=k.actual.cnt;
-        const curRev2=k.actual.rev;
-        const fcstCnt=k.phase==='past'?k.actual.cnt:k.forecast.cnt;
-        const fcstRev2=k.phase==='past'?k.actual.rev:k.forecast.rev;
-        const tgt=k.target.rev;
-        const ach=tgt>0?fcstRev2/tgt*100:0;
-        const addCnt=Math.max(0,fcstCnt-curCnt);
-        const addRev=Math.max(0,fcstRev2-curRev2);
-        const dailyAdd=daysLeft>0?addCnt/daysLeft:0;
-        const _ymKey=`${y}-${String(m).padStart(2,'0')}`;
-        const _exc=new Set((d.kpi||[]).filter(kk=>kk.year_month===_ymKey&&kk.active===false).map(kk=>kk.vehicle_code));
-        const _active=(d.veh||[]).filter(v=>v.active!==false&&!_exc.has(v.code)).length;
-        const _perVehTgt=_active>0?Math.round(tgt/_active):0;
-        const _perVehFcst=_active>0?Math.round(fcstRev2/_active):0;
-        summaryMonths.push({y,m,k,daysLeft,curCnt,curRev:curRev2,fcstCnt,fcstRev:fcstRev2,tgt,ach,addCnt,addRev,dailyAdd,nActive:_active,perVehTgt:_perVehTgt,perVehFcst:_perVehFcst});
+        monthsToShow.push({y,m,k});
       }
-      html+=`<div style="margin-bottom:18px;padding:18px 20px;background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #facc15;border-radius:12px">`;
-      html+=`<div style="font-size:16px;font-weight:800;color:#854d0e;margin-bottom:12px;display:flex;align-items:center;gap:8px">📢 スタッフへ — ひとめでわかる予測サマリー</div>`;
-      html+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">`;
-      summaryMonths.forEach((sm,idx)=>{
-        const isPast=sm.k.phase==='past';
-        const isCur=sm.k.phase==='current';
-        let icon='🟢',verdict='順調',bgCol='#dcfce7',borderCol='#22c55e';
-        if(sm.ach>=100){icon='🟢';verdict='達成見込み・順調';bgCol='#dcfce7';borderCol='#22c55e';}
-        else if(sm.ach>=90){icon='🟡';verdict='ほぼ達成・あと一押し';bgCol='#fef9c3';borderCol='#facc15';}
-        else if(sm.ach>=70){icon='🟠';verdict='要対策・販促強化必要';bgCol='#fed7aa';borderCol='#fb923c';}
-        else{icon='🔴';verdict='大幅未達・緊急対応';bgCol='#fee2e2';borderCol='#ef4444';}
-        const statusLabel=isPast?'(終了)':isCur?`(残${sm.daysLeft}日)`:`(${sm.daysLeft}日後まで)`;
-        const rankColor={AA:'#dc2626',A:'#ea580c',B:'#d97706',C:'#2563eb'}[sm.k.rank]||'#94a3b8';
-        html+=`<div style="background:${bgCol};border:2px solid ${borderCol};border-radius:10px;padding:14px 16px">`;
-        html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
-        html+=`<div style="font-size:18px;font-weight:800;color:#1f2937">${sm.m}月 <span style="font-size:11px;color:#6b7280;font-weight:500">${statusLabel}</span></div>`;
-        html+=`<span style="padding:2px 8px;border-radius:5px;background:${rankColor};color:#fff;font-size:11px;font-weight:700">${sm.k.rank}</span>`;
+      monthsToShow.forEach(mm=>{
+        const k=mm.k;
+        const isCur=mm.m===d.month;
+        const isPast=k.phase==='past';
+        const tgt=k.target.rev;
+        const cur=k.actual.rev;
+        const curCnt=k.actual.cnt;
+        const curAovV=curCnt>0?cur/curCnt:0;
+        const fcst=isPast?k.actual.rev:k.forecast.rev;
+        const fcstCntV=isPast?k.actual.cnt:k.forecast.cnt;
+        const fcstAovV=fcstCntV>0?fcst/fcstCntV:_pastAov;
+        const targetCntV=_pastAov>0?Math.round(tgt/_pastAov):0;
+        const achV=tgt>0?fcst/tgt*100:0;
+        const achCls=achV>=100?'achieve':achV>=90?'achieve warn':'achieve danger';
+        const perVehTgt=k.nActive>0?Math.round(tgt/k.nActive):0;
+        const perVehAct=k.nActive>0?Math.round(cur/k.nActive):0;
+        const perVehFcst=k.nActive>0?Math.round(fcst/k.nActive):0;
+        const remainD=k.remainDays||0;
+        const _confMap={STRONG:'strong',MEDIUM:'medium',WEAK:'weak',WEAK_SINGLE:'weak',NO_DATA:'none'};
+        const _confLabel={STRONG:'🟢 高',MEDIUM:'🟡 中',WEAK:'🟠 低',WEAK_SINGLE:'🟠 単一',NO_DATA:'🔴 不可'};
+        const rankColor={AA:'#dc2626',A:'#ea580c',B:'#d97706',C:'#2563eb'}[k.rank]||'#94a3b8';
+        const statusLabel=isPast?'終了':isCur?`残${remainD}日`:`${remainD}日後まで`;
+        html+=`<div style="margin-bottom:8px;padding:8px 14px;background:${isCur?'linear-gradient(135deg,#fef3c7,#fde68a)':'#f3f4f6'};border-radius:8px;display:flex;align-items:center;gap:10px">`;
+        html+=`<span style="font-size:16px;font-weight:800;color:#111827">${mm.m}月</span>`;
+        html+=`<span style="padding:2px 8px;border-radius:5px;background:${rankColor};color:#fff;font-size:11px;font-weight:700">${k.rank}</span>`;
+        html+=`<span style="font-size:11px;color:#6b7280">${statusLabel}・稼働${k.nActive}台</span>`;
+        if(isCur)html+=`<span style="margin-left:auto;font-size:10px;color:#92400e;font-weight:700">⭐ 選択中</span>`;
+        else html+=`<span style="margin-left:auto;font-size:10px;color:#6b7280">クリックで月選択 ▶</span>`;
         html+=`</div>`;
-        html+=`<div style="font-size:24px;margin-bottom:6px">${icon} <span style="font-size:14px;font-weight:700;color:#1f2937">${verdict}</span></div>`;
-        if(isPast){
-          html+=`<div style="font-size:13px;line-height:1.7;color:#1f2937"><b>実績: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> (目標比 ${sm.ach.toFixed(0)}%)<br>`;
-          html+=`<span style="font-size:11px;color:#475569">🚗 稼働 ${sm.nActive}台 / 台 ${fmtY(sm.perVehFcst)}</span></div>`;
-        }else{
-          html+=`<div style="font-size:13px;line-height:1.8;color:#1f2937">`;
-          html+=`現在: <b>${sm.curCnt}件 ${fmtY(sm.curRev)}</b><br>`;
-          if(sm.addCnt>0){
-            html+=`+ あと <b style="color:#0891b2">${sm.addCnt}件 (${fmtY(sm.addRev)})</b><br>`;
-            if(sm.daysLeft>0&&sm.dailyAdd>0){
-              html+=`<span style="font-size:11px;color:#475569">→ 1日 ${sm.dailyAdd.toFixed(1)}件ペース必要</span><br>`;
-            }
-          }
-          html+=`<b style="color:${borderCol};font-size:14px">着地予想: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> <span style="font-size:11px">(目標比 ${sm.ach.toFixed(0)}%)</span><br>`;
-          html+=`<span style="font-size:11px;color:#475569">🚗 稼働 <b>${sm.nActive}台</b> / 台/売上 目標¥${sm.perVehTgt.toLocaleString()} → 予測¥${sm.perVehFcst.toLocaleString()}</span>`;
-          html+=`</div>`;
-        }
+        html+=`<div class="hero" style="margin-bottom:14px${!isCur?';cursor:pointer':''}"${!isCur?` onclick="document.getElementById('month').value=${mm.m};run();"`:''}>`;
+        html+=`<div class="hero-card target"><div class="h-label">🎯 ${mm.m}月 目標</div><div class="h-value">${fmtY(tgt)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e"><b>売上 = 件数 × 単価</b><br>= <b>${targetCntV}件</b> × <b>${fmtY(_pastAov)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehTgt)}</span></div></div>`;
+        html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${mm.m}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div><div class="h-value" style="color:#c2410c">${fmtY(cur)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412"><b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAovV)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehAct)}</span></div></div>`;
+        html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${mm.m}月 ${isPast?'実績':'予測'}</div><div class="h-value">${fmtY(fcst)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af"><b>売上 = 件数 × 単価</b><br>= <b>${fcstCntV}件</b> × <b>${fmtY(fcstAovV)}</b><br><span style="color:#1e3a8a">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehFcst)}</span></div></div>`;
+        html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}</div></div>`;
+        html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${_confMap[k.confidence||'WEAK_SINGLE']}">${_confLabel[k.confidence||'WEAK_SINGLE']}</span></div><div class="h-sub">${k.nMethods||0}/5手法 · CV ${((k.cv||0)*100).toFixed(1)}%</div></div>`;
         html+=`</div>`;
       });
-      html+=`</div>`;
-      html+=`<div style="margin-top:10px;font-size:11px;color:#854d0e;text-align:right">クリックで詳細表示 (上のセレクタで月切替)</div>`;
-      html+=`</div>`;
     }
 
     // ========== [0.5] 🎯 予測命中率 — 総合数字は常時表示・詳細は折り畳み ==========
@@ -1557,25 +1549,15 @@ async function run(){
     html+=renderAccuracySection(d);
     html+=`</div></details>`;
 
-    // ========== [1] ヒーローカード — 3列 × 3KPI 比較 + 達成見込み + 信頼度 ==========
-    const ach=target>0?integrated.value/target*100:0;
-    const achCls=ach>=100?'achieve':ach>=90?'achieve warn':'achieve danger';
-    const confMap={STRONG:'strong',MEDIUM:'medium',WEAK:'weak',WEAK_SINGLE:'weak',NO_DATA:'none'};
-    const confLabel={STRONG:'🟢 高',MEDIUM:'🟡 中',WEAK:'🟠 低',WEAK_SINGLE:'🟠 単一',NO_DATA:'🔴 不可'};
-
+    // ========== [1] 旧ヒーローカード(選択月単独) は廃止・3ヶ月統一表示に統合済み ==========
     const curYm=`${d.year}-${String(d.month).padStart(2,'0')}`;
     const curMonth=d.byM[curYm]||{cnt:0,sub:0};
     const curExtra=extraByM[curYm]||0;
     const curRev=curMonth.sub+curExtra;
     const curCnt=curMonth.cnt;
     const curAov=curCnt>0?curMonth.sub/curCnt:0;
-
-    // 稼働台数 (対象月)
     const _excluded=new Set((d.kpi||[]).filter(k=>k.year_month===curYm&&k.active===false).map(k=>k.vehicle_code));
     const nActive=(d.veh||[]).filter(v=>v.active!==false&&!_excluded.has(v.code)).length;
-    const perVehTarget=nActive>0?Math.round(target/nActive):0;
-    const perVehActual=nActive>0?Math.round(curRev/nActive):0;
-
     const pastMs=Object.keys(d.byM).filter(ym=>ym<curYm).sort().slice(-3);
     let pastAov=25000;
     if(pastMs.length>0){
@@ -1583,46 +1565,14 @@ async function run(){
       if(aovs.length)pastAov=aovs.reduce((s,v)=>s+v,0)/aovs.length;
     }
     const targetCnt=pastAov>0?Math.round(target/pastAov):0;
-
     const fcstRev=integrated.value;
     const fcstAov=curAov>0?curAov:pastAov;
     const fcstCnt=fcstAov>0?Math.round(fcstRev/fcstAov):0;
     const addCnt=Math.max(0,fcstCnt-curCnt);
     const addRev=Math.max(0,fcstRev-curRev);
     const addAov=addCnt>0?addRev/addCnt:fcstAov;
-
     const mEnd=monthEnd(d.year,d.month);
     const daysLeft=Math.max(0,Math.round((mEnd-d.execDate)/86400000));
-
-    const perVehFcst=nActive>0?Math.round(fcstRev/nActive):0;
-    html+=`<div class="hero">`;
-    html+=`<div class="hero-card target">`;
-    html+=`<div class="h-label">🎯 ${d.month}月 目標</div>`;
-    html+=`<div class="h-value">${fmtY(target)}</div>`;
-    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${targetCnt}件</b> × <b>${fmtY(pastAov)}</b><br>`;
-    html+=`<span style="color:#7c2d12">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehTarget)}</span>`;
-    html+=`</div></div>`;
-
-    html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c">`;
-    html+=`<div class="h-label">💰 ${d.month}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div>`;
-    html+=`<div class="h-value" style="color:#c2410c">${fmtY(curRev)}</div>`;
-    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAov)}</b><br>`;
-    html+=`<span style="color:#7c2d12">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehActual)}</span>`;
-    html+=`</div></div>`;
-
-    html+=`<div class="hero-card forecast">`;
-    html+=`<div class="h-label">🔮 ${d.month}月 予測</div>`;
-    html+=`<div class="h-value">${fmtY(fcstRev)}</div>`;
-    html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${fcstCnt}件</b> × <b>${fmtY(fcstAov)}</b><br>`;
-    html+=`<span style="color:#1e3a8a">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehFcst)}</span>`;
-    html+=`</div></div>`;
-
-    html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標 · 残${daysLeft}日</div></div>`;
-    html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${confMap[integrated.confidence]||'none'}">${confLabel[integrated.confidence]||'?'}</span></div><div class="h-sub">${integrated.n}/4手法 · CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
-    html+=`</div>`;
 
     // ========== 🔍 KPI整合性チェック ==========
     const kpiCheck=(()=>{
