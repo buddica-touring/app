@@ -1196,8 +1196,11 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
 
     const methodDetails={};
     allMethods.forEach(mm=>{if(mm&&mm.value!=null)methodDetails[mm.name]={value:mm.value,weight:weights[mm.name]||0};});
+    const _vals=validMethods.map(x=>x.value);
+    const _minPred=_vals.length?Math.min(..._vals):0;
+    const _maxPred=_vals.length?Math.max(..._vals):0;
     result.push({
-      month:m,ym,phase,nActive,mDays,remainDays:_remainDays,confidence:_conf,cv:_cv,nMethods:validMethods.length,methodDetails,daysToStart,isFarFuture:phase==='future'&&daysToStart>30,
+      month:m,ym,phase,nActive,mDays,remainDays:_remainDays,confidence:_conf,cv:_cv,nMethods:validMethods.length,methodDetails,daysToStart,isFarFuture:phase==='future'&&daysToStart>30,minPred:_minPred,maxPred:_maxPred,
       target:{rev:revTar,cnt:cntTar,aov:aovTarget,util:utilTar,perVeh:perVehTar},
       actual:{rev:revAct,cnt:cntAct,aov:aovAct,util:utilAct,perVeh:perVehAct},
       forecast:{rev:revFcst,cnt:cntFcst,aov:aovFcst,util:utilFcst,perVeh:perVehFcst},
@@ -1541,8 +1544,16 @@ async function run(){
         html+=`<div class="hero-card target"><div class="h-label">🎯 ${mm.m}月 目標</div><div class="h-value">${fmtY(tgt)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e"><b>売上 = 件数 × 単価</b><br>= <b>${targetCntV}件</b> × <b>${fmtY(_pastAov)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehTgt)}</span></div></div>`;
         html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${mm.m}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div><div class="h-value" style="color:#c2410c">${fmtY(cur)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412"><b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAovV)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehAct)}</span></div></div>`;
         html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${mm.m}月 ${isPast?'実績':'予測'}</div><div class="h-value">${fmtY(fcst)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af"><b>売上 = 件数 × 単価</b><br>= <b>${fcstCntV}件</b> × <b>${fmtY(fcstAovV)}</b><br><span style="color:#1e3a8a">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehFcst)}</span></div></div>`;
-        html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}<br><span style="font-size:9.5px;opacity:.75">※ 信頼度とは独立指標</span></div></div>`;
-        html+=`<div class="hero-card"><div class="h-label">🔬 予測信頼度 <span style="font-size:9px;opacity:.7">(5手法の一致度)</span></div><div class="h-value" style="font-size:22px"><span class="conf ${_confMap[k.confidence||'WEAK_SINGLE']}">${_confLabel[k.confidence||'WEAK_SINGLE']}</span></div><div class="h-sub">${k.nMethods||0}/5手法 · CV ${((k.cv||0)*100).toFixed(1)}%<br><span style="font-size:9.5px;opacity:.75">※ 達成率とは別軸</span></div></div>`;
+        html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}</div></div>`;
+        const _minP=k.minPred||0,_maxP=k.maxPred||0;
+        const _range=_maxP-_minP;
+        const _rangeRatio=fcst>0?_range/fcst:0;
+        let _spreadLabel='🟢 ほぼ一致',_spreadCol='#059669';
+        if(_rangeRatio>1.5){_spreadLabel='🔴 大きく分散';_spreadCol='#dc2626';}
+        else if(_rangeRatio>0.6){_spreadLabel='🟡 やや分散';_spreadCol='#d97706';}
+        html+=`<div class="hero-card"><div class="h-label">🔬 予測レンジ <span style="font-size:9px;opacity:.7">(5手法の幅)</span></div>`;
+        html+=`<div class="h-value" style="font-size:17px;line-height:1.3">${fmtY(_minP)} <span style="color:#94a3b8">〜</span> ${fmtY(_maxP)}</div>`;
+        html+=`<div class="h-sub" style="line-height:1.6">統合(加重平均) <b>${fmtY(fcst)}</b><br><span style="color:${_spreadCol};font-weight:700;font-size:11px">${_spreadLabel}</span> <span style="font-size:10px;opacity:.7">幅/予測=${(_rangeRatio*100).toFixed(0)}%</span></div></div>`;
         html+=`</div>`;
         if(!isPast){
           const md=k.methodDetails||{};
