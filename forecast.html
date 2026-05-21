@@ -1342,7 +1342,12 @@ async function run(){
         const addCnt=Math.max(0,fcstCnt-curCnt);
         const addRev=Math.max(0,fcstRev2-curRev2);
         const dailyAdd=daysLeft>0?addCnt/daysLeft:0;
-        summaryMonths.push({y,m,k,daysLeft,curCnt,curRev:curRev2,fcstCnt,fcstRev:fcstRev2,tgt,ach,addCnt,addRev,dailyAdd});
+        const _ymKey=`${y}-${String(m).padStart(2,'0')}`;
+        const _exc=new Set((d.kpi||[]).filter(kk=>kk.year_month===_ymKey&&kk.active===false).map(kk=>kk.vehicle_code));
+        const _active=(d.veh||[]).filter(v=>v.active!==false&&!_exc.has(v.code)).length;
+        const _perVehTgt=_active>0?Math.round(tgt/_active):0;
+        const _perVehFcst=_active>0?Math.round(fcstRev2/_active):0;
+        summaryMonths.push({y,m,k,daysLeft,curCnt,curRev:curRev2,fcstCnt,fcstRev:fcstRev2,tgt,ach,addCnt,addRev,dailyAdd,nActive:_active,perVehTgt:_perVehTgt,perVehFcst:_perVehFcst});
       }
       html+=`<div style="margin-bottom:18px;padding:18px 20px;background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px solid #facc15;border-radius:12px">`;
       html+=`<div style="font-size:16px;font-weight:800;color:#854d0e;margin-bottom:12px;display:flex;align-items:center;gap:8px">📢 スタッフへ — ひとめでわかる予測サマリー</div>`;
@@ -1364,7 +1369,8 @@ async function run(){
         html+=`</div>`;
         html+=`<div style="font-size:24px;margin-bottom:6px">${icon} <span style="font-size:14px;font-weight:700;color:#1f2937">${verdict}</span></div>`;
         if(isPast){
-          html+=`<div style="font-size:13px;line-height:1.7;color:#1f2937"><b>実績: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> (目標比 ${sm.ach.toFixed(0)}%)</div>`;
+          html+=`<div style="font-size:13px;line-height:1.7;color:#1f2937"><b>実績: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> (目標比 ${sm.ach.toFixed(0)}%)<br>`;
+          html+=`<span style="font-size:11px;color:#475569">🚗 稼働 ${sm.nActive}台 / 台 ${fmtY(sm.perVehFcst)}</span></div>`;
         }else{
           html+=`<div style="font-size:13px;line-height:1.8;color:#1f2937">`;
           html+=`現在: <b>${sm.curCnt}件 ${fmtY(sm.curRev)}</b><br>`;
@@ -1374,7 +1380,8 @@ async function run(){
               html+=`<span style="font-size:11px;color:#475569">→ 1日 ${sm.dailyAdd.toFixed(1)}件ペース必要</span><br>`;
             }
           }
-          html+=`<b style="color:${borderCol};font-size:14px">着地予想: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> <span style="font-size:11px">(目標比 ${sm.ach.toFixed(0)}%)</span>`;
+          html+=`<b style="color:${borderCol};font-size:14px">着地予想: ${sm.fcstCnt}件 ${fmtY(sm.fcstRev)}</b> <span style="font-size:11px">(目標比 ${sm.ach.toFixed(0)}%)</span><br>`;
+          html+=`<span style="font-size:11px;color:#475569">🚗 稼働 <b>${sm.nActive}台</b> / 台/売上 目標¥${sm.perVehTgt.toLocaleString()} → 予測¥${sm.perVehFcst.toLocaleString()}</span>`;
           html+=`</div>`;
         }
         html+=`</div>`;
@@ -1397,6 +1404,12 @@ async function run(){
     const curCnt=curMonth.cnt;
     const curAov=curCnt>0?curMonth.sub/curCnt:0;
 
+    // 稼働台数 (対象月)
+    const _excluded=new Set((d.kpi||[]).filter(k=>k.year_month===curYm&&k.active===false).map(k=>k.vehicle_code));
+    const nActive=(d.veh||[]).filter(v=>v.active!==false&&!_excluded.has(v.code)).length;
+    const perVehTarget=nActive>0?Math.round(target/nActive):0;
+    const perVehActual=nActive>0?Math.round(curRev/nActive):0;
+
     const pastMs=Object.keys(d.byM).filter(ym=>ym<curYm).sort().slice(-3);
     let pastAov=25000;
     if(pastMs.length>0){
@@ -1415,32 +1428,30 @@ async function run(){
     const mEnd=monthEnd(d.year,d.month);
     const daysLeft=Math.max(0,Math.round((mEnd-d.execDate)/86400000));
 
+    const perVehFcst=nActive>0?Math.round(fcstRev/nActive):0;
     html+=`<div class="hero">`;
     html+=`<div class="hero-card target">`;
     html+=`<div class="h-label">🎯 ${d.month}月 目標</div>`;
     html+=`<div class="h-value">${fmtY(target)}</div>`;
     html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>`;
-    html+=`= <b>${targetCnt}件</b> × <b>${fmtY(pastAov)}</b>`;
-    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">単価=過去3ヶ月平均</div>`;
+    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${targetCnt}件</b> × <b>${fmtY(pastAov)}</b><br>`;
+    html+=`<span style="color:#7c2d12">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehTarget)}</span>`;
     html+=`</div></div>`;
 
     html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c">`;
     html+=`<div class="h-label">💰 ${d.month}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div>`;
     html+=`<div class="h-value" style="color:#c2410c">${fmtY(curRev)}</div>`;
     html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>`;
-    html+=`= <b>${curCnt}件</b> × <b>${fmtY(curAov)}</b>`;
-    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">目標比: 件数${(curCnt/Math.max(1,targetCnt)*100).toFixed(0)}% / 単価${pastAov>0?(curAov/pastAov*100).toFixed(0):0}%</div>`;
+    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAov)}</b><br>`;
+    html+=`<span style="color:#7c2d12">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehActual)}</span>`;
     html+=`</div></div>`;
 
     html+=`<div class="hero-card forecast">`;
     html+=`<div class="h-label">🔮 ${d.month}月 予測</div>`;
     html+=`<div class="h-value">${fmtY(fcstRev)}</div>`;
     html+=`<div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af">`;
-    html+=`<b>売上 = 件数 × 単価</b><br>`;
-    html+=`= <b>${fcstCnt}件</b> × <b>${fmtY(fcstAov)}</b>`;
-    html+=`<div style="font-size:9.5px;opacity:.7;margin-top:2px">目標比: 件数${(fcstCnt/Math.max(1,targetCnt)*100).toFixed(0)}% / 単価${pastAov>0?(fcstAov/pastAov*100).toFixed(0):0}%</div>`;
+    html+=`<b>売上 = 件数 × 単価</b><br>= <b>${fcstCnt}件</b> × <b>${fmtY(fcstAov)}</b><br>`;
+    html+=`<span style="color:#1e3a8a">🚗 稼働 <b>${nActive}台</b> / 台 ${fmtY(perVehFcst)}</span>`;
     html+=`</div></div>`;
 
     html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標 · 残${daysLeft}日</div></div>`;
