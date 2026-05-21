@@ -189,6 +189,7 @@ details + details{margin-top:8px}
   <label style="color:#475569;font-weight:700">表示モード:</label>
   <button id="viewMonthlyBtn" onclick="setView('monthly')" style="padding:6px 18px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📅 月次詳細</button>
   <button id="viewAnnualBtn" onclick="setView('annual')" style="padding:6px 18px;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📊 年間進捗</button>
+  <button id="viewChartBtn" onclick="setView('chart')" style="padding:6px 18px;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📈 チャート</button>
   <span style="font-size:11px;color:#6b7280;margin-left:auto">月次=対象月の詳細・予測内訳 / 年間=12ヶ月の全KPI一発確認</span>
 </div>
 
@@ -1442,6 +1443,124 @@ function renderAnnualOverview(d,kpiData){
   return html;
 }
 
+// ==================== 予測チャートセクション ====================
+function renderForecastChartSection(d,mNum,k,tgtCntV){
+  var endCol=d.store==='nha'?'end_date':'return_date';
+  var ymStr=d.year+'-'+String(mNum).padStart(2,'0');
+  var mD=monthDays(d.year,mNum);
+  var execYm=ymdStr(d.execDate).slice(0,7);
+  var todayIdx=execYm===ymStr?Math.min(d.execDate.getDate()-1,mD-1):(execYm>ymStr?mD-1:-1);
+  var dailyS=new Array(mD).fill(0),dailyC=new Array(mD).fill(0);
+  d.resv.forEach(function(r){
+    if(normStatus(r.status)==='cancelled')return;
+    var ed=(r[endCol]||'').slice(0,10);
+    if(ed.slice(0,7)!==ymStr)return;
+    var di=parseInt(ed.slice(8,10))-1;
+    if(di<0||di>=mD)return;
+    dailyS[di]+=revOf(r);dailyC[di]++;
+  });
+  var cumS=[],cumC=[],sumS=0,sumC=0;
+  for(var i=0;i<mD;i++){sumS+=dailyS[i];sumC+=dailyC[i];cumS.push(sumS);cumC.push(sumC);}
+  var confS=k.actual.rev,confC=k.actual.cnt,fcstS=k.forecast.rev,fcstC=k.forecast.cnt,tgtS=k.target.rev;
+  var ftS=[],ftC=[];
+  for(var i=0;i<mD;i++){
+    var t,e;
+    if(todayIdx<0){t=(i+1)/mD;ftS.push(fcstS*t);ftC.push(Math.round(fcstC*t));}
+    else if(i<=todayIdx){t=todayIdx>0?(i+1)/(todayIdx+1):1;ftS.push(confS*t);ftC.push(Math.round(confC*t));}
+    else{t=(i-todayIdx)/(mD-todayIdx);e=t<.5?2*t*t:-1+(4-2*t)*t;ftS.push(confS+(fcstS-confS)*e);ftC.push(Math.round(confC+(fcstC-confC)*e));}
+  }
+  function mkSVG(aD,fD,tgt,fmt,ttl,col){
+    var W=560,H=200,PX=52,PY=24,PB=28,cH=H-PY-PB;
+    var yMx=Math.max.apply(null,[].concat(aD,fD,[tgt]))*1.10;if(!yMx)yMx=1;
+    function yA(v){return PY+cH*(1-v/yMx);}
+    function xA(i){return PX+(W-PX-12)*i/(mD-1);}
+    var yT=yA(tgt);
+    var aP='';
+    if(todayIdx>=0)aP=Array.from({length:todayIdx+1},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ');
+    var fs=Math.max(0,todayIdx>=0?todayIdx:0);
+    var fP=Array.from({length:mD-fs},function(_,i){var idx=i+fs;return(i===0?'M':'L')+xA(idx).toFixed(1)+','+yA(fD[idx]).toFixed(1);}).join(' ');
+    var yLs=[0,.25,.5,.75,1].map(function(t){return{v:yMx*t,y:yA(yMx*t)};});
+    var xTs=[];for(var d2=0;d2<mD;d2+=Math.max(1,Math.floor(mD/6)))xTs.push(d2);if(xTs[xTs.length-1]!==mD-1)xTs.push(mD-1);
+    return '<div style="flex:1;min-width:240px">'
+      +'<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:5px">'+ttl+'</div>'
+      +'<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;border:1px solid #e5e7eb;border-radius:6px;background:#fafbfc">'
+      +yLs.map(function(l){return'<line x1="'+PX+'" y1="'+l.y.toFixed(1)+'" x2="'+(W-12)+'" y2="'+l.y.toFixed(1)+'" stroke="#f1f5f9" stroke-width="1"/>'
+        +'<text x="'+(PX-4)+'" y="'+(l.y+3.5).toFixed(1)+'" font-size="9" fill="#9ca3af" text-anchor="end">'+fmt(l.v)+'</text>';}).join('')
+      +'<line x1="'+PX+'" y1="'+yT.toFixed(1)+'" x2="'+(W-12)+'" y2="'+yT.toFixed(1)+'" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 3"/>'
+      +'<text x="'+(W-14)+'" y="'+(yT-3).toFixed(1)+'" font-size="8.5" fill="#ef4444" text-anchor="end">目標 '+fmt(tgt)+'</text>'
+      +(aP?'<path d="'+aP+'" fill="none" stroke="#10b981" stroke-width="2.5"/>':'')
+      +(fP?'<path d="'+fP+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-dasharray="'+(todayIdx>=0?'5 3':'')+'" />':'')
+      +(todayIdx>=0?'<line x1="'+xA(todayIdx).toFixed(1)+'" y1="'+PY+'" x2="'+xA(todayIdx).toFixed(1)+'" y2="'+(PY+cH)+'" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3 2"/>'
+        +'<text x="'+xA(todayIdx).toFixed(1)+'" y="'+(PY-4)+'" font-size="8.5" fill="#f59e0b" text-anchor="middle">今日</text>':'')
+      +xTs.map(function(d2){return'<text x="'+xA(d2).toFixed(1)+'" y="'+(H-8)+'" font-size="8.5" fill="#9ca3af" text-anchor="middle">'+mNum+'/'+(d2+1)+'</text>';}).join('')
+      +'</svg>'
+      +'<div style="display:flex;gap:12px;margin-top:4px;font-size:10px;color:#6b7280">'
+      +'<span style="color:#ef4444">— 目標</span>'
+      +(todayIdx>=0?'<span style="color:#10b981">— 速報</span>':'')
+      +'<span style="color:'+col+'">'+(todayIdx>=0?'--- 予測':'— 予測')+'</span>'
+      +(todayIdx>=0?'<span style="color:#f59e0b">| 今日</span>':'')
+      +'</div>'
+      +'</div>';
+  }
+  var achP=tgtS>0?(fcstS/tgtS*100).toFixed(1)+'%':'-';
+  var rC={AA:'#dc2626',A:'#ea580c',B:'#d97706',C:'#2563eb'}[k.rank]||'#94a3b8';
+  var snaps=loadSnapshots()[d.store+'_'+ymStr]||[];
+  var logH='';
+  if(snaps.length>0){
+    logH='<details style="margin-top:12px"><summary style="font-size:11px;font-weight:600;color:#374151;padding:6px 0;cursor:pointer;user-select:none;list-style:none">🗓 予測ログ履歴（'+snaps.length+'日分）<span style="font-size:10px;color:#9ca3af;font-weight:400;margin-left:6px">シミュレート実行ごとに自動保存</span></summary>'
+      +'<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:11px">'
+      +'<thead><tr style="background:#f9fafb">'
+      +'<th style="text-align:left;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">実行日</th>'
+      +'<th style="text-align:right;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">予測売上</th>'
+      +'<th style="text-align:right;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">前日比</th>'
+      +'<th style="text-align:right;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">速報売上</th>'
+      +'<th style="text-align:right;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">件数</th>'
+      +'<th style="text-align:right;padding:4px 8px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">達成率</th>'
+      +'</tr></thead><tbody>';
+    var rv=snaps.slice().reverse();
+    rv.forEach(function(s,i){
+      var prev=i<rv.length-1?rv[i+1]:null;
+      var diff=prev?s.prediction-prev.prediction:0;
+      var ach=s.target>0?(s.prediction/s.target*100).toFixed(1)+'%':'-';
+      var isLt=i===0;
+      var dC=diff>0?'#10b981':diff<0?'#ef4444':'#6b7280';
+      logH+='<tr style="'+(isLt?'background:#eff6ff;font-weight:700':'')+'"><td style="padding:4px 8px;color:#6b7280;border-bottom:1px solid #f1f5f9">'+s.date+(isLt?' ← 本日':'')+'</td>'
+        +'<td style="text-align:right;padding:4px 8px;border-bottom:1px solid #f1f5f9;color:#1e40af;font-variant-numeric:tabular-nums">'+fmtY(s.prediction)+'</td>'
+        +'<td style="text-align:right;padding:4px 8px;border-bottom:1px solid #f1f5f9;color:'+dC+';font-variant-numeric:tabular-nums">'+(prev?(diff>=0?'+':'')+fmtK(diff):'-')+'</td>'
+        +'<td style="text-align:right;padding:4px 8px;border-bottom:1px solid #f1f5f9;font-variant-numeric:tabular-nums">'+fmtY(s.confirmed)+'</td>'
+        +'<td style="text-align:right;padding:4px 8px;border-bottom:1px solid #f1f5f9">'+s.confirmed_cnt+'件</td>'
+        +'<td style="text-align:right;padding:4px 8px;border-bottom:1px solid #f1f5f9">'+ach+'</td>'
+        +'</tr>';
+    });
+    logH+='</tbody></table></div></details>';
+  }else{
+    logH='<div style="margin-top:10px;font-size:11px;color:#9ca3af">💡 まだログがありません。毎日シミュレートを実行すると予測推移が記録されます。</div>';
+  }
+  return '<div class="section" style="margin-bottom:16px">'
+    +'<div class="section-head"><h2 style="display:flex;align-items:center;gap:10px">'
+    +'<span>'+mNum+'月</span>'
+    +'<span style="padding:2px 8px;border-radius:5px;background:'+rC+';color:#fff;font-size:11px;font-weight:700">'+k.rank+'</span>'
+    +'<span style="font-size:12px;font-weight:400;color:#6b7280">'+(k.phase==='past'?'完了':k.phase==='current'?'進行中':'未来')+' / 稼働'+k.nActive+'台</span></h2>'
+    +'<span class="sub" style="display:flex;gap:10px">'
+    +'<span style="color:#ef4444">目標 '+fmtK(tgtS)+'</span>'
+    +'<span style="color:#10b981">速報 '+fmtK(confS)+' / '+confC+'件</span>'
+    +'<span style="color:#2563eb">予測 '+fmtK(fcstS)+' ('+achP+')</span>'
+    +'</span></div>'
+    +'<div class="section-body">'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">'
+    +'<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;border-left:3px solid #ef4444"><div style="font-size:10px;color:#9ca3af;margin-bottom:2px">🎯 目標</div><div style="font-size:17px;font-weight:800">'+fmtK(tgtS)+'</div><div style="font-size:11px;color:#6b7280">'+tgtCntV+'件</div></div>'
+    +'<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;border-left:3px solid #10b981"><div style="font-size:10px;color:#9ca3af;margin-bottom:2px">📋 速報（'+ymdStr(d.execDate)+'）</div><div style="font-size:17px;font-weight:800">'+fmtK(confS)+'</div><div style="font-size:11px;color:#6b7280">'+confC+'件</div></div>'
+    +'<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6"><div style="font-size:10px;color:#9ca3af;margin-bottom:2px">🤖 予測（月末着地）</div><div style="font-size:17px;font-weight:800">'+fmtK(fcstS)+'</div><div style="font-size:11px;color:#6b7280">'+Math.round(fcstC)+'件 / '+achP+'</div></div>'
+    +'<div style="background:#fff7ed;border-radius:8px;padding:10px 12px;border:1px solid #fed7aa"><div style="font-size:10px;color:#92400e;margin-bottom:2px">⚠️ 乖離</div><div style="font-size:16px;font-weight:800;color:#92400e">'+(tgtS>fcstS?'▼ '+fmtK(tgtS-fcstS):'✅ 達成圏')+'</div><div style="font-size:11px;color:#92400e">'+(tgtS>fcstS?'あと'+Math.max(0,tgtCntV-confC)+'件必要':'')+'</div></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap">'
+    +mkSVG(cumS,ftS,tgtS,function(v){return'¥'+(v/10000).toFixed(0)+'万';},'💰 売上推移（累積 / '+mNum+'月）','#3b82f6')
+    +mkSVG(cumC,ftC,tgtCntV,function(v){return Math.round(v)+'件';},'🎫 件数推移（累積 / '+mNum+'月）','#8b5cf6')
+    +'</div>'
+    +logH
+    +'</div></div>';
+}
+
 // ==================== メイン実行 ====================
 async function run(){
   document.getElementById('status').textContent='読み込み中...';
@@ -1586,6 +1705,10 @@ async function run(){
           html+=`<div style="margin-top:8px;padding:8px 10px;background:#fff;border-radius:6px;font-size:10.5px;color:#475569;line-height:1.7"><b style="color:#0369a1">💡 なぜこの予測か:</b> ${reasonParts.join(' / ')}</div></div>`;
         }
       });
+      // ── チャートタブ用セクション（chart-view-section） ──
+      html+='<div class="chart-view-section" style="display:none">';
+      monthsToShow.forEach(function(mm2){html+=renderForecastChartSection(d,mm2.m,mm2.k,_pastAov>0?Math.round(mm2.k.target.rev/_pastAov):0);});
+      html+='</div>';
     }
 
     // ========== [0.5] 🎯 予測命中率 — 総合数字は常時表示・詳細は折り畳み ==========
@@ -1842,19 +1965,19 @@ function setView(mode){
   _viewMode=mode;
   const mBtn=document.getElementById('viewMonthlyBtn');
   const aBtn=document.getElementById('viewAnnualBtn');
-  if(mode==='monthly'){
-    mBtn.style.background='#2563eb';mBtn.style.color='#fff';
-    aBtn.style.background='#e5e7eb';aBtn.style.color='#374151';
-  }else{
-    aBtn.style.background='#2563eb';aBtn.style.color='#fff';
-    mBtn.style.background='#e5e7eb';mBtn.style.color='#374151';
-  }
+  const cBtn=document.getElementById('viewChartBtn');
+  const active='#2563eb',inactive='#e5e7eb',actC='#fff',inactC='#374151';
+  mBtn.style.background=mode==='monthly'?active:inactive; mBtn.style.color=mode==='monthly'?actC:inactC;
+  aBtn.style.background=mode==='annual'?active:inactive; aBtn.style.color=mode==='annual'?actC:inactC;
+  if(cBtn){cBtn.style.background=mode==='chart'?active:inactive; cBtn.style.color=mode==='chart'?actC:inactC;}
   const style=document.getElementById('viewModeStyle')||document.createElement('style');
   style.id='viewModeStyle';
   if(mode==='annual'){
-    style.textContent=`.hero,.monthly-only,details{display:none!important}`;
+    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:none!important}`;
+  }else if(mode==='chart'){
+    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:block!important}`;
   }else{
-    style.textContent='';
+    style.textContent=`.chart-view-section{display:none!important}`;
   }
   if(!style.parentNode)document.head.appendChild(style);
 }
