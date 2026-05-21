@@ -891,6 +891,98 @@ function saveSnapshot(store,year,month,execDate,integrated,methods,target,curSub
   localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(all));
 }
 
+// 🎯 予測命中率セクション - 全5KPI × 過去月バックテスト
+function renderAccuracySection(d){
+  const{store,byM,resv,acct,veh,kpi,execDate}=d;
+  const extraByMm=extraMonthly(acct);
+  const today=execDate;
+  const curYm2=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const closedMonths=Object.keys(byM).filter(ym=>ym<curYm2&&byM[ym].cnt>0).sort();
+  if(closedMonths.length===0)return `<div class="alert info">📊 まだバックテストできる過去月がありません</div>`;
+  const pastAvgAovs=closedMonths.map(pm=>byM[pm].cnt?byM[pm].sub/byM[pm].cnt:0).filter(v=>v>0);
+  const pastAov=pastAvgAovs.length?pastAvgAovs.reduce((s,v)=>s+v,0)/pastAvgAovs.length:25000;
+  let html='';
+  const kpiAcc={rev:[],cnt:[],aov:[],util:[],perVeh:[]};
+  closedMonths.forEach(ym=>{
+    const[y,m]=ym.split('-').map(Number);
+    const mStart=new Date(y,m-1,1);
+    const mEnd=monthEnd(y,m);
+    const mMid=new Date(mStart.getTime()+14*86400000);
+    const mData=byM[ym];
+    const actualRev=(mData.sub||0)+(extraByMm[ym]||0);
+    const actualCnt=mData.cnt||0;
+    const actualAov=actualCnt>0?mData.sub/actualCnt:0;
+    if(actualRev===0)return;
+    const rank2=RANKS[store]?.[m]||'B';
+    const _exc=new Set((kpi||[]).filter(kk=>kk.year_month===ym&&kk.active===false).map(kk=>kk.vehicle_code));
+    const _active=(veh||[]).filter(v=>v.active!==false&&!_exc.has(v.code)).length;
+    const mDaysC=monthDays(y,m);
+    const supplyDays=_active*mDaysC;
+    const avgNights=actualCnt>0?mData.nights/actualCnt:3;
+    const actualUtil=supplyDays>0?(actualCnt*avgNights/supplyDays):0;
+    const actualPerVeh=_active>0?actualRev/_active:0;
+    const checkpoints=[{label:'月初',date:mStart},{label:'月中',date:mMid},{label:'月末',date:mEnd}];
+    const preds=checkpoints.map(cp=>{
+      const _m1=method1Target(store,y,m,cp.date);
+      const _m2=method2Linear(byM,extraByMm,store,y,m,cp.date);
+      const _m3=method3Pattern(resv,byM,extraByMm,store,y,m,cp.date);
+      const _m4=method4Trend(byM,extraByMm,store,y,m);
+      const _m5=method5Velocity(resv,store,y,m,cp.date);
+      const allM=[_m1,_m2,_m3,_m4,_m5];
+      let phase='current';
+      if(cp.date<mStart)phase='future';
+      else if(cp.date>mEnd)phase='past';
+      const dts=phase==='future'?Math.round((mStart-cp.date)/86400000):0;
+      const w=calcWeights(allM,6,phase,dts,rank2);
+      const valid=allM.filter(x=>x&&x.value!=null);
+      const predRev=valid.reduce((s,mm)=>s+(w[mm.name]||0)*mm.value,0);
+      const predCnt=pastAov>0?predRev/pastAov:0;
+      const predUtil=supplyDays>0?(predCnt*avgNights/supplyDays):0;
+      const predPerVeh=_active>0?predRev/_active:0;
+      return{label:cp.label,rev:predRev,cnt:predCnt,aov:pastAov,util:predUtil,perVeh:predPerVeh};
+    });
+    const computeAcc=(p,a)=>{if(a===0)return{err:0,acc:0};const err=(p-a)/a*100;return{err,acc:Math.max(0,100-Math.abs(err))};};
+    const kpiRows=[
+      {key:'rev',label:'💰 売上',fmt:fmtY,actual:actualRev},
+      {key:'cnt',label:'📋 件数',fmt:v=>Math.round(v).toLocaleString()+'件',actual:actualCnt},
+      {key:'aov',label:'💵 単価',fmt:fmtY,actual:actualAov},
+      {key:'util',label:'🚗 稼働率',fmt:v=>(v*100).toFixed(1)+'%',actual:actualUtil},
+      {key:'perVeh',label:'🏆 台/売上',fmt:fmtY,actual:actualPerVeh}
+    ];
+    const rankColor={AA:'#dc2626',A:'#ea580c',B:'#d97706',C:'#2563eb'}[rank2]||'#94a3b8';
+    html+=`<div style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">`;
+    html+=`<div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px"><b style="font-size:14px;color:#1f2937">${ym}</b><span style="padding:2px 8px;border-radius:5px;background:${rankColor};color:#fff;font-size:11px;font-weight:700">${rank2}</span><span style="margin-left:auto;font-size:11px;color:#6b7280">稼働 ${_active}台 / 暦 ${mDaysC}日</span></div>`;
+    html+=`<div style="overflow-x:auto"><table class="t" style="margin:0;font-size:11.5px"><thead><tr><th>KPI</th><th class="num">実績</th>`;
+    checkpoints.forEach(cp=>{html+=`<th class="num">${cp.label}予測<br><span style="font-size:9px;color:#6b7280">誤差% / 命中%</span></th>`;});
+    html+=`<th class="num">平均命中率</th></tr></thead><tbody>`;
+    kpiRows.forEach(row=>{
+      const accs=preds.map(p=>computeAcc(p[row.key],row.actual));
+      const avgAcc=accs.reduce((s,a)=>s+a.acc,0)/accs.length;
+      kpiAcc[row.key].push(avgAcc);
+      html+=`<tr><td><b>${row.label}</b></td><td class="num"><b>${row.fmt(row.actual)}</b></td>`;
+      preds.forEach((p,i)=>{
+        const a=accs[i];
+        const errCls=Math.abs(a.err)<5?'#059669':Math.abs(a.err)<15?'#d97706':'#dc2626';
+        const sign=a.err>=0?'+':'';
+        html+=`<td class="num">${row.fmt(p[row.key])}<br><span style="font-size:9.5px;color:${errCls};font-weight:700">${sign}${a.err.toFixed(1)}% / ${a.acc.toFixed(0)}%</span></td>`;
+      });
+      const aC=avgAcc>=85?'#059669':avgAcc>=70?'#d97706':'#dc2626';
+      html+=`<td class="num" style="color:${aC};font-weight:700;font-size:13px">${avgAcc.toFixed(1)}%</td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  html+=`<div style="padding:12px 16px;background:#1e293b;color:#fff;border-radius:10px;margin-top:12px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">📊 KPI別 全月平均命中率 (${closedMonths.length}ヶ月)</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">`;
+  const labels={rev:'💰 売上',cnt:'📋 件数',aov:'💵 単価',util:'🚗 稼働率',perVeh:'🏆 台/売上'};
+  Object.entries(kpiAcc).forEach(([k,arr])=>{
+    const avg=arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+    const col=avg>=85?'#22c55e':avg>=70?'#fbbf24':'#ef4444';
+    html+=`<div style="text-align:center;padding:8px;background:#334155;border-radius:8px"><div style="font-size:11px;color:#cbd5e1;margin-bottom:4px">${labels[k]}</div><div style="font-size:18px;font-weight:800;color:${col}">${avg.toFixed(1)}%</div></div>`;
+  });
+  html+=`</div></div>`;
+  html+=`<div style="margin-top:12px;padding:10px 14px;background:#f9fafb;border-radius:8px;font-size:11.5px;color:#475569;line-height:1.7"><b>📖 読み方</b><br>• 月初/月中/月末 = 各時点で予測を再計算 (バックテスト)<br>• 誤差% = (予測 − 実績) ÷ 実績 × 100 ・ 命中% = 100 − |誤差%|<br>• 🟢85%以上=高精度 / 🟡70-85%=要改善 / 🔴70%未満=破綻<br>• <b>命中率が低いKPI/月の予測ロジック改善で全体精度向上</b></div>`;
+  return html;
+}
+
 function renderTimelineSection(d,integrated,target){
   const key=`${d.store}_${d.year}-${String(d.month).padStart(2,'0')}`;
   const snaps=loadSnapshots()[key]||[];
@@ -1390,6 +1482,11 @@ async function run(){
       html+=`<div style="margin-top:10px;font-size:11px;color:#854d0e;text-align:right">クリックで詳細表示 (上のセレクタで月切替)</div>`;
       html+=`</div>`;
     }
+
+    // ========== [0.5] 🎯 予測命中率 (過去月バックテスト・全5KPI) ==========
+    html+=`<div class="section" style="border-color:#2563eb"><div class="section-head" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)"><h2 style="color:#1e3a8a">🎯 予測命中率 (全5KPI バックテスト)</h2><span class="sub">過去月で予測式を再実行 → 各KPIの誤差を測定</span></div><div class="section-body">`;
+    html+=renderAccuracySection(d);
+    html+=`</div></div>`;
 
     // ========== [1] ヒーローカード — 3列 × 3KPI 比較 + 達成見込み + 信頼度 ==========
     const ach=target>0?integrated.value/target*100:0;
