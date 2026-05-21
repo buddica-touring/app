@@ -581,22 +581,20 @@ function checkConstraints(store,year,month,byM,veh,kpi,target,resv){
 }
 
 // ==================== 信頼度スコア & 統合 ====================
-function calcWeights(methods,nMonthsData){
-  // 簡易: 全手法等重み + 制約クリアで微調整
+function calcWeights(methods,nMonthsData,monthPhase,daysToStart){
   const valid=methods.filter(m=>m&&m.value!=null);
   if(valid.length===0)return{};
   const w={};
-  // データ充実度ベース
-  const dataScore=Math.min(1,nMonthsData/6); // 6ヶ月で満点
+  const dataScore=Math.min(1,nMonthsData/6);
+  const isFarFuture=monthPhase==='future'&&daysToStart>30;
   valid.forEach(m=>{
     let base=0.25;
-    if(m.name.startsWith('M1'))base=0.20*(0.5+dataScore*0.5); // ターゲット手法: データ独立だが、検証データなしで弱い
-    else if(m.name.startsWith('M2'))base=0.30; // 線形は透明
-    else if(m.name.startsWith('M3'))base=0.30+dataScore*0.10; // パターンはデータ次第
-    else if(m.name.startsWith('M4'))base=0.15+dataScore*0.05;
+    if(m.name.startsWith('M1')){base=isFarFuture?0.50:0.20*(0.5+dataScore*0.5);}
+    else if(m.name.startsWith('M2')){base=isFarFuture?0.05:0.30;}
+    else if(m.name.startsWith('M3')){base=isFarFuture?0.30+dataScore*0.10:0.30+dataScore*0.10;}
+    else if(m.name.startsWith('M4')){base=isFarFuture?0.15+dataScore*0.05:0.15+dataScore*0.05;}
     w[m.name]=base;
   });
-  // 正規化
   const sum=Object.values(w).reduce((s,v)=>s+v,0);
   Object.keys(w).forEach(k=>w[k]/=sum);
   return w;
@@ -1252,7 +1250,13 @@ async function run(){
     const methods=[m1,m2,m3,m4];
 
     const nMonthsData=Object.keys(byM).filter(ym=>ym<`${year}-${String(month).padStart(2,'0')}`).length;
-    const weights=calcWeights(methods,nMonthsData);
+    const _mStart=new Date(year,month-1,1);
+    const _mEnd=monthEnd(year,month);
+    let _phase='current';
+    if(execDate<_mStart)_phase='future';
+    else if(execDate>_mEnd)_phase='past';
+    const _daysToStart=_phase==='future'?Math.round((_mStart-execDate)/86400000):0;
+    const weights=calcWeights(methods,nMonthsData,_phase,_daysToStart);
     const integrated=integrate(methods,weights);
 
     // 制約
