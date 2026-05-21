@@ -1328,6 +1328,63 @@ async function run(){
     html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${confMap[integrated.confidence]||'none'}">${confLabel[integrated.confidence]||'?'}</span></div><div class="h-sub">${integrated.n}/4手法 · CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
     html+=`</div>`;
 
+    // ========== 🔍 KPI整合性チェック ==========
+    const kpiCheck=(()=>{
+      const cards=[];
+      const collect=(fn)=>pastMs.map(pm=>fn(d.byM[pm])).filter(v=>v!=null&&!isNaN(v)&&v>0);
+      const stat=(arr)=>{
+        if(!arr.length)return null;
+        const sorted=[...arr].sort((a,b)=>a-b);
+        const avg=arr.reduce((s,v)=>s+v,0)/arr.length;
+        return{min:sorted[0],max:sorted[sorted.length-1],avg};
+      };
+      // シーズナル考慮版 judge
+      const rank=RANKS[d.store]?.[d.month]||'B';
+      const seasonalMult={AA:1.5,A:1.3,B:1.0,C:0.85}[rank]||1.0;
+      const holidayBoost=h.max||0;
+      const contextMult=seasonalMult*(1+holidayBoost);
+      const judge=(cur,fcst,tgt,s)=>{
+        if(!s)return{status:'?',color:'#94a3b8',label:'-'};
+        const expectedMax=s.max*contextMult;
+        if(fcst>expectedMax*1.2)return{status:'🚨',color:'#dc2626',label:`異常値 (${rank}補正後の+20%超)`};
+        if(fcst>expectedMax*1.05)return{status:'⚠️',color:'#ea580c',label:`期待超過 (${rank}補正後+5%超)`};
+        if(fcst<s.min*0.7&&rank!=='C')return{status:'⚠️',color:'#ea580c',label:'過去最低 -30%下回り'};
+        return{status:'🟢',color:'#059669',label:`${rank}補正レンジ内`};
+      };
+      const revS=stat(collect(m=>m.sub));
+      cards.push({label:'💰 売上',unit:'',fmt:fmtY,target,cur:curRev,fcst:fcstRev,past:revS,...judge(curRev,fcstRev,target,revS)});
+      const cntS=stat(collect(m=>m.cnt));
+      cards.push({label:'📋 予約件数',unit:'件',fmt:v=>Math.round(v).toLocaleString()+'件',target:targetCnt,cur:curCnt,fcst:fcstCnt,past:cntS,...judge(curCnt,fcstCnt,targetCnt,cntS)});
+      const aovS=stat(collect(m=>m.cnt>0?m.sub/m.cnt:0));
+      cards.push({label:'💵 客単価',unit:'',fmt:fmtY,target:pastAov,cur:curAov,fcst:fcstAov,past:aovS,...judge(curAov,fcstAov,pastAov,aovS)});
+      const nightsS=stat(collect(m=>m.cnt>0?m.nights/m.cnt:0));
+      const curNights=curMonth.cnt>0?curMonth.nights/curMonth.cnt:0;
+      cards.push({label:'🛏 平均泊数',unit:'泊',fmt:v=>v.toFixed(2)+'泊',target:nightsS?nightsS.avg:0,cur:curNights,fcst:curNights,past:nightsS,...judge(curNights,curNights,nightsS?nightsS.avg:0,nightsS)});
+      const vehCount=(d.veh||[]).filter(v=>v.active!==false).length;
+      const mDaysC=monthDays(d.year,d.month);
+      const supplyDays=vehCount*mDaysC;
+      const utilFcst=supplyDays>0?(fcstCnt*(curNights||3)/supplyDays*100):0;
+      const utilCur=supplyDays>0?(curCnt*(curNights||3)/supplyDays*100):0;
+      const utilPastS=stat(collect(m=>{const n=m.cnt>0?m.nights/m.cnt:3;return supplyDays>0?(m.cnt*n/supplyDays*100):0;}));
+      const targetUtil=supplyDays>0?(targetCnt*(nightsS?nightsS.avg:3)/supplyDays*100):0;
+      cards.push({label:'🚗 稼働率',unit:'%',fmt:v=>v.toFixed(1)+'%',target:targetUtil,cur:utilCur,fcst:utilFcst,past:utilPastS,...judge(utilCur,utilFcst,targetUtil,utilPastS)});
+      return{cards,rank,seasonalMult,holidayBoost,contextMult};
+    })();
+    html+=`<div class="section"><div class="section-head"><h2>🔍 KPI整合性チェック</h2><span class="sub">シーズナル(${kpiCheck.rank}=${kpiCheck.seasonalMult.toFixed(2)}x) + 連休加点(+${(kpiCheck.holidayBoost*100).toFixed(0)}%) を踏まえた正常レンジ判定</span></div><div class="section-body">`;
+    html+=`<div class="alert info" style="margin-bottom:10px"><b>${d.month}月の文脈:</b> シーズナルランク <span class="rank ${kpiCheck.rank}">${kpiCheck.rank}</span> (係数 ${kpiCheck.seasonalMult.toFixed(2)}x) ・ 連休加点 最大 +${(kpiCheck.holidayBoost*100).toFixed(1)}% ・ <b>過去の${(kpiCheck.contextMult*100).toFixed(0)}%まで</b> が正常レンジ</div>`;
+    html+=`<table class="t"><thead><tr><th>KPI</th><th class="num">目標</th><th class="num">現在 (速報)</th><th class="num">予測</th><th class="num">過去平均</th><th class="num">過去レンジ</th><th class="center">妥当性</th></tr></thead><tbody>`;
+    let badCount=0;
+    kpiCheck.cards.forEach(k=>{
+      if(k.status==='🚨'||k.status==='⚠️')badCount++;
+      const rng=k.past?`${k.fmt(k.past.min)} 〜 ${k.fmt(k.past.max)}`:'-';
+      const avgD=k.past?k.fmt(k.past.avg):'-';
+      html+=`<tr><td><b>${k.label}</b></td><td class="num">${k.fmt(k.target||0)}</td><td class="num" style="color:#c2410c">${k.fmt(k.cur||0)}</td><td class="num" style="color:#1e40af;font-weight:700">${k.fmt(k.fcst||0)}</td><td class="num">${avgD}</td><td class="num" style="font-size:10.5px">${rng}</td><td class="center" style="color:${k.color};font-weight:700">${k.status} <span style="font-size:9.5px;font-weight:400">${k.label}</span></td></tr>`;
+    });
+    html+=`</tbody></table>`;
+    if(badCount>0){html+=`<div class="alert danger" style="margin-top:12px"><b>🚨 ${badCount}個のKPIが正常レンジ外</b> · ${kpiCheck.rank}シーズナル+連休を加味してもこの予測は破綻の疑い</div>`;}
+    else{html+=`<div class="alert success" style="margin-top:12px"><b>🟢 全KPIが正常レンジ内</b> · ${kpiCheck.rank}シーズナル(${kpiCheck.seasonalMult.toFixed(2)}x) + 連休(+${(kpiCheck.holidayBoost*100).toFixed(0)}%)を加味した予測として妥当 (レール上を走っている状態)</div>`;}
+    html+=`</div></div>`;
+
     // ========== 予測の根拠 (残期間の +件数×単価) ==========
     if(addCnt>0||addRev>0){
       html+=`<div style="margin:0 0 16px;padding:14px 18px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #3b82f6;border-radius:10px">`;
