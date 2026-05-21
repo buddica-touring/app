@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>🔮 売上予測シミュレーター v3.0</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#f7f8fa;color:#111827;margin:0;padding:18px;font-size:14px;line-height:1.5}
+
+/* ヘッダー */
+.header{background:#fff;padding:18px 22px;border-radius:12px;margin-bottom:16px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.header h1{margin:0;font-size:20px;font-weight:700;color:#111827;display:flex;align-items:center;gap:8px}
+.header .sub{font-size:12px;color:#6b7280;margin-top:2px}
+
+/* コントロール */
+.controls{background:#fff;padding:14px 18px;border-radius:12px;margin-bottom:16px;border:1px solid #e5e7eb;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.controls label{font-size:12px;color:#6b7280;font-weight:500}
+.controls select,.controls input{padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827}
+.controls button{padding:7px 16px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+.controls button:hover{background:#1d4ed8}
+.controls .status{margin-left:auto;font-size:12px;color:#6b7280}
+
+/* メインヒーロー (上部4カード) */
+.hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
+.hero-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 20px;position:relative}
+.hero-card .h-label{font-size:11px;color:#6b7280;font-weight:500;margin-bottom:8px;letter-spacing:.3px}
+.hero-card .h-value{font-size:28px;font-weight:700;color:#111827;line-height:1.05;font-variant-numeric:tabular-nums}
+.hero-card .h-sub{font-size:12px;color:#9ca3af;margin-top:6px}
+.hero-card.target{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fbbf24}
+.hero-card.target .h-value{color:#92400e}
+.hero-card.forecast{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#3b82f6}
+.hero-card.forecast .h-value{color:#1e40af}
+.hero-card.achieve{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#10b981}
+.hero-card.achieve .h-value{color:#047857}
+.hero-card.achieve.warn{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#f59e0b}
+.hero-card.achieve.warn .h-value{color:#b45309}
+.hero-card.achieve.danger{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#ef4444}
+.hero-card.achieve.danger .h-value{color:#b91c1c}
+
+/* セクション */
+.section{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:16px;overflow:hidden}
+.section-head{padding:14px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.section-head h2{margin:0;font-size:15px;font-weight:600;color:#111827;display:flex;align-items:center;gap:8px}
+.section-head .sub{font-size:12px;color:#9ca3af;font-weight:400}
+.section-body{padding:18px 20px}
+
+/* メトリック小カード */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.metric{background:#fafbfc;border:1px solid #f3f4f6;border-radius:10px;padding:14px 16px}
+.metric .ml{font-size:11px;color:#6b7280;font-weight:500;margin-bottom:6px}
+.metric .mv{font-size:20px;font-weight:700;color:#111827;line-height:1.1;font-variant-numeric:tabular-nums}
+.metric .ms{font-size:11px;color:#9ca3af;margin-top:4px}
+
+/* テーブル */
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead th{padding:10px 12px;background:#f9fafb;color:#374151;text-align:left;font-weight:600;font-size:12px;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+table.t tbody td{padding:9px 12px;border-bottom:1px solid #f3f4f6;color:#374151}
+table.t tbody tr:hover{background:#f9fafb}
+table.t .num{text-align:right;font-variant-numeric:tabular-nums}
+table.t .center{text-align:center}
+table.t .ok{color:#059669;font-weight:600}
+table.t .ng{color:#dc2626;font-weight:600}
+table.t .warn{color:#d97706;font-weight:600}
+
+/* ランクバッジ */
+.rank{display:inline-block;padding:2px 8px;border-radius:6px;font-weight:600;font-size:11px;color:#fff}
+.rank.AA{background:#dc2626}.rank.A{background:#ea580c}.rank.B{background:#d97706}.rank.C{background:#2563eb}
+
+/* 信頼度バッジ */
+.conf{padding:4px 12px;border-radius:14px;font-size:12px;font-weight:600}
+.conf.strong{background:#dcfce7;color:#166534}
+.conf.medium{background:#fef3c7;color:#92400e}
+.conf.weak{background:#fed7aa;color:#9a3412}
+.conf.none{background:#fee2e2;color:#991b1b}
+
+/* 12ヶ月セル */
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:6px}
+.mc{background:#fafbfc;border:1px solid #e5e7eb;border-radius:8px;padding:8px 4px;text-align:center;cursor:pointer;transition:all .15s;font-size:11px;line-height:1.4}
+.mc:hover{background:#f3f4f6;border-color:#d1d5db}
+.mc.cur{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#f59e0b;border-width:2px;padding:7px 3px}
+.mc.past{opacity:.95}
+.mc .mc-m{font-weight:700;color:#374151;font-size:12px}
+.mc .mc-tgt{color:#92400e;margin-top:4px;font-weight:600}
+.mc .mc-val{font-weight:700;margin-top:2px}
+.mc .mc-val.act{color:#059669}
+.mc .mc-val.fcst{color:#2563eb}
+.mc .mc-ach{font-size:10px;margin-top:4px;padding:2px 0;border-radius:4px;font-weight:600}
+.mc .mc-ach.ok{background:#d1fae5;color:#065f46}
+.mc .mc-ach.warn{background:#fef3c7;color:#92400e}
+.mc .mc-ach.ng{background:#fee2e2;color:#991b1b}
+
+/* 株価チャート背景 */
+.chart-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px}
+
+/* バー */
+.bar{height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden;margin-top:4px}
+.bar>div{height:100%;border-radius:4px;transition:width .3s}
+
+/* アラート */
+.alert{padding:11px 16px;border-radius:8px;margin-bottom:10px;font-size:13px;display:flex;align-items:center;gap:10px}
+.alert.warn{background:#fffbeb;border-left:3px solid #f59e0b;color:#92400e}
+.alert.danger{background:#fef2f2;border-left:3px solid #ef4444;color:#991b1b}
+.alert.success{background:#ecfdf5;border-left:3px solid #10b981;color:#065f46}
+.alert.info{background:#eff6ff;border-left:3px solid #3b82f6;color:#1e40af}
+
+/* ローディング */
+.loading{padding:60px 20px;text-align:center;color:#6b7280;font-size:13px}
+.spinner{width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 折り畳み */
+details{margin-top:0}
+details summary{cursor:pointer;padding:12px 16px;background:#fafbfc;border:1px solid #e5e7eb;border-radius:10px;font-weight:600;font-size:13px;color:#374151;list-style:none;display:flex;align-items:center;gap:8px}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:'▶';color:#9ca3af;font-size:10px;transition:transform .15s;display:inline-block}
+details[open] summary{border-radius:10px 10px 0 0;border-bottom:0}
+details[open] summary::before{transform:rotate(90deg)}
+details[open]{border:0}
+details .detail-body{padding:16px 18px;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 10px 10px}
+details + details{margin-top:8px}
+
+/* 凡例 */
+.legend{padding:10px 14px;background:#f9fafb;border-radius:8px;font-size:12px;color:#4b5563;line-height:1.7;margin-top:10px;border:1px solid #f3f4f6}
+.legend b{color:#111827}
+
+/* 互換 (旧クラス・薄い背景) */
+.overview{background:transparent;color:inherit;padding:0;margin-bottom:0;box-shadow:none}
+.overview h2{display:none}
+.overview .ovh-sub{display:none}
+.ov-stats{display:none}
+.ov-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:6px}
+.ov-cell{background:#fafbfc;border:1px solid #e5e7eb;border-radius:8px;padding:8px 4px;text-align:center;cursor:pointer;transition:all .15s;font-size:11px}
+.ov-cell:hover{background:#f3f4f6}
+.ov-cell.current{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#f59e0b;border-width:2px;padding:7px 3px}
+.ov-cell.past{opacity:.95}
+.ov-cell .mlabel{font-weight:700;color:#374151;font-size:12px}
+.ov-cell .mrank{display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:600;color:#fff;margin-left:4px}
+.ov-cell .mtgt{color:#92400e;margin-top:4px;font-weight:600;font-size:11px}
+.ov-cell .mfcst{color:#2563eb;font-weight:700;margin-top:2px;font-size:11px}
+.ov-cell .mact{color:#059669;font-weight:700;margin-top:2px;font-size:11px}
+.ov-cell .mach{font-size:10px;margin-top:4px;padding:2px 0;border-radius:4px;font-weight:600}
+.ov-cell .mach.ok{background:#d1fae5;color:#065f46}
+.ov-cell .mach.warn{background:#fef3c7;color:#92400e}
+.ov-cell .mach.ng{background:#fee2e2;color:#991b1b}
+.ov-chart{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:14px}
+
+/* カード旧クラス互換 */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.card{background:#fafbfc;border:1px solid #f3f4f6;border-radius:10px;padding:14px 16px}
+.card .label{font-size:11px;color:#6b7280;font-weight:500;margin-bottom:6px;letter-spacing:0;text-transform:none}
+.card .value{font-size:20px;font-weight:700;color:#111827;line-height:1.1;font-variant-numeric:tabular-nums}
+.card .sub{font-size:11px;color:#9ca3af;margin-top:4px}
+.card.highlight{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fbbf24}
+.card.danger{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fca5a5}
+.card.success{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7}
+
+/* gauge (旧) */
+.gauge-wrap{padding:0;background:transparent;border:0}
+.gauge-label{font-size:12px;color:#6b7280;font-weight:500;margin-bottom:6px}
+.gauge-value{font-size:32px;font-weight:700;color:#111827;line-height:1;font-variant-numeric:tabular-nums}
+.gauge-target{font-size:12px;color:#6b7280;margin-top:4px}
+.gauge-bar{height:10px;background:#f3f4f6;border-radius:6px;margin-top:10px;overflow:hidden}
+.gauge-bar>div{height:100%;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:6px;transition:width .5s}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔮 売上予測シミュレーター</h1>
+  <div class="sub">v3.0 アンサンブル ｜ 4手法独立予測 × 8制約チェック × 5観点グループ ｜ INPUT → ALGORITHM → OUTPUT → ACTION → PROGRESS</div>
+</div>
+
+<div class="controls">
+  <label>店舗</label>
+  <select id="store">
+    <option value="bt">🌊 BT（高松）</option>
+  </select>
+  <label>対象月</label>
+  <select id="month"></select>
+  <label>基準日</label>
+  <input type="date" id="asOf">
+  <button onclick="run()">▶ シミュレート</button>
+  <span class="status" id="status">起動準備中...</span>
+</div>
+
+<div id="content">
+  <div class="loading"><div class="spinner"></div>初期化中...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ==================== Supabase 接続 ====================
+const SUPA_URL='https://ggqugvyskyiblxiycpci.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// 認証
+async function ensureAuth(){
+  const{data:s}=await sb.auth.getSession();
+  if(!s||!s.session){
+    const{error}=await sb.auth.signInWithPassword({email:'member@g-lines.jp',password:'8888'});
+    if(error)throw new Error('認証失敗: '+error.message);
+  }
+}
+
+// ==================== 定数 (FORMULA v1.2 / VARIABLES v1.4 同期) ====================
+// 🌊 BT (BUDDICA TOURING 高松) — 月別目標は未確定。暫定で1,000,000円 (オーナー確定待ち)
+const MONTHLY_TARGETS={
+  bt:{1:1000000,2:1000000,3:1000000,4:1000000,5:1000000,6:1000000,
+      7:1500000,8:2000000,9:1500000,10:1500000,11:1000000,12:1000000}
+};
+const RANKS={
+  bt:{1:'C',2:'B',3:'B',4:'B',5:'C',6:'C',7:'A',8:'AA',9:'A',10:'A',11:'B',12:'C'}
+};
+const TIER_COEF={AA:2.0,A:1.5,B:1.0,C:0.7};
+
+const HOLIDAY_BLOCKS=[
+  {start:'2025-12-28',end:'2026-01-04',cat:'large',label:'年末年始',boost:0.30},
+  {start:'2026-01-10',end:'2026-01-12',cat:'3day',label:'成人の日',boost:0.05},
+  {start:'2026-02-21',end:'2026-02-23',cat:'3day',label:'天皇誕生日',boost:0.05},
+  {start:'2026-03-20',end:'2026-03-22',cat:'3day',label:'春分の日',boost:0.05},
+  {start:'2026-04-29',end:'2026-05-06',cat:'large',label:'GW',boost:0.30},
+  {start:'2026-07-18',end:'2026-07-20',cat:'3day',label:'海の日',boost:0.05},
+  {start:'2026-08-08',end:'2026-08-16',cat:'large',label:'お盆',boost:0.30},
+  {start:'2026-09-19',end:'2026-09-23',cat:'large',label:'SW',boost:0.30},
+  {start:'2026-10-10',end:'2026-10-12',cat:'3day',label:'スポーツの日',boost:0.05},
+  {start:'2026-10-31',end:'2026-11-03',cat:'3day',label:'文化の日',boost:0.05},
+  {start:'2026-11-21',end:'2026-11-23',cat:'3day',label:'勤労感謝',boost:0.05},
+  {start:'2026-12-26',end:'2027-01-04',cat:'large',label:'年末年始',boost:0.30}
+];
+const PERIOD_START={bt:'2026-05'};
+
+// BT 高単価クラス (AA/A/B/S) ※ BT クラス: AA/A/B/C/S/H/F
+const PREMIUM_CLASSES={bt:['AA','A','B','S']};
+
+// 年平均ティア係数 (BT は同じパターンを採用)
+const YEAR_AVG_CBASE={bt:1.108};
+
+// ==================== ヘルパー ====================
+const fmtY=n=>n==null?'-':'¥'+Math.round(n).toLocaleString();
+const fmtK=n=>n==null?'-':'¥'+Math.round(n/10000).toLocaleString()+'万';
+const fmtP=n=>n==null?'-':(n*100).toFixed(1)+'%';
+const parseYmd=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const ymdStr=d=>d.toISOString().slice(0,10);
+const monthDays=(y,m)=>new Date(y,m,0).getDate();
+const monthEnd=(y,m)=>new Date(y,m-1,monthDays(y,m));
+const daysOverlap=(bs,be,ms,me)=>{const s=bs>ms?bs:ms;const e=be<me?be:me;if(e<s)return 0;return Math.round((e-s)/86400000)+1;};
+
+// 全件ページネーション
+async function fetchAll(table,opts={}){
+  let all=[],offset=0;const lim=1000;
+  while(true){
+    let q=sb.from(table).select(opts.select||'*');
+    if(opts.order)q=q.order(opts.order,{ascending:true});
+    if(opts.filters)opts.filters.forEach(f=>{q=q[f[0]](f[1],f[2]);});
+    q=q.range(offset,offset+lim-1);
+    const{data,error}=await q;
+    if(error)throw error;
+    if(!data||data.length===0)break;
+    all=all.concat(data);
+    if(data.length<lim)break;
+    offset+=lim;
+  }
+  return all;
+}
+
+// ==================== コアロジック ====================
+function normStatus(s){
+  if(!s)return 'confirmed';
+  s=String(s).toLowerCase();
+  if(s.includes('cancel')||s.includes('キャンセル'))return 'cancelled';
+  return 'confirmed';
+}
+
+function revOf(r){
+  const bp=r.base_price||0,op=r.option_price||0,disc=r.discount||0,price=r.price||0;
+  if(bp===0&&op===0)return price-disc;
+  return bp+op-disc;
+}
+
+function calcHolidayBoost(execDate,year,month){
+  const mStart=new Date(year,month-1,1);
+  const mEnd=monthEnd(year,month);
+  let total=0,maxT=0;
+  const breakdown=[];
+  HOLIDAY_BLOCKS.forEach(b=>{
+    const bs=parseYmd(b.start),be=parseYmd(b.end);
+    const dInM=daysOverlap(bs,be,mStart,mEnd);
+    if(!dInM)return;
+    const dTotal=Math.round((be-bs)/86400000)+1;
+    const futureStart=new Date(Math.max(bs.getTime(),execDate.getTime()+86400000));
+    const dFuture=daysOverlap(futureStart,be,mStart,mEnd);
+    const blockMax=b.boost*(dInM/dTotal);
+    maxT+=blockMax;
+    const blockNow=blockMax*(dInM>0?dFuture/dInM:0);
+    total+=blockNow;
+    breakdown.push({label:b.label,cat:b.cat,start:b.start,end:b.end,dInM,dTotal,dFuture,maxBoost:blockMax,remainingBoost:blockNow});
+  });
+  return{max:maxT,remaining:total,breakdown};
+}
+
+// ==================== データ集計 ====================
+async function loadData(store){
+  await ensureAuth();
+  // BT専用テーブル (bt_プレフィックス)
+  const tResv='bt_reservations';
+  const tAcct='bt_accounting';
+  const tVeh='bt_vehicles';
+  const tKpi='bt_vehicle_monthly_kpi';
+  const [resv,acct,veh,kpi]=await Promise.all([
+    fetchAll(tResv,{order:'id'}),
+    fetchAll(tAcct,{order:'id'}),
+    fetchAll(tVeh,{order:'code'}),
+    fetchAll(tKpi,{order:'vehicle_code'})
+  ]);
+  return{resv,acct,veh,kpi};
+}
+
+function aggregateMonthly(resv,store){
+  const endCol=store==='nha'?'end_date':'return_date';
+  const startCol=store==='nha'?'start_date':'lend_date';
+  const byM={};
+  resv.forEach(r=>{
+    if(normStatus(r.status)==='cancelled')return;
+    const ed=(r[endCol]||'').slice(0,10);
+    if(!ed||!ed.startsWith('2026'))return;
+    const ym=ed.slice(0,7);
+    if(!byM[ym])byM[ym]={cnt:0,sub:0,cm:0,leads:[],byCls:{},byOta:{},nights:0};
+    const sub=revOf(r);
+    byM[ym].cnt++;byM[ym].sub+=sub;
+    const created=(r.created_at||'').slice(0,10);
+    if(created&&created.slice(0,7)===ym)byM[ym].cm++;
+    const cls=(r.vehicle_class||'').trim()||'?';
+    const ota=(r.ota||'').trim()||'?';
+    if(!byM[ym].byCls[cls])byM[ym].byCls[cls]={cnt:0,sub:0};
+    byM[ym].byCls[cls].cnt++;byM[ym].byCls[cls].sub+=sub;
+    if(!byM[ym].byOta[ota])byM[ym].byOta[ota]={cnt:0,sub:0};
+    byM[ym].byOta[ota].cnt++;byM[ym].byOta[ota].sub+=sub;
+    const sd=(r[startCol]||'').slice(0,10);
+    if(created&&sd){
+      try{const lt=Math.round((parseYmd(sd)-parseYmd(created))/86400000);if(lt>=0)byM[ym].leads.push(lt);}catch(e){}
+      const nights=Math.max(1,Math.round((parseYmd(ed)-parseYmd(sd))/86400000));
+      byM[ym].nights+=nights;
+    }
+  });
+  return byM;
+}
+
+function snapshotAt(resv,store,targetYm,cutoffStr){
+  const endCol=store==='nha'?'end_date':'return_date';
+  let cnt=0,sub=0,cm=0;
+  resv.forEach(r=>{
+    if(normStatus(r.status)==='cancelled')return;
+    const ed=(r[endCol]||'').slice(0,10);
+    if(ed.slice(0,7)!==targetYm)return;
+    const created=(r.created_at||'').slice(0,10);
+    if(!created||created>cutoffStr)return;
+    cnt++;sub+=revOf(r);
+    if(created.slice(0,7)===targetYm)cm++;
+  });
+  return{cnt,sub,cm};
+}
+
+function extraMonthly(acct){
+  const byM={};
+  acct.forEach(a=>{
+    if(a.type!=='extra_sales')return;
+    const ym=(a.date||'').slice(0,7);
+    if(!ym)return;
+    byM[ym]=(byM[ym]||0)+(a.amount||0);
+  });
+  return byM;
+}
+
+// ==================== 4手法 ====================
+function method1Target(store,year,month,execDate){
+  const R_base=MONTHLY_TARGETS[store]?.[month]||0;
+  if(!R_base)return null;
+  const h=calcHolidayBoost(execDate,year,month);
+  return{name:'M1: ターゲット+季節',value:Math.round(R_base*(1+h.remaining)),detail:{R_base,boost_remaining:h.remaining,boost_max:h.max}};
+}
+
+function method2Linear(byM,extraByM,store,year,month,execDate){
+  const ym=`${year}-${String(month).padStart(2,'0')}`;
+  const mDays=monthDays(year,month);
+  const mEnd=monthEnd(year,month);
+  const mStart=new Date(year,month-1,1);
+  if(execDate<mStart)return null;
+  const cap=execDate<mEnd?execDate:mEnd;
+  const elapsed=Math.max(1,Math.round((cap-mStart)/86400000)+1);
+  const m=byM[ym]||{sub:0,cnt:0};
+  const extra=extraByM[ym]||0;
+  const cur=m.sub+extra;
+  const daily=cur/elapsed;
+  return{name:'M2: 線形外挿',value:Math.round(daily*mDays),detail:{confirmed:cur,elapsed,mDays,daily:Math.round(daily)}};
+}
+
+function method3Pattern(resv,byM,extraByM,store,year,month,execDate){
+  const targetYm=`${year}-${String(month).padStart(2,'0')}`;
+  const basis=ymdStr(execDate);
+  const basisMonth=basis.slice(0,7);
+  const mEnd=monthEnd(year,month);
+  const daysLeft=Math.max(0,Math.round((mEnd-execDate)/86400000));
+
+  // 過去月リスト
+  const past=[];
+  let[y,m]=PERIOD_START[store].split('-').map(Number);
+  while(`${y}-${String(m).padStart(2,'0')}`<targetYm){
+    past.push(`${y}-${String(m).padStart(2,'0')}`);
+    m++;if(m>12){m=1;y++;}
+  }
+  const history=past.filter(pm=>byM[pm]&&byM[pm].cnt>0).map(pm=>({pm,final:byM[pm]}));
+  if(history.length===0)return null;
+
+  const cur=snapshotAt(resv,store,targetYm,basis);
+  const extraAvg=Object.values(extraByM).slice(-3).reduce((s,v)=>s+v,0)/Math.max(1,Math.min(3,Object.keys(extraByM).length));
+
+  if(targetYm===basisMonth){
+    // 当月モデル: 同タイミング追加分
+    const adds=[];
+    history.forEach(({pm,final})=>{
+      const[py,pmnum]=pm.split('-').map(Number);
+      const pEnd=monthEnd(py,pmnum);
+      const pBasis=ymdStr(new Date(pEnd.getTime()-daysLeft*86400000));
+      const sp=snapshotAt(resv,store,pm,pBasis);
+      if(sp.cnt<5)return;
+      adds.push(Math.max(0,final.sub-sp.sub));
+    });
+    if(adds.length===0)return null;
+    const avgAdd=adds.reduce((s,v)=>s+v,0)/adds.length;
+    const maxAdd=Math.max(...adds);
+    const minAdd=Math.min(...adds);
+    return{
+      name:'M3: パターン(当月)',
+      value:Math.round(cur.sub+avgAdd+extraAvg),
+      opt:Math.round(cur.sub+maxAdd+extraAvg),
+      pes:Math.round(cur.sub+minAdd+extraAvg),
+      detail:{confirmed:cur.sub,avgAdd:Math.round(avgAdd),pastUsed:adds.length,extraAvg:Math.round(extraAvg)}
+    };
+  }else if(targetYm>basisMonth){
+    // 未来月モデル
+    const preAdds=[];
+    history.forEach(({pm,final})=>{
+      const[py,pmnum]=pm.split('-').map(Number);
+      const pEnd=monthEnd(py,pmnum);
+      const pBasis=ymdStr(new Date(pEnd.getTime()-daysLeft*86400000));
+      const sp=snapshotAt(resv,store,pm,pBasis);
+      // 月初時点までの事前予約 = 前月末日時点
+      const prevMonth=new Date(py,pmnum-2,monthDays(py,pmnum-1>=1?pmnum-1:12));
+      const preEnd=snapshotAt(resv,store,pm,ymdStr(prevMonth));
+      if(sp.cnt<3||preEnd.cnt<3)return;
+      preAdds.push({addCnt:Math.max(0,preEnd.cnt-sp.cnt),addSub:Math.max(0,preEnd.sub-sp.sub)});
+    });
+    if(preAdds.length===0)return null;
+    const avgAddCnt=preAdds.reduce((s,a)=>s+a.addCnt,0)/preAdds.length;
+    const avgAddSub=preAdds.reduce((s,a)=>s+a.addSub,0)/preAdds.length;
+    const preCnt=cur.cnt+avgAddCnt;
+    const preSub=cur.sub+avgAddSub;
+    // 当月予約率(壊れデータ=cm_rate100%除外)
+    const validCm=history.filter(({final})=>final.cnt>0&&final.cm/final.cnt<0.95).map(({final})=>final.cm/final.cnt);
+    const validAov=history.filter(({final})=>final.cnt>0).map(({final})=>final.sub/final.cnt);
+    if(validCm.length===0||validAov.length===0)return null;
+    const cmEst=validCm.slice(-2).reduce((s,v)=>s+v,0)/Math.min(2,validCm.length);
+    const cmMax=Math.max(...validCm);
+    const cmMin=Math.min(...validCm);
+    const aovEst=validAov.slice(-2).reduce((s,v)=>s+v,0)/Math.min(2,validAov.length);
+    const maxCnt=Math.max(...history.map(({final})=>final.cnt));
+    const cap=maxCnt*1.1;
+    const scenario=cm=>{
+      let raw=cm<1?preCnt/(1-cm):preCnt;
+      const cnt=Math.min(raw,cap);
+      const cmN=Math.max(0,cnt-preCnt);
+      return preSub+cmN*aovEst+extraAvg;
+    };
+    return{
+      name:'M3: パターン(未来)',
+      value:Math.round(scenario(cmEst)),
+      opt:Math.round(scenario(cmMax)),
+      pes:Math.round(scenario(cmMin)),
+      detail:{preCnt:Math.round(preCnt*10)/10,preSub:Math.round(preSub),cmStd:cmEst,cmMax,cmMin,aovEst:Math.round(aovEst),maxCnt,cap:Math.round(cap),pastUsed:preAdds.length}
+    };
+  }else{
+    // 過去月
+    return{name:'M3: 過去実績',value:Math.round((byM[targetYm]?.sub||0)+extraAvg),detail:{final:byM[targetYm]?.sub||0,extraAvg:Math.round(extraAvg)}};
+  }
+}
+
+function method4Trend(byM,extraByM,store,year,month){
+  const targetYm=`${year}-${String(month).padStart(2,'0')}`;
+  const past=Object.keys(byM).filter(ym=>ym<targetYm&&byM[ym].cnt>0).sort();
+  if(past.length===0)return null;
+  const recent=past.slice(-3);
+  const subs=recent.map(ym=>byM[ym].sub);
+  const avg=subs.reduce((s,v)=>s+v,0)/subs.length;
+  const growth=subs[subs.length-1]/avg||1;
+  const extraAvg=Object.values(extraByM).slice(-3).reduce((s,v)=>s+v,0)/Math.max(1,Object.values(extraByM).slice(-3).length);
+  return{name:'M4: 直近トレンド',value:Math.round(avg*growth+extraAvg),detail:{recentAvg:Math.round(avg),recent,growth:Math.round(growth*1000)/1000,extraAvg:Math.round(extraAvg)}};
+}
+
+// ==================== 8制約チェック ====================
+function checkConstraints(store,year,month,byM,veh,kpi,target,resv){
+  const ym=`${year}-${String(month).padStart(2,'0')}`;
+  const checks=[];
+
+  // 制約① 物理供給上限
+  // 配車表/解析タブと同じロジック: 全保有から「KPI管理表で除外」を引く
+  const excludedCodes=new Set(kpi.filter(k=>k.year_month===ym&&k.active===false).map(k=>k.vehicle_code));
+  const nActive=veh.filter(v=>v.active!==false&&!excludedCodes.has(v.code)).length;
+  const mDays=monthDays(year,month);
+  // 過去の平均泊数
+  const avgNightsArr=Object.values(byM).filter(m=>m.cnt>0&&m.nights>0).map(m=>m.nights/m.cnt);
+  const avgNights=avgNightsArr.length?avgNightsArr.reduce((s,v)=>s+v,0)/avgNightsArr.length:3;
+  const physicalMax=Math.round(nActive*mDays/avgNights*0.95);
+  // 必要件数 (過去客単価から逆算)
+  const aovs=Object.values(byM).filter(m=>m.cnt>0).map(m=>m.sub/m.cnt);
+  const aovAvg=aovs.length?aovs.reduce((s,v)=>s+v,0)/aovs.length:25000;
+  const neededCnt=Math.round(target/aovAvg);
+  checks.push({id:1,name:'物理供給上限',pass:neededCnt<=physicalMax,need:neededCnt,limit:physicalMax,note:`稼働${nActive}台×暦${mDays}日÷平均${avgNights.toFixed(1)}泊×95%`});
+
+  // 制約② 過去レンジ妥当性
+  const pastCnts=Object.entries(byM).filter(([y,m])=>y<ym&&m.cnt>0).map(([,m])=>m.cnt);
+  const maxCnt=pastCnts.length?Math.max(...pastCnts):0;
+  const rangeCap=Math.round(maxCnt*1.1);
+  checks.push({id:2,name:'過去レンジ',pass:neededCnt<=rangeCap,need:neededCnt,limit:rangeCap,note:`過去最高${maxCnt}件×1.1`});
+
+  // 制約③ クラス供給整合 (高単価クラスで取れる件数)
+  const premiumSet=PREMIUM_CLASSES[store]||[];
+  const premiumVeh=veh.filter(v=>v.active!==false&&premiumSet.includes((v.class||v.type||'').trim())).length;
+  const premiumNeed=Math.round(neededCnt*0.5); // 高単価が約半分を占めることを期待
+  const premiumMax=Math.round(premiumVeh*mDays/avgNights*0.95);
+  checks.push({id:3,name:'高単価クラス供給',pass:premiumNeed<=premiumMax,need:premiumNeed,limit:premiumMax,note:`高単価${premiumVeh}台で必要${premiumNeed}件 (全体50%想定)`});
+
+  // 制約④ リードタイム制約 (簡易: 残期間で過去レートが取れるか)
+  const today=new Date(year,month-1,1);
+  // 過去のリードタイム中央値
+  const allLeads=[];
+  Object.values(byM).forEach(m=>m.leads&&m.leads.forEach(l=>allLeads.push(l)));
+  allLeads.sort((a,b)=>a-b);
+  const medLT=allLeads.length?allLeads[Math.floor(allLeads.length/2)]:20;
+  checks.push({id:4,name:'リードタイム妥当性',pass:true,need:medLT,limit:null,note:`中央値${medLT}日 → 残期間で取り込み可能性あり`});
+
+  // 制約⑤ 客単価妥当性 (現在の客単価が過去レンジ内か)
+  const cur=byM[ym];
+  const curAov=cur&&cur.cnt>0?cur.sub/cur.cnt:0;
+  const aovMin=aovs.length?Math.min(...aovs):0;
+  const aovMax=aovs.length?Math.max(...aovs):999999;
+  checks.push({id:5,name:'客単価妥当性',pass:curAov>=aovMin*0.85&&curAov<=aovMax*1.15,need:curAov,limit:`${Math.round(aovMin)}〜${Math.round(aovMax)}`,note:'過去レンジ内か'});
+
+  // 制約⑥ 当月予約率妥当性
+  const cmRates=Object.entries(byM).filter(([y,m])=>m.cnt>0&&m.cm/m.cnt<0.95).map(([,m])=>m.cm/m.cnt);
+  const cmAvg=cmRates.length?cmRates.reduce((s,v)=>s+v,0)/cmRates.length:0.2;
+  const cmNeeded=Math.round(neededCnt*cmAvg);
+  const daysLeft=Math.max(0,Math.round((monthEnd(year,month)-new Date())/86400000));
+  const cmPossible=daysLeft>0;
+  checks.push({id:6,name:'当月予約率',pass:cmPossible,need:cmNeeded,limit:`${(cmAvg*100).toFixed(0)}%平均 残${daysLeft}日`,note:`必要${cmNeeded}件の当月発生`});
+
+  // 制約⑦ キャンセル率補正
+  const allCnt=resv.filter(r=>r.status).length;
+  const cancelled=resv.filter(r=>normStatus(r.status)==='cancelled').length;
+  const cancelRate=allCnt?cancelled/allCnt:0;
+  checks.push({id:7,name:'キャンセル率補正',pass:cancelRate<0.15,need:cancelRate,limit:0.15,note:`過去キャンセル率 ${(cancelRate*100).toFixed(1)}%`});
+
+  // 制約⑧ チャネル偏重
+  const otas={};
+  Object.values(byM).forEach(m=>{Object.entries(m.byOta||{}).forEach(([o,d])=>{otas[o]=(otas[o]||0)+d.cnt;});});
+  const totalOta=Object.values(otas).reduce((s,v)=>s+v,0);
+  const maxOtaShare=totalOta?Math.max(...Object.values(otas))/totalOta:0;
+  checks.push({id:8,name:'チャネル偏重',pass:maxOtaShare<0.8,need:maxOtaShare,limit:0.8,note:`最大OTA構成比 ${(maxOtaShare*100).toFixed(1)}%`});
+
+  return{checks,nActive,physicalMax,neededCnt,aovAvg,maxCnt,premiumVeh,avgNights,medLT,cancelRate};
+}
+
+// ==================== 信頼度スコア & 統合 ====================
+function calcWeights(methods,nMonthsData){
+  // 簡易: 全手法等重み + 制約クリアで微調整
+  const valid=methods.filter(m=>m&&m.value!=null);
+  if(valid.length===0)return{};
+  const w={};
+  // データ充実度ベース
+  const dataScore=Math.min(1,nMonthsData/6); // 6ヶ月で満点
+  valid.forEach(m=>{
+    let base=0.25;
+    if(m.name.startsWith('M1'))base=0.20*(0.5+dataScore*0.5); // ターゲット手法: データ独立だが、検証データなしで弱い
+    else if(m.name.startsWith('M2'))base=0.30; // 線形は透明
+    else if(m.name.startsWith('M3'))base=0.30+dataScore*0.10; // パターンはデータ次第
+    else if(m.name.startsWith('M4'))base=0.15+dataScore*0.05;
+    w[m.name]=base;
+  });
+  // 正規化
+  const sum=Object.values(w).reduce((s,v)=>s+v,0);
+  Object.keys(w).forEach(k=>w[k]/=sum);
+  return w;
+}
+
+function integrate(methods,weights){
+  const valid=methods.filter(m=>m&&m.value!=null);
+  if(valid.length===0)return{value:0,methods:valid};
+  const weighted=valid.reduce((s,m)=>s+(weights[m.name]||0)*m.value,0);
+  const values=valid.map(m=>m.value);
+  const mean=values.reduce((s,v)=>s+v,0)/values.length;
+  const sorted=[...values].sort((a,b)=>a-b);
+  const median=sorted[Math.floor(sorted.length/2)];
+  const min=Math.min(...values),max=Math.max(...values);
+  const stdev=Math.sqrt(values.reduce((s,v)=>s+(v-mean)**2,0)/values.length);
+  const cv=mean?stdev/mean:0;
+  let conf='STRONG';
+  if(values.length===1)conf='WEAK_SINGLE';
+  else if(cv>0.15)conf='WEAK';
+  else if(cv>0.05)conf='MEDIUM';
+  return{
+    value:Math.round(weighted),
+    mean:Math.round(mean),
+    median:Math.round(median),
+    min,max,stdev:Math.round(stdev),cv,
+    confidence:conf,n:values.length
+  };
+}
+
+// ==================== レンダリング ====================
+function renderInputSection(d){
+  const{store,year,month,execDate,byM,veh,kpi,acct}=d;
+  const ym=`${year}-${String(month).padStart(2,'0')}`;
+  const R_base=MONTHLY_TARGETS[store]?.[month]||0;
+  const rank=RANKS[store]?.[month]||'?';
+  const cBase=TIER_COEF[rank]||1;
+  const h=calcHolidayBoost(execDate,year,month);
+  // 配車表/解析タブと同じロジック: 全保有から「KPI管理表で除外」を引く
+  const excludedCodes=new Set(kpi.filter(k=>k.year_month===ym&&k.active===false).map(k=>k.vehicle_code));
+  const nActive=veh.filter(v=>v.active!==false&&!excludedCodes.has(v.code)).length;
+  const mDays=monthDays(year,month);
+  const mStart=new Date(year,month-1,1);
+  const mEnd=monthEnd(year,month);
+  const daysLeft=Math.max(0,Math.round((mEnd-execDate)/86400000));
+  const elapsed=execDate>=mStart?Math.max(1,Math.round((execDate-mStart)/86400000)+1):0;
+
+  // 同タイミング進捗
+  const cur=byM[ym]||{cnt:0,sub:0,byCls:{},byOta:{}};
+  // 過去月の同タイミング (簡易: 1ヶ月前を同タイミングとして計算)
+  let prevYm='';
+  {
+    let m=month-1,y=year;
+    if(m<=0){m=12;y--;}
+    prevYm=`${y}-${String(m).padStart(2,'0')}`;
+  }
+
+  // 過去月実績テーブル
+  const pastMonths=Object.keys(byM).filter(k=>k<=ym).sort();
+
+  let html=`<div class="card-grid">`;
+  // 月別目標 (R_base)
+  html+=`<div class="card highlight"><div class="label">🎯 月別目標 (R_base)</div><div class="value">${fmtY(R_base)}</div><div class="sub">オーナー確定・実力ベース必達ライン</div></div>`;
+  // シーズナルランク
+  html+=`<div class="card"><div class="label">シーズナルランク</div><div class="value"><span class="rank ${rank}">${rank}</span> 係数 ${cBase}</div><div class="sub">${rank==='AA'?'超繁忙':rank==='A'?'繁忙':rank==='B'?'通常':'閑散'}</div></div>`;
+  // 連休加点
+  html+=`<div class="card"><div class="label">連休加点 (タイミング依存)</div><div class="value">+${(h.remaining*100).toFixed(1)}%</div><div class="sub">最大+${(h.max*100).toFixed(1)}% / 残期間 ${daysLeft}日</div></div>`;
+  // 稼働可能台数 ★ミス検知用
+  html+=`<div class="card ${nActive===0?'danger':''}"><div class="label">🚗 稼働可能台数 (${ym})</div><div class="value">${nActive} 台</div><div class="sub">vehicle_monthly_kpi.active=true / 全保有 ${veh.length}台</div></div>`;
+  // 月内進捗
+  html+=`<div class="card"><div class="label">📊 ${ym} 現在の予約状況</div><div class="value">${cur.cnt} 件</div><div class="sub">${fmtY(cur.sub)} / 客単価 ${cur.cnt?fmtY(cur.sub/cur.cnt):'-'}</div></div>`;
+  // 基準日と残日数
+  html+=`<div class="card"><div class="label">⏱ 基準日 / 残日数</div><div class="value">${ymdStr(execDate)}</div><div class="sub">対象月暦 ${mDays}日 / 経過 ${elapsed}日 / 残 ${daysLeft}日</div></div>`;
+  html+=`</div>`;
+
+  // 連休内訳
+  if(h.breakdown.length>0){
+    html+=`<details><summary>📅 連休加点 内訳 (${h.breakdown.length}ブロック)</summary><div class="detail-body"><table class="t"><thead><tr><th>連休</th><th>期間</th><th class="num">月内日数</th><th class="num">残日数</th><th class="num">最大Boost</th><th class="num">残Boost</th></tr></thead><tbody>`;
+    h.breakdown.forEach(b=>{
+      html+=`<tr><td>${b.label}</td><td>${b.start}〜${b.end}</td><td class="num">${b.dInM}日</td><td class="num">${b.dFuture}日</td><td class="num">+${(b.maxBoost*100).toFixed(2)}%</td><td class="num">+${(b.remainingBoost*100).toFixed(2)}%</td></tr>`;
+    });
+    html+=`</tbody></table></div></details>`;
+  }
+
+  // 過去月実績
+  html+=`<details open><summary>📈 過去月実績 (PERIOD_START ${PERIOD_START[store]} 以降)</summary><div class="detail-body"><table class="t"><thead><tr><th>月</th><th class="num">件数</th><th class="num">売上</th><th class="num">客単価</th><th class="num">当月発生率</th><th class="num">平均泊数</th></tr></thead><tbody>`;
+  pastMonths.forEach(pm=>{
+    const m=byM[pm];const aov=m.cnt?m.sub/m.cnt:0;const cmR=m.cnt?m.cm/m.cnt:0;const nights=m.cnt?m.nights/m.cnt:0;
+    const cur=pm===ym;
+    html+=`<tr${cur?' style="background:#fef9c3;font-weight:700"':''}><td>${pm}${cur?' 🔥対象':''}</td><td class="num">${m.cnt}</td><td class="num">${fmtY(m.sub)}</td><td class="num">${fmtY(aov)}</td><td class="num">${fmtP(cmR)}</td><td class="num">${nights.toFixed(1)}泊</td></tr>`;
+  });
+  html+=`</tbody></table></div></details>`;
+
+  // クラス別 (対象月)
+  if(Object.keys(cur.byCls||{}).length>0){
+    // 過去平均クラス別
+    const clsAvg={};
+    pastMonths.filter(pm=>pm<ym).slice(-3).forEach(pm=>{
+      const bcl=byM[pm].byCls||{};
+      Object.entries(bcl).forEach(([cls,d])=>{
+        if(!clsAvg[cls])clsAvg[cls]={cnt:0,sub:0,n:0};
+        clsAvg[cls].cnt+=d.cnt;clsAvg[cls].sub+=d.sub;clsAvg[cls].n++;
+      });
+    });
+    Object.keys(clsAvg).forEach(c=>{clsAvg[c].cnt/=clsAvg[c].n;clsAvg[c].sub/=clsAvg[c].n;});
+    const premiumSet=PREMIUM_CLASSES[store]||[];
+    html+=`<details open><summary>🚙 クラス別 進捗 (${ym}) — 高単価車種が回るか</summary><div class="detail-body"><table class="t"><thead><tr><th>クラス</th><th class="num">対象月件数</th><th class="num">対象月売上</th><th class="num">過去平均件数</th><th class="num">過去平均売上</th><th class="num">進捗率</th></tr></thead><tbody>`;
+    const allCls=Array.from(new Set([...Object.keys(cur.byCls),...Object.keys(clsAvg)])).sort();
+    allCls.forEach(cls=>{
+      const c=cur.byCls[cls]||{cnt:0,sub:0};
+      const a=clsAvg[cls]||{cnt:0,sub:0};
+      const prog=a.cnt>0?c.cnt/a.cnt:0;
+      const isPrem=premiumSet.includes(cls);
+      const cls2=prog>=1?'ok':(prog>=0.5?'warn':'ng');
+      html+=`<tr><td>${isPrem?'⭐':''} ${cls}</td><td class="num">${c.cnt}</td><td class="num">${fmtY(c.sub)}</td><td class="num">${a.cnt.toFixed(1)}</td><td class="num">${fmtY(a.sub)}</td><td class="num ${cls2}">${fmtP(prog)}</td></tr>`;
+    });
+    html+=`</tbody></table></div></details>`;
+  }
+
+  return html;
+}
+
+function renderAlgorithmSection(d,methods,weights,integrated,constraints){
+  let html=`<div class="card-grid">`;
+  methods.forEach(m=>{
+    if(!m){return;}
+    const w=weights[m.name]||0;
+    html+=`<div class="card"><div class="label">${m.name}</div><div class="value">${fmtY(m.value)}</div><div class="sub">重み ${(w*100).toFixed(0)}%${m.opt?` / 楽観${fmtK(m.opt)} 悲観${fmtK(m.pes)}`:''}</div></div>`;
+  });
+  // 統合結果
+  html+=`<div class="card success"><div class="label">📊 重み付き統合</div><div class="value">${fmtY(integrated.value)}</div><div class="sub">中央値 ${fmtK(integrated.median)} / 平均 ${fmtK(integrated.mean)}</div></div>`;
+  html+=`</div>`;
+
+  // 詳細
+  html+=`<details><summary>🔬 各手法の計算根拠</summary><div class="detail-body"><table class="t"><thead><tr><th>手法</th><th class="num">予測</th><th>詳細</th></tr></thead><tbody>`;
+  methods.forEach(m=>{
+    if(!m)return;
+    html+=`<tr><td>${m.name}</td><td class="num">${fmtY(m.value)}</td><td>${JSON.stringify(m.detail).replace(/[{}"]/g,'').replace(/,/g,', ')}</td></tr>`;
+  });
+  html+=`</tbody></table></div></details>`;
+
+  // 制約チェック
+  html+=`<details open><summary>✅ 8制約チェック</summary><div class="detail-body"><table class="t"><thead><tr><th class="center">#</th><th>制約</th><th class="num">必要/現在</th><th class="num">上限/基準</th><th class="center">判定</th><th>備考</th></tr></thead><tbody>`;
+  constraints.checks.forEach(c=>{
+    html+=`<tr><td class="center">${c.id}</td><td>${c.name}</td><td class="num">${typeof c.need==='number'?(c.need<10?(c.need*100).toFixed(1)+'%':c.need.toLocaleString()):c.need}</td><td class="num">${c.limit==null?'-':(typeof c.limit==='number'?(c.limit<10?(c.limit*100).toFixed(1)+'%':c.limit.toLocaleString()):c.limit)}</td><td class="center ${c.pass?'ok':'ng'}">${c.pass?'✓':'✗'}</td><td style="font-size:9pt;color:#64748b">${c.note}</td></tr>`;
+  });
+  html+=`</tbody></table></div></details>`;
+
+  return html;
+}
+
+function renderOutputSection(d,integrated,target){
+  const achieve=integrated.value/target*100;
+  const confMap={STRONG:['strong','🟢 STRONG','4手法が狭い範囲に収束(CV<5%)・予測信頼度 高'],MEDIUM:['medium','🟡 MEDIUM','5-15% のばらつき・予測信頼度 中'],WEAK:['weak','🟠 WEAK','15%超のばらつき・予測信頼度 低'],WEAK_SINGLE:['weak','🟠 WEAK','1手法のみ・他は適用不可'],NO_DATA:['none','🔴 NO_DATA','予測不能']};
+  const cm=confMap[integrated.confidence]||['none','?','?'];
+
+  let html=`<div class="gauge-wrap"><div class="gauge-label">最終予測 (重み付き統合)</div><div class="gauge-value">${fmtY(integrated.value)}</div><div class="gauge-target">目標 ${fmtY(target)} に対して ${achieve.toFixed(1)}%</div><div class="gauge-bar"><div style="width:${Math.min(150,achieve)}%"></div></div></div>`;
+
+  html+=`<div class="card-grid" style="margin-top:14px">`;
+  html+=`<div class="card"><div class="label">予測レンジ</div><div class="value" style="font-size:13pt">${fmtK(integrated.min)} 〜 ${fmtK(integrated.max)}</div><div class="sub">幅 ${fmtK(integrated.max-integrated.min)} / CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
+  html+=`<div class="card"><div class="label">エビデンス強度</div><div class="value" style="font-size:13pt"><span class="conf ${cm[0]}">${cm[1]}</span></div><div class="sub">${cm[2]}</div></div>`;
+  html+=`<div class="card ${achieve>=100?'success':(achieve>=90?'highlight':'danger')}"><div class="label">目標達成見込み</div><div class="value">${achieve.toFixed(1)}%</div><div class="sub">${achieve>=100?'✅ 達成圏':achieve>=90?'🟡 ほぼ達成':achieve>=70?'🟠 下振れ':'🔴 大幅未達'}</div></div>`;
+  html+=`<div class="card"><div class="label">使用手法数</div><div class="value">${integrated.n} / 4</div><div class="sub">4手法すべて動作=理想</div></div>`;
+  html+=`</div>`;
+
+  return html;
+}
+
+function renderActionSection(d,integrated,target,constraints){
+  const ym=`${d.year}-${String(d.month).padStart(2,'0')}`;
+  const cur=d.byM[ym]||{cnt:0,sub:0,byCls:{}};
+  const mEnd=monthEnd(d.year,d.month);
+  const daysLeft=Math.max(0,Math.round((mEnd-d.execDate)/86400000));
+  const neededCnt=constraints.neededCnt;
+  const remaining=Math.max(0,neededCnt-cur.cnt);
+  const perDay=daysLeft>0?remaining/daysLeft:0;
+  const remainingRev=target-cur.sub;
+
+  let html=`<div class="card-grid">`;
+  html+=`<div class="card highlight"><div class="label">必要件数 (目標達成のため)</div><div class="value">${neededCnt} 件</div><div class="sub">現在 ${cur.cnt}件 → 残 ${remaining}件必要</div></div>`;
+  html+=`<div class="card"><div class="label">残期間ペース</div><div class="value">${perDay.toFixed(2)} 件/日</div><div class="sub">残 ${daysLeft}日</div></div>`;
+  html+=`<div class="card"><div class="label">残必要売上</div><div class="value">${fmtK(remainingRev)}</div><div class="sub">¥${Math.round(remainingRev/Math.max(1,daysLeft)).toLocaleString()}/日 必要</div></div>`;
+  html+=`<div class="card"><div class="label">必要客単価</div><div class="value">${fmtY(neededCnt?target/neededCnt:0)}</div><div class="sub">過去平均 ${fmtY(constraints.aovAvg)}</div></div>`;
+  html+=`</div>`;
+
+  // 高単価クラスの不足分
+  const premiumSet=PREMIUM_CLASSES[d.store]||[];
+  const curPremCnt=Object.entries(cur.byCls||{}).filter(([c])=>premiumSet.includes(c)).reduce((s,[,v])=>s+v.cnt,0);
+  const needPrem=Math.round(neededCnt*0.5);
+  const gapPrem=Math.max(0,needPrem-curPremCnt);
+  html+=`<div class="alert ${gapPrem>0?'warn':'success'}">⭐ 高単価クラス (${premiumSet.join('/')}) 必要 ${needPrem}件 → 現在 ${curPremCnt}件 ${gapPrem>0?'・不足 '+gapPrem+'件':'・✅ 達成'}</div>`;
+
+  return html;
+}
+
+function renderProgressSection(d){
+  const ym=`${d.year}-${String(d.month).padStart(2,'0')}`;
+  // 過去N日の日次累積を簡易表示
+  const endCol=d.store==='nha'?'end_date':'return_date';
+  const mStart=new Date(d.year,d.month-1,1);
+  const mEnd=monthEnd(d.year,d.month);
+  const daily={};
+  d.resv.forEach(r=>{
+    if(normStatus(r.status)==='cancelled')return;
+    const ed=(r[endCol]||'').slice(0,10);
+    if(!ed||ed.slice(0,7)!==ym)return;
+    daily[ed]=(daily[ed]||0)+revOf(r);
+  });
+  const dates=Object.keys(daily).sort();
+  let cumSum=0;
+  const cum=dates.map(d2=>{cumSum+=daily[d2];return{date:d2,daily:daily[d2],cum:cumSum};});
+
+  let html=`<div class="alert info">📡 リアルタイム進捗追跡 — 日次累積売上の推移 (実績ベース・${endCol}基準)</div>`;
+  html+=`<table class="t"><thead><tr><th>日付</th><th class="num">日次売上</th><th class="num">累積売上</th><th>プログレス</th></tr></thead><tbody>`;
+  const targetSum=MONTHLY_TARGETS[d.store][d.month]||1;
+  cum.forEach(c=>{
+    const pct=c.cum/targetSum*100;
+    html+=`<tr><td>${c.date}</td><td class="num">${fmtY(c.daily)}</td><td class="num">${fmtY(c.cum)}</td><td><div class="bar"><div style="width:${Math.min(100,pct)}%;background:linear-gradient(90deg,#16a34a,#22c55e)"></div></div><div style="font-size:8.5pt;color:#64748b">${pct.toFixed(1)}% of 目標</div></td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  if(cum.length===0)html=`<div class="alert info">📡 まだこの月の確定売上なし</div>`;
+
+  return html;
+}
+
+// ==================== スナップショット保存 (日次予測の蓄積) ====================
+const SNAPSHOT_KEY='forecast_snapshots_v1';
+
+function loadSnapshots(){
+  try{return JSON.parse(localStorage.getItem(SNAPSHOT_KEY)||'{}');}catch(e){return{};}
+}
+function saveSnapshot(store,year,month,execDate,integrated,methods,target,curSub,curCnt,boost){
+  const all=loadSnapshots();
+  const key=`${store}_${year}-${String(month).padStart(2,'0')}`;
+  if(!all[key])all[key]=[];
+  const dateStr=ymdStr(execDate);
+  // 同日重複は更新（最新を残す）
+  all[key]=all[key].filter(s=>s.date!==dateStr);
+  all[key].push({
+    date:dateStr,
+    prediction:integrated.value,
+    median:integrated.median,
+    min:integrated.min,
+    max:integrated.max,
+    confidence:integrated.confidence,
+    confirmed:curSub,
+    confirmed_cnt:curCnt,
+    target,
+    boost_remaining:boost.remaining,
+    boost_max:boost.max,
+    methods:methods.filter(m=>m).map(m=>({name:m.name,value:m.value})),
+    saved_at:new Date().toISOString()
+  });
+  // 日付昇順
+  all[key].sort((a,b)=>a.date.localeCompare(b.date));
+  // 同月のデータは最大100件まで
+  if(all[key].length>100)all[key]=all[key].slice(-100);
+  localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(all));
+}
+
+function renderTimelineSection(d,integrated,target){
+  const key=`${d.store}_${d.year}-${String(d.month).padStart(2,'0')}`;
+  const snaps=loadSnapshots()[key]||[];
+
+  let html=`<div class="alert info">📈 過去の予測スナップショット履歴 — ${snaps.length}件 / 自動保存（forecast.html を開いた日に記録）</div>`;
+
+  if(snaps.length===0){
+    html+=`<div class="alert warn">💡 まだスナップショットがありません。今日の予測が初回保存されます。明日以降、毎日 forecast.html を開くと自動的に予測の推移が見えるようになります。</div>`;
+    return html;
+  }
+
+  // 表示用統計
+  const preds=snaps.map(s=>s.prediction);
+  const minPred=Math.min(...preds);
+  const maxPred=Math.max(...preds);
+  const meanPred=preds.reduce((s,v)=>s+v,0)/preds.length;
+  const latest=snaps[snaps.length-1];
+  const first=snaps[0];
+  const trend=latest.prediction-first.prediction;
+  const trendPct=first.prediction?trend/first.prediction*100:0;
+
+  html+=`<div class="card-grid">`;
+  html+=`<div class="card"><div class="label">最新予測</div><div class="value">${fmtY(latest.prediction)}</div><div class="sub">${latest.date}</div></div>`;
+  html+=`<div class="card"><div class="label">初回予測</div><div class="value">${fmtY(first.prediction)}</div><div class="sub">${first.date}</div></div>`;
+  const trendCls=Math.abs(trendPct)<5?'':(trend>0?'success':'danger');
+  html+=`<div class="card ${trendCls}"><div class="label">予測の推移</div><div class="value">${trend>=0?'+':''}${fmtK(trend)}</div><div class="sub">${trendPct>=0?'+':''}${trendPct.toFixed(1)}% (${snaps.length}日間)</div></div>`;
+  html+=`<div class="card"><div class="label">予測レンジ</div><div class="value" style="font-size:13pt">${fmtK(minPred)} 〜 ${fmtK(maxPred)}</div><div class="sub">幅 ${fmtK(maxPred-minPred)} / 平均 ${fmtK(meanPred)}</div></div>`;
+  html+=`</div>`;
+
+  // 時系列テーブル
+  html+=`<details open><summary>📋 日次予測スナップショット (${snaps.length}件)</summary><div class="detail-body"><table class="t"><thead><tr><th>日付</th><th class="num">予測</th><th class="num">確定済売上</th><th class="num">確定件数</th><th class="num">連休加点残</th><th class="num">vs 目標</th><th>信頼度</th><th>前日比</th></tr></thead><tbody>`;
+  snaps.slice().reverse().forEach((s,i,arr)=>{
+    const prev=i<arr.length-1?arr[i+1]:null;
+    const diff=prev?s.prediction-prev.prediction:0;
+    const diffPct=prev&&prev.prediction?diff/prev.prediction*100:0;
+    const vsTar=s.target?s.prediction/s.target*100:0;
+    const isLatest=s.date===latest.date;
+    html+=`<tr${isLatest?' style="background:#fef9c3;font-weight:700"':''}><td>${s.date}${isLatest?' 🔥':''}</td><td class="num">${fmtY(s.prediction)}</td><td class="num">${fmtY(s.confirmed)}</td><td class="num">${s.confirmed_cnt}</td><td class="num">+${(s.boost_remaining*100).toFixed(1)}%</td><td class="num ${vsTar>=100?'ok':vsTar>=90?'warn':'ng'}">${vsTar.toFixed(1)}%</td><td><span class="conf ${s.confidence==='STRONG'?'strong':s.confidence==='MEDIUM'?'medium':'weak'}" style="font-size:8.5pt;padding:2px 6px">${s.confidence}</span></td><td class="num" style="${diff>0?'color:#16a34a':diff<0?'color:#dc2626':''}">${prev?(diff>=0?'+':'')+fmtK(diff)+' ('+diffPct.toFixed(1)+'%)':'-'}</td></tr>`;
+  });
+  html+=`</tbody></table></div></details>`;
+
+  // 簡易折れ線グラフ (SVG)
+  const W=720,H=160,P=30;
+  const xs=snaps.map((_,i)=>P+(W-2*P)*i/Math.max(1,snaps.length-1));
+  const yMin=Math.min(minPred,target)*0.95;
+  const yMax=Math.max(maxPred,target)*1.05;
+  const ys=snaps.map(s=>H-P-(H-2*P)*(s.prediction-yMin)/(yMax-yMin));
+  const yTar=H-P-(H-2*P)*(target-yMin)/(yMax-yMin);
+  const pathD=xs.map((x,i)=>`${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
+  const confPath=xs.map((x,i)=>{const y=H-P-(H-2*P)*(snaps[i].confirmed-yMin)/(yMax-yMin);return`${i===0?'M':'L'}${x},${y}`;}).join(' ');
+  html+=`<details open><summary>📊 予測推移グラフ (赤=予測 / 緑=確定済売上 / 点線=目標)</summary><div class="detail-body" style="background:white"><svg width="${W}" height="${H}" style="background:#fafbfc;border:1px solid #e5e7eb;border-radius:6px;display:block">`;
+  html+=`<line x1="${P}" y1="${yTar}" x2="${W-P}" y2="${yTar}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  html+=`<text x="${W-P-5}" y="${yTar-4}" font-size="9" fill="#64748b" text-anchor="end">目標 ${fmtK(target)}</text>`;
+  html+=`<path d="${pathD}" fill="none" stroke="#dc2626" stroke-width="2.5"/>`;
+  html+=`<path d="${confPath}" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="3 2"/>`;
+  xs.forEach((x,i)=>{html+=`<circle cx="${x}" cy="${ys[i]}" r="3" fill="#dc2626"/>`;});
+  // X軸ラベル (適度に間引き)
+  const stride=Math.max(1,Math.floor(snaps.length/10));
+  snaps.forEach((s,i)=>{if(i%stride!==0&&i!==snaps.length-1)return;html+=`<text x="${xs[i]}" y="${H-10}" font-size="8" fill="#64748b" text-anchor="middle">${s.date.slice(5)}</text>`;});
+  html+=`</svg></div></details>`;
+
+  return html;
+}
+
+// ==================== 5KPI × 12ヶ月 計算 ====================
+function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
+  // 各月の目標売上から、他4KPI目標を派生計算
+  const targets=MONTHLY_TARGETS[store];
+  if(!targets)return null;
+
+  // 過去実績から派生目標の基準を計算
+  const pastMs=Object.keys(byM).filter(ym=>ym<ymdStr(execDate).slice(0,7)).sort().slice(-3);
+  let aovTarget=25000,nightsTarget=3;
+  if(pastMs.length>0){
+    const aovs=pastMs.map(pm=>byM[pm].cnt?byM[pm].sub/byM[pm].cnt:0).filter(v=>v>0);
+    const nights=pastMs.map(pm=>byM[pm].cnt?byM[pm].nights/byM[pm].cnt:0).filter(v=>v>0);
+    if(aovs.length)aovTarget=aovs.reduce((s,v)=>s+v,0)/aovs.length;
+    if(nights.length)nightsTarget=nights.reduce((s,v)=>s+v,0)/nights.length;
+  }
+
+  const result=[];
+  for(let m=1;m<=12;m++){
+    const ym=`${year}-${String(m).padStart(2,'0')}`;
+    const revTar=targets[m]||0;
+    const mDays=monthDays(year,m);
+    const ymKpi=kpi.filter(k=>k.year_month===ym&&k.active!==false);
+    const nActive=ymKpi.length||veh.filter(v=>v.active!==false).length;
+
+    // 目標
+    const cntTar=aovTarget>0?Math.round(revTar/aovTarget):0;
+    const utilTar=nActive>0?Math.min(1,cntTar*nightsTarget/(nActive*mDays)):0;
+    const perVehTar=nActive>0?Math.round(revTar/nActive):0;
+
+    // 実績
+    const mData=byM[ym]||{cnt:0,sub:0,nights:0};
+    const revAct=mData.sub;
+    const cntAct=mData.cnt;
+    const aovAct=cntAct>0?mData.sub/cntAct:0;
+    const utilAct=nActive>0?mData.nights/(nActive*mDays):0;
+    const perVehAct=nActive>0?mData.sub/nActive:0;
+
+    // 予測 (簡易: M3パターン + extra)
+    const extraByM=extraMonthly(acct);
+    let revFcst=revAct;
+    let m3=method3Pattern(resv,byM,extraByM,store,year,m,execDate);
+    let m1=method1Target(store,year,m,execDate);
+    let m2=method2Linear(byM,extraByM,store,year,m,execDate);
+    const fcstCandidates=[m1,m2,m3].filter(x=>x&&x.value!=null).map(x=>x.value);
+    if(fcstCandidates.length>0){
+      // 中央値ベースで予測
+      fcstCandidates.sort((a,b)=>a-b);
+      revFcst=fcstCandidates[Math.floor(fcstCandidates.length/2)];
+    }
+
+    // 月分類
+    const mStart=new Date(year,m-1,1);
+    const mEnd=monthEnd(year,m);
+    let phase='future';
+    if(execDate>=mStart&&execDate<=mEnd)phase='current';
+    else if(execDate>mEnd)phase='past';
+
+    // 予測派生
+    const cntFcst=aovAct>0?Math.round(revFcst/aovAct):(aovTarget>0?Math.round(revFcst/aovTarget):0);
+    const aovFcst=cntFcst>0?revFcst/cntFcst:aovTarget;
+    const utilFcst=nActive>0?Math.min(1,cntFcst*nightsTarget/(nActive*mDays)):0;
+    const perVehFcst=nActive>0?revFcst/nActive:0;
+
+    result.push({
+      month:m,ym,phase,nActive,mDays,
+      target:{rev:revTar,cnt:cntTar,aov:aovTarget,util:utilTar,perVeh:perVehTar},
+      actual:{rev:revAct,cnt:cntAct,aov:aovAct,util:utilAct,perVeh:perVehAct},
+      forecast:{rev:revFcst,cnt:cntFcst,aov:aovFcst,util:utilFcst,perVeh:perVehFcst},
+      rank:RANKS[store]?.[m]||'?'
+    });
+  }
+  return{kpis:result,aovTarget,nightsTarget,nActive:result[0]?.nActive||0};
+}
+
+// ==================== 根本データ: 車両稼働 ====================
+function renderVehicleRoot(d,kpiData){
+  const{veh,kpi,store,year,month}=d;
+  // クラス別稼働台数 (対象月)
+  const ym=`${year}-${String(month).padStart(2,'0')}`;
+  // 配車表/解析タブと同じロジック: 全保有から「KPI管理表で active=false」を引く
+  const excludedCodes=new Set(kpi.filter(k=>k.year_month===ym&&k.active===false).map(k=>k.vehicle_code));
+  const isActiveFn=v=>v.active!==false&&!excludedCodes.has(v.code);
+  // クラス別集計
+  const byCls={};
+  veh.forEach(v=>{
+    const cls=(v.class||v.type||'?').trim();
+    if(!byCls[cls])byCls[cls]={total:0,active:0,codes:[],activeCodes:[],excluded:[]};
+    byCls[cls].total++;byCls[cls].codes.push(v.code);
+    if(isActiveFn(v)){byCls[cls].active++;byCls[cls].activeCodes.push(v.code);}
+    else if(excludedCodes.has(v.code)){byCls[cls].excluded.push(v.code);}
+  });
+  const totalVeh=veh.length;
+  const totalActive=veh.filter(isActiveFn).length;
+  const totalExcluded=excludedCodes.size;
+  const premiumSet=PREMIUM_CLASSES[store]||[];
+
+  let html=`<div style="font-size:13px;color:#6b7280;margin-bottom:12px">配車表 / 解析タブと同じロジック (全保有 − KPI管理表で active=false の車両 = 稼働)</div>`;
+
+  // 4メトリック
+  let prem=0,premTotal=0;
+  Object.entries(byCls).forEach(([c,v])=>{if(premiumSet.includes(c)){prem+=v.active;premTotal+=v.total;}});
+  const mDays=monthDays(year,month);
+  html+=`<div class="metrics">`;
+  html+=`<div class="metric"><div class="ml">🚗 グロス稼働台数</div><div class="mv">${totalActive} <span style="font-size:13px;font-weight:500;color:#9ca3af">台</span></div><div class="ms">全保有 ${totalVeh}台 − 除外 ${totalExcluded}台</div></div>`;
+  html+=`<div class="metric"><div class="ml">⭐ 高単価クラス稼働</div><div class="mv">${prem} <span style="font-size:13px;font-weight:500;color:#9ca3af">台</span></div><div class="ms">${PREMIUM_CLASSES[store].join('/')} (全${premTotal}台)</div></div>`;
+  html+=`<div class="metric"><div class="ml">📦 クラス数</div><div class="mv">${Object.keys(byCls).length}</div><div class="ms">${Object.keys(byCls).sort().join(' / ')}</div></div>`;
+  html+=`<div class="metric"><div class="ml">🛏 月内総供給日数</div><div class="mv">${(totalActive*mDays).toLocaleString()}</div><div class="ms">${totalActive}台 × ${mDays}日</div></div>`;
+  html+=`</div>`;
+
+  // クラス別テーブル
+  html+=`<div style="margin-top:14px;font-size:13px;color:#6b7280;font-weight:500;margin-bottom:6px">クラス別 稼働内訳</div>`;
+  html+=`<table class="t"><thead><tr><th>クラス</th><th class="num">保有</th><th class="num">稼働</th><th class="num">除外</th><th class="num">稼働率</th><th>稼働車両</th><th>除外車両</th><th class="num">供給日数</th></tr></thead><tbody>`;
+  Object.keys(byCls).sort().forEach(cls=>{
+    const c=byCls[cls];
+    const r=c.total>0?c.active/c.total:0;
+    const isPrem=premiumSet.includes(cls);
+    html+=`<tr><td>${isPrem?'⭐ ':''}<b>${cls}</b></td><td class="num">${c.total}</td><td class="num ok">${c.active}</td><td class="num ${c.excluded.length>0?'ng':''}">${c.excluded.length}</td><td class="num ${r>=1?'ok':r>=0.7?'warn':'ng'}">${(r*100).toFixed(0)}%</td><td style="font-size:11px;color:#6b7280">${c.activeCodes.join(', ')||'-'}</td><td style="font-size:11px;color:#dc2626">${c.excluded.join(', ')||'-'}</td><td class="num">${(c.active*mDays).toLocaleString()}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+
+  return html;
+}
+
+// ==================== 株価チャート風 SVG ====================
+function renderStockChart(d,kpiData){
+  const{kpis}=kpiData;
+  const W=1100,H=320,P=50,BAR_H=50;
+  const chartH=H-BAR_H-P;
+
+  // データ抽出
+  const targets=kpis.map(k=>k.target.rev);
+  const actuals=kpis.map(k=>k.actual.rev);
+  const forecasts=kpis.map(k=>k.phase==='past'?k.actual.rev:k.forecast.rev);
+  const nActives=kpis.map(k=>k.nActive);
+
+  const yMax=Math.max(...targets,...forecasts)*1.1;
+  const yMin=0;
+
+  const xs=kpis.map((_,i)=>P+(W-2*P)*i/11);
+  const yAt=v=>P+(chartH-P)*(1-(v-yMin)/(yMax-yMin));
+
+  let html=`<div class="chart-wrap" style="overflow-x:auto">`;
+  html+=`<svg width="${W}" height="${H}" style="display:block">`;
+
+  // Y軸グリッド (薄いライン)
+  for(let i=0;i<=4;i++){
+    const v=yMax*i/4;
+    const y=yAt(v);
+    html+=`<line x1="${P}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#f3f4f6" stroke-width="1"/>`;
+    html+=`<text x="${P-5}" y="${y+4}" font-size="10" fill="#9ca3af" text-anchor="end">${fmtK(v)}</text>`;
+  }
+
+  // 目標ライン (黄・破線)
+  const tarPath=xs.map((x,i)=>`${i===0?'M':'L'}${x},${yAt(targets[i])}`).join(' ');
+  html+=`<path d="${tarPath}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 3"/>`;
+  xs.forEach((x,i)=>{html+=`<circle cx="${x}" cy="${yAt(targets[i])}" r="3" fill="#f59e0b"/>`;});
+
+  // 実績/予測
+  const pastIdx=kpis.map((k,i)=>k.phase==='past'?i:-1).filter(i=>i>=0);
+  const curIdx=kpis.findIndex(k=>k.phase==='current');
+  const lastPastIdx=pastIdx.length?pastIdx[pastIdx.length-1]:-1;
+
+  // 過去（実績・緑実線）
+  if(pastIdx.length>0){
+    const pastPath=pastIdx.map((i,j)=>`${j===0?'M':'L'}${xs[i]},${yAt(actuals[i])}`).join(' ');
+    html+=`<path d="${pastPath}" fill="none" stroke="#10b981" stroke-width="2.5"/>`;
+    pastIdx.forEach(i=>{html+=`<circle cx="${xs[i]}" cy="${yAt(actuals[i])}" r="4" fill="#10b981"/>`;});
+  }
+  // 現在月
+  if(curIdx>=0){
+    html+=`<circle cx="${xs[curIdx]}" cy="${yAt(actuals[curIdx])}" r="4" fill="#f59e0b"/>`;
+    html+=`<circle cx="${xs[curIdx]}" cy="${yAt(forecasts[curIdx])}" r="6" fill="#3b82f6" stroke="#fff" stroke-width="2"/>`;
+    if(lastPastIdx>=0){
+      html+=`<line x1="${xs[lastPastIdx]}" y1="${yAt(actuals[lastPastIdx])}" x2="${xs[curIdx]}" y2="${yAt(actuals[curIdx])}" stroke="#10b981" stroke-width="2.5"/>`;
+    }
+    html+=`<line x1="${xs[curIdx]}" y1="${yAt(actuals[curIdx])}" x2="${xs[curIdx]}" y2="${yAt(forecasts[curIdx])}" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 2"/>`;
+  }
+  // 将来 (予測・青破線)
+  const futIdx=kpis.map((k,i)=>k.phase==='future'?i:-1).filter(i=>i>=0);
+  if(futIdx.length>0){
+    let pts=futIdx.slice();
+    if(curIdx>=0)pts.unshift(curIdx);
+    const futPath=pts.map((i,j)=>`${j===0?'M':'L'}${xs[i]},${yAt(forecasts[i])}`).join(' ');
+    html+=`<path d="${futPath}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-dasharray="6 3"/>`;
+    futIdx.forEach(i=>{html+=`<circle cx="${xs[i]}" cy="${yAt(forecasts[i])}" r="4" fill="#3b82f6"/>`;});
+  }
+
+  // X軸ラベル
+  kpis.forEach((k,i)=>{
+    const cur=k.month===d.month;
+    html+=`<text x="${xs[i]}" y="${chartH+15}" font-size="11" fill="${cur?'#92400e':'#6b7280'}" text-anchor="middle" font-weight="${cur?'700':'500'}" style="cursor:pointer" onclick="document.getElementById('month').value=${k.month};run();">${k.month}月</text>`;
+    html+=`<text x="${xs[i]}" y="${chartH+28}" font-size="9" fill="#9ca3af" text-anchor="middle">${k.rank}</text>`;
+  });
+
+  // 稼働台数バー (下部・薄いグレー)
+  const maxVeh=Math.max(...nActives,1);
+  kpis.forEach((k,i)=>{
+    const barH=(k.nActive/maxVeh)*BAR_H;
+    const y=H-P-barH;
+    const isCur=k.month===d.month;
+    html+=`<rect x="${xs[i]-12}" y="${y}" width="24" height="${barH}" fill="${isCur?'#f59e0b':'#d1d5db'}" rx="2"/>`;
+    html+=`<text x="${xs[i]}" y="${H-P+12}" font-size="9" fill="#9ca3af" text-anchor="middle">${k.nActive}台</text>`;
+  });
+
+  // 凡例
+  html+=`<g transform="translate(${P},10)">`;
+  html+=`<line x1="0" y1="6" x2="20" y2="6" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 3"/><text x="25" y="10" font-size="11" fill="#374151">目標</text>`;
+  html+=`<line x1="70" y1="6" x2="90" y2="6" stroke="#10b981" stroke-width="2.5"/><text x="95" y="10" font-size="11" fill="#374151">実績</text>`;
+  html+=`<line x1="140" y1="6" x2="160" y2="6" stroke="#3b82f6" stroke-width="2.5" stroke-dasharray="6 3"/><text x="165" y="10" font-size="11" fill="#374151">予測</text>`;
+  html+=`<rect x="215" y="2" width="12" height="9" fill="#d1d5db"/><text x="230" y="10" font-size="11" fill="#374151">稼働台数</text>`;
+  html+=`</g>`;
+
+  html+=`</svg></div>`;
+  return html;
+}
+
+function renderAnnualOverview(d,kpiData){
+  const{kpis,aovTarget,nightsTarget}=kpiData;
+  // 年間サマリー
+  const yearTar={rev:0,cnt:0};
+  const yearAct={rev:0,cnt:0};
+  const yearFcst={rev:0,cnt:0};
+  kpis.forEach(k=>{
+    yearTar.rev+=k.target.rev;yearTar.cnt+=k.target.cnt;
+    yearAct.rev+=k.actual.rev;yearAct.cnt+=k.actual.cnt;
+    yearFcst.rev+=k.phase==='past'?k.actual.rev:k.forecast.rev;
+    yearFcst.cnt+=k.phase==='past'?k.actual.cnt:k.forecast.cnt;
+  });
+  const yearGap=yearFcst.rev-yearTar.rev;
+  const yearAch=yearTar.rev>0?yearFcst.rev/yearTar.rev*100:0;
+
+  // KPI行ごとの構成
+  const KPI_ROWS=[
+    {key:'rev',label:'💰 売上総額',fmt:v=>fmtK(v),color:'#fbbf24'},
+    {key:'cnt',label:'📋 予約本数',fmt:v=>v.toFixed(0)+'件',color:'#60a5fa'},
+    {key:'aov',label:'💵 予約単価',fmt:v=>fmtY(v),color:'#a78bfa'},
+    {key:'util',label:'🚗 稼働率',fmt:v=>(v*100).toFixed(1)+'%',color:'#34d399'},
+    {key:'perVeh',label:'🏆 台/売上',fmt:v=>fmtY(v),color:'#f472b6'},
+  ];
+
+  let html=`<div class="overview"><h2>🏛 ${d.store.toUpperCase()} ${d.year}年 年間オーバービュー<span class="ovh-sub">5KPI × 12ヶ月 / 目標 vs 実績 vs 予測</span></h2>`;
+  // 年間サマリー
+  html+=`<div class="ov-stats">`;
+  html+=`<div class="ov-stat tgt"><div class="ovl">年間目標 売上</div><div class="ovv">${fmtK(yearTar.rev)}</div><div class="ovs">${yearTar.cnt.toLocaleString()}件 / 客単価¥${Math.round(aovTarget).toLocaleString()}</div></div>`;
+  html+=`<div class="ov-stat act"><div class="ovl">確定済み 売上</div><div class="ovv">${fmtK(yearAct.rev)}</div><div class="ovs">${yearAct.cnt.toLocaleString()}件 (過去月のみ)</div></div>`;
+  html+=`<div class="ov-stat fcst"><div class="ovl">予測 年間売上</div><div class="ovv">${fmtK(yearFcst.rev)}</div><div class="ovs">${yearFcst.cnt.toLocaleString()}件 / 達成率 ${yearAch.toFixed(1)}%</div></div>`;
+  const gapCls=yearGap>=0?'act':'gap';
+  html+=`<div class="ov-stat ${gapCls}"><div class="ovl">目標との差</div><div class="ovv">${yearGap>=0?'+':''}${fmtK(yearGap)}</div><div class="ovs">${(yearGap/yearTar.rev*100).toFixed(1)}%</div></div>`;
+  html+=`</div>`;
+
+  // 12ヶ月セルグリッド (売上のみ・大きく)
+  html+=`<div style="margin-bottom:12px;font-size:9.5pt;color:#cbd5e1;font-weight:700">📊 12ヶ月セル (クリックで詳細表示・🟧=対象月 / 過去=実績 / 将来=予測)</div>`;
+  html+=`<div class="ov-grid">`;
+  kpis.forEach(k=>{
+    const cur=k.month===d.month;
+    const phaseClass=k.phase==='current'?'current':k.phase==='past'?'past':'future';
+    const dispRev=k.phase==='past'?k.actual.rev:k.forecast.rev;
+    const ach=k.target.rev>0?dispRev/k.target.rev*100:0;
+    const achCls=ach>=100?'ok':(ach>=90?'warn':'ng');
+    const rankColor={AA:'#dc2626',A:'#ea580c',B:'#ca8a04',C:'#2563eb'}[k.rank]||'#94a3b8';
+    html+=`<div class="ov-cell ${phaseClass}" onclick="document.getElementById('month').value=${k.month};run();" title="${k.ym}">`;
+    html+=`<div class="mlabel">${k.month}月 <span class="mrank" style="background:${rankColor}">${k.rank}</span></div>`;
+    html+=`<div class="mtgt">目 ${fmtK(k.target.rev)}</div>`;
+    if(k.phase==='past'){html+=`<div class="mact">実 ${fmtK(k.actual.rev)}</div>`;}
+    else if(k.phase==='current'){
+      html+=`<div class="mact">実 ${fmtK(k.actual.rev)}</div>`;
+      html+=`<div class="mfcst">予 ${fmtK(k.forecast.rev)}</div>`;
+    }else{
+      html+=`<div class="mfcst">予 ${fmtK(k.forecast.rev)}</div>`;
+    }
+    html+=`<div class="mach ${achCls}">${ach.toFixed(0)}%</div>`;
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+
+  // 5KPI 全体テーブル
+  html+=`<div class="ov-chart"><div style="font-size:10pt;color:#fbbf24;font-weight:700;margin-bottom:8px">📐 5KPI × 12ヶ月 (目標 / 実績 or 予測 / 達成率)</div>`;
+  html+=`<table class="t" style="background:transparent;color:#e2e8f0;font-size:9.5pt"><thead><tr><th style="background:#334155">KPI</th>`;
+  for(let m=1;m<=12;m++){
+    const cur=m===d.month;
+    html+=`<th class="center" style="background:${cur?'#7c2d12':'#1e293b'};color:${cur?'#fed7aa':'#94a3b8'};min-width:62px;cursor:pointer" onclick="document.getElementById('month').value=${m};run();">${m}月</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+  KPI_ROWS.forEach(row=>{
+    // 目標行
+    html+=`<tr><td style="font-weight:700;color:${row.color};border-bottom-color:#334155">${row.label} 目標</td>`;
+    kpis.forEach(k=>{html+=`<td class="num" style="color:#fde68a;border-bottom-color:#334155">${row.fmt(k.target[row.key])}</td>`;});
+    html+=`</tr>`;
+    // 実績/予測行
+    html+=`<tr><td style="color:#cbd5e1;border-bottom-color:#334155">　 実/予</td>`;
+    kpis.forEach(k=>{
+      const v=k.phase==='past'?k.actual[row.key]:k.forecast[row.key];
+      const t=k.target[row.key];
+      const ach=t>0?v/t*100:0;
+      const col=k.phase==='past'?'#86efac':k.phase==='current'?'#fb923c':'#60a5fa';
+      const achCol=ach>=100?'#22c55e':ach>=90?'#fbbf24':'#ef4444';
+      html+=`<td class="num" style="color:${col};border-bottom-color:#334155">${row.fmt(v)}<br><span style="font-size:8pt;color:${achCol}">${ach.toFixed(0)}%</span></td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div>`;
+
+  html+=`</div>`;
+  return html;
+}
+
+// ==================== メイン実行 ====================
+async function run(){
+  document.getElementById('status').textContent='読み込み中...';
+  const store=document.getElementById('store').value;
+  const month=parseInt(document.getElementById('month').value);
+  const asOfStr=document.getElementById('asOf').value;
+  const execDate=parseYmd(asOfStr);
+  const year=2026;
+
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>データ取得中... ('+store.toUpperCase()+' / '+year+'-'+String(month).padStart(2,'0')+')</div>';
+
+  try{
+    const{resv,acct,veh,kpi}=await loadData(store);
+    const byM=aggregateMonthly(resv,store);
+    const extraByM=extraMonthly(acct);
+
+    const d={store,year,month,execDate,byM,veh,kpi,acct,resv};
+
+    // 4手法
+    const m1=method1Target(store,year,month,execDate);
+    const m2=method2Linear(byM,extraByM,store,year,month,execDate);
+    const m3=method3Pattern(resv,byM,extraByM,store,year,month,execDate);
+    const m4=method4Trend(byM,extraByM,store,year,month);
+    const methods=[m1,m2,m3,m4];
+
+    const nMonthsData=Object.keys(byM).filter(ym=>ym<`${year}-${String(month).padStart(2,'0')}`).length;
+    const weights=calcWeights(methods,nMonthsData);
+    const integrated=integrate(methods,weights);
+
+    // 制約
+    const target=MONTHLY_TARGETS[store][month]||0;
+    const constraints=checkConstraints(store,year,month,byM,veh,kpi,target,resv);
+
+    // 12ヶ月 5KPI 計算
+    const kpiData=compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate);
+
+    // 日次スナップショット保存（自動・1日1回）
+    const h=calcHolidayBoost(execDate,year,month);
+    const ymKey=`${year}-${String(month).padStart(2,'0')}`;
+    const curSub=byM[ymKey]?.sub||0;
+    const curCnt=byM[ymKey]?.cnt||0;
+    saveSnapshot(store,year,month,execDate,integrated,methods,target,curSub,curCnt,h);
+
+    // 描画
+    let html='';
+
+    // ========== [1] ヒーローカード4枚 (最重要 - 一目で見える) ==========
+    const ach=target>0?integrated.value/target*100:0;
+    const achCls=ach>=100?'achieve':ach>=90?'achieve warn':'achieve danger';
+    const confMap={STRONG:'strong',MEDIUM:'medium',WEAK:'weak',WEAK_SINGLE:'weak',NO_DATA:'none'};
+    const confLabel={STRONG:'🟢 高',MEDIUM:'🟡 中',WEAK:'🟠 低',WEAK_SINGLE:'🟠 単一',NO_DATA:'🔴 不可'};
+
+    html+=`<div class="hero">`;
+    html+=`<div class="hero-card target"><div class="h-label">🎯 ${d.month}月 目標</div><div class="h-value">${fmtY(target)}</div><div class="h-sub">月別目標 (実力ベース)</div></div>`;
+    html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${d.month}月 予測</div><div class="h-value">${fmtY(integrated.value)}</div><div class="h-sub">4手法アンサンブル統合</div></div>`;
+    html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標</div></div>`;
+    html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${confMap[integrated.confidence]||'none'}">${confLabel[integrated.confidence]||'?'}</span></div><div class="h-sub">${integrated.n}/4手法 · CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
+    html+=`</div>`;
+
+    // ========== [2] 年間オーバービュー (チャート + 12ヶ月セル) ==========
+    if(kpiData){
+      const ks=kpiData.kpis;
+      const yT={rev:0,cnt:0},yA={rev:0,cnt:0},yF={rev:0,cnt:0};
+      ks.forEach(k=>{
+        yT.rev+=k.target.rev;yT.cnt+=k.target.cnt;
+        yA.rev+=k.actual.rev;yA.cnt+=k.actual.cnt;
+        yF.rev+=k.phase==='past'?k.actual.rev:k.forecast.rev;
+        yF.cnt+=k.phase==='past'?k.actual.cnt:k.forecast.cnt;
+      });
+      const yAch=yT.rev>0?yF.rev/yT.rev*100:0;
+
+      html+=`<div class="section"><div class="section-head"><h2>📈 ${d.year}年 年間推移</h2><span class="sub">年合計予測 ${fmtK(yF.rev)} / 目標 ${fmtK(yT.rev)} (${yAch.toFixed(1)}%)</span></div><div class="section-body">`;
+      html+=renderStockChart(d,kpiData);
+
+      // 12ヶ月セル (見やすく)
+      html+=`<div style="margin:14px 0 8px;font-size:12px;color:#6b7280;font-weight:500">月をクリックで詳細表示 ・ ⭐=対象月</div>`;
+      html+=`<div class="months">`;
+      ks.forEach(k=>{
+        const phase=k.phase==='current'?'cur':k.phase==='past'?'past':'future';
+        const dispRev=k.phase==='past'?k.actual.rev:k.forecast.rev;
+        const a=k.target.rev>0?dispRev/k.target.rev*100:0;
+        const aCls=a>=100?'ok':a>=90?'warn':'ng';
+        const valCls=k.phase==='past'?'act':'fcst';
+        html+=`<div class="mc ${phase}" onclick="document.getElementById('month').value=${k.month};run();" title="${k.ym} クリックで詳細">`;
+        html+=`<div class="mc-m">${k.month}月 <span class="rank ${k.rank}">${k.rank}</span></div>`;
+        html+=`<div class="mc-tgt">目 ${fmtK(k.target.rev)}</div>`;
+        html+=`<div class="mc-val ${valCls}">${k.phase==='past'?'実':'予'} ${fmtK(dispRev)}</div>`;
+        html+=`<div class="mc-ach ${aCls}">${a.toFixed(0)}%</div>`;
+        html+=`</div>`;
+      });
+      html+=`</div>`;
+      html+=`</div></div>`;
+
+      // 5KPIテーブル (折り畳み・必要時に開く)
+      const KROWS=[
+        {key:'rev',label:'💰 売上総額',fmt:v=>fmtK(v)},
+        {key:'cnt',label:'📋 予約本数',fmt:v=>v.toFixed(0)+'件'},
+        {key:'aov',label:'💵 予約単価',fmt:v=>fmtY(v)},
+        {key:'util',label:'🚗 稼働率',fmt:v=>(v*100).toFixed(1)+'%'},
+        {key:'perVeh',label:'🏆 台/売上',fmt:v=>fmtY(v)},
+      ];
+      html+=`<details><summary>📐 5KPI × 12ヶ月 詳細テーブル (目標 / 実績 or 予測 / 達成率)</summary><div class="detail-body" style="padding:0;overflow-x:auto"><table class="t"><thead><tr><th style="position:sticky;left:0;background:#f9fafb;z-index:1">KPI</th>`;
+      for(let m=1;m<=12;m++){const cur=m===d.month;html+=`<th class="center" style="cursor:pointer;background:${cur?'#fef3c7':'#f9fafb'};color:${cur?'#92400e':'#374151'}" onclick="document.getElementById('month').value=${m};run();">${m}月</th>`;}
+      html+=`</tr></thead><tbody>`;
+      KROWS.forEach((row,i)=>{
+        html+=`<tr style="background:#fafbfc"><td style="font-weight:600;position:sticky;left:0;background:#fafbfc;z-index:1">${row.label} 目標</td>`;
+        ks.forEach(k=>{html+=`<td class="num" style="color:#92400e">${row.fmt(k.target[row.key])}</td>`;});
+        html+=`</tr><tr><td style="font-weight:600;position:sticky;left:0;background:#fff;z-index:1;color:#6b7280">　 実/予</td>`;
+        ks.forEach(k=>{const v=k.phase==='past'?k.actual[row.key]:k.forecast[row.key];const t=k.target[row.key];const ach=t>0?v/t*100:0;const col=k.phase==='past'?'#059669':k.phase==='current'?'#d97706':'#2563eb';const aC=ach>=100?'#059669':ach>=90?'#d97706':'#dc2626';html+=`<td class="num" style="color:${col}">${row.fmt(v)}<br><span style="font-size:10px;color:${aC}">${ach.toFixed(0)}%</span></td>`;});
+        html+=`</tr>`;
+      });
+      html+=`</tbody></table></div></details>`;
+    }
+
+    // ========== [3] 詳細セクション (折り畳み・必要時に開く) ==========
+    html+=`<details><summary>🏗️ 車両稼働 (商品・全ての起点)</summary><div class="detail-body">`;
+    if(kpiData)html+=renderVehicleRoot(d,kpiData);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>📥 INPUT - 何を元に予測したか</summary><div class="detail-body">`;
+    html+=renderInputSection(d);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>⚙️ ALGORITHM - どうシミュレートしたか (4手法 + 8制約)</summary><div class="detail-body">`;
+    html+=renderAlgorithmSection(d,methods,weights,integrated,constraints);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>📊 OUTPUT - 予測結果の詳細</summary><div class="detail-body">`;
+    html+=renderOutputSection(d,integrated,target);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>🎯 ACTION - 目標達成への必要条件</summary><div class="detail-body">`;
+    html+=renderActionSection(d,integrated,target,constraints);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>📡 PROGRESS - 当月日次累積進捗</summary><div class="detail-body">`;
+    html+=renderProgressSection(d);
+    html+=`</div></details>`;
+
+    html+=`<details><summary>📅 TIMELINE - 予測の日次推移 (毎日自動保存)</summary><div class="detail-body">`;
+    html+=renderTimelineSection(d,integrated,target);
+    html+=`</div></details>`;
+
+    document.getElementById('content').innerHTML=html;
+    document.getElementById('status').textContent='✅ 完了 ('+new Date().toLocaleTimeString()+')';
+  }catch(e){
+    document.getElementById('content').innerHTML='<div class="alert danger">⚠️ エラー: '+e.message+'</div>';
+    document.getElementById('status').textContent='⚠️ エラー';
+    console.error(e);
+  }
+}
+
+// 初期化
+function init(){
+  const ms=document.getElementById('month');
+  for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.text=m+'月';ms.appendChild(o);}
+  const today=new Date();
+  // デフォルト: 今月+1 (将来月予測)、当日
+  ms.value=Math.min(12,today.getMonth()+2);
+  document.getElementById('asOf').value=today.toISOString().slice(0,10);
+  // URLパラメータから初期値
+  const u=new URLSearchParams(location.search);
+  if(u.get('store'))document.getElementById('store').value=u.get('store');
+  if(u.get('month'))ms.value=u.get('month');
+  if(u.get('asOf'))document.getElementById('asOf').value=u.get('asOf');
+  document.getElementById('status').textContent='ボタンを押してください';
+  run();
+}
+init();
+</script>
+</body>
+</html>
