@@ -1106,6 +1106,19 @@ function renderTimelineSection(d,integrated,target){
 }
 
 // ==================== 5KPI × 12ヶ月 計算 ====================
+function getActiveCountForMonth(ym,kpi,veh){
+  const mk=(kpi||[]).filter(k=>k.year_month===ym);
+  if(mk.length>0){
+    const ex=new Set(mk.filter(k=>k.active===false).map(k=>k.vehicle_code));
+    return(veh||[]).filter(v=>v.active!==false&&!ex.has(v.code)).length;
+  }
+  const allMs=[...new Set((kpi||[]).map(k=>k.year_month).filter(Boolean))].sort();
+  const latest=allMs.filter(yy=>yy<=ym).pop();
+  if(!latest)return(veh||[]).filter(v=>v.active!==false).length;
+  const ex=new Set((kpi||[]).filter(k=>k.year_month===latest&&k.active===false).map(k=>k.vehicle_code));
+  return(veh||[]).filter(v=>v.active!==false&&!ex.has(v.code)).length;
+}
+
 function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
   // 各月の目標売上から、他4KPI目標を派生計算
   const targets=MONTHLY_TARGETS[store];
@@ -1126,8 +1139,7 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
     const ym=`${year}-${String(m).padStart(2,'0')}`;
     const revTar=targets[m]||0;
     const mDays=monthDays(year,m);
-    const ymKpi=kpi.filter(k=>k.year_month===ym&&k.active!==false);
-    const nActive=ymKpi.length||veh.filter(v=>v.active!==false).length;
+    const nActive=getActiveCountForMonth(ym,kpi,veh);
 
     // 目標
     const cntTar=aovTarget>0?Math.round(revTar/aovTarget):0;
@@ -1182,8 +1194,10 @@ function compute12MonthKpis(store,year,resv,acct,byM,veh,kpi,execDate){
     const utilFcst=nActive>0?Math.min(1,cntFcst*nightsTarget/(nActive*mDays)):0;
     const perVehFcst=nActive>0?revFcst/nActive:0;
 
+    const methodDetails={};
+    allMethods.forEach(mm=>{if(mm&&mm.value!=null)methodDetails[mm.name]={value:mm.value,weight:weights[mm.name]||0};});
     result.push({
-      month:m,ym,phase,nActive,mDays,remainDays:_remainDays,confidence:_conf,cv:_cv,nMethods:validMethods.length,
+      month:m,ym,phase,nActive,mDays,remainDays:_remainDays,confidence:_conf,cv:_cv,nMethods:validMethods.length,methodDetails,daysToStart,isFarFuture:phase==='future'&&daysToStart>30,
       target:{rev:revTar,cnt:cntTar,aov:aovTarget,util:utilTar,perVeh:perVehTar},
       actual:{rev:revAct,cnt:cntAct,aov:aovAct,util:utilAct,perVeh:perVehAct},
       forecast:{rev:revFcst,cnt:cntFcst,aov:aovFcst,util:utilFcst,perVeh:perVehFcst},
@@ -1527,9 +1541,39 @@ async function run(){
         html+=`<div class="hero-card target"><div class="h-label">🎯 ${mm.m}月 目標</div><div class="h-value">${fmtY(tgt)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e"><b>売上 = 件数 × 単価</b><br>= <b>${targetCntV}件</b> × <b>${fmtY(_pastAov)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehTgt)}</span></div></div>`;
         html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${mm.m}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div><div class="h-value" style="color:#c2410c">${fmtY(cur)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412"><b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAovV)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehAct)}</span></div></div>`;
         html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${mm.m}月 ${isPast?'実績':'予測'}</div><div class="h-value">${fmtY(fcst)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af"><b>売上 = 件数 × 単価</b><br>= <b>${fcstCntV}件</b> × <b>${fmtY(fcstAovV)}</b><br><span style="color:#1e3a8a">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehFcst)}</span></div></div>`;
-        html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}</div></div>`;
-        html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${_confMap[k.confidence||'WEAK_SINGLE']}">${_confLabel[k.confidence||'WEAK_SINGLE']}</span></div><div class="h-sub">${k.nMethods||0}/5手法 · CV ${((k.cv||0)*100).toFixed(1)}%</div></div>`;
+        html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}<br><span style="font-size:9.5px;opacity:.75">※ 信頼度とは独立指標</span></div></div>`;
+        html+=`<div class="hero-card"><div class="h-label">🔬 予測信頼度 <span style="font-size:9px;opacity:.7">(5手法の一致度)</span></div><div class="h-value" style="font-size:22px"><span class="conf ${_confMap[k.confidence||'WEAK_SINGLE']}">${_confLabel[k.confidence||'WEAK_SINGLE']}</span></div><div class="h-sub">${k.nMethods||0}/5手法 · CV ${((k.cv||0)*100).toFixed(1)}%<br><span style="font-size:9.5px;opacity:.75">※ 達成率とは別軸</span></div></div>`;
         html+=`</div>`;
+        if(!isPast){
+          const md=k.methodDetails||{};
+          const methodLabels={'M1: ターゲット+季節':'🎯 目標+季節+連休','M2: 既予約済み':'💰 既予約済み','M2: 既予約済み(将来)':'💰 既予約済み','M2: 過去実績':'💰 過去実績','M3: パターン(当月)':'📊 過去パターン','M3: パターン(未来)':'📊 過去パターン','M3: 過去実績':'📊 過去実績','M4: 直近トレンド':'📈 直近トレンド','M5: 予約ペース':'⚡ 予約発生ペース'};
+          const sorted=Object.entries(md).sort((a,b)=>(b[1].weight||0)-(a[1].weight||0));
+          html+=`<div style="margin:-6px 0 14px;padding:12px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #38bdf8;border-radius:10px;font-size:11.5px;color:#0c4a6e">`;
+          html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:700;color:#0369a1">📐 ${mm.m}月の予測根拠 (5手法アンサンブル)</span></div>`;
+          html+=`<table style="width:100%;border-collapse:collapse;font-size:11px"><tbody>`;
+          sorted.forEach(([name,info])=>{
+            const lbl=methodLabels[name]||name;
+            const wPct=(info.weight*100).toFixed(0);
+            const barW=info.weight*100;
+            html+=`<tr><td style="padding:3px 0;width:30%;color:#0c4a6e;font-weight:600">${lbl}</td>`;
+            html+=`<td style="padding:3px 8px;width:25%;font-variant-numeric:tabular-nums;text-align:right;color:#1e3a8a;font-weight:700">${fmtY(info.value)}</td>`;
+            html+=`<td style="padding:3px 8px;width:10%;text-align:right;color:#0369a1">×${wPct}%</td>`;
+            html+=`<td style="padding:3px"><div style="background:#cbd5e1;height:6px;border-radius:3px;overflow:hidden"><div style="background:#0284c7;width:${barW}%;height:100%"></div></div></td></tr>`;
+          });
+          html+=`<tr style="border-top:2px solid #0284c7"><td style="padding:5px 0;color:#0369a1;font-weight:700">統合(加重平均)</td>`;
+          html+=`<td style="padding:5px 8px;text-align:right;color:#dc2626;font-weight:800;font-size:13px">${fmtY(fcst)}</td>`;
+          html+=`<td colSpan="2"></td></tr></tbody></table>`;
+          const reasonParts=[];
+          if(k.isFarFuture){
+            if(k.rank==='AA'||k.rank==='A')reasonParts.push(`<b>${k.rank}ランク遠方月</b> → 「目標+季節+連休加点」を主軸`);
+            else reasonParts.push(`<b>${k.rank}ランク遠方月</b> → 「目標」「予約ペース」を半々で参照`);
+          }else{
+            reasonParts.push(`<b>${k.rank}ランク${isCur?'当月':''}</b> → 既予約済み + パターン + 予約ペース バランス`);
+          }
+          if(k.rank==='AA')reasonParts.push(`<b>AA = 超繁忙</b> → 季節係数 2.0倍`);
+          else if(k.rank==='A')reasonParts.push(`<b>A = 繁忙</b> → 季節係数 1.5倍`);
+          html+=`<div style="margin-top:8px;padding:8px 10px;background:#fff;border-radius:6px;font-size:10.5px;color:#475569;line-height:1.7"><b style="color:#0369a1">💡 なぜこの予測か:</b> ${reasonParts.join(' / ')}</div></div>`;
+        }
       });
     }
 
@@ -1697,7 +1741,7 @@ async function run(){
         if(v<expectedMin&&k.rank!=='C')return{status:'⚠️',color:'#fef3c7'};
         return{status:'',color:''};
       };
-      html+=`<div class="section"><div class="section-head"><h2>📊 ${d.year}年 全KPI 整合性ビュー</h2><span class="sub">主要5KPI × 12ヶ月で目標/実績/予測の整合性をチェック・🚨/⚠️は要確認</span></div><div class="section-body">`;
+      html+=`<details class="monthly-only" style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:12px;background:#fff"><summary style="background:#f9fafb;border-radius:12px 12px 0 0">📊 ${d.year}年 全KPI 整合性ビュー — 主要5KPI × 12ヶ月で目標/実績/予測の整合性をチェック</summary><div class="section-body">`;
       html+=`<div class="alert info" style="margin-bottom:14px"><b>年合計:</b> 目標 ${fmtK(yT.rev)} / 実績(過去月) ${fmtK(yA.rev)} / 予測(年合計) ${fmtK(yF.rev)} (${yAch.toFixed(1)}%) <span style="margin-left:12px;font-size:11px;color:#64748b">月クリックで該当月の詳細表示</span></div>`;
       html+=`<div style="overflow-x:auto"><table class="t" style="font-size:11.5px"><thead>`;
       html+=`<tr><th style="position:sticky;left:0;background:#f9fafb;z-index:2;min-width:80px">KPI</th><th class="center" style="background:#f3f4f6">区分</th>`;
@@ -1751,7 +1795,7 @@ async function run(){
       KROWS.forEach(row=>{ks.forEach(k=>{const st=cellStatus(row,k);if(st.status)anomalies++;});});
       if(anomalies>0){html+=`<div class="alert warn" style="margin-top:12px"><b>⚠️ ${anomalies}個のセルで異常値検出</b> · シーズナル+連休を加味しても過去レンジを超える予測値あり (🚨マーク赤背景=危険 / ⚠️黄背景=要確認)</div>`;}
       else{html+=`<div class="alert success" style="margin-top:12px"><b>🟢 全KPI × 12ヶ月で異常値なし</b> · 全ての予測値が過去レンジ + シーズナル補正範囲内 (レール上)</div>`;}
-      html+=`</div></div>`;
+      html+=`</div></details>`;
     }
 
     // ========== [3] 詳細セクション (折り畳み・必要時に開く) ==========
