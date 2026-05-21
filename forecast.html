@@ -1264,14 +1264,20 @@ async function run(){
     // 描画
     let html='';
 
-    // ========== [1] ヒーローカード4枚 (最重要 - 一目で見える) ==========
+    // ========== [1] ヒーローカード5枚 (最重要 - 一目で見える) ==========
     const ach=target>0?integrated.value/target*100:0;
     const achCls=ach>=100?'achieve':ach>=90?'achieve warn':'achieve danger';
     const confMap={STRONG:'strong',MEDIUM:'medium',WEAK:'weak',WEAK_SINGLE:'weak',NO_DATA:'none'};
     const confLabel={STRONG:'🟢 高',MEDIUM:'🟡 中',WEAK:'🟠 低',WEAK_SINGLE:'🟠 単一',NO_DATA:'🔴 不可'};
 
+    // 売上速報値 (現時点の確定済み売上)
+    const ymKey=`${d.year}-${String(d.month).padStart(2,'0')}`;
+    const curMonth=d.byM[ymKey]||{cnt:0,sub:0};
+    const actualRate=target>0?curMonth.sub/target*100:0;
+
     html+=`<div class="hero">`;
     html+=`<div class="hero-card target"><div class="h-label">🎯 ${d.month}月 目標</div><div class="h-value">${fmtY(target)}</div><div class="h-sub">月別目標 (実力ベース)</div></div>`;
+    html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${d.month}月 売上速報</div><div class="h-value" style="color:#c2410c">${fmtY(curMonth.sub)}</div><div class="h-sub">${curMonth.cnt}件 確定済 · 目標比 ${actualRate.toFixed(1)}%</div></div>`;
     html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${d.month}月 予測</div><div class="h-value">${fmtY(integrated.value)}</div><div class="h-sub">4手法アンサンブル統合</div></div>`;
     html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${ach.toFixed(1)}%</div><div class="h-sub">予測 ÷ 目標</div></div>`;
     html+=`<div class="hero-card"><div class="h-label">🔬 エビデンス強度</div><div class="h-value" style="font-size:22px"><span class="conf ${confMap[integrated.confidence]||'none'}">${confLabel[integrated.confidence]||'?'}</span></div><div class="h-sub">${integrated.n}/4手法 · CV ${(integrated.cv*100).toFixed(1)}%</div></div>`;
