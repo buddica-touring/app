@@ -1,7 +1,7 @@
 // ============================================================
 // GAS - Reservation Email Import & Vehicle Auto-Assignment
 // Gmail: reserve@rent-buddica-touring.jp
-// Target: 高松空港 (NHA) store only
+// Target: 高松空港 (BUDDICA TOURING / Takamatsu) store only
 // OTA: 楽天(R), じゃらん(J), skyticket(S), エアトリ(O), オフィシャル(HP)
 // ============================================================
 
@@ -218,7 +218,7 @@ function testParseOfficialStoreDetection() {
             Logger.log('[StoreTest] ' + rid + ': _store="' + parsed._store + '" vehicle=' + parsed.vehicle +
               ' del_place="' + parsed.del_place + '" col_place="' + parsed.col_place + '"');
             Logger.log('[StoreTest] ' + rid + ': isTakamatsuReservation_=' + takamatsuJudge +
-              ' (' + (takamatsuJudge ? '高松DB登録対象' : '札幌DB登録対象=NHA-GASスキップ') + ')');
+              ' (' + (takamatsuJudge ? '高松DB登録対象' : '高松外DB対象=BT-GASスキップ') + ')');
           } else {
             Logger.log('[StoreTest] ' + rid + ': parseOfficial_ returned null');
           }
@@ -352,7 +352,7 @@ function processMessage_(message, dryRun) {
     if (tmpId) {
       var existing = reservationExists_(tmpId);
       if (!existing) {
-        Logger.log('Skipping cancel (not in NHA DB): ' + tmpId);
+        Logger.log('Skipping cancel (not in BT DB): ' + tmpId);
         return {type:'skip', id:tmpId, reason:'DB未登録(札幌)'};
       }
       if (existing.status === 'cancelled') {
@@ -452,7 +452,7 @@ function processMessage_(message, dryRun) {
 
   // ★ じゃらん予約 → 事前決済フロー起動
   if (otaCode === 'J') {
-    try { nhaHandleJalanPayment_(reservation); } catch (e) { Logger.log('[JalanPayment] Error: ' + e.message); }
+    try { btHandleJalanPayment_(reservation); } catch (e) { Logger.log('[JalanPayment] Error: ' + e.message); }
   }
 
   if (assigned) {
@@ -512,48 +512,167 @@ function isTakamatsuReservation_(res) {
   return true;
 }
 
+/**
+ * BUDDICA TOURING 高松店 7クラス対応版（2026-05-21）
+ * クラス体系: AA / A / B / C / S / H / F（D, A2, B2 は廃止）
+ * 詳細: ~/buddica-touring/docs/phase3_gas_setup/FUNCTION_REVIEW.md
+ */
 function extractVehicleClass_(rawClass) {
   if (!rawClass) return '';
-  // A2/B2を先にチェック
-  if (/A2/i.test(rawClass)) return 'A2';
-  if (/B2/i.test(rawClass)) return 'B2';
 
-  // クラス名 + 車種名 マッピング
+  // ===== AA クラス（ハイエンド・最優先判定） =====
+  // ハイエンド車両は brand 名で識別される（メール本文に "ベンツ" 等が直接記載）
+  var highEndBrands = /ベンツ|Mercedes|メルセデス|ランボルギーニ|Lamborghini|ロールスロイス|Rolls-Royce|ベントレー|Bentley|フェラーリ|Ferrari|ポルシェ|Porsche|マセラティ|Maserati|アストンマーチン|Aston Martin/i;
+  if (highEndBrands.test(rawClass)) return 'AA';
+  if (/ハイエンド|最高級|プレミアム車両/i.test(rawClass)) return 'AA';
+
+  // ===== クラス名 + 車種名 マッピング（BT版） =====
+  // 注: 長い文字列を先に判定（officialMap キーで長さ降順ソート済み）
   var officialMap = {
+    // === A: 高級系MV ===
     'アルファードHクラス': 'A', 'アルファードH': 'A',
-    'アルファードMクラス': 'B', 'アルファードM': 'B',
     'アルファード': 'A',
-    'ワンボックスB': 'B', 'ヴェルファイア': 'B',
-    'セレナHクラス': 'B', 'セレナH': 'B', 'セレナ': 'B',
-    'ヴォクシー': 'B',
-    'ノアHクラス': 'B', 'ノアH': 'B', 'ノア': 'B',
-    'コンパクトSUV': 'C', 'ヤリスクロス': 'C', 'ライズ': 'C',
-    'ワンボックスD': 'D', 'エスクァイア': 'D',
-    'コンパクト': 'F', 'ヴィッツ': 'F', 'ノート': 'F', 'アクア': 'F',
-    'ハイブリッド': 'H', 'プリウスアルファ': 'H', 'プリウスα': 'H', 'プリウス': 'H',
-    'ハリアー': 'S'
+    'ヴェルファイア': 'A',
+    '高級系MV': 'A', '高級ミニバン': 'A',
+
+    // === B: 一般MV ===
+    'アルファードMクラス': 'B', 'アルファードM': 'B',  // 高松ではMはBへ統合
+    'セレナHクラス': 'B', 'セレナH': 'B', 'セレナMクラス': 'B', 'セレナM': 'B', 'セレナ': 'B',
+    'ノアHクラス': 'B', 'ノアH': 'B', 'ノアMクラス': 'B', 'ノアM': 'B', 'ノア': 'B',
+    'ヴォクシー': 'B', 'VOXY': 'B',
+    'ステップワゴン': 'B',
+    'エスクァイア': 'B',
+    'シエンタ': 'B',
+    '一般MV': 'B', 'ミニバン': 'B', 'ワンボックス': 'B',
+
+    // === C: コンパクトSUV ===
+    'ライズ': 'C', 'ロッキー': 'C',
+    'ヤリスクロス': 'C',
+    'ヴェゼル': 'C', 'VEZEL': 'C',
+    'カローラクロス': 'C',
+    'コンパクトSUV': 'C',
+
+    // === S: SUV ===
+    'ハリアー': 'S', 'HARRIER': 'S',
+    'CR-V': 'S', 'CRV': 'S',
+    'RAV4': 'S',
+    'フォレスター': 'S',
+    'CX-5': 'S', 'CX5': 'S',
+    'CX-8': 'S',
+    'エクストレイル': 'S',
+    'SUV': 'S',
+
+    // === H: セダン ===
+    'プリウスアルファ': 'H', 'プリウスα': 'H', 'プリウス': 'H',
+    'カローラ': 'H',
+    'カムリ': 'H',
+    'インサイト': 'H',
+    'アクセラ': 'H',
+    'マツダ3': 'H', 'MAZDA3': 'H',
+    'セダン': 'H',
+    'ハイブリッド': 'H',  // 旧NHA互換（プリウス等を指す）
+
+    // === F: コンパクト ===
+    'ヴィッツ': 'F', 'VITZ': 'F',
+    'ヤリス': 'F', 'YARIS': 'F',
+    'アクア': 'F', 'AQUA': 'F',
+    'ノート': 'F', 'NOTE': 'F',
+    'フィット': 'F', 'FIT': 'F',
+    'スイフト': 'F', 'SWIFT': 'F',
+    'デミオ': 'F',
+    'マツダ2': 'F', 'MAZDA2': 'F',
+    'コンパクト': 'F'
   };
+
+  // 長い順ソート（「アルファードHクラス」を「アルファード」より先に判定）
   var omKeys = Object.keys(officialMap).sort(function(a,b){return b.length-a.length;});
   for (var i = 0; i < omKeys.length; i++) {
     if (rawClass.indexOf(omKeys[i]) !== -1) return officialMap[omKeys[i]];
   }
 
-  // _F★ や _F_ や _F(末尾) パターン — ★等の記号も許容
-  var m = rawClass.match(/[_]([ABCDSFH])(?:[_★☆\s\)]|$)/i);
+  // ===== OTA クラスコードパターン =====
+  // BTでは D / A2 / B2 は使用しない（NHA体系の名残）
+
+  // _AA_ パターン（最優先）
+  var mAA1 = rawClass.match(/[_]AA(?:[_★☆\s\)]|$)/i);
+  if (mAA1) return 'AA';
+  // _A_ / _F★ や _F_ や _F(末尾) パターン — ★等の記号も許容
+  var m = rawClass.match(/[_]([ABCSFH])(?:[_★☆\s\)]|$)/i);
   if (m) return m[1].toUpperCase();
+
+  // 先頭パターン: AA_xxx
+  var mAA2 = rawClass.match(/^AA[_]/i);
+  if (mAA2) return 'AA';
   // 先頭パターン: A_xxx
-  var m2 = rawClass.match(/^([ABCDSFH])[_]/i);
+  var m2 = rawClass.match(/^([ABCSFH])[_]/i);
   if (m2) return m2[1].toUpperCase();
+
+  // スペース後: xxx AA_xxx
+  var mAA3 = rawClass.match(/\sAA[_]/i);
+  if (mAA3) return 'AA';
   // スペース後: xxx F_xxx
-  var m3 = rawClass.match(/\s([ABCDSFH])[_]/i);
+  var m3 = rawClass.match(/\s([ABCSFH])[_]/i);
   if (m3) return m3[1].toUpperCase();
+
+  // 末尾: xxx_AA
+  var mAA4 = rawClass.match(/[_]AA$/i);
+  if (mAA4) return 'AA';
   // 末尾: xxx_F
-  var m4 = rawClass.match(/[_]([ABCDSFH])$/i);
+  var m4 = rawClass.match(/[_]([ABCSFH])$/i);
   if (m4) return m4[1].toUpperCase();
+
+  // 「AAクラス」パターン
+  var mAA5 = rawClass.match(/AA\s*クラス/i);
+  if (mAA5) return 'AA';
   // 「Xクラス」パターン
-  var m5 = rawClass.match(/([ABCDSFH])クラス/i);
+  var m5 = rawClass.match(/([ABCSFH])\s*クラス/i);
   if (m5) return m5[1].toUpperCase();
   return '';
+}
+
+/**
+ * extractVehicleClass_ のBT版テスト
+ * GAS Editor で手動実行して全ケース ✅ を確認すること
+ */
+function testExtractVehicleClassBT() {
+  var cases = [
+    ['アルファードHクラス', 'A'],
+    ['アルファードMクラス', 'B'],
+    ['ベンツ AMG S63', 'AA'],
+    ['ランボルギーニ ウルス', 'AA'],
+    ['ロールスロイス カリナン', 'AA'],
+    ['Mercedes-Benz S-Class', 'AA'],
+    ['ノアM', 'B'],
+    ['セレナ', 'B'],
+    ['ライズ', 'C'],
+    ['ヤリスクロス', 'C'],
+    ['ハリアー', 'S'],
+    ['プリウス', 'H'],
+    ['プリウスα', 'H'],
+    ['ヴィッツ', 'F'],
+    ['ヤリス', 'F'],
+    ['ステップワゴン', 'B'],
+    ['CR-V', 'S'],
+    ['フォレスター', 'S'],
+    ['_AA_premium_', 'AA'],
+    ['ANY_B_001', 'B'],
+    ['Aクラス', 'A'],
+    ['AAクラス', 'AA'],
+    ['', ''],
+    ['unknown vehicle', ''],
+    ['ハイエンド スーパーカー', 'AA']
+  ];
+  var pass = 0, fail = 0;
+  cases.forEach(function(c) {
+    var result = extractVehicleClass_(c[0]);
+    var ok = result === c[1];
+    if (ok) pass++; else fail++;
+    Logger.log((ok ? '✅' : '❌') + ' "' + c[0] + '" → "' + result + '" (expected "' + c[1] + '")');
+  });
+  Logger.log('━━━━━━━━━━━━━━━━━━');
+  Logger.log('結果: ' + pass + ' pass / ' + fail + ' fail / ' + cases.length + ' total');
+  if (fail > 0) Logger.log('🚨 ' + fail + 'ケース失敗・要レビュー');
+  else Logger.log('🎉 全ケースパス');
 }
 
 // ============================================================
@@ -1892,7 +2011,7 @@ function handleCancellation_(ota, body, dryRun) {
   // ★ じゃらん決済キャンセル連動
   var otaCode = {jalan:'J',rakuten:'R',skyticket:'S',airtrip:'O',airtrip_dp:'O',official:'HP',gogoout:'G',rentacar_dc:'RC',rentacar_dc2:'RC'}[ota] || '';
   if (otaCode === 'J') {
-    try { nhaHandleJalanPaymentCancel_(reservationId); } catch (e) { Logger.log('[JalanPaymentCancel] Error: ' + e.message); }
+    try { btHandleJalanPaymentCancel_(reservationId); } catch (e) { Logger.log('[JalanPaymentCancel] Error: ' + e.message); }
   }
 
   Logger.log('Cancelled reservation: ' + reservationId);
@@ -3044,10 +3163,10 @@ function extractReservationId_(ota, body) {
 
 // ============================================================
 // Slack → 予約登録 & 自動配車
-// チャンネル: #kagawa_reservation_notification (C06KZ56NTDF)
+// チャンネル: #reservation_notification (C0B4WHEUTJR)
 // ============================================================
 
-var SLACK_CHANNEL_RESV_ID = 'C06KZ56NTDF';
+var SLACK_CHANNEL_RESV_ID = 'C0B4WHEUTJR'  // #reservation_notification (BT);
 var SLACK_RESV_MARKER = '【新規予約】';
 var PROCESSED_SLACK_KEY = 'bt_processed_slack_ts';
 
@@ -3419,7 +3538,7 @@ function testSlackParseOta() {
 // 入金済みなら paid=true に自動更新する
 // ============================================================
 
-function checkNhaAccountingPayments() {
+function checkBtAccountingPayments() {
   try {
     // 1. bt_accounting から url付き＆未入金レコードを取得
     var rows = supabaseGet_('bt_accounting',
@@ -3442,18 +3561,18 @@ function checkNhaAccountingPayments() {
     if (!token) {
       Logger.log('[NhaPayCheck] SQUARE_API_TOKEN not set in ScriptProperties');
       try {
-        nhaPostToSlackChannel_('C0AP2S5B147', '🔴 *高松会計 入金確認障害*\nSQUARE_API_TOKEN が ScriptProperties に未設定です。\nGASエディタ > プロジェクトの設定 > スクリプトプロパティ から設定してください。');
+        btPostToSlackChannel_('C0B4ZUVFU90'  /* #payment_notification (BT) */, '🔴 *高松会計 入金確認障害*\nSQUARE_API_TOKEN が ScriptProperties に未設定です。\nGASエディタ > プロジェクトの設定 > スクリプトプロパティ から設定してください。');
       } catch(e2) {}
       return;
     }
 
     // 3. Square Payment Links → order_id マップ取得
-    var linkMap = nhaFetchPaymentLinkMap_(token);
+    var linkMap = btFetchPaymentLinkMap_(token);
     var linkMapSize = linkMap ? Object.keys(linkMap).length : 0;
     if (linkMapSize === 0) {
       Logger.log('[NhaPayCheck] Payment Links map is empty');
       try {
-        nhaPostToSlackChannel_('C0AP2S5B147', '🔴 *高松会計 入金確認障害*\nSquare Payment Links APIが0件を返しました。\nトークン期限切れまたはAPI障害の可能性があります。');
+        btPostToSlackChannel_('C0B4ZUVFU90'  /* #payment_notification (BT) */, '🔴 *高松会計 入金確認障害*\nSquare Payment Links APIが0件を返しました。\nトークン期限切れまたはAPI障害の可能性があります。');
       } catch(e2) {}
       return;
     }
@@ -3462,7 +3581,7 @@ function checkNhaAccountingPayments() {
     // 4. URL→order_id マッチング
     var orderIdsToCheck = [];
     for (var i = 0; i < unpaid.length; i++) {
-      var normalizedUrl = nhaNormalizeSquareUrl_(unpaid[i].url);
+      var normalizedUrl = btNormalizeSquareUrl_(unpaid[i].url);
       var orderId = linkMap[normalizedUrl];
       if (orderId) {
         unpaid[i]._orderId = orderId;
@@ -3478,7 +3597,7 @@ function checkNhaAccountingPayments() {
     }
 
     // 5. Square Orders API で入金確認
-    var orderMap = nhaBatchRetrieveOrders_(token, orderIdsToCheck);
+    var orderMap = btBatchRetrieveOrders_(token, orderIdsToCheck);
     if (!orderMap || Object.keys(orderMap).length === 0) {
       Logger.log('[NhaPayCheck] Orders retrieval returned 0');
       return;
@@ -3491,7 +3610,7 @@ function checkNhaAccountingPayments() {
       var row = unpaid[i];
       if (!row._orderId) continue;
       try {
-        var paidInfo = nhaIsOrderPaid_(orderMap[row._orderId]);
+        var paidInfo = btIsOrderPaid_(orderMap[row._orderId]);
         if (paidInfo) {
           var ok = supabaseUpdate_('bt_accounting',
             'id=eq.' + encodeURIComponent(row.id),
@@ -3530,7 +3649,7 @@ function checkNhaAccountingPayments() {
         var msg = '✅ *高松会計 入金自動確認 ' + paidCount + '件*\n'
           + '合計: ¥' + totalAmount.toLocaleString() + '\n\n'
           + lines.join('\n');
-        nhaPostToSlackChannel_('C0AP2S5B147', msg); // #payment_takamatsu
+        btPostToSlackChannel_('C0B4ZUVFU90'  /* #payment_notification (BT) */, msg); // #payment_takamatsu
       } catch(e2) {
         Logger.log('[NhaPayCheck] Slack通知エラー: ' + e2.message);
       }
@@ -3543,11 +3662,11 @@ function checkNhaAccountingPayments() {
 
 // --- Square API ヘルパー（高松専用、SPK GASと名前空間分離） ---
 
-function nhaNormalizeSquareUrl_(url) {
+function btNormalizeSquareUrl_(url) {
   return String(url || '').trim().replace(/\/+$/, '').toLowerCase();
 }
 
-function nhaFetchPaymentLinkMap_(token) {
+function btFetchPaymentLinkMap_(token) {
   var map = {}, cursor = null, fetched = 0;
   do {
     var apiUrl = 'https://connect.squareup.com/v2/online-checkout/payment-links?limit=100';
@@ -3569,8 +3688,8 @@ function nhaFetchPaymentLinkMap_(token) {
       var data = JSON.parse(resp.getContentText());
       (data.payment_links || []).forEach(function(link) {
         if (link.order_id) {
-          if (link.url) map[nhaNormalizeSquareUrl_(link.url)] = link.order_id;
-          if (link.long_url) map[nhaNormalizeSquareUrl_(link.long_url)] = link.order_id;
+          if (link.url) map[btNormalizeSquareUrl_(link.url)] = link.order_id;
+          if (link.long_url) map[btNormalizeSquareUrl_(link.long_url)] = link.order_id;
         }
       });
       fetched += (data.payment_links || []).length;
@@ -3584,7 +3703,7 @@ function nhaFetchPaymentLinkMap_(token) {
   return map;
 }
 
-function nhaBatchRetrieveOrders_(token, orderIds) {
+function btBatchRetrieveOrders_(token, orderIds) {
   var map = {}, unique = [], seen = {};
   orderIds.forEach(function(id) {
     if (!seen[id]) { unique.push(id); seen[id] = true; }
@@ -3599,7 +3718,7 @@ function nhaBatchRetrieveOrders_(token, orderIds) {
           'Square-Version': '2024-01-18'
         },
         payload: JSON.stringify({
-          location_id: 'L8N7J9RKPN3WH',
+          location_id: 'L4RWQWN579CFW',
           order_ids: unique.slice(i, i + 100)
         }),
         muteHttpExceptions: true
@@ -3615,7 +3734,7 @@ function nhaBatchRetrieveOrders_(token, orderIds) {
   return map;
 }
 
-function nhaIsOrderPaid_(order) {
+function btIsOrderPaid_(order) {
   if (!order || !order.tenders || order.tenders.length === 0) return null;
   var netDue = order.net_amount_due_money;
   if (netDue && netDue.amount !== 0) return null;
@@ -3626,12 +3745,12 @@ function nhaIsOrderPaid_(order) {
 function setupNhaPaymentCheck() {
   // 既存トリガー削除
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === 'checkNhaAccountingPayments') {
+    if (t.getHandlerFunction() === 'checkBtAccountingPayments') {
       ScriptApp.deleteTrigger(t);
     }
   });
   // 15分間隔トリガー作成
-  ScriptApp.newTrigger('checkNhaAccountingPayments')
+  ScriptApp.newTrigger('checkBtAccountingPayments')
     .timeBased()
     .everyMinutes(15)
     .create();
@@ -3657,13 +3776,13 @@ function debugNhaPaymentCheck() {
   // Square Payment Links マップ取得テスト
   var token = PropertiesService.getScriptProperties().getProperty('SQUARE_API_TOKEN');
   if (!token) { Logger.log('⚠️ SQUARE_API_TOKEN未設定'); return; }
-  var linkMap = nhaFetchPaymentLinkMap_(token);
+  var linkMap = btFetchPaymentLinkMap_(token);
   Logger.log('Payment Links マップ: ' + Object.keys(linkMap).length + '件');
 
   // マッチングテスト
   var matched = 0, unmatched = 0;
   withUrl.forEach(function(r) {
-    var norm = nhaNormalizeSquareUrl_(r.url);
+    var norm = btNormalizeSquareUrl_(r.url);
     if (linkMap[norm]) {
       matched++;
       Logger.log('✅ MATCH: id=' + r.id + ' → orderId=' + linkMap[norm]);
@@ -3678,20 +3797,20 @@ function debugNhaPaymentCheck() {
 // ============================================================
 // じゃらん事前決済システム（高松店）
 // ============================================================
-var NAHA_JALAN_PAY_CHANNEL = 'C0AP2S5B147'; // #payment_takamatsu
-var NHA_SQUARE_LOCATION_ID = 'L8N7J9RKPN3WH';
+var NAHA_JALAN_PAY_CHANNEL = 'C0B4ZUVFU90'  /* #payment_notification (BT) */; // #payment_takamatsu
+var BT_SQUARE_LOCATION_ID = 'L4RWQWN579CFW';  // BUDDICA TOURING 高松店
 
-function nhaGetSquareToken_() {
+function btGetSquareToken_() {
   return PropertiesService.getScriptProperties().getProperty('SQUARE_API_TOKEN');
 }
 
-function nhaGetSlackBotToken_() {
+function btGetSlackBotToken_() {
   return PropertiesService.getScriptProperties().getProperty('SLACK_BOT_TOKEN');
 }
 
 // --- Slack Bot API投稿（ts返却）---
-function nhaPostToSlackChannel_(channel, text) {
-  var token = nhaGetSlackBotToken_();
+function btPostToSlackChannel_(channel, text) {
+  var token = btGetSlackBotToken_();
   if (!token) { Logger.log('[NhaSlack] No SLACK_BOT_TOKEN'); return null; }
   try {
     var resp = UrlFetchApp.fetch('https://slack.com/api/chat.postMessage', {
@@ -3708,8 +3827,8 @@ function nhaPostToSlackChannel_(channel, text) {
 }
 
 // --- Square決済リンク作成 ---
-function nhaCreateSquarePaymentLink_(itemName, amount) {
-  var token = nhaGetSquareToken_();
+function btCreateSquarePaymentLink_(itemName, amount) {
+  var token = btGetSquareToken_();
   if (!token) { Logger.log('[NhaSquare] No SQUARE_API_TOKEN'); return null; }
   try {
     var resp = UrlFetchApp.fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {
@@ -3720,7 +3839,7 @@ function nhaCreateSquarePaymentLink_(itemName, amount) {
         quick_pay: {
           name: itemName,
           price_money: {amount: amount, currency: 'JPY'},
-          location_id: NHA_SQUARE_LOCATION_ID
+          location_id: BT_SQUARE_LOCATION_ID
         }
       }),
       muteHttpExceptions: true
@@ -3736,7 +3855,7 @@ function nhaCreateSquarePaymentLink_(itemName, amount) {
 }
 
 // --- じゃらん新規予約 → 決済リンク生成＋DB保存＋Slack通知 ---
-function nhaHandleJalanPayment_(reservation) {
+function btHandleJalanPayment_(reservation) {
   var resId = reservation.id;
 
   // 重複チェック
@@ -3747,13 +3866,13 @@ function nhaHandleJalanPayment_(reservation) {
   var lendShort = (reservation.lend_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
   var retShort = (reservation.return_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
   var itemName = 'BUDDICA TOURING 高松店 ' + (reservation.name || '') + '様（' + resId + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
-  var payUrl = nhaCreateSquarePaymentLink_(itemName, reservation.price || 0);
+  var payUrl = btCreateSquarePaymentLink_(itemName, reservation.price || 0);
 
   if (!payUrl) {
     // Square API失敗 → status='new'で保存（nhaCheckSquareLinksでリトライ）
     var payData = {reservation_id: resId, customer_name: reservation.name, customer_email: reservation.mail || '', amount: reservation.price || 0, status: 'new', lend_date: reservation.lend_date, return_date: reservation.return_date, vehicle_class: reservation.vehicle || ''};
     supabasePost_('bt_jalan_payments', payData);
-    nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Squareリンク作成失敗*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n金額： ¥' + (reservation.price || 0) + '\n→ nhaCheckSquareLinksトリガーでリトライします');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Squareリンク作成失敗*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n金額： ¥' + (reservation.price || 0) + '\n→ nhaCheckSquareLinksトリガーでリトライします');
     Logger.log('[NhaJalanPay] Square link failed, saved as new: ' + resId);
     return;
   }
@@ -3767,17 +3886,17 @@ function nhaHandleJalanPayment_(reservation) {
 
   // 3. Slack投稿
   var slackText = '💳 *じゃらん事前決済*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n品目： じゃらん事前決済(' + lendShort + '-' + retShort + ')\n金額： ¥' + (reservation.price || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
-  var slackTs = nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
+  var slackTs = btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
   if (slackTs) {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(resId), {slack_ts: slackTs});
   }
 
   // 4. スプレッドシートに記録
-  nhaAppendToPaymentSheet_({reservation_id: resId, customer_name: reservation.name, amount: reservation.price || 0, lend_date: reservation.lend_date, return_date: reservation.return_date, slack_ts: slackTs || ''}, payUrl);
+  btAppendToPaymentSheet_({reservation_id: resId, customer_name: reservation.name, amount: reservation.price || 0, lend_date: reservation.lend_date, return_date: reservation.return_date, slack_ts: slackTs || ''}, payUrl);
 }
 
 // --- じゃらんキャンセル → 決済状態更新 ---
-function nhaHandleJalanPaymentCancel_(reservationId) {
+function btHandleJalanPaymentCancel_(reservationId) {
   var rows = supabaseGet_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(reservationId) + '&select=id,status,amount,customer_name');
   if (!rows || rows.length === 0) return;
   var pay = rows[0];
@@ -3786,18 +3905,18 @@ function nhaHandleJalanPaymentCancel_(reservationId) {
   var now = new Date().toISOString();
   if (prevStatus === 'paid') {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(reservationId), {status: 'refund', cancelled_at: now});
-    nhaUpdatePaymentSheetStatus_(reservationId, '⚠️ 要返金', '');
-    nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '⚠️ *返金対応必要*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 入金済みキャンセル → *要Square返金*');
+    btUpdatePaymentSheetStatus_(reservationId, '⚠️ 要返金', '');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '⚠️ *返金対応必要*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 入金済みキャンセル → *要Square返金*');
   } else {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(reservationId), {status: 'cancelled', cancelled_at: now});
-    nhaUpdatePaymentSheetStatus_(reservationId, '❌ キャンセル', '');
-    nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔄 *キャンセル（決済前）*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 未入金キャンセル・対応不要');
+    btUpdatePaymentSheetStatus_(reservationId, '❌ キャンセル', '');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔄 *キャンセル（決済前）*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 未入金キャンセル・対応不要');
   }
   Logger.log('[NhaJalanPayCancel] Done: ' + reservationId + ' → ' + (prevStatus === 'paid' ? 'refund' : 'cancelled'));
 }
 
 // --- Squareリンクリトライ + メール送信（5分トリガー）---
-function nhaCheckSquareLinks() {
+function btCheckSquareLinks() {
   var rows = supabaseGet_('bt_jalan_payments', 'status=in.(new,link_created)&select=reservation_id,customer_name,customer_email,amount,status,slack_ts,lend_date,return_date,square_payment_url,vehicle_class');
   // ★ FIX 2026-05-01: 0件でもハートビートを更新する。
   //   旧コード: 0件 early return → updateHeartbeat 呼ばれず → 監視画面で「停止」誤検知
@@ -3814,25 +3933,25 @@ function nhaCheckSquareLinks() {
       var lendShort = (pay.lend_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
       var retShort = (pay.return_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
       var itemName = 'BUDDICA TOURING 高松店 ' + (pay.customer_name || '') + '様（' + pay.reservation_id + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
-      var payUrl = nhaCreateSquarePaymentLink_(itemName, pay.amount || 0);
+      var payUrl = btCreateSquarePaymentLink_(itemName, pay.amount || 0);
       if (!payUrl) { Logger.log('[NhaCheckLinks] Retry failed: ' + pay.reservation_id); continue; }
       var now = new Date().toISOString();
       supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {square_payment_url: payUrl, status: 'link_created', link_created_at: now});
       Logger.log('[NhaCheckLinks] Retry success: ' + pay.reservation_id + ' → ' + payUrl);
       var slackText = '💳 *じゃらん事前決済（リトライ成功）*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
-      var slackTs = nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
+      var slackTs = btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
       if (slackTs && !pay.slack_ts) { supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {slack_ts: slackTs}); }
-      nhaAppendToPaymentSheet_(pay, payUrl);
+      btAppendToPaymentSheet_(pay, payUrl);
       pay.square_payment_url = payUrl;
       pay.status = 'link_created';
     }
 
     // status=link_created: メール送信
     if (pay.status === 'link_created' && pay.square_payment_url && pay.customer_email) {
-      var sent = nhaSendJalanPaymentEmail_(pay);
+      var sent = btSendJalanPaymentEmail_(pay);
       if (sent) {
         supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'email_sent', email_sent_at: new Date().toISOString()});
-        nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '📧 *メール送信完了*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + pay.amount);
+        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '📧 *メール送信完了*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + pay.amount);
         Logger.log('[NhaCheckLinks] Email sent: ' + pay.reservation_id);
       }
     }
@@ -3841,7 +3960,7 @@ function nhaCheckSquareLinks() {
 }
 
 // --- 決済案内メール送信（高松テンプレート）---
-function nhaSendJalanPaymentEmail_(pay) {
+function btSendJalanPaymentEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) { Logger.log('[NhaJalanEmail] BLOCKED: missing data'); return false; }
   try {
     var subject = '【レンタカー BUDDICA TOURING BUDDICA TOURING 高松店】事前決済・LINE登録のお願い（予約番号: ' + pay.reservation_id + '）';
@@ -3888,7 +4007,7 @@ function nhaSendJalanPaymentEmail_(pay) {
 }
 
 // --- じゃらん決済 入金確認（15分トリガー）---
-function nhaCheckJalanPaymentStatus() {
+function btCheckJalanPaymentStatus() {
   // email_sent の行を対象（link_createdも念のため含める）
   var rows = supabaseGet_('bt_jalan_payments', 'status=in.(email_sent,link_created)&select=id,reservation_id,customer_name,amount,square_payment_url,lend_date,return_date,vehicle_class');
   // ★ FIX 2026-05-01: 0件でもハートビートを更新する（監視画面で誤停止検知防止）
@@ -3899,23 +4018,23 @@ function nhaCheckJalanPaymentStatus() {
   }
   Logger.log('[NhaJalanPayStatus] Checking ' + rows.length + ' rows');
 
-  var token = nhaGetSquareToken_();
-  if (!token) { Logger.log('[NhaJalanPayStatus] No SQUARE_API_TOKEN'); nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *じゃらん決済 入金確認障害*\nSQUARE_API_TOKENが未設定です。'); return; }
+  var token = btGetSquareToken_();
+  if (!token) { Logger.log('[NhaJalanPayStatus] No SQUARE_API_TOKEN'); btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *じゃらん決済 入金確認障害*\nSQUARE_API_TOKENが未設定です。'); return; }
 
-  var linkMap = nhaFetchPaymentLinkMap_(token);
+  var linkMap = btFetchPaymentLinkMap_(token);
   var linkMapSize = linkMap ? Object.keys(linkMap).length : 0;
-  if (linkMapSize === 0) { Logger.log('[NhaJalanPayStatus] Payment Links map empty'); nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *じゃらん決済 入金確認障害*\nSquare Payment Links APIが0件を返しました。'); return; }
+  if (linkMapSize === 0) { Logger.log('[NhaJalanPayStatus] Payment Links map empty'); btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *じゃらん決済 入金確認障害*\nSquare Payment Links APIが0件を返しました。'); return; }
 
   var orderIdsToCheck = [];
   for (var i = 0; i < rows.length; i++) {
-    var normalizedUrl = nhaNormalizeSquareUrl_(rows[i].square_payment_url);
+    var normalizedUrl = btNormalizeSquareUrl_(rows[i].square_payment_url);
     var orderId = linkMap[normalizedUrl];
     if (orderId) { rows[i]._orderId = orderId; orderIdsToCheck.push(orderId); }
     else { Logger.log('[NhaJalanPayStatus] No URL match: ' + rows[i].reservation_id); }
   }
   if (orderIdsToCheck.length === 0) { Logger.log('[NhaJalanPayStatus] No order IDs matched'); return; }
 
-  var orderMap = nhaBatchRetrieveOrders_(token, orderIdsToCheck);
+  var orderMap = btBatchRetrieveOrders_(token, orderIdsToCheck);
   if (!orderMap || Object.keys(orderMap).length === 0) { Logger.log('[NhaJalanPayStatus] Orders retrieval 0'); return; }
 
   var paidCount = 0;
@@ -3923,11 +4042,11 @@ function nhaCheckJalanPaymentStatus() {
     var pay = rows[i];
     if (!pay._orderId) continue;
     try {
-      var paidInfo = nhaIsOrderPaid_(orderMap[pay._orderId]);
+      var paidInfo = btIsOrderPaid_(orderMap[pay._orderId]);
       if (paidInfo) {
         supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'paid', paid_at: paidInfo.paid_at});
-        nhaUpdatePaymentSheetStatus_(pay.reservation_id, '✅ 入金済み', paidInfo.paid_at);
-        nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '✅ *入金確認完了*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString());
+        btUpdatePaymentSheetStatus_(pay.reservation_id, '✅ 入金済み', paidInfo.paid_at);
+        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '✅ *入金確認完了*\n店舗： BUDDICA TOURING 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString());
         Logger.log('[NhaJalanPayStatus] ✅ Paid: ' + pay.reservation_id);
         paidCount++;
       }
@@ -3938,7 +4057,7 @@ function nhaCheckJalanPaymentStatus() {
 }
 
 // ============================================================
-// 【1重目】入金確認 — nhaCheckJalanPaymentStatus（15分間隔）
+// 【1重目】入金確認 — btCheckJalanPaymentStatus（15分間隔）
 //   → DB(bt_jalan_payments)のemail_sent/link_created → Square API → paid更新
 //   ↑ 既に上に実装済み
 // ============================================================
@@ -3948,9 +4067,9 @@ function nhaCheckJalanPaymentStatus() {
 //   - DB=paid なのにシート=未払い → シート自動修正 + Slack警告
 //   - シート=入金済み なのにDB≠paid → DB自動修正 + Slack警告
 // ★ 2026-05-05: 「メール送信後24時間以上未入金」エスカレーション通知は不要のため削除
-//   （日次9時の nhaCheckJalanUnpaidAlert で「出発3日前以内」のみ通知する設計に集約）
+//   （日次9時の btCheckJalanUnpaidAlert で「出発3日前以内」のみ通知する設計に集約）
 // ============================================================
-function nhaReconcilePaymentSheet() {
+function btReconcilePaymentSheet() {
   try {
     var sheetId = '1-QU8JwrGgwp9CcZT6QieYQH0y112Hb4I5GoobrrM6tc';
     var ss = SpreadsheetApp.openById(sheetId);
@@ -4002,7 +4121,7 @@ function nhaReconcilePaymentSheet() {
 
     // 不整合修正通知（自動修正があった場合のみ）
     if (fixes.length > 0) {
-      nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔧 *DB↔シート不整合 自動修正（高松）*\n' + fixes.join('\n'));
+      btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔧 *DB↔シート不整合 自動修正（高松）*\n' + fixes.join('\n'));
       Logger.log('[Reconcile] Fixed ' + fixes.length + ' inconsistencies');
     }
 
@@ -4016,10 +4135,10 @@ function nhaReconcilePaymentSheet() {
 //   - DB側でpaidになっていない行があれば自動修正
 //   - 日次サマリーを#payment_takamatsuに投稿
 // ============================================================
-function nhaSquareDirectAudit() {
+function btSquareDirectAudit() {
   try {
-    var token = nhaGetSquareToken_();
-    if (!token) { nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査障害*\nSQUARE_API_TOKEN未設定'); return; }
+    var token = btGetSquareToken_();
+    if (!token) { btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査障害*\nSQUARE_API_TOKEN未設定'); return; }
 
     // DB全件取得（cancelled/refunded以外）
     var dbRows = supabaseGet_('bt_jalan_payments', 'status=neq.cancelled&status=neq.refunded&select=reservation_id,status,amount,customer_name,square_payment_url,lend_date&limit=500');
@@ -4030,13 +4149,13 @@ function nhaSquareDirectAudit() {
     if (urlRows.length === 0) { Logger.log('[Audit] No rows with URLs'); return; }
 
     // Square Payment Links → order_id マップ
-    var linkMap = nhaFetchPaymentLinkMap_(token);
-    if (!linkMap || Object.keys(linkMap).length === 0) { nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査障害*\nPayment Links API 0件'); return; }
+    var linkMap = btFetchPaymentLinkMap_(token);
+    if (!linkMap || Object.keys(linkMap).length === 0) { btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査障害*\nPayment Links API 0件'); return; }
 
     // order_id収集
     var orderIdsToCheck = [];
     for (var i = 0; i < urlRows.length; i++) {
-      var normalizedUrl = nhaNormalizeSquareUrl_(urlRows[i].square_payment_url);
+      var normalizedUrl = btNormalizeSquareUrl_(urlRows[i].square_payment_url);
       var orderId = linkMap[normalizedUrl];
       if (orderId) { urlRows[i]._orderId = orderId; orderIdsToCheck.push(orderId); }
     }
@@ -4044,7 +4163,7 @@ function nhaSquareDirectAudit() {
     if (orderIdsToCheck.length === 0) { Logger.log('[Audit] No order IDs matched'); return; }
 
     // Square Orders API で入金状態チェック
-    var orderMap = nhaBatchRetrieveOrders_(token, orderIdsToCheck);
+    var orderMap = btBatchRetrieveOrders_(token, orderIdsToCheck);
     if (!orderMap) orderMap = {};
 
     var autoFixed = [], confirmed = [], unpaidList = [];
@@ -4053,16 +4172,16 @@ function nhaSquareDirectAudit() {
       var pay = urlRows[i];
       if (!pay._orderId) { unpaidList.push(pay); continue; }
 
-      var paidInfo = nhaIsOrderPaid_(orderMap[pay._orderId]);
+      var paidInfo = btIsOrderPaid_(orderMap[pay._orderId]);
       if (paidInfo) {
         if (pay.status === 'paid') {
           confirmed.push(pay); // 正常: DB=paid, Square=paid
         } else {
           // 【自動修正】Square=paid なのに DB≠paid → 見逃し検知！
           supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'paid', paid_at: paidInfo.paid_at});
-          nhaUpdatePaymentSheetStatus_(pay.reservation_id, '✅ 入金済み', paidInfo.paid_at);
+          btUpdatePaymentSheetStatus_(pay.reservation_id, '✅ 入金済み', paidInfo.paid_at);
           autoFixed.push(pay);
-          nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔍 *Square直接検知で入金確認*\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString() + '\n⚠️ 1重目チェックで見逃されていた入金を3重目で検知しました');
+          btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔍 *Square直接検知で入金確認*\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString() + '\n⚠️ 1重目チェックで見逃されていた入金を3重目で検知しました');
         }
       } else {
         unpaidList.push(pay);
@@ -4090,12 +4209,12 @@ function nhaSquareDirectAudit() {
         summaryLines.push('• ' + p.reservation_id + ' ' + (p.customer_name || '') + ' ¥' + (p.amount || 0) + '（' + urgency + '）');
       });
     }
-    nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, summaryLines.join('\n'));
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, summaryLines.join('\n'));
 
     Logger.log('[Audit] Done. Confirmed: ' + confirmed.length + ', AutoFixed: ' + autoFixed.length + ', Unpaid: ' + unpaidList.length);
   } catch (e) {
     Logger.log('[Audit] Error: ' + e.message);
-    nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査エラー*\n' + e.message);
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Square監査エラー*\n' + e.message);
   }
 }
 
@@ -4104,7 +4223,7 @@ function nhaSquareDirectAudit() {
 //   - 出発3日前: #payment_takamatsu
 //   - 出発1日前/当日: #payment_takamatsu + #kagawa_operations-team
 // ============================================================
-function nhaCheckJalanUnpaidAlert() {
+function btCheckJalanUnpaidAlert() {
   var SLACK_OPS = 'C06L91W6T08'; // #kagawa_operations-team
   var rows = supabaseGet_('bt_jalan_payments', 'status=in.(new,link_created,email_sent)&select=reservation_id,customer_name,amount,lend_date,status,square_payment_url');
   if (!rows || rows.length === 0) return;
@@ -4131,7 +4250,7 @@ function nhaCheckJalanUnpaidAlert() {
     lines.push('• ' + a.reservationId + ' ' + a.customerName + ' ¥' + a.amount + '（出発: ' + a.lendDate + ' ' + urgency + '）' + statusLabel);
   });
   lines.push('\n期限超過・要電話確認');
-  nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, lines.join('\n'));
+  btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, lines.join('\n'));
 
   // 🔴 緊急: 出発1日前/当日 → #kagawa_operations-team にもエスカレーション
   if (urgentAlerts.length > 0) {
@@ -4141,14 +4260,14 @@ function nhaCheckJalanUnpaidAlert() {
       urgLines.push('• ' + a.reservationId + ' ' + a.customerName + ' ¥' + a.amount + ' ' + urgency);
       if (a.url) urgLines.push('  Square: ' + a.url);
     });
-    nhaPostToSlackChannel_(SLACK_OPS, urgLines.join('\n'));
+    btPostToSlackChannel_(SLACK_OPS, urgLines.join('\n'));
   }
 
   Logger.log('[NhaUnpaidAlert] ' + allAlerts.length + '件通知（緊急: ' + urgentAlerts.length + '件）');
 }
 
 // --- スプレッドシート連携（BUDDICA TOURING 支払い管理シートに高松店として記録）---
-function nhaAppendToPaymentSheet_(pay, payUrl) {
+function btAppendToPaymentSheet_(pay, payUrl) {
   try {
     var sheetId = '1-QU8JwrGgwp9CcZT6QieYQH0y112Hb4I5GoobrrM6tc';
     var ss = SpreadsheetApp.openById(sheetId);
@@ -4166,7 +4285,7 @@ function nhaAppendToPaymentSheet_(pay, payUrl) {
   } catch (e) { Logger.log('[NhaSheet] Append error: ' + e.message); }
 }
 
-function nhaUpdatePaymentSheetStatus_(reservationId, newStatus, paidDate) {
+function btUpdatePaymentSheetStatus_(reservationId, newStatus, paidDate) {
   try {
     var sheetId = '1-QU8JwrGgwp9CcZT6QieYQH0y112Hb4I5GoobrrM6tc';
     var ss = SpreadsheetApp.openById(sheetId);
@@ -4187,42 +4306,42 @@ function nhaUpdatePaymentSheetStatus_(reservationId, newStatus, paidDate) {
 }
 
 // --- トリガー一括設定（3重パトロール対応）---
-function setupNhaJalanPayment() {
+function setupBtJalanPayment() {
   // 既存トリガー削除
-  var targets = ['nhaCheckSquareLinks', 'nhaCheckJalanPaymentStatus', 'nhaCheckJalanUnpaidAlert', 'nhaReconcilePaymentSheet', 'nhaSquareDirectAudit'];
+  var targets = ['btCheckSquareLinks', 'btCheckJalanPaymentStatus', 'btCheckJalanUnpaidAlert', 'btReconcilePaymentSheet', 'btSquareDirectAudit'];
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (targets.indexOf(t.getHandlerFunction()) >= 0) {
       ScriptApp.deleteTrigger(t);
     }
   });
 
-  // 【メール送信】nhaCheckSquareLinks: 5分間隔（リンクリトライ + メール送信）
-  ScriptApp.newTrigger('nhaCheckSquareLinks')
+  // 【メール送信】btCheckSquareLinks: 5分間隔（リンクリトライ + メール送信）
+  ScriptApp.newTrigger('btCheckSquareLinks')
     .timeBased()
     .everyMinutes(5)
     .create();
 
-  // 【1重目】nhaCheckJalanPaymentStatus: 15分間隔（DB→Square API入金確認）
-  ScriptApp.newTrigger('nhaCheckJalanPaymentStatus')
+  // 【1重目】btCheckJalanPaymentStatus: 15分間隔（DB→Square API入金確認）
+  ScriptApp.newTrigger('btCheckJalanPaymentStatus')
     .timeBased()
     .everyMinutes(15)
     .create();
 
-  // 【2重目】nhaReconcilePaymentSheet: 1時間間隔（DB↔スプシ突合 + エスカレーション）
-  ScriptApp.newTrigger('nhaReconcilePaymentSheet')
+  // 【2重目】btReconcilePaymentSheet: 1時間間隔（DB↔スプシ突合 + エスカレーション）
+  ScriptApp.newTrigger('btReconcilePaymentSheet')
     .timeBased()
     .everyHours(1)
     .create();
 
-  // 【3重目】nhaSquareDirectAudit: 日次18時（Square直接照合 + 日次サマリー）
-  ScriptApp.newTrigger('nhaSquareDirectAudit')
+  // 【3重目】btSquareDirectAudit: 日次18時（Square直接照合 + 日次サマリー）
+  ScriptApp.newTrigger('btSquareDirectAudit')
     .timeBased()
     .atHour(18)
     .everyDays(1)
     .create();
 
   // 未入金アラート: 日次9時（エスカレーション階層付き）
-  ScriptApp.newTrigger('nhaCheckJalanUnpaidAlert')
+  ScriptApp.newTrigger('btCheckJalanUnpaidAlert')
     .timeBased()
     .atHour(9)
     .everyDays(1)
@@ -4233,8 +4352,8 @@ function setupNhaJalanPayment() {
 
 // --- デバッグ用 ---
 // --- テスト: 自分宛にメール送信して差出人名・件名・本文を確認 ---
-function testNhaJalanEmail() {
-  nhaSendJalanPaymentEmail_({
+function testBtJalanEmail() {
+  btSendJalanPaymentEmail_({
     reservation_id: 'TEST-001',
     customer_name: 'テスト太郎',
     customer_email: 'noritaka.oshita@gmail.com',
@@ -4246,7 +4365,7 @@ function testNhaJalanEmail() {
   Logger.log('✅ テストメール送信完了 → noritaka.oshita@gmail.com を確認してください');
 }
 
-function debugNhaJalanPayment() {
+function debugBtJalanPayment() {
   var rows = supabaseGet_('bt_jalan_payments', 'select=*&order=created_at.desc&limit=20');
   Logger.log('=== bt_jalan_payments 全件 ===');
   Logger.log('件数: ' + (rows || []).length);
@@ -5107,31 +5226,31 @@ function backfillOtaDeliveryFlagsTest7Days() {
  * 高松 再発防止: opts自動パトロール (2026-04-30 追加)
  * ========================================================================
  * 背景: bt_reservations.opt_b/c/j (int) と bt_tasks.B/C/J (string数値)
- *       のズレが時々発生。NHA は札幌と異なり bt_tasks のカラムが
+ *       のズレが時々発生。BT は札幌と異なり bt_tasks のカラムが
  *       日本語まじり (B/C/J/USB は ASCII / 「予約番号」「クラス」等は日本語)。
  *
  * 対策3層:
- *  1) nightlyOptsPatrolNha — 毎晩2:30 に自動でPattern A検出+修正+Slack通知
- *  2) bulkReprocessByResvNosNha(resvNos) — Gmail から再パース
- *  3) bulkReprocessPatternBNha — Pattern B 未来日を全件再パース
+ *  1) nightlyOptsPatrolBt — 毎晩2:30 に自動でPattern A検出+修正+Slack通知
+ *  2) bulkReprocessByResvNosBt(resvNos) — Gmail から再パース
+ *  3) bulkReprocessPatternBBt — Pattern B 未来日を全件再パース
  *
- * NHA GAS の processMessage_ は札幌と異なり bt_tasks 同期関数が無い。
+ * BT GAS の processMessage_ は札幌と異なり bt_tasks 同期関数が無い。
  * APP側の updateReservation→tasks sync (index.html.bak L17445) に依存。
  * GAS でreservationsを更新したらUSアパートで取得するのは APP起動時のフェッチ依存。
- * よって `patchTaskOptsNha_` を新設して GAS 側でも bt_tasks を直接更新する。
+ * よって `patchTaskOptsBt_` を新設して GAS 側でも bt_tasks を直接更新する。
  * ======================================================================== */
 
 /**
- * patchTaskOptsNha_: bt_tasks の B/C/J を文字列で更新
+ * patchTaskOptsBt_: bt_tasks の B/C/J を文字列で更新
  */
-function patchTaskOptsNha_(reservationId, optB, optC, optJ) {
+function patchTaskOptsBt_(reservationId, optB, optC, optJ) {
   var nb = +(optB || 0), nc = +(optC || 0), nj = +(optJ || 0);
   // bt_tasks の予約番号カラムは日本語「予約番号」
   var encId = encodeURIComponent(reservationId);
   var query = encodeURIComponent('予約番号') + '=eq.' + encId + '&select=_id,B,C,J,changed_json';
   var tasks = supabaseGet_('bt_tasks', query);
   if (!tasks || !tasks.length) {
-    Logger.log('[patchTaskOptsNha_] No tasks for ' + reservationId);
+    Logger.log('[patchTaskOptsBt_] No tasks for ' + reservationId);
     return false;
   }
   var ok = 0, fail = 0;
@@ -5141,10 +5260,10 @@ function patchTaskOptsNha_(reservationId, optB, optC, optJ) {
     try {
       var resp = supabaseUpdate_('bt_tasks', '_id=eq.' + encodeURIComponent(t._id), body);
       if (resp && resp.length) ok++; else fail++;
-      Logger.log('[patchTaskOptsNha_] ' + t._id + ' B/C/J=' + nb + '/' + nc + '/' + nj);
+      Logger.log('[patchTaskOptsBt_] ' + t._id + ' B/C/J=' + nb + '/' + nc + '/' + nj);
     } catch (e) {
       fail++;
-      Logger.log('[patchTaskOptsNha_] error ' + t._id + ': ' + e.toString());
+      Logger.log('[patchTaskOptsBt_] error ' + t._id + ': ' + e.toString());
     }
   }
   return ok > 0;
@@ -5152,17 +5271,17 @@ function patchTaskOptsNha_(reservationId, optB, optC, optJ) {
 
 /**
  * 毎晩自動パトロール (高松)
- * トリガー: setupNightlyOptsPatrolNhaTrigger() で毎晩2:30 設定
+ * トリガー: setupNightlyOptsPatrolBtTrigger() で毎晩2:30 設定
  */
-function nightlyOptsPatrolNha() {
+function nightlyOptsPatrolBt() {
   var startTime = new Date();
-  Logger.log('[nightlyOptsPatrolNha] 開始: ' + startTime.toISOString());
+  Logger.log('[nightlyOptsPatrolBt] 開始: ' + startTime.toISOString());
 
   var rows = supabaseGet_(
     'bt_reservations',
     'status=eq.confirmed&select=id,name,ota,start_date,end_date,opt_b,opt_c,opt_j,option_price,base_price,price,discount,insurance'
   );
-  if (!rows.length) { Logger.log('[nightlyOptsPatrolNha] 対象予約なし'); return; }
+  if (!rows.length) { Logger.log('[nightlyOptsPatrolBt] 対象予約なし'); return; }
 
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
 
@@ -5183,7 +5302,7 @@ function nightlyOptsPatrolNha() {
         rb = nb; rc = nc; rj = nj;
         patternC_clamped++;
       } catch (e) {
-        Logger.log('[nightlyOptsPatrolNha] Pattern C clamp エラー ' + r.id + ': ' + e.toString());
+        Logger.log('[nightlyOptsPatrolBt] Pattern C clamp エラー ' + r.id + ': ' + e.toString());
       }
     }
 
@@ -5201,13 +5320,13 @@ function nightlyOptsPatrolNha() {
     }
     if (needSync) {
       try {
-        patchTaskOptsNha_(r.id, rb, rc, rj);
+        patchTaskOptsBt_(r.id, rb, rc, rj);
         patternA_fixed++;
         if (patternA_examples.length < 5) {
           patternA_examples.push(r.id + ' (' + r.name + ' ' + r.start_date + ')');
         }
       } catch (e) {
-        Logger.log('[nightlyOptsPatrolNha] Pattern A error ' + r.id + ': ' + e.toString());
+        Logger.log('[nightlyOptsPatrolBt] Pattern A error ' + r.id + ': ' + e.toString());
       }
     }
   }
@@ -5244,7 +5363,7 @@ function nightlyOptsPatrolNha() {
   // Step 3: Slack 通知
   var endTime = new Date();
   var duration = ((endTime - startTime) / 1000).toFixed(1);
-  var slackMsg = ':robot_face: *NHA opts パトロール結果* (' + duration + '秒)\n';
+  var slackMsg = ':robot_face: *BT opts パトロール結果* (' + duration + '秒)\n';
   slackMsg += '対象: ' + rows.length + '件 / 日付: ' + today + '\n';
   if (patternC_clamped > 0) {
     slackMsg += ':warning: Pattern C 異常値クランプ: *' + patternC_clamped + '件*\n';
@@ -5262,7 +5381,7 @@ function nightlyOptsPatrolNha() {
     slackMsg += '\n```\n' + first10;
     if (patternB_list.length > 10) slackMsg += '\n... 他 ' + (patternB_list.length - 10) + '件';
     slackMsg += '\n```';
-    slackMsg += '\n→ GASエディタで `bulkReprocessPatternBNha()` 実行で一括再パース';
+    slackMsg += '\n→ GASエディタで `bulkReprocessPatternBBt()` 実行で一括再パース';
   }
 
   Logger.log(slackMsg);
@@ -5272,34 +5391,34 @@ function nightlyOptsPatrolNha() {
       sendSlackAlert_(slackMsg);
     }
   } catch (e) {
-    Logger.log('[nightlyOptsPatrolNha] Slack送信エラー: ' + e.toString());
+    Logger.log('[nightlyOptsPatrolBt] Slack送信エラー: ' + e.toString());
   }
 }
 
 /**
- * setupNightlyOptsPatrolNhaTrigger: 毎晩2:30 トリガー設定
+ * setupNightlyOptsPatrolBtTrigger: 毎晩2:30 トリガー設定
  */
-function setupNightlyOptsPatrolNhaTrigger() {
+function setupNightlyOptsPatrolBtTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   var deleted = 0;
   for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'nightlyOptsPatrolNha') {
+    if (triggers[i].getHandlerFunction() === 'nightlyOptsPatrolBt') {
       ScriptApp.deleteTrigger(triggers[i]);
       deleted++;
     }
   }
-  ScriptApp.newTrigger('nightlyOptsPatrolNha').timeBased().atHour(2).nearMinute(30).everyDays(1).create();
-  Logger.log('[setupNightlyOptsPatrolNhaTrigger] 旧トリガー削除=' + deleted + ' / 新トリガー設定: 毎晩2:30');
+  ScriptApp.newTrigger('nightlyOptsPatrolBt').timeBased().atHour(2).nearMinute(30).everyDays(1).create();
+  Logger.log('[setupNightlyOptsPatrolBtTrigger] 旧トリガー削除=' + deleted + ' / 新トリガー設定: 毎晩2:30');
 }
 
 /**
- * bulkReprocessByResvNosNha: 引数の予約番号を Gmail から再パースして DB+bt_tasks 同期
+ * bulkReprocessByResvNosBt: 引数の予約番号を Gmail から再パースして DB+bt_tasks 同期
  */
-function bulkReprocessByResvNosNha(resvNos) {
+function bulkReprocessByResvNosBt(resvNos) {
   if (!resvNos || !resvNos.length) {
-    Logger.log('[bulkReprocessByResvNosNha] 引数 resvNos が空'); return;
+    Logger.log('[bulkReprocessByResvNosBt] 引数 resvNos が空'); return;
   }
-  Logger.log('[bulkReprocessByResvNosNha] 開始: ' + resvNos.length + '件');
+  Logger.log('[bulkReprocessByResvNosBt] 開始: ' + resvNos.length + '件');
 
   var ok = 0, fail = 0, notFound = 0;
   var query = 'after:' + Utilities.formatDate(new Date(Date.now() - 60*86400000), 'Asia/Tokyo', 'yyyy/MM/dd');
@@ -5324,7 +5443,7 @@ function bulkReprocessByResvNosNha(resvNos) {
               // reservations 更新後 tasks も同期する
               var resvCheck = supabaseGet_('bt_reservations', 'id=eq.' + encodeURIComponent(resvNo) + '&select=opt_b,opt_c,opt_j');
               if (resvCheck && resvCheck.length) {
-                patchTaskOptsNha_(resvNo, resvCheck[0].opt_b, resvCheck[0].opt_c, resvCheck[0].opt_j);
+                patchTaskOptsBt_(resvNo, resvCheck[0].opt_b, resvCheck[0].opt_c, resvCheck[0].opt_j);
               }
               ok++;
             } else {
@@ -5349,14 +5468,14 @@ function bulkReprocessByResvNosNha(resvNos) {
     Utilities.sleep(200);
   }
 
-  Logger.log('=== bulkReprocessByResvNosNha 完了 ===');
+  Logger.log('=== bulkReprocessByResvNosBt 完了 ===');
   Logger.log('成功=' + ok + ' / 失敗=' + fail + ' / メール未発見=' + notFound + ' / 合計=' + resvNos.length);
 }
 
 /**
- * bulkReprocessPatternBNha: Pattern B 未来日を全件再パース
+ * bulkReprocessPatternBBt: Pattern B 未来日を全件再パース
  */
-function bulkReprocessPatternBNha() {
+function bulkReprocessPatternBBt() {
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
   var rows = supabaseGet_(
     'bt_reservations',
@@ -5364,7 +5483,7 @@ function bulkReprocessPatternBNha() {
     '&option_price=gt.0&opt_b=eq.0&opt_c=eq.0&opt_j=eq.0' +
     '&select=id,name,start_date,end_date,option_price,insurance'
   );
-  if (!rows.length) { Logger.log('[bulkReprocessPatternBNha] 対象予約なし'); return; }
+  if (!rows.length) { Logger.log('[bulkReprocessPatternBBt] 対象予約なし'); return; }
 
   var targets = rows.filter(function(r){
     var insurance = (r.insurance||'').trim();
@@ -5379,8 +5498,8 @@ function bulkReprocessPatternBNha() {
     } catch(e){}
     return insurance === '' || insurance === 'なし' || (optPrice / days) > 1200;
   });
-  Logger.log('[bulkReprocessPatternBNha] 候補: ' + targets.length + '件 (全' + rows.length + '件中)');
-  bulkReprocessByResvNosNha(targets.map(function(r){ return r.id; }));
+  Logger.log('[bulkReprocessPatternBBt] 候補: ' + targets.length + '件 (全' + rows.length + '件中)');
+  bulkReprocessByResvNosBt(targets.map(function(r){ return r.id; }));
 }
 
 // ============================================================
@@ -5652,7 +5771,7 @@ function backfillHpVisitReturn(options) {
         var clearDel = changes.hasOwnProperty('del_place') && !changes.del_place;
         var clearCol = changes.hasOwnProperty('col_place') && !changes.col_place;
         if (clearDel || clearCol) {
-          syncNhaPlaces_(rid, changes, r);
+          syncBtPlaces_(rid, changes, r);
         }
       } else {
         Logger.log('❌ FAILED: ' + summary);
@@ -5689,7 +5808,7 @@ function backfillHpVisitReturnDryRun() {
 //   APP の sheetPlaces (localStorage) は bt_places を真実として読み込むため、
 //   bt_reservations だけ更新しても DEL場所/COL場所 セルは旧値が残る。
 // ============================================================
-function syncNhaPlaces_(reservationId, changes, currentRow) {
+function syncBtPlaces_(reservationId, changes, currentRow) {
   // 最終的な del_place / col_place を計算（changes を currentRow に適用）
   var finalDel = changes.hasOwnProperty('del_place') ? changes.del_place : (currentRow.del_place || '');
   var finalCol = changes.hasOwnProperty('col_place') ? changes.col_place : (currentRow.col_place || '');
@@ -6116,7 +6235,7 @@ function backfillAllOtaVisitReturn(options) {
         if (stats.byOta[otaCode] !== undefined) stats.byOta[otaCode]++;
         Logger.log('✅ ' + summary);
         if (changes.hasOwnProperty('del_place') || changes.hasOwnProperty('col_place')) {
-          syncNhaPlaces_(rid, changes, r);
+          syncBtPlaces_(rid, changes, r);
         }
       } else {
         stats.errors++;
@@ -6446,7 +6565,7 @@ function auditFutureRakutenInsuranceRun() { auditFutureRakutenInsurance_(false);
 //   - 削除ログを Logger に出力（監査用）
 // ============================================================
 
-function cleanupDuplicateTasksNha() {
+function cleanupDuplicateTasksBt() {
   var startTime = new Date();
   Logger.log('[cleanupDup] 開始: ' + startTime.toISOString());
 
@@ -6561,7 +6680,7 @@ function cleanupDuplicateTasksNha() {
   updateHeartbeat_('bt_cleanup_dup', {success: 1, processed: rows.length, deleted: deleted});
   if (deleted >= 5) {
     try {
-      var msg = '[NHA タスク重複クリーンアップ] ' + deleted + '件削除\n対象: ' + dupGroupCount + 'グループ\n経過: ' + elapsed2 + '秒';
+      var msg = '[BT タスク重複クリーンアップ] ' + deleted + '件削除\n対象: ' + dupGroupCount + 'グループ\n経過: ' + elapsed2 + '秒';
       sendSlackAlert_(msg);
     } catch (e) {
       Logger.log('[cleanupDup] Slack通知失敗: ' + e.message);
@@ -6570,7 +6689,7 @@ function cleanupDuplicateTasksNha() {
 }
 
 // dryRun 版（ログだけ出して削除しない）
-function cleanupDuplicateTasksNhaDryRun() {
+function cleanupDuplicateTasksBtDryRun() {
   var LEND_TYPES = ['PUB', 'DEL', 'PU', '来店'];
   var RET_TYPES  = ['BDB', 'COL', 'BD', '返却'];
   var PRIO = {'PUB':5, 'BDB':5, 'DEL':4, 'COL':4, 'PU':3, 'BD':3, '来店':2, '返却':2};
@@ -6613,12 +6732,12 @@ function setupCleanupDupTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   var deleted = 0;
   for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'cleanupDuplicateTasksNha') {
+    if (triggers[i].getHandlerFunction() === 'cleanupDuplicateTasksBt') {
       ScriptApp.deleteTrigger(triggers[i]);
       deleted++;
     }
   }
-  ScriptApp.newTrigger('cleanupDuplicateTasksNha').timeBased().atHour(2).everyDays(1).create();
+  ScriptApp.newTrigger('cleanupDuplicateTasksBt').timeBased().atHour(2).everyDays(1).create();
   Logger.log('[setupCleanupDupTrigger] 旧トリガー削除=' + deleted + ' / 新トリガー設定: 毎日 02:00 JST');
 }
 
@@ -6645,7 +6764,7 @@ function setupCleanupDupTrigger() {
 //   修正版で date=5/10 != return_date=5/11 と判定して削除する
 // ============================================================
 
-function cleanupOrphanTasksNha_() {
+function cleanupOrphanTasksBt_() {
   var startTime = new Date();
   Logger.log('[cleanupOrphan] 開始: ' + startTime.toISOString());
 
@@ -6742,7 +6861,7 @@ function cleanupOrphanTasksNha_() {
   // 5件以上削除時に Slack 通知
   if (deleted >= 5) {
     try {
-      var msg = '[NHA 置き去りタスク削除] ' + deleted + '件削除\n' +
+      var msg = '[BT 置き去りタスク削除] ' + deleted + '件削除\n' +
                 'スキャン: ' + tasks.length + '件 / 経過: ' + elapsed + '秒\n' +
                 '原因: 予約日付変更時の古いタスク残存';
       sendSlackAlert_(msg);
@@ -6753,7 +6872,7 @@ function cleanupOrphanTasksNha_() {
 }
 
 // dryRun（ログのみ）
-function cleanupOrphanTasksNhaDryRun() {
+function cleanupOrphanTasksBtDryRun() {
   var LEND_TYPES = ['PUB', 'DEL', 'PU', '来店'];
   var RET_TYPES  = ['BDB', 'COL', 'BD', '返却'];
   var fromDate = Utilities.formatDate(new Date(Date.now() - 30 * 86400000), 'JST', 'yyyy-MM-dd');
@@ -6787,29 +6906,29 @@ function cleanupOrphanTasksNhaDryRun() {
   Logger.log('[orphanDryRun] 置き去り検出: ' + found + '件');
 }
 
-// ★ cleanupDuplicateTasksNha の最後に cleanupOrphanTasksNha_ を追加実行
+// ★ cleanupDuplicateTasksBt の最後に cleanupOrphanTasksBt_ を追加実行
 //   毎日 02:00 JST トリガー1個で両方クリーンアップ完了
-function cleanupDailyNha() {
+function cleanupDailyBt() {
   Logger.log('[cleanupDaily] === 同カテゴリ重複削除 ===');
-  cleanupDuplicateTasksNha();
+  cleanupDuplicateTasksBt();
   Logger.log('[cleanupDaily] === 置き去りタスク削除 ===');
-  cleanupOrphanTasksNha_();
+  cleanupOrphanTasksBt_();
   Logger.log('[cleanupDaily] === 完了 ===');
 }
 
-// トリガー差し替え（cleanupDuplicateTasksNha → cleanupDailyNha）
+// トリガー差し替え（cleanupDuplicateTasksBt → cleanupDailyBt）
 function setupCleanupDailyTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   var deleted = 0;
-  var TARGETS = ['cleanupDuplicateTasksNha', 'cleanupDailyNha'];
+  var TARGETS = ['cleanupDuplicateTasksBt', 'cleanupDailyBt'];
   for (var i = 0; i < triggers.length; i++) {
     if (TARGETS.indexOf(triggers[i].getHandlerFunction()) >= 0) {
       ScriptApp.deleteTrigger(triggers[i]);
       deleted++;
     }
   }
-  ScriptApp.newTrigger('cleanupDailyNha').timeBased().atHour(2).everyDays(1).create();
-  Logger.log('[setupCleanupDailyTrigger] 旧トリガー削除=' + deleted + ' / 新トリガー: cleanupDailyNha 毎日 02:00 JST');
+  ScriptApp.newTrigger('cleanupDailyBt').timeBased().atHour(2).everyDays(1).create();
+  Logger.log('[setupCleanupDailyTrigger] 旧トリガー削除=' + deleted + ' / 新トリガー: cleanupDailyBt 毎日 02:00 JST');
 }
 
 // ============================================================
@@ -6987,7 +7106,7 @@ function patrolReservationMaster_(dryRun) {
         stats.updated++;
         if (examples.length < 10) examples.push(summary);
         if (changes.hasOwnProperty('del_place') || changes.hasOwnProperty('col_place')) {
-          try { syncNhaPlaces_(id, changes, d); }
+          try { syncBtPlaces_(id, changes, d); }
           catch (e) { Logger.log('  [places-sync] err ' + id + ': ' + e.message); }
         }
       } else {
@@ -7246,7 +7365,7 @@ function setupAcctDupTrigger() {
  * 高松: じゃらん未決済リマインダー再送
  * 対象: status=email_sent かつ 出発3日以内
  */
-function resendNhaJalanUnpaidReminder() {
+function resendBtJalanUnpaidReminder() {
   var now = new Date();
   var today = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM-dd');
   var in3days = Utilities.formatDate(new Date(now.getTime() + 3 * 86400000), 'Asia/Tokyo', 'yyyy-MM-dd');
@@ -7270,7 +7389,7 @@ function resendNhaJalanUnpaidReminder() {
     }
     // リマインダー用に件名に【再送】を追記
     var origPay = JSON.parse(JSON.stringify(pay));
-    var ok = nhaSendJalanReminderEmail_(origPay);
+    var ok = btSendJalanReminderEmail_(origPay);
     if (ok) {
       // ★ 送信成功 → status='reminded' に更新（翌日以降の重複送信を防止）
       supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'reminded'});
@@ -7286,14 +7405,14 @@ function resendNhaJalanUnpaidReminder() {
     + '対象: ' + rows.length + '件 → 送信: ' + sent.length + '件\n'
     + (sent.length > 0 ? sent.map(function(s){return '✅ ' + s;}).join('\n') + '\n' : '')
     + (failed.length > 0 ? failed.map(function(f){return '❌ ' + f;}).join('\n') : '');
-  nhaPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, msg);
+  btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, msg);
   Logger.log('[NhaJalanReminder] 完了 送信:' + sent.length + ' 失敗:' + failed.length);
 }
 
 /**
  * 高松: リマインダーメール本文（件名に【リマインド】追記）
  */
-function nhaSendJalanReminderEmail_(pay) {
+function btSendJalanReminderEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) return false;
   try {
     var subject = '【リマインド】【レンタカー BUDDICA TOURING BUDDICA TOURING 高松店】事前決済のお願い（予約番号: ' + pay.reservation_id + '）';
@@ -7338,11 +7457,11 @@ function nhaSendJalanReminderEmail_(pay) {
  * リマインダートリガー設定（1回実行で完了）
  * 高松: 毎日 9:30
  */
-function setupNhaJalanReminderTrigger() {
+function setupBtJalanReminderTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === 'resendNhaJalanUnpaidReminder') ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'resendBtJalanUnpaidReminder') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('resendNhaJalanUnpaidReminder')
+  ScriptApp.newTrigger('resendBtJalanUnpaidReminder')
     .timeBased().everyDays(1).atHour(9).nearMinute(30).create();
-  Logger.log('[Trigger] resendNhaJalanUnpaidReminder 毎日9:30 設定完了');
+  Logger.log('[Trigger] resendBtJalanUnpaidReminder 毎日9:30 設定完了');
 }
