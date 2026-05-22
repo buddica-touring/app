@@ -1462,18 +1462,26 @@ function renderForecastChartSection(d,mNum,k,tgtCntV){
   var cumS=[],cumC=[],sumS=0,sumC=0;
   for(var i=0;i<mD;i++){sumS+=dailyS[i];sumC+=dailyC[i];cumS.push(sumS);cumC.push(sumC);}
   var confS=k.actual.rev,confC=k.actual.cnt,fcstS=k.forecast.rev,fcstC=k.forecast.cnt,tgtS=k.target.rev;
-  var todayCumS=todayIdx>=0?cumS[todayIdx]:0;
-  var todayCumC=todayIdx>=0?cumC[todayIdx]:0;
+  var dispS,dispC;
+  if(todayIdx<0){
+    dispS=cumS.slice();dispC=cumC.slice();
+  }else if(cumS[todayIdx]>0){
+    var _scS=confS/cumS[todayIdx],_scC=confC/Math.max(1,cumC[todayIdx]);
+    dispS=cumS.map(function(v,i){return i<todayIdx?Math.round(v*_scS):(i===todayIdx?confS:v);});
+    dispC=cumC.map(function(v,i){return i<todayIdx?Math.round(v*_scC):(i===todayIdx?confC:v);});
+  }else{
+    dispS=cumS.slice();dispC=cumC.slice();
+  }
   var ftS=[],ftC=[];
   for(var i=0;i<mD;i++){
     var t,e;
     if(todayIdx<0){
       t=(i+1)/mD;ftS.push(fcstS*t);ftC.push(Math.round(fcstC*t));
     }else if(i<=todayIdx){
-      ftS.push(cumS[i]);ftC.push(cumC[i]);
+      ftS.push(dispS[i]);ftC.push(dispC[i]);
     }else{
       t=(i-todayIdx)/(mD-todayIdx);e=t<.5?2*t*t:-1+(4-2*t)*t;
-      ftS.push(todayCumS+(fcstS-todayCumS)*e);ftC.push(Math.round(todayCumC+(fcstC-todayCumC)*e));
+      ftS.push(confS+(fcstS-confS)*e);ftC.push(Math.round(confC+(fcstC-confC)*e));
     }
   }
   function mkSVG(aD,fD,tgt,fmt,ttl,col){
@@ -1482,7 +1490,9 @@ function renderForecastChartSection(d,mNum,k,tgtCntV){
     function yA(v){return PY+cH*(1-v/yMx);}
     function xA(i){return PX+(W-PX-12)*i/(mD-1);}
     var yT=yA(tgt);
-    var aP=Array.from({length:mD},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ');
+    var aP=todayIdx>=0
+      ?Array.from({length:todayIdx+1},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ')
+      :Array.from({length:mD},function(_,i){return(i===0?'M':'L')+xA(i).toFixed(1)+','+yA(aD[i]).toFixed(1);}).join(' ');
     var fs=Math.max(0,todayIdx>=0?todayIdx:0);
     var fP=Array.from({length:mD-fs},function(_,i){var idx=i+fs;return(i===0?'M':'L')+xA(idx).toFixed(1)+','+yA(fD[idx]).toFixed(1);}).join(' ');
     var yLs=[0,.25,.5,.75,1].map(function(t){return{v:yMx*t,y:yA(yMx*t)};});
@@ -1560,8 +1570,8 @@ function renderForecastChartSection(d,mNum,k,tgtCntV){
     +'<div style="background:#fff7ed;border-radius:8px;padding:10px 12px;border:1px solid #fed7aa"><div style="font-size:10px;color:#92400e;margin-bottom:2px">⚠️ 乖離</div><div style="font-size:16px;font-weight:800;color:#92400e">'+(tgtS>fcstS?'▼ '+fmtK(tgtS-fcstS):'✅ 達成圏')+'</div><div style="font-size:11px;color:#92400e">'+(tgtS>fcstS?'あと'+Math.max(0,tgtCntV-confC)+'件必要':'')+'</div></div>'
     +'</div>'
     +'<div style="display:flex;gap:14px;flex-wrap:wrap">'
-    +mkSVG(cumS,ftS,tgtS,function(v){return'¥'+(v/10000).toFixed(0)+'万';},'💰 売上推移（累積 / '+mNum+'月）','#3b82f6')
-    +mkSVG(cumC,ftC,tgtCntV,function(v){return Math.round(v)+'件';},'🎫 件数推移（累積 / '+mNum+'月）','#8b5cf6')
+    +mkSVG(dispS,ftS,tgtS,function(v){return'¥'+(v/10000).toFixed(0)+'万';},'💰 売上推移（累積 / '+mNum+'月）','#3b82f6')
+    +mkSVG(dispC,ftC,tgtCntV,function(v){return Math.round(v)+'件';},'🎫 件数推移（累積 / '+mNum+'月）','#8b5cf6')
     +'</div>'
     +logH
     +'</div></div>';
