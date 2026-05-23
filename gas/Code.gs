@@ -2473,12 +2473,20 @@ function checkUnpaidExtraSales() {
 // Heartbeat & Monitoring
 // ============================================================
 
-// ハートビート書込み: 実行のたびにapp_settingsに記録
+// ハートビート書込み: 実行のたびにbt_app_settingsに記録
+// 2026-05-22: BT 部分有効化（重要システムのみ DB 書込・クォータ節約）
+// 全システム有効化は HEARTBEAT_CRITICAL_KEYS = null に変更
+var HEARTBEAT_CRITICAL_KEYS = ['bt_gas_email', 'bt_jalan_payment', 'bt_slack_resv'];
+
 function updateHeartbeat_(key, stats) {
-  // ★ 2026-05-03: URL Fetchクォータ節約のため無効化
-  // heartbeatは監視用途のみ。業務に影響なし。
+  // ログ出力（常時・GAS Editor ログで確認可能）
   Logger.log('[heartbeat] ' + key + ' ' + JSON.stringify(stats));
-  return;
+
+  // 重要システム以外は DB 書込スキップ（クォータ節約）
+  if (HEARTBEAT_CRITICAL_KEYS !== null && HEARTBEAT_CRITICAL_KEYS.indexOf(key) === -1) {
+    return;
+  }
+
   try {
     var payload = {
       key: 'heartbeat_' + key,
@@ -2501,10 +2509,10 @@ function updateHeartbeat_(key, stats) {
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
-    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/bt_app_settings', options);
-    Logger.log('[Heartbeat] Updated: ' + key);
+    UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/bt_app_settings?on_conflict=key', options);
+    Logger.log('[Heartbeat] DB updated: ' + key);
   } catch (e) {
-    Logger.log('[Heartbeat] Error: ' + e.message);
+    Logger.log('[Heartbeat] DB write error: ' + e.message);
   }
 }
 
@@ -7464,4 +7472,171 @@ function setupBtJalanReminderTrigger() {
   ScriptApp.newTrigger('resendBtJalanUnpaidReminder')
     .timeBased().everyDays(1).atHour(9).nearMinute(30).create();
   Logger.log('[Trigger] resendBtJalanUnpaidReminder 毎日9:30 設定完了');
+}
+
+// ============================================================
+// Phase 6: 監視アラート (2026-05-22 追加)
+// ERR検知時に Slack #development に通知
+// 仕様: ~/buddica-touring/docs/phase6_monitoring/03_ALERT_SETUP.md
+// ============================================================
+function checkAllHeartbeats() {
+  var props = PropertiesService.getScriptProperties();
+  var slackToken = props.getProperty('SLACK_BOT_TOKEN');
+  var devChannel = props.getProperty('SLACK_CH_DEV') || 'C0B4XSZC678';
+
+  if (!slackToken) {
+    Logger.log('[Alert] SLACK_BOT_TOKEN 未設定 → 監視のみ実行（通知なし）');
+  }
+
+  // 各システムの ERR 閾値 (monitor.html と同期)
+  // 部分有効化中 (HEARTBEAT_CRITICAL_KEYS) の3システムのみ監視対象
+  var SYSTEMS = {
+    bt_gas_email:     { errMin: 60,   label: '予約取込・自動配車' },
+    bt_jalan_payment: { errMin: 60,   label: 'じゃらん 入金確認' },
+    bt_slack_resv:    { errMin: 10,   label: 'Slack予約登録' }
+  };
+
+  // bt_app_settings から heartbeat_* 取得
+  var url = SUPABASE_URL + '/rest/v1/bt_app_settings?key=like.heartbeat_*&select=key,value,updated_at';
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, {
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log('[Alert] Supabase 取得失敗: ' + e.message);
+    return;
+  }
+
+  var rows;
+  try {
+    rows = JSON.parse(resp.getContentText() || '[]');
+  } catch (e) {
+    Logger.log('[Alert] レスポンス解析失敗: ' + e.message);
+    return;
+  }
+
+  var heartbeats = {};
+  rows.forEach(function(r) {
+    var k = r.key.replace('heartbeat_', '');
+    heartbeats[k] = { value: r.value, updated_at: r.updated_at };
+  });
+
+  // ERR 判定
+  var now = new Date();
+  var errSystems = [];
+
+  Object.keys(SYSTEMS).forEach(function(sysKey) {
+    var sys = SYSTEMS[sysKey];
+    var hb = heartbeats[sysKey];
+
+    if (!hb) {
+      // heartbeat なし = N/A (アラート対象外)
+      return;
+    }
+
+    var hbValue;
+    try {
+      hbValue = JSON.parse(hb.value);
+    } catch (e) {
+      Logger.log('[Alert] heartbeat 解析失敗: ' + sysKey);
+      return;
+    }
+
+    var lastRun = new Date(hbValue.last_run);
+    var diffMin = (now - lastRun) / 1000 / 60;
+
+    if (diffMin > sys.errMin) {
+      errSystems.push({
+        key: sysKey,
+        label: sys.label,
+        lastRun: lastRun,
+        diffMin: Math.round(diffMin),
+        errMin: sys.errMin
+      });
+    }
+  });
+
+  if (errSystems.length === 0) {
+    Logger.log('[Alert] 全システム正常稼働');
+    return;
+  }
+
+  if (!slackToken) {
+    Logger.log('[Alert] ERR検知 ' + errSystems.length + '件・Slack Token なしのため通知スキップ');
+    return;
+  }
+
+  // アラート抑制チェック (6時間以内に通知済みなら再通知しない)
+  var alertedKey = 'BT_ALERTED_ERR_SYSTEMS';
+  var alerted = {};
+  try {
+    alerted = JSON.parse(props.getProperty(alertedKey) || '{}');
+  } catch (e) {}
+  var newErrs = errSystems.filter(function(e) {
+    var lastAlert = alerted[e.key];
+    if (!lastAlert) return true;
+    return (now - new Date(lastAlert)) / 1000 / 60 / 60 > 6;
+  });
+
+  if (newErrs.length === 0) {
+    Logger.log('[Alert] 全ERR既に通知済 (6時間以内・抑制)');
+    return;
+  }
+
+  // Slack 通知
+  var msg = '🚨 *BT システム障害検知* (' + newErrs.length + '件)\n';
+  newErrs.forEach(function(e) {
+    msg += '• `' + e.key + '` (' + e.label + ') — ';
+    msg += e.diffMin + '分前から停止中（閾値 ' + e.errMin + '分）\n';
+  });
+  msg += '\nダッシュボード: https://buddica-touring.github.io/app/monitor.html';
+
+  try {
+    UrlFetchApp.fetch('https://slack.com/api/chat.postMessage', {
+      method: 'post',
+      contentType: 'application/json; charset=utf-8',
+      headers: { Authorization: 'Bearer ' + slackToken },
+      payload: JSON.stringify({ channel: devChannel, text: msg }),
+      muteHttpExceptions: true
+    });
+    Logger.log('[Alert] Slack通知送信: ' + newErrs.length + '件');
+  } catch (e) {
+    Logger.log('[Alert] Slack送信失敗: ' + e.message);
+  }
+
+  // アラート済記録 (7日経過したものは削除)
+  newErrs.forEach(function(e) { alerted[e.key] = now.toISOString(); });
+  Object.keys(alerted).forEach(function(k) {
+    if ((now - new Date(alerted[k])) / 1000 / 60 / 60 / 24 > 7) {
+      delete alerted[k];
+    }
+  });
+  props.setProperty(alertedKey, JSON.stringify(alerted));
+}
+
+function setupHealthCheckTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'checkAllHeartbeats') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkAllHeartbeats').timeBased().everyMinutes(30).create();
+  Logger.log('[Trigger] checkAllHeartbeats 30分間隔 設定完了');
+}
+
+function testHealthCheckForceAlert() {
+  var token = PropertiesService.getScriptProperties().getProperty('SLACK_BOT_TOKEN');
+  var channel = PropertiesService.getScriptProperties().getProperty('SLACK_CH_DEV') || 'C0B4XSZC678';
+  if (!token) { Logger.log('SLACK_BOT_TOKEN 未設定'); return; }
+  UrlFetchApp.fetch('https://slack.com/api/chat.postMessage', {
+    method: 'post',
+    contentType: 'application/json; charset=utf-8',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify({
+      channel: channel,
+      text: '🧪 *監視アラート テスト通知*\nBT GAS `checkAllHeartbeats` (30分間隔) が稼働中。\n`bt_app_settings` の heartbeat が閾値超過時に通知します。'
+    }),
+    muteHttpExceptions: true
+  });
+  Logger.log('テスト通知送信完了');
 }
