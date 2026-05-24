@@ -113,7 +113,7 @@ const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
 const OTA_L={'rakuten':'楽天','jalan':'じゃらん','sky':'skyticket','hp':'HP直販','airtrip':'エアトリ'};
 const OTA_C={'rakuten':'r','jalan':'j','sky':'s','hp':'h','airtrip':'a'};
-let _data=[],_live=[],_holdings={},_market=[],_vehicles=[];
+let _data=[],_live=[],_holdings={},_market=[],_vehicles=[],_kpi=[];
 let _store='bt';
 // BUDDICA TOURING 単一店舗のため固定
 const STORE_CFG={
@@ -126,6 +126,7 @@ const STORE_CFG={
     start_col:'lend_date',
     end_col:'return_date',
     vehicles:'bt_vehicles',
+    kpi:'bt_vehicle_monthly_kpi',
     label:'BT（高松店）',
     badge_bg:'#0c4a6e',
     accent:'#0891b2'
@@ -170,8 +171,8 @@ function onStoreChange(){
 async function loadStoreData(){
   try{
     const cfg=STORE_CFG[_store];
-    _data=[];_live=[];_holdings={};_market=[];_vehicles=[];
-    // 過去データ (NHAのみ・SPKは未整備)
+    _data=[];_live=[];_holdings={};_market=[];_vehicles=[];_kpi=[];
+    // 過去データ (BTは未整備)
     if(cfg.historical){
       _data=(await fetchAll(cfg.historical)).filter(cfg.historical_filter);
     }
@@ -182,6 +183,10 @@ async function loadStoreData(){
       const vs=await fetchAll(cfg.vehicles);
       _vehicles=vs.filter(v=>v.active!==false);
     }catch(e){console.warn('vehicles',e);}
+    // ★ 配車表の月別稼働フラグ
+    if(cfg.kpi){
+      try{_kpi=await fetchAll(cfg.kpi);}catch(e){console.warn('kpi',e);}
+    }
     // 市場価格データ
     try{_market=(await fetchAll('ota_market_prices')).filter(cfg.market_filter);}catch(e){console.warn('market data',e);}
     // 保有台数履歴
@@ -189,8 +194,8 @@ async function loadStoreData(){
       const h=await fetchAll(cfg.holdings);
       h.forEach(r=>{if(!_holdings[r.year_month])_holdings[r.year_month]={};_holdings[r.year_month][r.class]=r.count;});
     }
-    const histInfo=cfg.historical?`過去${_data.length}件 + 現在${_live.length}件`:`現在予約${_live.length}件 (SPK過去履歴は未整備)`;
-    const vehInfo=` / 稼働車両${_vehicles.length}台`;
+    const histInfo=cfg.historical?`過去${_data.length}件 + 現在${_live.length}件`:`現在予約${_live.length}件 (高松店過去履歴は未整備)`;
+    const vehInfo=` / 車両マスター${_vehicles.length}台・KPI履歴${_kpi.length}件`;
     document.getElementById('content').innerHTML=`<div class="section"><div class="section-body" style="text-align:center;color:#6b7280;padding:30px"><h3 style="color:#7c2d12;font-size:16px;margin-bottom:12px">🎯 目標を入力して「逆算実行」をクリック</h3><div style="font-size:12px">${cfg.label}　／　${histInfo}${vehInfo}</div></div></div>`;
   }catch(e){
     document.getElementById('content').innerHTML=`<div style="padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px">⚠️ ${e.message}</div>`;
@@ -302,18 +307,24 @@ function run(){
   const paceRatio=dailyAvgPast>0?dailyNeeded/dailyAvgPast:0;
 
   // 6.5 稼働率算定 (totalDays定義後に実行する必要がある)
-  // 稼働可能台数: ①holdings.total ②holdingsクラス別合計 ③車両マスター件数 の優先順
+  // ★ 配車表の月別稼働フラグ (vehicle_monthly_kpi.active=false) で除外された車両を引く
+  const kpiInactiveCodes=new Set(_kpi.filter(r=>r.year_month===targetYm&&r.active===false).map(r=>r.vehicle_code));
+  const activeVehicleCount=_vehicles.filter(v=>!kpiInactiveCodes.has(v.code)).length;
   let holdingTotal=0;
+  let holdSource='車両マスター';
   if(_holdings[targetYm]){
     if(_holdings[targetYm].total){
-      holdingTotal=_holdings[targetYm].total;
+      holdingTotal=_holdings[targetYm].total-kpiInactiveCodes.size;
+      holdSource='保有履歴';
     }else{
-      holdingTotal=Object.entries(_holdings[targetYm])
+      const sum=Object.entries(_holdings[targetYm])
         .filter(([k,v])=>k!=='total'&&typeof v==='number')
         .reduce((s,[k,v])=>s+v,0);
+      if(sum>0){holdingTotal=sum-kpiInactiveCodes.size;holdSource='保有履歴(クラス別合計)';}
     }
   }
-  if(holdingTotal===0)holdingTotal=_vehicles.length||0;
+  if(holdingTotal<=0)holdingTotal=activeVehicleCount;
+  if(holdingTotal<0)holdingTotal=0;
   const maxCapacityDays=holdingTotal*totalDays;
   const endColForUtil=STORE_CFG[_store].end_col;
   function calcOverlapDays(rec){
@@ -331,7 +342,11 @@ function run(){
       return Math.max(0,Math.round((e-s)/86400000))+1;
     }catch(e){return 0;}
   }
-  const currentUtilDays=currentConf.reduce((sum,r)=>sum+calcOverlapDays(r),0);
+  const currentUtilDays=currentConf.reduce((sum,r)=>{
+    const vc=r.vehicle_code||r.vehicle||r.assigned_vehicle;
+    if(vc&&kpiInactiveCodes.has(vc))return sum;
+    return sum+calcOverlapDays(r);
+  },0);
   const currentUtilPct=maxCapacityDays>0?(currentUtilDays/maxCapacityDays*100):0;
   const pastNights=pastSameMonth.map(r=>{
     try{
@@ -531,8 +546,8 @@ function run(){
   // KPI Grid
   html+='<div class="section"><div class="section-title">📊 現状サマリー</div><div class="section-body"><div class="kpi-grid">';
   // ★ 試算の根本エビデンス: 稼働台数を最優先で表示
-  const holdSource=(_holdings[targetYm]&&_holdings[targetYm].total)?'保有履歴':(_vehicles.length>0?'車両マスター':'データなし');
-  html+=`<div class="kpi"><div class="l">🚗 稼働台数</div><div class="v">${holdingTotal}台</div><div class="s">${holdSource} / 最大稼働 ${maxCapacityDays}日</div></div>`;
+  const excludedNote=kpiInactiveCodes.size>0?` (配車表で${kpiInactiveCodes.size}台除外済)`:'';
+  html+=`<div class="kpi"><div class="l">🚗 稼働台数</div><div class="v">${holdingTotal}台</div><div class="s">${holdSource}${excludedNote} / 最大稼働 ${maxCapacityDays}日</div></div>`;
   html+=`<div class="kpi a"><div class="l">目標売上</div><div class="v">¥${fmtK(target)}</div><div class="s">${monthLabel}</div></div>`;
   html+=`<div class="kpi g"><div class="l">現在売上 (確定)</div><div class="v">¥${fmtK(currentRev)}</div><div class="s">${currentCnt}件</div></div>`;
   html+=`<div class="kpi ${gap>0?'r':'g'}"><div class="l">ギャップ</div><div class="v">${gap>0?'¥'+fmtK(gap):'達成 ✓'}</div><div class="s">${gap>0?neededCnt+'件必要':''}</div></div>`;
