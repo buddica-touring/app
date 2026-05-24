@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>🎯 BT 目標逆算プランナー（高松店）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#f7f8fa;color:#111827;font-size:13px;line-height:1.5;padding-bottom:40px}
+.hdr{background:linear-gradient(135deg,#0f172a,#7c2d12);color:#fff;padding:16px 18px;box-shadow:0 2px 10px rgba(0,0,0,0.2)}
+.hdr h1{font-size:18px;font-weight:900;margin-bottom:4px}
+.hdr .sub{font-size:11px;opacity:0.85}
+.input-zone{background:#fff;border-bottom:2px solid #f59e0b;padding:18px 20px}
+.input-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.input-group{display:flex;flex-direction:column;gap:4px}
+.input-group label{font-size:10px;font-weight:700;color:#6b7280}
+.input-group input,.input-group select{padding:8px 12px;font-size:14px;border:2px solid #d1d5db;border-radius:8px;font-weight:700;color:#0f172a;background:#fff}
+.input-group input:focus,.input-group select:focus{border-color:#1e3a8a;outline:none}
+button.calc-btn{padding:10px 24px;font-size:14px;font-weight:900;background:linear-gradient(135deg,#dc2626,#7c2d12);color:#fff;border:0;border-radius:10px;cursor:pointer;box-shadow:0 3px 8px rgba(220,38,38,0.3)}
+button.calc-btn:hover{background:linear-gradient(135deg,#b91c1c,#991b1b)}
+
+.content{padding:12px;max-width:1200px;margin:0 auto}
+.section{background:#fff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:14px;overflow:hidden}
+.section-title{padding:12px 14px;border-bottom:1px solid #f3f4f6;font-size:14px;font-weight:900;color:#7c2d12;background:linear-gradient(135deg,#fef3c7,#fff);display:flex;align-items:center;gap:6px}
+.section-body{padding:14px 16px}
+
+.hero-result{background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:14px;padding:18px 22px;margin-bottom:14px;text-align:center}
+.hero-result .label{font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px}
+.hero-result .value{font-size:36px;font-weight:900;color:#7c2d12;line-height:1;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.hero-result .sub{font-size:12px;color:#92400e;font-weight:600}
+
+.feasibility{padding:14px 16px;border-radius:12px;margin:10px 0;text-align:center}
+.feas-stars{font-size:24px;letter-spacing:2px;margin-bottom:6px}
+.feas-pct{font-size:32px;font-weight:900;line-height:1;margin-bottom:4px}
+.feas-msg{font-size:12px;font-weight:700}
+.feas-high{background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;border:2px solid #10b981}
+.feas-med{background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;border:2px solid #f59e0b}
+.feas-low{background:linear-gradient(135deg,#fef2f2,#fee2e2);color:#991b1b;border:2px solid #dc2626}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.kpi{background:#fafbfc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px}
+.kpi .l{font-size:9.5px;color:#6b7280;font-weight:700;margin-bottom:3px}
+.kpi .v{font-size:18px;font-weight:900;color:#0f172a;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:9px;color:#94a3b8;margin-top:3px}
+.kpi.g{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#10b981}
+.kpi.g .v{color:#047857}
+.kpi.r{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#dc2626}
+.kpi.r .v{color:#b91c1c}
+.kpi.a{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#f59e0b}
+.kpi.a .v{color:#92400e}
+.kpi.p{background:linear-gradient(135deg,#faf5ff,#f3e8ff);border-color:#a855f7}
+.kpi.p .v{color:#7e22ce}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+table th{background:#7c2d12;color:#fff;padding:7px 10px;text-align:left;font-weight:700;font-size:11px}
+table th.num{text-align:right}
+table td{padding:6px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+table td.num{text-align:right;font-variant-numeric:tabular-nums}
+table tr:nth-child(even){background:#fafbfc}
+
+.action-card{background:#fff;border:2px solid #e5e7eb;border-left:4px solid #dc2626;padding:12px 14px;margin-bottom:8px;border-radius:8px}
+.action-card.priority{border-left-color:#dc2626;background:linear-gradient(135deg,#fff,#fef2f2)}
+.action-card.medium{border-left-color:#f59e0b}
+.action-card .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.action-card .title{font-size:13px;font-weight:900;color:#7c2d12}
+.action-card .impact{font-size:11px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 8px;border-radius:4px}
+.action-card .desc{font-size:11px;color:#6b7280;line-height:1.6}
+
+.loading{padding:60px 20px;text-align:center;color:#6b7280}
+.spinner{width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:#dc2626;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;color:#fff}
+.tag.r{background:#dc2626}.tag.j{background:#ef4444}.tag.s{background:#7c3aed}.tag.h{background:#2563eb}.tag.a{background:#0ea5e9}
+
+@media(max-width:768px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .hero-result .value{font-size:28px}
+  .input-row{flex-direction:column;align-items:stretch}
+  .input-row .input-group{width:100%}
+  button.calc-btn{width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>🎯 BT 目標逆算プランナー <span id="store-badge" style="font-size:13px;background:rgba(255,255,255,0.2);padding:3px 10px;border-radius:6px;margin-left:8px">高松店</span></h1>
+  <div class="sub">目標売上 → 必要件数 → 達成可能性 → 推奨アクション　｜　<a href="forecast.html" style="color:#fed7aa;text-decoration:underline">🔮 売上予測シミュレーターへ戻る</a></div>
+</div>
+
+<div class="input-zone">
+  <div class="input-row">
+    <div class="input-group">
+      <label>🗓 目標月</label>
+      <input type="month" id="target-month" value="2026-08">
+    </div>
+    <div class="input-group">
+      <label>💰 目標売上 (円)</label>
+      <input type="number" id="target-revenue" value="6000000" step="100000" style="width:160px">
+    </div>
+    <button class="calc-btn" id="calc-btn" onclick="run()">🎯 逆算実行</button>
+  </div>
+</div>
+
+<div class="content" id="content"><div class="loading"><div class="spinner"></div>データ読込中...</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL='https://ggqugvyskyiblxiycpci.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+const OTA_L={'rakuten':'楽天','jalan':'じゃらん','sky':'skyticket','hp':'HP直販','airtrip':'エアトリ'};
+const OTA_C={'rakuten':'r','jalan':'j','sky':'s','hp':'h','airtrip':'a'};
+let _data=[],_live=[],_holdings={},_market=[],_vehicles=[];
+let _store='bt';
+// BUDDICA TOURING 単一店舗のため固定
+const STORE_CFG={
+  bt:{
+    historical:null,         // BTは過去historicalテーブル未整備 → liveのみで動作
+    live:'bt_reservations',
+    holdings:null,
+    market_filter:r=>r.store==='bt'||r.store==='takamatsu',
+    historical_filter:r=>r.store==='bt'||r.store==='takamatsu',
+    start_col:'lend_date',
+    end_col:'return_date',
+    vehicles:'bt_vehicles',
+    label:'BT（高松店）',
+    badge_bg:'#0c4a6e',
+    accent:'#0891b2'
+  }
+};
+
+// テーブルごとの主キー (order句の値) — id カラムを持たないテーブルがあるため切替必須
+const TABLE_PK={
+  'bt_vehicles':'code',
+  'bt_vehicle_monthly_kpi':'vehicle_code'
+};
+async function fetchAll(table){
+  const rows=[];let off=0;const SZ=1000;
+  const orderCol=TABLE_PK[table]||'id';
+  while(true){
+    const{data,error}=await sb.from(table).select('*').range(off,off+SZ-1).order(orderCol,{ascending:true});
+    if(error){console.error('[fetchAll]',table,'order='+orderCol,error.message||error);break;}
+    if(!data||!data.length)break;
+    rows.push(...data);
+    if(data.length<SZ)break;
+    off+=SZ;
+  }
+  return rows;
+}
+function fmtY(n){return '¥'+Math.round(n||0).toLocaleString();}
+function fmtK(n){if(!n)return '0';if(Math.abs(n)>=10000)return Math.round(n/10000)+'万';if(Math.abs(n)>=1000)return (n/1000).toFixed(1)+'k';return ''+Math.round(n);}
+function median(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2);}
+
+function onStoreChange(){
+  _store=document.getElementById('store-sel').value;
+  // URLを書き換え（リロードなし）
+  try{
+    const u=new URL(location.href);
+    u.searchParams.set('store',_store);
+    history.replaceState(null,'',u.toString());
+  }catch(e){}
+  document.getElementById('store-badge').textContent=_store.toUpperCase();
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>'+STORE_CFG[_store].label+' データ読込中...</div>';
+  loadStoreData();
+}
+
+async function loadStoreData(){
+  try{
+    const cfg=STORE_CFG[_store];
+    _data=[];_live=[];_holdings={};_market=[];_vehicles=[];
+    // 過去データ (NHAのみ・SPKは未整備)
+    if(cfg.historical){
+      _data=(await fetchAll(cfg.historical)).filter(cfg.historical_filter);
+    }
+    // ライブ予約
+    _live=await fetchAll(cfg.live);
+    // 車両マスター (active のみ・稼働率算定用)
+    try{
+      const vs=await fetchAll(cfg.vehicles);
+      _vehicles=vs.filter(v=>v.active!==false);
+    }catch(e){console.warn('vehicles',e);}
+    // 市場価格データ
+    try{_market=(await fetchAll('ota_market_prices')).filter(cfg.market_filter);}catch(e){console.warn('market data',e);}
+    // 保有台数履歴
+    if(cfg.holdings){
+      const h=await fetchAll(cfg.holdings);
+      h.forEach(r=>{if(!_holdings[r.year_month])_holdings[r.year_month]={};_holdings[r.year_month][r.class]=r.count;});
+    }
+    const histInfo=cfg.historical?`過去${_data.length}件 + 現在${_live.length}件`:`現在予約${_live.length}件 (SPK過去履歴は未整備)`;
+    const vehInfo=` / 稼働車両${_vehicles.length}台`;
+    document.getElementById('content').innerHTML=`<div class="section"><div class="section-body" style="text-align:center;color:#6b7280;padding:30px"><h3 style="color:#7c2d12;font-size:16px;margin-bottom:12px">🎯 目標を入力して「逆算実行」をクリック</h3><div style="font-size:12px">${cfg.label}　／　${histInfo}${vehInfo}</div></div></div>`;
+  }catch(e){
+    document.getElementById('content').innerHTML=`<div style="padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px">⚠️ ${e.message}</div>`;
+  }
+}
+
+async function init(){
+  try{
+    const{data:s}=await sb.auth.getSession();
+    if(!s||!s.session){
+      const{error}=await sb.auth.signInWithPassword({email:'member@g-lines.jp',password:'8888'});
+      if(error)throw new Error('Auth: '+error.message);
+    }
+    // URL/初期値を UI に反映 (BTは単一店舗のためセレクタなし)
+    const selEl=document.getElementById('store-sel');
+    if(selEl)selEl.value=_store;
+    const badgeEl=document.getElementById('store-badge');
+    if(badgeEl)badgeEl.textContent='高松店';
+    await loadStoreData();
+  }catch(e){
+    document.getElementById('content').innerHTML=`<div style="padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px">⚠️ ${e.message}</div>`;
+  }
+}
+init();
+
+function run(){
+  const targetYm=document.getElementById('target-month').value;
+  const target=parseInt(document.getElementById('target-revenue').value);
+  if(!targetYm||!target||target<=0){alert('目標月と売上を入力してください');return;}
+
+  const[y,m]=targetYm.split('-').map(Number);
+  const monthName=`${m}月`;
+  const monthLabel=`${y}年${m}月`;
+  const startCol=STORE_CFG[_store].start_col;  // NHA=start_date / SPK=lend_date
+
+  // 1. 現在の予約状況 (live)
+  // SPK は _data が空なので常に _live を参照
+  const isFuture=new Date(targetYm+'-01')>new Date();
+  const livePool=(isFuture||_data.length===0)?_live:_data;
+  const liveStartCol=livePool===_live?startCol:'start_date'; // historical は常に start_date
+  const currentMonth=livePool.filter(r=>{
+    const sd=r[liveStartCol]?String(r[liveStartCol]).substring(0,7):'';
+    return sd===targetYm;
+  });
+  const currentConf=currentMonth.filter(r=>{
+    const st=String(r.status||'');
+    return !st.includes('cancel')&&!st.includes('キャンセル');
+  });
+  const currentRev=currentConf.reduce((s,r)=>{
+    const bp=+(r.base_price||0),op=+(r.option_price||0),dc=+(r.discount||0);
+    const p=(bp===0&&op===0)?+(r.price||r.total_price||0):(bp+op-dc);
+    return s+p;
+  },0);
+  const currentCnt=currentConf.length;
+
+  // 2. 過去同月実績
+  const pastSameMonth=_data.filter(r=>{
+    if(!r.start_date||r.status!=='confirmed')return false;
+    const ym=r.start_date.substring(0,7);
+    const sameM=ym.endsWith('-'+String(m).padStart(2,'0'));
+    return sameM&&ym!==targetYm;
+  });
+  const pastByYear={};
+  pastSameMonth.forEach(r=>{
+    const py=r.start_date.substring(0,4);
+    if(!pastByYear[py])pastByYear[py]={c:0,r:0,p:[]};
+    pastByYear[py].c++;
+    pastByYear[py].r+=(r.total_price||0);
+    if(r.total_price)pastByYear[py].p.push(r.total_price);
+  });
+  const pastYears=Object.keys(pastByYear).sort();
+  const pastAvgRev=pastYears.length>0?pastYears.reduce((s,y2)=>s+pastByYear[y2].r,0)/pastYears.length:0;
+  const pastAvgCnt=pastYears.length>0?pastYears.reduce((s,y2)=>s+pastByYear[y2].c,0)/pastYears.length:0;
+  const pastAllPrices=pastSameMonth.map(r=>r.total_price).filter(p=>p>0);
+  const pastMedPrice=median(pastAllPrices);
+
+  // 3. ギャップ
+  const gap=target-currentRev;
+
+  // 4. 必要件数
+  const avgPrice=pastMedPrice>0?pastMedPrice:30000;
+  const neededCnt=gap>0?Math.ceil(gap/avgPrice):0;
+
+  // 5. OTA別配分 (過去同月のシェア)
+  const otaShare={};
+  pastSameMonth.forEach(r=>{
+    const o=r.ota||'?';
+    if(!otaShare[o])otaShare[o]={c:0,r:0};
+    otaShare[o].c++;
+    otaShare[o].r+=(r.total_price||0);
+  });
+  const totPastR=Object.values(otaShare).reduce((s,d)=>s+d.r,0);
+
+  // 6. 達成可能性
+  // 過去年で目標を達成した実績 + 現在ペース
+  const pastAchieved=pastYears.filter(y2=>pastByYear[y2].r>=target).length;
+  const pastAchieveRate=pastYears.length>0?pastAchieved/pastYears.length:0;
+  const today=new Date();today.setHours(0,0,0,0);
+  const monthStart=new Date(y,m-1,1);
+  const monthEnd=new Date(y,m,0);monthEnd.setHours(23,59,59,999);
+  const totalDays=new Date(y,m,0).getDate();
+  // 計画可能日数 = 今日から目標月末まで
+  const planDays=Math.max(0,Math.ceil((monthEnd-today)/86400000));
+  // 経過日数 (目標月内)
+  const elapsed=today<monthStart?0:Math.min(totalDays,Math.ceil((today-monthStart)/86400000));
+  const remaining=planDays; // 行動可能日数で計算
+  const dailyNeeded=remaining>0?gap/remaining:0;
+  const dailyAvgPast=pastAvgRev/totalDays;
+  const paceRatio=dailyAvgPast>0?dailyNeeded/dailyAvgPast:0;
+
+  // 6.5 稼働率算定 (totalDays定義後に実行する必要がある)
+  // 稼働可能台数: ①holdings.total ②holdingsクラス別合計 ③車両マスター件数 の優先順
+  let holdingTotal=0;
+  if(_holdings[targetYm]){
+    if(_holdings[targetYm].total){
+      holdingTotal=_holdings[targetYm].total;
+    }else{
+      holdingTotal=Object.entries(_holdings[targetYm])
+        .filter(([k,v])=>k!=='total'&&typeof v==='number')
+        .reduce((s,[k,v])=>s+v,0);
+    }
+  }
+  if(holdingTotal===0)holdingTotal=_vehicles.length||0;
+  const maxCapacityDays=holdingTotal*totalDays;
+  const endColForUtil=STORE_CFG[_store].end_col;
+  function calcOverlapDays(rec){
+    try{
+      const sdRaw=rec[startCol]||rec.start_date||rec.lend_date;
+      const edRaw=rec[endColForUtil]||rec.end_date||rec.return_date;
+      if(!sdRaw||!edRaw)return 0;
+      const sd=new Date(sdRaw);
+      const ed=new Date(edRaw);
+      const mS=new Date(y,m-1,1);
+      const mE=new Date(y,m,0,23,59,59);
+      const s=sd<mS?mS:sd;
+      const e=ed>mE?mE:ed;
+      if(e<s)return 0;
+      return Math.max(0,Math.round((e-s)/86400000))+1;
+    }catch(e){return 0;}
+  }
+  const currentUtilDays=currentConf.reduce((sum,r)=>sum+calcOverlapDays(r),0);
+  const currentUtilPct=maxCapacityDays>0?(currentUtilDays/maxCapacityDays*100):0;
+  const pastNights=pastSameMonth.map(r=>{
+    try{
+      const sd=new Date(r.start_date);
+      const ed=new Date(r.end_date||r.return_date);
+      const n=Math.max(0,Math.round((ed-sd)/86400000))+1;
+      return n;
+    }catch(e){return 0;}
+  }).filter(n=>n>0&&n<=30);
+  const avgNights=pastNights.length>0?(pastNights.reduce((s,n)=>s+n,0)/pastNights.length):3;
+  const projectedAddDays=Math.round(neededCnt*avgNights);
+  const projectedUtilDays=currentUtilDays+projectedAddDays;
+  const projectedUtilPct=maxCapacityDays>0?(projectedUtilDays/maxCapacityDays*100):0;
+
+  // Probability
+  let probability=50;
+  if(gap<=0){probability=100;}
+  else if(pastAchieveRate>0){
+    probability=pastAchieveRate*70+(paceRatio<=1?30:Math.max(0,30-(paceRatio-1)*20));
+  }else if(paceRatio<=1){
+    probability=50+(1-paceRatio)*30;
+  }else{
+    probability=Math.max(10,50-(paceRatio-1)*30);
+  }
+  probability=Math.min(100,Math.max(0,Math.round(probability)));
+
+  // 7. 推奨アクション (深掘り版)
+  const actions=[];
+  const otaPastClassData={}; // {ota: {class: {c,r,p:[]}}}
+  pastSameMonth.forEach(r=>{
+    const o=r.ota||'?';
+    const c=r.hdm_class||'?';
+    if(!otaPastClassData[o])otaPastClassData[o]={};
+    if(!otaPastClassData[o][c])otaPastClassData[o][c]={c:0,r:0,p:[]};
+    otaPastClassData[o][c].c++;
+    otaPastClassData[o][c].r+=(r.total_price||0);
+    if(r.total_price)otaPastClassData[o][c].p.push(r.total_price);
+  });
+  const currentByOta={};
+  currentConf.forEach(r=>{
+    const o=r.ota||'?';
+    if(!currentByOta[o])currentByOta[o]={c:0,r:0};
+    currentByOta[o].c++;
+    const bp=+(r.base_price||0),op=+(r.option_price||0),dc=+(r.discount||0);
+    currentByOta[o].r+=(bp===0&&op===0)?+(r.price||r.total_price||0):(bp+op-dc);
+  });
+  // LT分布 (過去同月)
+  const pastLT=pastSameMonth.map(r=>r.lead_time_days).filter(l=>l>=0);
+  const ltP25=pastLT.length>0?[...pastLT].sort((a,b)=>a-b)[Math.floor(pastLT.length*0.25)]:0;
+  const ltP50=median(pastLT);
+  const ltP75=pastLT.length>0?[...pastLT].sort((a,b)=>a-b)[Math.floor(pastLT.length*0.75)]:0;
+  const earlyCnt=pastLT.filter(l=>l>30).length;
+  const lastWeekCnt=pastLT.filter(l=>l<=7).length;
+  const totalLT=pastLT.length;
+  // CXL率
+  const totCXL=pastSameMonth.filter(r=>r.status==='cancelled').length;
+  const totAll=pastSameMonth.length+totCXL;
+  const cxlRate=totAll>0?totCXL/totAll*100:0;
+  // 当月予約率
+  const sameMR=totalLT>0?pastLT.filter(l=>l<=30).length/totalLT*100:0;
+
+  if(gap<=0){
+    actions.push({title:'🎉 目標達成済み',impact:'達成',desc:'現状で目標¥'+fmtK(target)+'を超過済み。現状維持またはストレッチ目標を検討。'});
+  }else{
+    // ========== 緊急ペース判定 ==========
+    if(paceRatio>1.3){
+      actions.push({title:'🚨 緊急アクション: 全OTA -7〜10% 値下げ',impact:'+'+Math.round(neededCnt*0.3)+'件',desc:`必要日次ペース ¥${fmtK(dailyNeeded)} は過去平均比 ${paceRatio.toFixed(1)}倍 (異常値)。即時全OTA値下げ -7〜10%で予約獲得を最大化。⚠️ 単価下落リスクあり (約-5%) だが件数増効果が上回る試算。`,priority:true});
+    }else if(paceRatio>1.1){
+      actions.push({title:'⚠️ ペース調整: 主要OTA -3〜5% 値下げ',impact:'+'+Math.round(neededCnt*0.2)+'件',desc:`必要ペースが過去平均比 ${paceRatio.toFixed(1)}倍。シェア大のOTAから順に微調整 (-3〜5%)。`,priority:true});
+    }
+
+    // ========== OTA別 深掘り ==========
+    const topOTAs=Object.entries(otaShare).sort((a,b)=>b[1].r-a[1].r).slice(0,3);
+    topOTAs.forEach(([o,d])=>{
+      const shr=totPastR>0?d.r/totPastR*100:0;
+      const need=Math.ceil(neededCnt*shr/100);
+      const curr=currentByOta[o]||{c:0,r:0};
+      const otaPrices=pastSameMonth.filter(r=>r.ota===o).map(r=>r.total_price).filter(p=>p>0);
+      const medP=median(otaPrices);
+      // OTAごとのクラス内訳 (上位3クラス)
+      const otaCls=otaPastClassData[o]||{};
+      const topCls=Object.entries(otaCls).sort((a,b)=>b[1].c-a[1].c).slice(0,3);
+      const clsDesc=topCls.map(([c,cd])=>`${c}=${cd.c}件`).join('/');
+      // 進捗率
+      const progress=d.r>0?(curr.r/d.r*100).toFixed(0):0;
+      actions.push({
+        title:`📡 ${OTA_L[o]||o}: +${need}件 (¥${fmtK(need*medP)} 期待)`,
+        impact:`シェア${shr.toFixed(0)}% / 進捗${progress}%`,
+        desc:`<b>過去${monthName}実績</b>: ${d.c}件 / ¥${fmtK(d.r)} / 単価${fmtY(medP)} (主力クラス: ${clsDesc})<br><b>現在</b>: ${curr.c}件 / ¥${fmtK(curr.r)} → 過去対比${progress}%<br><b>推奨</b>: ${need}件追加。${OTA_L[o]}での価格${shr>=30?'微調整':'競争力強化'}で達成可能。`,
+        medium:true
+      });
+    });
+
+    // ========== クラス別 深掘り ==========
+    const classData={};
+    pastSameMonth.forEach(r=>{
+      const c=r.hdm_class||'?';
+      if(!classData[c])classData[c]={c:0,r:0,p:[]};
+      classData[c].c++;
+      classData[c].r+=(r.total_price||0);
+      if(r.total_price)classData[c].p.push(r.total_price);
+    });
+    const currentByClass={};
+    currentConf.forEach(r=>{
+      const c=r.vehicle_class||r.hdm_class||'?';
+      if(!currentByClass[c])currentByClass[c]={c:0,r:0};
+      currentByClass[c].c++;
+      const bp=+(r.base_price||0),op=+(r.option_price||0),dc=+(r.discount||0);
+      currentByClass[c].r+=(bp===0&&op===0)?+(r.price||r.total_price||0):(bp+op-dc);
+    });
+    const topClasses=Object.entries(classData).sort((a,b)=>b[1].r-a[1].r).slice(0,3);
+    const totClassR=Object.values(classData).reduce((s,d)=>s+d.r,0);
+    topClasses.forEach(([c,d])=>{
+      const shr=totClassR>0?d.r/totClassR*100:0;
+      const need=Math.ceil(neededCnt*shr/100);
+      const curr=currentByClass[c]||{c:0,r:0};
+      const medP=median(d.p);
+      const progress=d.r>0?(curr.r/d.r*100).toFixed(0):0;
+      const holding=_holdings[targetYm];
+      const clsHold=(holding&&holding[c])||0;
+      actions.push({
+        title:`🚗 ${c}クラス: +${need}件 (¥${fmtK(need*medP)} 期待)`,
+        impact:`シェア${shr.toFixed(0)}% / 保有${clsHold||'?'}台`,
+        desc:`<b>過去${monthName}</b>: ${d.c}件 / ¥${fmtK(d.r)} / 単価${fmtY(medP)} ${clsHold>0?`(${(d.c/clsHold).toFixed(1)}件/台)`:''}<br><b>現在</b>: ${curr.c}件 → 過去比${progress}%<br><b>推奨</b>: ${c}クラス${shr>=30?'は主力':'は機会あり'}。${clsHold>0?`保有${clsHold}台で${need}件は ${((curr.c+need)/clsHold).toFixed(2)}件/台 (実現可能)`:''}`,
+      });
+    });
+
+    // ========== リードタイム戦略 (詳細) ==========
+    if(planDays>=14&&earlyCnt/totalLT>0.3){
+      actions.push({
+        title:`⏳ 早期客取込み: LP/メルマガ集中投下`,
+        impact:`早期${(earlyCnt/totalLT*100).toFixed(0)}%`,
+        desc:`<b>過去${monthName}</b>: LT≥30日の早期客が${earlyCnt}件 (${(earlyCnt/totalLT*100).toFixed(0)}%)。${planDays}日あれば早期予約獲得の時間十分。<br><b>推奨</b>: 過去${monthName}向けにLP更新・メルマガ配信。<br><b>期待</b>: 早期客割合 × 必要件数 = +${Math.round(neededCnt*(earlyCnt/totalLT))}件`,
+        medium:true
+      });
+    }
+    if(planDays<=14&&lastWeekCnt>0){
+      actions.push({
+        title:`🔥 直前客取込み: -10〜15% 値下げ`,
+        impact:`直前${(lastWeekCnt/totalLT*100).toFixed(0)}%`,
+        desc:`<b>過去${monthName}</b>: LT≤7日の直前客が${lastWeekCnt}件 (${(lastWeekCnt/totalLT*100).toFixed(0)}%)。残${planDays}日で直前訴求が効果的。<br><b>推奨</b>: 直前値下げ -10〜15%。skyticket/エアトリは特に直前客比率高い。<br><b>期待</b>: +${Math.round(lastWeekCnt*0.8)}件`,
+        priority:true
+      });
+    }
+    // LT統計
+    actions.push({
+      title:`📊 過去${monthName} LT分布 (戦略の根拠)`,
+      impact:`P25=${ltP25}日 / P50=${ltP50}日 / P75=${ltP75}日`,
+      desc:`<b>分布</b>: 25%の客はLT${ltP25}日以下 / 50%は${ltP50}日以下 / 75%は${ltP75}日以下 で予約。<br><b>当月予約率</b>: ${sameMR.toFixed(0)}% (LT≤30日層)<br><b>含意</b>: ${ltP75>=60?'長期前予約客主体 → 早めの集客が鍵':ltP50<=14?'直前客主体 → 直前値下げに集中':'中期客主体 → 2-4週間前の集客がベスト'}`
+    });
+
+    // ========== キャンセル削減 (詳細) ==========
+    if(cxlRate>20){
+      const protectCnt=Math.round(currentCnt*cxlRate/100*0.3);
+      actions.push({
+        title:`📞 CXL削減: ${cxlRate.toFixed(0)}% → 20%以下`,
+        impact:`+${protectCnt}件保護`,
+        desc:`<b>過去${monthName}</b>: CXL率 ${cxlRate.toFixed(1)}% (${totCXL}件キャンセル)。<br><b>原因仮説</b>: ${cxlRate>30?'早期予約からの離脱率高い':'通常レベル+α'}。<br><b>推奨</b>: ① 出発14日前リマインドメール ② 7日前最終確認 ③ 必要時は電話確認<br><b>期待</b>: CXL率 -10pt = ${protectCnt}件保護 = ¥${fmtK(protectCnt*avgPrice)}保護`,
+        medium:true
+      });
+    }
+
+    // ========== 保有台数チェック ==========
+    const holding=_holdings[targetYm];
+    if(holding&&holding.total){
+      const finalUtil=Math.round((currentCnt+neededCnt)/holding.total*100)/100;
+      const finalUtilOK=finalUtil<=4.5; // 1台あたり4.5件以下なら無理なし
+      actions.push({
+        title:`🚗 保有${holding.total}台での実現性チェック`,
+        impact:finalUtilOK?'実現可':'過密リスク',
+        desc:`<b>目標達成時</b>: ${currentCnt+neededCnt}件 / ${holding.total}台 = ${finalUtil}件/台<br>${finalUtilOK?`✅ 平均水準 (過去${monthName}の他年: ${pastYears.map(py=>{const h=(_holdings[py+'-'+String(m).padStart(2,'0')]||{}).total||0;return h>0?(pastByYear[py].c/h).toFixed(1):'?';}).join(', ')}件/台)`:`⚠️ 過密 (${finalUtil}件/台超)。1台×4.5件超なら稼働ピーク・予約ブロック発生注意`}`,
+      });
+    }
+  }
+
+  // ====== レンダリング ======
+  let html='';
+
+  // 達成可能性 (Hero)
+  const feasClass=probability>=70?'feas-high':probability>=40?'feas-med':'feas-low';
+  const feasIcon=probability>=70?'🟢':probability>=40?'🟡':'🔴';
+  const feasMsg=probability>=80?'達成余裕あり':probability>=60?'達成可能・要努力':probability>=40?'厳しい・追加施策必須':probability>=20?'達成困難・全力投入':'達成ほぼ不可能';
+  const stars='★'.repeat(Math.round(probability/20))+'☆'.repeat(5-Math.round(probability/20));
+  html+=`<div class="feasibility ${feasClass}">
+    <div class="feas-stars">${feasIcon} ${stars}</div>
+    <div class="feas-pct">${probability}%</div>
+    <div class="feas-msg">${feasMsg} (${monthLabel} ¥${fmtK(target)}達成可能性)</div>
+  </div>`;
+
+  // Hero: ギャップ
+  html+=`<div class="hero-result">
+    <div class="label">目標 ¥${fmtK(target)} に対する不足額</div>
+    <div class="value" style="color:${gap>0?'#b91c1c':'#047857'}">${gap>0?'¥'+fmtK(gap):'達成済み +¥'+fmtK(-gap)}</div>
+    <div class="sub">${gap>0?'追加'+neededCnt+'件 (単価¥'+fmtK(avgPrice)+') が必要':'目標達成・ストレッチ可'}</div>
+  </div>`;
+
+  // KPI Grid
+  html+='<div class="section"><div class="section-title">📊 現状サマリー</div><div class="section-body"><div class="kpi-grid">';
+  // ★ 試算の根本エビデンス: 稼働台数を最優先で表示
+  const holdSource=(_holdings[targetYm]&&_holdings[targetYm].total)?'保有履歴':(_vehicles.length>0?'車両マスター':'データなし');
+  html+=`<div class="kpi"><div class="l">🚗 稼働台数</div><div class="v">${holdingTotal}台</div><div class="s">${holdSource} / 最大稼働 ${maxCapacityDays}日</div></div>`;
+  html+=`<div class="kpi a"><div class="l">目標売上</div><div class="v">¥${fmtK(target)}</div><div class="s">${monthLabel}</div></div>`;
+  html+=`<div class="kpi g"><div class="l">現在売上 (確定)</div><div class="v">¥${fmtK(currentRev)}</div><div class="s">${currentCnt}件</div></div>`;
+  html+=`<div class="kpi ${gap>0?'r':'g'}"><div class="l">ギャップ</div><div class="v">${gap>0?'¥'+fmtK(gap):'達成 ✓'}</div><div class="s">${gap>0?neededCnt+'件必要':''}</div></div>`;
+  html+=`<div class="kpi p"><div class="l">必要追加件数</div><div class="v">${neededCnt}件</div><div class="s">単価¥${fmtK(avgPrice)}前提</div></div>`;
+  html+=`<div class="kpi"><div class="l">計画可能日数</div><div class="v">${planDays}日</div><div class="s">今日→${y}/${m}/${totalDays}まで・月内${remaining-Math.max(0,(monthStart-today)/86400000)|0}日</div></div>`;
+  html+=`<div class="kpi ${paceRatio>1.2?'r':paceRatio>1?'a':'g'}"><div class="l">必要日次売上</div><div class="v">¥${fmtK(dailyNeeded)}</div><div class="s">過去平均比 ${paceRatio.toFixed(1)}x</div></div>`;
+  // 稼働率カード (現状 / 想定)
+  const curUtilCls=currentUtilPct>=70?'g':currentUtilPct>=40?'a':'r';
+  const projUtilCls=projectedUtilPct>=100?'r':projectedUtilPct>=85?'a':'g';
+  html+=`<div class="kpi ${curUtilCls}"><div class="l">現状 稼働率</div><div class="v">${currentUtilPct.toFixed(1)}%</div><div class="s">${currentUtilDays}日 / ${maxCapacityDays}日 (${holdingTotal}台×${totalDays}日)</div></div>`;
+  html+=`<div class="kpi ${projUtilCls}"><div class="l">目標達成時 想定稼働率</div><div class="v">${projectedUtilPct.toFixed(1)}%</div><div class="s">${projectedUtilDays}日 / ${maxCapacityDays}日 (現状+${projectedAddDays}日・平均${avgNights.toFixed(1)}泊想定)${projectedUtilPct>100?' ⚠️ 物理的に困難':''}</div></div>`;
+  html+='</div></div></div>';
+
+  // 過去同月実績 (台数・LT・当月率付き)
+  if(pastYears.length>0){
+    html+='<div class="section"><div class="section-title">📚 過去同月 実績 (台数・伸び率・LT・当月率)</div><div class="section-body"><div class="tablewrap"><table><thead><tr><th>年</th><th class="num">保有</th><th class="num">件数</th><th class="num">件/台</th><th class="num">売上</th><th class="num">売上/台</th><th class="num">単価</th><th class="num">LT</th><th class="num">当月率</th><th class="num">vs目標</th><th>判定</th></tr></thead><tbody>';
+    let prevPerV=null,prevSameM=null;
+    pastYears.forEach(py=>{
+      const d=pastByYear[py];
+      const med=median(d.p);
+      const achieved=d.r>=target;
+      const pct=target>0?(d.r/target*100).toFixed(0):0;
+      const ymKey=py+'-'+String(m).padStart(2,'0');
+      const hold=(_holdings[ymKey]&&_holdings[ymKey].total)||0;
+      const rowsThis=pastSameMonth.filter(r=>r.start_date&&r.start_date.startsWith(py+'-'));
+      const ltsThis=rowsThis.map(r=>r.lead_time_days).filter(l=>l>=0);
+      const ltMed=median(ltsThis);
+      const sameM=ltsThis.filter(l=>l<=30).length;
+      const sameMR=ltsThis.length>0?sameM/ltsThis.length*100:0;
+      const perV=hold>0?d.c/hold:0;
+      const revV=hold>0?d.r/hold:0;
+      let perVTxt=hold>0?perV.toFixed(2):'-';
+      let sameMTxt=ltsThis.length>0?sameMR.toFixed(0)+'%':'-';
+      if(prevPerV!==null&&hold>0&&prevPerV>0){const g=(perV-prevPerV)/prevPerV*100;perVTxt+=` <span style="font-size:9px;color:${g>=0?'#059669':'#dc2626'}">(${g>=0?'+':''}${g.toFixed(0)}%)</span>`;}
+      if(prevSameM!==null&&ltsThis.length>0){const g=sameMR-prevSameM;sameMTxt+=` <span style="font-size:9px;color:${g>=0?'#059669':'#dc2626'}">(${g>=0?'+':''}${g.toFixed(0)}pt)</span>`;}
+      html+=`<tr><td><b>${py}年${m}月</b></td><td class="num">${hold||'-'}</td><td class="num">${d.c}件</td><td class="num" style="color:#059669;font-weight:800">${perVTxt}</td><td class="num">¥${fmtK(d.r)}</td><td class="num" style="color:#92400e;font-weight:700">${hold>0?'¥'+fmtK(revV):'-'}</td><td class="num">${fmtY(med)}</td><td class="num">${ltMed}日</td><td class="num">${sameMTxt}</td><td class="num">${pct}%</td><td style="color:${achieved?'#059669':'#dc2626'};font-weight:800">${achieved?'✅':'❌'}</td></tr>`;
+      if(hold>0)prevPerV=perV;
+      if(ltsThis.length>0)prevSameM=sameMR;
+    });
+    html+=`</tbody></table></div><div style="margin-top:10px;font-size:11px;color:#6b7280">過去${pastYears.length}年中 <b style="color:${pastAchieved>0?'#059669':'#dc2626'}">${pastAchieved}回</b> 達成 (${(pastAchieveRate*100).toFixed(0)}%) ★ <b>件/台</b>が伸びていれば台数増加に関わらず効率向上 / <b>当月率</b>が下がっていれば早期予約客比率が増加</div></div></div>`;
+  }
+
+  // OTA別 必要件数配分
+  if(gap>0&&totPastR>0){
+    html+='<div class="section"><div class="section-title">📡 OTA別 必要件数 配分 (過去同月シェア比例)</div><div class="section-body"><table><thead><tr><th>OTA</th><th class="num">過去シェア</th><th class="num">過去同月実績</th><th class="num">必要追加</th><th class="num">推奨単価</th></tr></thead><tbody>';
+    Object.entries(otaShare).sort((a,b)=>b[1].r-a[1].r).forEach(([o,d])=>{
+      const shr=d.r/totPastR*100;
+      const need=Math.ceil(neededCnt*shr/100);
+      const otaPrices=pastSameMonth.filter(r=>r.ota===o).map(r=>r.total_price).filter(p=>p>0);
+      const medP=median(otaPrices);
+      html+=`<tr><td><span class="tag ${OTA_C[o]||''}">${OTA_L[o]||o}</span></td><td class="num">${shr.toFixed(1)}%</td><td class="num">${d.c}件/¥${fmtK(d.r)}</td><td class="num" style="color:#b91c1c;font-weight:800">+${need}件</td><td class="num">${fmtY(medP)}</td></tr>`;
+    });
+    html+='</tbody></table></div></div>';
+  }
+
+  // ===== 傾向分析 (Trends) =====
+  // 月内バイオリズム (1-30日いつ取れるか)
+  if(pastSameMonth.length>0){
+    const dayDist={};
+    pastSameMonth.forEach(r=>{
+      if(!r.created_at||!r.start_date)return;
+      try{
+        const lt=Math.round((new Date(r.start_date)-new Date(r.created_at))/86400000);
+        if(lt<0||lt>180)return;
+        if(!dayDist[lt])dayDist[lt]=0;
+        dayDist[lt]++;
+      }catch(e){}
+    });
+    const lts=pastSameMonth.map(r=>r.lead_time_days).filter(l=>l>=0);
+    const sameMonthCnt=lts.filter(l=>l<=30).length;
+    const earlyCnt=lts.filter(l=>l>30).length;
+    const lastWeekCnt=lts.filter(l=>l<=7).length;
+    const totalLT=lts.length;
+    html+='<div class="section"><div class="section-title">📈 傾向分析 — 過去同月のパターン</div><div class="section-body">';
+    html+='<div class="kpi-grid">';
+    html+=`<div class="kpi p"><div class="l">早期予約客 (>30日前)</div><div class="v">${totalLT>0?(earlyCnt/totalLT*100).toFixed(0):0}%</div><div class="s">${earlyCnt}件・LT中央${median(lts)}日</div></div>`;
+    html+=`<div class="kpi a"><div class="l">当月予約客 (≤30日)</div><div class="v">${totalLT>0?(sameMonthCnt/totalLT*100).toFixed(0):0}%</div><div class="s">${sameMonthCnt}件</div></div>`;
+    html+=`<div class="kpi r"><div class="l">直前客 (≤7日)</div><div class="v">${totalLT>0?(lastWeekCnt/totalLT*100).toFixed(0):0}%</div><div class="s">${lastWeekCnt}件</div></div>`;
+    html+='</div>';
+    // 戦略
+    const earlyPct=totalLT>0?earlyCnt/totalLT*100:0;
+    const lastPct=totalLT>0?lastWeekCnt/totalLT*100:0;
+    let strategy='';
+    if(earlyPct>=40){strategy='早期客主体 → <b>早めの値下げ・予約獲得が鍵</b>。残'+remaining+'日でも早期客取込み可';}
+    else if(lastPct>=30){strategy='直前客が多い → <b>残り日数の値下げ強化が効く</b>。直前値下げ -10〜15%で大量獲得可能';}
+    else{strategy='中期客中心 → <b>2週間前〜の値下げ + リマインダー強化</b>がバランス◎';}
+    html+=`<div style="margin-top:10px;padding:10px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e;font-weight:600">💡 ${strategy}</div>`;
+    html+='</div></div>';
+  }
+
+  // ===== 対策・データ的根拠 =====
+  if(actions.length){
+    html+='<div class="section"><div class="section-title">🎯 推奨対策 (データ的根拠付き)</div><div class="section-body">';
+    actions.forEach((a,i)=>{
+      const cls=a.priority?'priority':a.medium?'medium':'';
+      html+=`<div class="action-card ${cls}"><div class="head"><div class="title">${i+1}. ${a.title}</div><div class="impact">${a.impact}</div></div><div class="desc">${a.desc}</div></div>`;
+    });
+    html+='</div></div>';
+  }
+
+  // ===== 市場価格状況 (競合分析→推奨アクション) =====
+  if(_market&&_market.length>0&&gap>0){
+    // 目標月の最新市場データを OTA別 にグループ化
+    const marketByOta={};
+    _market.forEach(r=>{
+      const td=r.target_date||'';
+      if(!td)return;
+      // 目標月内 or 直近データを優先
+      const isInTargetMonth=td.startsWith(targetYm);
+      if(!marketByOta[r.ota])marketByOta[r.ota]=[];
+      marketByOta[r.ota].push({...r,_inTarget:isInTargetMonth});
+    });
+
+    // 各OTAで最新かつ目標月内 (なければ全期間最新) を選ぶ
+    const otaLatest={};
+    Object.entries(marketByOta).forEach(([o,rows])=>{
+      // 目標月内 を優先
+      const inTarget=rows.filter(r=>r._inTarget);
+      const pool=inTarget.length>0?inTarget:rows;
+      // fetched_at 降順
+      pool.sort((a,b)=>(b.fetched_at||'').localeCompare(a.fetched_at||''));
+      otaLatest[o]=pool[0];
+    });
+
+    const otasWithData=Object.keys(otaLatest);
+    if(otasWithData.length>0){
+      html+='<div class="section"><div class="section-title">🌐 市場価格状況 (競合分析) → 推奨ポジション</div><div class="section-body">';
+      html+='<div style="background:#dbeafe;border-left:4px solid #1e3a8a;padding:10px 14px;margin-bottom:12px;font-size:11px;color:#1e3a8a;border-radius:4px">📌 市場で競合がいくらに設定しているか・HDMがどう動くべきかを自社実測の順位データから自動推奨</div>';
+
+      otasWithData.forEach(o=>{
+        const m=otaLatest[o];
+        const tops=m.top_prices||[];
+        if(!tops.length)return;
+        // 競合上位3社
+        const top3=tops.slice(0,3);
+        // HDMの位置 (db値 or 検出)
+        let hdmRank=m.hdm_rank;
+        let hdmPrice=m.hdm_price;
+        const hdmIdx=tops.findIndex(t=>t.company&&(t.company.includes('HANDYMAN')||t.company.includes('ハンディマン')));
+        if(hdmIdx>=0){hdmRank=hdmIdx+1;hdmPrice=tops[hdmIdx].price;}
+
+        // 目標ランク (3位想定) の価格
+        const rank3Price=tops[2]?tops[2].price:0;
+        const rank1Price=tops[0]?tops[0].price:0;
+        const rank5Price=tops[4]?tops[4].price:0;
+
+        // 価格差から推奨
+        let action='';
+        if(hdmRank&&hdmPrice){
+          if(hdmRank<=3){
+            action=`<b style="color:#059669">✅ 現在Top3</b>。${hdmRank}位を維持する価格戦略OK`;
+          }else if(hdmRank<=5){
+            const targetDrop=hdmPrice-rank3Price-100;
+            action=`🎯 3位入りに <b style="color:#dc2626">¥${fmtK(hdmPrice)} → ¥${fmtK(rank3Price-100)}</b> (-¥${fmtK(targetDrop)}) で順位UP<br>→ 期待効果: +約15-25件 (順位3位入り効果)`;
+          }else{
+            const targetDrop=hdmPrice-rank5Price-100;
+            action=`⚠️ ${hdmRank}位 → Top5入りに <b style="color:#dc2626">¥${fmtK(hdmPrice)} → ¥${fmtK(rank5Price-100)}</b> (-¥${fmtK(targetDrop)})<br>→ 期待効果: +約20-30件 (Top5入り効果)`;
+          }
+        }else{
+          // HDMが順位に入っていない or hdm_rank=null → 競合価格を見て参入推奨
+          const targetEntry=rank5Price>0?rank5Price-100:median(tops.map(t=>t.price));
+          action=`📡 HDM未掲載 or 圏外。<b style="color:#1e3a8a">¥${fmtK(targetEntry)} 以下で Top5入り狙い</b><br>→ ${OTA_L[o]||o}での競争力強化が必要`;
+        }
+
+        html+=`<div style="background:#fff;border:2px solid #2563eb;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div><span class="tag ${OTA_C[o]||''}">${OTA_L[o]||o}</span> <span style="font-size:11px;color:#6b7280">${m.class_name||''}</span></div>
+            <div style="font-size:10px;color:#94a3b8">${m.target_date} 調査</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:10px">
+            <div style="background:#fef3c7;padding:8px 10px;border-radius:6px"><div style="font-size:10px;color:#92400e;font-weight:700">🥇 1位</div><div style="font-size:14px;font-weight:900;color:#7c2d12">¥${fmtK(top3[0]?.price)}</div><div style="font-size:9px;color:#94a3b8">${(top3[0]?.company||'').substring(0,12)}</div></div>
+            <div style="background:#e5e7eb;padding:8px 10px;border-radius:6px"><div style="font-size:10px;color:#374151;font-weight:700">🥈 2位</div><div style="font-size:14px;font-weight:900;color:#374151">¥${fmtK(top3[1]?.price)}</div><div style="font-size:9px;color:#94a3b8">${(top3[1]?.company||'').substring(0,12)}</div></div>
+            <div style="background:#fde68a;padding:8px 10px;border-radius:6px"><div style="font-size:10px;color:#92400e;font-weight:700">🥉 3位</div><div style="font-size:14px;font-weight:900;color:#92400e">¥${fmtK(top3[2]?.price)}</div><div style="font-size:9px;color:#94a3b8">${(top3[2]?.company||'').substring(0,12)}</div></div>
+            <div style="background:${hdmRank?'#dbeafe':'#fee2e2'};padding:8px 10px;border-radius:6px;border:2px solid ${hdmRank?'#1e3a8a':'#dc2626'}"><div style="font-size:10px;font-weight:700;color:${hdmRank?'#1e3a8a':'#991b1b'}">🚗 HDM ${hdmRank?`${hdmRank}位`:'圏外'}</div><div style="font-size:14px;font-weight:900;color:${hdmRank?'#1e3a8a':'#991b1b'}">${hdmPrice?'¥'+fmtK(hdmPrice):'-'}</div><div style="font-size:9px;color:#94a3b8">${m.total_count}社中</div></div>
+          </div>
+          <div style="background:#eff6ff;border-left:3px solid #1e3a8a;padding:8px 10px;font-size:12px;color:#1e3a8a;border-radius:4px;line-height:1.6">${action}</div>
+        </div>`;
+      });
+
+      html+='</div></div>';
+    }
+  }
+
+  // ===== 達成方程式 (具体的シナリオ計算) =====
+  if(gap>0){
+    // 予測される未来件数 (現状ペース)
+    const remainingPredCnt=remaining>0&&elapsed>0?Math.round(currentCnt/elapsed*remaining):Math.round(pastAvgCnt-currentCnt);
+    const futureExpectedCnt=Math.max(remainingPredCnt,0);
+    const totalExpectedCnt=currentCnt+futureExpectedCnt;
+
+    // 過去平均オプション/客
+    const pastOpts=pastSameMonth.map(r=>+(r.option_price||0)).filter(o=>o>0);
+    const pastOptMed=median(pastOpts);
+
+    // クラス別現在単価
+    const classData2={};
+    pastSameMonth.forEach(r=>{
+      const c=r.hdm_class||'?';
+      if(!classData2[c])classData2[c]={cnt:0,p:[]};
+      classData2[c].cnt++;
+      if(r.total_price)classData2[c].p.push(r.total_price);
+    });
+
+    // 価格弾力性 (-5% → +10件, -10% → +25件, -15% → +40件)
+    const elasticity={5:1.10,8:1.18,10:1.25,12:1.32,15:1.40};
+
+    html+='<div class="section"><div class="section-title">🎯 達成方程式 — どうすれば目標到達するか (具体的シナリオ)</div><div class="section-body">';
+
+    // ===== シナリオ1: 単価UP =====
+    const uplift=Math.ceil(gap/Math.max(totalExpectedCnt,1)/100)*100;
+    html+=`<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:900;color:#7c2d12;margin-bottom:6px">📈 シナリオA — 単価UP路線</div>
+      <div style="font-size:12px;color:#92400e;line-height:1.7">
+        <b>残${futureExpectedCnt}件×単価+¥${fmtK(uplift)}</b> を実現すれば達成<br>
+        <b>計算根拠</b>: ギャップ¥${fmtK(gap)} ÷ 残期待${futureExpectedCnt}件 = +¥${fmtK(uplift)}/予約<br>
+        <b>実行案</b>: シーズナル係数を ${m}月 +${(uplift/avgPrice*100).toFixed(0)}% UP / 早期予約の割引解除 / 高単価OTA (じゃらん・HP) 優先
+      </div>
+    </div>`;
+
+    // ===== シナリオ2: オプション追加 =====
+    const optBoost=Math.ceil(gap/Math.max(totalExpectedCnt,1)/100)*100;
+    html+=`<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:900;color:#7c2d12;margin-bottom:6px">🎁 シナリオB — オプション追加路線</div>
+      <div style="font-size:12px;color:#92400e;line-height:1.7">
+        <b>全${totalExpectedCnt}予約に +¥${fmtK(optBoost)}/件 のオプション追加</b>で達成<br>
+        <b>過去${monthName}実績</b>: 平均オプション売上 ¥${fmtK(pastOptMed||3000)}/予約<br>
+        <b>実行案</b>: チャイルドシート (¥1,500) / カーナビ (¥1,000) / USB (¥500) / 補償フル (¥2,000) → 合計+¥${fmtK(Math.max(optBoost,5000))}<br>
+        ${pastOptMed>0?`<b>引き上げ余地</b>: 過去${fmtY(pastOptMed)} → 目標${fmtY(pastOptMed+optBoost)} (+${Math.round(optBoost/pastOptMed*100)}%)`:''}
+      </div>
+    </div>`;
+
+    // ===== シナリオ3-5: クラス別 値下げ =====
+    const topCls=Object.entries(classData2).sort((a,b)=>b[1].cnt-a[1].cnt).slice(0,3);
+    topCls.forEach(([c,d],idx)=>{
+      const curP=median(d.p);
+      if(!curP)return;
+      // 過去同月のクラス別件数 (年平均)
+      const yrCnt=pastYears.length>0?d.cnt/pastYears.length:d.cnt;
+      // 各値下げ%で達成試算
+      const scenarios=[];
+      [5,10,15].forEach(disc=>{
+        const newP=Math.round(curP*(1-disc/100)/100)*100;
+        const volMult=elasticity[disc]||1.2;
+        const newVol=Math.round(yrCnt*volMult);
+        const addVol=newVol-Math.round(yrCnt);
+        const addRev=addVol*newP;
+        scenarios.push({disc,newP,addVol,addRev,achv:addRev>=gap});
+      });
+      const bestScen=scenarios.find(s=>s.achv)||scenarios[2];
+      html+=`<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:900;color:#7c2d12;margin-bottom:6px">💰 シナリオ${String.fromCharCode(67+idx)} — ${c}クラス 値下げ路線</div>
+        <div style="font-size:12px;color:#92400e;line-height:1.7">
+          <b>現在単価</b>: ${fmtY(curP)} / 過去${monthName}: ${Math.round(yrCnt)}件<br>
+          <table style="margin-top:6px;width:100%;font-size:11px;background:#fffbeb">
+            <thead><tr><th style="padding:4px;border-bottom:1px solid #f59e0b;text-align:left">値下げ</th><th style="padding:4px;border-bottom:1px solid #f59e0b;text-align:right">新単価</th><th style="padding:4px;border-bottom:1px solid #f59e0b;text-align:right">+件数</th><th style="padding:4px;border-bottom:1px solid #f59e0b;text-align:right">+売上</th><th style="padding:4px;border-bottom:1px solid #f59e0b">判定</th></tr></thead>
+            <tbody>${scenarios.map(s=>`<tr><td style="padding:4px">-${s.disc}%</td><td style="padding:4px;text-align:right">${fmtY(s.newP)}</td><td style="padding:4px;text-align:right;color:#059669;font-weight:700">+${s.addVol}件</td><td style="padding:4px;text-align:right;color:#92400e;font-weight:800">+¥${fmtK(s.addRev)}</td><td style="padding:4px;color:${s.achv?'#059669':'#9ca3af'};font-weight:800">${s.achv?'✅達成':'-'}</td></tr>`).join('')}</tbody>
+          </table>
+          <b>推奨</b>: ${bestScen.achv?`${c}クラス -${bestScen.disc}% (${fmtY(curP)}→${fmtY(bestScen.newP)}) で +${bestScen.addVol}件・+¥${fmtK(bestScen.addRev)} → ✅達成`:`単独では達成困難 (-15%でも+¥${fmtK(scenarios[2].addRev)})。他クラスと組合せ`}
+        </div>
+      </div>`;
+    });
+
+    // ===== シナリオN: OTA別 アクション =====
+    const topOtas=Object.entries(otaShare).sort((a,b)=>b[1].r-a[1].r).slice(0,3);
+    topOtas.forEach(([o,d],idx)=>{
+      const otaP=median(pastSameMonth.filter(r=>r.ota===o).map(r=>r.total_price).filter(p=>p>0));
+      if(!otaP)return;
+      const yrCnt=pastYears.length>0?d.c/pastYears.length:d.c;
+      // 順位UP想定 (現5位→3位 = -7%値下げ的効果 = volume +18%)
+      const rankScens=[
+        {action:'-5%値下げ',disc:5,vol:1.10},
+        {action:'-8%値下げ (順位UP)',disc:8,vol:1.18},
+        {action:'-12%値下げ (Top3入り)',disc:12,vol:1.32},
+      ];
+      const calcs=rankScens.map(s=>{
+        const newP=Math.round(otaP*(1-s.disc/100)/100)*100;
+        const newVol=Math.round(yrCnt*s.vol);
+        const addVol=newVol-Math.round(yrCnt);
+        const addRev=addVol*newP;
+        return{...s,newP,addVol,addRev,achv:addRev>=gap};
+      });
+      const bestC=calcs.find(s=>s.achv)||calcs[2];
+      html+=`<div style="background:#eff6ff;border:2px solid #2563eb;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:900;color:#1e3a8a;margin-bottom:6px">📡 シナリオ${String.fromCharCode(70+idx)} — ${OTA_L[o]||o} 強化路線</div>
+        <div style="font-size:12px;color:#1e40af;line-height:1.7">
+          <b>過去${monthName}実績</b>: ${Math.round(yrCnt)}件 / 単価${fmtY(otaP)}<br>
+          <table style="margin-top:6px;width:100%;font-size:11px;background:#fff">
+            <thead><tr><th style="padding:4px;border-bottom:1px solid #2563eb;text-align:left">アクション</th><th style="padding:4px;border-bottom:1px solid #2563eb;text-align:right">新単価</th><th style="padding:4px;border-bottom:1px solid #2563eb;text-align:right">+件数</th><th style="padding:4px;border-bottom:1px solid #2563eb;text-align:right">+売上</th><th style="padding:4px;border-bottom:1px solid #2563eb">判定</th></tr></thead>
+            <tbody>${calcs.map(s=>`<tr><td style="padding:4px">${s.action}</td><td style="padding:4px;text-align:right">${fmtY(s.newP)}</td><td style="padding:4px;text-align:right;color:#059669;font-weight:700">+${s.addVol}件</td><td style="padding:4px;text-align:right;color:#1e3a8a;font-weight:800">+¥${fmtK(s.addRev)}</td><td style="padding:4px;color:${s.achv?'#059669':'#9ca3af'};font-weight:800">${s.achv?'✅達成':'-'}</td></tr>`).join('')}</tbody>
+          </table>
+          <b>推奨</b>: ${bestC.achv?`${OTA_L[o]}で ${bestC.action} → +${bestC.addVol}件・+¥${fmtK(bestC.addRev)} (${(bestC.addRev/gap*100).toFixed(0)}%カバー) → ✅達成`:`単独では達成困難。複数路線併用が必要`}
+        </div>
+      </div>`;
+    });
+
+    html+='<div style="margin-top:8px;padding:10px;background:#f3f4f6;border-radius:6px;font-size:11px;color:#374151;line-height:1.6">📌 価格弾力性: -5%→+10件・-10%→+25件・-15%→+40件 (一般的レンタカー業界係数)。実測は過去実施月との比較で調整可能</div>';
+    html+='</div></div>';
+  }
+
+  // ===== 「こうすれば行く」プロジェクション =====
+  if(gap>0){
+    // シナリオ1: 現状ペースのみ
+    const currentDailyPace=elapsed>0?currentRev/elapsed:0;
+    const projection1=currentRev+currentDailyPace*remaining;
+    // シナリオ2: 過去同月平均ペース
+    const projection2=pastAvgRev*(currentRev/pastAvgRev||1)+pastAvgRev*(remaining/totalDays);
+    const projection2Clean=Math.max(currentRev,pastAvgRev*(remaining/totalDays+(elapsed/totalDays)));
+    // シナリオ3: アクション全実行ベスト
+    const actionBoost=Math.min(neededCnt*avgPrice,gap*0.8);
+    const projection3=currentRev+(currentDailyPace*remaining)+actionBoost;
+
+    html+='<div class="section"><div class="section-title">🔮 「こうすれば行く」シナリオ予測</div><div class="section-body">';
+    html+='<table><thead><tr><th>シナリオ</th><th class="num">月末予測</th><th class="num">vs目標</th><th>判定</th></tr></thead><tbody>';
+    const renderScen=(name,val,note)=>{
+      const pct=target>0?val/target*100:0;
+      const achv=val>=target;
+      return `<tr><td><b>${name}</b><br><span style="font-size:9px;color:#94a3b8">${note}</span></td><td class="num" style="font-weight:800;color:${achv?'#059669':'#dc2626'}">¥${fmtK(val)}</td><td class="num">${pct.toFixed(0)}%</td><td style="color:${achv?'#059669':'#dc2626'};font-weight:800">${achv?'✅達成':'❌未達 ('+fmtY(target-val)+')'}</td></tr>`;
+    };
+    html+=renderScen('🔴 現状放置',projection1,'残'+remaining+'日も現ペースで推移');
+    html+=renderScen('🟡 過去平均ペース回復',projection2Clean,'過去同月の標準パターンに乗せる');
+    html+=renderScen('🟢 全対策実行',projection3,'値下げ+OTA強化+直前訴求すべて実施');
+    html+='</tbody></table>';
+    html+=`<div style="margin-top:10px;padding:10px;background:${projection3>=target?'#ecfdf5':'#fef2f2'};border-radius:6px;font-size:12px;font-weight:700;color:${projection3>=target?'#065f46':'#991b1b'}">${projection3>=target?'✅ 全対策実行で目標達成可能':'❌ 全対策実行しても目標未達 → 目標調整 or 緊急策の検討必要'}</div>`;
+    html+='</div></div>';
+  }
+
+  document.getElementById('content').innerHTML=html;
+}
+</script>
+</body>
+</html>
