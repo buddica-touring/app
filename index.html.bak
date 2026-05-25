@@ -15416,7 +15416,29 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     else onFleetChange({...fleet,[resId]:vehicleCode});
   };
 
-  const groups=useMemo(()=>vehicleClasses.map(vc=>({...vc,items:vehicles.filter(v=>v.type===vc.type)})).filter(g=>g.items.length>0),[vehicles,vehicleClasses]);
+  // ★ 車両折りたたみ機能 (2026-05-26 オーナー要望): 個別車両を一時的に配車表から非表示
+  //    保存先: localStorage (端末別) / value: vehicle_code 配列
+  const[hiddenVeh,setHiddenVeh]=useState(()=>{try{return JSON.parse(localStorage.getItem("bt_fleet_hidden_v")||"[]");}catch(e){return [];}});
+  const toggleHideVeh=React.useCallback((code)=>{
+    setHiddenVeh(prev=>{
+      const next=prev.includes(code)?prev.filter(c=>c!==code):[...prev,code];
+      try{localStorage.setItem("bt_fleet_hidden_v",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  },[]);
+  const restoreAllInClass=React.useCallback((classType)=>{
+    setHiddenVeh(prev=>{
+      const next=prev.filter(code=>{const v=vehicles.find(x=>x.code===code);return !v||v.type!==classType;});
+      try{localStorage.setItem("bt_fleet_hidden_v",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  },[vehicles]);
+  const groups=useMemo(()=>vehicleClasses.map(vc=>{
+    const allItems=vehicles.filter(v=>v.type===vc.type);
+    const items=allItems.filter(v=>!hiddenVeh.includes(v.code));
+    const hiddenCount=allItems.length-items.length;
+    return{...vc,items,hiddenCount,allItemsCount:allItems.length};
+  }).filter(g=>g.allItemsCount>0),[vehicles,vehicleClasses,hiddenVeh]);
 
   return <div style={{display:"flex",flexDirection:"column",background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,.06)",border:"1px solid #e5e7eb",overflow:"hidden",height:"100%",minHeight:0}}>
     <div style={{padding:isMobile?"4px 6px":"8px 12px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:isMobile?4:8,flexShrink:0,position:"sticky",top:0,zIndex:20}}>
@@ -15556,7 +15578,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <tbody>
           {groups.map(g=><React.Fragment key={g.type}>
             <tr onClick={()=>toggleClass(g.type)} style={{cursor:"pointer",userSelect:"none"}}>
-              <td style={{position:"sticky",left:0,zIndex:5,height:CLASS_H,background:"#f8fafc",borderBottom:"1px solid #e2e8f0",borderRight:"2px solid #94a3b8",padding:"0 6px"}}><span style={{fontSize:10,color:"#64748b",marginRight:3}}>{collapsed[g.type]?"▶":"▼"}</span><span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#334155"}}>{isMobile?g.type:g.type+"クラス（"+g.label+"）"}</span>{!isMobile&&<span style={{fontSize:8,color:"#64748b",marginLeft:4}}>稼働{g.items.filter(v=>isKpiActive(v.code)).length}/{g.items.length}台</span>}</td>
+              <td style={{position:"sticky",left:0,zIndex:5,height:CLASS_H,background:"#f8fafc",borderBottom:"1px solid #e2e8f0",borderRight:"2px solid #94a3b8",padding:"0 6px"}}><span style={{fontSize:10,color:"#64748b",marginRight:3}}>{collapsed[g.type]?"▶":"▼"}</span><span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#334155"}}>{isMobile?g.type:g.type+"クラス（"+g.label+"）"}</span>{!isMobile&&<span style={{fontSize:8,color:"#64748b",marginLeft:4}}>稼働{g.items.filter(v=>isKpiActive(v.code)).length}/{g.items.length}台</span>}{g.hiddenCount>0&&<span onClick={e=>{e.stopPropagation();if(window.confirm(g.type+"クラスの折りたたみ中"+g.hiddenCount+"台を全て表示しますか？"))restoreAllInClass(g.type);}} title={"折りたたみ中 "+g.hiddenCount+"台 / クリックで全て表示に戻す"} style={{fontSize:8,fontWeight:700,marginLeft:4,padding:"1px 5px",borderRadius:3,cursor:"pointer",background:"#fef3c7",color:"#92400e",border:"1px solid #fbbf24"}}>👁 {g.hiddenCount}台折りたたみ中</span>}</td>
               {dates.map(d=><td key={d} style={{height:CLASS_H,borderBottom:"1px solid #e2e8f0",background:"#f8fafc",borderRight:"1px solid #e2e8f0"}}/>)}
             </tr>
             {!collapsed[g.type]&&g.items.map(v=>{const bars=vehicleBars[v.code]||[];const isDT=dropTarget&&dropTarget.vc===v.code;const rowHL=isDT?(dropTarget.ok?"rgba(34,197,94,.15)":"rgba(239,68,68,.1)"):"transparent";const hasSearchHit=searchResult&&searchResult.found&&bars.some(b=>b.type==="reservation"&&searchResult.hitSet.has(b.r.id));return <tr key={v.id} ref={el=>{vehicleRowRefs.current[v.code]=el;}} onDragOver={e=>handleDragOver(e,v.code)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,v.code)} style={{outline:isDT?(dropTarget.ok?"2px solid #22c55e":"2px dashed #ef4444"):"none",background:hasSearchHit?"#fefce8":"transparent"}}>
@@ -15565,6 +15587,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
                 <span style={{fontSize:isMobile?9:10,fontWeight:700,color:hasSearchHit?"#b45309":"#2563eb"}}>{v.no}<span style={{fontSize:8,color:hasSearchHit?"#92400e":"#94a3b8",fontWeight:500}}>({v.seats})</span></span>
                 {!isMobile&&<span style={{fontSize:9,color:"#64748b",marginLeft:4}}>{v.name}</span>}
                 <span onClick={e=>{e.stopPropagation();toggleKpi(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:isKpiActive(v.code)?"#dcfce7":"#fee2e2",color:isKpiActive(v.code)?"#059669":"#dc2626",border:"1px solid "+(isKpiActive(v.code)?"#86efac":"#fca5a5")}} title={isKpiActive(v.code)?"稼働中（クリックで除外）":"除外中（クリックで稼働に変更）"}>{isKpiActive(v.code)?"稼働":"除外"}</span>
+                <span onClick={e=>{e.stopPropagation();toggleHideVeh(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:"#f1f5f9",color:"#64748b",border:"1px solid #cbd5e1"}} title="折りたたみ（一時的に非表示・クラス見出しから戻せます）">👁 隠す</span>
                 {(()=>{const u=utilRates[v.code];if(!u)return null;const pc=u.pct;const cl=pc>=80?"#dc2626":pc>=50?"#f59e0b":"#22c55e";return <span style={{fontSize:8,fontWeight:700,color:cl,marginLeft:4,background:pc>=80?"#fef2f2":pc>=50?"#fffbeb":"#f0fdf4",padding:"0 3px",borderRadius:3}}>{u.days}日{!isMobile&&" "+pc+"%"}</span>;})()}
               </td>
               {dates.map((d,di)=>{const isToday=d===today;return <td key={d} style={{position:"relative",height:ROW_H,borderBottom:"1px solid #f1f5f9",borderRight:"1px solid #e2e8f0",cursor:dragInfo?"copy":"pointer",background:isDT?rowHL:(isToday?"#eff6ff":"transparent"),padding:0,transition:"background .15s"}} onClick={()=>{if(!dragInfo)handleCellClick(v.code,d);}}>
@@ -21264,7 +21287,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.46-BT";
+const APP_VERSION="v1.0.47-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
