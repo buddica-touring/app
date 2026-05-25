@@ -15293,6 +15293,38 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     return bars;
   },[data,fleet,dates,maintenance,vehicles]);
 
+  // ★ 車両別売上 (2026-05-26 オーナー要望): 配車表に表示中の予約の price 合計
+  const vehicleRevenue=useMemo(()=>{
+    const map={};
+    Object.keys(vehicleBars).forEach(code=>{
+      map[code]=(vehicleBars[code]||[]).reduce((s,b)=>{
+        if(b.type==="reservation"&&b.r&&b.r.status!=="cancelled"){
+          const bp=+(b.r.base_price||b.r.basePrice||0);
+          const op=+(b.r.option_price||b.r.optionPrice||0);
+          const disc=+(b.r.discount||0);
+          const rev=(bp>0||op>0)?Math.max(0,bp+op-disc):+(b.r.price||0);
+          return s+rev;
+        }
+        return s;
+      },0);
+    });
+    return map;
+  },[vehicleBars]);
+  const classRevenue=useMemo(()=>{
+    const map={};
+    vehicles.forEach(v=>{
+      if(!map[v.type])map[v.type]=0;
+      map[v.type]+=vehicleRevenue[v.code]||0;
+    });
+    return map;
+  },[vehicles,vehicleRevenue]);
+  const fmtRev=(n)=>{
+    if(!n||n<=0)return "¥0";
+    if(n>=10000000)return "¥"+(n/10000).toFixed(0)+"万";
+    if(n>=10000)return "¥"+(n/10000).toFixed(1)+"万";
+    return "¥"+Math.round(n).toLocaleString();
+  };
+
   // 車両ごとの月別稼働率（表示期間の月の1日〜末日で計算）
   const utilRates=useMemo(()=>{
     const bd=new Date(baseDate+"T00:00:00");const y=bd.getFullYear(),m=bd.getMonth();
@@ -15578,7 +15610,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <tbody>
           {groups.map(g=><React.Fragment key={g.type}>
             <tr onClick={()=>toggleClass(g.type)} style={{cursor:"pointer",userSelect:"none"}}>
-              <td style={{position:"sticky",left:0,zIndex:5,height:CLASS_H,background:"#f8fafc",borderBottom:"1px solid #e2e8f0",borderRight:"2px solid #94a3b8",padding:"0 6px"}}><span style={{fontSize:10,color:"#64748b",marginRight:3}}>{collapsed[g.type]?"▶":"▼"}</span><span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#334155"}}>{isMobile?g.type:g.type+"クラス（"+g.label+"）"}</span>{!isMobile&&<span style={{fontSize:8,color:"#64748b",marginLeft:4}}>稼働{g.items.filter(v=>isKpiActive(v.code)).length}/{g.items.length}台</span>}{g.hiddenCount>0&&<span onClick={e=>{e.stopPropagation();if(window.confirm(g.type+"クラスの折りたたみ中"+g.hiddenCount+"台を全て表示しますか？"))restoreAllInClass(g.type);}} title={"折りたたみ中 "+g.hiddenCount+"台 / クリックで全て表示に戻す"} style={{fontSize:8,fontWeight:700,marginLeft:4,padding:"1px 5px",borderRadius:3,cursor:"pointer",background:"#fef3c7",color:"#92400e",border:"1px solid #fbbf24"}}>👁 {g.hiddenCount}台折りたたみ中</span>}</td>
+              <td style={{position:"sticky",left:0,zIndex:5,height:CLASS_H,background:"#f8fafc",borderBottom:"1px solid #e2e8f0",borderRight:"2px solid #94a3b8",padding:"0 6px"}}><span style={{fontSize:10,color:"#64748b",marginRight:3}}>{collapsed[g.type]?"▶":"▼"}</span><span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#334155"}}>{isMobile?g.type:g.type+"クラス（"+g.label+"）"}</span>{!isMobile&&<span style={{fontSize:8,color:"#64748b",marginLeft:4}}>稼働{g.items.filter(v=>isKpiActive(v.code)).length}/{g.items.length}台</span>}{classRevenue[g.type]>0&&<span title={"クラス売上 ¥"+Math.round(classRevenue[g.type]).toLocaleString()+" (配車表 表示期間内)"} style={{fontSize:isMobile?8:9,fontWeight:800,marginLeft:5,padding:"1px 6px",borderRadius:4,background:"linear-gradient(135deg,#dcfce7,#bbf7d0)",color:"#15803d",border:"1px solid #86efac"}}>💰 {fmtRev(classRevenue[g.type])}</span>}{g.hiddenCount>0&&<span onClick={e=>{e.stopPropagation();if(window.confirm(g.type+"クラスの折りたたみ中"+g.hiddenCount+"台を全て表示しますか？"))restoreAllInClass(g.type);}} title={"折りたたみ中 "+g.hiddenCount+"台 / クリックで全て表示に戻す"} style={{fontSize:8,fontWeight:700,marginLeft:4,padding:"1px 5px",borderRadius:3,cursor:"pointer",background:"#fef3c7",color:"#92400e",border:"1px solid #fbbf24"}}>👁 {g.hiddenCount}台折りたたみ中</span>}</td>
               {dates.map(d=><td key={d} style={{height:CLASS_H,borderBottom:"1px solid #e2e8f0",background:"#f8fafc",borderRight:"1px solid #e2e8f0"}}/>)}
             </tr>
             {!collapsed[g.type]&&g.items.map(v=>{const bars=vehicleBars[v.code]||[];const isDT=dropTarget&&dropTarget.vc===v.code;const rowHL=isDT?(dropTarget.ok?"rgba(34,197,94,.15)":"rgba(239,68,68,.1)"):"transparent";const hasSearchHit=searchResult&&searchResult.found&&bars.some(b=>b.type==="reservation"&&searchResult.hitSet.has(b.r.id));return <tr key={v.id} ref={el=>{vehicleRowRefs.current[v.code]=el;}} onDragOver={e=>handleDragOver(e,v.code)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,v.code)} style={{outline:isDT?(dropTarget.ok?"2px solid #22c55e":"2px dashed #ef4444"):"none",background:hasSearchHit?"#fefce8":"transparent"}}>
@@ -15588,6 +15620,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
                 {!isMobile&&<span style={{fontSize:9,color:"#64748b",marginLeft:4}}>{v.name}</span>}
                 <span onClick={e=>{e.stopPropagation();toggleKpi(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:isKpiActive(v.code)?"#dcfce7":"#fee2e2",color:isKpiActive(v.code)?"#059669":"#dc2626",border:"1px solid "+(isKpiActive(v.code)?"#86efac":"#fca5a5")}} title={isKpiActive(v.code)?"稼働中（クリックで除外）":"除外中（クリックで稼働に変更）"}>{isKpiActive(v.code)?"稼働":"除外"}</span>
                 <span onClick={e=>{e.stopPropagation();toggleHideVeh(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:"#f1f5f9",color:"#64748b",border:"1px solid #cbd5e1"}} title="折りたたみ（一時的に非表示・クラス見出しから戻せます）">👁 隠す</span>
+                {vehicleRevenue[v.code]>0&&<span title={"車両売上 ¥"+Math.round(vehicleRevenue[v.code]).toLocaleString()+" (配車表 表示期間内)"} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,background:"#f0fdf4",color:"#15803d",border:"1px solid #86efac"}}>💰 {fmtRev(vehicleRevenue[v.code])}</span>}
                 {(()=>{const u=utilRates[v.code];if(!u)return null;const pc=u.pct;const cl=pc>=80?"#dc2626":pc>=50?"#f59e0b":"#22c55e";return <span style={{fontSize:8,fontWeight:700,color:cl,marginLeft:4,background:pc>=80?"#fef2f2":pc>=50?"#fffbeb":"#f0fdf4",padding:"0 3px",borderRadius:3}}>{u.days}日{!isMobile&&" "+pc+"%"}</span>;})()}
               </td>
               {dates.map((d,di)=>{const isToday=d===today;return <td key={d} style={{position:"relative",height:ROW_H,borderBottom:"1px solid #f1f5f9",borderRight:"1px solid #e2e8f0",cursor:dragInfo?"copy":"pointer",background:isDT?rowHL:(isToday?"#eff6ff":"transparent"),padding:0,transition:"background .15s"}} onClick={()=>{if(!dragInfo)handleCellClick(v.code,d);}}>
@@ -21287,7 +21320,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.47-BT";
+const APP_VERSION="v1.0.48-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
