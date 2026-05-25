@@ -1679,7 +1679,15 @@ async function run(){
         html+=`<div class="hero" style="margin-bottom:14px${!isCur?';cursor:pointer':''}"${!isCur?` onclick="document.getElementById('month').value=${mm.m};run();"`:''}>`;
         html+=`<div class="hero-card target"><div class="h-label">🎯 ${mm.m}月 目標</div><div class="h-value">${fmtY(tgt)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#92400e"><b>売上 = 件数 × 単価</b><br>= <b>${targetCntV}件</b> × <b>${fmtY(_pastAov)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehTgt)}</span></div></div>`;
         html+=`<div class="hero-card" style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fb923c"><div class="h-label">💰 ${mm.m}月 速報 <span style="font-size:10px;color:#9a3412">(${ymdStr(d.execDate)})</span></div><div class="h-value" style="color:#c2410c">${fmtY(cur)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#9a3412"><b>売上 = 件数 × 単価</b><br>= <b>${curCnt}件</b> × <b>${fmtY(curAovV)}</b><br><span style="color:#7c2d12">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehAct)}</span></div></div>`;
-        html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${mm.m}月 ${isPast?'実績':'予測'}</div><div class="h-value">${fmtY(fcst)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af"><b>売上 = 件数 × 単価</b><br>= <b>${fcstCntV}件</b> × <b>${fmtY(fcstAovV)}</b><br><span style="color:#1e3a8a">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehFcst)}</span></div></div>`;
+        // 📊 予測命中率 (オーナー定義 2026-05-26): 速報(グロス) ÷ 予測 × 100
+        let _hitRateLineBT='';
+        if(!isPast&&fcst>0){
+          const _hitRate=cur/fcst*100;
+          const _hitClr=_hitRate>=90?'#16a34a':_hitRate>=70?'#d97706':_hitRate>=40?'#dc2626':'#7f1d1d';
+          const _hitIcon=_hitRate>=90?'🟢':_hitRate>=70?'🟡':_hitRate>=40?'🟠':'🔴';
+          _hitRateLineBT=`<div style="margin-top:6px;padding:5px 8px;background:rgba(255,255,255,.65);border-radius:5px;border:1px solid ${_hitClr}33"><b style="color:${_hitClr};font-size:12.5px">${_hitIcon} 予測命中率 ${_hitRate.toFixed(1)}%</b> <span style="font-size:10px;color:#475569">速報¥${cur.toLocaleString()} ÷ 予測¥${fcst.toLocaleString()}</span></div>`;
+        }
+        html+=`<div class="hero-card forecast"><div class="h-label">🔮 ${mm.m}月 ${isPast?'実績':'予測'}</div><div class="h-value">${fmtY(fcst)}</div><div class="h-sub" style="font-size:11px;line-height:1.6;margin-top:8px;color:#1e40af"><b>売上 = 件数 × 単価</b><br>= <b>${fcstCntV}件</b> × <b>${fmtY(fcstAovV)}</b><br><span style="color:#1e3a8a">🚗 稼働 <b>${k.nActive}台</b> / 台 ${fmtY(perVehFcst)}</span>${_hitRateLineBT}</div></div>`;
         html+=`<div class="hero-card ${achCls}"><div class="h-label">📊 達成見込み</div><div class="h-value">${achV.toFixed(1)}%</div><div class="h-sub">${isPast?'実績':'予測'} ÷ 目標${isPast?'':` · 残${remainD}日`}</div></div>`;
         const _minP=k.minPred||0,_maxP=k.maxPred||0;
         const _range=_maxP-_minP;
