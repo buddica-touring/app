@@ -15293,12 +15293,21 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     return bars;
   },[data,fleet,dates,maintenance,vehicles]);
 
-  // ★ 車両別売上 (2026-05-26 オーナー要望): 配車表に表示中の予約の price 合計
+  // ★ 車両別売上 (2026-05-26 オーナー指示・返却日起算 確定):
+  //   集計範囲: returnDate が表示中の月内の予約のみ (TOPサマリー / forecast.html と整合)
   const vehicleRevenue=useMemo(()=>{
     const map={};
+    const _bd=baseDate||"";
+    const _ym=_bd.slice(0,7);
+    const _y=parseInt(_bd.slice(0,4))||(new Date().getFullYear());
+    const _m=parseInt(_bd.slice(5,7))||(new Date().getMonth()+1);
+    const _monthStart=_ym+"-01";
+    const _monthEnd=_ym+"-"+String(new Date(_y,_m,0).getDate()).padStart(2,"0");
     Object.keys(vehicleBars).forEach(code=>{
       map[code]=(vehicleBars[code]||[]).reduce((s,b)=>{
         if(b.type==="reservation"&&b.r&&b.r.status!=="cancelled"){
+          const rd=norm(b.r.returnDate);
+          if(!rd||rd<_monthStart||rd>_monthEnd)return s;
           const bp=+(b.r.base_price||b.r.basePrice||0);
           const op=+(b.r.option_price||b.r.optionPrice||0);
           const disc=+(b.r.discount||0);
@@ -15309,7 +15318,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       },0);
     });
     return map;
-  },[vehicleBars]);
+  },[vehicleBars,baseDate]);
   const classRevenue=useMemo(()=>{
     const map={};
     vehicles.forEach(v=>{
@@ -21329,7 +21338,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.49-BT";
+const APP_VERSION="v1.0.50-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
