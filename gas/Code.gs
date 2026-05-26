@@ -513,7 +513,7 @@ function isTakamatsuReservation_(res) {
 }
 
 /**
- * BUDDICA TOURISM 高松店 7クラス対応版（2026-05-21）
+ * BUDDICA TOURISM 高松空港店 7クラス対応版（2026-05-21）
  * クラス体系: AA / A / B / C / S / H / F（D, A2, B2 は廃止）
  * 詳細: ~/buddica-touring/docs/phase3_gas_setup/FUNCTION_REVIEW.md
  */
@@ -1109,8 +1109,8 @@ function testDerivePlaceType() {
     ['送迎バス11番', 'visit', 'PUB'],
     ['レンタカー送迎バス11番のりば', 'return', 'BDB'],
     // ★「○○空港店」も「空港」キーワードで PUB/BDB（オーナー判断 B案 / 来店は手動のみ）
-    ['BUDDICA TOURISM 高松店', 'visit', 'PUB'],
-    ['BUDDICA TOURISM 高松店', 'return', 'BDB'],
+    ['BUDDICA TOURISM 高松空港店', 'visit', 'PUB'],
+    ['BUDDICA TOURISM 高松空港店', 'return', 'BDB'],
     ['ホテルJALシティ高松', 'visit', 'DEL'],
     ['香川県高松市旭町123', 'visit', 'DEL'],
     ['香川県高松市旭町123', 'return', 'COL'],
@@ -3806,7 +3806,7 @@ function debugNhaPaymentCheck() {
 // じゃらん事前決済システム（高松店）
 // ============================================================
 var NAHA_JALAN_PAY_CHANNEL = 'C0B4ZUVFU90'  /* #payment_notification (BT) */; // #payment_takamatsu
-var BT_SQUARE_LOCATION_ID = 'L4RWQWN579CFW';  // BUDDICA TOURISM 高松店
+var BT_SQUARE_LOCATION_ID = 'L4RWQWN579CFW';  // BUDDICA TOURISM 高松空港店
 
 function btGetSquareToken_() {
   return PropertiesService.getScriptProperties().getProperty('SQUARE_API_TOKEN');
@@ -3873,14 +3873,14 @@ function btHandleJalanPayment_(reservation) {
   // 1. Square決済リンク作成
   var lendShort = (reservation.lend_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
   var retShort = (reservation.return_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
-  var itemName = 'BUDDICA TOURISM 高松店 ' + (reservation.name || '') + '様（' + resId + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
+  var itemName = 'BUDDICA TOURISM 高松空港店 ' + (reservation.name || '') + '様（' + resId + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
   var payUrl = btCreateSquarePaymentLink_(itemName, reservation.price || 0);
 
   if (!payUrl) {
     // Square API失敗 → status='new'で保存（nhaCheckSquareLinksでリトライ）
     var payData = {reservation_id: resId, customer_name: reservation.name, customer_email: reservation.mail || '', amount: reservation.price || 0, status: 'new', lend_date: reservation.lend_date, return_date: reservation.return_date, vehicle_class: reservation.vehicle || ''};
     supabasePost_('bt_jalan_payments', payData);
-    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Squareリンク作成失敗*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n金額： ¥' + (reservation.price || 0) + '\n→ nhaCheckSquareLinksトリガーでリトライします');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔴 *Squareリンク作成失敗*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n金額： ¥' + (reservation.price || 0) + '\n→ nhaCheckSquareLinksトリガーでリトライします');
     Logger.log('[NhaJalanPay] Square link failed, saved as new: ' + resId);
     return;
   }
@@ -3893,7 +3893,7 @@ function btHandleJalanPayment_(reservation) {
   Logger.log('[NhaJalanPay] Created: ' + resId + ' ¥' + reservation.price + ' → ' + payUrl);
 
   // 3. Slack投稿
-  var slackText = '💳 *じゃらん事前決済*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n品目： じゃらん事前決済(' + lendShort + '-' + retShort + ')\n金額： ¥' + (reservation.price || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
+  var slackText = '💳 *じゃらん事前決済*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + resId + '\n宛名： ' + reservation.name + '\n品目： じゃらん事前決済(' + lendShort + '-' + retShort + ')\n金額： ¥' + (reservation.price || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
   var slackTs = btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
   if (slackTs) {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(resId), {slack_ts: slackTs});
@@ -3914,11 +3914,11 @@ function btHandleJalanPaymentCancel_(reservationId) {
   if (prevStatus === 'paid') {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(reservationId), {status: 'refund', cancelled_at: now});
     btUpdatePaymentSheetStatus_(reservationId, '⚠️ 要返金', '');
-    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '⚠️ *返金対応必要*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 入金済みキャンセル → *要Square返金*');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '⚠️ *返金対応必要*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 入金済みキャンセル → *要Square返金*');
   } else {
     supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(reservationId), {status: 'cancelled', cancelled_at: now});
     btUpdatePaymentSheetStatus_(reservationId, '❌ キャンセル', '');
-    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔄 *キャンセル（決済前）*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 未入金キャンセル・対応不要');
+    btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '🔄 *キャンセル（決済前）*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + reservationId + '\n宛名： ' + (pay.customer_name || '') + '\n金額： ¥' + (pay.amount || 0) + '\n状態： 未入金キャンセル・対応不要');
   }
   Logger.log('[NhaJalanPayCancel] Done: ' + reservationId + ' → ' + (prevStatus === 'paid' ? 'refund' : 'cancelled'));
 }
@@ -3940,13 +3940,13 @@ function btCheckSquareLinks() {
     if (pay.status === 'new') {
       var lendShort = (pay.lend_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
       var retShort = (pay.return_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
-      var itemName = 'BUDDICA TOURISM 高松店 ' + (pay.customer_name || '') + '様（' + pay.reservation_id + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
+      var itemName = 'BUDDICA TOURISM 高松空港店 ' + (pay.customer_name || '') + '様（' + pay.reservation_id + '） じゃらん事前決済 ' + lendShort + '-' + retShort;
       var payUrl = btCreateSquarePaymentLink_(itemName, pay.amount || 0);
       if (!payUrl) { Logger.log('[NhaCheckLinks] Retry failed: ' + pay.reservation_id); continue; }
       var now = new Date().toISOString();
       supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {square_payment_url: payUrl, status: 'link_created', link_created_at: now});
       Logger.log('[NhaCheckLinks] Retry success: ' + pay.reservation_id + ' → ' + payUrl);
-      var slackText = '💳 *じゃらん事前決済（リトライ成功）*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
+      var slackText = '💳 *じゃらん事前決済（リトライ成功）*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString() + '\nSquareリンク： ' + payUrl;
       var slackTs = btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, slackText);
       if (slackTs && !pay.slack_ts) { supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {slack_ts: slackTs}); }
       btAppendToPaymentSheet_(pay, payUrl);
@@ -3959,7 +3959,7 @@ function btCheckSquareLinks() {
       var sent = btSendJalanPaymentEmail_(pay);
       if (sent) {
         supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'email_sent', email_sent_at: new Date().toISOString()});
-        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '📧 *メール送信完了*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + pay.amount);
+        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '📧 *メール送信完了*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + pay.amount);
         Logger.log('[NhaCheckLinks] Email sent: ' + pay.reservation_id);
       }
     }
@@ -3971,9 +3971,9 @@ function btCheckSquareLinks() {
 function btSendJalanPaymentEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) { Logger.log('[NhaJalanEmail] BLOCKED: missing data'); return false; }
   try {
-    var subject = '【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松店】事前決済・LINE登録のお願い（予約番号: ' + pay.reservation_id + '）';
+    var subject = '【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松空港店】事前決済・LINE登録のお願い（予約番号: ' + pay.reservation_id + '）';
     var body = (pay.customer_name || '') + ' 様\n\n'
-      + 'この度はBUDDICA TOURISM BUDDICA TOURISM 高松店をご予約いただき、誠にありがとうございます。\n'
+      + 'この度はBUDDICA TOURISM BUDDICA TOURISM 高松空港店をご予約いただき、誠にありがとうございます。\n'
       + '予約番号: ' + pay.reservation_id + '\n'
       + '貸出日: ' + (pay.lend_date || '') + '\n'
       + '返却日: ' + (pay.return_date || '') + '\n\n'
@@ -4006,10 +4006,10 @@ function btSendJalanPaymentEmail_(pay) {
       + '・現金決済をご希望の場合は大変お手数ですが事前にお問い合わせをお願い申しあげます。\n'
       + '・詳細はLINEにてご案内いたします。\n'
       + '━━━━━━━━━━━━━━━━━━━━\n'
-      + 'BUDDICA TOURISM BUDDICA TOURISM 高松店\n'
+      + 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店\n'
       + 'TEL: 050-1724-6197（9:00〜19:00）\n'
       + 'LINE ID👉 @466dbckq\n';
-    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM BUDDICA TOURISM 高松店', from: 'reserve@rent-buddica-touring.jp', replyTo: 'reserve@rent-buddica-touring.jp'});
+    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店', from: 'reserve@rent-buddica-touring.jp', replyTo: 'reserve@rent-buddica-touring.jp'});
     return true;
   } catch (e) { Logger.log('[NhaJalanEmail] Error: ' + e.message); return false; }
 }
@@ -4054,7 +4054,7 @@ function btCheckJalanPaymentStatus() {
       if (paidInfo) {
         supabaseUpdate_('bt_jalan_payments', 'reservation_id=eq.' + encodeURIComponent(pay.reservation_id), {status: 'paid', paid_at: paidInfo.paid_at});
         btUpdatePaymentSheetStatus_(pay.reservation_id, '✅ 入金済み', paidInfo.paid_at);
-        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '✅ *入金確認完了*\n店舗： BUDDICA TOURISM 高松店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString());
+        btPostToSlackChannel_(NAHA_JALAN_PAY_CHANNEL, '✅ *入金確認完了*\n店舗： BUDDICA TOURISM 高松空港店\n予約番号： ' + pay.reservation_id + '\n宛名： ' + pay.customer_name + '\n金額： ¥' + (pay.amount || 0).toLocaleString());
         Logger.log('[NhaJalanPayStatus] ✅ Paid: ' + pay.reservation_id);
         paidCount++;
       }
@@ -4288,7 +4288,7 @@ function btAppendToPaymentSheet_(pay, payUrl) {
     }
     var lendShort = (pay.lend_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
     var retShort = (pay.return_date || '').replace(/^\d{4}-/, '').replace(/-/g, '/');
-    sheet.appendRow([lastRow, Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd'), 'BUDDICA TOURISM 高松店', pay.reservation_id, (pay.customer_name || '') + '様', 'じゃらん事前決済(' + lendShort + '-' + retShort + ')', pay.amount || 0, payUrl || pay.square_payment_url || '', '⏳ 未払い', '', '', pay.slack_ts || '', NAHA_JALAN_PAY_CHANNEL || '', 'じゃらん']);
+    sheet.appendRow([lastRow, Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd'), 'BUDDICA TOURISM 高松空港店', pay.reservation_id, (pay.customer_name || '') + '様', 'じゃらん事前決済(' + lendShort + '-' + retShort + ')', pay.amount || 0, payUrl || pay.square_payment_url || '', '⏳ 未払い', '', '', pay.slack_ts || '', NAHA_JALAN_PAY_CHANNEL || '', 'じゃらん']);
     Logger.log('[NhaSheet] Appended: ' + pay.reservation_id);
   } catch (e) { Logger.log('[NhaSheet] Append error: ' + e.message); }
 }
@@ -7423,7 +7423,7 @@ function resendBtJalanUnpaidReminder() {
 function btSendJalanReminderEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) return false;
   try {
-    var subject = '【リマインド】【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松店】事前決済のお願い（予約番号: ' + pay.reservation_id + '）';
+    var subject = '【リマインド】【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松空港店】事前決済のお願い（予約番号: ' + pay.reservation_id + '）';
     var body = pay.customer_name + ' 様\n\n'
       + 'レンタカー BUDDICA TOURISM 那覹空港店です。\n'
       + 'この度はご予約いただきありがとうございます。\n\n'
@@ -7447,10 +7447,10 @@ function btSendJalanReminderEmail_(pay) {
       + '当日のご連絡はLINEで行います。\n'
       + 'LINE公式👉 https://lin.ee/jMU6xdJ\n'
       + 'LINE ID👉 @466dbckq\n\n'
-      + 'BUDDICA TOURISM BUDDICA TOURISM 高松店\n'
+      + 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店\n'
       + 'TEL: 050-1724-6197（9:00〜19:00）\n';
     GmailApp.sendEmail(pay.customer_email, subject, body, {
-      name: 'BUDDICA TOURISM BUDDICA TOURISM 高松店',
+      name: 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店',
       from: 'reserve@rent-buddica-touring.jp',
       replyTo: 'reserve@rent-buddica-touring.jp'
     });
