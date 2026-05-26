@@ -15324,6 +15324,10 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     if(n>=10000)return "¥"+(n/10000).toFixed(1)+"万";
     return "¥"+Math.round(n).toLocaleString();
   };
+  // ★ 配車表ヘッダー集計 (2026-05-26 オーナー要望): 売上総額 / 台あたり / 進捗
+  //   BT 月別目標 (暫定・要オーナー確定): 各月 300万円
+  const BT_MONTHLY_TARGETS={1:3000000,2:3000000,3:3000000,4:3000000,5:3000000,6:3000000,7:4000000,8:5000000,9:4000000,10:4000000,11:3000000,12:3000000};
+  const totalRevenue=useMemo(()=>Object.values(vehicleRevenue).reduce((s,v)=>s+v,0),[vehicleRevenue]);
 
   // 車両ごとの月別稼働率（表示期間の月の1日〜末日で計算）
   const utilRates=useMemo(()=>{
@@ -15484,6 +15488,11 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
           <span style={{background:"#fef3c7",color:"#92400e",padding:"2px 6px",borderRadius:4}}>返却 {monthStats.ret}</span>
           <span style={{background:"#dcfce7",color:"#166534",padding:"2px 6px",borderRadius:4}}>洗車 {monthStats.dep}</span>
           <span style={{background:"#f0fdf4",color:"#059669",padding:"2px 6px",borderRadius:4,border:"1px solid #86efac"}}>📊稼働 {kpiCount}台 {totalUtil.pct}%（{totalUtil.totalDays}/{totalUtil.maxDays}日）</span>
+          {(()=>{const baseMonth=parseInt((baseDate||"").split("-")[1])||(new Date().getMonth()+1);const monthTarget=BT_MONTHLY_TARGETS[baseMonth]||3000000;const revPerVeh=kpiCount>0?totalRevenue/kpiCount:0;const progressPct=monthTarget>0?(totalRevenue/monthTarget*100):0;const pBg=progressPct>=90?"#dcfce7":progressPct>=60?"#fef3c7":"#fee2e2";const pFg=progressPct>=90?"#15803d":progressPct>=60?"#92400e":"#b91c1c";const pBd=progressPct>=90?"#86efac":progressPct>=60?"#fcd34d":"#fca5a5";return <React.Fragment>
+            <span title={"配車表表示期間内の予約グロス売上合計 ¥"+Math.round(totalRevenue).toLocaleString()} style={{background:"#fff7ed",color:"#c2410c",padding:"2px 6px",borderRadius:4,border:"1px solid #fdba74"}}>💰 売上 {fmtRev(totalRevenue)}</span>
+            <span title={"1台あたり売上 ¥"+Math.round(revPerVeh).toLocaleString()+" (= 合計売上 ÷ 稼働台数"+kpiCount+"台)"} style={{background:"#eff6ff",color:"#1e40af",padding:"2px 6px",borderRadius:4,border:"1px solid #93c5fd"}}>🚗 台/{fmtRev(revPerVeh)}</span>
+            <span title={baseMonth+"月目標¥"+Math.round(monthTarget).toLocaleString()+" 達成率 "+progressPct.toFixed(1)+"% (※BT目標は暫定値)"} style={{background:pBg,color:pFg,padding:"2px 6px",borderRadius:4,border:"1px solid "+pBd}}>📊 進捗 {progressPct.toFixed(0)}%</span>
+          </React.Fragment>;})()}
         </span>}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:isMobile?2:8}}>
@@ -21320,7 +21329,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.48-BT";
+const APP_VERSION="v1.0.49-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
