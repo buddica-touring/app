@@ -2093,9 +2093,41 @@ window.addEventListener('load', ()=>{
 </div><!-- /data-bigtab="calendar" -->
 
 <script>
-const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
-const CLASSES = ['A','B','C','H','S','F'];
-const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
+// ===== area 切替 (2026-05-24) =====
+// URL ?area=tkm/nha/spk で店舗を切替。未指定時は TKM (既存挙動完全維持)
+const CURRENT_AREA = (new URLSearchParams(location.search).get('area') || 'tkm').toLowerCase();
+const VALID_AREAS_CLIENT = ['tkm', 'nha', 'spk'];
+const SAFE_AREA = VALID_AREAS_CLIENT.includes(CURRENT_AREA) ? CURRENT_AREA : 'tkm';
+// area別 localStorage キー (TKM は既存キーを完全維持・データ保護)
+const STORAGE_KEYS = {
+  tkm: 'bt_takamatsu_seasonal_v6',
+  nha: 'hdm_nha_seasonal_v1',
+  spk: 'hdm_spk_seasonal_v1'
+};
+const STORAGE_KEY = STORAGE_KEYS[SAFE_AREA];
+
+// ===== area 別 CLASSES / CLASS_NAMES (2026-05-24 Phase 2 後半) =====
+// 出典: server/{area}_class_rules.json (稼働中クラスのみ)
+// NHA: 7クラス (A/A2/B/B2/D/F/H) - クラス間連動方式 / 休眠 C・S は非表示
+// SPK: 6クラス (A/B/C/S/F/H) - 独立ベンチマーク
+// TKM: 6クラス (A/B/C/H/S/F) - シーズナル係数 (既存)
+const AREA_CLASS_DEF = {
+  tkm: {
+    classes: ['A','B','C','H','S','F'],
+    names: {A:'高級系MV', B:'一般MV', C:'コンパクトSUV', H:'セダン', S:'SUV', F:'コンパクト'}
+  },
+  nha: {
+    classes: ['A','A2','B','B2','D','F','H'],
+    names: {A:'30アルファード', A2:'30アル割引プラン', B:'ノア/セレナ/VOX/20アル系', B2:'B割引プラン', D:'ノア/セレナ/エスクァイア(旧型)', F:'コンパクト(ヴィッツ/アクア/ノート)', H:'プリウス/プリウスα'}
+  },
+  spk: {
+    classes: ['A','B','C','S','F','H'],
+    names: {A:'LUX高級MV(ヴェル/アル)', B:'MPVミニバン(ノア/デリカ)', C:'コンパクトSUV(ロッキー/CX-3)', S:'SUV(ハリアー/CX-5)', F:'コンパクト(ソリオ)', H:'セダン(アクセラ)'}
+  }
+};
+const _areaDef = AREA_CLASS_DEF[SAFE_AREA] || AREA_CLASS_DEF.tkm;
+const CLASSES = _areaDef.classes;
+const CLASS_NAMES = _areaDef.names;
 const TIERS = [['A','閑散','#854d0e','#fef9c3'],['B','通常','#1e40af','#dbeafe'],['C','繁忙','#dc2626','#fee2e2']];
 const COEF_A = 0.80, COEF_C = 1.50;
 
@@ -2159,8 +2191,212 @@ function loadMasterState(){
 }
 function saveMasterState(){
   if(!masterState)return;
+  // updated_at をローカル更新時刻で打刻（サーバーとの新旧比較に使用）
+  masterState.updated_at = new Date().toISOString();
   try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(masterState)); }catch(e){}
+  // サーバーへ非同期 push (debounce)
+  try{ if(window.ServerStateSync) window.ServerStateSync.pushDebounced(); }catch(e){}
 }
+
+// ===== サーバー永続化レイヤー (2026-05-21) =====
+// localStorage 消失事故対策。masterState 全体を ~/Desktop/pricing-agent/buddica/data/state_tkm.json に保管
+// 仕様: 起動時に server > local なら自動上書き / saveMasterState 後 2秒 debounce で push
+(function(){
+  // 2026-05-24: SAFE_AREA を ServerStateSync の AREA に流用 (URL ?area= で切替)
+  const AREA = (typeof SAFE_AREA !== 'undefined') ? SAFE_AREA : 'tkm';
+  // 2026-05-23: 同一オリジン化で mixed content / CORS 回避
+  // ngrok 経由 (https://...ngrok-free.dev/app/...) でもローカル (http://127.0.0.1:7777/app/...) でも動作
+  // file:// で開かれた場合のみ localhost フォールバック
+  const BRIDGE = (location.protocol === 'http:' || location.protocol === 'https:') ? location.origin : 'http://127.0.0.1:7777';
+  const SAVE_DEBOUNCE_MS = 2000;
+  let pushTimer = null;
+  let lastPushOk = null;
+  let lastPushErr = null;
+  let serverReachable = null; // null=未確認 / true=疎通OK / false=NG
+
+  function pushNow(){
+    if(!masterState) return;
+    fetch(`${BRIDGE}/api/state/${AREA}/save`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: masterState, client_updated_at: masterState.updated_at})
+    }).then(r=>r.json()).then(d=>{
+      if(d && d.ok){
+        lastPushOk = new Date().toISOString();
+        lastPushErr = null;
+        serverReachable = true;
+      } else {
+        lastPushErr = (d && d.error) || 'unknown';
+      }
+      updateSyncBadge();
+    }).catch(e=>{
+      lastPushErr = e.message;
+      serverReachable = false;
+      updateSyncBadge();
+    });
+  }
+
+  function pushDebounced(){
+    if(pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(()=>{ pushTimer=null; pushNow(); }, SAVE_DEBOUNCE_MS);
+  }
+
+  // 起動時 sync: サーバーに新しいデータがあればローカル上書き
+  function loadAndMerge(){
+    return fetch(`${BRIDGE}/api/state/${AREA}/load`)
+      .then(r=>r.json())
+      .then(d=>{
+        serverReachable = true;
+        if(!d || !d.exists){
+          // サーバーに何もない → 初回。ローカル優先で push（マイグレーション）
+          loadMasterState();
+          if(masterState && Object.keys(masterState.dayTiers||{}).length > 0){
+            // ローカルに実データがあるなら updated_at を打刻してサーバーへ
+            if(!masterState.updated_at) masterState.updated_at = new Date().toISOString();
+            // hook をバイパスして直接書込（pushDebounced の連鎖を避ける）
+            try{ (window.__origLocalStorageSetItem__||localStorage.setItem.bind(localStorage))(STORAGE_KEY, JSON.stringify(masterState)); }catch(_){}
+            pushNow();
+          }
+          updateSyncBadge();
+          return {action:'initial', source:'local'};
+        }
+        // 両者ある場合は updated_at 比較
+        loadMasterState();
+        const localTs = masterState.updated_at ? Date.parse(masterState.updated_at) : 0;
+        const serverTs = d.updated_at ? Date.parse(d.updated_at) : 0;
+        if(serverTs > localTs){
+          // サーバーが新しい → 上書き
+          masterState = d.state || {};
+          if(!masterState.dayTiers) masterState.dayTiers={};
+          if(!masterState.dayScores) masterState.dayScores={};
+          if(!masterState.weights) masterState.weights={E:1,T:2,R:1,H:2};
+          if(!masterState.thresholds) masterState.thresholds={A:5.5,B:3.0};
+          if(!masterState.segments) masterState.segments={proper:{monthlyTierClassPrices:{}},cp:{monthlyTierClassPrices:{}}};
+          masterState.updated_at = d.updated_at;
+          // hook をバイパスしてサーバー由来の updated_at を保護
+          try{ (window.__origLocalStorageSetItem__||localStorage.setItem.bind(localStorage))(STORAGE_KEY, JSON.stringify(masterState)); }catch(_){}
+          updateSyncBadge();
+          return {action:'overwritten_from_server', localTs, serverTs};
+        }
+        // ローカルが新しい/同じ → 何もしない（次回 save で push される）
+        updateSyncBadge();
+        return {action:'local_newer_or_same', localTs, serverTs};
+      })
+      .catch(e=>{
+        serverReachable = false;
+        lastPushErr = 'load failed: '+e.message;
+        loadMasterState(); // フォールバック
+        updateSyncBadge();
+        return {action:'server_unreachable', error:e.message};
+      });
+  }
+
+  // 同期状態バッジ（画面右下に小さく表示）
+  function updateSyncBadge(){
+    let el = document.getElementById('server-sync-badge');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'server-sync-badge';
+      el.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:9999;font-size:10pt;padding:6px 10px;border-radius:6px;font-family:-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15);cursor:pointer';
+      el.title = 'サーバー永続化ステータス（クリックで詳細）';
+      el.onclick = ()=>{
+        const msg = [
+          `area: ${AREA}`,
+          `server: ${serverReachable===true?'OK':serverReachable===false?'NG':'unknown'}`,
+          `last push ok: ${lastPushOk||'-'}`,
+          `last error : ${lastPushErr||'-'}`,
+          `local updated_at: ${masterState && masterState.updated_at || '-'}`,
+        ].join('\n');
+        alert(msg);
+      };
+      document.body.appendChild(el);
+    }
+    if(serverReachable === true && !lastPushErr){
+      el.textContent = '☁️ 同期OK';
+      el.style.background = '#dcfce7';
+      el.style.color = '#166534';
+    } else if(serverReachable === false){
+      el.textContent = '☁️ オフライン';
+      el.style.background = '#fef3c7';
+      el.style.color = '#92400e';
+    } else if(lastPushErr){
+      el.textContent = '⚠️ 同期エラー';
+      el.style.background = '#fee2e2';
+      el.style.color = '#991b1b';
+    } else {
+      el.textContent = '☁️ 確認中';
+      el.style.background = '#e0f2fe';
+      el.style.color = '#075985';
+    }
+  }
+
+  // ===== localStorage.setItem hook =====
+  // STORAGE_KEY への直書込（state経路 L2890/L2954/L3117 等）も漏れなくサーバー送信
+  // 内部処理（ServerStateSync 自身による setItem）は ORIG_SET 経由で hook をバイパス
+  const ORIG_SET = Storage.prototype.setItem.bind(localStorage);
+  Storage.prototype.setItem = function(key, value){
+    const r = ORIG_SET.call(this, key, value);
+    if(key === STORAGE_KEY){
+      // updated_at を打刻して localStorage に書き戻す（直書きはタイムスタンプを持たないため）
+      try{
+        const obj = JSON.parse(value);
+        if(obj && typeof obj === 'object'){
+          obj.updated_at = new Date().toISOString();
+          ORIG_SET.call(this, key, JSON.stringify(obj));
+          // masterState 変数とも同期（state 経路で書かれた場合の整合性確保）
+          if(masterState && obj !== masterState){
+            try{ Object.assign(masterState, obj); }catch(_){}
+          }
+        }
+      }catch(_){}
+      pushDebounced();
+    }
+    return r;
+  };
+  // ServerStateSync 自身の書込みは hook を通さない（updated_at の上書き防止）
+  window.__origLocalStorageSetItem__ = ORIG_SET;
+
+  window.ServerStateSync = {
+    pushNow,
+    pushDebounced,
+    loadAndMerge,
+    getStatus: ()=>({serverReachable, lastPushOk, lastPushErr}),
+  };
+
+  // DOM 準備完了後に初回同期 + area インジケータ表示
+  // 2026-05-24 Phase 4: store name もヘッダーで area対応
+  const STORE_LABELS = {
+    tkm: { brand: 'B U D D I C A &nbsp; T O U R I N G &nbsp; 高松店', short: '高松', title: 'プライシングシステム — BUDDICA TOURING 高松店' },
+    nha: { brand: 'H A N D Y M A N &nbsp; 那覇空港店', short: '那覇', title: 'プライシングシステム — HANDYMAN 那覇空港店' },
+    spk: { brand: 'H A N D Y M A N &nbsp; 札幌デリバリー専門店', short: '札幌', title: 'プライシングシステム — HANDYMAN 札幌デリバリー専門店' }
+  };
+  function applyStoreBranding(){
+    const sl = STORE_LABELS[AREA] || STORE_LABELS.tkm;
+    try { document.title = sl.title; } catch(_){}
+    // class="sub" の店舗ブランド表記を書き換え
+    document.querySelectorAll('.sub').forEach(el => {
+      if (el.textContent.includes('BUDDICA') || el.textContent.includes('HANDYMAN') || el.textContent.includes('B U D D I C A') || el.textContent.includes('H A N D Y M A N')) {
+        el.innerHTML = sl.brand;
+      }
+    });
+  }
+  function showAreaBadge(){
+    if(document.getElementById('area-badge')) return;
+    const el = document.createElement('div');
+    el.id = 'area-badge';
+    const palette = {tkm:'#0ea5e9', nha:'#10b981', spk:'#a855f7'};
+    const sl = STORE_LABELS[AREA] || STORE_LABELS.tkm;
+    el.style.cssText = `position:fixed;left:10px;bottom:10px;z-index:9999;font-size:9pt;padding:5px 9px;border-radius:6px;font-family:-apple-system,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.15);background:${palette[AREA]||'#64748b'};color:#fff;font-weight:700`;
+    el.textContent = `📍 ${sl.short} (area=${AREA})`;
+    el.title = 'URL ?area= で切替';
+    document.body.appendChild(el);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>{ applyStoreBranding(); showAreaBadge(); loadAndMerge(); });
+  } else {
+    setTimeout(()=>{ applyStoreBranding(); showAreaBadge(); loadAndMerge(); }, 0);
+  }
+})();
 
 function calGetTier(date){
   loadMasterState();

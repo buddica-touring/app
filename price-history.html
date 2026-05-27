@@ -78,10 +78,11 @@ body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#0f172a;col
 
   <!-- アクション -->
   <div class="actions">
-    <button class="tab active" id="tab-server" onclick="switchTab('server')">🌐 サーバー履歴 (新)</button>
-    <button class="tab" id="tab-local" onclick="switchTab('local')">📁 ローカル履歴 (旧/参考)</button>
+    <button class="tab active" id="tab-server" onclick="switchTab('server')">🌐 Goサイン履歴</button>
+    <button class="tab" id="tab-backups" onclick="switchTab('backups')">💾 状態バックアップ</button>
+    <button class="tab" id="tab-local" onclick="switchTab('local')">📁 ローカル履歴 (参考)</button>
     <div style="margin-left:auto;display:flex;gap:8px">
-      <button class="btn pri" onclick="loadServerHistory()">🔄 更新</button>
+      <button class="btn pri" onclick="refreshCurrent()">🔄 更新</button>
       <button class="btn sec" onclick="exportAll()">⬇️ JSON DL</button>
     </div>
   </div>
@@ -118,10 +119,19 @@ async function loadServerHistory(){
 
 function switchTab(tab){
   currentTab = tab;
-  document.getElementById('tab-server').classList.toggle('active', tab==='server');
-  document.getElementById('tab-local').classList.toggle('active', tab==='local');
+  ['server','backups','local'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if(el) el.classList.toggle('active', tab===t);
+  });
   if (tab === 'server') renderServer();
+  else if (tab === 'backups') { if(!window._backupsLoaded) loadBackups(); else renderBackups(); }
   else renderLocal();
+}
+
+function refreshCurrent(){
+  if (currentTab === 'backups') loadBackups();
+  else if (currentTab === 'local') renderLocal();
+  else loadServerHistory();
 }
 
 function renderServer(){
@@ -250,6 +260,143 @@ function updateSummary(){
   `;
 }
 
+// ===== 状態バックアップ (2026-05-22 追加 / 2026-05-24 area対応) =====
+// masterState（dayTiers / 価格マトリクス / segments / weights / thresholds 等）の自動ローテバックアップ
+// URL ?area=tkm/nha/spk で切替。未指定は tkm
+const _historyArea = (new URLSearchParams(location.search).get('area') || 'tkm').toLowerCase();
+const AREA_FOR_BACKUPS = ['tkm','nha','spk'].includes(_historyArea) ? _historyArea : 'tkm';
+const _STORAGE_KEY_MAP = {tkm:'bt_takamatsu_seasonal_v6', nha:'hdm_nha_seasonal_v1', spk:'hdm_spk_seasonal_v1'};
+const STATE_STORAGE_KEY = _STORAGE_KEY_MAP[AREA_FOR_BACKUPS];
+let backupList = [];
+
+async function loadBackups(){
+  try {
+    const r = await fetch(SERVER_URL + '/api/state/' + AREA_FOR_BACKUPS + '/backups').then(r=>r.json());
+    backupList = r.files || [];
+    window._backupsLoaded = true;
+    renderBackups();
+  } catch(e) {
+    document.getElementById('list').innerHTML = `<div class="muted">⚠️ バックアップ取得エラー: ${e.message}</div>`;
+  }
+}
+
+function renderBackups(){
+  const el = document.getElementById('list');
+  if (!backupList.length) {
+    el.innerHTML = '<div class="muted">📂 バックアップがまだありません。<br>masterState を編集 → 2回目以降の保存で自動生成されます（最新20件保持）</div>';
+    return;
+  }
+  el.innerHTML = backupList.map((f, idx) => {
+    const d = new Date(f.mtime).toLocaleString('ja-JP');
+    const sizeKb = (f.size/1024).toFixed(1);
+    return `<div class="h-item" id="bk-item-${idx}">
+      <div class="h-header" onclick="toggleBackupDetail(${idx})">
+        <div>
+          <span class="expand-icon" id="bk-exp-${idx}">▶</span>
+          <span class="h-date">${d}</span>
+        </div>
+        <div class="h-badges">
+          <span class="badge">${sizeKb} KB</span>
+          <span class="badge" style="background:#1e293b;color:#94a3b8;font-family:Menlo,monospace;font-size:8pt">${f.name}</span>
+        </div>
+      </div>
+      <div class="h-detail" id="bk-detail-${idx}"></div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleBackupDetail(idx){
+  const detail = document.getElementById(`bk-detail-${idx}`);
+  const icon = document.getElementById(`bk-exp-${idx}`);
+  if (detail.classList.contains('open')) {
+    detail.classList.remove('open');
+    icon.classList.remove('open');
+    return;
+  }
+  const f = backupList[idx];
+  detail.innerHTML = '<div style="padding:14px;color:#64748b;font-size:9pt">読込中...</div>';
+  detail.classList.add('open');
+  icon.classList.add('open');
+  try {
+    const data = await fetch(SERVER_URL + '/api/state/' + AREA_FOR_BACKUPS + '/backups/' + encodeURIComponent(f.name)).then(r=>r.json());
+    renderBackupDetail(detail, data, f.name);
+  } catch(e) {
+    detail.innerHTML = `<div style="padding:14px;color:#f87171">エラー: ${e.message}</div>`;
+  }
+}
+
+function renderBackupDetail(el, data, filename){
+  const st = data.state || {};
+  const segments = st.segments || {};
+  const dayTiersCount = Object.keys(st.dayTiers||{}).length;
+  const properMonths = Object.keys((segments.proper||{}).monthlyTierClassPrices||{});
+  const cpMonths = Object.keys((segments.cp||{}).monthlyTierClassPrices||{});
+  const restoredFrom = st._restored_from ? ` (← 過去に「${st._restored_from}」から復元)` : '';
+  const stateKeys = Object.keys(st).sort();
+
+  // dayTiers のサンプル（最初の10件）
+  const dtSample = Object.entries(st.dayTiers||{}).slice(0,10).map(([k,v]) =>
+    `<tr><td style="color:#94a3b8">${k}</td><td style="color:${v==='A'?'#60a5fa':v==='B'?'#fbbf24':v==='C'?'#f87171':'#94a3b8'};font-weight:700">${v}</td></tr>`
+  ).join('');
+
+  el.innerHTML = `
+    <h4>📌 メタ情報${restoredFrom}</h4>
+    <div style="background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;font-size:9pt;color:#cbd5e1;font-family:Menlo,monospace;line-height:1.7">
+      area      : ${data.area || '-'}<br>
+      updated_at: ${data.updated_at || '-'}<br>
+      saved_at  : ${data.server_saved_at || '-'}<br>
+      keys      : ${stateKeys.join(', ')}
+    </div>
+    <h4>🗓️ dayTiers (${dayTiersCount}日)</h4>
+    ${dtSample ? `<table class="matrix-table"><thead><tr><th>日付</th><th>tier</th></tr></thead><tbody>${dtSample}</tbody></table>` : '<div style="color:#64748b;font-size:9pt">なし</div>'}
+    <h4>💰 月別価格 (proper)</h4>
+    <div style="font-size:9pt;color:#cbd5e1">${properMonths.length}ヶ月: ${properMonths.join(', ') || '(なし)'}</div>
+    <h4>💰 月別価格 (cp)</h4>
+    <div style="font-size:9pt;color:#cbd5e1">${cpMonths.length}ヶ月: ${cpMonths.join(', ') || '(なし)'}</div>
+    <h4>⚙️ weights / thresholds</h4>
+    <div style="background:#0b1020;border:1px solid #1e293b;border-radius:6px;padding:10px 12px;font-size:9pt;color:#cbd5e1;font-family:Menlo,monospace">
+      weights    : ${JSON.stringify(st.weights||{})}<br>
+      thresholds : ${JSON.stringify(st.thresholds||{})}
+    </div>
+    <div style="margin-top:18px;padding:14px;background:#1e293b;border:1px solid #991b1b;border-radius:8px">
+      <div style="color:#fca5a5;font-size:9pt;font-weight:800;margin-bottom:8px">⚠️ 復元前に確認</div>
+      <div style="color:#cbd5e1;font-size:9pt;line-height:1.6;margin-bottom:10px">
+        ・この時点の masterState で現在の状態を完全に上書きします<br>
+        ・現在の状態は自動でバックアップに追加されます（取り消し可能）<br>
+        ・価格戦略マスター・カレンダーは別タブで開いている場合、リロードが必要です
+      </div>
+      <button class="btn danger" onclick="restoreBackup('${filename}')">↺ この時点へ復元</button>
+    </div>
+  `;
+}
+
+async function restoreBackup(name){
+  if(!confirm(`バックアップ「${name}」を masterState に復元します。\n\n現在の状態は自動でバックアップされます（取り消し可能）。\n\n本当に復元しますか?`)) return;
+  try {
+    // 1. バックアップ内容取得
+    const r1 = await fetch(SERVER_URL + '/api/state/' + AREA_FOR_BACKUPS + '/backups/' + encodeURIComponent(name)).then(r=>r.json());
+    if(!r1 || !r1.state){ throw new Error('バックアップ内容を取得できませんでした'); }
+    // 2. updated_at を現在時刻に更新（最新版として上書き保存）
+    const restored = Object.assign({}, r1.state);
+    restored.updated_at = new Date().toISOString();
+    restored._restored_from = name;
+    restored._restored_at = restored.updated_at;
+    // 3. サーバーへ保存（既存ファイルは自動でバックアップローテに入る）
+    const r2 = await fetch(SERVER_URL + '/api/state/' + AREA_FOR_BACKUPS + '/save', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: restored, client_updated_at: restored.updated_at})
+    }).then(r=>r.json());
+    if(!r2 || !r2.ok){ throw new Error(r2.error || '保存失敗'); }
+    // 4. localStorage にも反映（同タブで開いていた場合の即時反映）
+    try { localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(restored)); } catch(_){}
+    alert(`✅ 復元完了\n\n復元元: ${name}\nupdated_at: ${restored.updated_at}\n\n価格戦略マスター / カレンダーを開いて反映を確認してください。`);
+    loadBackups();
+  } catch(e){
+    alert(`❌ 復元失敗\n\n${e.message}`);
+  }
+}
+
 // 旧localStorage履歴
 function renderLocal(){
   const el = document.getElementById('list');
@@ -278,7 +425,10 @@ function renderLocal(){
 }
 
 function exportAll(){
-  const data = currentTab === 'server' ? serverHistory : (function(){ try{return JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]');}catch(e){return[];} })();
+  let data;
+  if (currentTab === 'server') data = serverHistory;
+  else if (currentTab === 'backups') data = backupList;
+  else { try{ data = JSON.parse(localStorage.getItem('bt_tkm_apply_history_v1')||'[]'); }catch(e){ data = []; } }
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -288,7 +438,34 @@ function exportAll(){
   URL.revokeObjectURL(url);
 }
 
-document.addEventListener('DOMContentLoaded', loadServerHistory);
+// 2026-05-24 Phase 4: area対応 (ヘッダー店舗名 + 左下バッジ)
+const _PH_STORE_LABELS = {
+  tkm: { brand: 'B U D D I C A &nbsp; T O U R I N G', short: '高松', docTitle: '📜 反映履歴 — BUDDICA TOURING 高松店' },
+  nha: { brand: 'H A N D Y M A N &nbsp; 那覇空港店', short: '那覇', docTitle: '📜 反映履歴 — HANDYMAN 那覇空港店' },
+  spk: { brand: 'H A N D Y M A N &nbsp; 札幌デリバリー専門店', short: '札幌', docTitle: '📜 反映履歴 — HANDYMAN 札幌デリバリー専門店' }
+};
+function applyPriceHistoryBranding(){
+  const sl = _PH_STORE_LABELS[AREA_FOR_BACKUPS] || _PH_STORE_LABELS.tkm;
+  try { document.title = sl.docTitle; } catch(_){}
+  const brand = document.querySelector('.header .brand');
+  if (brand) brand.innerHTML = sl.brand;
+}
+function showAreaBadgePH(){
+  if(document.getElementById('area-badge')) return;
+  const el = document.createElement('div');
+  el.id = 'area-badge';
+  const palette = {tkm:'#0ea5e9', nha:'#10b981', spk:'#a855f7'};
+  const sl = _PH_STORE_LABELS[AREA_FOR_BACKUPS] || _PH_STORE_LABELS.tkm;
+  el.style.cssText = `position:fixed;left:10px;bottom:10px;z-index:9999;font-size:9pt;padding:5px 9px;border-radius:6px;font-family:-apple-system,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.4);background:${palette[AREA_FOR_BACKUPS]||'#64748b'};color:#fff;font-weight:700`;
+  el.textContent = `📍 ${sl.short} (area=${AREA_FOR_BACKUPS})`;
+  el.title = 'URL ?area= で切替';
+  document.body.appendChild(el);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  applyPriceHistoryBranding();
+  showAreaBadgePH();
+  loadServerHistory();
+});
 </script>
 </body>
 </html>

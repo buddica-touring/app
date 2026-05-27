@@ -445,12 +445,233 @@ if('serviceWorker' in navigator){
 // 定数
 // ============================================================
 // v1.0.32-BT: クラスIDを車両管理と統一 — A/B/C/H/S/F（D→H、E→S）
-const STORAGE_KEY = 'bt_takamatsu_seasonal_v6';
-const CLASSES = ['A','B','C','H','S','F'];
-const CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
+// 2026-05-24: area対応 (URL ?area=tkm/nha/spk で切替・未指定はTKM)
+const CURRENT_AREA = (new URLSearchParams(location.search).get('area') || 'tkm').toLowerCase();
+const VALID_AREAS_CLIENT = ['tkm', 'nha', 'spk'];
+const SAFE_AREA = VALID_AREAS_CLIENT.includes(CURRENT_AREA) ? CURRENT_AREA : 'tkm';
+const STORAGE_KEYS = {
+  tkm: 'bt_takamatsu_seasonal_v6',
+  nha: 'hdm_nha_seasonal_v1',
+  spk: 'hdm_spk_seasonal_v1'
+};
+const STORAGE_KEY = STORAGE_KEYS[SAFE_AREA];
+
+// ===== サーバー永続化レイヤー (2026-05-22 追加) =====
+// pricing.html は「鏡」だが、念のため push/load 両方を実装。
+// localStorage 消失時にサーバーから自動復元 / ナビ状態保存もサーバーに反映
+(function(){
+  const AREA = SAFE_AREA;  // 2026-05-24: URL ?area= で動的化
+  // 2026-05-23: 同一オリジン化で mixed content / CORS 回避
+  // ngrok 経由 (https://...ngrok-free.dev/app/...) でもローカル (http://127.0.0.1:7777/app/...) でも動作
+  // file:// で開かれた場合のみ localhost フォールバック
+  const BRIDGE = (location.protocol === 'http:' || location.protocol === 'https:') ? location.origin : 'http://127.0.0.1:7777';
+  const SAVE_DEBOUNCE_MS = 2000;
+  let pushTimer = null;
+  let lastPushOk = null;
+  let lastPushErr = null;
+  let serverReachable = null;
+
+  const ORIG_SET = Storage.prototype.setItem.bind(localStorage);
+  // setItem hook: STORAGE_KEY への全書込みでサーバー push を発火（updated_at 自動打刻）
+  Storage.prototype.setItem = function(key, value){
+    const r = ORIG_SET.call(this, key, value);
+    if(key === STORAGE_KEY){
+      try{
+        const obj = JSON.parse(value);
+        if(obj && typeof obj === 'object'){
+          obj.updated_at = new Date().toISOString();
+          ORIG_SET.call(this, key, JSON.stringify(obj));
+        }
+      }catch(_){}
+      pushDebounced();
+    }
+    return r;
+  };
+
+  function pushNow(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      const obj = JSON.parse(raw);
+      fetch(`${BRIDGE}/api/state/${AREA}/save`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({state: obj, client_updated_at: obj.updated_at})
+      }).then(r=>r.json()).then(d=>{
+        if(d && d.ok){
+          lastPushOk = new Date().toISOString();
+          lastPushErr = null;
+          serverReachable = true;
+        } else {
+          lastPushErr = (d && d.error) || 'unknown';
+        }
+        updateSyncBadge();
+      }).catch(e=>{
+        lastPushErr = e.message;
+        serverReachable = false;
+        updateSyncBadge();
+      });
+    }catch(_){}
+  }
+  function pushDebounced(){
+    if(pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(()=>{ pushTimer=null; pushNow(); }, SAVE_DEBOUNCE_MS);
+  }
+
+  // 起動時 sync: サーバーが新しければ localStorage 上書き → loadState 再実行 → 再描画
+  function loadAndMerge(){
+    return fetch(`${BRIDGE}/api/state/${AREA}/load`)
+      .then(r=>r.json())
+      .then(d=>{
+        serverReachable = true;
+        if(!d || !d.exists){
+          updateSyncBadge();
+          return {action:'no_server_data'};
+        }
+        const localRaw = localStorage.getItem(STORAGE_KEY);
+        let localTs = 0;
+        if(localRaw){
+          try{ const lo = JSON.parse(localRaw); localTs = lo.updated_at ? Date.parse(lo.updated_at) : 0; }catch(_){}
+        }
+        const serverTs = d.updated_at ? Date.parse(d.updated_at) : 0;
+        if(serverTs > localTs){
+          // サーバーが新しい → 上書き + 再ロード + 再描画
+          const merged = d.state || {};
+          merged.updated_at = d.updated_at;
+          ORIG_SET.call(localStorage, STORAGE_KEY, JSON.stringify(merged));
+          if(typeof loadState === 'function') loadState();
+          if(typeof renderCalendar === 'function'){ try{ renderCalendar(); }catch(_){} }
+          if(typeof renderSettings === 'function'){ try{ renderSettings(); }catch(_){} }
+          updateSyncBadge();
+          return {action:'overwritten_from_server', localTs, serverTs};
+        }
+        updateSyncBadge();
+        return {action:'local_newer_or_same', localTs, serverTs};
+      })
+      .catch(e=>{
+        serverReachable = false;
+        lastPushErr = 'load failed: '+e.message;
+        updateSyncBadge();
+        return {action:'server_unreachable', error:e.message};
+      });
+  }
+
+  function updateSyncBadge(){
+    let el = document.getElementById('server-sync-badge');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'server-sync-badge';
+      el.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:9999;font-size:10pt;padding:6px 10px;border-radius:6px;font-family:-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15);cursor:pointer';
+      el.title = 'サーバー永続化ステータス（クリックで詳細）';
+      el.onclick = ()=>{
+        const localRaw = localStorage.getItem(STORAGE_KEY);
+        let localTs = '-';
+        try{ const lo = JSON.parse(localRaw||'{}'); localTs = lo.updated_at || '-'; }catch(_){}
+        alert([
+          `area: ${AREA} (pricing.html=鏡)`,
+          `server: ${serverReachable===true?'OK':serverReachable===false?'NG':'unknown'}`,
+          `last push ok: ${lastPushOk||'-'}`,
+          `last error : ${lastPushErr||'-'}`,
+          `local updated_at: ${localTs}`,
+        ].join('\n'));
+      };
+      document.body.appendChild(el);
+    }
+    if(serverReachable === true && !lastPushErr){
+      el.textContent = '☁️ 同期OK';
+      el.style.background = '#dcfce7';
+      el.style.color = '#166534';
+    } else if(serverReachable === false){
+      el.textContent = '☁️ オフライン';
+      el.style.background = '#fef3c7';
+      el.style.color = '#92400e';
+    } else if(lastPushErr){
+      el.textContent = '⚠️ 同期エラー';
+      el.style.background = '#fee2e2';
+      el.style.color = '#991b1b';
+    } else {
+      el.textContent = '☁️ 確認中';
+      el.style.background = '#e0f2fe';
+      el.style.color = '#075985';
+    }
+  }
+
+  window.ServerStateSync = {
+    pushNow, pushDebounced, loadAndMerge,
+    getStatus: ()=>({serverReachable, lastPushOk, lastPushErr}),
+  };
+
+  // 2026-05-24 Phase 4: ヘッダー店舗名 + area badge を area対応
+  const STORE_LABELS = {
+    tkm: { brand: 'B U D D I C A&nbsp;&nbsp;T O U R I N G', title: '高松店 シーズナル&価格カレンダー 2026-2027', short: '高松', docTitle: 'BUDDICA TOURING 高松店 シーズナル&価格カレンダー' },
+    nha: { brand: 'H A N D Y M A N', title: '那覇空港店 シーズナル&価格カレンダー 2026-2027', short: '那覇', docTitle: 'HANDYMAN 那覇空港店 シーズナル&価格カレンダー' },
+    spk: { brand: 'H A N D Y M A N', title: '札幌デリバリー専門店 シーズナル&価格カレンダー 2026-2027', short: '札幌', docTitle: 'HANDYMAN 札幌デリバリー専門店 シーズナル&価格カレンダー' }
+  };
+  function applyStoreBranding(){
+    const sl = STORE_LABELS[AREA] || STORE_LABELS.tkm;
+    try { document.title = sl.docTitle; } catch(_){}
+    const brandEl = document.querySelector('.brand');
+    if (brandEl) brandEl.innerHTML = sl.brand;
+    const titleEl = document.querySelector('.title');
+    if (titleEl) {
+      // segment-badge を保持してテキストだけ差替
+      const seg = document.getElementById('segment-badge');
+      const segHTML = seg ? seg.outerHTML : '';
+      titleEl.innerHTML = sl.title + ' ' + segHTML;
+    }
+  }
+  function showAreaBadge(){
+    if(document.getElementById('area-badge')) return;
+    const el = document.createElement('div');
+    el.id = 'area-badge';
+    const palette = {tkm:'#0ea5e9', nha:'#10b981', spk:'#a855f7'};
+    const sl = STORE_LABELS[AREA] || STORE_LABELS.tkm;
+    el.style.cssText = `position:fixed;left:10px;bottom:10px;z-index:9999;font-size:9pt;padding:5px 9px;border-radius:6px;font-family:-apple-system,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.15);background:${palette[AREA]||'#64748b'};color:#fff;font-weight:700`;
+    el.textContent = `📍 ${sl.short} (area=${AREA})`;
+    el.title = 'URL ?area= で切替';
+    document.body.appendChild(el);
+  }
+  function pageInit(){ applyStoreBranding(); showAreaBadge(); }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', pageInit);
+  } else {
+    setTimeout(pageInit, 0);
+  }
+
+  // 起動時の同期はファイル末尾の起動ブロックで実行（loadState の前に呼ぶ）
+})();
+// ===== area 別 CLASSES / CLASS_NAMES (2026-05-24 Phase 2 後半) =====
+// 出典: server/{area}_class_rules.json (稼働中クラスのみ)
+const AREA_CLASS_DEF = {
+  tkm: {
+    classes: ['A','B','C','H','S','F'],
+    names: {A:'高級系MV', B:'一般MV', C:'コンパクトSUV', H:'セダン', S:'SUV', F:'コンパクト'}
+  },
+  nha: {
+    classes: ['A','A2','B','B2','D','F','H'],
+    names: {A:'30アルファード', A2:'30アル割引プラン', B:'ノア/セレナ/VOX/20アル系', B2:'B割引プラン', D:'ノア/セレナ/エスクァイア(旧型)', F:'コンパクト(ヴィッツ/アクア/ノート)', H:'プリウス/プリウスα'}
+  },
+  spk: {
+    classes: ['A','B','C','S','F','H'],
+    names: {A:'LUX高級MV(ヴェル/アル)', B:'MPVミニバン(ノア/デリカ)', C:'コンパクトSUV(ロッキー/CX-3)', S:'SUV(ハリアー/CX-5)', F:'コンパクト(ソリオ)', H:'セダン(アクセラ)'}
+  }
+};
+const _areaDef = AREA_CLASS_DEF[SAFE_AREA] || AREA_CLASS_DEF.tkm;
+const CLASSES = _areaDef.classes;
+const CLASS_NAMES = _areaDef.names;
 const CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',H:'カムリ等',S:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
-const DEFAULT_BASE = {A:18000,B:12000,C:9500,H:10000,S:13000,F:7500};
-const DEFAULT_COEF = {A:0.80,B:1.00,C:1.50};
+// area別 デフォルト基準価格（B通常相当・1日単価/税込）
+// NHA: クラス間連動 (B=12000基準→A=B+2000=14000, A2=A-500=13500, B2=B-500=11500, D=B-1000=11000)
+// SPK: 独立BM想定の概算デフォルト（実価格は sheets_fetch.py で取得・編集される）
+const AREA_DEFAULT_BASE = {
+  tkm: {A:18000, B:12000, C:9500, H:10000, S:13000, F:7500},
+  nha: {A:14000, A2:13500, B:12000, B2:11500, D:11000, F:7500, H:8500},
+  spk: {A:10500, B:9500, C:5500, S:6000, F:4500, H:5500}
+};
+const DEFAULT_BASE = AREA_DEFAULT_BASE[SAFE_AREA] || AREA_DEFAULT_BASE.tkm;
+const DEFAULT_COEF = {A:0.80, B:1.00, C:1.50};
+// 注: NHA はクラス間連動方式のため、シーズナル係数 A:0.8 / C:1.5 は概念モデル。
+// 実運用は §8 月別固定価格テーブル使用。Phase 3 で decision_compute.js に分岐ロジック実装予定
 const DEFAULT_WEIGHTS = {E:0.10,T:0.40,R:0.35,H:0.15};
 const DEFAULT_THRESHOLDS = {A:5.5,B:3.0};
 
@@ -475,9 +696,15 @@ function buildDefaultTierClassPrices(baseMap) {
   return r;
 }
 
-// プロパーセグメント — 車両管理クラスIDと統一（A/B/C/H/S/F）
-const DEFAULT_PROPER_CLASS_NAMES = {A:'高級系MV',B:'一般MV',C:'コンパクトSUV',H:'セダン',S:'SUV',F:'コンパクト'};
-const DEFAULT_PROPER_CLASS_EXAMPLES = {A:'アルファード/D5',B:'ノア/セレナ',C:'ロッキー/ヤリスクロス',H:'カムリ等',S:'ハリアー/RAV4',F:'アクア/ヴィッツ'};
+// プロパーセグメント — area別 CLASS_NAMES を流用 (2026-05-24 area化)
+const DEFAULT_PROPER_CLASS_NAMES = {...CLASS_NAMES};
+// CLASS_EXAMPLES は area 別。CLASS_NAMES に既に車種が含まれているので簡素化
+const AREA_CLASS_EXAMPLES = {
+  tkm: {A:'アルファード/D5', B:'ノア/セレナ', C:'ロッキー/ヤリスクロス', H:'カムリ等', S:'ハリアー/RAV4', F:'アクア/ヴィッツ'},
+  nha: {A:'30アルファード', A2:'30アル(割引)', B:'ノア/セレナ/VOX', B2:'B(割引)', D:'ノア/セレナ(旧型)', F:'ヴィッツ/アクア/ノート', H:'プリウス/プリウスα'},
+  spk: {A:'ヴェルファイア/アル', B:'ノア/デリカD:5', C:'ロッキー/CX-3', S:'ハリアー/CX-5', F:'ソリオ', H:'アクセラ'}
+};
+const DEFAULT_PROPER_CLASS_EXAMPLES = AREA_CLASS_EXAMPLES[SAFE_AREA] || AREA_CLASS_EXAMPLES.tkm;
 // ハイエンドセグメント — 同じID体系に揃える（次フェーズで AA 統合検討）
 const DEFAULT_HIGHEND_CLASS_NAMES = {A:'ベンツ',B:'ランボルギーニ',C:'ロールスロイス',H:'ベントレー',S:'フェラーリ',F:'ポルシェ'};
 const DEFAULT_HIGHEND_CLASS_EXAMPLES = {A:'GL500/S550',B:'ウルス/ウラカン',C:'ゴースト/ファントム',H:'コンチネンタル',S:'F8/SF90',F:'911/カイエン'};
@@ -1373,11 +1600,21 @@ async function syncProperClassNamesFromMaster() {
 // ============================================================
 // 起動
 // ============================================================
-loadState();
-// 起動時はエントリ画面を表示（state.segment は null）
-backToEntry();
-// 車両マスターからクラス名を非同期取得（ログイン済みなら即反映）
-syncProperClassNamesFromMaster();
+// サーバーから最新を取得してから loadState する（消失復元シナリオ）
+(function bootWithServerSync(){
+  function bootLocal(){
+    loadState();
+    backToEntry();
+    syncProperClassNamesFromMaster();
+  }
+  if(window.ServerStateSync && typeof window.ServerStateSync.loadAndMerge === 'function'){
+    window.ServerStateSync.loadAndMerge().then(()=>{
+      bootLocal();
+    }).catch(()=>{ bootLocal(); });
+  } else {
+    bootLocal();
+  }
+})();
 
 </script>
 </body>
