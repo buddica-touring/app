@@ -14143,21 +14143,16 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
       });
       if(!isP)actualWage=s.monthlySalary||0;
       const actualTransport=(s.transportCost||0)*actualDays;
-      // 残業/休日出勤 時間・手当
+      // 残業/休日出勤 ログのみ（実態確認フェーズ・金額計算なし）
       const otHours=otHByStaff[s.name]||0;
       const hwHours=hwHByStaff[s.name]||0;
-      let baseHourly=0;
-      if(isP){baseHourly=DB.getWageForDate(wageHistory,s.name,viewYM+'-15')||(s.hourlyWage||0);}
-      else{baseHourly=Math.round((s.monthlySalary||0)/160);}
-      const otWage=Math.round(otHours*baseHourly);
-      const hwWage=Math.round(hwHours*baseHourly);
       const otEvents=(otEvByStaff[s.name]||[]).slice().sort((a,b)=>(a.event_date||'').localeCompare(b.event_date||''));
       const hwEvents=(hwEvByStaff[s.name]||[]).slice().sort((a,b)=>(a.event_date||'').localeCompare(b.event_date||''));
       const hwDays=new Set(hwEvents.map(r=>r.event_date)).size;
       result[s.name]={days,budgetDays,budgetHours,budgetWage:Math.round(budgetWage),budgetTransport,budgetTotal:Math.round(budgetWage)+budgetTransport,
         actualDays,actualHours,actualWage:Math.round(actualWage),actualTransport,
-        otHours,otWage,hwHours,hwWage,hwDays,baseHourly,otEvents,hwEvents,
-        actualTotal:Math.round(actualWage)+actualTransport+otWage+hwWage,isP,absentDays};
+        otHours,hwHours,hwDays,otEvents,hwEvents,
+        actualTotal:Math.round(actualWage)+actualTransport,isP,absentDays};
     });
     return result;
   },[staff,shifts,attendance,viewYM,dim,vy,vmo,wageHistory,overtimeEvents]);
@@ -14425,12 +14420,12 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
               </div>
             </>:null}
             {d.otHours>0&&<div style={{display:"flex",justifyContent:"space-between",borderBottom:"1px solid #fed7aa",background:"#fff7ed",margin:"4px -8px",padding:"7px 10px",borderRadius:6}}>
-              <span style={{color:"#92400e",fontWeight:700,fontSize:12}}>🟠 残業手当 <span style={{fontWeight:500,fontSize:11,marginLeft:4}}>({d.otHours.toFixed(1)}h × ¥{d.baseHourly.toLocaleString()})</span></span>
-              <span style={{fontWeight:800,color:"#f97316"}}>¥{d.otWage.toLocaleString()}</span>
+              <span style={{color:"#92400e",fontWeight:700,fontSize:12}}>🟠 残業（ログ）</span>
+              <span style={{fontWeight:800,color:"#f97316"}}>{d.otEvents.length}件 / {d.otHours.toFixed(1)}h</span>
             </div>}
             {d.hwHours>0&&<div style={{display:"flex",justifyContent:"space-between",borderBottom:"1px solid #ddd6fe",background:"#f5f3ff",margin:"4px -8px",padding:"7px 10px",borderRadius:6}}>
-              <span style={{color:"#5b21b6",fontWeight:700,fontSize:12}}>🟣 休日出勤手当 <span style={{fontWeight:500,fontSize:11,marginLeft:4}}>({d.hwDays}日 / {d.hwHours.toFixed(1)}h × ¥{d.baseHourly.toLocaleString()})</span></span>
-              <span style={{fontWeight:800,color:"#7c3aed"}}>¥{d.hwWage.toLocaleString()}</span>
+              <span style={{color:"#5b21b6",fontWeight:700,fontSize:12}}>🟣 休日出勤（ログ）</span>
+              <span style={{fontWeight:800,color:"#7c3aed"}}>{d.hwDays}日 / {d.hwEvents.length}件 / {d.hwHours.toFixed(1)}h</span>
             </div>}
             <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
               <span style={{color:"#64748b"}}>交通費 (¥{(si.transportCost||0).toLocaleString()}×{d.actualDays}日)</span>
@@ -14482,72 +14477,64 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
                 </table>
               </div>;
             })()}
-            {/* 🟠 残業内訳 */}
+            {/* 🟠 残業ログ（実態確認・金額計算なし） */}
             {d.otEvents&&d.otEvents.length>0&&(()=>{
               const WK=["日","月","火","水","木","金","土"];
               return <div style={{marginTop:10,borderTop:"1px dashed #fed7aa",background:"#fffbf5",margin:"10px -8px 0",padding:"10px 12px",borderRadius:6}}>
-                <div style={{fontSize:11,fontWeight:800,color:"#92400e",marginBottom:6}}>🟠 残業内訳 <span style={{fontWeight:600,color:"#94a3b8",marginLeft:6}}>{d.otEvents.length}件 / 合計 {d.otHours.toFixed(1)}h</span></div>
+                <div style={{fontSize:11,fontWeight:800,color:"#92400e",marginBottom:6}}>🟠 残業ログ <span style={{fontWeight:600,color:"#94a3b8",marginLeft:6}}>{d.otEvents.length}件 / 合計 {d.otHours.toFixed(1)}h</span></div>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead><tr style={{background:"#fef3c7"}}>
                     <th style={{padding:"4px 6px",textAlign:"center",color:"#92400e",fontWeight:700,borderBottom:"1px solid #fed7aa",width:50}}>日付</th>
                     <th style={{padding:"4px 6px",textAlign:"center",color:"#92400e",fontWeight:700,borderBottom:"1px solid #fed7aa"}}>時間帯</th>
                     <th style={{padding:"4px 6px",textAlign:"right",color:"#92400e",fontWeight:700,borderBottom:"1px solid #fed7aa",width:44}}>時間</th>
                     <th style={{padding:"4px 6px",textAlign:"left",color:"#92400e",fontWeight:700,borderBottom:"1px solid #fed7aa"}}>理由</th>
-                    <th style={{padding:"4px 6px",textAlign:"right",color:"#92400e",fontWeight:700,borderBottom:"1px solid #fed7aa",width:64}}>手当</th>
                   </tr></thead>
                   <tbody>{d.otEvents.map(ev=>{
                     const dt=new Date(ev.event_date+"T00:00:00");
                     const dlabel=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WK[dt.getDay()]+")";
                     const tlabel=ev.start_time&&ev.end_time?(ev.start_time+"〜"+ev.end_time):"—";
-                    const wage=Math.round(ev._h*d.baseHourly);
                     return <tr key={ev.id} style={{borderBottom:"1px solid #fef3c7"}}>
                       <td style={{padding:"3px 6px",textAlign:"center",fontWeight:600,color:"#374151"}}>{dlabel}</td>
                       <td style={{padding:"3px 6px",textAlign:"center",color:"#475569"}}>{tlabel}</td>
                       <td style={{padding:"3px 6px",textAlign:"right",fontWeight:700,color:"#f97316"}}>{ev._h}h</td>
                       <td style={{padding:"3px 6px",color:"#374151"}}>{ev.description||ev.title||<span style={{color:"#dc2626"}}>未入力</span>}</td>
-                      <td style={{padding:"3px 6px",textAlign:"right",fontWeight:700,color:"#f97316"}}>¥{wage.toLocaleString()}</td>
                     </tr>;
                   })}
                   <tr style={{background:"#fff7ed",borderTop:"1px solid #fed7aa"}}>
                     <td colSpan={2} style={{padding:"4px 6px",textAlign:"right",fontWeight:800,fontSize:11,color:"#92400e"}}>残業 月間合計</td>
                     <td style={{padding:"4px 6px",textAlign:"right",fontWeight:900,color:"#f97316"}}>{d.otHours.toFixed(1)}h</td>
                     <td style={{padding:"4px 6px",fontSize:10,color:"#94a3b8"}}>{d.otEvents.length}件</td>
-                    <td style={{padding:"4px 6px",textAlign:"right",fontWeight:900,color:"#f97316"}}>¥{d.otWage.toLocaleString()}</td>
                   </tr></tbody>
                 </table>
               </div>;
             })()}
-            {/* 🟣 休日出勤内訳 */}
+            {/* 🟣 休日出勤ログ（実態確認・金額計算なし） */}
             {d.hwEvents&&d.hwEvents.length>0&&(()=>{
               const WK=["日","月","火","水","木","金","土"];
               return <div style={{marginTop:10,borderTop:"1px dashed #ddd6fe",background:"#faf5ff",margin:"10px -8px 0",padding:"10px 12px",borderRadius:6}}>
-                <div style={{fontSize:11,fontWeight:800,color:"#5b21b6",marginBottom:6}}>🟣 休日出勤内訳 <span style={{fontWeight:600,color:"#94a3b8",marginLeft:6}}>{d.hwDays}日 / {d.hwEvents.length}件 / 合計 {d.hwHours.toFixed(1)}h</span></div>
+                <div style={{fontSize:11,fontWeight:800,color:"#5b21b6",marginBottom:6}}>🟣 休日出勤ログ <span style={{fontWeight:600,color:"#94a3b8",marginLeft:6}}>{d.hwDays}日 / {d.hwEvents.length}件 / 合計 {d.hwHours.toFixed(1)}h</span></div>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead><tr style={{background:"#ede9fe"}}>
                     <th style={{padding:"4px 6px",textAlign:"center",color:"#5b21b6",fontWeight:700,borderBottom:"1px solid #ddd6fe",width:50}}>日付</th>
                     <th style={{padding:"4px 6px",textAlign:"center",color:"#5b21b6",fontWeight:700,borderBottom:"1px solid #ddd6fe"}}>時間帯</th>
                     <th style={{padding:"4px 6px",textAlign:"right",color:"#5b21b6",fontWeight:700,borderBottom:"1px solid #ddd6fe",width:44}}>時間</th>
                     <th style={{padding:"4px 6px",textAlign:"left",color:"#5b21b6",fontWeight:700,borderBottom:"1px solid #ddd6fe"}}>理由</th>
-                    <th style={{padding:"4px 6px",textAlign:"right",color:"#5b21b6",fontWeight:700,borderBottom:"1px solid #ddd6fe",width:64}}>手当</th>
                   </tr></thead>
                   <tbody>{d.hwEvents.map(ev=>{
                     const dt=new Date(ev.event_date+"T00:00:00");
                     const dlabel=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WK[dt.getDay()]+")";
                     const tlabel=ev.start_time&&ev.end_time?(ev.start_time+"〜"+ev.end_time):"—";
-                    const wage=Math.round(ev._h*d.baseHourly);
                     return <tr key={ev.id} style={{borderBottom:"1px solid #ede9fe"}}>
                       <td style={{padding:"3px 6px",textAlign:"center",fontWeight:600,color:"#374151"}}>{dlabel}</td>
                       <td style={{padding:"3px 6px",textAlign:"center",color:"#475569"}}>{tlabel}</td>
                       <td style={{padding:"3px 6px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>{ev._h}h</td>
                       <td style={{padding:"3px 6px",color:"#374151"}}>{ev.description||ev.title||<span style={{color:"#dc2626"}}>未入力</span>}</td>
-                      <td style={{padding:"3px 6px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>¥{wage.toLocaleString()}</td>
                     </tr>;
                   })}
                   <tr style={{background:"#f5f3ff",borderTop:"1px solid #ddd6fe"}}>
                     <td colSpan={2} style={{padding:"4px 6px",textAlign:"right",fontWeight:800,fontSize:11,color:"#5b21b6"}}>休日出勤 月間合計</td>
                     <td style={{padding:"4px 6px",textAlign:"right",fontWeight:900,color:"#7c3aed"}}>{d.hwHours.toFixed(1)}h</td>
                     <td style={{padding:"4px 6px",fontSize:10,color:"#94a3b8"}}>{d.hwDays}日 / {d.hwEvents.length}件</td>
-                    <td style={{padding:"4px 6px",textAlign:"right",fontWeight:900,color:"#7c3aed"}}>¥{d.hwWage.toLocaleString()}</td>
                   </tr></tbody>
                 </table>
               </div>;
@@ -21505,7 +21492,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.55-BT";
+const APP_VERSION="v1.0.56-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
