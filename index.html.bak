@@ -12217,9 +12217,10 @@ function TeamCalendar({data,maintenance,isSpk}){
     {key:'hq',label:'本社依頼',icon:'🔵',color:'#3b82f6'},
     {key:'store',label:'店舗予定',icon:'🟢',color:'#10b981'},
     {key:'overtime',label:'残業',icon:'🟠',color:'#f97316'},
+    {key:'holiday_work',label:'休日出勤',icon:'🟣',color:'#7c3aed'},
     {key:'other',label:'その他',icon:'⚪',color:'#8b5cf6'},
   ];
-  const getCat=k=>CAT.find(c=>c.key===k)||CAT[4];
+  const getCat=k=>CAT.find(c=>c.key===k)||CAT.find(c=>c.key==='other')||CAT[0];
   const DOW=['月','火','水','木','金','土','日'];
   const today=new Date(todayStr+'T00:00:00');
 
@@ -12237,8 +12238,8 @@ function TeamCalendar({data,maintenance,isSpk}){
   useEffect(()=>{
     if(!sb)return;
     const tbl=isSpk?'staff':'bt_staff';
-    sb.from(tbl).select('name').eq('active',true).order('sort_order',{ascending:true})
-      .then(({data:rows})=>setStaffList((rows||[]).map(r=>r.name)));
+    sb.from(tbl).select('name,type').eq('active',true).order('sort_order',{ascending:true})
+      .then(({data:rows})=>setStaffList(rows||[]));
   },[isSpk]);
 
   // 表示範囲の計算
@@ -12342,6 +12343,10 @@ function TeamCalendar({data,maintenance,isSpk}){
 
   const saveEvent=async()=>{
     if(!sb||!form.title?.trim()||!form.event_date)return alert('タイトルと開始日は必須です');
+    // ★ 残業/休日出勤は「理由」必須入力
+    if((form.category==='overtime'||form.category==='holiday_work')&&!form.description?.trim()){
+      return alert('「理由」の入力が必須です\n\n'+(form.category==='overtime'?'残業':'休日出勤')+'を登録するには、理由欄を必ず入力してください。');
+    }
     setSaving(true);
     try{
       const row={store,title:form.title.trim(),description:form.description||'',category:form.category||'task',
@@ -12459,26 +12464,45 @@ function TeamCalendar({data,maintenance,isSpk}){
     </div>
     <div><label style={{fontSize:11,color:'#64748b',fontWeight:600}}>カテゴリ</label>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
-        {CAT.map(c=>{const sel=form.category===c.key;return <button key={c.key} onClick={()=>setForm(f=>({...f,category:c.key,
-          is_all_day:c.key==='overtime'?false:f.is_all_day,
-          start_time:c.key==='overtime'&&f.is_all_day!==false?(f.start_time||'18:00'):f.start_time,
-          end_time:c.key==='overtime'&&f.is_all_day!==false?(f.end_time||'21:00'):f.end_time,
-        }))}
+        {CAT.map(c=>{const sel=form.category===c.key;return <button key={c.key} onClick={()=>setForm(f=>{
+          const isOT=c.key==='overtime',isHW=c.key==='holiday_work';
+          const next={...f,category:c.key};
+          if(isOT||isHW){
+            next.is_all_day=false;
+            if(f.is_all_day!==false){
+              next.start_time=isOT?(f.start_time||'18:00'):(f.start_time||'09:00');
+              next.end_time=isOT?(f.end_time||'21:00'):(f.end_time||'18:00');
+            }
+          }
+          if(isHW){
+            const seishainSet=new Set(staffList.filter(s=>s.type==='正社員').map(s=>s.name));
+            next.assignees=(f.assignees||[]).filter(n=>seishainSet.has(n));
+          }
+          return next;
+        })}
           style={{padding:'4px 10px',borderRadius:16,border:'2px solid '+(sel?c.color:'#e2e8f0'),
             background:sel?c.color+'22':'#fff',fontSize:12,cursor:'pointer',color:sel?c.color:'#64748b',fontWeight:sel?700:400}}>
           {c.icon} {c.label}</button>;})}
       </div></div>
-    <div><label style={{fontSize:11,color:'#64748b',fontWeight:600}}>担当者</label>
+    <div><label style={{fontSize:11,color:'#64748b',fontWeight:600}}>担当者{form.category==='holiday_work'&&<span style={{marginLeft:6,fontSize:10,color:'#7c3aed',fontWeight:700}}>※ 正社員のみ</span>}</label>
       <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
-        {staffList.map(name=>{const sel=(form.assignees||[]).includes(name);return <button key={name}
+        {(form.category==='holiday_work'?staffList.filter(s=>s.type==='正社員'):staffList).map(s=>{const name=s.name;const sel=(form.assignees||[]).includes(name);return <button key={name}
           onClick={()=>setForm(f=>({...f,assignees:sel?(f.assignees||[]).filter(n=>n!==name):[...(f.assignees||[]),name]}))}
           style={{padding:'3px 10px',borderRadius:16,border:'1px solid '+(sel?'#3b82f6':'#e2e8f0'),
             background:sel?'#dbeafe':'#f8fafc',fontSize:12,cursor:'pointer',color:sel?'#1d4ed8':'#475569',fontWeight:sel?600:400}}>
           {name}</button>;})}
         {staffList.length===0&&<span style={{fontSize:11,color:'#94a3b8'}}>読み込み中...</span>}
       </div></div>
-    <textarea placeholder="詳細メモ" value={form.description||''} onChange={e=>setForm(f=>({...f,description:e.target.value}))}
-      style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e2e8f0',fontSize:13,minHeight:56,resize:'vertical'}}/>
+    {(form.category==='overtime'||form.category==='holiday_work')?
+      <div>
+        <label style={{fontSize:11,color:'#dc2626',fontWeight:800}}>理由 <span style={{color:'#dc2626'}}>*（必須）</span></label>
+        <textarea placeholder={form.category==='overtime'?'例: 在庫棚卸し・繁忙期対応・配車調整など':'例: 繁忙期出勤・店舗ヘルプ・イベント対応など'} value={form.description||''} onChange={e=>setForm(f=>({...f,description:e.target.value}))}
+          style={{padding:'8px 12px',borderRadius:8,border:'2px solid '+(form.description?.trim()?'#10b981':'#dc2626'),fontSize:13,minHeight:64,resize:'vertical',background:form.description?.trim()?'#f0fdf4':'#fef2f2',width:'100%',boxSizing:'border-box',marginTop:4}}/>
+      </div>
+      :
+      <textarea placeholder="詳細メモ" value={form.description||''} onChange={e=>setForm(f=>({...f,description:e.target.value}))}
+        style={{padding:'8px 12px',borderRadius:8,border:'1px solid #e2e8f0',fontSize:13,minHeight:56,resize:'vertical'}}/>
+    }
     {form.id&&<label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer',userSelect:'none'}}>
       <input type="checkbox" checked={!!form.is_done} onChange={e=>setForm(f=>({...f,is_done:e.target.checked}))}/> 完了済みにする</label>}
     <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:4}}>
@@ -13995,7 +14019,7 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
   const todayYM=toYM(today);
   const[viewYM,setViewYM]=useState(todayYM);
   const[selStaff,setSelStaff]=useState(staff[0]?.name||"");
-  const[subTab,setSubTab]=useState("budget"); // "budget" | "actual" | "detail" | "overtime"
+  const[subTab,setSubTab]=useState("budget"); // "budget" | "actual" | "detail" | "overtime" | "holiday_work"
   const[editDay,setEditDay]=useState(null);
   const[staffFilter,setStaffFilter]=useState("all"); // "all"|"part"|"full"
   const dim=daysInMonth(viewYM);
@@ -14026,15 +14050,16 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
   React.useEffect(()=>{forceSync();},[]);
 
   React.useEffect(()=>{
-    if(subTab!=="overtime"||!sb)return;
+    if((subTab!=="overtime"&&subTab!=="holiday_work")||!sb)return;
     const from=viewYM+"-01";const to=viewYM+"-31";
-    sb.from('store_events').select('*').eq('category','overtime')
+    sb.from('store_events').select('*').in('category',['overtime','holiday_work'])
       .gte('event_date',from).lte('event_date',to)
       .order('event_date',{ascending:true})
       .then(({data:rows})=>{
         setOvertimeEvents(rows||[]);
         if(rows&&rows.length>0&&!overtimeSel){
-          const names=Array.from(new Set(rows.flatMap(r=>r.assignees||[])));
+          const targetCat=subTab;
+          const names=Array.from(new Set(rows.filter(r=>r.category===targetCat).flatMap(r=>r.assignees||[])));
           if(names.length>0)setOvertimeSel(names[0]);
         }
       });
@@ -14218,7 +14243,7 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
     </div>
     {/* サブタブ */}
     <div style={{display:"flex",gap:0,marginBottom:14,background:"#f1f5f9",borderRadius:10,padding:3}}>
-      {[{id:"budget",l:"予算（シフト）"},{id:"actual",l:"実績（勤怠）"},{id:"detail",l:"給与明細"},{id:"overtime",l:"🟠 残業"}].map(t=>
+      {[{id:"budget",l:"予算（シフト）"},{id:"actual",l:"実績（勤怠）"},{id:"detail",l:"給与明細"},{id:"overtime",l:"🟠 残業"},{id:"holiday_work",l:"🟣 休日出勤"}].map(t=>
         <button key={t.id} onClick={()=>setSubTab(t.id)} style={{flex:1,padding:"7px 0",borderRadius:8,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
           background:subTab===t.id?"#fff":"transparent",color:subTab===t.id?"#1e293b":"#94a3b8",
           boxShadow:subTab===t.id?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{t.l}</button>
@@ -14424,39 +14449,52 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
       })}
     </div>}
 
-    {/* ====== 残業/時間外タブ ====== */}
-    {subTab==="overtime"&&(()=>{
+    {/* ====== 残業/休日出勤 共通タブ ====== */}
+    {(subTab==="overtime"||subTab==="holiday_work")&&(()=>{
+      const isHW=subTab==="holiday_work";
+      const catLabel=isHW?"休日出勤":"残業";
+      const catIcon=isHW?"🟣":"🟠";
+      const accent=isHW?"#7c3aed":"#f97316";
+      const accentBg=isHW?"#f5f3ff":"#fff7ed";
+      const accentBorder=isHW?"#ddd6fe":"#fed7aa";
+      const accentLight=isHW?"#ede9fe":"#fef3c7";
+      const accentSel=isHW?"#ddd6fe":"#ffedd5";
       const calcOTHours=(s,e)=>{if(!s||!e)return 0;const[sh,sm]=s.split(":").map(Number);const[eh,em]=e.split(":").map(Number);const d=(eh*60+em)-(sh*60+sm);return d>0?Math.round(d/60*10)/10:0;};
-      const allNames=Array.from(new Set(overtimeEvents.flatMap(r=>r.assignees||[]))).sort();
-      const dispNames=allNames.length>0?allNames:staff.map(s=>s.name);
-      const selName=overtimeSel||(dispNames[0]||"");
-      const myEvents=overtimeEvents.filter(r=>(r.assignees||[]).includes(selName));
+      const targetEvs=overtimeEvents.filter(r=>r.category===(isHW?"holiday_work":"overtime"));
+      const eligibleStaff=isHW?staff.filter(s=>s.type==="正社員"):staff;
+      const eligibleSet=new Set(eligibleStaff.map(s=>s.name));
+      const allNames=Array.from(new Set(targetEvs.flatMap(r=>r.assignees||[]).filter(n=>!isHW||eligibleSet.has(n)))).sort();
+      const dispNames=allNames.length>0?allNames:eligibleStaff.map(s=>s.name);
+      const selName=overtimeSel&&dispNames.includes(overtimeSel)?overtimeSel:(dispNames[0]||"");
+      const myEvents=targetEvs.filter(r=>(r.assignees||[]).includes(selName));
       const totalH=myEvents.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0);
       const summary={};
       dispNames.forEach(n=>{
-        const evs=overtimeEvents.filter(r=>(r.assignees||[]).includes(n));
+        const evs=targetEvs.filter(r=>(r.assignees||[]).includes(n));
         summary[n]={cnt:evs.length,hours:evs.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0)};
       });
       const cardS2={background:"#fff",borderRadius:14,padding:16,border:"1px solid #e2e8f0",marginBottom:12,boxShadow:"0 1px 3px rgba(0,0,0,.05)"};
       return <div>
+        {isHW&&<div style={{fontSize:11,color:"#7c3aed",background:"#f5f3ff",border:"1px solid #ddd6fe",borderRadius:8,padding:"6px 10px",marginBottom:10,fontWeight:700}}>※ 休日出勤の集計対象は<strong>正社員のみ</strong>です</div>}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
           {dispNames.map(n=><button key={n} onClick={()=>setOvertimeSel(n)} style={{
             padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
-            background:selName===n?"#f97316":"#f1f5f9",color:selName===n?"#fff":"#64748b"
+            background:selName===n?accent:"#f1f5f9",color:selName===n?"#fff":"#64748b"
           }}>{n}{summary[n]?.cnt>0?` (${summary[n].hours}h)`:""}</button>)}
         </div>
         <div style={cardS2}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <span style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{selName} の残業記録</span>
-            <span style={{fontSize:12,fontWeight:700,color:"#f97316",background:"#fff7ed",padding:"3px 10px",borderRadius:8}}>合計 {totalH}h</span>
+            <span style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{selName} の{catLabel}記録</span>
+            <span style={{fontSize:12,fontWeight:700,color:accent,background:accentBg,padding:"3px 10px",borderRadius:8}}>合計 {totalH}h</span>
           </div>
-          {myEvents.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"16px 0"}}>残業記録なし</div>
+          {myEvents.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"16px 0"}}>{catLabel}記録なし</div>
           :<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#f8fafc"}}>
               <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>日付</th>
               <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間</th>
               <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間数</th>
-              <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>内容</th>
+              <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>タイトル</th>
+              <th style={{padding:"6px 8px",textAlign:"left",color:"#dc2626",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>理由</th>
             </tr></thead>
             <tbody>{myEvents.map(r=>{
               const h=calcOTHours(r.start_time,r.end_time);
@@ -14467,36 +14505,37 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
               return <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9"}}>
                 <td style={{padding:"8px 8px",fontWeight:600,color:"#1e293b"}}>{dateLabel}</td>
                 <td style={{padding:"8px 8px",textAlign:"center",color:"#475569"}}>{timeLabel}</td>
-                <td style={{padding:"8px 8px",textAlign:"center",fontWeight:700,color:"#f97316"}}>{h>0?h+"h":"—"}</td>
-                <td style={{padding:"8px 8px",color:"#374151"}}>{r.title||""}{r.description?<span style={{fontSize:10,color:"#94a3b8",display:"block"}}>{r.description}</span>:null}</td>
+                <td style={{padding:"8px 8px",textAlign:"center",fontWeight:700,color:accent}}>{h>0?h+"h":"—"}</td>
+                <td style={{padding:"8px 8px",color:"#374151"}}>{r.title||""}</td>
+                <td style={{padding:"8px 8px",color:"#374151",fontWeight:600}}>{r.description||<span style={{color:"#dc2626",fontSize:10}}>未入力</span>}</td>
               </tr>;
             })}</tbody>
-            <tfoot><tr style={{background:"#fff7ed"}}>
+            <tfoot><tr style={{background:accentBg}}>
               <td colSpan={2} style={{padding:"8px 8px",fontWeight:800,color:"#1e293b"}}>月間合計</td>
-              <td style={{padding:"8px 8px",textAlign:"center",fontWeight:900,fontSize:14,color:"#f97316"}}>{totalH}h</td>
-              <td style={{padding:"8px 8px",fontSize:10,color:"#94a3b8"}}>{myEvents.length}件</td>
+              <td style={{padding:"8px 8px",textAlign:"center",fontWeight:900,fontSize:14,color:accent}}>{totalH}h</td>
+              <td colSpan={2} style={{padding:"8px 8px",fontSize:10,color:"#94a3b8"}}>{myEvents.length}件</td>
             </tr></tfoot>
           </table>}
         </div>
-        <div style={{...cardS2,background:"#fff7ed",border:"2px solid #fed7aa"}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:8}}>📊 {viewYM.replace("-","年")}月 残業サマリー</div>
+        <div style={{...cardS2,background:accentBg,border:"2px solid "+accentBorder}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:8}}>📊 {viewYM.replace("-","年")}月 {catLabel}サマリー</div>
           {dispNames.filter(n=>summary[n]?.cnt>0).length===0
-            ?<div style={{fontSize:12,color:"#94a3b8"}}>この月の残業記録はありません</div>
+            ?<div style={{fontSize:12,color:"#94a3b8"}}>この月の{catLabel}記録はありません</div>
             :<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr style={{background:"#fef3c7"}}>
+              <thead><tr style={{background:accentLight}}>
                 <th style={{padding:"5px 8px",textAlign:"left",color:"#64748b",fontWeight:700}}>スタッフ</th>
                 <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>件数</th>
                 <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>合計時間</th>
               </tr></thead>
-              <tbody>{dispNames.filter(n=>summary[n]?.cnt>0).map(n=><tr key={n} style={{borderBottom:"1px solid #fed7aa",background:n===selName?"#ffedd5":"transparent"}}>
+              <tbody>{dispNames.filter(n=>summary[n]?.cnt>0).map(n=><tr key={n} style={{borderBottom:"1px solid "+accentBorder,background:n===selName?accentSel:"transparent"}}>
                 <td style={{padding:"6px 8px",fontWeight:700,color:"#1e293b"}}>{n}</td>
                 <td style={{padding:"6px 8px",textAlign:"center",color:"#475569"}}>{summary[n].cnt}件</td>
-                <td style={{padding:"6px 8px",textAlign:"center",fontWeight:700,color:"#f97316"}}>{summary[n].hours}h</td>
+                <td style={{padding:"6px 8px",textAlign:"center",fontWeight:700,color:accent}}>{summary[n].hours}h</td>
               </tr>)}</tbody>
             </table>}
         </div>
         <div style={{fontSize:11,color:"#94a3b8",textAlign:"center",padding:"8px 0"}}>
-          ※ チームカレンダーで「🟠 残業」カテゴリのイベントを登録すると自動集計されます
+          ※ チームカレンダーで「{catIcon} {catLabel}」カテゴリのイベントを登録すると自動集計されます（理由必須）
         </div>
       </div>;
     })()}
@@ -21348,7 +21387,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.52-BT";
+const APP_VERSION="v1.0.53-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
