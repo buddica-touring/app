@@ -14273,7 +14273,7 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
     </div>
     {/* サブタブ */}
     <div style={{display:"flex",gap:0,marginBottom:14,background:"#f1f5f9",borderRadius:10,padding:3}}>
-      {[{id:"budget",l:"予算（シフト）"},{id:"actual",l:"実績（勤怠）"},{id:"detail",l:"給与明細"},{id:"overtime",l:"🟠 残業"},{id:"holiday_work",l:"🟣 休日出勤"}].map(t=>
+      {[{id:"budget",l:"予算（シフト）"},{id:"actual",l:"実績（勤怠）"},{id:"detail",l:"給与明細"},{id:"overtime",l:"🟠🟣 残業・休日出勤"}].map(t=>
         <button key={t.id} onClick={()=>setSubTab(t.id)} style={{flex:1,padding:"7px 0",borderRadius:8,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
           background:subTab===t.id?"#fff":"transparent",color:subTab===t.id?"#1e293b":"#94a3b8",
           boxShadow:subTab===t.id?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{t.l}</button>
@@ -14557,93 +14557,103 @@ ALTER TABLE bt_staff ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0;`
       })}
     </div>}
 
-    {/* ====== 残業/休日出勤 共通タブ ====== */}
-    {(subTab==="overtime"||subTab==="holiday_work")&&(()=>{
-      const isHW=subTab==="holiday_work";
-      const catLabel=isHW?"休日出勤":"残業";
-      const catIcon=isHW?"🟣":"🟠";
-      const accent=isHW?"#7c3aed":"#f97316";
-      const accentBg=isHW?"#f5f3ff":"#fff7ed";
-      const accentBorder=isHW?"#ddd6fe":"#fed7aa";
-      const accentLight=isHW?"#ede9fe":"#fef3c7";
-      const accentSel=isHW?"#ddd6fe":"#ffedd5";
+    {/* ====== 残業・休日出勤 統合タブ ====== */}
+    {subTab==="overtime"&&(()=>{
       const calcOTHours=(s,e)=>{if(!s||!e)return 0;const[sh,sm]=s.split(":").map(Number);const[eh,em]=e.split(":").map(Number);const d=(eh*60+em)-(sh*60+sm);return d>0?Math.round(d/60*10)/10:0;};
-      const targetEvs=overtimeEvents.filter(r=>r.category===(isHW?"holiday_work":"overtime"));
-      const eligibleStaff=isHW?staff.filter(s=>s.type==="正社員"):staff;
-      const eligibleSet=new Set(eligibleStaff.map(s=>s.name));
-      const allNames=Array.from(new Set(targetEvs.flatMap(r=>r.assignees||[]).filter(n=>!isHW||eligibleSet.has(n)))).sort();
-      const dispNames=allNames.length>0?allNames:eligibleStaff.map(s=>s.name);
-      const selName=overtimeSel&&dispNames.includes(overtimeSel)?overtimeSel:(dispNames[0]||"");
-      const myEvents=targetEvs.filter(r=>(r.assignees||[]).includes(selName));
-      const totalH=myEvents.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0);
-      const summary={};
-      dispNames.forEach(n=>{
-        const evs=targetEvs.filter(r=>(r.assignees||[]).includes(n));
-        summary[n]={cnt:evs.length,hours:evs.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0)};
-      });
       const cardS2={background:"#fff",borderRadius:14,padding:16,border:"1px solid #e2e8f0",marginBottom:12,boxShadow:"0 1px 3px rgba(0,0,0,.05)"};
-      return <div>
-        {isHW&&<div style={{fontSize:11,color:"#7c3aed",background:"#f5f3ff",border:"1px solid #ddd6fe",borderRadius:8,padding:"6px 10px",marginBottom:10,fontWeight:700}}>※ 休日出勤の集計対象は<strong>正社員のみ</strong>です</div>}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-          {dispNames.map(n=><button key={n} onClick={()=>setOvertimeSel(n)} style={{
-            padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
-            background:selName===n?accent:"#f1f5f9",color:selName===n?"#fff":"#64748b"
-          }}>{n}{summary[n]?.cnt>0?` (${summary[n].hours}h)`:""}</button>)}
-        </div>
-        <div style={cardS2}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <span style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{selName} の{catLabel}記録</span>
-            <span style={{fontSize:12,fontWeight:700,color:accent,background:accentBg,padding:"3px 10px",borderRadius:8}}>合計 {totalH}h</span>
+      const renderSection=(isHW)=>{
+        const catLabel=isHW?"休日出勤":"残業";
+        const catIcon=isHW?"🟣":"🟠";
+        const accent=isHW?"#7c3aed":"#f97316";
+        const accentBg=isHW?"#f5f3ff":"#fff7ed";
+        const accentBorder=isHW?"#ddd6fe":"#fed7aa";
+        const accentLight=isHW?"#ede9fe":"#fef3c7";
+        const accentSel=isHW?"#ddd6fe":"#ffedd5";
+        const targetEvs=overtimeEvents.filter(r=>r.category===(isHW?"holiday_work":"overtime"));
+        const eligibleStaff=isHW?staff.filter(s=>s.type==="正社員"):staff;
+        const eligibleSet=new Set(eligibleStaff.map(s=>s.name));
+        const allNames=Array.from(new Set(targetEvs.flatMap(r=>r.assignees||[]).filter(n=>!isHW||eligibleSet.has(n)))).sort();
+        const dispNames=allNames.length>0?allNames:eligibleStaff.map(s=>s.name);
+        const selName=overtimeSel&&dispNames.includes(overtimeSel)?overtimeSel:(dispNames[0]||"");
+        const myEvents=targetEvs.filter(r=>(r.assignees||[]).includes(selName));
+        const totalH=myEvents.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0);
+        const summary={};
+        dispNames.forEach(n=>{
+          const evs=targetEvs.filter(r=>(r.assignees||[]).includes(n));
+          summary[n]={cnt:evs.length,hours:evs.reduce((a,r)=>a+calcOTHours(r.start_time,r.end_time),0)};
+        });
+        return <div key={isHW?"hw":"ot"} style={{marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,padding:"8px 14px",borderRadius:10,background:accentBg,border:"2px solid "+accentBorder}}>
+            <span style={{fontSize:18}}>{catIcon}</span>
+            <span style={{fontSize:15,fontWeight:900,color:accent}}>{catLabel}</span>
+            {isHW&&<span style={{fontSize:10,color:"#5b21b6",background:"#fff",padding:"2px 8px",borderRadius:8,fontWeight:700}}>※ 正社員のみ</span>}
           </div>
-          {myEvents.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"16px 0"}}>{catLabel}記録なし</div>
-          :<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr style={{background:"#f8fafc"}}>
-              <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>日付</th>
-              <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間</th>
-              <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間数</th>
-              <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>タイトル</th>
-              <th style={{padding:"6px 8px",textAlign:"left",color:"#dc2626",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>理由</th>
-            </tr></thead>
-            <tbody>{myEvents.map(r=>{
-              const h=calcOTHours(r.start_time,r.end_time);
-              const dt=new Date(r.event_date+"T00:00:00");
-              const JDOW=["日","月","火","水","木","金","土"];
-              const dateLabel=`${dt.getMonth()+1}/${dt.getDate()}（${JDOW[dt.getDay()]}）`;
-              const timeLabel=r.start_time&&r.end_time?`${r.start_time}〜${r.end_time}`:r.start_time||"—";
-              return <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                <td style={{padding:"8px 8px",fontWeight:600,color:"#1e293b"}}>{dateLabel}</td>
-                <td style={{padding:"8px 8px",textAlign:"center",color:"#475569"}}>{timeLabel}</td>
-                <td style={{padding:"8px 8px",textAlign:"center",fontWeight:700,color:accent}}>{h>0?h+"h":"—"}</td>
-                <td style={{padding:"8px 8px",color:"#374151"}}>{r.title||""}</td>
-                <td style={{padding:"8px 8px",color:"#374151",fontWeight:600}}>{r.description||<span style={{color:"#dc2626",fontSize:10}}>未入力</span>}</td>
-              </tr>;
-            })}</tbody>
-            <tfoot><tr style={{background:accentBg}}>
-              <td colSpan={2} style={{padding:"8px 8px",fontWeight:800,color:"#1e293b"}}>月間合計</td>
-              <td style={{padding:"8px 8px",textAlign:"center",fontWeight:900,fontSize:14,color:accent}}>{totalH}h</td>
-              <td colSpan={2} style={{padding:"8px 8px",fontSize:10,color:"#94a3b8"}}>{myEvents.length}件</td>
-            </tr></tfoot>
-          </table>}
-        </div>
-        <div style={{...cardS2,background:accentBg,border:"2px solid "+accentBorder}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:8}}>📊 {viewYM.replace("-","年")}月 {catLabel}サマリー</div>
-          {dispNames.filter(n=>summary[n]?.cnt>0).length===0
-            ?<div style={{fontSize:12,color:"#94a3b8"}}>この月の{catLabel}記録はありません</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {dispNames.map(n=><button key={n} onClick={()=>setOvertimeSel(n)} style={{
+              padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",
+              background:selName===n?accent:"#f1f5f9",color:selName===n?"#fff":"#64748b"
+            }}>{n}{summary[n]?.cnt>0?` (${summary[n].hours}h)`:""}</button>)}
+          </div>
+          <div style={cardS2}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{selName} の{catLabel}記録</span>
+              <span style={{fontSize:12,fontWeight:700,color:accent,background:accentBg,padding:"3px 10px",borderRadius:8}}>合計 {totalH}h</span>
+            </div>
+            {myEvents.length===0?<div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"16px 0"}}>{catLabel}記録なし</div>
             :<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr style={{background:accentLight}}>
-                <th style={{padding:"5px 8px",textAlign:"left",color:"#64748b",fontWeight:700}}>スタッフ</th>
-                <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>件数</th>
-                <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>合計時間</th>
+              <thead><tr style={{background:"#f8fafc"}}>
+                <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>日付</th>
+                <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間</th>
+                <th style={{padding:"6px 8px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>時間数</th>
+                <th style={{padding:"6px 8px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>タイトル</th>
+                <th style={{padding:"6px 8px",textAlign:"left",color:"#dc2626",fontWeight:700,borderBottom:"1px solid #e2e8f0"}}>理由</th>
               </tr></thead>
-              <tbody>{dispNames.filter(n=>summary[n]?.cnt>0).map(n=><tr key={n} style={{borderBottom:"1px solid "+accentBorder,background:n===selName?accentSel:"transparent"}}>
-                <td style={{padding:"6px 8px",fontWeight:700,color:"#1e293b"}}>{n}</td>
-                <td style={{padding:"6px 8px",textAlign:"center",color:"#475569"}}>{summary[n].cnt}件</td>
-                <td style={{padding:"6px 8px",textAlign:"center",fontWeight:700,color:accent}}>{summary[n].hours}h</td>
-              </tr>)}</tbody>
+              <tbody>{myEvents.map(r=>{
+                const h=calcOTHours(r.start_time,r.end_time);
+                const dt=new Date(r.event_date+"T00:00:00");
+                const JDOW=["日","月","火","水","木","金","土"];
+                const dateLabel=`${dt.getMonth()+1}/${dt.getDate()}（${JDOW[dt.getDay()]}）`;
+                const timeLabel=r.start_time&&r.end_time?`${r.start_time}〜${r.end_time}`:r.start_time||"—";
+                return <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                  <td style={{padding:"8px 8px",fontWeight:600,color:"#1e293b"}}>{dateLabel}</td>
+                  <td style={{padding:"8px 8px",textAlign:"center",color:"#475569"}}>{timeLabel}</td>
+                  <td style={{padding:"8px 8px",textAlign:"center",fontWeight:700,color:accent}}>{h>0?h+"h":"—"}</td>
+                  <td style={{padding:"8px 8px",color:"#374151"}}>{r.title||""}</td>
+                  <td style={{padding:"8px 8px",color:"#374151",fontWeight:600}}>{r.description||<span style={{color:"#dc2626",fontSize:10}}>未入力</span>}</td>
+                </tr>;
+              })}</tbody>
+              <tfoot><tr style={{background:accentBg}}>
+                <td colSpan={2} style={{padding:"8px 8px",fontWeight:800,color:"#1e293b"}}>月間合計</td>
+                <td style={{padding:"8px 8px",textAlign:"center",fontWeight:900,fontSize:14,color:accent}}>{totalH}h</td>
+                <td colSpan={2} style={{padding:"8px 8px",fontSize:10,color:"#94a3b8"}}>{myEvents.length}件</td>
+              </tr></tfoot>
             </table>}
-        </div>
+          </div>
+          <div style={{...cardS2,background:accentBg,border:"2px solid "+accentBorder}}>
+            <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:8}}>📊 {viewYM.replace("-","年")}月 {catLabel}サマリー</div>
+            {dispNames.filter(n=>summary[n]?.cnt>0).length===0
+              ?<div style={{fontSize:12,color:"#94a3b8"}}>この月の{catLabel}記録はありません</div>
+              :<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead><tr style={{background:accentLight}}>
+                  <th style={{padding:"5px 8px",textAlign:"left",color:"#64748b",fontWeight:700}}>スタッフ</th>
+                  <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>件数</th>
+                  <th style={{padding:"5px 8px",textAlign:"center",color:"#64748b",fontWeight:700}}>合計時間</th>
+                </tr></thead>
+                <tbody>{dispNames.filter(n=>summary[n]?.cnt>0).map(n=><tr key={n} style={{borderBottom:"1px solid "+accentBorder,background:n===selName?accentSel:"transparent"}}>
+                  <td style={{padding:"6px 8px",fontWeight:700,color:"#1e293b"}}>{n}</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",color:"#475569"}}>{summary[n].cnt}件</td>
+                  <td style={{padding:"6px 8px",textAlign:"center",fontWeight:700,color:accent}}>{summary[n].hours}h</td>
+                </tr>)}</tbody>
+              </table>}
+          </div>
+        </div>;
+      };
+      return <div>
+        {renderSection(false)}
+        <div style={{borderTop:"2px dashed #cbd5e1",margin:"8px 0 24px"}}/>
+        {renderSection(true)}
         <div style={{fontSize:11,color:"#94a3b8",textAlign:"center",padding:"8px 0"}}>
-          ※ チームカレンダーで「{catIcon} {catLabel}」カテゴリのイベントを登録すると自動集計されます（理由必須）
+          ※ チームカレンダーで「🟠 残業」「🟣 休日出勤」カテゴリのイベントを登録すると自動集計されます（理由必須）
         </div>
       </div>;
     })()}
@@ -21495,7 +21505,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.54-BT";
+const APP_VERSION="v1.0.55-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
