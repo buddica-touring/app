@@ -2499,6 +2499,9 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     const tmSame=tmRet.filter(r=>r.createdAt&&r.createdAt.slice(0,7)===nowYM);
     const tmSameCount=tmSame.length;
     const tmSamePct=Math.round(tmSameCount/tmTotal*100);
+    // ★ 当月発生売上 = 当月予約(当月返却かつ当月発生)の売上合計
+    let tmSameRev=0;
+    tmSame.forEach(r=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;tmSameRev+=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);});
     // ★ 当月デリバリ利用率（当月返却ベース）
     // ※ 判定ソース: bt_tasks に DEL / COL タスクが紐づく予約
     //   1予約に最大2タスク（DEL+COL）あるが Set で重複排除。OPシート上の手動変更も反映
@@ -2518,7 +2521,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     const last10=[...tmSame].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).slice(0,10).map(r=>({
       id:r.id,ota:r.ota,name:r.name,lendDate:r.lendDate,returnDate:r.returnDate,createdAt:(r.createdAt||"").slice(0,10)
     }));
-    return{tmTotal,tmSameCount,tmSamePct,tmDelCnt,tmDelPct,byOta,last10,nowYM};
+    return{tmTotal,tmSameCount,tmSamePct,tmSameRev,tmDelCnt,tmDelPct,byOta,last10,nowYM};
   },[data,delResIdSet,viewYM]);
   // ★ 月次スナップショット自動保存（前月分を自動記録）
   useEffect(()=>{
@@ -2611,6 +2614,12 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
             <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月予約率</span>
             <span style={{fontSize:20,fontWeight:900,color:"#d97706",lineHeight:1}}>{stats.tmSamePct}<span style={{fontSize:11,fontWeight:600}}>%</span></span>
             <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>({stats.tmSameCount}/{stats.tmTotal})</span>
+          </div>
+          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+            <span style={{fontSize:12,width:18}}>🆕</span>
+            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月発生売上</span>
+            <span style={{fontSize:16,fontWeight:900,color:"#059669",lineHeight:1}}>¥{(stats.tmSameRev/10000).toFixed(1)}<span style={{fontSize:11,fontWeight:600}}>万</span></span>
+            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>{stats.tmSameCount}件</span>
           </div>
           {utilStats&&<div style={{display:"flex",alignItems:"baseline",gap:6}}>
             <span style={{fontSize:12,width:18}}>⚙️</span>
@@ -21492,7 +21501,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.56-BT";
+const APP_VERSION="v1.0.57-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
