@@ -336,11 +336,11 @@ function aggregateMonthly(resv,store){
     const ed=(r[endCol]||'').slice(0,10);
     if(!ed||!ed.startsWith('2026'))return;
     const ym=ed.slice(0,7);
-    if(!byM[ym])byM[ym]={cnt:0,sub:0,cm:0,leads:[],byCls:{},byOta:{},nights:0};
+    if(!byM[ym])byM[ym]={cnt:0,sub:0,cm:0,cmSub:0,leads:[],byCls:{},byOta:{},nights:0};
     const sub=revOf(r);
     byM[ym].cnt++;byM[ym].sub+=sub;
     const created=(r.created_at||'').slice(0,10);
-    if(created&&created.slice(0,7)===ym)byM[ym].cm++;
+    if(created&&created.slice(0,7)===ym){byM[ym].cm++;byM[ym].cmSub+=sub;}
     const cls=(r.vehicle_class||'').trim()||'?';
     const ota=(r.ota||'').trim()||'?';
     if(!byM[ym].byCls[cls])byM[ym].byCls[cls]={cnt:0,sub:0};
@@ -718,11 +718,11 @@ function renderInputSection(d){
   }
 
   // 過去月実績
-  html+=`<details open><summary>📈 過去月実績 (PERIOD_START ${PERIOD_START[store]} 以降)</summary><div class="detail-body"><table class="t"><thead><tr><th>月</th><th class="num">件数</th><th class="num">売上</th><th class="num">客単価</th><th class="num">当月発生率</th><th class="num">平均泊数</th></tr></thead><tbody>`;
+  html+=`<details open><summary>📈 過去月実績 (PERIOD_START ${PERIOD_START[store]} 以降)</summary><div class="detail-body"><table class="t"><thead><tr><th>月</th><th class="num">件数</th><th class="num">売上</th><th class="num">客単価</th><th class="num">当月予約率</th><th class="num">当月発生売上</th><th class="num">平均泊数</th></tr></thead><tbody>`;
   pastMonths.forEach(pm=>{
     const m=byM[pm];const aov=m.cnt?m.sub/m.cnt:0;const cmR=m.cnt?m.cm/m.cnt:0;const nights=m.cnt?m.nights/m.cnt:0;
     const cur=pm===ym;
-    html+=`<tr${cur?' style="background:#fef9c3;font-weight:700"':''}><td>${pm}${cur?' 🔥対象':''}</td><td class="num">${m.cnt}</td><td class="num">${fmtY(m.sub)}</td><td class="num">${fmtY(aov)}</td><td class="num">${fmtP(cmR)}</td><td class="num">${nights.toFixed(1)}泊</td></tr>`;
+    html+=`<tr${cur?' style="background:#fef9c3;font-weight:700"':''}><td>${pm}${cur?' 🔥対象':''}</td><td class="num">${m.cnt}</td><td class="num">${fmtY(m.sub)}</td><td class="num">${fmtY(aov)}</td><td class="num">${fmtP(cmR)} <span style="color:#94a3b8;font-size:.85em">(${m.cm||0}件)</span></td><td class="num">${fmtY(m.cmSub||0)}</td><td class="num">${nights.toFixed(1)}泊</td></tr>`;
   });
   html+=`</tbody></table></div></details>`;
 
