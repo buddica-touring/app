@@ -21503,7 +21503,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.64-BT";
+const APP_VERSION="v1.0.65-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -22064,6 +22064,7 @@ function TaskList({tasks,onOpen,onProgress,onComplete,onLog,onAddChild,onSetStat
 
 /* ===== DASHBOARD ===== */
 function Dashboard({tasks,goals,go}){
+  const [openP,setOpenP]=useState(null); // 個人進捗カード→タスク詳細モーダル
   const cnt = k => tasks.filter(t=>t.status===k).length;
   const donut = STATUS.map(s=>({label:s.k,c:s.color,v:cnt(s.k)}));
   const leaves = tasks.filter(t=>!hasChildren(tasks,t.id));
@@ -22225,7 +22226,7 @@ function Dashboard({tasks,goals,go}){
       <div className="sec-h"><h2>👤 個人進捗（{evalLabel}）</h2><span className="eval-note">完了率・平均進捗で追跡</span></div>
       <div className="eval-grid">
         {perP.map(p=>(
-          <div className="card eval" key={p.name}>
+          <div className="card eval" key={p.name} style={{cursor:"pointer"}} onClick={()=>setOpenP(p)} title="タスク詳細を表示">
             <div className="eval-h">
               <span className="avatar" style={{background:p.color}}>{p.name[0]}</span>
               <div style={{flex:1}}><b>{p.name}</b><span className="sub">{p.role}</span></div>
@@ -22259,6 +22260,44 @@ function Dashboard({tasks,goals,go}){
           ))}
         </div>
       </div>
+
+      {openP && (()=>{
+        const so={"未着手":0,"進行中":1,"相談必要":2,"完了":3};
+        const mine=tasks.filter(t=>t.assignee===openP.name).slice().sort((a,b)=>(so[a.status]-so[b.status])||((a.due||"9999").localeCompare(b.due||"9999")));
+        return (
+        <div className="scrim" onClick={()=>setOpenP(null)}>
+          <div className="sheet" onClick={e=>e.stopPropagation()}>
+            <div className="sheet-h">
+              <span className="avatar" style={{background:openP.color,width:30,height:30,fontSize:13}}>{openP.name[0]}</span>
+              <b style={{flex:1}}>{openP.name} のタスク（{mine.length}件）</b>
+              <button className="iconbtn" onClick={()=>setOpenP(null)}>✕</button>
+            </div>
+            <div className="sheet-b">
+              {mine.length===0 && <div className="empty">担当タスクはありません</div>}
+              {mine.map(t=>{const sm=statusMeta(t.status),dl=dueLabel(t.due),kids=childrenOf(tasks,t.id),prog=kids.length?effProgress(t,tasks):t.progress;return (
+                <div key={t.id} className="card" style={{padding:"11px 13px",marginBottom:8,borderLeft:"3px solid "+areaColor(t.area)}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                    <span style={{width:9,height:9,borderRadius:3,background:sm.color,marginTop:5,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{t.title}</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:4,alignItems:"center"}}>
+                        <AreaTag name={t.area}/>
+                        <Chip cls={"st "+sm.cls}>{t.status}</Chip>
+                        <Chip cls={"due "+dl.cls}>⏱ {dl.t}{t.due?" · "+fmtJ(t.due):""}</Chip>
+                        {kids.length>0 && <Chip cls="kids">子{kids.length}</Chip>}
+                        {t.priority==="高" && <span style={{fontSize:11,color:"var(--p-high)",fontWeight:800}}>●優先度高</span>}
+                      </div>
+                      {t.description && <div style={{fontSize:12,color:"var(--sub)",marginTop:5}}>{t.description}</div>}
+                      <div className="prog-wrap" style={{marginTop:6}}><div className="bar" style={{flex:1}}><i style={{width:prog+"%",background:sm.color}}/></div><span className="pct mono">{prog}%</span></div>
+                      {(t.logs||[]).length>0 && <div style={{fontSize:11,color:"var(--mut)",marginTop:5}}>📝 {t.logs[t.logs.length-1].date} {t.logs[t.logs.length-1].author}: {t.logs[t.logs.length-1].text}</div>}
+                    </div>
+                  </div>
+                </div>
+              );})}
+            </div>
+          </div>
+        </div>);
+      })()}
     </div>
   );
 }
