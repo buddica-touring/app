@@ -20499,6 +20499,7 @@ function App(){
             const ltWaiting=(()=>{const td=new Date();td.setHours(0,0,0,0);let w=0;(data||[]).forEach(r=>{if(r.status==="cancelled")return;const ld=new Date((r.lendDate||"")+"T00:00:00");if(isNaN(ld.getTime())||ld<td)return;if(!fleet||!fleet[r.id])w++;});return w;})();
             const sections=[
               {title:"日常業務",color:"#2563eb",items:[
+                {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
@@ -21502,7 +21503,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.59-BT";
+const APP_VERSION="v1.0.60-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
