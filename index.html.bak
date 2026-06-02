@@ -21503,7 +21503,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.63-BT";
+const APP_VERSION="v1.0.64-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -22180,91 +22180,72 @@ function Dashboard({tasks,goals,go}){
         <span style={{fontSize:12,color:"var(--sub)",fontWeight:700}}>対象: {evalLabel} ・ {evalTasks.length}件</span>
       </div>
 
-      <div className="sec-h"><h2>🏆 チーム評価（{evalLabel}）</h2><span className="eval-note">メンバー{perP.length}名の個人評価を総合</span></div>
+      <div className="sec-h"><h2>📊 チーム進捗（{evalLabel}）</h2><span className="eval-note">メンバー{perP.length}名 合算</span></div>
       <div className="card" style={{padding:18}}>
-        <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-          <div style={{width:74,height:74,borderRadius:18,background:teamGrade.c,color:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 3px 10px rgba(0,0,0,.18)"}}>
-            <b style={{fontSize:32,lineHeight:1}}>{teamGrade.g}</b><span style={{fontSize:10,letterSpacing:1,opacity:.9}}>TEAM</span>
+        <div style={{display:"flex",alignItems:"center",gap:18,flexWrap:"wrap"}}>
+          <div style={{flexShrink:0,textAlign:"center",minWidth:78}}>
+            <div className="mono" style={{fontSize:42,fontWeight:800,lineHeight:1,color:"#14a44d"}}>{teamAchieve}<span style={{fontSize:16,color:"var(--sub)"}}>%</span></div>
+            <div style={{fontSize:11,color:"var(--sub)",fontWeight:700,marginTop:3}}>完了率</div>
           </div>
-          <div style={{flex:1,minWidth:190}}>
-            <div style={{fontSize:12,color:"var(--sub)",fontWeight:700}}>チーム総合スコア（メンバー平均）</div>
-            <div className="mono" style={{fontSize:34,fontWeight:800,letterSpacing:"-.5px"}}>{teamScore}<span style={{fontSize:15,color:"var(--sub)",fontWeight:700}}> 点</span></div>
-            <div style={{fontSize:11.5,color:"var(--mut)"}}>担当 {teamN}件 ・ 完了 {teamDone}件 ・ 超過 {teamOverdue}件</div>
+          <div style={{flex:1,minWidth:200}}>
+            <div style={{fontSize:11.5,color:"var(--mut)",marginBottom:6}}>完了 {teamDone} / 総タスク {teamN}件 ・ 平均進捗 {teamProg}% ・ 期限超過 <b style={{color:teamOverdue?"#e8384f":"var(--mut)"}}>{teamOverdue}</b>件</div>
+            {(()=>{const ti=perP.reduce((s,p)=>s+p.inProg,0),tt=perP.reduce((s,p)=>s+p.todo,0),tk=perP.reduce((s,p)=>s+p.talk,0);const tot=teamN||1;const seg=[["完了",teamDone,"#14a44d"],["進行中",ti,"#4573d2"],["相談",tk,"#f59e0b"],["未着手",tt,"#a3a9b3"]];return (<>
+              <div style={{display:"flex",height:15,borderRadius:8,overflow:"hidden",background:"#eceef1"}}>{seg.map(s=>s[1]>0&&<div key={s[0]} title={s[0]+" "+s[1]} style={{width:(s[1]/tot*100)+"%",background:s[2]}}/>)}</div>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:8,fontSize:11.5,fontWeight:700}}>{seg.map(s=><span key={s[0]} style={{color:"var(--sub)",display:"inline-flex",alignItems:"center",gap:4}}><span className="dot" style={{background:s[2]}}/>{s[0]} {s[1]}</span>)}</div>
+            </>);})()}
           </div>
-        </div>
-        <div style={{marginTop:14,display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"0 18px"}}>
-          <Metric label="チーム達成率" v={teamAchieve} color="#14a44d"/>
-          <Metric label={"チーム納期確約率"+(teamDone?`（${teamOnTime}/${teamDone}）`:"")} v={teamOntime} color="#4573d2"/>
-          <Metric label="チーム平均進捗" v={teamProg} color="#4573d2"/>
-          <Metric label="チームログ活動度" v={teamLogRate} color="#8b5cf6"/>
         </div>
         <div style={{marginTop:10,borderTop:"1px solid var(--line)",paddingTop:12}}>
-          <div style={{fontSize:11.5,fontWeight:800,color:"var(--sub)",marginBottom:9}}>メンバー別スコア（ランキング）</div>
-          {ranking.map((p,i)=>(
+          <div style={{fontSize:11.5,fontWeight:800,color:"var(--sub)",marginBottom:9}}>メンバー別 進捗（完了率順）</div>
+          {perP.slice().sort((a,b)=>(b.achieve-a.achieve)||(b.avg-a.avg)).map((p,i)=>(
             <div key={p.name} style={{display:"flex",alignItems:"center",gap:9,marginBottom:8}}>
               <span style={{width:16,fontSize:11,fontWeight:800,color:"var(--mut)"}}>{i+1}</span>
               <span className="avatar" style={{width:22,height:22,fontSize:11,background:p.color}}>{p.name[0]}</span>
               <span style={{fontSize:12.5,fontWeight:700,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-              <div className="bar" style={{flex:1}}><i style={{width:p.score+"%",background:p.grade.c}}/></div>
-              <span className="mono" style={{fontSize:12,fontWeight:800,width:58,textAlign:"right"}}>{p.score}点 {p.grade.g}</span>
+              <div className="bar" style={{flex:1}}><i style={{width:p.avg+"%",background:p.color}}/></div>
+              <span className="mono" style={{fontSize:11,fontWeight:800,width:104,textAlign:"right",color:"var(--sub)"}}>進捗{p.avg}% 完{p.done}/{p.n}</span>
             </div>
           ))}
         </div>
       </div>
 
       {evalP.mode==="year" && <>
-      <div className="sec-h"><h2>📅 年間 月別内訳（チーム合算）</h2></div>
+      <div className="sec-h"><h2>📈 月別 進捗トレンド（チーム）</h2><span className="eval-note">完了率・平均進捗の推移</span></div>
       <div className="card" style={{padding:"12px 16px"}}>
         {evYearMonths.length===0 && <div style={{fontSize:13,color:"var(--mut)"}}>この年のタスクがありません</div>}
-        {evYearMonths.map(m=>{const mt=tasks.filter(t=>t.due&&t.due.slice(0,7)===m);const leaf=mt.filter(t=>!hasChildren(tasks,t.id));const done=leaf.filter(t=>t.status==="完了").length;const ts=teamScoreOfTasks(mt);const gr=gradeOf(ts);return (
+        {evYearMonths.map(m=>{const mt=tasks.filter(t=>t.due&&t.due.slice(0,7)===m);const leaf=mt.filter(t=>!hasChildren(tasks,t.id));const done=leaf.filter(t=>t.status==="完了").length;const avg=leaf.length?Math.round(leaf.reduce((s,t)=>s+(t.progress||0),0)/leaf.length):0;const rate=leaf.length?Math.round(done/leaf.length*100):0;return (
           <div key={m} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
             <span style={{fontSize:12,fontWeight:800,width:52}}>{(+m.slice(5))+"月"}</span>
-            <div className="bar" style={{flex:1}}><i style={{width:ts+"%",background:gr.c}}/></div>
-            <span className="mono" style={{fontSize:11.5,fontWeight:800,width:128,textAlign:"right",color:"var(--sub)"}}>{ts}点{gr.g} ・ 完了{done}/{leaf.length}</span>
+            <div className="bar" style={{flex:1}}><i style={{width:avg+"%",background:"#4573d2"}}/></div>
+            <span className="mono" style={{fontSize:11.5,fontWeight:800,width:150,textAlign:"right",color:"var(--sub)"}}>進捗{avg}% ・ 完了{done}/{leaf.length}({rate}%)</span>
           </div>
         );})}
       </div>
       </>}
-      <div className="sec-h"><h2>👤 個人評価（{evalLabel}）</h2></div>
-      <div className="card algo-box">
-        <b>📐 総合スコアの算出方法（100点満点・実作業タスク基準）</b>
-        <div className="formula">総合スコア ＝ 達成率×0.40 ＋ 納期確約率×0.30 ＋ 平均進捗×0.20 ＋ ログ活動度×0.10 −（期限超過1件 × 8点）</div>
-        ・<b>達成率</b>＝完了 ÷ 担当件数 ／ <b>納期確約率</b>＝期限内完了 ÷ 完了件数（完了0件なら中立値{EVAL.ontimeNeutral}%）<br/>
-        ・<b>平均進捗</b>＝担当タスクの進捗平均 ／ <b>ログ活動度</b>＝ログ有 ÷ 担当件数<br/>
-        ・母数は「子を持たない末端タスク」のみ（親タスクは子から自動集計のため二重計上しない）
-        <div className="gr">{EVAL.grades.map(g=><span key={g.g} style={{background:g.c}}>{g.g} {g.g==="D"?"30未満":g.min+"以上"}</span>)}</div>
-      </div>
+      <div className="sec-h"><h2>👤 個人進捗（{evalLabel}）</h2><span className="eval-note">完了率・平均進捗で追跡</span></div>
       <div className="eval-grid">
-        {perP.map(p=>{
-          const f1=x=>Math.round(x*10)/10;
-          return (
+        {perP.map(p=>(
           <div className="card eval" key={p.name}>
             <div className="eval-h">
               <span className="avatar" style={{background:p.color}}>{p.name[0]}</span>
               <div style={{flex:1}}><b>{p.name}</b><span className="sub">{p.role}</span></div>
-              <div className="grade" style={{background:p.grade.c}} title="総合グレード">{p.grade.g}</div>
+              <div style={{textAlign:"right"}}><div className="mono" style={{fontSize:25,fontWeight:800,color:"#14a44d",lineHeight:1}}>{p.achieve}%</div><div style={{fontSize:10,color:"var(--sub)",fontWeight:700}}>完了率</div></div>
             </div>
             <div className="eval-stats">
-              <div className="estat"><b>{p.n}</b>担当件数</div>
-              <div className="estat done"><b>{p.done}</b>完了</div>
+              <div className="estat"><b>{p.todo}</b>未着手</div>
               <div className="estat prog"><b>{p.inProg}</b>進行中</div>
-              <div className="estat over"><b>{p.overdue}</b>超過</div>
+              <div className="estat" style={{color:"#b54708"}}><b style={{color:"#f59e0b"}}>{p.talk}</b>相談</div>
+              <div className="estat done"><b>{p.done}</b>完了</div>
             </div>
-            <Metric label="総合スコア" v={p.score} unit="" suffix="点" color={p.grade.c} big/>
-            <div className="bd">
-              <div className="bdt">スコア内訳</div>
-              達成 <code>{p.achieve}%×0.4={f1(p.parts.achieve)}</code> ＋ 納期 <code>{p.ontimeUsed}%×0.3={f1(p.parts.ontime)}</code>{p.ontimeRate==null&&"※"}<br/>
-              ＋ 進捗 <code>{p.avg}%×0.2={f1(p.parts.progress)}</code> ＋ ログ <code>{p.logRate}%×0.1={f1(p.parts.log)}</code><br/>
-              {p.penalty>0 && <>− 超過 <code>{p.overdue}件×8={p.penalty}</code><br/></>}
-              <span className="eq">＝ {f1(p.raw)} → {p.score}点（{p.grade.g}）</span>
-              {p.ontimeRate==null && <div style={{marginTop:3,color:"var(--mut)"}}>※完了0件のため納期は中立値{EVAL.ontimeNeutral}%</div>}
+            <Metric label="平均進捗" v={p.avg} color="#4573d2" big/>
+            <Metric label={"完了率（完了"+p.done+"/担当"+p.n+"）"} v={p.achieve} color="#14a44d"/>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:11.5,fontWeight:700,color:"var(--sub)",marginTop:6}}>
+              <span>🚩 期限超過 <b style={{color:p.overdue?"#e8384f":"var(--ink)"}}>{p.overdue}</b></span>
+              <span>📝 ログ <b style={{color:"var(--ink)"}}>{p.logged}</b></span>
+              <span>📋 担当 <b style={{color:"var(--ink)"}}>{p.n}</b></span>
             </div>
-            <Metric label="達成率（完了/担当）" v={p.achieve} color="#14a44d"/>
-            <Metric label={"納期確約率"+(p.done?`（${p.onTime}/${p.done}件）`:"")} v={p.ontimeRate} color="#4573d2"/>
-            <Metric label="平均進捗" v={p.avg} color="#4573d2"/>
-            <Metric label="ログ活動度" v={p.logRate} color="#8b5cf6"/>
           </div>
-        );})}
+        ))}
       </div>
 
       <div className="sec-h"><h2>📅 今週の山（期限ベース）</h2></div>
@@ -22542,14 +22523,22 @@ function TodoTab({store, sb, label, hostStaff, hostShifts}){
   const [editor,setEditor]=useState(null);
   const [menuOpen,setMenuOpen]=useState(false);
   const [sync,setSync]=useState("connecting");
-  // メンバーは本体APPのスタッフ/シフト名簿から自動表示（+タスク割当済の名前も補完）
+  // 担当名 正規化（「さん/君」除去 + 異体字エイリアス）→ タスク担当名を本体スタッフ名簿の表記に統一し重複解消
+  const _KANJI_ALIAS={"齊":"齋","邉":"辺","邊":"辺","髙":"高","﨑":"崎","桒":"桑","凉":"涼","檜":"桧"};
+  const _normNm=(s)=>{ s=String(s||"").trim().replace(/(さん|君|くん|ちゃん|様)$/,"").trim(); return s.split("").map(c=>_KANJI_ALIAS[c]||c).join(""); };
+  const _roster=useMemo(()=>(hostStaff||[]).filter(s=>s&&s.name),[hostStaff]);
+  const _rosterByNorm=useMemo(()=>{ const m={}; _roster.forEach(s=>{ m[_normNm(s.name)]=s.name; }); return m; },[_roster]);
+  const resolveName=(name)=>{ if(!name||name==="全員") return name||"全員"; const hit=_rosterByNorm[_normNm(name)]; return hit||name; };
+  // メンバー＝本体スタッフ名簿（実名）に統一。名簿に無い担当名のみ補完
   const hostPeople = useMemo(()=>{
     const m=new Map();
-    (hostStaff||[]).forEach((s,i)=>{ if(s&&s.name) m.set(s.name,{name:s.name,role:s.role||(s.admin?"管理者":"現場"),color:s.color||STAFF_COLORS[i%STAFF_COLORS.length],admin:!!s.admin}); });
-    tasks.forEach(t=>{ if(t.assignee&&t.assignee!=="全員"&&!m.has(t.assignee)) m.set(t.assignee,{name:t.assignee,role:"現場",color:STAFF_COLORS[m.size%STAFF_COLORS.length]}); });
+    _roster.forEach((s,i)=>{ m.set(s.name,{name:s.name,role:s.role||(s.admin?"管理者":"現場"),color:s.color||STAFF_COLORS[i%STAFF_COLORS.length],admin:!!s.admin}); });
+    tasks.forEach(t=>{ const a=resolveName(t.assignee); if(a&&a!=="全員"&&!m.has(a)) m.set(a,{name:a,role:"現場",color:STAFF_COLORS[m.size%STAFF_COLORS.length]}); });
     return [...m.values()];
-  },[hostStaff,tasks]);
+  },[_roster,tasks]);
   PEOPLE = hostPeople.length?hostPeople:((staff&&staff.length)?staff:DEFAULT_STAFF);
+  // 表示用タスク（担当名を名簿表記に正規化）
+  const viewTasks = useMemo(()=>tasks.map(t=>({...t,assignee:resolveName(t.assignee)})),[tasks,_rosterByNorm]);
 
   // ---- DB helpers ----
   const reloadAll=async()=>{
@@ -22638,14 +22627,14 @@ function TodoTab({store, sb, label, hostStaff, hostShifts}){
   const syncColor=sync==="cloud"?"#14a44d":sync==="off"?"#e8384f":"#f59e0b";
 
   const body=(
-    tab==="areas"   ? <AreaTree tasks={tasks} onOpen={onOpen} onAddChild={onAddChild} onAddTop={onAddTop} onComplete={onComplete}/> :
-    tab==="timeline"? <Timeline tasks={tasks} goals={goals} onOpen={onOpen} onCreate={onNew} shifts={hostShifts}/> :
-    tab==="list"    ? <TaskList tasks={tasks} {...h}/> :
-    tab==="dash"    ? <Dashboard tasks={tasks} goals={goals} go={setTab}/> :
-    tab==="ai"      ? <AIManager tasks={tasks} goals={goals}/> :
-    tab==="logs"    ? <Logs tasks={tasks} onOpen={onOpen}/> :
-    tab==="staff"   ? <StaffManager staff={PEOPLE} tasks={tasks} onSave={saveStaffFn} onRemove={removeStaffFn} shifts={hostShifts}/> :
-                      <Goals goals={goals} setGoals={setGoals} tasks={tasks}/>
+    tab==="areas"   ? <AreaTree tasks={viewTasks} onOpen={onOpen} onAddChild={onAddChild} onAddTop={onAddTop} onComplete={onComplete}/> :
+    tab==="timeline"? <Timeline tasks={viewTasks} goals={goals} onOpen={onOpen} onCreate={onNew} shifts={hostShifts}/> :
+    tab==="list"    ? <TaskList tasks={viewTasks} {...h}/> :
+    tab==="dash"    ? <Dashboard tasks={viewTasks} goals={goals} go={setTab}/> :
+    tab==="ai"      ? <AIManager tasks={viewTasks} goals={goals}/> :
+    tab==="logs"    ? <Logs tasks={viewTasks} onOpen={onOpen}/> :
+    tab==="staff"   ? <StaffManager staff={PEOPLE} tasks={viewTasks} onSave={saveStaffFn} onRemove={removeStaffFn}/> :
+                      <Goals goals={goals} setGoals={setGoals} tasks={viewTasks}/>
   );
 
   return (
