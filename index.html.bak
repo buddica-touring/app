@@ -21503,7 +21503,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.62-BT";
+const APP_VERSION="v1.0.63-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -21983,8 +21983,7 @@ function Timeline({tasks,goals,onOpen,onCreate,shifts}){
                 <div className="tl-grid">
                   {days.map((d,i)=>{const we=[0,6].includes(d.getDay());
                     const sel=drag&&drag.row===row&&i>=Math.min(drag.a,drag.b)&&i<=Math.max(drag.a,drag.b);
-                    const work=row!=="全員"&&shifts&&isWorkDay(row,shifts,iso(d));
-                    return <div key={i} className={"tl-cell"+(we?" we":"")+(sel?" sel":"")+(work?" work":"")} title={work?row+" 出勤":""}
+                    return <div key={i} className={"tl-cell"+(we?" we":"")+(sel?" sel":"")}
                       onMouseDown={()=>start(row,i)} onMouseEnter={()=>move(row,i)}
                       onTouchStart={()=>start(row,i)} onTouchMove={e=>{const el=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY);const idx=el&&el.dataset?el.dataset.idx:null;if(idx!=null)move(row,+idx);}}
                       data-idx={i}/>;})}
@@ -22413,10 +22412,8 @@ function Goals({goals,setGoals,tasks}){
 }
 
 /* ===== STAFF MANAGER ===== */
-function StaffManager({staff,tasks,onSave,onRemove,shifts}){
+function StaffManager({staff,tasks,onSave,onRemove}){
   const [form,setForm]=useState(null);
-  const [wdYM,setWdYM]=useState(TODAY.slice(0,7));
-  const wdMonths=shifts?[...new Set(Object.keys(shifts).map(d=>d.slice(0,7)))].sort():[];
   const startNew=()=>setForm({orig:null,name:"",role:"現場",color:STAFF_COLORS[staff.length%STAFF_COLORS.length]});
   const startEdit=p=>setForm({orig:p.name,name:p.name,role:p.role,color:p.color});
   const save=()=>{ if(!form.name.trim()){alert("名前を入力してください");return;}
@@ -22424,27 +22421,20 @@ function StaffManager({staff,tasks,onSave,onRemove,shifts}){
   const countOf=name=>tasks.filter(t=>t.assignee===name).length;
   return (
     <div>
-      <div className="tl-hint">👥 メンバーは<b style={{margin:"0 3px"}}>本体APPのスタッフ/シフト登録から自動表示</b>。各メンバーの<b style={{margin:"0 3px"}}>出勤日</b>（出勤簿連動）も表示します。タイムラインでは出勤日が青く色付きます。</div>
-      <div className="sec-h"><h2>スタッフ一覧</h2>
-        {wdMonths.length>0 && <select className="more" value={wdYM} onChange={e=>setWdYM(e.target.value)} style={{border:"1px solid var(--line)",borderRadius:9,padding:"6px 9px",fontWeight:700,fontSize:12}}>{(wdMonths.includes(wdYM)?wdMonths:[wdYM,...wdMonths]).map(m=><option key={m} value={m}>{m.replace("-","年")+"月の出勤"}</option>)}</select>}
-        <button className="btn sm pri" onClick={startNew}>＋ 追加</button>
-      </div>
-      {staff.map(p=>{
-        const wds=shifts?workDaysOf(p.name,shifts,wdYM):[];
-        return (
-        <div className="card" style={{padding:"13px 15px",display:"flex",alignItems:"center",gap:12,marginBottom:10,flexWrap:"wrap"}} key={p.name}>
+      <div className="tl-hint">👥 メンバーは<b style={{margin:"0 3px"}}>本体APPのスタッフ登録から自動表示</b>されます。ここで管理した担当者は全画面（マイタスク・タイムライン・タスク割当・個人評価）に反映されます。</div>
+      <div className="sec-h"><h2>スタッフ一覧</h2><button className="btn sm pri more" onClick={startNew}>＋ スタッフ追加</button></div>
+      {staff.map(p=>(
+        <div className="card" style={{padding:"13px 15px",display:"flex",alignItems:"center",gap:12,marginBottom:10}} key={p.name}>
           <span className="avatar" style={{background:p.color}}>{p.name[0]}</span>
-          <div style={{flex:1,minWidth:140}}>
+          <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:700}}>{p.name} {p.admin&&<span className="chip st-prog" style={{marginLeft:4}}>管理者</span>}</div>
-            <div style={{fontSize:12,color:"var(--sub)"}}>{p.role} ・ 担当 {countOf(p.name)}件{shifts?` ・ 🗓 ${wdYM.replace("-","/")} 出勤 ${wds.length}日`:""}</div>
-            {shifts&&wds.length>0 && <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>{wds.map(d=><span key={d} className="chip due" style={{fontSize:10,padding:"2px 7px"}}>{(+d.slice(8,10))}日</span>)}</div>}
-            {shifts&&wds.length===0 && <div style={{fontSize:11,color:"var(--mut)",marginTop:4}}>この月の出勤登録なし（出勤簿で登録）</div>}
+            <div style={{fontSize:12,color:"var(--sub)"}}>{p.role} ・ 担当 {countOf(p.name)}件</div>
           </div>
           <button className="btn sm" onClick={()=>startEdit(p)}>編集</button>
           <button className="btn sm" disabled={staff.length<=1} style={staff.length<=1?{opacity:.4}:null}
             onClick={()=>{ if(staff.length<=1){return;} if(confirm(p.name+" を削除しますか？\n担当タスク"+countOf(p.name)+"件は「全員」に付け替えられます。")) onRemove(p.name); }}>削除</button>
         </div>
-      );})}
+      ))}
       {form && (
         <div className="scrim" onClick={()=>setForm(null)}>
           <div className="sheet" onClick={e=>e.stopPropagation()}>
