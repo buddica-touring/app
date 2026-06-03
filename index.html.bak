@@ -8924,12 +8924,22 @@ function ManagementTab({store}){
               {KPIS.map(kpi=><React.Fragment key={kpi.id}>
                 <tr><td colSpan={yjMonths.length+1} style={{padding:"10px 8px 4px",fontSize:13,fontWeight:900,background:"#f0f9ff",color:"#0369a1",borderBottom:"2px solid #0ea5e9"}}>{kpi.label}（{kpi.unit}）</td></tr>
                 <tr>
-                  <td style={{...tdL2,paddingLeft:24,fontSize:11}}>📊 実績（自動）</td>
+                  <td style={{...tdL2,paddingLeft:24,fontSize:11}}>📊 実績（自動）{kpi.id==="revenue"?"・予約売上":""}</td>
                   {yjMonths.map(ym=>{
                     const v=monthData[ym][kpi.id]||0;
                     return <td key={ym} style={{...tdS2,fontWeight:v>0?700:400,color:"#1e293b"}}>{kpi.fmt(v)}</td>;
                   })}
                 </tr>
+                {kpi.id==="revenue"&&<React.Fragment>
+                  <tr>
+                    <td style={{...tdL2,paddingLeft:24,fontSize:11,color:"#7c3aed"}}>➕ その他売上（予約外）</td>
+                    {yjMonths.map(ym=>{const e=extraByM[ym]||0;return <td key={ym} style={{...tdS2,color:"#7c3aed",fontWeight:e>0?700:400}}>{e>0?"¥"+Math.round(e).toLocaleString():"-"}</td>;})}
+                  </tr>
+                  <tr style={{background:"#f5f3ff"}}>
+                    <td style={{...tdL2,paddingLeft:24,fontWeight:800,background:"#f5f3ff",color:"#5b21b6"}}>＝ 合計（実績＋その他）</td>
+                    {yjMonths.map(ym=>{const t=(monthData[ym].revenue||0)+(extraByM[ym]||0);return <td key={ym} style={{...tdS2,fontWeight:800,color:"#5b21b6",background:"#f5f3ff"}}>{t>0?"¥"+Math.round(t).toLocaleString():"-"}</td>;})}
+                  </tr>
+                </React.Fragment>}
                 <tr style={{background:"#fffbeb"}}>
                   <td style={{...tdL2,paddingLeft:24,fontWeight:700,background:"#fffbeb"}}>🎯 目標（手動）</td>
                   {yjMonths.map(ym=>{
@@ -8940,9 +8950,9 @@ function ManagementTab({store}){
                   })}
                 </tr>
                 <tr>
-                  <td style={{...tdL2,paddingLeft:24,fontSize:11,color:"#64748b"}}>達成率</td>
+                  <td style={{...tdL2,paddingLeft:24,fontSize:11,color:"#64748b"}}>達成率{kpi.id==="revenue"?"（合計÷目標）":""}</td>
                   {yjMonths.map(ym=>{
-                    const act=monthData[ym][kpi.id]||0;
+                    const act=(monthData[ym][kpi.id]||0)+(kpi.id==="revenue"?(extraByM[ym]||0):0);
                     const tgt=(targets[ym]||{})[kpi.id]||0;
                     const pct=tgt>0?(act/tgt)*100:0;
                     const bg=tgt===0?"transparent":pct>=100?"#dcfce7":pct>=70?"#fef9c3":"#fef2f2";
@@ -21503,7 +21513,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.67-BT";
+const APP_VERSION="v1.0.68-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
