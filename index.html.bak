@@ -7653,6 +7653,7 @@ function ManagementTab({store}){
   const[bcfData,setBcfData]=useState({tkm:{},spk:{}});
   // 予実比較
   const[yjData,setYjData]=useState({tkm:{},spk:{}});
+  const yjLoadedRef=React.useRef(false);
   const[yjCf,setYjCf]=useState({tkm:{},spk:{}});
   // KPI管理表 広告費効率: 経営管理シート + コスト内訳（sga_ad）
   const[cmMap,setCmMap]=useState({tkm:{},spk:{}});
@@ -7840,9 +7841,10 @@ function ManagementTab({store}){
       sb.from("app_settings").select("*").eq("key","yojitsu_tkm").single(),
       sb.from("app_settings").select("*").eq("key","yojitsu_spk").single(),
     ]).then(([{data:d1},{data:d2}])=>{
+      if(yjLoadedRef.current)return;
       const tkm=d1?.value?JSON.parse(d1.value):{};
       const spk=d2?.value?JSON.parse(d2.value):{};
-      setYjData({tkm,spk});
+      setYjData({tkm,spk});yjLoadedRef.current=true;
     });
     // 入金実績: bt_accountingとaccountingから月別入金額を集計
     Promise.all([
@@ -7889,7 +7891,7 @@ function ManagementTab({store}){
     const next={...yjData,[st]:{...(yjData[st]||{}),[ym]:{...((yjData[st]||{})[ym]||{}),[field]:nv}}};
     setYjData(next);
     if(!sb)return;
-    await settingsUpsert_(st==="tkm","yojitsu_"+st,JSON.stringify(next[st]));
+    await settingsUpsert_(false,"yojitsu_"+st,JSON.stringify(next[st]));
   },[yjData,settingsUpsert_]);
 
   // 設定ロード
@@ -21513,7 +21515,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.68-BT";
+const APP_VERSION="v1.0.69-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
