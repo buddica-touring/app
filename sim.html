@@ -105,7 +105,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 </div>
 <button class="add" onclick="addRow()">＋ クラス追加</button>
 <span id="t_units" style="margin-left:12px;font-weight:800;color:#0369a1;font-size:13px">保有台数 計 0台</span>
-<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。クラス表は全て1台あたり（台/〇〇）：台/売上 − 台/車両原価（=リース+車検+点検+保険）− 台/手数料（預かりのみ＝売上×取分%）＝ 台/貢献。台数ぶんの合計は最下段の合計行で確認。総売上のみクラス合計。OTA手数料・洗車・共通固定費・返済は純利益でまとめて控除。預かりは車検/点検/保険¥0。</div>
+<div class="note"><span id="live_status" style="display:block;font-weight:800;color:#7c3aed;margin-bottom:4px">実績: 読込中…</span>クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。クラス表は全て1台あたり（台/〇〇）：台/売上 − 台/車両原価（=リース+車検+点検+保険）− 台/手数料（預かりのみ＝売上×取分%）＝ 台/貢献。台数ぶんの合計は最下段の合計行で確認。総売上のみクラス合計。OTA手数料・洗車・共通固定費・返済は純利益でまとめて控除。預かりは車検/点検/保険¥0。</div>
 </div>
 
 <div class="card">
@@ -397,6 +397,38 @@ function rebalance(){
    +plan.join('<br>')+'<br><span style="color:#64748b">必要総貢献 '+yen(need)+'／達成 '+yen(acc)+'</span>';
 }
 function copyResult(){navigator.clipboard.writeText(LAST).then(()=>alert('結果をコピーしました'));}
+/* ===== 実績ライブ自動取得（正本箱: monthly_snapshots.class_detail。平均泊のみ予約から算出） ===== */
+const LIVECFG={sb:'https://ggqugvyskyiblxiycpci.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18',store:'bt',resv:'bt_reservations',clsCol:'vehicle_class',lend:'start_date',ret:'end_date'};
+function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.indexOf('sb-')===0&&key.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(key));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
+async function loadActuals(){
+ const st=document.getElementById('live_status');
+ const tok=_sbToken();
+ if(!tok){if(st)st.textContent='⚠️ 実績=埋込スナップショット（同ブラウザで本体APPにログインすると開くたび最新化）';return;}
+ try{
+  const H={apikey:LIVECFG.anon,Authorization:'Bearer '+tok};
+  const ymNow=new Date().toISOString().slice(0,7);
+  const snaps=await (await fetch(LIVECFG.sb+'/rest/v1/monthly_snapshots?store=eq.'+LIVECFG.store+'&year_month=lt.'+ymNow+'&order=year_month.desc&limit=3&select=year_month,class_detail',{headers:H})).json();
+  if(!Array.isArray(snaps)||!snaps.length)throw new Error('snapshotなし');
+  const agg={};
+  snaps.forEach(s=>(s.class_detail||[]).forEach(c=>{const a=agg[c.type]||(agg[c.type]={rev:0,rd:0,ad:0});a.rev+=(+c.revenue||0);a.rd+=(+c.rental_days||0);a.ad+=(+c.avail_days||0);}));
+  const today=new Date().toISOString().slice(0,10);
+  const d0=new Date(Date.now()-92*86400000).toISOString().slice(0,10);
+  let nb={};
+  try{
+   const resv=await (await fetch(LIVECFG.sb+'/rest/v1/'+LIVECFG.resv+'?select='+LIVECFG.clsCol+','+LIVECFG.lend+','+LIVECFG.ret+',status&'+LIVECFG.ret+'=gte.'+d0+'&'+LIVECFG.ret+'=lte.'+today+'&limit=3000',{headers:H})).json();
+   if(Array.isArray(resv))resv.forEach(r=>{const stt=((r.status||'')+'').toLowerCase();if(stt.indexOf('cancel')>=0||stt.indexOf('\u30ad\u30e3\u30f3\u30bb\u30eb')>=0)return;const cl=((r[LIVECFG.clsCol]||'')+'').trim().toUpperCase();if(!cl)return;const a=nb[cl]||(nb[cl]={cnt:0,ni:0});const dd=(new Date(r[LIVECFG.ret])-new Date(r[LIVECFG.lend]))/86400000;a.cnt++;a.ni+=Math.max(1,Math.round(dd));});
+  }catch(e){}
+  let touched=0;
+  Object.keys(agg).forEach(cl=>{const a=agg[cl];
+   if(a.ad>0){ACTUAL_UTIL[cl]=Math.round(a.rd/a.ad*100);ACTUAL_REVPV[cl]=Math.round(a.rev/a.ad*30);touched++;}
+   const adr=a.rd>0?Math.round(a.rev/a.rd):null;const m=nb[cl];const nt=(m&&m.cnt)?Math.round(m.ni/m.cnt*10)/10:null;
+   if(CLASS_DATA[cl]){if(adr)CLASS_DATA[cl][0]=adr;if(nt)CLASS_DATA[cl][1]=nt;}
+   else if(adr){CLASS_DATA[cl]=[adr,nt||1.5];}});
+  if(st)st.textContent='✅ 実績=ライブ自動取得（'+snaps.map(s=>s.year_month).reverse().join('・')+'／'+touched+'クラス。稼働/ADR/台売上=月次スナップショット、平均泊=直近92日返却予約）';
+  calc();
+ }catch(e){if(st)st.textContent='⚠️ 実績の自動取得に失敗→埋込スナップショット表示（'+(e&&e.message||e)+'）';}
+}
+loadActuals();
 startup();
 </script>
 </body>
