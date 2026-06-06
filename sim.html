@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>高松 収支シミュレータ</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;margin:0;background:#f1f5f9;color:#0f172a;font-size:14px}
+.wrap{max-width:1240px;margin:0 auto;padding:14px}
+h1{font-size:17px;margin:6px 0 2px}.sub{font-size:11px;color:#64748b;margin-bottom:12px}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card h2{font-size:13px;margin:0 0 10px;color:#1e293b}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:6px 6px;text-align:right;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+th{color:#64748b;font-weight:600;font-size:10px}
+th:first-child,td:first-child{text-align:left}
+td.cls{font-weight:800}
+input,select{width:100%;border:1px solid #e2e8f0;border-radius:7px;padding:6px 7px;font-size:13px;text-align:right;font-family:inherit;background:#fff}
+input:focus,select:focus{outline:none;border-color:#3b82f6}
+select{text-align:left;padding:6px 4px;min-width:64px}
+.iw{width:92px}.im{width:74px}.is{width:56px}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tscroll table{min-width:1120px}
+td.auto{background:#f0f9ff;font-weight:700;color:#0369a1}
+td.cost{background:#fef2f2;font-weight:700;color:#b91c1c}
+td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
+.dim input{background:#f8fafc;color:#94a3b8;border-color:#eef2f6}
+/* 共通固定費：科目グループ */
+.grp{border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;background:#fafbfc}
+.grp .gh{font-size:11px;font-weight:800;color:#334155;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.grp .gg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grp label{display:block;font-size:10px;color:#64748b;margin-bottom:3px}
+.ro{background:#f0f9ff!important;color:#0369a1!important;font-weight:700}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi .k{background:#f8fafc;border-radius:10px;padding:9px 8px;text-align:center}
+.kpi .k .v{font-size:18px;font-weight:800}.kpi .k .l{font-size:10px;color:#64748b;margin-top:2px}
+.pl{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.pl .col h3{font-size:12px;margin:0 0 6px;color:#475569}
+.row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #eef2f6;font-size:12px}
+.row .lbl{color:#475569}.row .num{font-weight:700}
+.big{font-size:24px;font-weight:900;text-align:center;padding:12px;border-radius:12px;margin-top:8px}
+.pos{background:#ecfdf5;color:#047857}.neg{background:#fef2f2;color:#dc2626}
+.gap{font-size:11px;color:#64748b;text-align:center;margin-top:6px}
+.note{font-size:10px;color:#94a3b8;margin-top:8px;line-height:1.5}
+.bar{display:flex;gap:8px;margin:8px 0}
+.bar button{flex:1;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-r{background:#e2e8f0;color:#334155}.btn-p{background:#1d4ed8;color:#fff}
+.del{background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:22px;height:22px;cursor:pointer}
+.add{background:#dbeafe;color:#1d4ed8;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px}
+@media(max-width:680px){.pl{grid-template-columns:1fr}.grp .gg{grid-template-columns:1fr 1fr}.kpi{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🚗 高松 収支シミュレータ（月次）</h1>
+<div class="sub">クラス別の台数・稼働率と、共通の単価を入れると月次/年間P&Lが即計算。単価・計算は「共通」で行い、クラス表は確定額を並べます。初期値はサンプル。高松の実数を入力してください。</div>
+
+<div class="card">
+<h2>🚙 クラス別 設定 — 売上(青) → 車両原価(赤) → 貢献(緑)</h2>
+<div class="tscroll">
+<table>
+<thead><tr>
+<th>クラス</th><th>台数</th><th>持ち方</th><th>稼働%</th>
+<th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#0369a1">総売上</th>
+<th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th>
+<th style="color:#047857">貢献/台</th>
+<th style="color:#cbd5e1">ADR</th><th style="color:#cbd5e1">平均泊</th><th></th>
+</tr></thead>
+<tbody id="rows"></tbody>
+<tfoot><tr style="background:#f1f5f9;font-weight:800;border-top:2px solid #94a3b8">
+<td style="font-weight:800">合計</td>
+<td id="ft_units">0</td>
+<td></td>
+<td id="ft_util" style="color:#64748b">0%</td>
+<td id="ft_book" class="auto">0</td>
+<td></td>
+<td id="ft_gross" class="auto">¥0</td>
+<td id="ft_lease" class="cost">¥0</td>
+<td id="ft_shaken" class="cost">¥0</td>
+<td id="ft_tenken" class="cost">¥0</td>
+<td id="ft_hoken" class="cost">¥0</td>
+<td id="ft_vc" class="vcost">¥0</td>
+<td id="ft_contrib" class="auto" style="color:#047857">¥0</td>
+<td></td><td></td><td></td>
+</tr></tfoot>
+</table>
+</div>
+<button class="add" onclick="addRow()">＋ クラス追加</button>
+<span id="t_units" style="margin-left:12px;font-weight:800;color:#0369a1;font-size:13px">保有台数 計 0台</span>
+<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。車両原価/台＝リース＋車検＋点検＋保険。預かりは全て¥0。</div>
+</div>
+
+<div class="card">
+<h2>🏢 共通（単価・計算はここ）</h2>
+
+<div class="grp"><div class="gh">🚗 車両単価（1台あたり・各車に自動適用）<span id="gh_veh" style="margin-left:auto;color:#9a3412;font-size:11px"></span></div>
+<div class="gg">
+<div><label>車検 単価（年・税込）</label><input id="g_shakenpr" value="120000" oninput="calc()"></div>
+<div><label>車検 /月（自動＝単価÷12）</label><input id="g_shakenm" class="ro" readonly></div>
+<div><label>点検 単価（年）</label><input id="g_tenkenpr" value="48000" oninput="calc()"></div>
+<div><label>点検 /月（自動＝単価÷12）</label><input id="g_tenkenm" class="ro" readonly></div>
+<div><label>保険 /月・台</label><input id="g_inspr" value="7700" oninput="calc()"></div>
+</div></div>
+
+<div class="grp"><div class="gh">📋 リース単価（クラス別・月）<span style="margin-left:auto;color:#94a3b8;font-size:10px">→ 上段の「リース」列に自動反映</span></div>
+<div class="gg">
+<div><label>F</label><input id="g_lease_F" value="0" oninput="calc()"></div>
+<div><label>A</label><input id="g_lease_A" value="100000" oninput="calc()"></div>
+<div><label>B</label><input id="g_lease_B" value="75000" oninput="calc()"></div>
+<div><label>C</label><input id="g_lease_C" value="50000" oninput="calc()"></div>
+<div><label>S</label><input id="g_lease_S" value="50000" oninput="calc()"></div>
+<div><label>H</label><input id="g_lease_H" value="50000" oninput="calc()"></div>
+</div><div class="note" style="margin:6px 0 0">※持ち方=「リース」のクラスだけ計上。買取・預かりは¥0。</div></div>
+
+<div class="grp"><div class="gh">🅿️ 駐車場<span id="gh_park" style="margin-left:auto;color:#0369a1;font-size:11px"></span></div>
+<div class="gg">
+<div><label>駐車場 単価/台・月</label><input id="g_parkprice" value="8000" oninput="calc()"></div>
+<div><label>駐車場 台数</label><input id="g_parkn" value="23" oninput="calc()"></div>
+<div><label>駐車場 合計（自動＝単価×台数）</label><input id="g_parktot" class="ro" readonly></div>
+<div><label>駐車場 /保有台数 平均（合計÷総台数）</label><input id="g_parkavg" class="ro" readonly></div>
+</div></div>
+
+<div class="grp"><div class="gh">💼 共通固定費（月）<span id="gh_fix" style="margin-left:auto;color:#b91c1c;font-size:11px"></span></div>
+<div class="gg">
+<div><label>人件費</label><input id="g_salary" value="492000" oninput="calc()"></div>
+<div><label>賃料（事務所等・駐車場以外）</label><input id="g_rent" value="0" oninput="calc()"></div>
+<div><label>広告・その他</label><input id="g_other" value="180000" oninput="calc()"></div>
+</div></div>
+
+<div class="grp"><div class="gh">📈 変動費（予約あたり）<span id="gh_var" style="margin-left:auto;color:#64748b;font-size:11px"></span></div>
+<div class="gg">
+<div><label>OTA手数料 %</label><input id="g_ota" value="12" oninput="calc()"></div>
+<div><label>洗車 単価 円/予約</label><input id="g_wash" value="0" oninput="calc()"></div>
+<div><label>洗車 合計（自動＝単価×予約数）</label><input id="g_washtot" class="ro" readonly></div>
+</div></div>
+
+<div class="grp"><div class="gh">🎯 設定</div>
+<div class="gg">
+<div><label>目標 純利益/月</label><input id="g_target" value="1000000" oninput="calc()"></div>
+<div><label>返済（参考・PL外）</label><input id="g_repay" value="377425" oninput="calc()"></div>
+</div></div>
+</div>
+
+<div class="card">
+<h2>📊 結果（月次）</h2>
+<div class="kpi">
+<div class="k"><div class="v" id="k_units">0</div><div class="l">保有台数</div></div>
+<div class="k"><div class="v" id="k_util">0%</div><div class="l">全体稼働率</div></div>
+<div class="k"><div class="v" id="k_book">0</div><div class="l">予約/月</div></div>
+<div class="k"><div class="v" id="k_arpu">¥0</div><div class="l">客単価</div></div>
+</div>
+<div class="pl">
+<div class="col"><h3>売上</h3>
+<div class="row"><span class="lbl">グロス売上(月)</span><span class="num" id="r_gross">¥0</span></div>
+<div class="row"><span class="lbl">想定予約数(月)</span><span class="num" id="r_book">0件</span></div>
+</div>
+<div class="col"><h3>支出（科目別）</h3>
+<div class="row"><span class="lbl">🚗 車両原価計(リース+車検+点検+保険)</span><span class="num" id="r_vfix">¥0</span></div>
+<div class="row"><span class="lbl">💼 人件費</span><span class="num" id="r_salary">¥0</span></div>
+<div class="row"><span class="lbl">🅿️ 駐車場</span><span class="num" id="r_park">¥0</span></div>
+<div class="row"><span class="lbl">🏢 賃料・広告・その他</span><span class="num" id="r_rentad">¥0</span></div>
+<div class="row"><span class="lbl">📈 OTA手数料</span><span class="num" id="r_ota">¥0</span></div>
+<div class="row"><span class="lbl">🧽 変動費(洗車)</span><span class="num" id="r_var">¥0</span></div>
+<div class="row"><span class="lbl"><b>支出計</b></span><span class="num" id="r_exp" style="color:#dc2626">¥0</span></div>
+</div>
+</div>
+<div class="big" id="r_net">¥0</div>
+<div class="gap" id="r_gap"></div>
+<div class="gap" id="r_year"></div>
+<div class="note">※月次の定常P&L（季節・ランプ無視の単月）。年間＝×12。返済はPL外(CF)。</div>
+</div>
+
+<div class="card">
+<h2>🎯 目標到達リバランス（どのクラスを何台にすべきか）</h2>
+<div class="grp" style="margin:0"><div class="gg" style="grid-template-columns:1fr 1fr">
+<div><label>各クラスの上限台数（需要・駐車場の天井）</label><input id="cap" value="15"></div>
+<div><label>　</label><button class="btn-p" style="width:100%;border-radius:9px;padding:9px;font-weight:700;cursor:pointer" onclick="rebalance()">🎯 目標到達へリバランス</button></div>
+</div>
+<div id="rb_out" class="note" style="font-size:12px;color:#334155;margin-top:10px;line-height:1.7"></div></div>
+<div class="note">貢献/台の高いクラスから上限台数まで埋めて目標純利益に届く構成を算出→台数欄に反映。共通固定費は台数で増えるので、リバランス後に人件費/賃料/駐車場台数を再調整してください。</div>
+</div>
+
+<div class="bar">
+<button class="btn-r" onclick="loadDefault()">↺ 実績デフォルトに戻す</button>
+<button class="btn-p" onclick="copyResult()">📋 結果をコピー</button>
+</div>
+</div>
+
+<script>
+const DEF=[
+ // cls, n, hold, util%, ADR(1泊), 平均泊  （リースは共通のクラス別単価から自動反映）
+ ["F",10,"buy",55, 7100,1.2],
+ ["A", 3,"partner",50,14800,1.6],
+ ["B", 4,"buy",50,10200,2.6],
+ ["S", 2,"buy",48,10400,1.4],
+ ["C", 2,"lease",45,5842,1.7],
+ ["H", 2,"partner",40,9360,1.3],
+];
+const CLASS_DATA={F:[7100,1.2],A:[14800,1.6],B:[10200,2.6],S:[10400,1.4],C:[5842,1.7],H:[9360,1.3]};
+const CLS_LIST=['F','A','B','C','S','H'];
+const yen=n=>'¥'+Math.round(n).toLocaleString();
+const num=id=>parseFloat(document.getElementById(id).value)||0;
+const leaseOf=cls=>{const e=document.getElementById('g_lease_'+cls);return e?(parseFloat(e.value)||0):0;};
+function clsOpts(s){return CLS_LIST.map(k=>`<option value="${k}"${s===k?' selected':''}>${k}</option>`).join('');}
+function clsChange(s){const c=s.closest('tr').querySelectorAll('input,select');const d=CLASS_DATA[s.value];if(d){c[4].value=d[0];c[5].value=d[1];}calc();}
+// 買取/預かりに変えたらリースを0に（リースはクラス別入力・持ち方=リースの時だけ計上）
+function holdChange(s){const c=s.closest('tr').querySelectorAll('input,select');if(s.value!=='lease')c[4].value=0;calc();}
+function rowHTML(d){
+ return `<tr>
+ <td class="cls"><select class="is" style="font-weight:800" onchange="clsChange(this)">${clsOpts(d[0])}</select></td>
+ <td><input class="is" type="number" value="${d[1]}" oninput="calc()"></td>
+ <td><select class="is" onchange="calc()">
+   <option value="buy"${d[2]==='buy'?' selected':''}>買取</option>
+   <option value="lease"${d[2]==='lease'?' selected':''}>リース</option>
+   <option value="partner"${d[2]==='partner'?' selected':''}>預かり</option></select></td>
+ <td><input class="is" type="number" value="${d[3]}" oninput="calc()"></td>
+ <td class="auto rbook">0</td>
+ <td class="auto rper">¥0</td>
+ <td class="auto rtot">¥0</td>
+ <td class="cost lease">¥0</td>
+ <td class="cost shaken">¥0</td>
+ <td class="cost tenken">¥0</td>
+ <td class="cost hoken">¥0</td>
+ <td class="vcost vc">¥0</td>
+ <td class="auto contrib">¥0</td>
+ <td class="dim"><input class="iw" type="number" value="${d[4]}" oninput="calc()"></td>
+ <td class="dim"><input class="im" type="number" step="0.1" value="${d[5]}" oninput="calc()"></td>
+ <td><button class="del" onclick="this.closest('tr').remove();calc()">✕</button></td>
+ </tr>`;
+}
+function render(data){document.getElementById('rows').innerHTML=data.map(rowHTML).join('');}
+function addRow(){document.getElementById('rows').insertAdjacentHTML('beforeend',rowHTML(["F",1,"buy",50,7100,1.2]));calc();}
+function loadDefault(){try{localStorage.removeItem('sim_state_v1');}catch(e){}render(DEF);
+ const g={g_shakenpr:120000,g_tenkenpr:48000,g_inspr:7700,g_parkprice:8000,g_parkn:23,
+  g_lease_F:0,g_lease_A:100000,g_lease_B:75000,g_lease_C:50000,g_lease_S:50000,g_lease_H:50000,
+  g_salary:492000,g_rent:0,g_other:180000,g_ota:12,g_wash:0,g_target:1000000,g_repay:377425};
+ for(const k in g)document.getElementById(k).value=g[k];calc();}
+let LAST='';
+function calc(){
+ // 共通単価→月コスト
+ const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
+ document.getElementById('g_shakenm').value=Math.round(shakenM).toLocaleString();
+ document.getElementById('g_tenkenm').value=Math.round(tenkenM).toLocaleString();
+ const ota=num('g_ota')/100, wash=num('g_wash');
+ const rows=[...document.querySelectorAll('#rows tr')];
+ let gross=0,book=0,vfix=0,units=0,rdays=0,lt=0,st=0,tt=0,ht=0,ct=0;
+ rows.forEach(tr=>{
+   const c=tr.querySelectorAll('input,select');
+   const cls=c[0].value, n=parseFloat(c[1].value)||0, hold=c[2].value, u=(parseFloat(c[3].value)||0)/100,
+         adr=parseFloat(c[4].value)||0, nt=parseFloat(c[5].value)||1;
+   const own=(hold!=='partner');         // 買取・リースは車検/点検/保険を負担／預かりは¥0
+   const sk=own?shakenM:0, tk=own?tenkenM:0, hk=own?hokenM:0;
+   const ls=(hold==='lease')?leaseOf(cls):0;  // 共通のクラス別リース単価を反映（リース持ち方のみ）
+   const vc=ls+sk+tk+hk;                 // 車両原価/台
+   const revPer=adr*u*30, bookPer=u*30/nt;
+   const contribPer=revPer-vc-(revPer*ota+bookPer*wash);
+   tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
+   tr.querySelector('.rper').textContent=yen(revPer);
+   tr.querySelector('.rtot').textContent=yen(revPer*n);
+   tr.querySelector('.lease').textContent=yen(ls);
+   tr.querySelector('.shaken').textContent=yen(sk);
+   tr.querySelector('.tenken').textContent=yen(tk);
+   tr.querySelector('.hoken').textContent=yen(hk);
+   tr.querySelector('.vc').textContent=yen(vc);
+   const cc=tr.querySelector('.contrib');cc.textContent=yen(contribPer);cc.style.color=contribPer>=0?'#047857':'#dc2626';
+   gross+=revPer*n; book+=bookPer*n; units+=n; rdays+=u*30*n; vfix+=vc*n;
+   lt+=ls*n; st+=sk*n; tt+=tk*n; ht+=hk*n; ct+=contribPer*n;
+ });
+ // 合計行（下段）
+ const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+ setT('ft_units',units); setT('ft_util',(units?Math.round(rdays/(units*30)*100):0)+'%');
+ setT('ft_book',Math.round(book)+'件'); setT('ft_gross',yen(gross));
+ setT('ft_lease',yen(lt)); setT('ft_shaken',yen(st)); setT('ft_tenken',yen(tt)); setT('ft_hoken',yen(ht));
+ setT('ft_vc',yen(vfix)); setT('ft_contrib',yen(ct));
+ const parkTot=num('g_parkprice')*num('g_parkn');
+ document.getElementById('g_parktot').value=Math.round(parkTot).toLocaleString();
+ document.getElementById('g_parkavg').value=units?('¥'+Math.round(parkTot/units).toLocaleString()+'/台'):'-';
+ const washTot=book*wash;
+ document.getElementById('g_washtot').value=Math.round(washTot).toLocaleString();
+ const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
+ const otaFee=gross*ota, varc=book*wash;
+ const exp=vfix+ofix+otaFee+varc;
+ const net=gross-exp;
+ const target=num('g_target');
+ const set=(id,v)=>document.getElementById(id).textContent=v;
+ set('k_units',units); set('t_units','保有台数 計 '+units+'台'); set('k_util',(units?Math.round(rdays/(units*30)*100):0)+'%');
+ set('k_book',Math.round(book)); set('k_arpu',book?yen(gross/book):'¥0');
+ set('r_gross',yen(gross)); set('r_book',Math.round(book)+'件');
+ set('r_vfix',yen(vfix)); set('r_salary',yen(num('g_salary'))); set('r_park',yen(parkTot));
+ set('r_rentad',yen(num('g_rent')+num('g_other'))); set('r_ota',yen(otaFee)); set('r_var',yen(varc)); set('r_exp',yen(exp));
+ // 科目グループ小計（共通の見出しに表示）
+ const ghv=document.getElementById('gh_veh'); if(ghv)ghv.textContent='1台/月 ¥'+Math.round(shakenM+tenkenM+hokenM).toLocaleString()+'（車検+点検+保険）';
+ const ghf=document.getElementById('gh_fix'); if(ghf)ghf.textContent='小計 ¥'+Math.round(num('g_salary')+num('g_rent')+num('g_other')).toLocaleString();
+ const ghp=document.getElementById('gh_park'); if(ghp)ghp.textContent='合計 ¥'+Math.round(parkTot).toLocaleString();
+ const ghx=document.getElementById('gh_var'); if(ghx)ghx.textContent='/予約 ¥'+Math.round(wash).toLocaleString()+'（洗車）';
+ const ne=document.getElementById('r_net'); ne.textContent='純利益(月) '+yen(net); ne.className='big '+(net>=0?'pos':'neg');
+ const gp=target-net;
+ const needGross=(target+ofix+vfix)/(1-(gross?(otaFee+varc)/gross:ota));
+ document.getElementById('r_gap').textContent = net>=target
+   ? `🎯 目標 ${yen(target)} 達成（+${yen(net-target)}）`
+   : `🎯 目標 ${yen(target)} まで あと ${yen(gp)}／月（必要グロス ≈ ${yen(needGross)}・現在 ${yen(gross)}）`;
+ document.getElementById('r_year').textContent=`年間換算：グロス売上 ${yen(gross*12)} ／ 純利益 ${yen(net*12)}（返済 ${yen(num('g_repay')*12)} はPL外）`;
+ LAST=`札幌収支シミュ(月)\n保有${units}台 稼働${units?Math.round(rdays/(units*30)*100):0}% 予約${Math.round(book)}件 客単価${book?yen(gross/book):0}\nグロス売上${yen(gross)}\n支出${yen(exp)}(車両原価${yen(vfix)}/共通${yen(ofix)}/手数料${yen(otaFee)}/変動${yen(varc)})\n純利益(月)${yen(net)} 年間${yen(net*12)}`;
+ saveState();
+}
+const G_KEYS=['g_shakenpr','g_tenkenpr','g_inspr','g_parkprice','g_parkn','g_lease_F','g_lease_A','g_lease_B','g_lease_C','g_lease_S','g_lease_H','g_salary','g_rent','g_other','g_ota','g_wash','g_target','g_repay','cap'];
+function saveState(){
+ try{
+  const rows=[...document.querySelectorAll('#rows tr')].map(tr=>{const c=tr.querySelectorAll('input,select');return [c[0].value,c[1].value,c[2].value,c[3].value,c[4].value,c[5].value];});
+  const g={};G_KEYS.forEach(k=>{const e=document.getElementById(k);if(e)g[k]=e.value;});
+  localStorage.setItem('sim_state_v1',JSON.stringify({rows,g}));
+ }catch(e){}
+}
+function startup(){
+ let st=null;try{st=JSON.parse(localStorage.getItem('sim_state_v1')||'null');}catch(e){}
+ if(st&&st.rows&&st.rows.length){
+   render(st.rows);
+   if(st.g)for(const k in st.g){const e=document.getElementById(k);if(e&&st.g[k]!=null)e.value=st.g[k];}
+ }else{ render(DEF); }
+ calc();
+}
+function rebalance(){
+ const cap=Math.max(0,parseInt(document.getElementById('cap').value)||0);
+ const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
+ const ota=num('g_ota')/100, wash=num('g_wash');
+ const parkTot=num('g_parkprice')*num('g_parkn');
+ const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
+ const need=num('g_target')+ofix;
+ const rows=[...document.querySelectorAll('#rows tr')];
+ const arr=rows.map(tr=>{
+   const c=tr.querySelectorAll('input,select');
+   const cls=c[0].value,hold=c[2].value,u=(parseFloat(c[3].value)||0)/100,
+         adr=parseFloat(c[4].value)||0,nt=parseFloat(c[5].value)||1;
+   const own=(hold!=='partner');
+   const vc=((hold==='lease')?leaseOf(cls):0)+(own?shakenM:0)+(own?tenkenM:0)+(own?hokenM:0);
+   const revPer=adr*u*30,bookPer=u*30/nt;
+   const contrib=revPer-vc-(revPer*ota+bookPer*wash);
+   return {name:c[0].value,contrib,nInput:c[1]};
+ }).filter(x=>x.contrib>0);
+ arr.sort((a,b)=>b.contrib-a.contrib);
+ rows.forEach(tr=>{tr.querySelectorAll('input,select')[1].value=0;});
+ let acc=0,tot=0,plan=[];
+ for(const x of arr){
+   if(acc>=need)break;
+   const want=Math.min(cap,Math.ceil((need-acc)/x.contrib));
+   x.nInput.value=want; acc+=want*x.contrib; tot+=want;
+   if(want>0)plan.push(`${x.name}: <b>${want}台</b>（貢献¥${Math.round(x.contrib).toLocaleString()}/台）`);
+ }
+ calc();
+ document.getElementById('rb_out').innerHTML=(acc>=need
+   ? '✅ <b>目標到達構成（計'+tot+'台）</b><br>'
+   : '⚠️ 上限'+cap+'台/クラスでは<b>目標未達</b>（不足 '+yen(need-acc)+'）→上限を上げるかADR/稼働を改善<br>')
+   +plan.join('<br>')+'<br><span style="color:#64748b">必要総貢献 '+yen(need)+'／達成 '+yen(acc)+'</span>';
+}
+function copyResult(){navigator.clipboard.writeText(LAST).then(()=>alert('結果をコピーしました'));}
+startup();
+</script>
+</body>
+</html>

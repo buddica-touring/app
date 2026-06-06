@@ -191,12 +191,14 @@ details + details{margin-top:8px}
   <button id="viewMonthlyBtn" onclick="setView('monthly')" style="padding:6px 18px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📅 月次詳細</button>
   <button id="viewAnnualBtn" onclick="setView('annual')" style="padding:6px 18px;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📊 年間進捗</button>
   <button id="viewChartBtn" onclick="setView('chart')" style="padding:6px 18px;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📈 チャート</button>
+  <button id="viewSimBtn" onclick="setView('sim')" style="padding:6px 18px;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🧮 収支シミュ</button>
   <span style="font-size:11px;color:#6b7280;margin-left:auto">月次=対象月の詳細・予測内訳 / 年間=12ヶ月の全KPI一発確認</span>
 </div>
 
 <div id="content">
   <div class="loading"><div class="spinner"></div>初期化中...</div>
 </div>
+<div class="sim-view-section" style="display:none"><iframe id="simFrame" title="収支シミュ" style="width:100%;height:calc(100vh - 70px);min-height:1700px;border:0;background:#f1f5f9"></iframe></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -1995,14 +1997,20 @@ function setView(mode){
   mBtn.style.background=mode==='monthly'?active:inactive; mBtn.style.color=mode==='monthly'?actC:inactC;
   aBtn.style.background=mode==='annual'?active:inactive; aBtn.style.color=mode==='annual'?actC:inactC;
   if(cBtn){cBtn.style.background=mode==='chart'?active:inactive; cBtn.style.color=mode==='chart'?actC:inactC;}
+  const sBtn=document.getElementById('viewSimBtn');
+  if(sBtn){sBtn.style.background=mode==='sim'?'#2563eb':'#e5e7eb'; sBtn.style.color=mode==='sim'?'#fff':'#374151';}
   const style=document.getElementById('viewModeStyle')||document.createElement('style');
   style.id='viewModeStyle';
-  if(mode==='annual'){
-    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:none!important}`;
+  if(mode==='sim'){
+    var _sf=document.getElementById('simFrame');
+    if(_sf&&!_sf.dataset.loaded){_sf.src='sim.html?t='+Date.now();_sf.dataset.loaded='1';}
+    style.textContent=`#content,.hero,.monthly-only,details{display:none!important}.chart-view-section{display:none!important}.sim-view-section{display:block!important}`;
+  }else if(mode==='annual'){
+    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:none!important}.sim-view-section{display:none!important}`;
   }else if(mode==='chart'){
-    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:block!important}`;
+    style.textContent=`.hero,.monthly-only,details{display:none!important}.chart-view-section{display:block!important}.sim-view-section{display:none!important}`;
   }else{
-    style.textContent=`.chart-view-section{display:none!important}`;
+    style.textContent=`.chart-view-section{display:none!important}.sim-view-section{display:none!important}`;
   }
   if(!style.parentNode)document.head.appendChild(style);
 }
