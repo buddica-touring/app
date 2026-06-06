@@ -2138,10 +2138,10 @@ function SquareInvoiceWidget(){
 /* ==========================================
    月次スナップショット自動記録
    ========================================== */
-async function saveMonthlySnapshot(store,ym,data,vehicles,fleet,kpiFlags,kpiTable){
+async function saveMonthlySnapshot(store,ym,data,vehicles,fleet,kpiFlags,kpiTable,force){
   if(!sb)return;
   const{data:existing}=await sb.from("monthly_snapshots").select("id").eq("store",store).eq("year_month",ym).maybeSingle();
-  if(existing)return;
+  if(existing&&!force)return;// force=true は最新値で上書き（2026-06-06 NHA/SPKと統一）
   const[y,mo]=ym.split("-").map(Number);
   const dim=new Date(y,mo,0).getDate();
   const ms=new Date(y,mo-1,1),me=new Date(y,mo-1,dim);
@@ -2530,10 +2530,15 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     let py=now.getFullYear(),pm=now.getMonth();if(pm===0){pm=12;py--;}
     const prevYM=py+"-"+String(pm).padStart(2,"0");
     if(prevYM<"2026-04")return;
+    // ★ 2026-06-06: force=true で1日1回 前月を最新値に自動上書き（NHA/SPKと統一）
     (async()=>{
+      const marker="snap_auto_force_"+prevYM;
+      const today=new Date().toISOString().slice(0,10);
+      try{if(localStorage.getItem(marker)===today)return;}catch(e){}
       const{data:rows}=await sb.from("bt_vehicle_monthly_kpi").select("*").eq("year_month",prevYM);
       const pf={};(rows||[]).forEach(r=>pf[r.vehicle_code]=r.active);
-      await saveMonthlySnapshot("tkm",prevYM,data,vehicles,fleet,pf,"bt_vehicle_monthly_kpi");
+      await saveMonthlySnapshot("tkm",prevYM,data,vehicles,fleet,pf,"bt_vehicle_monthly_kpi",true);
+      try{localStorage.setItem(marker,today);}catch(e){}
     })();
   },[data,vehicles,fleet]);
   const[open,setOpen]=useState(false);
@@ -21515,7 +21520,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.69-BT";
+const APP_VERSION="v1.0.70-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

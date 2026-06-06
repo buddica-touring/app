@@ -64,13 +64,13 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <tr>
 <th colspan="3" style="background:#f8fafc"></th>
 <th colspan="13" style="background:#eff6ff;color:#1d4ed8;font-size:11px;border-top:2px solid #93c5fd">🔵 シミュレーション（設定・試算）</th>
-<th colspan="7" style="background:#f5f3ff;color:#7c3aed;font-size:11px;border:2px solid #c4b5fd;border-bottom:none">🟣 実績（直近3ヶ月）＋成績</th>
+<th colspan="7" style="background:#f5f3ff;color:#7c3aed;font-size:11px;border:2px solid #c4b5fd;border-bottom:none">🟣 実績（直近3ヶ月）＋達成率</th>
 <th></th>
 </tr>
 <tr>
 <th>クラス</th><th>台数</th><th>持ち方</th>
 <th>稼働%</th><th style="color:#0369a1">ADR</th><th style="color:#0369a1">平均泊</th><th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台/売上</th><th style="color:#b91c1c">台/リース</th><th style="color:#b91c1c">台/車検</th><th style="color:#b91c1c">台/点検</th><th style="color:#b91c1c">台/保険</th><th style="color:#b91c1c">台/手数料</th><th style="color:#9a3412">台/車両原価</th><th style="color:#047857">台/貢献</th><th style="color:#0369a1">総売上</th>
-<th style="color:#7c3aed;border-left:2px solid #c4b5fd">実績稼働</th><th style="color:#7c3aed">実績ADR</th><th style="color:#7c3aed">実績平均泊</th><th style="color:#7c3aed">実績予約/月</th><th style="color:#7c3aed">実績台売上</th><th style="color:#047857">実績貢献</th><th style="color:#7c3aed;border-right:2px solid #c4b5fd">成績</th>
+<th style="color:#7c3aed;border-left:2px solid #c4b5fd">実績稼働</th><th style="color:#7c3aed">実績ADR</th><th style="color:#7c3aed">実績平均泊</th><th style="color:#7c3aed">実績予約/月</th><th style="color:#7c3aed">実績台売上</th><th style="color:#047857">実績貢献</th><th style="color:#7c3aed;border-right:2px solid #c4b5fd">達成率</th>
 <th></th>
 </tr>
 </thead>
@@ -295,7 +295,8 @@ function calc(){
    tr.querySelector('.actbook').textContent=(au!=null?Math.round((au/100)*30/nt*n)+'件':'—');
    const arv=ACTUAL_REVPV[cls];tr.querySelector('.actrev').textContent=(arv!=null?yen(arv):'—');
    const actc=(arv!=null)?arv-vc-(own?0:arv*pshare):null;const _ac=tr.querySelector('.actcontrib');if(actc!=null){_ac.textContent=yen(actc);_ac.style.color=actc>=0?'#047857':'#dc2626';}else{_ac.textContent='—';_ac.style.color='#cbd5e1';}
-   const _g=gradeOf(actc);const _ge=tr.querySelector('.grade');if(_g){_ge.textContent=_g[0];_ge.style.color=_g[1];}else{_ge.textContent='—';_ge.style.color='#cbd5e1';}
+   const tgtU=u*100;const ach=(au!=null&&tgtU>0)?Math.round(au/tgtU*100):null;// 達成率=実績稼働÷シミュ稼働設定
+   const _ge=tr.querySelector('.grade');if(ach!=null){const g=ach>=100?['A','#047857']:ach>=80?['B','#d97706']:['C','#dc2626'];_ge.textContent=g[0]+' '+ach+'%';_ge.style.color=g[1];_ge.style.fontSize='12px';}else{_ge.textContent='—';_ge.style.color='#cbd5e1';}
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
    tr.querySelector('.rtot').textContent=yen(revPer*n);
@@ -398,7 +399,7 @@ function rebalance(){
 }
 function copyResult(){navigator.clipboard.writeText(LAST).then(()=>alert('結果をコピーしました'));}
 /* ===== 実績ライブ自動取得（正本箱: monthly_snapshots.class_detail。平均泊のみ予約から算出） ===== */
-const LIVECFG={sb:'https://ggqugvyskyiblxiycpci.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18',store:'bt',resv:'bt_reservations',clsCol:'vehicle_class',lend:'start_date',ret:'end_date'};
+const LIVECFG={sb:'https://ggqugvyskyiblxiycpci.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18',store:'tkm',resv:'bt_reservations',clsCol:'vehicle_class',lend:'start_date',ret:'end_date'};
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.indexOf('sb-')===0&&key.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(key));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
 async function loadActuals(){
  const st=document.getElementById('live_status');
