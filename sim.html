@@ -54,14 +54,14 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <body>
 <div class="wrap">
 <h1>🚗 高松 収支シミュレータ（月次）</h1>
-<div class="sub">クラス別の台数・稼働率と、共通の単価を入れると月次/年間P&Lが即計算。単価・計算は「共通」で行い、クラス表は確定額を並べます。初期値はサンプル。高松の実数を入力してください。</div>
+<div class="sub">クラス別の台数・稼働率と、共通の単価を入れると月次/年間P&Lが即計算。単価・計算は「共通」で行い、クラス表は確定額を並べます。初期値＝5月実績ベース。</div>
 
 <div class="card">
 <h2>🚙 クラス別 設定 — 売上(青) → 車両原価(赤) → 貢献(緑)</h2>
 <div class="tscroll">
 <table>
 <thead><tr>
-<th>クラス</th><th>台数</th><th>持ち方</th><th>稼働%</th>
+<th>クラス</th><th>台数</th><th>持ち方</th><th style="color:#7c3aed">実績稼働<br><span style="font-weight:400;font-size:10px">直近3ヶ月</span></th><th>稼働%</th>
 <th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#0369a1">総売上</th>
 <th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th>
 <th style="color:#047857">貢献/台</th>
@@ -199,6 +199,8 @@ const DEF=[
  ["H", 2,"partner",40,9360,1.3],
 ];
 const CLASS_DATA={F:[7100,1.2],A:[14800,1.6],B:[10200,2.6],S:[10400,1.4],C:[5842,1.7],H:[9360,1.3]};
+// クラス別 実績稼働率（直近3ヶ月平均・編集不可・参考値）※monthly_snapshots由来
+const ACTUAL_UTIL={};
 const CLS_LIST=['F','A','B','C','S','H'];
 const yen=n=>'¥'+Math.round(n).toLocaleString();
 const num=id=>parseFloat(document.getElementById(id).value)||0;
@@ -215,6 +217,7 @@ function rowHTML(d){
    <option value="buy"${d[2]==='buy'?' selected':''}>買取</option>
    <option value="lease"${d[2]==='lease'?' selected':''}>リース</option>
    <option value="partner"${d[2]==='partner'?' selected':''}>預かり</option></select></td>
+ <td class="auto actutil" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
  <td><input class="is" type="number" value="${d[3]}" oninput="calc()"></td>
  <td class="auto rbook">0</td>
  <td class="auto rper">¥0</td>
@@ -256,6 +259,7 @@ function calc(){
    const vc=ls+sk+tk+hk;                 // 車両原価/台
    const revPer=adr*u*30, bookPer=u*30/nt;
    const contribPer=revPer-vc-(revPer*ota+bookPer*wash);
+   const au=ACTUAL_UTIL[cls];tr.querySelector('.actutil').textContent=(au!=null?au+'%':'—');
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
    tr.querySelector('.rtot').textContent=yen(revPer*n);
