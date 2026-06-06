@@ -61,8 +61,8 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <div class="tscroll">
 <table>
 <thead><tr>
-<th>クラス</th><th>台数</th><th>持ち方</th><th style="color:#7c3aed">実績稼働<br><span style="font-weight:400;font-size:10px">直近3ヶ月(加重)</span></th><th>稼働%</th>
-<th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#7c3aed">実績台売上<br><span style="font-weight:400;font-size:10px">直近3ヶ月</span></th><th style="color:#0369a1">総売上</th>
+<th>クラス</th><th>台数</th><th>持ち方</th><th>稼働%</th><th style="color:#7c3aed">実績稼働<br><span style="font-weight:400;font-size:10px">直近3ヶ月</span></th>
+<th style="color:#0369a1">予約/月</th><th style="color:#7c3aed">実績予約/月<br><span style="font-weight:400;font-size:10px">直近3ヶ月</span></th><th style="color:#0369a1">台売上</th><th style="color:#7c3aed">実績台売上<br><span style="font-weight:400;font-size:10px">直近3ヶ月</span></th><th style="color:#0369a1">総売上</th>
 <th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th>
 <th style="color:#047857">貢献/台</th>
 <th style="color:#cbd5e1">ADR</th><th style="color:#cbd5e1">平均泊</th><th></th>
@@ -72,9 +72,10 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <td style="font-weight:800">合計</td>
 <td id="ft_units">0</td>
 <td></td>
-<td></td>
 <td id="ft_util" style="color:#64748b">0%</td>
+<td></td>
 <td id="ft_book" class="auto">0</td>
+<td></td>
 <td></td>
 <td></td>
 <td id="ft_gross" class="auto">¥0</td>
@@ -222,9 +223,10 @@ function rowHTML(d){
    <option value="buy"${d[2]==='buy'?' selected':''}>買取</option>
    <option value="lease"${d[2]==='lease'?' selected':''}>リース</option>
    <option value="partner"${d[2]==='partner'?' selected':''}>預かり</option></select></td>
- <td class="auto actutil" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
  <td><input class="is" type="number" value="${d[3]}" oninput="calc()"></td>
+ <td class="auto actutil" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
  <td class="auto rbook">0</td>
+ <td class="auto actbook" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
  <td class="auto rper">¥0</td>
  <td class="auto actrev" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
  <td class="auto rtot">¥0</td>
@@ -266,6 +268,7 @@ function calc(){
    const revPer=adr*u*30, bookPer=u*30/nt;
    const contribPer=revPer-vc; // 貢献/台＝台売上−車両原価/台（変動費・固定費・返済は純利益で控除）
    const au=ACTUAL_UTIL[cls];tr.querySelector('.actutil').textContent=(au!=null?au+'%':'—');
+   tr.querySelector('.actbook').textContent=(au!=null?Math.round((au/100)*30/nt*n)+'件':'—');
    const arv=ACTUAL_REVPV[cls];tr.querySelector('.actrev').textContent=(arv!=null?yen(arv):'—');
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
