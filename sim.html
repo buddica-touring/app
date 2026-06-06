@@ -63,8 +63,8 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <thead><tr>
 <th>クラス</th><th>台数</th><th>持ち方</th><th style="color:#7c3aed">実績稼働<br><span style="font-weight:400;font-size:10px">直近3ヶ月(加重)</span></th><th>稼働%</th>
 <th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#0369a1">総売上</th>
-<th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th>
-<th style="color:#047857">貢献/台</th>
+<th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価<br><span style="font-weight:400;font-size:10px">×台数</span></th>
+<th style="color:#047857">貢献<br><span style="font-weight:400;font-size:10px">×台数</span></th>
 <th style="color:#cbd5e1">ADR</th><th style="color:#cbd5e1">平均泊</th><th></th>
 </tr></thead>
 <tbody id="rows"></tbody>
@@ -89,7 +89,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 </div>
 <button class="add" onclick="addRow()">＋ クラス追加</button>
 <span id="t_units" style="margin-left:12px;font-weight:800;color:#0369a1;font-size:13px">保有台数 計 0台</span>
-<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。車両原価/台＝リース＋車検＋点検＋保険。預かりは全て¥0。</div>
+<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。リース/車検/点検/保険/車両原価/貢献は台数ぶんの合計（単価×台数）。預かりは車検/点検/保険¥0。</div>
 </div>
 
 <div class="card">
@@ -264,12 +264,12 @@ function calc(){
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
    tr.querySelector('.rtot').textContent=yen(revPer*n);
-   tr.querySelector('.lease').textContent=yen(ls);
-   tr.querySelector('.shaken').textContent=yen(sk);
-   tr.querySelector('.tenken').textContent=yen(tk);
-   tr.querySelector('.hoken').textContent=yen(hk);
-   tr.querySelector('.vc').textContent=yen(vc);
-   const cc=tr.querySelector('.contrib');cc.textContent=yen(contribPer);cc.style.color=contribPer>=0?'#047857':'#dc2626';
+   tr.querySelector('.lease').textContent=yen(ls*n);
+   tr.querySelector('.shaken').textContent=yen(sk*n);
+   tr.querySelector('.tenken').textContent=yen(tk*n);
+   tr.querySelector('.hoken').textContent=yen(hk*n);
+   tr.querySelector('.vc').textContent=yen(vc*n);
+   const cc=tr.querySelector('.contrib');cc.textContent=yen(contribPer*n);cc.style.color=contribPer>=0?'#047857':'#dc2626';
    gross+=revPer*n; book+=bookPer*n; units+=n; rdays+=u*30*n; vfix+=vc*n;
    lt+=ls*n; st+=sk*n; tt+=tk*n; ht+=hk*n; ct+=contribPer*n;
  });
