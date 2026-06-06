@@ -148,6 +148,8 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <div class="grp"><div class="gh">📈 変動費（予約あたり）<span id="gh_var" style="margin-left:auto;color:#64748b;font-size:11px"></span></div>
 <div class="gg">
 <div><label>OTA手数料 %</label><input id="g_ota" value="12" oninput="calc()"></div>
+<div><label>OTA構成比 %（売上に占めるOTA経由・実績リリース後に自動算出可）</label><input id="g_otashare" value="90" oninput="calc()"></div>
+<div><label>OTA手数料 合計（自動＝売上×構成比×料率）</label><input id="g_otafeetot" class="ro" readonly></div>
 <div><label>洗車 単価 円/予約</label><input id="g_wash" value="0" oninput="calc()"></div>
 <div><label>洗車 合計（自動＝単価×予約数）</label><input id="g_washtot" class="ro" readonly></div>
 <div><label>預かり取分%（販売手数料率）</label><input id="g_partnershare" value="70" oninput="calc()"></div>
@@ -268,7 +270,7 @@ function addRow(){document.getElementById('rows').insertAdjacentHTML('beforeend'
 function loadDefault(){try{localStorage.removeItem('sim_state_bt_v1');}catch(e){}render(DEF);
  const g={g_shakenpr:120000,g_tenkenpr:48000,g_inspr:7700,g_parkprice:8000,g_parkn:23,
   g_lease_F:0,g_lease_A:100000,g_lease_B:75000,g_lease_C:50000,g_lease_S:50000,g_lease_H:50000,
-  g_salary:492000,g_rent:0,g_other:180000,g_ota:12,g_wash:0,g_partnershare:70,g_target:1000000,g_repay:377425};
+  g_salary:492000,g_rent:0,g_other:180000,g_ota:12,g_otashare:90,g_wash:0,g_partnershare:70,g_target:1000000,g_repay:377425};
  for(const k in g)document.getElementById(k).value=g[k];calc();}
 let LAST='';
 function calc(){
@@ -276,7 +278,7 @@ function calc(){
  const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
  document.getElementById('g_shakenm').value=Math.round(shakenM).toLocaleString();
  document.getElementById('g_tenkenm').value=Math.round(tenkenM).toLocaleString();
- const ota=num('g_ota')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
+ const ota=num('g_ota')/100, otaShare=num('g_otashare')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
  const rows=[...document.querySelectorAll('#rows tr')];
  let gross=0,book=0,vfix=0,units=0,rdays=0,lt=0,st=0,tt=0,ht=0,ct=0,pgross=0,pt=0;
  rows.forEach(tr=>{
@@ -322,7 +324,8 @@ function calc(){
  const washTot=book*wash;
  document.getElementById('g_washtot').value=Math.round(washTot).toLocaleString();
  const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
- const otaFee=gross*ota, varc=book*wash;
+ const otaFee=gross*otaShare*ota, varc=book*wash;
+ document.getElementById('g_otafeetot').value=Math.round(otaFee).toLocaleString();
  const partnerFee=pgross*(num('g_partnershare')/100);
  const exp=vfix+ofix+otaFee+varc+partnerFee;
  const net=gross-exp;
@@ -348,7 +351,7 @@ function calc(){
  LAST=`高松収支シミュ(月)\n保有${units}台 稼働${units?Math.round(rdays/(units*30)*100):0}% 予約${Math.round(book)}件 客単価${book?yen(gross/book):0}\nグロス売上${yen(gross)}\n支出${yen(exp)}(車両原価${yen(vfix)}/共通${yen(ofix)}/手数料${yen(otaFee)}/変動${yen(varc)}/預かり手数料${yen(partnerFee)})\n純利益(月)${yen(net)} 年間${yen(net*12)}`;
  saveState();
 }
-const G_KEYS=['g_shakenpr','g_tenkenpr','g_inspr','g_parkprice','g_parkn','g_lease_F','g_lease_A','g_lease_B','g_lease_C','g_lease_S','g_lease_H','g_salary','g_rent','g_other','g_ota','g_wash','g_partnershare','g_target','g_repay','cap'];
+const G_KEYS=['g_shakenpr','g_tenkenpr','g_inspr','g_parkprice','g_parkn','g_lease_F','g_lease_A','g_lease_B','g_lease_C','g_lease_S','g_lease_H','g_salary','g_rent','g_other','g_ota','g_otashare','g_wash','g_partnershare','g_target','g_repay','cap'];
 function saveState(){
  try{
   const rows=[...document.querySelectorAll('#rows tr')].map(tr=>{const c=tr.querySelectorAll('input,select');return [c[0].value,c[1].value,c[2].value,c[3].value,c[4].value,c[5].value];});
@@ -367,7 +370,7 @@ function startup(){
 function rebalance(){
  const cap=Math.max(0,parseInt(document.getElementById('cap').value)||0);
  const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
- const ota=num('g_ota')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
+ const ota=num('g_ota')/100, otaShare=num('g_otashare')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
  const parkTot=num('g_parkprice')*num('g_parkn');
  const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
  const need=num('g_target')+ofix;
@@ -379,7 +382,7 @@ function rebalance(){
    const own=(hold!=='partner');
    const vc=((hold==='lease')?leaseOf(cls):0)+(own?shakenM:0)+(own?tenkenM:0)+(own?hokenM:0);
    const revPer=adr*u*30,bookPer=u*30/nt;
-   const contrib=revPer-vc-(revPer*ota+bookPer*wash)-(own?0:revPer*pshare);
+   const contrib=revPer-vc-(revPer*ota*otaShare+bookPer*wash)-(own?0:revPer*pshare);
    return {name:c[0].value,contrib,nInput:c[1]};
  }).filter(x=>x.contrib>0);
  arr.sort((a,b)=>b.contrib-a.contrib);
