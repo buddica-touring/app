@@ -89,7 +89,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 </div>
 <button class="add" onclick="addRow()">＋ クラス追加</button>
 <span id="t_units" style="margin-left:12px;font-weight:800;color:#0369a1;font-size:13px">保有台数 計 0台</span>
-<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。リース/車検/点検/保険/車両原価は台数ぶんの合計（単価×台数）。貢献/台＝1台あたりの貢献（台売上−車両原価/台−変動費/台）。合計行の貢献は全体合計。預かりは車検/点検/保険¥0。</div>
+<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。リース/車検/点検/保険/車両原価は台数ぶんの合計（単価×台数）。貢献/台＝台売上−車両原価/台（シンプル粗利）。OTA手数料・洗車・共通固定費・返済は純利益でまとめて控除。合計行の貢献は全体合計。預かりは車検/点検/保険¥0。</div>
 </div>
 
 <div class="card">
@@ -259,7 +259,7 @@ function calc(){
    const ls=(hold==='lease')?leaseOf(cls):0;  // 共通のクラス別リース単価を反映（リース持ち方のみ）
    const vc=ls+sk+tk+hk;                 // 車両原価/台
    const revPer=adr*u*30, bookPer=u*30/nt;
-   const contribPer=revPer-vc-(revPer*ota+bookPer*wash);
+   const contribPer=revPer-vc; // 貢献/台＝台売上−車両原価/台（変動費・固定費・返済は純利益で控除）
    const au=ACTUAL_UTIL[cls];tr.querySelector('.actutil').textContent=(au!=null?au+'%':'—');
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
@@ -351,7 +351,7 @@ function rebalance(){
    if(acc>=need)break;
    const want=Math.min(cap,Math.ceil((need-acc)/x.contrib));
    x.nInput.value=want; acc+=want*x.contrib; tot+=want;
-   if(want>0)plan.push(`${x.name}: <b>${want}台</b>（貢献¥${Math.round(x.contrib).toLocaleString()}/台）`);
+   if(want>0)plan.push(`${x.name}: <b>${want}台</b>`);
  }
  calc();
  document.getElementById('rb_out').innerHTML=(acc>=need
