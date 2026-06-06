@@ -64,14 +64,14 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <tr>
 <th colspan="3" style="background:#f8fafc"></th>
 <th colspan="10" style="background:#eff6ff;color:#1d4ed8;font-size:11px;border-top:2px solid #93c5fd">🔵 シミュレーション（設定・試算）</th>
-<th colspan="3" style="background:#f5f3ff;color:#7c3aed;font-size:11px;border:2px solid #c4b5fd;border-bottom:none">🟣 実績（直近3ヶ月）</th>
+<th colspan="4" style="background:#f5f3ff;color:#7c3aed;font-size:11px;border:2px solid #c4b5fd;border-bottom:none">🟣 実績（直近3ヶ月）＋成績</th>
 <th colspan="2" style="background:#f8fafc;color:#94a3b8;font-size:11px">参考</th>
 <th></th>
 </tr>
 <tr>
 <th>クラス</th><th>台数</th><th>持ち方</th>
 <th>稼働%</th><th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th><th style="color:#047857">貢献/台</th><th style="color:#0369a1">総売上</th>
-<th style="color:#7c3aed;border-left:2px solid #c4b5fd">実績稼働</th><th style="color:#7c3aed">実績予約/月</th><th style="color:#7c3aed;border-right:2px solid #c4b5fd">実績台売上</th>
+<th style="color:#7c3aed;border-left:2px solid #c4b5fd">実績稼働</th><th style="color:#7c3aed">実績予約/月</th><th style="color:#7c3aed">実績台売上</th><th style="color:#7c3aed;border-right:2px solid #c4b5fd">成績</th>
 <th style="color:#cbd5e1">ADR</th><th style="color:#cbd5e1">平均泊</th><th></th>
 </tr>
 </thead>
@@ -91,6 +91,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <td id="ft_contrib" class="auto" style="color:#047857">¥0</td>
 <td id="ft_gross" class="auto">¥0</td>
 <td style="border-left:2px solid #c4b5fd"></td>
+<td></td>
 <td></td>
 <td style="border-right:2px solid #c4b5fd"></td>
 <td></td><td></td><td></td>
@@ -219,6 +220,7 @@ const CLS_LIST=['A','AA','B','C','F','H'];
 const yen=n=>'¥'+Math.round(n).toLocaleString();
 const num=id=>parseFloat(document.getElementById(id).value)||0;
 const leaseOf=cls=>{const e=document.getElementById('g_lease_'+cls);return e?(parseFloat(e.value)||0):0;};
+function gradeOf(u,r){if(u==null||r==null)return null;const up=u>=55?3:u>=40?2:u>=25?1:0;const rp=r>=150000?3:r>=90000?2:r>=55000?1:0;const s=up+rp;return s>=5?['◎','#047857']:s>=3?['○','#0369a1']:s>=2?['△','#d97706']:['×','#dc2626'];}
 function clsOpts(s){return CLS_LIST.map(k=>`<option value="${k}"${s===k?' selected':''}>${k}</option>`).join('');}
 function clsChange(s){const c=s.closest('tr').querySelectorAll('input,select');const d=CLASS_DATA[s.value];if(d){c[4].value=d[0];c[5].value=d[1];}calc();}
 // 買取/預かりに変えたらリースを0に（リースはクラス別入力・持ち方=リースの時だけ計上）
@@ -243,7 +245,8 @@ function rowHTML(d){
  <td class="auto rtot">¥0</td>
  <td class="auto actutil" style="background:#f5f3ff;color:#7c3aed;font-weight:700;border-left:2px solid #c4b5fd">—</td>
  <td class="auto actbook" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
- <td class="auto actrev" style="background:#f5f3ff;color:#7c3aed;font-weight:700;border-right:2px solid #c4b5fd">—</td>
+ <td class="auto actrev" style="background:#f5f3ff;color:#7c3aed;font-weight:700">—</td>
+ <td class="grade" style="background:#f5f3ff;font-weight:800;font-size:16px;border-right:2px solid #c4b5fd">—</td>
  <td class="dim"><input class="iw" type="number" value="${d[4]}" oninput="calc()"></td>
  <td class="dim"><input class="im" type="number" step="0.1" value="${d[5]}" oninput="calc()"></td>
  <td><button class="del" onclick="this.closest('tr').remove();calc()">✕</button></td>
@@ -278,6 +281,7 @@ function calc(){
    const au=ACTUAL_UTIL[cls];tr.querySelector('.actutil').textContent=(au!=null?au+'%':'—');
    tr.querySelector('.actbook').textContent=(au!=null?Math.round((au/100)*30/nt*n)+'件':'—');
    const arv=ACTUAL_REVPV[cls];tr.querySelector('.actrev').textContent=(arv!=null?yen(arv):'—');
+   const _g=gradeOf(au,arv);const _ge=tr.querySelector('.grade');if(_g){_ge.textContent=_g[0];_ge.style.color=_g[1];}else{_ge.textContent='—';_ge.style.color='#cbd5e1';}
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
    tr.querySelector('.rtot').textContent=yen(revPer*n);
