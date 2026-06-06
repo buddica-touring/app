@@ -63,14 +63,14 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <thead>
 <tr>
 <th colspan="3" style="background:#f8fafc"></th>
-<th colspan="10" style="background:#eff6ff;color:#1d4ed8;font-size:11px;border-top:2px solid #93c5fd">🔵 シミュレーション（設定・試算）</th>
+<th colspan="11" style="background:#eff6ff;color:#1d4ed8;font-size:11px;border-top:2px solid #93c5fd">🔵 シミュレーション（設定・試算）</th>
 <th colspan="5" style="background:#f5f3ff;color:#7c3aed;font-size:11px;border:2px solid #c4b5fd;border-bottom:none">🟣 実績（直近3ヶ月）＋成績</th>
 <th colspan="2" style="background:#f8fafc;color:#94a3b8;font-size:11px">参考</th>
 <th></th>
 </tr>
 <tr>
 <th>クラス</th><th>台数</th><th>持ち方</th>
-<th>稼働%</th><th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台売上</th><th style="color:#b91c1c">リース</th><th style="color:#b91c1c">車検</th><th style="color:#b91c1c">点検</th><th style="color:#b91c1c">保険</th><th style="color:#9a3412">車両原価/台</th><th style="color:#047857">貢献/台</th><th style="color:#0369a1">総売上</th>
+<th>稼働%</th><th style="color:#0369a1">予約/月</th><th style="color:#0369a1">台/売上</th><th style="color:#b91c1c">台/リース</th><th style="color:#b91c1c">台/車検</th><th style="color:#b91c1c">台/点検</th><th style="color:#b91c1c">台/保険</th><th style="color:#b91c1c">台/手数料</th><th style="color:#9a3412">台/車両原価</th><th style="color:#047857">台/貢献</th><th style="color:#0369a1">総売上</th>
 <th style="color:#7c3aed;border-left:2px solid #c4b5fd">実績稼働</th><th style="color:#7c3aed">実績予約/月</th><th style="color:#7c3aed">実績台売上</th><th style="color:#047857">実績貢献</th><th style="color:#7c3aed;border-right:2px solid #c4b5fd">成績</th>
 <th style="color:#cbd5e1">ADR</th><th style="color:#cbd5e1">平均泊</th><th></th>
 </tr>
@@ -87,6 +87,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <td id="ft_shaken" class="cost">¥0</td>
 <td id="ft_tenken" class="cost">¥0</td>
 <td id="ft_hoken" class="cost">¥0</td>
+<td id="ft_pfee" class="cost">¥0</td>
 <td id="ft_vc" class="vcost">¥0</td>
 <td id="ft_contrib" class="auto" style="color:#047857">¥0</td>
 <td id="ft_gross" class="auto">¥0</td>
@@ -101,7 +102,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 </div>
 <button class="add" onclick="addRow()">＋ クラス追加</button>
 <span id="t_units" style="margin-left:12px;font-weight:800;color:#0369a1;font-size:13px">保有台数 計 0台</span>
-<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。クラス表は全て1台あたり：台売上 − 車両原価/台（=リース+車検+点検+保険）＝ 貢献/台。台数ぶんの合計は最下段の合計行で確認。総売上のみクラス合計。OTA手数料・洗車・共通固定費・返済は純利益でまとめて控除。預かりは車検/点検/保険¥0。</div>
+<div class="note">クラスを選ぶとADR・平均泊（実績）が自動セット。リースのみ車両別入力。車検/点検/保険は「共通」の単価から各車に自動適用。クラス表は全て1台あたり（台/〇〇）：台/売上 − 台/車両原価（=リース+車検+点検+保険）− 台/手数料（預かりのみ＝売上×取分%）＝ 台/貢献。台数ぶんの合計は最下段の合計行で確認。総売上のみクラス合計。OTA手数料・洗車・共通固定費・返済は純利益でまとめて控除。預かりは車検/点検/保険¥0。</div>
 </div>
 
 <div class="card">
@@ -146,6 +147,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <div><label>OTA手数料 %</label><input id="g_ota" value="12" oninput="calc()"></div>
 <div><label>洗車 単価 円/予約</label><input id="g_wash" value="0" oninput="calc()"></div>
 <div><label>洗車 合計（自動＝単価×予約数）</label><input id="g_washtot" class="ro" readonly></div>
+<div><label>預かり取分%（販売手数料率）</label><input id="g_partnershare" value="70" oninput="calc()"></div>
 </div></div>
 
 <div class="grp"><div class="gh">🎯 設定</div>
@@ -177,6 +179,7 @@ td.vcost{background:#fff7ed;font-weight:800;color:#9a3412}
 <div class="row"><span class="lbl">🏢 賃料・広告・その他</span><span class="num" id="r_rentad">¥0</span></div>
 <div class="row"><span class="lbl">📈 OTA手数料</span><span class="num" id="r_ota">¥0</span></div>
 <div class="row"><span class="lbl">🧽 変動費(洗車)</span><span class="num" id="r_var">¥0</span></div>
+<div class="row"><span class="lbl">🤝 販売手数料(預かり)</span><span class="num" id="r_partnerfee">¥0</span></div>
 <div class="row"><span class="lbl"><b>支出計</b></span><span class="num" id="r_exp" style="color:#dc2626">¥0</span></div>
 </div>
 </div>
@@ -241,6 +244,7 @@ function rowHTML(d){
  <td class="cost shaken">¥0</td>
  <td class="cost tenken">¥0</td>
  <td class="cost hoken">¥0</td>
+ <td class="cost pfee">¥0</td>
  <td class="vcost vc">¥0</td>
  <td class="auto contrib">¥0</td>
  <td class="auto rtot">¥0</td>
@@ -256,10 +260,10 @@ function rowHTML(d){
 }
 function render(data){document.getElementById('rows').innerHTML=data.map(rowHTML).join('');}
 function addRow(){document.getElementById('rows').insertAdjacentHTML('beforeend',rowHTML(["F",1,"buy",50,7100,1.2]));calc();}
-function loadDefault(){try{localStorage.removeItem('sim_state_v1');}catch(e){}render(DEF);
+function loadDefault(){try{localStorage.removeItem('sim_state_bt_v1');}catch(e){}render(DEF);
  const g={g_shakenpr:120000,g_tenkenpr:48000,g_inspr:7700,g_parkprice:8000,g_parkn:23,
   g_lease_F:0,g_lease_A:100000,g_lease_B:75000,g_lease_C:50000,g_lease_S:50000,g_lease_H:50000,
-  g_salary:492000,g_rent:0,g_other:180000,g_ota:12,g_wash:0,g_target:1000000,g_repay:377425};
+  g_salary:492000,g_rent:0,g_other:180000,g_ota:12,g_wash:0,g_partnershare:70,g_target:1000000,g_repay:377425};
  for(const k in g)document.getElementById(k).value=g[k];calc();}
 let LAST='';
 function calc(){
@@ -267,9 +271,9 @@ function calc(){
  const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
  document.getElementById('g_shakenm').value=Math.round(shakenM).toLocaleString();
  document.getElementById('g_tenkenm').value=Math.round(tenkenM).toLocaleString();
- const ota=num('g_ota')/100, wash=num('g_wash');
+ const ota=num('g_ota')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
  const rows=[...document.querySelectorAll('#rows tr')];
- let gross=0,book=0,vfix=0,units=0,rdays=0,lt=0,st=0,tt=0,ht=0,ct=0;
+ let gross=0,book=0,vfix=0,units=0,rdays=0,lt=0,st=0,tt=0,ht=0,ct=0,pgross=0,pt=0;
  rows.forEach(tr=>{
    const c=tr.querySelectorAll('input,select');
    const cls=c[0].value, n=parseFloat(c[1].value)||0, hold=c[2].value, u=(parseFloat(c[3].value)||0)/100,
@@ -279,11 +283,12 @@ function calc(){
    const ls=(hold==='lease')?leaseOf(cls):0;  // 共通のクラス別リース単価を反映（リース持ち方のみ）
    const vc=ls+sk+tk+hk;                 // 車両原価/台
    const revPer=adr*u*30, bookPer=u*30/nt;
-   const contribPer=revPer-vc; // 貢献/台＝台売上−車両原価/台（変動費・固定費・返済は純利益で控除）
+   const pfee=own?0:revPer*pshare; // 預かりは売上×取分%を協力会社に支払う
+   const contribPer=revPer-vc-pfee; // 貢献/台＝台売上−車両原価/台−販売手数料(預かり)（OTA等変動費・固定費・返済は純利益で控除）
    const au=ACTUAL_UTIL[cls];tr.querySelector('.actutil').textContent=(au!=null?au+'%':'—');
    tr.querySelector('.actbook').textContent=(au!=null?Math.round((au/100)*30/nt*n)+'件':'—');
    const arv=ACTUAL_REVPV[cls];tr.querySelector('.actrev').textContent=(arv!=null?yen(arv):'—');
-   const actc=(arv!=null)?arv-vc:null;const _ac=tr.querySelector('.actcontrib');if(actc!=null){_ac.textContent=yen(actc);_ac.style.color=actc>=0?'#047857':'#dc2626';}else{_ac.textContent='—';_ac.style.color='#cbd5e1';}
+   const actc=(arv!=null)?arv-vc-(own?0:arv*pshare):null;const _ac=tr.querySelector('.actcontrib');if(actc!=null){_ac.textContent=yen(actc);_ac.style.color=actc>=0?'#047857':'#dc2626';}else{_ac.textContent='—';_ac.style.color='#cbd5e1';}
    const _g=gradeOf(actc);const _ge=tr.querySelector('.grade');if(_g){_ge.textContent=_g[0];_ge.style.color=_g[1];}else{_ge.textContent='—';_ge.style.color='#cbd5e1';}
    tr.querySelector('.rbook').textContent=Math.round(bookPer*n)+'件';
    tr.querySelector('.rper').textContent=yen(revPer);
@@ -292,16 +297,17 @@ function calc(){
    tr.querySelector('.shaken').textContent=yen(sk);
    tr.querySelector('.tenken').textContent=yen(tk);
    tr.querySelector('.hoken').textContent=yen(hk);
+   tr.querySelector('.pfee').textContent=yen(pfee);
    tr.querySelector('.vc').textContent=yen(vc);
    const cc=tr.querySelector('.contrib');cc.textContent=yen(contribPer);cc.style.color=contribPer>=0?'#047857':'#dc2626';
-   gross+=revPer*n; book+=bookPer*n; units+=n; rdays+=u*30*n; vfix+=vc*n;
+   gross+=revPer*n; book+=bookPer*n; units+=n; rdays+=u*30*n; vfix+=vc*n; if(hold==='partner')pgross+=revPer*n; pt+=pfee*n;
    lt+=ls*n; st+=sk*n; tt+=tk*n; ht+=hk*n; ct+=contribPer*n;
  });
  // 合計行（下段）
  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
  setT('ft_units',units); setT('ft_util',(units?Math.round(rdays/(units*30)*100):0)+'%');
  setT('ft_book',Math.round(book)+'件'); setT('ft_gross',yen(gross));
- setT('ft_lease',yen(lt)); setT('ft_shaken',yen(st)); setT('ft_tenken',yen(tt)); setT('ft_hoken',yen(ht));
+ setT('ft_lease',yen(lt)); setT('ft_shaken',yen(st)); setT('ft_tenken',yen(tt)); setT('ft_hoken',yen(ht)); setT('ft_pfee',yen(pt));
  setT('ft_vc',yen(vfix)); setT('ft_contrib',yen(ct));
  const parkTot=num('g_parkprice')*num('g_parkn');
  document.getElementById('g_parktot').value=Math.round(parkTot).toLocaleString();
@@ -310,7 +316,8 @@ function calc(){
  document.getElementById('g_washtot').value=Math.round(washTot).toLocaleString();
  const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
  const otaFee=gross*ota, varc=book*wash;
- const exp=vfix+ofix+otaFee+varc;
+ const partnerFee=pgross*(num('g_partnershare')/100);
+ const exp=vfix+ofix+otaFee+varc+partnerFee;
  const net=gross-exp;
  const target=num('g_target');
  const set=(id,v)=>document.getElementById(id).textContent=v;
@@ -318,7 +325,7 @@ function calc(){
  set('k_book',Math.round(book)); set('k_arpu',book?yen(gross/book):'¥0');
  set('r_gross',yen(gross)); set('r_book',Math.round(book)+'件');
  set('r_lease',yen(lt)); set('r_maint',yen(vfix-lt)); set('r_salary',yen(num('g_salary'))); set('r_park',yen(parkTot));
- set('r_rentad',yen(num('g_rent')+num('g_other'))); set('r_ota',yen(otaFee)); set('r_var',yen(varc)); set('r_exp',yen(exp));
+ set('r_rentad',yen(num('g_rent')+num('g_other'))); set('r_ota',yen(otaFee)); set('r_var',yen(varc)); set('r_partnerfee',yen(partnerFee)); set('r_exp',yen(exp));
  // 科目グループ小計（共通の見出しに表示）
  const ghv=document.getElementById('gh_veh'); if(ghv)ghv.textContent='1台/月 ¥'+Math.round(shakenM+tenkenM+hokenM).toLocaleString()+'（車検+点検+保険）';
  const ghf=document.getElementById('gh_fix'); if(ghf)ghf.textContent='小計 ¥'+Math.round(num('g_salary')+num('g_rent')+num('g_other')).toLocaleString();
@@ -331,19 +338,19 @@ function calc(){
    ? `🎯 目標 ${yen(target)} 達成（+${yen(net-target)}）`
    : `🎯 目標 ${yen(target)} まで あと ${yen(gp)}／月（必要グロス ≈ ${yen(needGross)}・現在 ${yen(gross)}）`;
  document.getElementById('r_year').textContent=`年間換算：グロス売上 ${yen(gross*12)} ／ 純利益 ${yen(net*12)}（返済 ${yen(num('g_repay')*12)} はPL外）`;
- LAST=`札幌収支シミュ(月)\n保有${units}台 稼働${units?Math.round(rdays/(units*30)*100):0}% 予約${Math.round(book)}件 客単価${book?yen(gross/book):0}\nグロス売上${yen(gross)}\n支出${yen(exp)}(車両原価${yen(vfix)}/共通${yen(ofix)}/手数料${yen(otaFee)}/変動${yen(varc)})\n純利益(月)${yen(net)} 年間${yen(net*12)}`;
+ LAST=`高松収支シミュ(月)\n保有${units}台 稼働${units?Math.round(rdays/(units*30)*100):0}% 予約${Math.round(book)}件 客単価${book?yen(gross/book):0}\nグロス売上${yen(gross)}\n支出${yen(exp)}(車両原価${yen(vfix)}/共通${yen(ofix)}/手数料${yen(otaFee)}/変動${yen(varc)}/預かり手数料${yen(partnerFee)})\n純利益(月)${yen(net)} 年間${yen(net*12)}`;
  saveState();
 }
-const G_KEYS=['g_shakenpr','g_tenkenpr','g_inspr','g_parkprice','g_parkn','g_lease_F','g_lease_A','g_lease_B','g_lease_C','g_lease_S','g_lease_H','g_salary','g_rent','g_other','g_ota','g_wash','g_target','g_repay','cap'];
+const G_KEYS=['g_shakenpr','g_tenkenpr','g_inspr','g_parkprice','g_parkn','g_lease_F','g_lease_A','g_lease_B','g_lease_C','g_lease_S','g_lease_H','g_salary','g_rent','g_other','g_ota','g_wash','g_partnershare','g_target','g_repay','cap'];
 function saveState(){
  try{
   const rows=[...document.querySelectorAll('#rows tr')].map(tr=>{const c=tr.querySelectorAll('input,select');return [c[0].value,c[1].value,c[2].value,c[3].value,c[4].value,c[5].value];});
   const g={};G_KEYS.forEach(k=>{const e=document.getElementById(k);if(e)g[k]=e.value;});
-  localStorage.setItem('sim_state_v1',JSON.stringify({rows,g}));
+  localStorage.setItem('sim_state_bt_v1',JSON.stringify({rows,g}));
  }catch(e){}
 }
 function startup(){
- let st=null;try{st=JSON.parse(localStorage.getItem('sim_state_v1')||'null');}catch(e){}
+ let st=null;try{st=JSON.parse(localStorage.getItem('sim_state_bt_v1')||'null');}catch(e){}
  if(st&&st.rows&&st.rows.length){
    render(st.rows);
    if(st.g)for(const k in st.g){const e=document.getElementById(k);if(e&&st.g[k]!=null)e.value=st.g[k];}
@@ -353,7 +360,7 @@ function startup(){
 function rebalance(){
  const cap=Math.max(0,parseInt(document.getElementById('cap').value)||0);
  const shakenM=num('g_shakenpr')/12, tenkenM=num('g_tenkenpr')/12, hokenM=num('g_inspr');
- const ota=num('g_ota')/100, wash=num('g_wash');
+ const ota=num('g_ota')/100, wash=num('g_wash'), pshare=num('g_partnershare')/100;
  const parkTot=num('g_parkprice')*num('g_parkn');
  const ofix=num('g_salary')+num('g_rent')+num('g_other')+parkTot;
  const need=num('g_target')+ofix;
@@ -365,7 +372,7 @@ function rebalance(){
    const own=(hold!=='partner');
    const vc=((hold==='lease')?leaseOf(cls):0)+(own?shakenM:0)+(own?tenkenM:0)+(own?hokenM:0);
    const revPer=adr*u*30,bookPer=u*30/nt;
-   const contrib=revPer-vc-(revPer*ota+bookPer*wash);
+   const contrib=revPer-vc-(revPer*ota+bookPer*wash)-(own?0:revPer*pshare);
    return {name:c[0].value,contrib,nInput:c[1]};
  }).filter(x=>x.contrib>0);
  arr.sort((a,b)=>b.contrib-a.contrib);
