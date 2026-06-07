@@ -533,7 +533,7 @@ const DB = {
   async fetchMaintenance(){
     if(!sb){return DB._maintLsLoad();}
     const{data,error}=await sb.from("bt_maintenance").select("*");if(error){dbLog("fetchMaint",false,error.message);return DB._maintLsLoad();}
-    const result=(data||[]).map(m=>({id:m.id,vehicleCode:m.vehicle_code,startDate:m.start_date,endDate:m.end_date,label:m.label||"",cost:Number(m.cost)||0,actualCost:Number(m.actual_cost)||0,workshop:m.workshop||"",invoiceNo:m.invoice_no||"",maintNotes:m.maint_notes||""}));
+    const result=(data||[]).map(m=>({id:m.id,vehicleCode:m.vehicle_code,startDate:m.start_date,endDate:m.end_date,label:m.label||"",cost:Number(m.cost)||0,actualCost:Number(m.actual_cost)||0,workshop:m.workshop||"",invoiceNo:m.invoice_no||"",maintNotes:m.maint_notes||"",status:m.status||"",startTime:m.start_time||"",endTime:m.end_time||""}));
     // Supabaseが権威: DBの結果でlocalStorageを上書き（削除済みブロックの復活を防止）
     DB._maintLsSave(result);
     dbLog("fetchMaint",true,result.length+"件");
@@ -545,7 +545,7 @@ const DB = {
     const ls=DB._maintLsLoad();const idSet=new Set(ls.map(m=>m.id));
     mapped.forEach(m=>{if(idSet.has(m.id)){const idx=ls.findIndex(x=>x.id===m.id);if(idx>=0)ls[idx]=m;}else ls.push(m);});
     DB._maintLsSave(ls);
-    if(!sb)return;const rows=arr.map(m=>({id:m.id,vehicle_code:m.vehicleCode,start_date:m.startDate,end_date:m.endDate,label:m.label||"",cost:Number(m.cost)||0,actual_cost:Number(m.actualCost)||0,workshop:m.workshop||"",invoice_no:m.invoiceNo||"",maint_notes:m.maintNotes||""}));if(rows.length){const{error}=await sb.from("bt_maintenance").upsert(rows,{onConflict:"id"});if(error){dbLog("saveMaint",false,error.message);throw new Error(error.message);}else dbLog("saveMaint",true,rows.length+"件");}
+    if(!sb)return;const rows=arr.map(m=>{const r={id:m.id,vehicle_code:m.vehicleCode,start_date:m.startDate,end_date:m.endDate,label:m.label||"",cost:Number(m.cost)||0,actual_cost:Number(m.actualCost)||0,workshop:m.workshop||"",invoice_no:m.invoiceNo||"",maint_notes:m.maintNotes||""};if(m.status!==undefined)r.status=m.status||null;if(m.startTime!==undefined)r.start_time=m.startTime||null;if(m.endTime!==undefined)r.end_time=m.endTime||null;return r;});if(rows.length){const{error}=await sb.from("bt_maintenance").upsert(rows,{onConflict:"id"});if(error){dbLog("saveMaint",false,error.message);throw new Error(error.message);}else dbLog("saveMaint",true,rows.length+"件");}
   },
   async deleteMaintenance(id){
     const ls=DB._maintLsLoad().filter(m=>m.id!==id);DB._maintLsSave(ls);
@@ -12996,7 +12996,7 @@ function PaymentSection({sqfRefreshKey,onOpenSqFailed,setTab}){
     {expanded==="jalan"&&<div style={{marginTop:6}}><NhaJalanPaymentWidget onGoJalan={()=>setTab&&setTab("jalanpay")}/></div>}
   </div>;
 }
-function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil}){
+function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,onOpenIntake}){
   const[expanded,setExpanded]=useState(null);
   const[oilAlertCnt,setOilAlertCnt]=useState(0);
   useEffect(()=>{
@@ -13066,6 +13066,8 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil}){
       </a>
       {/* ★ バス運用廃止: バス運行表アイコン削除（ハイエース運用一本） */}
       <TopIcon icon="🔧" label="OIL交換" badge={oilAlertCnt} subText={oilAlertCnt>0?"要確認":"正常"} color="#ea580c" alert={oilAlertCnt>0} onClick={()=>onOpenOil&&onOpenOil()}/>
+      {(()=>{const today=new Date().toISOString().slice(0,10);const pend=(maintenance||[]).filter(m=>(m.status||"pending")!=="approved"&&((m.endDate||m.startDate||"")>=today)).length;
+        return <TopIcon icon="🏭" label="入庫" badge={pend} subText={pend>0?"FIX待ち":"OK"} color="#7c3aed" alert={pend>0} onClick={()=>onOpenIntake&&onOpenIntake()}/>;})()}
     </div>
     {expanded==="rec"&&<div style={{marginTop:6}}><TopRecentWidget/></div>}
   </div>;
@@ -15559,11 +15561,11 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   };
   const handleBarClick=(e,b)=>{e.stopPropagation();if(b.type==="reservation")setTooltip({type:"reservation",...b.r,vc:fleet[b.r.id]});else setTooltip({type:"maintenance",...b.m});};
 
-  const addMaint=async(vc,start,end,label,cost,workshop,invoiceNo,maintNotes)=>{
+  const addMaint=async(vc,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,editId)=>{
     if(maintSaving)return;
     setMaintSaving(true);
-    const m={id:"m"+Date.now(),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||""};
-    const next=[...(maintenance||[]),m];
+    const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||""};
+    const next=editId?(maintenance||[]).map(x=>x.id===editId?m:x):[...(maintenance||[]),m];
     onMaintenanceChange(next);
     DB._maintLsSave(next);
     try{
@@ -15573,6 +15575,8 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       alert("保存に失敗しました。再度お試しください。\n"+String(e));
       return;
     }
+    // ★ 入庫アクション通知キュー（intake.html と同経路・BT通知チャンネルは将来設定）
+    try{const act=editId?"intake_edited":"intake_created";if(sb)sb.from("bt_intake_actions").insert({action_type:act,vehicle_code:vc,user_email:(sbCurrentUser&&sbCurrentUser.email)||"",target_date_from:start||null,target_date_to:end||null,notified_slack:false,payload:{action:act,id:m.id,label:label,vehicle:((vehicles.find(x=>x.code===vc)||{}).name)||vc,start:start,end:end,start_time:startTime||"",end_time:endTime||"",workshop:workshop||"",status:m.status}}).then(()=>{});}catch(e){}
     const n=Number(cost)||0;
     if(n>0&&sb){const col=label==="車検"?"shaken_cost":label==="半年点検"?"tenken_cost":null;if(col)sb.from("bt_vehicles").update({[col]:n}).eq("code",vc).then(({error})=>{if(!error){const upd=vehicles.map(v=>v.code===vc?{...v,[label==="車検"?"shakenCost":"tenkenCost"]:n}:v);if(typeof onVehiclesChange==="function")try{onVehiclesChange(upd);}catch(e){}}});}
     setMaintSaving(false);
@@ -15812,7 +15816,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
                 {(()=>{const u=utilRates[v.code];if(!u)return null;const pc=u.pct;const cl=pc>=80?"#dc2626":pc>=50?"#f59e0b":"#22c55e";return <span style={{fontSize:8,fontWeight:700,color:cl,marginLeft:4,background:pc>=80?"#fef2f2":pc>=50?"#fffbeb":"#f0fdf4",padding:"0 3px",borderRadius:3}}>{u.days}日{!isMobile&&" "+pc+"%"}</span>;})()}
               </td>
               {dates.map((d,di)=>{const isToday=d===today;return <td key={d} style={{position:"relative",height:ROW_H,borderBottom:"1px solid #f1f5f9",borderRight:"1px solid #e2e8f0",cursor:dragInfo?"copy":"pointer",background:isDT?rowHL:(isToday?"#eff6ff":"transparent"),padding:0,transition:"background .15s"}} onClick={()=>{if(!dragInfo)handleCellClick(v.code,d);}}>
-                {di===0&&bars.map((b,bi)=>{const isRes=b.type==="reservation";const isMaint=b.type==="maintenance";const isDragging=dragInfo===b.r?.id;const isSearchHit=isRes&&searchResult&&searchResult.found&&searchResult.hitSet.has(b.r.id);return <div key={bi} className={isMaint?"":(isSearchHit?"tl-bar tl-bar-hit":"tl-bar")} draggable={isRes} onDragStart={isRes?e=>handleDragStart(e,b.r.id):undefined} onDragEnd={handleDragEnd} onClick={e=>handleBarClick(e,b)} style={{left:b.left,width:Math.max(b.width,20),background:isMaint?"repeating-linear-gradient(135deg,#2563eb,#2563eb 3px,#3b82f6 3px,#3b82f6 6px)":(isRes?(isDragging?"#f87171":(b.r.ota==="O"?"#fef9c3":(b.r.ota==="HP"?"#dbeafe":"#dc2626"))):"#2563eb"),color:isRes&&!isDragging&&(b.r.ota==="O"||b.r.ota==="HP")?(b.r.ota==="HP"?"#1e40af":"#92400e"):"#fff",fontSize:isMaint?8:9,fontWeight:600,boxShadow:isSearchHit?"0 0 8px 3px rgba(250,204,21,.8),0 0 16px 6px rgba(250,204,21,.4)":(isDragging?"0 4px 12px rgba(0,0,0,.3)":(isMaint?"none":"0 1px 3px rgba(0,0,0,.2)")),outline:isSearchHit?"3px solid #facc15":"none",position:"absolute",top:isMaint?0:3,height:isMaint?8:undefined,bottom:isMaint?undefined:3,zIndex:isMaint?3:(isSearchHit?15:(isDragging?10:2)),opacity:isDragging?0.7:(isMaint?0.9:1),cursor:isRes?"grab":"pointer",transition:"opacity .15s, box-shadow .15s",borderRadius:isMaint?0:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap"}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{isRes?`${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`:("🔧"+b.m.label)}</span></div>;})}
+                {di===0&&bars.map((b,bi)=>{const isRes=b.type==="reservation";const isMaint=b.type==="maintenance";const isDragging=dragInfo===b.r?.id;const isSearchHit=isRes&&searchResult&&searchResult.found&&searchResult.hitSet.has(b.r.id);return <div key={bi} className={isMaint?"":(isSearchHit?"tl-bar tl-bar-hit":"tl-bar")} draggable={isRes} onDragStart={isRes?e=>handleDragStart(e,b.r.id):undefined} onDragEnd={handleDragEnd} onClick={e=>handleBarClick(e,b)} style={{left:b.left,width:Math.max(b.width,20),background:isMaint?(b.m?.status==="approved"?"repeating-linear-gradient(135deg,#15803d,#15803d 3px,#16a34a 3px,#16a34a 6px)":"repeating-linear-gradient(135deg,#d97706,#d97706 3px,#f59e0b 3px,#f59e0b 6px)"):(isRes?(isDragging?"#f87171":(b.r.ota==="O"?"#fef9c3":(b.r.ota==="HP"?"#dbeafe":"#dc2626"))):"#2563eb"),color:isRes&&!isDragging&&(b.r.ota==="O"||b.r.ota==="HP")?(b.r.ota==="HP"?"#1e40af":"#92400e"):"#fff",fontSize:isMaint?9.5:9,fontWeight:isMaint?800:600,boxShadow:isSearchHit?"0 0 8px 3px rgba(250,204,21,.8),0 0 16px 6px rgba(250,204,21,.4)":(isDragging?"0 4px 12px rgba(0,0,0,.3)":(isMaint?"none":"0 1px 3px rgba(0,0,0,.2)")),outline:isSearchHit?"3px solid #facc15":"none",position:"absolute",top:isMaint?0:3,height:isMaint?17:undefined,bottom:isMaint?undefined:3,zIndex:isMaint?3:(isSearchHit?15:(isDragging?10:2)),opacity:isDragging?0.7:(isMaint?0.9:1),cursor:isRes?"grab":"pointer",transition:"opacity .15s, box-shadow .15s",borderRadius:isMaint?0:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap"}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{isRes?`${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`:("🔧"+b.m.label+(b.m.status==="approved"?"〔FIX〕":"〔仮〕"))}</span></div>;})}
               </td>;})}
             </tr>;})}
           </React.Fragment>)}
@@ -15854,20 +15858,26 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
           {onDeleteReservation&&<button onClick={()=>{const msg="⚠️ 物理削除（復元不可）\n\n"+tooltip.name+" 様の予約をDBから完全削除しますか？\n\n予約番号: "+tooltip.id+"\n貸出: "+fmtD(tooltip.lendDate)+" "+tooltip.lendTime+"\n返却: "+fmtD(tooltip.returnDate)+" "+tooltip.returnTime+"\n\n※この操作は取り消せません。配車・タスクも削除されます。";if(!window.confirm(msg))return;const conf=window.prompt('本当に削除する場合、"削除"と入力してください');if(conf==='削除'){onDeleteReservation(tooltip.id);setTooltip(null);}else if(conf!==null){alert('入力が一致しないため、削除をキャンセルしました');}}} style={{flex:1,background:"#7f1d1d",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer"}}>削除</button>}
         </div>
       </div>:<div className="text-xs space-y-1 text-gray-600">
-        <div>車両: {tooltip.vehicleCode}</div><div>期間: {fmtD(tooltip.startDate)} 〜 {fmtD(tooltip.endDate)}</div>
-        <button onClick={()=>removeMaint(tooltip.id)} className="mt-2 w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100">メンテナンスを削除</button>
+        <div>車両: {tooltip.vehicleCode}</div><div>期間: {fmtD(tooltip.startDate)} 〜 {fmtD(tooltip.endDate)}{(tooltip.startTime||tooltip.endTime)?(" 🕐"+(tooltip.startTime||"?")+"〜"+(tooltip.endTime||"?")):""}</div>
+        <div>ステータス: <span style={{fontWeight:800,padding:"1px 8px",borderRadius:4,color:"#fff",background:tooltip.status==="approved"?"#16a34a":"#f59e0b"}}>{tooltip.status==="approved"?"🟢 FIX":"🟠 仮予定"}</span></div>
+        {tooltip.workshop&&<div>🏭 {tooltip.workshop}</div>}
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          <button onClick={()=>{const m=(maintenance||[]).find(x=>x.id===tooltip.id)||tooltip;setShowMaintForm({vehicleCode:m.vehicleCode,date:m.startDate,edit:m});setTooltip(null);}} style={{flex:1,background:"#eff6ff",color:"#1d4ed8",border:"none",borderRadius:8,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer"}}>✏️ 編集</button>
+          <button onClick={()=>removeMaint(tooltip.id)} style={{flex:1,background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:8,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer"}}>🗑 削除</button>
+        </div>
       </div>}
     </div></div>}
 
-    {showMaintForm&&<div className="modal-overlay" onClick={()=>{if(!maintSaving)setShowMaintForm(null);}}><div className="modal-box" style={{maxWidth:320,padding:20}} onClick={e=>e.stopPropagation()}><h4 className="font-bold text-sm mb-3">メンテナンス登録</h4><MaintForm vehicleCode={showMaintForm.vehicleCode} startDate={showMaintForm.date} onAdd={addMaint} onClose={()=>{if(!maintSaving)setShowMaintForm(null);}} vehicles={vehicles} saving={maintSaving}/></div></div>}
+    {showMaintForm&&<div className="modal-overlay" onClick={()=>{if(!maintSaving)setShowMaintForm(null);}}><div className="modal-box" style={{maxWidth:320,padding:20}} onClick={e=>e.stopPropagation()}><h4 className="font-bold text-sm mb-3">{showMaintForm.edit?"メンテナンス編集":"メンテナンス登録"}</h4><MaintForm vehicleCode={showMaintForm.vehicleCode} startDate={showMaintForm.date} edit={showMaintForm.edit} onAdd={addMaint} onClose={()=>{if(!maintSaving)setShowMaintForm(null);}} vehicles={vehicles} saving={maintSaving}/></div></div>}
 
     {showResForm&&<ReservationForm prefill={showResForm} onAdd={(r,vc)=>{onAddReservation(r,vc);setShowResForm(null);}} onBulkAdd={(rArr,fl)=>{onBulkAddReservation(rArr,fl);setShowResForm(null);}} vehicles={vehicles} vehicleClasses={vehicleClasses} onClose={()=>setShowResForm(null)} data={data} fleet={fleet} maintenance={maintenance}/>}
   </div>;
 }
 
-function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving}){
-  const[start,setStart]=useState(startDate);const[end,setEnd]=useState(startDate);const[label,setLabel]=useState("メンテナンス");
-  const[cost,setCost]=useState("");const[workshop,setWorkshop]=useState("");const[invoiceNo,setInvoiceNo]=useState("");const[maintNotes,setMaintNotes]=useState("");
+function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
+  const[start,setStart]=useState(edit?(edit.startDate||startDate):startDate);const[end,setEnd]=useState(edit?(edit.endDate||startDate):startDate);const[label,setLabel]=useState(edit?(edit.label||"メンテナンス"):"メンテナンス");
+  const[cost,setCost]=useState(edit&&edit.cost?String(edit.cost):"");const[workshop,setWorkshop]=useState(edit?(edit.workshop||""):"");const[invoiceNo,setInvoiceNo]=useState(edit?(edit.invoiceNo||""):"");const[maintNotes,setMaintNotes]=useState(edit?(edit.maintNotes||""):"");
+  const[status,setStatus]=useState(edit?(edit.status||"pending"):"pending");const[startTime,setStartTime]=useState(edit?(edit.startTime||""):"");const[endTime,setEndTime]=useState(edit?(edit.endTime||""):"");
   const v=vehicles.find(x=>x.code===vehicleCode);
   const isDetail=label==="車検"||label==="半年点検";
   const isRepair=label==="修理";
@@ -15879,6 +15889,16 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving}){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       <div><label style={lS}>{isDetail?"入庫日（開始）":"開始日"}</label><input type="date" value={start} onChange={e=>setStart(e.target.value)} style={iS}/></div>
       <div><label style={lS}>{isDetail?"出庫日（終了）":"終了日"}</label><input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={iS}/></div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div><label style={lS}>入庫時刻（任意）</label><input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={iS}/></div>
+      <div><label style={lS}>出庫時刻（任意）</label><input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} style={iS}/></div>
+    </div>
+    <div><label style={lS}>ステータス</label>
+      <div style={{display:"flex",gap:6}}>
+        <button type="button" onClick={()=>setStatus("pending")} style={{flex:1,padding:"7px 4px",fontSize:12,fontWeight:800,borderRadius:7,cursor:"pointer",border:status==="pending"?"2px solid #d97706":"1px solid #e2e8f0",background:status==="pending"?"#f59e0b":"#fff",color:status==="pending"?"#fff":"#92400e"}}>🟠 仮予定（FIX待ち）</button>
+        <button type="button" onClick={()=>setStatus("approved")} style={{flex:1,padding:"7px 4px",fontSize:12,fontWeight:800,borderRadius:7,cursor:"pointer",border:status==="approved"?"2px solid #15803d":"1px solid #e2e8f0",background:status==="approved"?"#16a34a":"#fff",color:status==="approved"?"#fff":"#166534"}}>🟢 FIX（確定）</button>
+      </div>
     </div>
     {isDetail&&<div style={{padding:"10px 12px",background:"#eff6ff",borderRadius:8,border:"1px solid #dbeafe",display:"flex",flexDirection:"column",gap:8}}>
       <div style={{fontSize:10,fontWeight:800,color:"#1e40af",marginBottom:2}}>{label} 詳細情報</div>
@@ -15895,7 +15915,7 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving}){
       <div><label style={lS}>業者名</label><input value={workshop} onChange={e=>setWorkshop(e.target.value)} style={iS} placeholder="〇〇自動車"/></div>
       <div><label style={lS}>メモ</label><input value={maintNotes} onChange={e=>setMaintNotes(e.target.value)} style={iS}/></div>
     </div>}
-    <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={onClose} disabled={saving} className="btn-ghost">キャンセル</button><button onClick={()=>onAdd(vehicleCode,start,end,label,cost,workshop,invoiceNo,maintNotes)} disabled={saving} className="btn-primary" style={saving?{opacity:0.6,cursor:"not-allowed"}:{}}>{saving?"保存中...":"登録"}</button></div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={onClose} disabled={saving} className="btn-ghost">キャンセル</button><button onClick={()=>onAdd(vehicleCode,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,edit?edit.id:null)} disabled={saving} className="btn-primary" style={saving?{opacity:0.6,cursor:"not-allowed"}:{}}>{saving?"保存中...":(edit?"更新":"登録")}</button></div>
   </div>;
 }
 
@@ -20457,7 +20477,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -20482,7 +20502,7 @@ function App(){
     </div>}
     <div style={{display:showOP?"none":"flex",flex:1,overflow:"hidden",flexDirection:"column"}}>
       <div className={"top-nav"+(tab==="top"?" hide-on-top":"")}>
-        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
+        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","intake","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
         <button onClick={()=>setTab("top")} style={{color:"#60a5fa"}}><span className="ico">🏠</span>TOP</button>
         {SB_ENABLED&&<button onClick={reloadAll} disabled={reloading===1} style={{background:reloading===2?"#d1fae5":"none",border:"none",cursor:reloading===1?"wait":"pointer",fontSize:14,padding:"2px 4px",borderRadius:6,opacity:reloading===1?0.5:1,transition:"background .3s"}}>{reloading===1?"⏳":reloading===2?"✅":"🔄"}</button>}
         {SB_ENABLED&&<SyncBadge connected={sbConnected} inline={true}/>}
@@ -20490,7 +20510,7 @@ function App(){
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
       <div className={"sidebar"+(tab==="top"?" hide-on-top":"")}>
         <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:14,marginBottom:8}}>O</div>
-        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
+        {navItems.filter(n=>{const always=["top","import","vehicle","vehicle_rank","intake","staff","shift","attendance","kintai","fleet","jalanpay","history","customer","foreign","accounting","monthly","license"];return always.includes(n.id)||data.length>0;}).map(n=><button key={n.id} onClick={()=>{if(n.external){window.open(n.url||"license.html","_blank");}else{setTab(n.id);}}} className={tab===n.id?"active":""}><span className="ico">{n.ico}</span>{n.l}</button>)}
         <button onClick={()=>setTab("top")} style={{marginTop:4,background:"linear-gradient(135deg,#1e40af,#2563eb)",color:"#fff",borderRadius:10}}><span className="ico">🏠</span><span style={{fontSize:8}}>TOP</span></button>
       </div>
       <div className="main-area" style={{flex:1,overflow:tab==="fleet"?"hidden":"auto",padding:tab==="fleet"?0:12,display:"flex",flexDirection:"column"}}>
@@ -20592,6 +20612,7 @@ function App(){
                 <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",justifyContent:"center"}}>
                   {data.length>0&&<button onClick={()=>setShowOP(true)} style={{padding:"8px 20px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#1e40af,#2563eb)",color:"#fff",fontSize:13,fontWeight:700,boxShadow:"0 2px 8px rgba(37,99,235,.3)"}}>📋 OPシートを開く</button>}
                   <button onClick={()=>window.open("forecast.html?store=bt&view=chart","_blank")} style={{padding:"8px 16px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#065f46,#059669)",color:"#fff",fontSize:13,fontWeight:700,boxShadow:"0 2px 8px rgba(5,150,105,.3)"}}>📈 実績/予測チャート</button>
+                  <button onClick={()=>window.open("manual.html","_blank")} style={{padding:"8px 16px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#334155,#1e293b)",color:"#fff",fontSize:13,fontWeight:700,boxShadow:"0 2px 8px rgba(30,41,59,.3)"}}>📖 運用マニュアル</button>
                   {(()=>{
                     const _ts=shifts[today]||[];
                     const _off=new Set(["公","希","有","出"]);
@@ -21090,7 +21111,7 @@ function App(){
               <PaymentSection sqfRefreshKey={sqFailedRefreshKey} onOpenSqFailed={()=>setShowSqFailed(true)} setTab={setTab}/>
               {/* ===== 📊 業務 / 関連APP（4アイコン） ===== */}
               <TopSectionTitle icon="📊" title="業務 / 関連APP"/>
-              <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")}/>
+              <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")}/>
               {/* ===== 🛠 日常業務以下 アイコングリッド統一 ===== */}
               {sections.map(function(sec){
                 const sectionIco={"日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
@@ -21186,6 +21207,9 @@ function App(){
           {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt"/>}
+          {tab==="intake"&&<div style={{padding:"0 0 16px"}}>
+            <iframe src={`./intake.html?v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}}/>
+          </div>}
           {tab==="dashboard"&&<PASGuard label="経営管理（オーナー専用）"><ManagementTab store="tkm"/></PASGuard>}
           {tab==="parking"&&<div style={{maxWidth:700,margin:"0 auto",textAlign:"center",padding:40}}>
             <div style={{fontSize:48,marginBottom:12}}>🅿️</div>
@@ -21520,7 +21544,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.72-BT";
+const APP_VERSION="v1.0.73-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
