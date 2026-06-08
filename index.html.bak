@@ -2047,7 +2047,7 @@ function TopRecentWidget(){
 /* ==========================================
    キャンセル一覧ウィジェット（TOP画面用・BT版）
    ========================================== */
-function CancelListWidget(){
+function CancelListWidget({onClose}){
   const[rows,setRows]=useState(null);
   const[loading,setLoading]=useState(false);
   const[period,setPeriod]=useState("all");// all|month|year（返却日基準）
@@ -2102,6 +2102,7 @@ function CancelListWidget(){
         <span style={{fontSize:14}}>❌</span>
         <span style={{fontSize:12,fontWeight:800,color:"#991b1b"}}>キャンセル一覧</span>
         {Array.isArray(rows)&&<span style={{fontSize:10,color:"#b91c1c",marginLeft:4}}>{filtered.length}件 / ¥{fmt(total)}</span>}
+        {onClose&&<button onClick={onClose} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:6,border:"1px solid #fca5a5",background:"#fff",color:"#991b1b",fontSize:11,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>}
       </div>
       <div style={{padding:"10px 12px",background:"#fff"}}>
         <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
@@ -2126,6 +2127,7 @@ function CancelListWidget(){
             <span style={{fontSize:8,color:"#94a3b8",whiteSpace:"nowrap"}}>{(r.updated_at||"").slice(0,10)}</span>
             <button onClick={()=>restore(r)} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #86efac",background:"#f0fdf4",color:"#059669",fontSize:9,fontWeight:700,cursor:"pointer",flexShrink:0}}>↩︎ 復元</button>
           </div>)}
+          {onClose&&filtered.length>0&&<button onClick={onClose} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:8,border:"1px solid #fca5a5",background:"#fef2f2",color:"#991b1b",fontSize:12,fontWeight:800,cursor:"pointer"}}>✕ 閉じる</button>}
         </>}
       </div>
     </div>
@@ -13169,7 +13171,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
         return <TopIcon icon="🏭" label="入庫" badge={pend} subText={pend>0?"FIX待ち":"OK"} color="#7c3aed" alert={pend>0} onClick={()=>onOpenIntake&&onOpenIntake()}/>;})()}
     </div>
     {expanded==="rec"&&<div style={{marginTop:6}}><TopRecentWidget/></div>}
-    {expanded==="cxl"&&<div style={{marginTop:6}}><CancelListWidget/></div>}
+    {expanded==="cxl"&&<div style={{marginTop:6}}><CancelListWidget onClose={()=>setExpanded(null)}/></div>}
   </div>;
 }
 
@@ -21644,7 +21646,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.74-BT";
+const APP_VERSION="v1.0.75-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
