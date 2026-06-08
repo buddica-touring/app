@@ -2052,7 +2052,10 @@ function CancelListWidget({onClose}){
   const[loading,setLoading]=useState(false);
   const[period,setPeriod]=useState("all");// all|month|year（返却日基準）
   const[kw,setKw]=useState("");
-  const OTA_LABEL={"HP":"HP","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイ","RC":"レンカ","G":"GoGo","direct":"直接"};
+  const[rateRows,setRateRows]=useState(null);// 率算出用 全予約(active+cxl)
+  const[rateMode,setRateMode]=useState("month");// month / year
+  const RATE_START="2026-05";// 計測起点（BT開店月）
+  const OTA_LABEL={"HP":"HP","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイ","RC":"レンカ","G":"GoGo","direct":"直接","DIRECT":"直接"};
   const OTA_COLOR={"HP":"#1e40af","J":"#dc2626","R":"#b91c1c","O":"#0891b2","A":"#0891b2","S":"#7c3aed","RC":"#059669","G":"#92400e"};
   const fmt=n=>Number(n).toLocaleString();
   const rev=(r)=>{const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;return(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
@@ -2067,6 +2070,7 @@ function CancelListWidget({onClose}){
       if(error)throw error;
       setRows((data||[]).map(r=>({...r,_rev:rev(r)})));
     }catch(e){setRows({error:e.message});}
+    try{const{data:allr}=await sb.from("bt_reservations").select("ota,status,end_date");setRateRows(allr||[]);}catch(e){setRateRows([]);}
     setLoading(false);
   },[]);
   useEffect(()=>{load();},[load]);
@@ -2105,6 +2109,52 @@ function CancelListWidget({onClose}){
         {onClose&&<button onClick={onClose} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:6,border:"1px solid #fca5a5",background:"#fff",color:"#991b1b",fontSize:11,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>}
       </div>
       <div style={{padding:"10px 12px",background:"#fff"}}>
+        {/* ★ キャンセル率推移（OTA別・月別/年度別・合算）ライブDB常時更新 */}
+        {(()=>{
+          const CXL=v=>["cancelled","キャンセル","cancel"].includes((v||"").toLowerCase());
+          const fy=(mm)=>{const y2=+mm.slice(0,4),m=+mm.slice(5,7);return (m>=4?y2:y2-1)+"年度";};
+          const M={};
+          (rateRows||[]).forEach(r=>{
+            const ed=(r.end_date||"").slice(0,7);if(!ed||ed<RATE_START)return;
+            const key=rateMode==="year"?fy(ed):ed;
+            const ota=(r.ota||"?").toUpperCase();
+            (M[key]=M[key]||{});(M[key][ota]=M[key][ota]||{tot:0,cxl:0});
+            M[key][ota].tot++;if(CXL(r.status))M[key][ota].cxl++;
+          });
+          const keys=Object.keys(M).sort().reverse();
+          const otas=Array.from(new Set([].concat(...keys.map(k=>Object.keys(M[k]))))).sort();
+          const cellBg=(p,tot)=>tot===0?"#f1f5f9":p>20?"#fee2e2":p>10?"#ffedd5":p>0?"#dcfce7":"#f1f5f9";
+          const cellFg=(p,tot)=>tot===0?"#94a3b8":p>20?"#b91c1c":p>10?"#c2410c":p>0?"#166534":"#64748b";
+          const th={padding:"3px 5px",fontSize:9,fontWeight:800,color:"#475569",borderBottom:"1px solid #e5e9f0",whiteSpace:"nowrap",textAlign:"center"};
+          const cell=(c)=>{if(!c||!c.tot)return <td style={{padding:"3px 4px",textAlign:"center",color:"#cbd5e1",fontSize:9}}>-</td>;const p=Math.round(c.cxl/c.tot*100);const small=c.tot<3;return <td title={small?"母数少":""} style={{padding:"3px 4px",textAlign:"center",background:cellBg(p,c.tot),color:cellFg(p,c.tot),fontSize:9.5,fontWeight:800,opacity:small?0.5:1}}>{p}%<div style={{fontSize:7,fontWeight:600,opacity:.8}}>{c.cxl}/{c.tot}</div></td>;};
+          return <div style={{marginBottom:10,border:"1px solid #fecaca",borderRadius:8,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",background:"#fff1f2"}}>
+              <span style={{fontSize:11,fontWeight:800,color:"#991b1b"}}>📊 キャンセル率推移（OTA別）</span>
+              <div style={{marginLeft:"auto",display:"flex",gap:3}}>
+                {[["month","月別"],["year","年度別"]].map(([v,l])=><button key={v} onClick={()=>setRateMode(v)} style={{padding:"3px 9px",borderRadius:5,border:"none",fontSize:10,fontWeight:700,cursor:"pointer",background:rateMode===v?"#dc2626":"#fee2e2",color:rateMode===v?"#fff":"#991b1b"}}>{l}</button>)}
+              </div>
+            </div>
+            <div style={{overflowX:"auto",maxHeight:260}}>
+              <table style={{borderCollapse:"collapse",width:"100%",minWidth:320}}>
+                <thead><tr style={{background:"#f8fafc"}}>
+                  <th style={{...th,position:"sticky",left:0,background:"#f8fafc",textAlign:"left"}}>{rateMode==="year"?"年度":"返却月"}</th>
+                  {otas.map(o=><th key={o} style={th}>{OTA_LABEL[o]||o}</th>)}
+                  <th style={{...th,background:"#1e293b",color:"#fff"}}>合算</th>
+                </tr></thead>
+                <tbody>
+                  {keys.length===0&&<tr><td colSpan={otas.length+2} style={{textAlign:"center",padding:"10px",color:"#94a3b8",fontSize:10}}>データなし</td></tr>}
+                  {keys.map((kk,i)=>{const tot=otas.reduce((s,o)=>s+((M[kk][o]||{}).tot||0),0);const cxl=otas.reduce((s,o)=>s+((M[kk][o]||{}).cxl||0),0);const p=tot?Math.round(cxl/tot*100):0;
+                    return <tr key={kk} style={{background:i%2?"#fff":"#fffafa"}}>
+                      <td style={{padding:"3px 5px",fontSize:9.5,fontWeight:700,color:"#334155",position:"sticky",left:0,background:i%2?"#fff":"#fffafa",whiteSpace:"nowrap"}}>{kk}</td>
+                      {otas.map(o=><React.Fragment key={o}>{cell(M[kk][o])}</React.Fragment>)}
+                      <td style={{padding:"3px 4px",textAlign:"center",background:"#1e293b",color:"#fff",fontSize:10,fontWeight:900}}>{p}%<div style={{fontSize:7,fontWeight:600,opacity:.85}}>{cxl}/{tot}</div></td>
+                    </tr>;})}
+                </tbody>
+              </table>
+            </div>
+            <div style={{padding:"5px 9px",fontSize:8.5,color:"#94a3b8",lineHeight:1.5}}>率＝キャンセル÷(返却+キャンセル)・返却月基準。色:緑〜10%/橙〜20%/赤20%超、薄字＝母数少。<br/>※リリース前のため計測起点{RATE_START}〜。当月・未来月は途中値（母数少で高め）。</div>
+          </div>;
+        })()}
         <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
           <select value={period} onChange={e=>setPeriod(e.target.value)} style={{border:"1px solid #d1d5db",borderRadius:6,padding:"4px 8px",fontSize:11,fontWeight:700}}>
             <option value="all">全期間</option><option value="month">今月</option><option value="year">今年</option>
@@ -21646,7 +21696,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.75-BT";
+const APP_VERSION="v1.0.76-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
