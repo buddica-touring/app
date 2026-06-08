@@ -2045,6 +2045,94 @@ function TopRecentWidget(){
 }
 
 /* ==========================================
+   キャンセル一覧ウィジェット（TOP画面用・BT版）
+   ========================================== */
+function CancelListWidget(){
+  const[rows,setRows]=useState(null);
+  const[loading,setLoading]=useState(false);
+  const[period,setPeriod]=useState("all");// all|month|year（返却日基準）
+  const[kw,setKw]=useState("");
+  const OTA_LABEL={"HP":"HP","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイ","RC":"レンカ","G":"GoGo","direct":"直接"};
+  const OTA_COLOR={"HP":"#1e40af","J":"#dc2626","R":"#b91c1c","O":"#0891b2","A":"#0891b2","S":"#7c3aed","RC":"#059669","G":"#92400e"};
+  const fmt=n=>Number(n).toLocaleString();
+  const rev=(r)=>{const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;return(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
+  const load=useCallback(async()=>{
+    if(!sb)return;
+    setLoading(true);
+    try{
+      const{data,error}=await sb.from("bt_reservations")
+        .select("id,ota,status,created_at,updated_at,end_date,start_date,price,base_price,option_price,discount,name,resv_no,reservation_no")
+        .in("status",["cancelled","キャンセル","cancel"])
+        .order("updated_at",{ascending:false});
+      if(error)throw error;
+      setRows((data||[]).map(r=>({...r,_rev:rev(r)})));
+    }catch(e){setRows({error:e.message});}
+    setLoading(false);
+  },[]);
+  useEffect(()=>{load();},[load]);
+  const all=Array.isArray(rows)?rows:[];
+  // 期間フィルタ（返却日=end_date 基準）
+  const now=new Date();
+  const ym=now.toISOString().slice(0,7);
+  const y=now.toISOString().slice(0,4);
+  const filtered=all.filter(r=>{
+    const rd=(r.end_date||"");
+    if(period==="month"&&rd.slice(0,7)!==ym)return false;
+    if(period==="year"&&rd.slice(0,4)!==y)return false;
+    if(kw){
+      const k=kw.toLowerCase();
+      const no=(r.resv_no||r.reservation_no||"").toString().toLowerCase();
+      const nm=(r.name||"").toLowerCase();
+      if(!nm.includes(k)&&!no.includes(k))return false;
+    }
+    return true;
+  });
+  const total=filtered.reduce((s,r)=>s+r._rev,0);
+  const restore=async(r)=>{
+    if(!window.confirm(`予約「${r.name||r.resv_no||r.id}」を復元（confirmed）しますか？`))return;
+    try{
+      const{error}=await sb.from("bt_reservations").update({status:"confirmed"}).eq("id",r.id);
+      if(error)throw error;
+      setRows(prev=>Array.isArray(prev)?prev.filter(x=>x.id!==r.id):prev);
+    }catch(e){window.alert("復元に失敗: "+e.message);}
+  };
+  return(
+    <div style={{marginBottom:8,borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fef2f2"}}>
+        <span style={{fontSize:14}}>❌</span>
+        <span style={{fontSize:12,fontWeight:800,color:"#991b1b"}}>キャンセル一覧</span>
+        {Array.isArray(rows)&&<span style={{fontSize:10,color:"#b91c1c",marginLeft:4}}>{filtered.length}件 / ¥{fmt(total)}</span>}
+      </div>
+      <div style={{padding:"10px 12px",background:"#fff"}}>
+        <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
+          <select value={period} onChange={e=>setPeriod(e.target.value)} style={{border:"1px solid #d1d5db",borderRadius:6,padding:"4px 8px",fontSize:11,fontWeight:700}}>
+            <option value="all">全期間</option><option value="month">今月</option><option value="year">今年</option>
+          </select>
+          <input value={kw} onChange={e=>setKw(e.target.value)} placeholder="予約者名 / 予約番号" style={{border:"1px solid #d1d5db",borderRadius:6,padding:"4px 8px",fontSize:11,flex:1,minWidth:120}}/>
+          <button onClick={load} disabled={loading} style={{padding:"4px 12px",borderRadius:6,border:"none",background:"#dc2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",opacity:loading?0.5:1}}>{loading?"🔄":"▶ 更新"}</button>
+        </div>
+        {rows&&rows.error&&<div style={{fontSize:11,color:"#dc2626"}}>❌ {rows.error}</div>}
+        {Array.isArray(rows)&&<>
+          <div style={{padding:"8px 10px",borderRadius:8,background:"#fef2f2",border:"1px solid #fca5a5",marginBottom:8}}>
+            <div style={{fontSize:9,color:"#991b1b",fontWeight:700}}>❌ キャンセル合計</div>
+            <div style={{fontSize:18,fontWeight:900,color:"#dc2626"}}>{filtered.length}<span style={{fontSize:10}}>件</span> <span style={{fontSize:12}}>¥{fmt(total)}</span></div>
+          </div>
+          {filtered.length===0&&<div style={{textAlign:"center",padding:"10px",color:"#94a3b8",fontSize:11}}>キャンセルはありません</div>}
+          {filtered.map((r,i)=><div key={r.id} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 6px",borderRadius:5,background:i%2?"#fef2f2":"#fff",marginBottom:2}}>
+            <span style={{background:OTA_COLOR[r.ota]||"#94a3b8",color:"#fff",padding:"1px 4px",borderRadius:3,fontSize:8,fontWeight:700,flexShrink:0}}>{OTA_LABEL[r.ota]||r.ota||"-"}</span>
+            <span style={{fontSize:10,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"line-through",color:"#94a3b8"}}>{r.name||"-"}</span>
+            <span style={{fontSize:9,color:"#64748b",whiteSpace:"nowrap"}}>{(r.start_date||"").slice(5,10)}〜{(r.end_date||"").slice(5,10)}</span>
+            <span style={{fontSize:10,fontWeight:700,color:"#dc2626",whiteSpace:"nowrap"}}>¥{fmt(r._rev)}</span>
+            <span style={{fontSize:8,color:"#94a3b8",whiteSpace:"nowrap"}}>{(r.updated_at||"").slice(0,10)}</span>
+            <button onClick={()=>restore(r)} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #86efac",background:"#f0fdf4",color:"#059669",fontSize:9,fontWeight:700,cursor:"pointer",flexShrink:0}}>↩︎ 復元</button>
+          </div>)}
+        </>}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================
    Square請求書ウィジェット（TOP画面用）
    ========================================== */
 function SquareInvoiceWidget(){
@@ -13027,6 +13115,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
   // ざっくり集計（リードタイム件数 / 直近24h新規件数）
   const[ltCount,setLtCount]=useState(0);
   const[recCount,setRecCount]=useState({n:0,c:0});
+  const[cxlCount,setCxlCount]=useState(0);// キャンセル総数
   useEffect(()=>{
     if(!data)return;
     // 配車待ち=fleetに無い未来予約
@@ -13054,10 +13143,20 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
       }catch(e){}
     })();
   },[]);
+  useEffect(()=>{
+    if(!sb)return;
+    (async()=>{
+      try{
+        const{data}=await sb.from("bt_reservations").select("id").in("status",["cancelled","キャンセル","cancel"]);
+        setCxlCount((data||[]).length);
+      }catch(e){}
+    })();
+  },[]);
   const toggle=(k)=>setExpanded(e=>e===k?null:k);
   return <div style={{marginBottom:8}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
       <TopIcon icon="📡" label="直近24h" badge={recCount.n} subText={"CXL "+recCount.c} color="#0891b2" active={expanded==="rec"} onClick={()=>toggle("rec")}/>
+      <TopIcon icon="❌" label="キャンセル一覧" badge={cxlCount} subText="一覧/復元" color="#dc2626" active={expanded==="cxl"} onClick={()=>toggle("cxl")}/>
       <a href="https://buddica-touring.github.io/inquiry/" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
         <TopIcon icon="📬" label="問い合わせ" subText="↗ 開く" color="#0ea5e9" onClick={()=>{}}/>
       </a>
@@ -13070,6 +13169,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
         return <TopIcon icon="🏭" label="入庫" badge={pend} subText={pend>0?"FIX待ち":"OK"} color="#7c3aed" alert={pend>0} onClick={()=>onOpenIntake&&onOpenIntake()}/>;})()}
     </div>
     {expanded==="rec"&&<div style={{marginTop:6}}><TopRecentWidget/></div>}
+    {expanded==="cxl"&&<div style={{marginTop:6}}><CancelListWidget/></div>}
   </div>;
 }
 
@@ -21544,7 +21644,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.73-BT";
+const APP_VERSION="v1.0.74-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
