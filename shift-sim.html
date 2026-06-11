@@ -120,12 +120,12 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 
   <!-- スタッフ条件 -->
   <div class="card">
-    <h2>👥 スタッフ別 勤務条件（カードをクリックで選択 → カレンダー配置）</h2>
+    <h2>👥 スタッフ別 勤務条件（設定すると自動でカレンダーに反映）</h2>
     <div class="staff-cards" id="stafflist"></div>
     <div class="row" style="gap:8px;margin-top:12px">
       <button class="btn btn-add" onclick="addStaff()">＋ スタッフを追加</button>
-      <button class="btn btn-navy" onclick="autoFill()">🪄 条件でこの月を自動配置</button>
-      <span style="font-size:11.5px;color:var(--gray);align-self:center">勤務可能曜日・希望週日数に従って一括配置します</span>
+      <button class="btn btn-navy" onclick="autoFill()">🔄 条件でこの月を再生成</button>
+      <span style="font-size:11.5px;color:var(--gray);align-self:center">曜日ごとの勤務時間を入れると即カレンダー反映。手動で個別調整も可（再生成で条件どおりに戻ります）</span>
     </div>
     <div class="brush" id="brush"></div>
   </div>
@@ -180,14 +180,16 @@ const pad=n=>String(n).padStart(2,'0');
 let store=loadStore();
 let staff=store.staff, shifts=store.shifts, active=null;
 let cur={y:store.y,m:store.m};
+let genMonths=store.genMonths||{};    // 条件から自動生成済みの月
+let manualMonths=store.manualMonths||{}; // 手動編集した月（自動上書きしない）
 
 function loadStore(){
-  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.staff){applyG(s.g);return {staff:s.staff,shifts:s.shifts||{},y:s.y,m:s.m};}}catch(e){}
+  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.staff){applyG(s.g);return {staff:s.staff,shifts:s.shifts||{},y:s.y,m:s.m,genMonths:s.genMonths||{},manualMonths:s.manualMonths||{}};}}catch(e){}
   const now=new Date();
   return {staff:[
     {id:1,name:'スタッフA',wage:1000,trans:0,hours:6,color:COLORS[0],dayHours:[0,6,6,6,6,6,0],target:0},
     {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
-  ],shifts:{},y:now.getFullYear(),m:now.getMonth()};
+  ],shifts:{},y:now.getFullYear(),m:now.getMonth(),genMonths:{},manualMonths:{}};
 }
 function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}});}
 function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
@@ -235,43 +237,51 @@ function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='n
   // 入力欄のフォーカスを保つため renderStaff() は呼ばない。必要な表示だけ更新
   if(k==='name'){const card=document.querySelector(`.scd[data-id="${id}"] .dot`);}
   if(k==='wage'){const g=G();const card=document.querySelector(`.scd[data-id="${id}"]`);if(card){let w=card.querySelector('.minw');const ng=g.minwage>0&&s.wage<g.minwage;if(ng){if(!w){w=document.createElement('div');w.className='minw ng';card.appendChild(w);}w.className='minw ng';w.textContent=`⚠ 最低賃金 ¥${g.minwage} を下回っています`;}else if(w){w.remove();}}}
+  if(k==='target'){fillMonth(s);renderCal();} // 希望週日数は配置に影響 → 即反映
   updBrush();summary();save(true);}
-function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);updBrush();renderCal();save(true);}
+function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);fillMonth(s);updBrush();renderCal();save(true);}
 function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;
   if(type==='weekday')s.dayHours=[0,h,h,h,h,h,0];
   if(type==='weekend')s.dayHours=[h,0,0,0,0,0,h];
   if(type==='all')s.dayHours=[h,h,h,h,h,h,h];
   if(type==='clear')s.dayHours=[0,0,0,0,0,0,0];
-  renderStaff();updBrush();renderCal();save(true);}
+  fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function updBrush(){const s=staff.find(x=>x.id===active);
-  if(!s){$('brush').innerHTML='スタッフカードをクリックで選択 → カレンダーの日付をクリックで配置／解除。または「🪄 条件で自動配置」で一括。';return;}
+  if(!s){$('brush').innerHTML='各スタッフの「曜日ごとの勤務時間」を設定すると、自動でカレンダーに反映されます。個別調整したい時はカードを選択 → 日付クリックで配置／解除。';return;}
   const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
-function addStaff(){const id=Date.now();staff.push({id,name:'',wage:1000,trans:0,hours:6,color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0});active=id;renderStaff();updBrush();save(true);}
+function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
-/* ---- auto fill ---- */
-function autoFill(){
-  if(!confirm(`${cur.y}年${cur.m+1}月を、各スタッフの勤務条件で自動配置します。\n（既存の配置に追加します）`))return;
+/* ---- 条件 → カレンダー 自動反映 ---- */
+function monthKey(){return `${cur.y}-${pad(cur.m+1)}`;}
+// 指定スタッフ(または全員)の当月シフトを、勤務条件から再生成（手動編集ぶんは上書き）
+function fillMonth(targetStaff){
   const days=new Date(cur.y,cur.m+1,0).getDate();
   const first=new Date(cur.y,cur.m,1).getDay();
-  staff.forEach(s=>{
+  const pre=`${cur.y}-${pad(cur.m+1)}-`;
+  const list=targetStaff?[targetStaff]:staff;
+  list.forEach(s=>{
+    // この月のこのスタッフの既存シフトを一旦消してから条件で再配置
+    Object.keys(shifts).forEach(k=>{if(k.startsWith(pre)){shifts[k]=shifts[k].filter(x=>x.s!==s.id);if(!shifts[k].length)delete shifts[k];}});
     const weekCnt={};
     for(let d=1;d<=days;d++){
       const dow=new Date(cur.y,cur.m,d).getDay();
-      const h=s.dayHours[dow]||0;
-      if(h<=0)continue;
+      const h=s.dayHours[dow]||0; if(h<=0)continue;
       const wk=Math.floor((d-1+first)/7);
-      if(s.target>0){weekCnt[wk]=weekCnt[wk]||0;if(weekCnt[wk]>=s.target)continue;}
+      if(s.target>0){weekCnt[wk]=weekCnt[wk]||0;if(weekCnt[wk]>=s.target)continue;weekCnt[wk]++;}
       const k=key(cur.y,cur.m,d);
       shifts[k]=shifts[k]||[];
-      if(!shifts[k].some(x=>x.s===s.id)){shifts[k].push({s:s.id,h});if(s.target>0)weekCnt[wk]++;}
-      else if(s.target>0)weekCnt[wk]++;
+      if(!shifts[k].some(x=>x.s===s.id))shifts[k].push({s:s.id,h});
     }
   });
-  renderCal();save(true);
+  manualMonths[monthKey()]=false; // 条件由来に戻す
 }
+// 当月を未生成なら条件から生成（初回表示・月移動時）
+function ensureMonth(){const mk=monthKey();if(!genMonths[mk]&&!manualMonths[mk]){fillMonth(null);genMonths[mk]=true;}}
+// 全員ぶん再生成（手動でやり直したい時のボタン）
+function autoFill(){if(!confirm(`${cur.y}年${cur.m+1}月を勤務条件から再生成します。\n（この月の手動編集は条件どおりに上書きされます）`))return;fillMonth(null);genMonths[monthKey()]=true;renderCal();save(true);}
 
 /* ---- calendar ---- */
 function renderDows(){$('dows').innerHTML=DOWJP.map((d,i)=>`<div class="dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('');}
@@ -300,10 +310,10 @@ function renderCal(){
   }
   summary();
 }
-function toggleDay(k){if(!active){alert('先にスタッフカードを選択してください');return;}const s=staff.find(x=>x.id===active);if(!s)return;const dow=new Date(k+'T00:00:00').getDay();const h=s.dayHours[dow]||s.hours||6;shifts[k]=shifts[k]||[];const idx=shifts[k].findIndex(x=>x.s===active);if(idx>=0)shifts[k].splice(idx,1);else shifts[k].push({s:active,h});if(!shifts[k].length)delete shifts[k];renderCal();save(true);}
+function toggleDay(k){if(!active){alert('先にスタッフカードを選択してください');return;}const s=staff.find(x=>x.id===active);if(!s)return;const dow=new Date(k+'T00:00:00').getDay();const h=s.dayHours[dow]||s.hours||6;shifts[k]=shifts[k]||[];const idx=shifts[k].findIndex(x=>x.s===active);if(idx>=0)shifts[k].splice(idx,1);else shifts[k].push({s:active,h});if(!shifts[k].length)delete shifts[k];manualMonths[monthKey()]=true;renderCal();save(true);}
 function removeShift(k,sid){if(shifts[k]){shifts[k]=shifts[k].filter(x=>x.s!==sid);if(!shifts[k].length)delete shifts[k];renderCal();save(true);}}
-function moveMonth(n){let m=cur.m+n,y=cur.y;if(m<0){m=11;y--;}if(m>11){m=0;y++;}cur={y,m};renderCal();save(true);}
-function clearMonth(){if(!confirm(`${cur.y}年${cur.m+1}月のシフトを全削除しますか？`))return;const pre=`${cur.y}-${pad(cur.m+1)}-`;Object.keys(shifts).forEach(k=>{if(k.startsWith(pre))delete shifts[k];});renderCal();save(true);}
+function moveMonth(n){let m=cur.m+n,y=cur.y;if(m<0){m=11;y--;}if(m>11){m=0;y++;}cur={y,m};ensureMonth();renderCal();save(true);}
+function clearMonth(){if(!confirm(`${cur.y}年${cur.m+1}月のシフトを全削除しますか？`))return;const pre=`${cur.y}-${pad(cur.m+1)}-`;Object.keys(shifts).forEach(k=>{if(k.startsWith(pre))delete shifts[k];});manualMonths[monthKey()]=true;genMonths[monthKey()]=true;renderCal();save(true);}
 
 /* ---- summary ---- */
 function summary(){
@@ -325,11 +335,11 @@ function summary(){
   tb.innerHTML+=`<tr style="background:#f0fbf9"><td style="font-weight:700">合計</td><td></td><td style="font-weight:700">${totShifts}</td><td style="font-weight:700">${totHrs.toFixed(0)}h</td><td></td><td style="font-weight:800;color:var(--navy)">${yen(totCost)}</td></tr>`;
 }
 
-function save(silent){localStorage.setItem(KEY,JSON.stringify({staff,shifts,y:cur.y,m:cur.m,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}}));if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
+function save(silent){localStorage.setItem(KEY,JSON.stringify({staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}}));if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
 function resetAll(){if(confirm('全データ（スタッフ・シフト）をリセットします。よろしいですか？')){localStorage.removeItem(KEY);location.reload();}}
 ['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>$(k).addEventListener('input',()=>{renderStaff();renderCal();save(true);}));
 
-migrate();renderDows();renderStaff();updBrush();renderCal();
+migrate();ensureMonth();renderDows();renderStaff();updBrush();renderCal();
 </script>
 </body>
 </html>
