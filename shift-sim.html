@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>シフト試算 | BUDDICA TOURING 高松空港店</title>
+<style>
+:root{--navy:#0e2a47;--teal:#1ec8b0;--teal2:#0fa896;--ink:#1a2733;--gray:#5d6b7a;--line:#e6ebf0;--bg:#f4f7fa;--red:#e8505b;--amber:#f0a020;--green:#1aa86a}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;padding-bottom:60px}
+.bar{background:linear-gradient(120deg,#0e2a47,#13395f);color:#fff;padding:20px 0}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.bar h1{font-size:19px;font-weight:700}
+.bar p{font-size:12px;opacity:.7;margin-top:3px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:16px}
+.card h2{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.f label{display:block;font-size:11px;font-weight:700;color:var(--gray);margin-bottom:4px}
+.f input,.f select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13.5px;font-family:inherit;background:#fbfcfd;width:108px}
+.f input:focus,.f select:focus{outline:none;border-color:var(--teal);background:#fff}
+.f.sm input{width:78px}
+.btn{border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:.2s}
+.btn-add{background:var(--teal);color:#063}.btn-add:hover{background:var(--teal2);color:#fff}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--gray)}.btn-ghost:hover{border-color:var(--gray)}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:#16456f}
+/* staff cards */
+.staff-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.scd{border:2px solid var(--line);border-radius:12px;padding:12px;background:#fbfcfd;transition:.15s;position:relative}
+.scd.active{border-color:var(--navy);background:#fff;box-shadow:0 3px 12px rgba(14,42,71,.12)}
+.scd-top{display:flex;align-items:center;gap:8px;cursor:pointer}
+.scd .dot{width:14px;height:14px;border-radius:50%;flex:none}
+.scd .nm{font-weight:700;font-size:14px;border:none;background:transparent;width:100%;color:var(--ink)}
+.scd .nm:focus{outline:none;border-bottom:1px solid var(--teal)}
+.scd .sel{font-size:10px;font-weight:700;color:var(--teal2);border:1px solid var(--teal);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.scd.active .sel{background:var(--navy);color:#fff;border-color:var(--navy)}
+.scd .x{border:none;background:none;color:var(--gray);cursor:pointer;font-size:16px;padding:0 2px}.scd .x:hover{color:var(--red)}
+.scd-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px}
+.scd-grid .fl{font-size:10px;color:var(--gray);font-weight:700;display:block;margin-bottom:2px}
+.scd-grid input{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 7px;font-size:12.5px;background:#fff;text-align:right}
+.scd-grid input:focus{outline:none;border-color:var(--teal)}
+.dows-hours{display:flex;gap:3px;margin-top:10px}
+.dh{flex:1;text-align:center;border-radius:7px;background:#eef2f6;padding:3px 2px 4px;border:1px solid transparent;transition:.1s}
+.dh.on{background:#e3f8f4;border-color:var(--teal)}
+.dh span{display:block;font-size:10.5px;font-weight:700;color:var(--gray);margin-bottom:2px}
+.dh.sun span{color:var(--red)}.dh.sat span{color:#3a78c2}
+.dh input{width:100%;border:1px solid var(--line);border-radius:5px;padding:4px 2px;font-size:12px;text-align:center;background:#fff}
+.dh input:focus{outline:none;border-color:var(--teal)}
+.dh.on input{font-weight:700;color:var(--navy)}
+.presets{display:flex;gap:5px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.pbtn{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--gray);cursor:pointer}
+.pbtn:hover{border-color:var(--navy);color:var(--navy)}
+.tgt{font-size:10.5px;color:var(--gray);font-weight:700;margin-left:auto;display:flex;align-items:center;gap:4px}
+.tgt input{width:42px;border:1px solid var(--line);border-radius:6px;padding:4px;font-size:12px;text-align:right}
+.minw{font-size:10.5px;margin-top:8px;font-weight:700}
+.minw.ok{color:var(--green)}.minw.ng{color:var(--red)}
+/* brush */
+.brush{background:#eafaf7;border:1px solid #bdece4;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:12.5px;color:#0a6;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.brush b{color:var(--navy)}
+/* calendar */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.cal-nav{display:flex;align-items:center;gap:10px}
+.cal-nav button{border:1px solid var(--line);background:#fff;border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--navy)}
+.cal-nav button:hover{background:#f2f5f8}
+.cal-nav .mo{font-size:16px;font-weight:800;color:var(--navy);min-width:130px;text-align:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dow{text-align:center;font-size:11px;font-weight:700;color:var(--gray);padding:4px 0}
+.dow.sun{color:var(--red)}.dow.sat{color:#3a78c2}
+.cell{background:#fbfcfd;border:1px solid var(--line);border-radius:9px;min-height:92px;padding:5px 5px 4px;cursor:pointer;position:relative;overflow:hidden}
+.cell:hover{border-color:var(--teal)}
+.cell.empty{background:transparent;border:none;cursor:default}
+.cell .dn{font-size:11.5px;font-weight:700;color:var(--gray)}
+.cell.sun .dn{color:var(--red)}.cell.sat .dn{color:#3a78c2}
+.cell .chips{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.cell .pill{font-size:10.5px;font-weight:700;color:#fff;border-radius:5px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.cell .dcost{position:absolute;right:5px;bottom:3px;font-size:9.5px;color:var(--gray);font-weight:700}
+.cell .cov{position:absolute;left:0;top:0;width:4px;height:100%}
+/* summary */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.scard{background:linear-gradient(135deg,#0e2a47,#16456f);color:#fff;border-radius:12px;padding:15px}
+.scard.teal{background:linear-gradient(135deg,#0fa896,#1ec8b0)}
+.scard.light{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.scard .lbl{font-size:11px;opacity:.78;font-weight:600}.scard.light .lbl{color:var(--gray);opacity:1}
+.scard .val{font-size:23px;font-weight:800;margin-top:5px}.scard.light .val{color:var(--navy)}
+.scard .sub{font-size:11px;opacity:.72;margin-top:4px}.scard.light .sub{color:var(--gray);opacity:1}
+.badge{display:inline-block;padding:2px 9px;border-radius:18px;font-size:10.5px;font-weight:700;margin-top:6px}
+.b-ok{background:rgba(26,168,106,.16);color:#0c7a48}.b-over{background:rgba(232,80,91,.16);color:#c5343f}.b-under{background:rgba(240,160,32,.16);color:#a86a00}
+.ptbl{width:100%;border-collapse:collapse;margin-top:8px}
+.ptbl th,.ptbl td{padding:8px;font-size:12.5px;border-bottom:1px solid var(--line);text-align:right}
+.ptbl th:first-child,.ptbl td:first-child{text-align:left}
+.ptbl th{font-size:11px;color:var(--gray);background:#fafbfc}
+.ptbl .cdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.note{font-size:11.5px;color:var(--gray);background:#fff8ec;border:1px solid #f3e2c0;border-radius:9px;padding:10px 12px;margin-top:14px;line-height:1.7}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:640px){.cell{min-height:74px}.cell .pill{font-size:9px}.f input,.f select{width:92px}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div>
+    <h1>🗓 シフト試算（バイト予算・人件費）</h1>
+    <p>BUDDICA TOURING 高松空港店 ／ スタッフ毎に勤務条件を設定 → 自動配置。月の人件費・充足率を自動計算</p>
+  </div>
+  <a href="index.html" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;white-space:nowrap">🏠 TOPへ戻る</a>
+</div></div>
+
+<div class="wrap">
+
+  <!-- 前提 -->
+  <div class="card">
+    <h2>🏪 店舗・予算の前提 <span style="font-weight:400;font-size:11px;color:var(--gray)">※仮の初期値。実態に合わせて変更</span></h2>
+    <div class="row">
+      <div class="f sm"><label>営業時間/日</label><input id="g_open" type="number" value="10" step="0.5"></div>
+      <div class="f sm"><label>必要人数(同時)</label><input id="g_staff" type="number" value="2"></div>
+      <div class="f sm"><label>会社負担%</label><input id="g_burden" type="number" value="0"></div>
+      <div class="f sm"><label>最低賃金</label><input id="g_minwage" type="number" value="970"></div>
+      <div class="f"><label>月間人件費予算</label><input id="g_budget" type="number" placeholder="任意"></div>
+      <div class="f"><label>月間売上見込み</label><input id="g_sales" type="number" placeholder="任意"></div>
+    </div>
+  </div>
+
+  <!-- スタッフ条件 -->
+  <div class="card">
+    <h2>👥 スタッフ別 勤務条件（カードをクリックで選択 → カレンダー配置）</h2>
+    <div class="staff-cards" id="stafflist"></div>
+    <div class="row" style="gap:8px;margin-top:12px">
+      <button class="btn btn-add" onclick="addStaff()">＋ スタッフを追加</button>
+      <button class="btn btn-navy" onclick="autoFill()">🪄 条件でこの月を自動配置</button>
+      <span style="font-size:11.5px;color:var(--gray);align-self:center">勤務可能曜日・希望週日数に従って一括配置します</span>
+    </div>
+    <div class="brush" id="brush"></div>
+  </div>
+
+  <!-- カレンダー -->
+  <div class="card">
+    <div class="cal-head">
+      <div class="cal-nav">
+        <button onclick="moveMonth(-1)">‹</button>
+        <div class="mo" id="moLabel"></div>
+        <button onclick="moveMonth(1)">›</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="clearMonth()">この月をクリア</button>
+        <button class="btn btn-ghost" onclick="window.print()">🖨 PDF</button>
+      </div>
+    </div>
+    <div class="cal" id="dows"></div>
+    <div class="cal" id="cal" style="margin-top:5px"></div>
+    <div style="font-size:11px;color:var(--gray);margin-top:8px">左の色帯＝その日の充足（緑=充足/橙=不足/赤=大幅不足）。右下＝その日の人件費。色ピルをクリックで個別解除。</div>
+  </div>
+
+  <!-- サマリー -->
+  <div class="card">
+    <h2>📊 この月の試算</h2>
+    <div class="sgrid">
+      <div class="scard"><div class="lbl">月間 人件費</div><div class="val" id="s_month">¥0</div><div class="sub" id="s_burden"></div></div>
+      <div class="scard teal"><div class="lbl">総労働時間 / 延べ出勤</div><div class="val" id="s_hours">0h</div><div class="sub" id="s_shifts">0 シフト</div></div>
+      <div class="scard light"><div class="lbl">予算との差</div><div class="val" id="s_budget">—</div><div class="sub" id="s_budget_sub">予算 未入力</div></div>
+      <div class="scard light"><div class="lbl">人件費率</div><div class="val" id="s_rate">—</div><div class="sub" id="s_rate_sub">売上 未入力</div></div>
+    </div>
+    <table class="ptbl" id="ptbl">
+      <thead><tr><th>スタッフ</th><th>時給</th><th>出勤日</th><th>労働時間</th><th>交通費</th><th>月コスト</th></tr></thead>
+      <tbody id="pbody"></tbody>
+    </table>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="save()">💾 保存</button>
+      <button class="btn btn-ghost" onclick="resetAll()">🗑 全リセット</button>
+    </div>
+    <div class="note">💡 月コスト＝<b>時給×時間 + 交通費×出勤日</b>（会社負担%上乗せ）。自動配置は各スタッフの<b>勤務可能曜日</b>と<b>希望週日数</b>に従います。最低賃金を下回る時給は赤字で警告。</div>
+  </div>
+</div>
+
+<script>
+const KEY='bt_shift_sim_v1';
+const COLORS=['#e8505b','#1ec8b0','#f0a020','#5b7cfa','#9b59b6','#16a085','#e67e22','#2c82c9','#d6457e','#27ae60'];
+const DOWJP=['日','月','火','水','木','金','土'];
+const yen=n=>'¥'+Math.round(n).toLocaleString();
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+
+let store=loadStore();
+let staff=store.staff, shifts=store.shifts, active=null;
+let cur={y:store.y,m:store.m};
+
+function loadStore(){
+  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.staff){applyG(s.g);return {staff:s.staff,shifts:s.shifts||{},y:s.y,m:s.m};}}catch(e){}
+  const now=new Date();
+  return {staff:[
+    {id:1,name:'スタッフA',wage:1000,trans:0,hours:6,color:COLORS[0],dayHours:[0,6,6,6,6,6,0],target:0},
+    {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
+  ],shifts:{},y:now.getFullYear(),m:now.getMonth()};
+}
+function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}});}
+function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
+function G(){return{open:+$('g_open').value||0,staff:+$('g_staff').value||0,burden:+$('g_burden').value||0,minwage:+$('g_minwage').value||0,budget:+$('g_budget').value||0,sales:+$('g_sales').value||0};}
+
+/* ---- staff cards ---- */
+function renderStaff(){
+  const g=G();const el=$('stafflist');el.innerHTML='';
+  staff.forEach(s=>{
+    if(!s.dayHours)s.dayHours=[0,6,6,6,6,6,0];
+    const card=document.createElement('div');
+    card.className='scd'+(active===s.id?' active':'');
+    card.setAttribute('data-id',s.id);
+    const belowMin=g.minwage>0&&s.wage<g.minwage;
+    card.innerHTML=`
+      <div class="scd-top">
+        <span class="dot" style="background:${s.color}"></span>
+        <input class="nm" value="${s.name||''}" placeholder="氏名" onclick="event.stopPropagation()" oninput="setS(${s.id},'name',this.value)">
+        <span class="sel">${active===s.id?'配置中':'選択'}</span>
+        <button class="x" title="削除" onclick="event.stopPropagation();delStaff(${s.id})">×</button>
+      </div>
+      <div class="scd-grid">
+        <div><span class="fl">時給(円)</span><input type="number" value="${s.wage}" onclick="event.stopPropagation()" oninput="setS(${s.id},'wage',this.value)"></div>
+        <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
+        <div><span class="fl">既定時間</span><input type="number" step="0.5" value="${s.hours}" onclick="event.stopPropagation()" oninput="setS(${s.id},'hours',this.value)"></div>
+      </div>
+      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間（空欄＝休み）</div>
+      <div class="dows-hours" onclick="event.stopPropagation()">
+        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span>${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)"></div>`).join('')}
+      </div>
+      <div class="presets" onclick="event.stopPropagation()">
+        <button class="pbtn" onclick="preset(${s.id},'weekday')">平日に既定</button>
+        <button class="pbtn" onclick="preset(${s.id},'weekend')">週末に既定</button>
+        <button class="pbtn" onclick="preset(${s.id},'all')">全日に既定</button>
+        <button class="pbtn" onclick="preset(${s.id},'clear')">クリア</button>
+        <span class="tgt">希望 週<input type="number" min="0" max="7" value="${s.target||0}" onclick="event.stopPropagation()" oninput="setS(${s.id},'target',this.value)">日</span>
+      </div>
+      ${belowMin?`<div class="minw ng">⚠ 最低賃金 ¥${g.minwage} を下回っています</div>`:''}
+    `;
+    card.querySelector('.scd-top').onclick=()=>{active=(active===s.id?null:s.id);renderStaff();updBrush();};
+    el.appendChild(card);
+  });
+}
+function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='name')?v:(+v||0);
+  // 入力欄のフォーカスを保つため renderStaff() は呼ばない。必要な表示だけ更新
+  if(k==='name'){const card=document.querySelector(`.scd[data-id="${id}"] .dot`);}
+  if(k==='wage'){const g=G();const card=document.querySelector(`.scd[data-id="${id}"]`);if(card){let w=card.querySelector('.minw');const ng=g.minwage>0&&s.wage<g.minwage;if(ng){if(!w){w=document.createElement('div');w.className='minw ng';card.appendChild(w);}w.className='minw ng';w.textContent=`⚠ 最低賃金 ¥${g.minwage} を下回っています`;}else if(w){w.remove();}}}
+  updBrush();summary();save(true);}
+function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);updBrush();renderCal();save(true);}
+function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;
+  if(type==='weekday')s.dayHours=[0,h,h,h,h,h,0];
+  if(type==='weekend')s.dayHours=[h,0,0,0,0,0,h];
+  if(type==='all')s.dayHours=[h,h,h,h,h,h,h];
+  if(type==='clear')s.dayHours=[0,0,0,0,0,0,0];
+  renderStaff();updBrush();renderCal();save(true);}
+function updBrush(){const s=staff.find(x=>x.id===active);
+  if(!s){$('brush').innerHTML='スタッフカードをクリックで選択 → カレンダーの日付をクリックで配置／解除。または「🪄 条件で自動配置」で一括。';return;}
+  const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
+  $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
+}
+function addStaff(){const id=Date.now();staff.push({id,name:'',wage:1000,trans:0,hours:6,color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0});active=id;renderStaff();updBrush();save(true);}
+function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
+
+/* ---- auto fill ---- */
+function autoFill(){
+  if(!confirm(`${cur.y}年${cur.m+1}月を、各スタッフの勤務条件で自動配置します。\n（既存の配置に追加します）`))return;
+  const days=new Date(cur.y,cur.m+1,0).getDate();
+  const first=new Date(cur.y,cur.m,1).getDay();
+  staff.forEach(s=>{
+    const weekCnt={};
+    for(let d=1;d<=days;d++){
+      const dow=new Date(cur.y,cur.m,d).getDay();
+      const h=s.dayHours[dow]||0;
+      if(h<=0)continue;
+      const wk=Math.floor((d-1+first)/7);
+      if(s.target>0){weekCnt[wk]=weekCnt[wk]||0;if(weekCnt[wk]>=s.target)continue;}
+      const k=key(cur.y,cur.m,d);
+      shifts[k]=shifts[k]||[];
+      if(!shifts[k].some(x=>x.s===s.id)){shifts[k].push({s:s.id,h});if(s.target>0)weekCnt[wk]++;}
+      else if(s.target>0)weekCnt[wk]++;
+    }
+  });
+  renderCal();save(true);
+}
+
+/* ---- calendar ---- */
+function renderDows(){$('dows').innerHTML=DOWJP.map((d,i)=>`<div class="dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('');}
+function key(y,m,d){return `${y}-${pad(m+1)}-${pad(d)}`;}
+function renderCal(){
+  $('moLabel').textContent=`${cur.y}年 ${cur.m+1}月`;
+  const first=new Date(cur.y,cur.m,1).getDay();
+  const days=new Date(cur.y,cur.m+1,0).getDate();
+  const g=G();const needDay=g.open*g.staff;
+  const cal=$('cal');cal.innerHTML='';
+  for(let i=0;i<first;i++){const e=document.createElement('div');e.className='cell empty';cal.appendChild(e);}
+  for(let d=1;d<=days;d++){
+    const dow=new Date(cur.y,cur.m,d).getDay();
+    const k=key(cur.y,cur.m,d);
+    const list=shifts[k]||[];
+    let cost=0,hrs=0,chips='';
+    list.forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;cost+=s.wage*it.h+ +s.trans;hrs+=it.h;chips+=`<div class="pill" style="background:${s.color}" onclick="event.stopPropagation();removeShift('${k}',${it.s})" title="クリックで解除">${s.name||'?'} ${it.h}h</div>`;});
+    cost*=(1+g.burden/100);
+    let cov=needDay>0?hrs/needDay:1;
+    let cc=cov>=1?'var(--green)':cov>=.6?'var(--amber)':cov>0?'var(--red)':'transparent';
+    const cell=document.createElement('div');
+    cell.className='cell '+(dow===0?'sun':dow===6?'sat':'');
+    cell.innerHTML=`<span class="cov" style="background:${cc}"></span><div class="dn">${d}</div><div class="chips">${chips}</div>${cost>0?`<div class="dcost">${yen(cost)}</div>`:''}`;
+    cell.onclick=()=>toggleDay(k);
+    cal.appendChild(cell);
+  }
+  summary();
+}
+function toggleDay(k){if(!active){alert('先にスタッフカードを選択してください');return;}const s=staff.find(x=>x.id===active);if(!s)return;const dow=new Date(k+'T00:00:00').getDay();const h=s.dayHours[dow]||s.hours||6;shifts[k]=shifts[k]||[];const idx=shifts[k].findIndex(x=>x.s===active);if(idx>=0)shifts[k].splice(idx,1);else shifts[k].push({s:active,h});if(!shifts[k].length)delete shifts[k];renderCal();save(true);}
+function removeShift(k,sid){if(shifts[k]){shifts[k]=shifts[k].filter(x=>x.s!==sid);if(!shifts[k].length)delete shifts[k];renderCal();save(true);}}
+function moveMonth(n){let m=cur.m+n,y=cur.y;if(m<0){m=11;y--;}if(m>11){m=0;y++;}cur={y,m};renderCal();save(true);}
+function clearMonth(){if(!confirm(`${cur.y}年${cur.m+1}月のシフトを全削除しますか？`))return;const pre=`${cur.y}-${pad(cur.m+1)}-`;Object.keys(shifts).forEach(k=>{if(k.startsWith(pre))delete shifts[k];});renderCal();save(true);}
+
+/* ---- summary ---- */
+function summary(){
+  const g=G();const pre=`${cur.y}-${pad(cur.m+1)}-`;
+  const per={};let totHrs=0,totShifts=0;
+  staff.forEach(s=>per[s.id]={days:0,hrs:0,trans:0,cost:0});
+  Object.keys(shifts).forEach(k=>{if(!k.startsWith(pre))return;shifts[k].forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;per[s.id].days++;per[s.id].hrs+=it.h;per[s.id].trans+= +s.trans;per[s.id].cost+=s.wage*it.h;totHrs+=it.h;totShifts++;});});
+  const bm=1+g.burden/100;
+  staff.forEach(s=>{per[s.id].costFull=(per[s.id].cost*bm)+per[s.id].trans;});
+  const totCost=staff.reduce((a,s)=>a+(per[s.id].costFull||0),0);
+  $('s_month').textContent=yen(totCost);
+  $('s_burden').textContent=g.burden>0?`社保等 +${g.burden}% 込み`:'社保等 加算なし';
+  $('s_hours').textContent=totHrs.toFixed(0)+'h';
+  $('s_shifts').textContent=totShifts+' 延べ出勤';
+  if(g.budget>0){const diff=g.budget-totCost;$('s_budget').textContent=(diff>=0?'＋':'－')+'¥'+Math.abs(Math.round(diff)).toLocaleString();$('s_budget_sub').innerHTML=diff>=0?`予算内 <span class="badge b-ok">OK</span>`:`超過 <span class="badge b-over">超過</span>`;}else{$('s_budget').textContent='—';$('s_budget_sub').textContent='予算 未入力';}
+  if(g.sales>0){const r=totCost/g.sales*100;$('s_rate').textContent=r.toFixed(1)+'%';let b='b-ok',t='適正';if(r>35){b='b-over';t='高め';}else if(r<20){b='b-under';t='余裕';}$('s_rate_sub').innerHTML=`<span class="badge ${b}">${t}</span>`;}else{$('s_rate').textContent='—';$('s_rate_sub').textContent='売上 未入力';}
+  const tb=$('pbody');tb.innerHTML='';
+  staff.forEach(s=>{const p=per[s.id];const bm2=g.minwage>0&&s.wage<g.minwage;tb.innerHTML+=`<tr><td><span class="cdot" style="background:${s.color}"></span>${s.name||'(未入力)'}</td><td style="${bm2?'color:var(--red);font-weight:700':''}">¥${s.wage}</td><td>${p.days}日</td><td>${p.hrs.toFixed(0)}h</td><td>${yen(p.trans)}</td><td style="font-weight:700;color:var(--navy)">${yen(p.costFull||0)}</td></tr>`;});
+  tb.innerHTML+=`<tr style="background:#f0fbf9"><td style="font-weight:700">合計</td><td></td><td style="font-weight:700">${totShifts}</td><td style="font-weight:700">${totHrs.toFixed(0)}h</td><td></td><td style="font-weight:800;color:var(--navy)">${yen(totCost)}</td></tr>`;
+}
+
+function save(silent){localStorage.setItem(KEY,JSON.stringify({staff,shifts,y:cur.y,m:cur.m,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}}));if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
+function resetAll(){if(confirm('全データ（スタッフ・シフト）をリセットします。よろしいですか？')){localStorage.removeItem(KEY);location.reload();}}
+['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>$(k).addEventListener('input',()=>{renderStaff();renderCal();save(true);}));
+
+migrate();renderDows();renderStaff();updBrush();renderCal();
+</script>
+</body>
+</html>
