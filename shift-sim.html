@@ -41,7 +41,9 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 .dows-hours{display:flex;gap:3px;margin-top:10px}
 .dh{flex:1;text-align:center;border-radius:7px;background:#eef2f6;padding:3px 2px 4px;border:1px solid transparent;transition:.1s}
 .dh.on{background:#e3f8f4;border-color:var(--teal)}
-.dh span{display:block;font-size:10.5px;font-weight:700;color:var(--gray);margin-bottom:2px}
+.dh span{display:block;font-size:10.5px;font-weight:700;color:var(--gray);margin-bottom:2px;cursor:pointer;border-radius:4px;transition:.1s}
+.dh span:hover{background:rgba(14,42,71,.08)}
+.dh.on span{color:var(--teal2)}.dh.sun.on span{color:var(--red)}.dh.sat.on span{color:#3a78c2}
 .dh.sun span{color:var(--red)}.dh.sat span{color:#3a78c2}
 .dh input{width:100%;border:1px solid var(--line);border-radius:5px;padding:4px 2px;font-size:12px;text-align:center;background:#fff}
 .dh input:focus{outline:none;border-color:var(--teal)}
@@ -216,9 +218,9 @@ function renderStaff(){
         <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
         <div><span class="fl">既定時間</span><input type="number" step="0.5" value="${s.hours}" onclick="event.stopPropagation()" oninput="setS(${s.id},'hours',this.value)"></div>
       </div>
-      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間（空欄＝休み）</div>
+      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間（曜日名タップでON/OFF・空欄＝休み）</div>
       <div class="dows-hours" onclick="event.stopPropagation()">
-        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span>${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)"></div>`).join('')}
+        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)"></div>`).join('')}
       </div>
       <div class="presets" onclick="event.stopPropagation()">
         <button class="pbtn" onclick="preset(${s.id},'weekday')">平日に既定</button>
@@ -240,6 +242,7 @@ function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='n
   if(k==='target'){fillMonth(s);renderCal();} // 希望週日数は配置に影響 → 即反映
   updBrush();summary();save(true);}
 function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);fillMonth(s);updBrush();renderCal();save(true);}
+function toggleWday(id,i){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;s.dayHours[i]=s.dayHours[i]>0?0:h;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap){wrap.classList.toggle('on',s.dayHours[i]>0);const inp=wrap.querySelector('input');if(inp)inp.value=s.dayHours[i]||'';}fillMonth(s);updBrush();renderCal();save(true);}
 function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;
   if(type==='weekday')s.dayHours=[0,h,h,h,h,h,0];
   if(type==='weekend')s.dayHours=[h,0,0,0,0,0,h];
