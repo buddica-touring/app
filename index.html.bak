@@ -998,6 +998,14 @@ const clampPeople=(raw,ota,id)=>{
   }
   return Math.min(8,n);
 };
+// ★ 2026-06-17 横展開(SPK 2026-04-21 cleanPlace): OTA本文の自社PR文が「場所」に混入した場合のUIスクラブ。
+//   「場所未確定」等のTBDシグナルは意味があるので残す。手入力/CSV取込で混入した自社PRのみ空欄化。
+const cleanPlace=(p)=>{
+  if(!p)return"";
+  const s=String(p).trim();
+  if(/(デリバリー専門店|デリバリ専門店|★ホテルや自宅|LINE完結|即出発|BUDDICA TOURISM 高松)/.test(s))return"";
+  return s;
+};
 const OTA={
   S:{key:"S",name:"スカイチケット",c:"#0ea5e9",bg:"#f0f9ff",det:r=>r.join(",").includes("氏名カナ")&&r.join(",").includes("事業者名"),parse:(r,h)=>{const g=makeG(r,h);const ld=g("出発日"),rd=g("返却日"),cls=g("車両クラス"),opts=g("オプション項目"),seat=g("シート"),allOpts=[opts,seat].filter(Boolean).join(",");const ss=detectSeats(allOpts,r,h,g);const dc=detectDelCol(r,h,g);const _vc=normClass(cls);console.log("[S-CLASS]",g("予約番号"),"raw="+cls,"→"+_vc);return{ota:"S",id:g("予約番号"),name:g("氏名カナ"),lendDate:ld.split(" ")[0]?.replace(/\//g,"-"),lendTime:ld.split(" ")[1]?.substr(0,5),returnDate:rd.split(" ")[0]?.replace(/\//g,"-"),returnTime:rd.split(" ")[1]?.substr(0,5),people:clampPeople(+(g("ご利用人数(大人)")||0)+ +(g("ご利用人数(子供)")||0),"S",g("予約番号")),vehicle:_vc,insurance:allOpts.includes("NOC")?"NOC":"免責",tel:g("電話番号"),mail:g("メールアドレス"),price:parsePrice(g)("合計金額"),status:isCancel(g("ステータス"),r)?"cancelled":"confirmed",visitType:dc.visitType,returnType:dc.returnType,flight:g("到着便名"),optB:ss.b,optC:ss.c,optJ:ss.j,optUSB:ss.usb};}},
   J:{key:"J",name:"じゃらん",c:"#ec4899",bg:"#fdf2f8",det:r=>r.join(",").includes("貸出日時")&&r.join(",").includes("料金プラン"),parse:(r,h)=>{const g=makeG(r,h);const ld=g("貸出日時"),rd=g("返却日時"),st=g("ステータス"),ins=g("免責補償"),opts=g("オプション")||"";const ss=detectSeats(opts,r,h,g);const dc=detectDelCol(r,h,g);return{ota:"J",id:g("予約番号")||g("御社管理番号"),name:g("予約者氏名（カナ）")||g("予約者氏名(カナ)")||g("予約者氏名"),lendDate:ld.split(" ")[0]?.replace(/\//g,"-"),lendTime:ld.split(" ")[1]?.substr(0,5),returnDate:rd.split(" ")[0]?.replace(/\//g,"-"),returnTime:rd.split(" ")[1]?.substr(0,5),people:clampPeople(g("乗車人数"),"J",g("予約番号")||g("御社管理番号")),vehicle:(()=>{const _raw=g("車両クラス"),_vc=normClass(_raw);console.log("[J-CLASS]",g("予約番号")||g("御社管理番号"),"raw="+_raw,"→"+_vc);return _vc;})(),insurance:ins.includes("ノンオペレーション")?"NOC":"免責",tel:g("運転者電話番号"),mail:g("予約者メールアドレス"),price:parsePrice(g)("合計金額（予約時）","合計金額(予約時)"),finalPrice:parsePrice(g)("最終利用金額","最終利用料金","差引請求金額","利用者への請求額"),status:isCancel(st,r)?"cancelled":"confirmed",visitType:dc.visitType,returnType:dc.returnType,flight:g("到着便"),optB:ss.b,optC:ss.c,optJ:ss.j,optUSB:ss.usb};}},
@@ -1972,10 +1980,10 @@ function TopRecentWidget(){
       const addStore=(arr,store,rdKey,ldKey)=>(arr||[]).map(r=>({...r,_store:store,_rd:r[rdKey],_ld:r[ldKey],_rev:rev(r)}));
       const[{data:nhNew},{data:nhCan}]=await Promise.all([
         sb.from("bt_reservations").select("id,ota,status,created_at,end_date,start_date,price,name").not("created_at","is",null).gte("created_at",cutoff).neq("status","cancelled").neq("status","キャンセル").neq("status","cancel").order("created_at",{ascending:false}),
-        sb.from("bt_reservations").select("id,ota,status,created_at,end_date,start_date,price,name").not("created_at","is",null).gte("created_at",cutoff).in("status",["cancelled","キャンセル","cancel"]).order("created_at",{ascending:false}),
+        sb.from("bt_reservations").select("id,ota,status,created_at,updated_at,end_date,start_date,price,name").not("updated_at","is",null).gte("updated_at",cutoff).in("status",["cancelled","キャンセル","cancel"]).order("updated_at",{ascending:false}),
       ]);
-      const newAll=addStore(nhNew,"那覹","end_date","start_date").sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
-      const canAll=addStore(nhCan,"那覹","end_date","start_date").sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
+      const newAll=addStore(nhNew,"高松","end_date","start_date").sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
+      const canAll=addStore(nhCan,"高松","end_date","start_date").sort((a,b)=>(b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""));
       setRd({newAll,canAll,ts:new Date().toLocaleString("ja-JP")});
     }catch(e){setRd({error:e.message});}
     setLoading(false);
@@ -7920,7 +7928,8 @@ function ManagementTab({store}){
         });
         setDbTasks(filtered);
         // places テーブルをロード（OPシートCSV場所データの正本）
-        if(sb)sb.from("places").select("reservation_id,del_place,col_place")
+        // ★ 2026-06-17 prefix漏れ修正: BTは bt_places（独立Supabase）。無印places は空/エラー→場所マップが常に空になっていた
+        if(sb)sb.from("bt_places").select("reservation_id,del_place,col_place")
           .then(({data})=>setDbPlaces(data||[]));
       }
       setDbLoading2(false);
@@ -16983,7 +16992,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                         {t.done&&<span style={{flexShrink:0}}>✅</span>}
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
-                        {resolvedP&&<span style={{fontSize:isMob?10:9,color:"#475569",fontWeight:600}}>📍{resolvedP}</span>}
+                        {cleanPlace(resolvedP)&&<span style={{fontSize:isMob?10:9,color:"#475569",fontWeight:600}}>📍{cleanPlace(resolvedP)}</span>}
                         {t.flight&&<span style={{fontSize:isMob?10:9,color:"#1565c0",fontWeight:600}}>✈{t.flight}</span>}
                         {vn&&<span style={{fontSize:isMob?10:9,color:"#059669",fontWeight:600}}>🚗{vn.name}({vn.no})</span>}
                         {!vn&&t.plateNo&&<span style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:600}}>{t.plateNo}</span>}
@@ -17332,7 +17341,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <span style={{color:"#94a3b8",fontWeight:600}}>{t.reservationId||""}</span>
               {t.plateNo&&<span style={{background:"#eff6ff",color:"#1e40af",padding:"1px 4px",borderRadius:3,fontWeight:700}}>{t.plateNo}</span>}
               {t.vehicle&&<span style={{color:"#64748b"}}>{t.vehicle}</span>}
-              {pl&&<span style={{color:"#ea580c",fontWeight:600}}>📍{pl}</span>}
+              {cleanPlace(pl)&&<span style={{color:"#ea580c",fontWeight:600}}>📍{cleanPlace(pl)}</span>}
               {hasOpts&&<span style={{display:"inline-flex",gap:2}}>
                 {t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 3px",borderRadius:3,fontWeight:700}}>👶{t.opts.b}</span>}
                 {t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 3px",borderRadius:3,fontWeight:700}}>🧒{t.opts.c}</span>}
@@ -17944,7 +17953,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     {t.assignee&&<span style={{color:"#7c3aed",fontWeight:700,fontSize:isMob?10:9,flexShrink:0}}>👤{t.assignee}</span>}
                     <button onClick={()=>setOtherEditId(isEdit?null:t._id)} style={{background:isEdit?"#4338ca":"#f1f5f9",color:isEdit?"#fff":"#475569",border:"none",borderRadius:4,fontSize:8,fontWeight:700,padding:"2px 6px",cursor:"pointer",flexShrink:0}}>{isEdit?"閉":"✏️"}</button>
                   </div>
-                  {t.place&&<div style={{marginTop:2,paddingLeft:22,fontSize:isMob?10:9,color:"#059669"}}>📍{t.place}</div>}
+                  {cleanPlace(t.place)&&<div style={{marginTop:2,paddingLeft:22,fontSize:isMob?10:9,color:"#059669"}}>📍{cleanPlace(t.place)}</div>}
                   {t.memo&&<div style={{marginTop:2,paddingLeft:22,fontSize:isMob?10:9,color:"#475569",background:"#fefce8",display:"inline-block",padding:"1px 4px",borderRadius:3}}>{t.memo}</div>}
                   {isEdit&&<div style={{marginTop:6,paddingLeft:22,display:"flex",flexDirection:"column",gap:4,background:"#f8fafc",padding:8,borderRadius:8}}>
                     <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
@@ -18673,7 +18682,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <button onClick={close} style={{background:"none",border:"none",fontSize:20,color:"#94a3b8",cursor:"pointer",padding:"4px 8px"}}>✕</button>
             </div>
             <div style={{fontSize:11,color:"#64748b",marginBottom:12,padding:"6px 10px",background:"#f8fafc",borderRadius:8}}>
-              {m.vehName&&<span>{m.vehName} </span>}{m.plateNo&&<span>({m.plateNo}) </span>}{m.place&&<span>📍{m.place}</span>}
+              {m.vehName&&<span>{m.vehName} </span>}{m.plateNo&&<span>({m.plateNo}) </span>}{cleanPlace(m.place)&&<span>📍{cleanPlace(m.place)}</span>}
             </div>
             {m.isDel?<div>
               <div style={{fontSize:11,fontWeight:700,color:"#059669",marginBottom:6}}>LINE テンプレート</div>
@@ -20890,7 +20899,7 @@ function App(){
                     <span style={{fontWeight:700,color:t.done?"#94a3b8":"#374151",minWidth:36,textDecoration:t.done?"line-through":"none"}}>{t.time||"--:--"}</span>
                     <span style={{fontWeight:600,fontSize:10,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     <span style={{color:"#94a3b8",fontSize:9}}>{t.plateNo||""}</span>
-                    {t.place&&<span style={{color:"#f59e0b",fontSize:8}}>📍{t.place}</span>}
+                    {cleanPlace(t.place)&&<span style={{color:"#f59e0b",fontSize:8}}>📍{cleanPlace(t.place)}</span>}
                   </div>;
                   const doneCount=dbTasks.filter(t=>t.done).length;
                   const totalWork=dbTasks.length;
@@ -21029,7 +21038,7 @@ function App(){
                     <span style={{fontWeight:700,color:t.done?"#94a3b8":"#374151",minWidth:36,textDecoration:t.done?"line-through":"none"}}>{t.time||"--:--"}</span>
                     <span style={{fontWeight:600,fontSize:10,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     <span style={{color:"#94a3b8",fontSize:9}}>{t.plateNo||""}</span>
-                    {t.place&&<span style={{color:"#f59e0b",fontSize:8}}>📍{t.place}</span>}
+                    {cleanPlace(t.place)&&<span style={{color:"#f59e0b",fontSize:8}}>📍{cleanPlace(t.place)}</span>}
                   </div>;
                   const totalWork=dbTasks.length;
                   const doneCount=dbTasks.filter(t=>t.done).length;
@@ -21160,7 +21169,7 @@ function App(){
                         <span style={{fontWeight:600}}>{t.name}</span>
                         <span style={{color:"#64748b",fontSize:9}}>{t.cls}クラス</span>
                         <span style={{color:"#94a3b8",fontSize:9}}>{t.plate}</span>
-                        {t.place&&<span style={{color:"#f59e0b",fontSize:9}}>📍{t.place}</span>}
+                        {cleanPlace(t.place)&&<span style={{color:"#f59e0b",fontSize:9}}>📍{cleanPlace(t.place)}</span>}
                       </div>)}
                     </div>
                   </details>;
@@ -21697,7 +21706,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.80-BT";
+const APP_VERSION="v1.0.81-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

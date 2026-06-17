@@ -42,6 +42,43 @@ var OTA_RESERVE_SUBJECTS = {
 // --- Cancellation keywords in subject ---
 var CANCEL_KEYWORDS = ['予約キャンセル受付', 'キャンセル', 'cancellation', 'cancelled'];
 
+// ★ 2026-06-17 横展開(SPK 2026-06-05): 件名厳格一致は取りこぼしの温床(OTAが件名/派生商品DPを変えるとsilent skip)。
+//   件名一致 OR 本文に「予約番号+貸出+料金」3点が揃えば受理。キャンセルは前段で処理済み。
+function isReservationEmail_(ota, subject, body) {
+  var expected = OTA_RESERVE_SUBJECTS[ota] || '';
+  var nsSub = (subject || '').replace(/[\s　]+/g, '');
+  var nsExp = expected.replace(/[\s　]+/g, '');
+  if (nsExp && nsSub.indexOf(nsExp) !== -1) return true;  // 件名一致＝従来通り
+  var b = body || '';
+  var hasResvNo = /予約番号\s*[：:]/.test(b) || /予約ID\s*[：:]/.test(b);
+  var hasLend   = /(貸出日時|貸出|ピックアップ)\s*[：:]/.test(b);
+  var hasPrice  = /(基本料金|合計金額|料金|レンタカー料金)\s*[：:]/.test(b);
+  if (hasResvNo && hasLend && hasPrice) {
+    Logger.log('[ReserveFallback] ' + ota + ' 件名不一致だが本文が予約形式→受理: ' + subject);
+    return true;
+  }
+  return false;
+}
+
+// ★ 2026-06-17 横展開(SPK 2026-04-26): レンタル期間が跨る全年月を返す（KPI除外チェック用）
+function listYearMonths_(lendDate, returnDate) {
+  if (!lendDate || !returnDate) return [];
+  var s = new Date(lendDate + 'T00:00:00Z');
+  var e = new Date(returnDate + 'T00:00:00Z');
+  if (isNaN(s) || isNaN(e)) return [];
+  var result = [];
+  var cur = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), 1));
+  var maxIter = 24; // 安全装置: 最大24ヶ月
+  while (cur <= e && maxIter-- > 0) {
+    var y = cur.getUTCFullYear();
+    var m = String(cur.getUTCMonth() + 1);
+    if (m.length === 1) m = '0' + m;
+    result.push(y + '-' + m);
+    cur.setUTCMonth(cur.getUTCMonth() + 1);
+  }
+  return result;
+}
+
 // ============================================================
 // Setup & Trigger
 // ============================================================
@@ -364,8 +401,8 @@ function processMessage_(message, dryRun) {
     return cancelId ? {type:'cancel', id:cancelId, ota:otaCode} : null;
   }
 
-  // Check subject matches reservation notification
-  if (subject.indexOf(OTA_RESERVE_SUBJECTS[ota]) === -1) {
+  // Check subject matches reservation notification（★件名一致 OR 本文フォールバック）
+  if (!isReservationEmail_(ota, subject, body)) {
     Logger.log('Skipping non-reservation email (' + ota + '): ' + subject);
     return null;
   }
@@ -437,6 +474,23 @@ function processMessage_(message, dryRun) {
       }
     } else {
       Logger.log('Reservation already exists (active): ' + reservation.id);
+      // ★ 2026-06-17 横展開(SPK 2026-04-23): 顧客がオプション(チャイルドシート等)を追加→OTA再送した場合、
+      //   opt_b/c/j の「増加のみ」を検知して bt_reservations + bt_tasks を更新（減少は無視＝誤上書き防止）。
+      //   try-catchで囲みskip経路は不変。BTは先行GAS無しなので料金/場所の補完は不要、optsのみ同期。
+      try {
+        var curRows = supabaseGet_('bt_reservations', 'id=eq.' + encodeURIComponent(reservation.id) + '&select=opt_b,opt_c,opt_j');
+        if (curRows && curRows.length) {
+          var curOpt = curRows[0];
+          var nbo = Math.max(+(curOpt.opt_b || 0), +(reservation.opt_b || 0));
+          var nco = Math.max(+(curOpt.opt_c || 0), +(reservation.opt_c || 0));
+          var njo = Math.max(+(curOpt.opt_j || 0), +(reservation.opt_j || 0));
+          if (nbo !== +(curOpt.opt_b || 0) || nco !== +(curOpt.opt_c || 0) || njo !== +(curOpt.opt_j || 0)) {
+            supabaseUpdate_('bt_reservations', 'id=eq.' + encodeURIComponent(reservation.id), { opt_b: nbo, opt_c: nco, opt_j: njo });
+            patchTaskOptsBt_(reservation.id, nbo, nco, njo);
+            Logger.log('[OptsResend] ' + reservation.id + ' オプション再送検知→更新 B/C/J=' + nbo + '/' + nco + '/' + njo);
+          }
+        }
+      } catch (eOpt) { Logger.log('[OptsResend] error ' + reservation.id + ': ' + eOpt.message); }
       return {type:'skip', id:reservation.id, reason:'登録済み'};
     }
   } else {
@@ -719,6 +773,8 @@ function detectInsurance_(text) {
   if (/免責補償制度\(CDW\)[：:\s]*あり/i.test(text)) return '免責';
   if (/免責補償[：:\s]*あり|免責補償制度[：:\s]*あり|免責[：:\s]*加入|免責補償料/i.test(text)) return '免責';
   if (hasCdwRakuten) return '免責';  // 楽天 CDW のみ
+  // ★ 2026-06-17 横展開(NHA/SPK 2026-06-07): HP形式「免責補償制度(CDW): なし」をなし判定（ラベルと値の間に文字が挟まる）
+  if (/免責[^：:\n]*[：:\s]*(なし|未加入|無し|加入しない|0円)/i.test(text)) return 'なし';
   if (/免責/.test(text) && !/免責[：:\s]*(なし|未加入|無し|加入しない|0円)/i.test(text)) return '免責';
   return 'なし';
 }
@@ -1154,6 +1210,8 @@ function parseJalan_(body) {
   }
   var insuranceStr = extractField_(body, '補償（任意加入）');
   var insurance = detectInsurance_(insuranceStr);
+  // ★ 2026-06-17 横展開(NHA/SPK 2026-04-26): 補償欄が複数行/パディング形式だと単行抽出で取りこぼす→body全体で再判定
+  if (insurance === 'なし') insurance = detectInsurance_(body);
   var peopleStr = extractField_(body, '乗車人数');
   var people = 0;
   var pM = peopleStr.match(/大人\s*(\d+)/);
@@ -1195,6 +1253,13 @@ function parseJalan_(body) {
   if (cMJ) optCJ = parseInt(cMJ[1], 10) || 1;
   var jMJ = optionsStrJ.match(/ジュニアシート\s*[xX×]?\s*(\d*)/);
   if (jMJ) optJJ = parseInt(jMJ[1], 10) || 1;
+  // ★ 2026-06-17 横展開(SPK 2026-04-26): オプション欄外/複数行の取りこぼし防止→body全体でMath.max集約
+  var bAllJ = body.match(/ベビーシート[^\d\n]*(\d+)/g);
+  if (bAllJ) bAllJ.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optBJ) optBJ=n; });
+  var cAllJ = body.match(/チャイルドシート[^\d\n]*(\d+)/g);
+  if (cAllJ) cAllJ.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optCJ) optCJ=n; });
+  var jAllJ = body.match(/ジュニアシート[^\d\n]*(\d+)/g);
+  if (jAllJ) jAllJ.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optJJ) optJJ=n; });
   // ★ 2026-05-08 USB 数抽出（全OTA共通仕様）
   var optUsbJ = detectUsbCount_(optionsStrJ);
   // ★ デリバリーオプション検出（じゃらん） — オプション欄のみで判定（boilerplate誤検知防止）
@@ -1255,6 +1320,8 @@ function parseRakuten_(body) {
   // ★ 2026-04-26 複数行版で取得（旧 extractField_ は1行のみ → ETC/シート/デリバリー取りこぼし）
   var optionsStr = extractFieldMultiline_(body, '・オプション/車両の特徴');
   var insurance = detectInsurance_(optionsStr);
+  // ★ 2026-06-17 横展開(SPK 2026-05-08): 免責/NOCがオプション欄外にある場合の取りこぼし防止→body全体で再判定
+  if (insurance === 'なし') insurance = detectInsurance_(body);
   // ★ 料金内訳パース（楽天）
   var basePriceR = parsePrice_(extractField_(body, '・基本料金'));
   if (!basePriceR) basePriceR = parsePrice_(extractField_(body, '基本料金'));
@@ -1289,6 +1356,13 @@ function parseRakuten_(body) {
   if (cMatch) optC = parseInt(cMatch[1], 10) || 1;
   var jMatch = optionsStr.match(/ジュニアシート\s*(\d*)/);
   if (jMatch) optJ = parseInt(jMatch[1], 10) || 1;
+  // ★ 2026-06-17 横展開(SPK 2026-04-26): オプション欄が複数行/欄外だと取りこぼす→body全体でMath.max集約
+  var bAllR = body.match(/ベビーシート[^\d\n]*(\d+)/g);
+  if (bAllR) bAllR.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optB) optB=n; });
+  var cAllR = body.match(/チャイルドシート[^\d\n]*(\d+)/g);
+  if (cAllR) cAllR.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optC) optC=n; });
+  var jAllR = body.match(/ジュニアシート[^\d\n]*(\d+)/g);
+  if (jAllR) jAllR.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optJ) optJ=n; });
   // ★ 2026-05-08 USB 数抽出
   var optUsbR = detectUsbCount_(optionsStr);
   // ★ デリバリーオプション検出（楽天） — オプション欄のみで判定
@@ -1363,6 +1437,13 @@ function parseSkyticket_(body) {
   if (cMS) optCS = parseInt(cMS[1], 10) || 1;
   var jMS = optionsStrS.match(/ジュニアシート\s*[xX×]?\s*(\d*)/);
   if (jMS) optJS = parseInt(jMS[1], 10) || 1;
+  // ★ 2026-06-17 横展開(SPK 2026-04-26): オプション欄外/複数行の取りこぼし防止→body全体でMath.max集約
+  var bAllS = body.match(/ベビーシート[^\d\n]*(\d+)/g);
+  if (bAllS) bAllS.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optBS) optBS=n; });
+  var cAllS = body.match(/チャイルドシート[^\d\n]*(\d+)/g);
+  if (cAllS) cAllS.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optCS) optCS=n; });
+  var jAllS = body.match(/ジュニアシート[^\d\n]*(\d+)/g);
+  if (jAllS) jAllS.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optJS) optJS=n; });
   // ★ 2026-05-08 USB 数抽出
   var optUsbS = detectUsbCount_(optionsStrS);
   // ★ デリバリーオプション検出（skyticket） — オプション欄のみ（boilerplate誤検知防止）
@@ -1435,6 +1516,13 @@ function parseAirtrip_(body) {
   var jMA = optionsStrA.match(/ジュニアシート\s*[xX×]\s*(\d+)/);
   if (jMA) optJA = parseInt(jMA[1], 10);
   else if (/ジュニアシート/.test(optionsStrA)) optJA = 1;
+  // ★ 2026-06-17 横展開(SPK 2026-04-26): オプション欄外/複数行の取りこぼし防止→body全体でMath.max集約
+  var bAllA = body.match(/ベビーシート[^\d\n]*(\d+)/g);
+  if (bAllA) bAllA.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optBA) optBA=n; });
+  var cAllA = body.match(/チャイルドシート[^\d\n]*(\d+)/g);
+  if (cAllA) cAllA.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optCA) optCA=n; });
+  var jAllA = body.match(/ジュニアシート[^\d\n]*(\d+)/g);
+  if (jAllA) jAllA.forEach(function(s){ var n=parseInt(s.replace(/\D/g,''),10)||0; if(n>optJA) optJA=n; });
   // ★ 2026-05-08 USB 数抽出
   var optUsbA = detectUsbCount_(optionsStrA);
   // ★ デリバリーオプション検出（エアトリ） — オプション欄のみ（boilerplate誤検知防止）
@@ -2208,6 +2296,26 @@ function autoAssignVehicle_(reservation) {
 
   var lendDate = reservation.lend_date;
   var returnDate = reservation.return_date;
+
+  // ★ 2026-06-17 横展開(SPK 2026-04-26): bt_vehicle_monthly_kpi.active=false の月別除外チェック
+  //   配車表で「除外」フラグが立っている車両(事故/故障/廃車予定)に配車してはいけない（絶対ルール）
+  var relevantYms = listYearMonths_(lendDate, returnDate);
+  if (relevantYms.length > 0) {
+    var inactiveCodes = {};
+    for (var ki = 0; ki < relevantYms.length; ki++) {
+      var kpiRows = supabaseGet_('bt_vehicle_monthly_kpi', 'year_month=eq.' + encodeURIComponent(relevantYms[ki]) + '&active=eq.false&select=vehicle_code');
+      for (var rj = 0; rj < kpiRows.length; rj++) inactiveCodes[kpiRows[rj].vehicle_code] = true;
+    }
+    var preFilterKpi = vehicles.length;
+    vehicles = vehicles.filter(function(v) { return !inactiveCodes[v.code]; });
+    if (preFilterKpi !== vehicles.length) {
+      Logger.log('[KPI除外] ' + reservation.id + ': ' + (preFilterKpi - vehicles.length) + '件の除外車両 (' + relevantYms.join(',') + ') を候補から除去');
+    }
+    if (vehicles.length === 0) {
+      Logger.log('All ' + vehicleClass + 'クラス車両が ' + relevantYms.join(',') + ' で inactive。' + reservation.id + ' will be 未配車.');
+      return null;
+    }
+  }
 
   var busyVehicleCodes = {};
   var overlappingFleet = getOverlappingFleetVehicles_(lendDate, returnDate);
