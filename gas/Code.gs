@@ -4079,9 +4079,9 @@ function btCheckSquareLinks() {
 function btSendJalanPaymentEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) { Logger.log('[NhaJalanEmail] BLOCKED: missing data'); return false; }
   try {
-    var subject = '【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松空港店】事前決済・LINE登録のお願い（予約番号: ' + pay.reservation_id + '）';
+    var subject = '【レンタカー BUDDICA TOURISM 高松空港店】事前決済・LINE登録のお願い（予約番号: ' + pay.reservation_id + '）';
     var body = (pay.customer_name || '') + ' 様\n\n'
-      + 'この度はBUDDICA TOURISM BUDDICA TOURISM 高松空港店をご予約いただき、誠にありがとうございます。\n'
+      + 'この度はBUDDICA TOURISM 高松空港店をご予約いただき、誠にありがとうございます。\n'
       + '予約番号: ' + pay.reservation_id + '\n'
       + '貸出日: ' + (pay.lend_date || '') + '\n'
       + '返却日: ' + (pay.return_date || '') + '\n\n'
@@ -4114,10 +4114,10 @@ function btSendJalanPaymentEmail_(pay) {
       + '・現金決済をご希望の場合は大変お手数ですが事前にお問い合わせをお願い申しあげます。\n'
       + '・詳細はLINEにてご案内いたします。\n'
       + '━━━━━━━━━━━━━━━━━━━━\n'
-      + 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店\n'
+      + 'BUDDICA TOURISM 高松空港店\n'
       + 'TEL: 050-1724-6197（9:00〜19:00）\n'
       + 'LINE ID👉 @466dbckq\n';
-    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店', from: 'reserve@rent-buddica-touring.jp', replyTo: 'reserve@rent-buddica-touring.jp'});
+    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM 高松空港店', from: 'reserve@rent-buddica-touring.jp', replyTo: 'reserve@rent-buddica-touring.jp'});
     return true;
   } catch (e) { Logger.log('[NhaJalanEmail] Error: ' + e.message); return false; }
 }
@@ -7531,9 +7531,9 @@ function resendBtJalanUnpaidReminder() {
 function btSendJalanReminderEmail_(pay) {
   if (!pay || !pay.customer_email || !pay.square_payment_url) return false;
   try {
-    var subject = '【リマインド】【レンタカー BUDDICA TOURISM BUDDICA TOURISM 高松空港店】事前決済のお願い（予約番号: ' + pay.reservation_id + '）';
+    var subject = '【リマインド】【レンタカー BUDDICA TOURISM 高松空港店】事前決済のお願い（予約番号: ' + pay.reservation_id + '）';
     var body = pay.customer_name + ' 様\n\n'
-      + 'レンタカー BUDDICA TOURISM 那覹空港店です。\n'
+      + 'レンタカー BUDDICA TOURISM 高松空港店です。\n'
       + 'この度はご予約いただきありがとうございます。\n\n'
       + '当店では貸渡時の待ち時間をゼロにし、スムーズにご出発いただくため、\n'
       + '事前決済のご協力をお願いしております。\n'
@@ -7555,10 +7555,10 @@ function btSendJalanReminderEmail_(pay) {
       + '当日のご連絡はLINEで行います。\n'
       + 'LINE公式👉 https://lin.ee/jMU6xdJ\n'
       + 'LINE ID👉 @466dbckq\n\n'
-      + 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店\n'
+      + 'BUDDICA TOURISM 高松空港店\n'
       + 'TEL: 050-1724-6197（9:00〜19:00）\n';
     GmailApp.sendEmail(pay.customer_email, subject, body, {
-      name: 'BUDDICA TOURISM BUDDICA TOURISM 高松空港店',
+      name: 'BUDDICA TOURISM 高松空港店',
       from: 'reserve@rent-buddica-touring.jp',
       replyTo: 'reserve@rent-buddica-touring.jp'
     });
