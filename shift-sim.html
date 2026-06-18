@@ -173,6 +173,48 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 
 <script>
 const KEY='bt_shift_sim_v1';
+// ★ 2026-06-18 データ消失対策: localStorageだけだとブラウザ消去/iOS7日自動削除/別端末で消える。
+//   DB(bt_app_settings)にも保存し、ローカルが空なら起動時にクラウドから自動復元する。
+const SB_URL='https://ggqugvyskyiblxiycpci.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const DB_KEY='shift_sim_state_bt';
+// bt_app_settings は authenticated でないと読み書き不可（anon=401/[]）。
+// 同一オリジンの本体APPログイントークン(localStorage sb-*-auth-token)を再利用する。未ログインならDBはスキップ。
+function _sbToken(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.indexOf('sb-')===0&&k.indexOf('-auth-token')>0){
+        let v=JSON.parse(localStorage.getItem(k));
+        if(Array.isArray(v))v=v[0];
+        const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)||(v.session&&v.session.access_token));
+        if(t)return t;
+      }
+    }
+  }catch(e){}
+  return null;
+}
+function _hdr(tok){return {'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Content-Type':'application/json'};}
+function dbPut(stateObj){
+  const tok=_sbToken(); if(!tok)return; // 未ログイン → localStorageのみ
+  try{
+    fetch(SB_URL+'/rest/v1/bt_app_settings?on_conflict=key',{
+      method:'POST',
+      headers:Object.assign(_hdr(tok),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({key:DB_KEY,value:JSON.stringify(stateObj)})
+    }).catch(function(){});
+  }catch(e){}
+}
+async function dbGet(){
+  const tok=_sbToken(); if(!tok)return null;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/bt_app_settings?key=eq.'+DB_KEY+'&select=value',{headers:_hdr(tok)});
+    if(!r.ok)return null;
+    const a=await r.json();
+    if(a&&a.length&&a[0].value)return JSON.parse(a[0].value);
+  }catch(e){}
+  return null;
+}
 const COLORS=['#e8505b','#1ec8b0','#f0a020','#5b7cfa','#9b59b6','#16a085','#e67e22','#2c82c9','#d6457e','#27ae60'];
 const DOWJP=['日','月','火','水','木','金','土'];
 const yen=n=>'¥'+Math.round(n).toLocaleString();
@@ -188,6 +230,7 @@ let manualMonths=store.manualMonths||{}; // 手動編集した月（自動上書
 function loadStore(){
   try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.staff){applyG(s.g);return {staff:s.staff,shifts:s.shifts||{},y:s.y,m:s.m,genMonths:s.genMonths||{},manualMonths:s.manualMonths||{}};}}catch(e){}
   const now=new Date();
+  window.__shiftLocalEmpty=true;  // ★ ローカル保存が無い → 起動時にDBから復元を試みる
   return {staff:[
     {id:1,name:'スタッフA',wage:1000,trans:0,hours:6,color:COLORS[0],dayHours:[0,6,6,6,6,6,0],target:0},
     {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
@@ -338,11 +381,34 @@ function summary(){
   tb.innerHTML+=`<tr style="background:#f0fbf9"><td style="font-weight:700">合計</td><td></td><td style="font-weight:700">${totShifts}</td><td style="font-weight:700">${totHrs.toFixed(0)}h</td><td></td><td style="font-weight:800;color:var(--navy)">${yen(totCost)}</td></tr>`;
 }
 
-function save(silent){localStorage.setItem(KEY,JSON.stringify({staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}}));if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
+function save(silent){const st={staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}};localStorage.setItem(KEY,JSON.stringify(st));dbPut(st);if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
 function resetAll(){if(confirm('全データ（スタッフ・シフト）をリセットします。よろしいですか？')){localStorage.removeItem(KEY);location.reload();}}
 ['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>$(k).addEventListener('input',()=>{renderStaff();renderCal();save(true);}));
 
 migrate();ensureMonth();renderDows();renderStaff();updBrush();renderCal();
+
+// ★ 2026-06-18 起動時クラウド同期: ローカルが空ならDBから復元、ローカルがあればDBへバックアップ
+(async function(){
+  try{
+    if(window.__shiftLocalEmpty){
+      const remote=await dbGet();
+      if(remote&&remote.staff&&remote.staff.length){
+        staff=remote.staff; shifts=remote.shifts||{}; cur={y:remote.y,m:remote.m};
+        genMonths=remote.genMonths||{}; manualMonths=remote.manualMonths||{};
+        applyG(remote.g);
+        localStorage.setItem(KEY,JSON.stringify(remote));
+        migrate();ensureMonth();renderDows();renderStaff();updBrush();renderCal();
+        const n=document.createElement('div');
+        n.textContent='☁️ クラウドからデータを復元しました';
+        n.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#1ec8b0;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+        document.body.appendChild(n);setTimeout(()=>n.remove(),4000);
+      }
+    }else{
+      // ローカルに実データあり → 既存データを即DBへバックアップ（編集を待たずに保全）
+      save(true);
+    }
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
