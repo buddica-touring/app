@@ -99,7 +99,7 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 <body>
 <div class="bar"><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
   <div>
-    <h1>🗓 シフト試算（バイト予算・人件費）</h1>
+    <h1><img src="bc-logo.png" alt="BUDDICA" style="height:1.3em;width:auto;vertical-align:-0.22em;margin-right:9px">🗓 シフト試算（バイト予算・人件費）</h1>
     <p>BUDDICA TOURISM 高松空港店 ／ スタッフ毎に勤務条件を設定 → 自動配置。月の人件費・充足率を自動計算</p>
   </div>
   <a href="index.html" style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;white-space:nowrap">🏠 TOPへ戻る</a>
@@ -142,6 +142,7 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost" onclick="clearMonth()">この月をクリア</button>
+        <button class="btn btn-navy" onclick="reflectToShiftbook()">📥 出勤簿に反映</button>
         <button class="btn btn-ghost" onclick="window.print()">🖨 PDF</button>
       </div>
     </div>
@@ -215,6 +216,34 @@ async function dbGet(){
   }catch(e){}
   return null;
 }
+// ★ 試算→出勤簿(bt_shifts)に反映。スタッフ名が出勤簿のスタッフmasterと一致した人だけ表示される。追加・更新のみ(他の入力は消さない)
+async function reflectToShiftbook(){
+  const tok=_sbToken();
+  if(!tok){alert('本体APP（タスク管理）に同じ端末でログインしてから実行してください。\n出勤簿への書き込みに認証が必要です。');return;}
+  const pre=`${cur.y}-${pad(cur.m+1)}-`;
+  const rows=[];
+  Object.keys(shifts).forEach(d=>{
+    if(d.indexOf(pre)!==0)return;
+    (shifts[d]||[]).forEach(x=>{
+      const s=staff.find(st=>st.id===x.s);
+      if(!s||!s.name||!s.name.trim())return;
+      const st=s.start||'09:00';const en=addHours(st,(x.h||s.hours||0));
+      rows.push({date:d,staff_name:s.name.trim(),symbol:'●',start_time:st,end_time:en,memo:'試算反映',status:'確定'});
+    });
+  });
+  if(!rows.length){alert(`${cur.y}年${cur.m+1}月に反映できるシフトがありません。\n（スタッフの曜日勤務を設定し、氏名を入力してください）`);return;}
+  const names=[...new Set(rows.map(r=>r.staff_name))];
+  if(!confirm(`${cur.y}年${cur.m+1}月のシフト ${rows.length}件 を出勤簿に反映します。\n対象：${names.join('・')}\n\n● 出勤簿の「スタッフ名」と一致する人だけ表示されます\n● 既存の他の入力（公休・手入力）は消しません（追加・更新のみ）`))return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/bt_shifts?on_conflict=date,staff_name',{
+      method:'POST',
+      headers:Object.assign(_hdr(tok),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify(rows)
+    });
+    if(!r.ok){throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,160));}
+    alert(`✅ 出勤簿に反映しました（${rows.length}件）。\nタスク管理→出勤簿を開き、${cur.y}年${cur.m+1}月 をご確認ください。\n\n※ 名前が一致せず表示されない人がいたら、出勤簿のスタッフ名と試算の氏名を合わせてください。`);
+  }catch(e){alert('反映に失敗しました：'+e.message);}
+}
 const COLORS=['#e8505b','#1ec8b0','#f0a020','#5b7cfa','#9b59b6','#16a085','#e67e22','#2c82c9','#d6457e','#27ae60'];
 const DOWJP=['日','月','火','水','木','金','土'];
 const yen=n=>'¥'+Math.round(n).toLocaleString();
@@ -232,11 +261,13 @@ function loadStore(){
   const now=new Date();
   window.__shiftLocalEmpty=true;  // ★ ローカル保存が無い → 起動時にDBから復元を試みる
   return {staff:[
-    {id:1,name:'スタッフA',wage:1000,trans:0,hours:6,color:COLORS[0],dayHours:[0,6,6,6,6,6,0],target:0},
-    {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
+    {id:1,name:'スタッフA',wage:1000,trans:0,hours:6,start:'09:00',color:COLORS[0],dayHours:[0,6,6,6,6,6,0],target:0},
+    {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,start:'09:00',color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
   ],shifts:{},y:now.getFullYear(),m:now.getMonth(),genMonths:{},manualMonths:{}};
 }
-function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}});}
+function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}if(!s.start)s.start='09:00';});}
+// 開始時刻 + 時間数 → 終了時刻(HH:MM)
+function addHours(start,h){const p=(start||'09:00').split(':').map(Number);let t=(p[0]||0)*60+(p[1]||0)+Math.round((+h||0)*60);t=((t%1440)+1440)%1440;return pad(Math.floor(t/60))+':'+pad(t%60);}
 function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
 function G(){return{open:+$('g_open').value||0,staff:+$('g_staff').value||0,burden:+$('g_burden').value||0,minwage:+$('g_minwage').value||0,budget:+$('g_budget').value||0,sales:+$('g_sales').value||0};}
 
@@ -260,6 +291,7 @@ function renderStaff(){
         <div><span class="fl">時給(円)</span><input type="number" value="${s.wage}" onclick="event.stopPropagation()" oninput="setS(${s.id},'wage',this.value)"></div>
         <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
         <div><span class="fl">既定時間</span><input type="number" step="0.5" value="${s.hours}" onclick="event.stopPropagation()" oninput="setS(${s.id},'hours',this.value)"></div>
+        <div><span class="fl">開始時刻</span><input type="time" value="${s.start||'09:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'start',this.value)"></div>
       </div>
       <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間（曜日名タップでON/OFF・空欄＝休み）</div>
       <div class="dows-hours" onclick="event.stopPropagation()">
@@ -278,7 +310,7 @@ function renderStaff(){
     el.appendChild(card);
   });
 }
-function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='name')?v:(+v||0);
+function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='name'||k==='start')?v:(+v||0);
   // 入力欄のフォーカスを保つため renderStaff() は呼ばない。必要な表示だけ更新
   if(k==='name'){const card=document.querySelector(`.scd[data-id="${id}"] .dot`);}
   if(k==='wage'){const g=G();const card=document.querySelector(`.scd[data-id="${id}"]`);if(card){let w=card.querySelector('.minw');const ng=g.minwage>0&&s.wage<g.minwage;if(ng){if(!w){w=document.createElement('div');w.className='minw ng';card.appendChild(w);}w.className='minw ng';w.textContent=`⚠ 最低賃金 ¥${g.minwage} を下回っています`;}else if(w){w.remove();}}}
@@ -297,7 +329,7 @@ function updBrush(){const s=staff.find(x=>x.id===active);
   const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
-function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
+function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,start:'09:00',color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
 /* ---- 条件 → カレンダー 自動反映 ---- */
