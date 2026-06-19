@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BUDDICA TOURISM 高松空港店 お問い合わせ管理</title>
+  <script>
+  window.addEventListener('error',function(e){
+    if(document.getElementById('__loaderr'))return;
+    var d=document.createElement('div');d.id='__loaderr';
+    d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;padding:12px;font:14px sans-serif;text-align:center';
+    d.innerHTML='⚠️ 読み込みエラー。<button onclick="location.reload(true)" style="margin-left:8px;padding:4px 10px;border:0;border-radius:6px;background:#fff;color:#dc2626;font-weight:bold">再読み込み</button>';
+    document.body&&document.body.appendChild(d);
+  });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f0f2f5;color:#1a202c;}
+
+/* ====== HEADER ====== */
+.hd{background:#0f172a;color:white;height:54px;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:200;}
+.hd-logo{font-size:15px;font-weight:800;letter-spacing:2px;color:#60a5fa;white-space:nowrap;}
+.hd-title{font-size:11px;color:#64748b;border-left:1px solid #334155;padding-left:12px;white-space:nowrap;}
+.hd-tabs{display:flex;gap:2px;margin-left:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex:1;}
+.hd-tabs::-webkit-scrollbar{display:none;}
+.tab-btn{padding:6px 12px;border:none;background:transparent;color:#94a3b8;cursor:pointer;border-radius:6px;font-size:13px;transition:all .2s;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.tab-btn.on{background:#1e3a5f;color:#60a5fa;font-weight:600;}
+.tab-btn:hover:not(.on){background:#1e293b;color:#e2e8f0;}
+.hd-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.badge-new{background:#ef4444;color:white;border-radius:10px;padding:2px 7px;font-size:11px;font-weight:700;}
+
+/* ====== LAYOUT ====== */
+.page-root{display:flex;flex-direction:column;height:100vh;}
+.wrap{display:flex;flex:1;overflow:hidden;max-width:100vw;}
+
+/* ====== SIDEBAR ====== */
+.sidebar{width:320px;min-width:280px;background:white;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;flex-shrink:0;}
+.sb-head{padding:12px;border-bottom:1px solid #f1f5f9;}
+.sb-filters{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.f-btn{padding:6px 10px;border-radius:16px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;color:#64748b;transition:all .2s;-webkit-tap-highlight-color:transparent;}
+.f-btn.on{background:#1d4ed8;color:white;border-color:#1d4ed8;}
+.sb-search{width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px;outline:none;-webkit-appearance:none;}
+.sb-search:focus{border-color:#3b82f6;}
+.inq-list{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;}
+.inq-card{padding:13px 14px;border-bottom:1px solid #f8fafc;cursor:pointer;border-left:3px solid transparent;-webkit-tap-highlight-color:transparent;transition:background .1s;}
+.inq-card:active{background:#f0f4ff;}
+.inq-card.sel{background:#eff6ff;border-left-color:#3b82f6;}
+.ic-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.ic-name{font-weight:700;font-size:14px;}
+.ic-date{font-size:11px;color:#94a3b8;}
+.ic-row2{display:flex;gap:5px;align-items:center;margin-bottom:3px;flex-wrap:wrap;}
+.ic-preview{font-size:12px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ====== STATUS ====== */
+.st{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;}
+.st-new{background:#fee2e2;color:#b91c1c;}
+.st-prog{background:#fef9c3;color:#854d0e;}
+.st-pending{background:#e2e8f0;color:#475569;}
+.st-done{background:#dcfce7;color:#15803d;}
+.st-store{background:#ede9fe;color:#6d28d9;}
+.st-assignee{background:#dbeafe;color:#1e40af;font-size:10px;}
+/* ====== STATUS CHANGE BAR ====== */
+.status-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;flex-wrap:wrap;}
+.status-bar-label{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;}
+.status-btn{padding:5px 10px;border-radius:8px;border:1.5px solid;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;min-height:30px;white-space:nowrap;}
+.status-btn-new{border-color:#ef4444;color:#b91c1c;background:white;}
+.status-btn-new:hover,.status-btn-new.on{background:#ef4444;color:white;}
+.status-btn-prog{border-color:#d97706;color:#d97706;background:white;}
+.status-btn-prog:hover,.status-btn-prog.on{background:#d97706;color:white;}
+.status-btn-pending{border-color:#94a3b8;color:#475569;background:white;}
+.status-btn-pending:hover,.status-btn-pending.on{background:#64748b;color:white;}
+.status-btn-done{border-color:#16a34a;color:#16a34a;background:white;}
+.status-btn-done:hover,.status-btn-done.on{background:#16a34a;color:white;}
+.assignee-tag{display:flex;align-items:center;gap:4px;font-size:11px;color:#1e40af;background:#dbeafe;padding:3px 8px;border-radius:8px;font-weight:700;}
+.lock-banner{padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;font-weight:600;color:#b91c1c;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+
+/* ====== DETAIL WRAP ====== */
+.detail-wrap{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#f8fafc;}
+.detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;gap:12px;padding:40px;}
+.detail-inner{padding:16px;max-width:800px;width:100%;overflow-x:hidden;box-sizing:border-box;}
+
+/* ====== BACK BUTTON (mobile) ====== */
+.back-bar{display:none;background:white;border-bottom:1px solid #e2e8f0;padding:10px 16px;}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:#1d4ed8;font-size:14px;font-weight:600;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent;}
+
+/* ====== SECTIONS ====== */
+.sec{background:white;border-radius:12px;border:1px solid #e2e8f0;padding:14px;margin-bottom:10px;overflow:hidden;min-width:0;}
+.sec-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.sec-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#1d4ed8;color:white;border-radius:50%;font-size:11px;font-weight:800;flex-shrink:0;}
+.dh{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;}
+.dh-name{font-size:18px;font-weight:800;margin-bottom:5px;}
+.dh-meta{display:flex;flex-wrap:wrap;gap:8px;}
+.meta{font-size:12px;color:#4b5563;}
+.meta strong{color:#374151;}
+.content-box{background:#f8fafc;border-radius:8px;padding:12px;font-size:14px;line-height:1.8;white-space:pre-wrap;border:1px solid #f1f5f9;word-break:break-all;overflow-wrap:anywhere;overflow:hidden;max-width:100%;min-width:0;}
+
+/* ====== CANDIDATES ====== */
+.cand-list{display:flex;flex-direction:column;gap:8px;}
+.cand{border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s;}
+.cand:active{background:#eff6ff;border-color:#3b82f6;}
+.cand.picked{border-color:#3b82f6;background:#eff6ff;box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+.cand-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.cand-cat{font-weight:700;font-size:13px;color:#1e293b;}
+.cand-score{font-size:11px;font-weight:700;color:white;padding:2px 8px;border-radius:10px;}
+.score-hi{background:#16a34a;} .score-mid{background:#d97706;} .score-lo{background:#94a3b8;}
+.cand-q{font-size:11px;color:#1d4ed8;font-weight:600;margin-bottom:4px;}
+.cand-prev{font-size:12px;color:#64748b;line-height:1.5;}
+.no-cand{text-align:center;padding:16px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:8px;}
+
+/* ====== 正解セクション ====== */
+.sec-correct{border-color:#f59e0b;background:#fffbeb;}
+.sec-correct .sec-title{color:#92400e;}
+.correct-ta{width:100%;min-height:120px;padding:12px;border:1.5px solid #f59e0b;border-radius:8px;font-size:16px;line-height:1.8;resize:vertical;font-family:inherit;outline:none;background:#fffbeb;-webkit-appearance:none;}
+.correct-ta:focus{border-color:#d97706;box-shadow:0 0 0 3px rgba(245,158,11,.15);}
+.correct-ta:disabled{background:#f8fafc;color:#94a3b8;border-color:#e2e8f0;}
+.register-btn{padding:10px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;transition:all .2s;-webkit-tap-highlight-color:transparent;min-height:44px;}
+.register-hint{font-size:12px;color:#92400e;margin-top:6px;}
+
+/* ====== REPLY EDITOR ====== */
+.reply-ta{width:100%;min-height:180px;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:16px;line-height:1.8;resize:vertical;font-family:inherit;outline:none;-webkit-appearance:none;}
+.reply-ta:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+.reply-ta:disabled{background:#f8fafc;color:#94a3b8;}
+.reply-btns{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+.send-btn{padding:12px 22px;background:#1d4ed8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700;transition:all .2s;min-height:44px;-webkit-tap-highlight-color:transparent;}
+.send-btn:disabled{background:#94a3b8;cursor:not-allowed;}
+.send-info{font-size:12px;color:#64748b;}
+.send-from{color:#1d4ed8;font-weight:600;}
+.msg-ok{color:#15803d;font-size:13px;font-weight:600;padding:10px 12px;background:#dcfce7;border-radius:8px;margin-top:8px;}
+.msg-err{color:#b91c1c;font-size:13px;padding:10px 12px;background:#fee2e2;border-radius:8px;margin-top:8px;}
+.hist-box{background:#f0fdf4;border-radius:8px;padding:12px;font-size:13px;color:#374151;white-space:pre-wrap;line-height:1.7;border:1px solid #bbf7d0;}
+
+/* ====== BADGES ====== */
+.tbadge{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;}
+.tbadge-ai{background:#dbeafe;color:#1d4ed8;}
+.tbadge-edit{background:#fef3c7;color:#92400e;}
+.tbadge-training{background:#ede9fe;color:#6d28d9;}
+
+/* ====== STAFF SELECTOR ====== */
+.staff-sel{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
+.staff-sel select{background:#1e3a5f;color:#93c5fd;border:1px solid #334155;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
+.staff-badge{font-size:12px;color:#60a5fa;font-weight:700;white-space:nowrap;}
+
+/* ====== TRAINING VIEW ====== */
+.training-banner{background:linear-gradient(135deg,#6d28d9,#4f46e5);color:white;padding:10px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;border-radius:8px;margin-bottom:12px;}
+.training-done-btn{width:100%;padding:14px;background:#6d28d9;color:white;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800;margin-top:8px;min-height:48px;transition:all .2s;}
+.training-done-btn:disabled{background:#a78bfa;cursor:not-allowed;}
+.training-done-btn:not(:disabled):active{background:#5b21b6;}
+
+/* ====== INBOX LAYOUT (共通) ====== */
+.inbox-layout{display:flex;flex:1;overflow:hidden;height:100%;}
+.list-panel{width:340px;min-width:280px;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;background:white;flex-shrink:0;}
+.list-panel > div:last-child{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.detail-panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f8fafc;}
+@media(max-width:768px){.list-panel{width:100%;border-right:none;}.inbox-layout{flex-direction:column;}}
+
+/* ====== AI SCANNING ====== */
+.ai-scanning{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(90deg,#eff6ff,#dbeafe,#eff6ff);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:10px;border:1.5px solid #93c5fd;}
+@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+.ai-scanning-txt{font-size:13px;font-weight:600;color:#1d4ed8;}
+.ai-done-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;margin-bottom:8px;font-size:12px;color:#15803d;font-weight:600;}
+
+/* ====== DIFF VIEWER ====== */
+.diff-box{margin-top:10px;border-radius:10px;overflow:hidden;border:1.5px solid #e2e8f0;}
+.diff-hd{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:700;color:#374151;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;}
+.diff-cols{display:grid;grid-template-columns:1fr 1fr;}
+.diff-col{padding:10px 12px;}
+.diff-col-ai{background:#eff6ff;border-right:1px solid #e2e8f0;}
+.diff-col-staff{background:#fffbeb;}
+.diff-col-label{font-size:10px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase;}
+.diff-col-ai .diff-col-label{color:#1d4ed8;}
+.diff-col-staff .diff-col-label{color:#d97706;}
+.diff-col-body{font-size:12px;line-height:1.7;white-space:pre-wrap;color:#374151;max-height:140px;overflow-y:auto;}
+.diff-no-change{padding:10px 12px;font-size:12px;color:#64748b;background:#f8fafc;}
+@media(max-width:768px){.diff-cols{grid-template-columns:1fr;}.diff-col-ai{border-right:none;border-bottom:1px solid #e2e8f0;}}
+
+/* ====== LEARNING DIFF ====== */
+.lv-diff{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;}
+.lv-diff-chip{font-size:11px;padding:2px 8px;border-radius:4px;}
+.lv-diff-ai{background:#dbeafe;color:#1d4ed8;}
+.lv-diff-staff{background:#fef3c7;color:#92400e;}
+
+/* ====== MODAL ====== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:9999;backdrop-filter:blur(2px);}
+.modal{background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -8px 40px rgba(0,0,0,.25);}
+.modal-handle{width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 20px;}
+.m-title{font-size:17px;font-weight:800;margin-bottom:18px;color:#0f172a;}
+.fg{margin-bottom:14px;}
+.fl{display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+.fi{width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:16px;font-family:inherit;outline:none;-webkit-appearance:none;}
+.fi:focus{border-color:#3b82f6;}
+.ft{width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:16px;min-height:100px;resize:vertical;font-family:inherit;outline:none;-webkit-appearance:none;}
+.ft:focus{border-color:#3b82f6;}
+.fhint{font-size:11px;color:#94a3b8;margin-top:4px;}
+.m-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+.btn-cancel{padding:12px 16px;border:1.5px solid #e2e8f0;background:white;border-radius:8px;cursor:pointer;font-size:14px;color:#374151;min-height:44px;}
+.btn-save{padding:12px 20px;background:#1d4ed8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;min-height:44px;}
+
+/* ====== FULL VIEWS ====== */
+.full-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+/* ====== KNOWLEDGE VIEW ====== */
+.kb-wrap{padding:16px;max-width:1000px;margin:0 auto;}
+.kb-hd{margin-bottom:16px;}
+.kb-title{font-size:18px;font-weight:800;}
+.kb-sub{font-size:13px;color:#64748b;margin-top:4px;}
+.kb-search{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px;outline:none;margin-top:10px;-webkit-appearance:none;}
+.kb-filters{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none;}
+.kb-filters::-webkit-scrollbar{display:none;}
+.kb-f{padding:6px 12px;border-radius:16px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;color:#64748b;white-space:nowrap;flex-shrink:0;min-height:32px;-webkit-tap-highlight-color:transparent;}
+.kb-f.on{background:#1d4ed8;color:white;border-color:#1d4ed8;}
+.kb-grid{display:grid;gap:10px;}
+.kb-row{background:white;border-radius:12px;border:1px solid #e2e8f0;padding:14px;}
+.kb-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;}
+.kb-cat{font-weight:800;font-size:14px;}
+.kb-tags{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.kb-store{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;}
+.kb-s-sapporo{background:#dbeafe;color:#1d4ed8;}
+.kb-s-naha{background:#d1fae5;color:#065f46;}
+.kb-s-both{background:#ede9fe;color:#6d28d9;}
+.kb-q{font-size:12px;color:#374151;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;line-height:1.6;}
+.kb-a{font-size:13px;color:#1e293b;line-height:1.7;white-space:pre-wrap;border-left:3px solid #3b82f6;padding-left:12px;}
+.kb-basis{font-size:11px;color:#94a3b8;margin-top:8px;font-style:italic;}
+.kb-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
+
+/* ====== LEARNING VIEW ====== */
+.lv-wrap{padding:16px;max-width:1000px;margin:0 auto;}
+.lv-title{font-size:18px;font-weight:800;margin-bottom:4px;}
+.lv-sub{font-size:13px;color:#64748b;margin-bottom:16px;}
+.lv-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+.lv-stat{background:white;border-radius:12px;border:1px solid #e2e8f0;padding:14px;text-align:center;}
+.lv-stat-num{font-size:28px;font-weight:800;color:#1d4ed8;}
+.lv-stat-label{font-size:11px;color:#64748b;margin-top:3px;}
+.lv-view-switch{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.lv-cat-group{margin-bottom:18px;}
+.lv-cat-hd{font-weight:800;font-size:14px;padding:10px 0 8px;border-bottom:2px solid #1d4ed8;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.lv-cat-cnt{font-size:12px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-weight:600;}
+.lv-cat-stats{font-size:12px;color:#64748b;font-weight:400;}
+.lv-item{background:white;border-radius:8px;border:1px solid #f1f5f9;padding:11px;margin-bottom:6px;}
+.lv-item-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;}
+.lv-item-q{font-size:13px;color:#374151;flex:1;font-weight:600;}
+.lv-item-meta{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
+.lv-answer{font-size:12px;color:#64748b;white-space:pre-wrap;max-height:56px;overflow:hidden;line-height:1.6;background:#f8fafc;padding:8px;border-radius:6px;border-left:3px solid #e2e8f0;}
+.lv-list-table{background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;}
+.lv-list-row{padding:12px 14px;border-bottom:1px solid #f8fafc;display:flex;gap:10px;align-items:flex-start;}
+.lv-list-q{flex:1;font-size:13px;color:#374151;}
+.lv-list-meta{display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+.lv-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
+
+/* ====== FLYWHEEL ====== */
+.fw-wrap{background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;margin-bottom:16px;}
+.fw-title{font-size:13px;font-weight:800;color:#374151;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.fw-sub{font-size:12px;color:#94a3b8;margin-bottom:14px;}
+.fw-cycle{display:flex;align-items:stretch;gap:0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+.fw-step{flex-shrink:0;width:112px;background:#f8fafc;border-radius:10px;border:1.5px solid #e2e8f0;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
+.fw-step.active-step{background:#eff6ff;border-color:#93c5fd;}
+.fw-step.current-step{background:#fef3c7;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15);}
+.fw-icon{font-size:22px;margin-bottom:2px;}
+.fw-stage{font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
+.fw-lbl{font-size:11px;font-weight:700;color:#1e293b;line-height:1.3;}
+.fw-desc{font-size:10px;color:#64748b;line-height:1.4;margin-top:2px;}
+.fw-ref{font-size:9px;color:#a5b4fc;font-style:italic;margin-top:4px;}
+.fw-arrow{display:flex;align-items:center;color:#cbd5e1;font-size:16px;flex-shrink:0;padding:0 3px;margin-top:-10px;}
+/* alert warning */
+.kb-warn{background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start;}
+.kb-warn-icon{font-size:22px;flex-shrink:0;}
+.kb-warn-body{font-size:13px;color:#374151;line-height:1.7;}
+.kb-warn-body strong{color:#b91c1c;}
+.kb-warn ol{margin:8px 0 0 16px;font-size:12px;color:#7f1d1d;line-height:2;}
+/* flywheel stages */
+.stage-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px;}
+.stage-card{border-radius:10px;border:1.5px solid #e2e8f0;padding:10px 8px;text-align:center;background:white;transition:all .3s;}
+.stage-card.done{border-color:#86efac;background:#f0fdf4;}
+.stage-card.now{border-color:#f59e0b;background:#fffbeb;box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+.stage-card.todo{opacity:.5;}
+.stage-num{font-size:18px;font-weight:800;}
+.stage-name{font-size:10px;font-weight:700;color:#374151;margin-top:2px;}
+.stage-kpi{font-size:9px;color:#64748b;margin-top:3px;line-height:1.4;}
+.stage-status{font-size:9px;font-weight:700;margin-top:5px;padding:2px 6px;border-radius:4px;display:inline-block;}
+.stage-status.ok{background:#dcfce7;color:#15803d;}
+.stage-status.go{background:#fef3c7;color:#92400e;}
+.stage-status.wait{background:#f1f5f9;color:#94a3b8;}
+/* error reason */
+.reason-bar{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;}
+.reason-card{background:white;border-radius:8px;border:1px solid #e2e8f0;padding:10px;display:flex;align-items:center;gap:8px;}
+.reason-icon{font-size:18px;flex-shrink:0;}
+.reason-label{font-size:11px;font-weight:700;color:#374151;}
+.reason-count{font-size:18px;font-weight:800;color:#1d4ed8;margin-left:auto;}
+.reason-pct{font-size:10px;color:#94a3b8;}
+/* edit reason select */
+.reason-sel{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.reason-btn{padding:8px 12px;border-radius:20px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:36px;}
+.reason-btn.on{background:#1d4ed8;color:white;border-color:#1d4ed8;}
+@media(max-width:768px){
+  .stage-bar{grid-template-columns:repeat(2,1fr);}
+  .reason-bar{grid-template-columns:1fr;}
+  .fw-step{width:96px;}
+}
+
+/* ====== TEMPLATES VIEW ====== */
+.tmpl-wrap{padding:16px;max-width:900px;margin:0 auto;}
+.tmpl-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:10px;}
+.tmpl-title{font-size:18px;font-weight:800;}
+.btn-new{padding:10px 16px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;min-height:44px;-webkit-tap-highlight-color:transparent;}
+.tmpl-grid{display:grid;gap:10px;}
+.tmpl-row{background:white;border-radius:12px;border:1px solid #e2e8f0;padding:14px;}
+.tmpl-rt{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;}
+.tmpl-cat{font-weight:800;font-size:14px;}
+.tmpl-btn-grp{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.tmpl-usage{font-size:11px;color:#94a3b8;}
+.btn-edit{padding:6px 10px;border:1px solid #3b82f6;color:#3b82f6;background:white;border-radius:6px;cursor:pointer;font-size:12px;min-height:32px;}
+.btn-del{padding:6px 10px;border:1px solid #ef4444;color:#ef4444;background:white;border-radius:6px;cursor:pointer;font-size:12px;min-height:32px;}
+.tmpl-kws{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
+.tmpl-kw{background:#f1f5f9;color:#374151;font-size:12px;padding:2px 8px;border-radius:4px;}
+.tmpl-txt{font-size:12px;color:#64748b;white-space:pre-wrap;background:#f8fafc;padding:10px;border-radius:6px;max-height:72px;overflow:hidden;line-height:1.6;}
+.tmpl-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
+
+/* ====== FLOAT BUTTONS ====== */
+.float-btns{position:fixed;bottom:24px;right:16px;display:flex;flex-direction:column;gap:10px;z-index:100;}
+.btn-add-inq{padding:12px 16px;background:#0f172a;color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;min-height:44px;box-shadow:0 4px 16px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent;}
+.sync-btn{padding:10px 14px;background:#1d4ed8;color:white;border:none;border-radius:10px;font-size:13px;cursor:pointer;min-height:44px;box-shadow:0 4px 16px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;}
+
+/* ====== TOAST ====== */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0f172a;color:white;padding:12px 20px;border-radius:10px;font-size:14px;z-index:10000;box-shadow:0 8px 30px rgba(0,0,0,.3);white-space:nowrap;animation:slide-up .3s ease;}
+@keyframes slide-up{from{transform:translateX(-50%) translateY(20px);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
+.spin{display:inline-block;animation:spin 1s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.loading-kn{text-align:center;padding:16px;color:#94a3b8;font-size:13px;}
+
+/* ====== DESKTOP OVERRIDES ====== */
+@media (min-width:769px){
+  body{height:100vh;overflow:hidden;}
+  .overlay{align-items:center;}
+  .modal{border-radius:16px;padding:28px;max-width:560px;}
+  .modal-handle{display:none;}
+  .wrap{height:calc(100vh - 54px);}
+  .hd-title{display:block;}
+  .hd-right{display:flex;}
+  .detail-inner{padding:20px;}
+  .back-bar{display:none !important;}
+  .float-btns{flex-direction:row;align-items:center;}
+  .lv-stats{grid-template-columns:repeat(5,1fr);}
+  .kb-hd{display:flex;justify-content:space-between;align-items:flex-start;}
+  .kb-search{margin-top:0;width:220px;}
+}
+
+/* ====== MOBILE ====== */
+@media (max-width:768px){
+  body{height:auto;overflow:auto;}
+  .page-root{height:100vh;overflow:hidden;}
+  .wrap{overflow:hidden;}
+  .hd{height:50px;padding:0 12px;gap:8px;}
+  .hd-title{display:none;}
+  .hd-logo{font-size:14px;}
+  .hd-right{display:none;}
+  .tab-btn{font-size:12px;padding:5px 10px;}
+
+  /* Mobile: list or detail, never both */
+  .sidebar{width:100%;min-width:unset;border-right:none;}
+  .detail-wrap{width:100%;}
+  .back-bar{display:block;}
+
+  .sec{padding:12px;border-radius:10px;}
+  .dh-name{font-size:17px;}
+  .detail-inner{padding:12px;}
+
+  .float-btns{bottom:16px;right:12px;gap:8px;}
+  .toast{bottom:70px;font-size:13px;}
+
+  .tmpl-hd{flex-direction:column;gap:8px;}
+  .lv-stats{grid-template-columns:repeat(2,1fr);}
+  .m-actions{flex-direction:column-reverse;}
+  .m-actions .btn-cancel,.m-actions .btn-save{width:100%;text-align:center;}
+
+  .reply-btns{flex-direction:column;align-items:stretch;}
+  .send-btn{width:100%;text-align:center;}
+
+  .register-btn{width:100%;}
+}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+const { createClient } = supabase;
+
+const SB_URL = 'https://ggqugvyskyiblxiycpci.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const GAS_URL = 'PASTE_BT_INQUIRY_WEBAPP_URL_HERE'; // ★GAS(gas_inquiry_bt.gs)をWebAppデプロイしたURLに差替
+const sb = createClient(SB_URL, SB_KEY);
+
+// ===== HOOKS =====
+function useIsMobile() {
+  const [is, setIs] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const h = () => setIs(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return is;
+}
+
+// ===== UTILS =====
+const fmt = ts => {
+  if (!ts) return '-';
+  const d = new Date(ts), now = new Date(), diff = now - d;
+  if (diff < 3600000) return `${Math.floor(diff/60000)}分前`;
+  if (diff < 86400000) return `${Math.floor(diff/3600000)}時間前`;
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+};
+const fmtFull = ts => {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+};
+const stCfg = s => {
+  if (s==='replied')     return {t:'完了',    c:'st-done',   icon:'✅'};
+  if (s==='in_progress') return {t:'対応中',  c:'st-prog',   icon:'🟡'};
+  if (s==='pending')     return {t:'保留中',  c:'st-pending', icon:'⏸'};
+  return                        {t:'未対応',  c:'st-new',    icon:'🔴'};
+};
+
+// ===== 知識ベース検索 =====
+// ★ Claude API経由の問い合わせ分析（GAS proxy）
+// GAS doPost: action='ai_analyze' → analyzeInquiry_() → Claude 3.5 Haiku
+const analyzeWithClaude = async (inq) => {
+  if (!inq?.inquiry_content || GAS_URL === 'YOUR_GAS_WEBAPP_URL_HERE') return null;
+  try {
+    const res = await fetch(GAS_URL, {
+      method:  'POST',
+      mode:    'cors',
+      headers: { 'Content-Type': 'text/plain' }, // simple request (no preflight)
+      body: JSON.stringify({
+        action:          'ai_analyze',
+        inquiry_content: inq.inquiry_content,
+        inquiry_type:    inq.inquiry_type || 'その他',
+        store:           inq.store || 'naha',
+      }),
+    });
+    const json = await res.json();
+    if (!json.success) { console.warn('[ai_analyze] GAS返却エラー:', json.error); return null; }
+    return json; // { sub_questions, candidates, draft_body, overall_confidence, auto_reply_ok }
+  } catch(e) {
+    console.warn('[ai_analyze] fetch失敗 (フォールバック):', e.message);
+    return null;
+  }
+};
+
+// ★ フォールバック: キーワードマッチ（Claude API失敗時に使用）
+const scoreEntry = (entry, content, inquiryType) => {
+  const patterns = entry.question.split('/').map(q => q.trim()).filter(Boolean);
+  const cL = content.toLowerCase(), tL = (inquiryType||'').toLowerCase();
+  let maxScore = 0, bestPattern = patterns[0];
+  patterns.forEach(p => {
+    const pL = p.toLowerCase();
+    const words = pL.split(/[\s　・、。？?！!\//]+/).filter(w=>w.length>=2);
+    if (!words.length) return;
+    const matched = words.filter(w=>cL.includes(w));
+    let score = matched.length / words.length;
+    if (cL.includes(pL.replace(/\s/g,''))) score = Math.max(score, 0.8);
+    if (score > maxScore) { maxScore = score; bestPattern = p; }
+  });
+  const catL = entry.category.toLowerCase();
+  const typeClean = tL.replace(/について$/,'').replace(/・.+/,'');
+  if (typeClean && catL.includes(typeClean)) maxScore = Math.min(maxScore+0.25, 1);
+  return { score: Math.round(maxScore*100), bestPattern };
+};
+const searchKnowledgeFallback = async (inq) => {
+  if (!inq?.inquiry_content) return [];
+  const {data, error} = await sb.from('bt_knowledge')
+    .select('*').in('store',[inq.store,'both']).order('priority',{ascending:true});
+  if (error||!data||!data.length) return [];
+  return data.map(entry => {
+    const {score, bestPattern} = scoreEntry(entry, inq.inquiry_content, inq.inquiry_type);
+    return {...entry, score, bestPattern};
+  }).filter(e=>e.score>=15).sort((a,b)=>b.score-a.score||a.priority-b.priority).slice(0,4);
+};
+
+const buildReply = (inq, answerBody) => {
+  const name = inq?.name||'お客様';
+  const store = 'BUDDICA TOURISM 高松空港店';
+  const lineId = '@466dbckq';
+  return `${name} 様\n\nお問い合わせいただきありがとうございます。\n${store}でございます。\n\n${answerBody||''}\n\nご不明な点がございましたら、LINE（${lineId}）またはメールにてお気軽にお申し付けください。\n引き続きよろしくお願いいたします。\n\n──────────────────\n${store}\nreserve.touring@buddica.co.jp\nLINE: ${lineId}\n──────────────────`;
+};
+
+// ===== TOAST =====
+function Toast({msg, onDone}) {
+  useEffect(()=>{const t=setTimeout(onDone,3000);return()=>clearTimeout(t);},[]);
+  return <div className="toast">{msg}</div>;
+}
+
+// ===== ナレッジ登録モーダル =====
+function RegisterKnowledgeModal({inq, correctAnswer, onClose, onSaved}) {
+  const [category, setCategory] = useState('');
+  const [questions, setQuestions] = useState(inq.inquiry_content||'');
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!category.trim()) { alert('カテゴリを入力してください'); return; }
+    if (!questions.trim()||!correctAnswer.trim()) { alert('質問と正解が必要です'); return; }
+    setSaving(true);
+    const {error} = await sb.from('bt_knowledge').insert([{
+      store:inq.store, category:category.trim(), question:questions.trim(),
+      answer:correctAnswer.trim(), rule_basis:'', priority:3
+    }]);
+    setSaving(false);
+    if (error) { alert('登録失敗: '+error.message); return; }
+    onSaved(); onClose();
+  };
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-handle"/>
+        <div className="m-title">🧠 ナレッジに登録</div>
+        <p style={{fontSize:13,color:'#64748b',marginBottom:14}}>次回、同様の質問が来たときに回答候補として表示されます。</p>
+        <div className="fg">
+          <label className="fl">カテゴリ *</label>
+          <input className="fi" value={category} onChange={e=>setCategory(e.target.value)} placeholder="例: キャンセル / 送迎方法"/>
+        </div>
+        <div className="fg">
+          <label className="fl">質問パターン（複数は / で区切り）</label>
+          <textarea className="ft" value={questions} onChange={e=>setQuestions(e.target.value)} style={{minHeight:80}}/>
+          <div className="fhint">問い合わせ内容が自動入力されています。追加・修正してください。</div>
+        </div>
+        <div className="fg">
+          <label className="fl">正解回答（確認）</label>
+          <div style={{background:'#fffbeb',border:'1.5px solid #f59e0b',borderRadius:8,padding:'10px 12px',fontSize:13,lineHeight:1.7,whiteSpace:'pre-wrap',maxHeight:100,overflow:'auto',color:'#374151'}}>
+            {correctAnswer}
+          </div>
+        </div>
+        <div className="m-actions">
+          <button className="btn-cancel" onClick={onClose}>キャンセル</button>
+          <button className="btn-save" onClick={save} disabled={saving} style={{background:'#f59e0b'}}>
+            {saving?'登録中...':'🧠 ナレッジに登録する'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== 問い合わせ追加モーダル =====
+function AddModal({onClose, onSave}) {
+  const [f, setF] = useState({name:'',email:'',phone:'',inquiry_type:'その他',inquiry_content:'',store:'takamatsu'});
+  const upd = (k,v) => setF(p=>({...p,[k]:v}));
+  const save = async () => {
+    if (!f.name.trim()||!f.inquiry_content.trim()) { alert('名前と内容は必須です'); return; }
+    await onSave(f); onClose();
+  };
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-handle"/>
+        <div className="m-title">📥 問い合わせを手動追加</div>
+        <div className="fg"><label className="fl">お名前 *</label><input className="fi" value={f.name} onChange={e=>upd('name',e.target.value)} placeholder="例: サトウアヤ"/></div>
+        <div className="fg"><label className="fl">メールアドレス</label><input className="fi" value={f.email} onChange={e=>upd('email',e.target.value)} placeholder="example@mail.com"/></div>
+        <div style={{display:'flex',gap:10}}>
+          <div className="fg" style={{flex:1}}>
+            <label className="fl">店舗</label>
+            <select className="fi" value={f.store} onChange={e=>upd('store',e.target.value)}>
+              <option value="takamatsu">高松</option>
+            </select>
+          </div>
+          <div className="fg" style={{flex:2}}>
+            <label className="fl">種別</label>
+            <select className="fi" value={f.inquiry_type} onChange={e=>upd('inquiry_type',e.target.value)}>
+              {['予約について','キャンセル','変更','料金','オプション','迎え・送り','その他'].map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="fg"><label className="fl">問い合わせ内容 *</label>
+          <textarea className="ft" value={f.inquiry_content} onChange={e=>upd('inquiry_content',e.target.value)} style={{minHeight:80}}/></div>
+        <div className="m-actions">
+          <button className="btn-cancel" onClick={onClose}>キャンセル</button>
+          <button className="btn-save" onClick={save}>追加する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== INQUIRY DETAIL =====
+function InquiryDetail({inq, onReplyOk, onRefresh, onBack, isMobile, staff}) {
+  const [knCands, setKnCands]           = useState([]);
+  const [knLoading, setKnLoading]       = useState(true);
+  const [pickedId, setPickedId]         = useState(null);
+  // aiVerdict: null=未判定 | 'correct'=AI正解✅ | 'wrong'=AI間違い❌
+  const [aiVerdict, setAiVerdict]       = useState(null);
+  const [correctAnswer, setCorrectAnswer] = useState(''); // ③ スタッフ入力（AIが間違えた場合のみ）
+  const [autoCandAnswer, setAutoCandAnswer] = useState(''); // ②の提案本文（学習記録用）
+  // ★ Claude分析結果
+  const [subQuestions, setSubQuestions] = useState([]);   // 検出されたサブ質問
+  const [aiConfidence, setAiConfidence] = useState(null); // 全体信頼度 0〜100
+  const [autoReplyOk, setAutoReplyOk]   = useState(false);
+  const [expandedCands, setExpandedCands] = useState({});
+  const [showDiff, setShowDiff]         = useState(false);
+  const [editReason, setEditReason]     = useState('');
+  const [replyTxt, setReplyTxt]         = useState('');
+  const [replyManual, setReplyManual]   = useState(false);
+  const [sending, setSending]           = useState(false);
+  const [msgState, setMsgState]         = useState(null);
+  const [progStatus, setProgStatus]     = useState(inq.status || 'new');
+  const [assignedTo, setAssignedTo]     = useState(inq.assigned_to || null);
+  const [lockedBy, setLockedBy]         = useState(null); // 他スタッフが対応中の場合
+  const [showRegister, setShowRegister] = useState(false);
+  const [toast, setToast]               = useState(null);
+  const autoDraftRef = useRef('');
+  const LOCK_TIMEOUT = 30 * 60 * 1000; // 30分
+
+  // ステータス変更（DB更新 + ローカル反映）
+  const changeStatus = async (newStatus) => {
+    // まずstatusだけ更新（必ず成功する）
+    await sb.from('bt_inquiries').update({status: newStatus}).eq('id', inq.id);
+    setProgStatus(newStatus);
+
+    // assigned_to / locked_at はカラムが存在する場合のみ更新（エラーは無視）
+    const assigneeUpdates = {};
+    if (newStatus === 'new') {
+      assigneeUpdates.assigned_to = null;
+      assigneeUpdates.locked_at = null;
+      setAssignedTo(null); setLockedBy(null);
+    } else if (newStatus === 'in_progress' && staff) {
+      assigneeUpdates.assigned_to = staff;
+      assigneeUpdates.locked_at = new Date().toISOString();
+      setAssignedTo(staff);
+    } else if (newStatus === 'pending') {
+      assigneeUpdates.locked_at = null;
+      if (!assignedTo && staff) { assigneeUpdates.assigned_to = staff; setAssignedTo(staff); }
+    }
+    if (Object.keys(assigneeUpdates).length > 0) {
+      // エラーは無視（カラム未追加の場合もstatusは更新済み）
+      sb.from('bt_inquiries').update(assigneeUpdates).eq('id', inq.id).then(({error}) => {
+        if (error) console.warn('[assigned_to更新スキップ] SQLで以下を実行してください:',
+          'ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS assigned_to TEXT, ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;');
+      });
+    }
+    onRefresh();
+  };
+
+  // 担当者割り当て（詳細を開いた時に自動でin_progressへ）
+  const acquireLock = async () => {
+    if (inq.status === 'replied') return;
+    try {
+      const {data} = await sb.from('bt_inquiries').select('assigned_to,locked_at,status').eq('id',inq.id).single();
+      if (!data) return;
+      // 他スタッフが30分以内にロック中
+      if (data.assigned_to && data.assigned_to !== staff && data.locked_at) {
+        const elapsed = Date.now() - new Date(data.locked_at).getTime();
+        if (elapsed < LOCK_TIMEOUT) { setLockedBy(data.assigned_to); return; }
+      }
+      // 未対応の場合は対応中に自動昇格
+      if (!data.status || data.status === 'new') {
+        await sb.from('bt_inquiries').update({status:'in_progress'}).eq('id',inq.id);
+        setProgStatus('in_progress'); onRefresh();
+        // 担当者セット（カラム存在時のみ）
+        sb.from('bt_inquiries').update({assigned_to:staff, locked_at:new Date().toISOString()}).eq('id',inq.id)
+          .then(({error})=>{ if(!error) setAssignedTo(staff); });
+      } else if (data.assigned_to !== staff && !data.assigned_to) {
+        sb.from('bt_inquiries').update({assigned_to:staff, locked_at:new Date().toISOString()}).eq('id',inq.id)
+          .then(({error})=>{ if(!error) setAssignedTo(staff); });
+      }
+    } catch(e) { /* カラム未存在時は無視 */ }
+  };
+
+  // ロック解放（他のアイテムに移動時）
+  const releaseLock = async () => {
+    if (!staff) return;
+    try {
+      await sb.from('bt_inquiries').update({locked_at: null}).eq('id', inq.id);
+    } catch(e) { /* カラム未存在時は無視 */ }
+  };
+
+  // マウント時: ロック取得 + 未対応→対応中 自動昇格
+  useEffect(() => {
+    if (staff) {
+      acquireLock();
+    } else if (inq.status === 'new') {
+      // スタッフ未設定でも新規→対応中に自動昇格
+      sb.from('bt_inquiries').update({status:'in_progress'}).eq('id',inq.id).then(()=>{
+        setProgStatus('in_progress'); onRefresh();
+      });
+    }
+    return () => { releaseLock(); };
+  }, [inq.id]);
+
+  // ロック keepalive（10分毎にlocked_atを更新）
+  useEffect(() => {
+    if (!staff || progStatus === 'replied') return;
+    const timer = setInterval(async () => {
+      const {data} = await sb.from('bt_inquiries').select('assigned_to').eq('id',inq.id).single();
+      if (data?.assigned_to === staff) {
+        await sb.from('bt_inquiries').update({locked_at: new Date().toISOString()}).eq('id', inq.id);
+      }
+    }, 10 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [inq.id, staff, progStatus]);
+
+  useEffect(() => {
+    setKnLoading(true); setKnCands([]); setPickedId(null);
+    setAiVerdict(null); setCorrectAnswer(''); setAutoCandAnswer('');
+    setShowDiff(false); setEditReason('');
+    setReplyTxt(''); setReplyManual(false);
+    setMsgState(null); setProgStatus(inq.status || 'new');
+    setAssignedTo(inq.assigned_to || null); setLockedBy(null);
+    setSubQuestions([]); setAiConfidence(null); setAutoReplyOk(false);
+
+    // 返信済みの場合は保存済みデータを表示
+    if (inq.reply_content) {
+      setReplyTxt(inq.reply_content);
+      if (inq.correct_answer) setCorrectAnswer(inq.correct_answer);
+      if (inq.was_edited === false) setAiVerdict('correct');
+      if (inq.was_edited === true)  setAiVerdict('wrong');
+      if (inq.auto_draft) {
+        const m = inq.auto_draft.match(/でございます。\n\n([\s\S]+?)\n\nご不明な点/);
+        setAutoCandAnswer(m ? m[1] : '');
+      }
+    }
+
+    // ★ Claude API で分析 → フォールバックでキーワードマッチ
+    (async () => {
+      const claudeResult = await analyzeWithClaude(inq);
+      if (claudeResult) {
+        // Claude成功
+        const cands = (claudeResult.candidates || []).filter(c => c.score > 0 && c.category);
+        setSubQuestions(claudeResult.sub_questions || []);
+        setAiConfidence(claudeResult.overall_confidence ?? null);
+        setAutoReplyOk(claudeResult.auto_reply_ok || false);
+        setKnCands(cands);
+        setKnLoading(false);
+        if (!inq.reply_content) {
+          if (cands.length > 0) {
+            setPickedId(cands[0].id || cands[0].knowledge_num);
+            setAutoCandAnswer(cands[0].answer || '');
+          }
+          if (claudeResult.draft_body) {
+            // ④ 返信欄に Claude下書きを自動セット
+            const fullDraft = buildReply(inq, claudeResult.draft_body);
+            setReplyTxt(fullDraft);
+            autoDraftRef.current = fullDraft;
+            if (!inq.auto_draft) sb.from('bt_inquiries').update({auto_draft: fullDraft}).eq('id', inq.id).then(()=>{});
+          }
+        }
+      } else {
+        // フォールバック: キーワードマッチ
+        const results = await searchKnowledgeFallback(inq);
+        setKnCands(results); setKnLoading(false);
+        if (!inq.reply_content && results.length > 0) {
+          setPickedId(results[0].id);
+          setAutoCandAnswer(results[0].answer);
+          const draft = buildReply(inq, results[0].answer);
+          autoDraftRef.current = draft;
+          if (!inq.auto_draft) sb.from('bt_inquiries').update({auto_draft: draft}).eq('id', inq.id).then(()=>{});
+        }
+      }
+    })();
+  }, [inq.id]);
+
+  // ✅ AI正解ボタン
+  const handleCorrect = (cand) => {
+    setPickedId(cand.id||cand.knowledge_num);
+    setAiVerdict('correct');
+    setCorrectAnswer(''); // ③は空白のまま
+    // Claude下書きがあればそちらを使う（複数質問の統合回答を維持する）
+    const body = replyTxt && replyTxt !== buildReply(inq,'') ? replyTxt : buildReply(inq, cand.answer);
+    setReplyTxt(body);
+    autoDraftRef.current = body;
+    setAutoCandAnswer(cand.answer);
+    setReplyManual(false);
+  };
+
+  // ❌ AI間違いボタン
+  const handleWrong = (cand) => {
+    setPickedId(cand.id||cand.knowledge_num);
+    setAiVerdict('wrong');
+    setCorrectAnswer(''); // ③をブランクにしてスタッフ入力を促す
+    setAutoCandAnswer(cand.answer);
+    setReplyTxt(buildReply(inq, ''));
+    autoDraftRef.current = buildReply(inq, cand.answer);
+  };
+
+  // ③ 正解入力時に④を自動更新
+  const handleCorrectChange = val => {
+    setCorrectAnswer(val);
+    setReplyManual(false);
+    setReplyTxt(buildReply(inq, val));
+  };
+
+  // ② 候補カードをクリック（判定なしの場合はハイライトのみ）
+  const pickCand = c => { setPickedId(c.id); };
+
+  // 旧markProgress → changeStatus('in_progress') に統合済み
+  const markProgress = () => changeStatus('in_progress');
+
+  const handleSend = async () => {
+    if (!replyTxt.trim() || replyTxt === buildReply(inq,'')) {
+      alert('返信内容を入力してください'); return;
+    }
+    if (!inq.email) { alert('送信先メールアドレスがありません'); return; }
+    if (GAS_URL==='YOUR_GAS_WEBAPP_URL_HERE') alert('GAS_URLが未設定です。\nSupabaseへの保存のみ行います。');
+    setSending(true); setMsgState(null);
+
+    // 学習データの決定
+    // ✅正解: was_edited=false, correct_answer=null（AIが正しかった）
+    // ❌間違い: was_edited=true, correct_answer=③スタッフ入力
+    // 未判定: was_edited=null（判断保留）
+    const wasEdited = aiVerdict === 'wrong' ? true : aiVerdict === 'correct' ? false : null;
+    const matchScore = aiVerdict === 'correct' ? 100 : (() => {
+      if (!autoDraftRef.current || !replyTxt) return 0;
+      const a=autoDraftRef.current, r=replyTxt;
+      let common=0; const sh=a.length<r.length?a:r, lo=a.length>=r.length?a:r;
+      for(let i=0;i<sh.length;i++){if(sh[i]===lo[i])common++;}
+      return Math.round((common/Math.max(a.length,r.length))*100);
+    })();
+
+    try {
+      if (GAS_URL!=='YOUR_GAS_WEBAPP_URL_HERE') {
+        await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'send_reply',to:inq.email,subject:'Re: お問い合わせについて【BUDDICA TOURISM 高松空港店】',body:replyTxt,inquiry_id:inq.id})});
+      }
+      await sb.from('bt_inquiries').update({
+        status:'replied', reply_content:replyTxt,
+        correct_answer: aiVerdict==='wrong' ? correctAnswer : null,
+        replied_at:new Date().toISOString(), auto_draft:autoDraftRef.current,
+        was_edited:wasEdited, match_score:matchScore,
+        intent_label:knCands.find(c=>c.id===pickedId)?.category||null,
+        edit_reason: aiVerdict==='wrong' ? (editReason||'other') : null,
+      }).eq('id',inq.id);
+      // 担当者記録（カラム存在時のみ、エラーは無視）
+      if (staff || assignedTo) {
+        sb.from('bt_inquiries').update({assigned_to: staff||assignedTo, locked_at:null}).eq('id',inq.id).then(()=>{},()=>{});
+      }
+
+      // ③ に正解が入力されていたら自動でナレッジ登録
+      let autoRegistered = false;
+      if (aiVerdict==='wrong' && correctAnswer.trim()) {
+        const pickedCand = knCands.find(c=>c.id===pickedId);
+        const category = pickedCand?.category || inq.inquiry_type || 'その他';
+        await sb.from('bt_knowledge').insert({
+          category,
+          question: inq.inquiry_content?.substring(0,200) || '',
+          answer: correctAnswer.trim(),
+          store: inq.store || 'both',
+          priority: 50,
+          rule_basis: `自動登録: ${new Date().toLocaleDateString('ja-JP')} / 問合ID:${inq.id}`
+        });
+        autoRegistered = true;
+      }
+
+      setProgStatus('replied');
+      const verdictTxt = aiVerdict==='correct'?'✅ AI正解':'✏️ スタッフ修正';
+      const regTxt = autoRegistered ? ' + 🧠 ナレッジ自動登録' : '';
+      setMsgState({type:'ok',txt:`✅ 送信しました（${verdictTxt} / 一致率${matchScore}%${regTxt}）`});
+      onReplyOk(inq.id, replyTxt);
+    } catch(e) { setMsgState({type:'err',txt:`❌ エラー: ${e.message}`}); }
+    setSending(false);
+  };
+
+  const sl = stCfg(progStatus);
+  const scoreClass = s => s>=70?'score-hi':s>=40?'score-mid':'score-lo';
+  const isReplied = progStatus==='replied';
+  const canRegister = aiVerdict==='wrong' && correctAnswer.trim() && !isReplied;
+
+  return (
+    <>
+      {/* モバイル：戻るボタン */}
+      {isMobile && onBack && (
+        <div className="back-bar">
+          <button className="back-btn" onClick={onBack}>
+            ← 一覧に戻る
+          </button>
+        </div>
+      )}
+      <div className="detail-inner">
+
+        {/* 他スタッフが対応中バナー */}
+        {lockedBy && lockedBy !== staff && (
+          <div className="lock-banner">
+            🔒 <strong>{lockedBy}</strong> が現在対応中です。編集は{lockedBy}が完了後に行ってください。
+          </div>
+        )}
+
+        {/* ヘッダー */}
+        <div className="sec">
+          <div className="dh">
+            <div style={{flex:1,minWidth:0}}>
+              <div className="dh-name">{inq.name} 様</div>
+              <div className="dh-meta">
+                <span className="meta">📧 <strong>{inq.email||'未入力'}</strong></span>
+                <span className="meta">📞 <strong>{inq.phone||'未入力'}</strong></span>
+                <span className="meta">🕐 <strong>{fmtFull(inq.received_at)}</strong></span>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6,alignItems:'flex-start',flexShrink:0}}>
+              <span className={`st ${sl.c}`} style={{fontSize:13}}>{sl.icon} {sl.t}</span>
+              {inq.store && <span className="st st-store">{'🚐 高松'}</span>}
+              {inq.source==='demo' && <span style={{fontSize:11,background:'#fef9c3',color:'#854d0e',padding:'2px 8px',borderRadius:4,fontWeight:700}}>DEMO</span>}
+            </div>
+          </div>
+
+          {/* ステータス操作バー */}
+          {!isReplied && (
+            <div className="status-bar">
+              {/* 担当者セレクター */}
+              <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                <span className="status-bar-label">担当:</span>
+                <select
+                  value={assignedTo || ''}
+                  onChange={async e => {
+                    const v = e.target.value || null;
+                    setAssignedTo(v);
+                    await sb.from('bt_inquiries').update({assigned_to: v}).eq('id', inq.id);
+                    onRefresh();
+                  }}
+                  style={{padding:'4px 8px',border:'1.5px solid #bfdbfe',borderRadius:8,fontSize:13,
+                    fontWeight:700,color:'#1e40af',background:'#eff6ff',cursor:'pointer',outline:'none',
+                    minWidth:90}}>
+                  <option value=''>未割当</option>
+                  {STAFF_LIST.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* ステータスボタン */}
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}}>
+                <button
+                  className={`status-btn status-btn-new ${progStatus==='new'?'on':''}`}
+                  onClick={()=>changeStatus('new')}
+                  disabled={progStatus==='new'}>
+                  🔴 未対応
+                </button>
+                <button
+                  className={`status-btn status-btn-prog ${progStatus==='in_progress'?'on':''}`}
+                  onClick={()=>changeStatus('in_progress')}
+                  disabled={progStatus==='in_progress'}>
+                  🟡 対応中
+                </button>
+                <button
+                  className={`status-btn status-btn-pending ${progStatus==='pending'?'on':''}`}
+                  onClick={()=>changeStatus('pending')}
+                  disabled={progStatus==='pending'}>
+                  ⏸ 保留中
+                </button>
+                <button
+                  className={`status-btn status-btn-done ${progStatus==='replied'?'on':''}`}
+                  onClick={()=>changeStatus('replied')}
+                  disabled={progStatus==='replied'}>
+                  ✅ 完了
+                </button>
+              </div>
+            </div>
+          )}
+          {isReplied && (
+            <div className="status-bar" style={{marginTop:8}}>
+              {/* 担当者 */}
+              <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                <span className="status-bar-label">担当:</span>
+                <select
+                  value={assignedTo || ''}
+                  onChange={async e => {
+                    const v = e.target.value || null;
+                    setAssignedTo(v);
+                    await sb.from('bt_inquiries').update({assigned_to: v}).eq('id', inq.id);
+                  }}
+                  style={{padding:'3px 8px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:12,
+                    fontWeight:700,color:'#64748b',background:'#f8fafc',cursor:'pointer',outline:'none'}}>
+                  <option value=''>未割当</option>
+                  {STAFF_LIST.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+                {inq.replied_at && <span style={{fontSize:11,color:'#94a3b8'}}>返信: {fmtFull(inq.replied_at)}</span>}
+              </div>
+              {/* 完了を解除して戻す */}
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginLeft:'auto'}}>
+                <button className="status-btn status-btn-new" onClick={()=>changeStatus('new')}>🔴 未対応に戻す</button>
+                <button className="status-btn status-btn-prog" onClick={()=>changeStatus('in_progress')}>🟡 対応中に戻す</button>
+                <button className="status-btn status-btn-pending" onClick={()=>changeStatus('pending')}>⏸ 保留中に戻す</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ① 問い合わせ内容 */}
+        <div className="sec">
+          <div className="sec-title"><span className="sec-num">1</span> お問い合わせ内容
+            <span style={{fontSize:11,fontWeight:400,color:'#94a3b8',textTransform:'none',letterSpacing:0}}>{inq.inquiry_type}</span>
+          </div>
+          <div className="content-box">{inq.inquiry_content}</div>
+        </div>
+
+        {/* ② 回答候補 */}
+        <div className="sec" style={{borderColor: knLoading ? '#93c5fd' : knCands.length > 0 ? '#86efac' : '#e2e8f0', transition:'border-color .5s'}}>
+          <div className="sec-title">
+            <span className="sec-num" style={{background: knLoading ? '#3b82f6' : knCands.length > 0 ? '#16a34a' : '#94a3b8', transition:'background .5s'}}>2</span>
+            <span>Claude AI 分析</span>
+            {knLoading && <span style={{fontSize:11,fontWeight:400,color:'#3b82f6',textTransform:'none',letterSpacing:0}}>🤖 Claude が分析中...</span>}
+            {!knLoading && knCands.length > 0 && <span style={{fontSize:11,fontWeight:400,color:'#15803d',textTransform:'none',letterSpacing:0}}>✅ {knCands.length}件マッチ</span>}
+            {!knLoading && knCands.length === 0 && <span style={{fontSize:11,fontWeight:400,color:'#94a3b8',textTransform:'none',letterSpacing:0}}>該当なし</span>}
+            {/* 信頼度バッジ */}
+            {!knLoading && aiConfidence !== null && (
+              <span style={{
+                marginLeft:'auto', fontSize:12, fontWeight:800, padding:'2px 10px', borderRadius:12,
+                background: aiConfidence>=80?'#dcfce7':aiConfidence>=50?'#fef9c3':'#fee2e2',
+                color:      aiConfidence>=80?'#15803d':aiConfidence>=50?'#854d0e':'#b91c1c'
+              }}>
+                {aiConfidence>=80?'🟢':aiConfidence>=50?'🟡':'🔴'} 信頼度 {aiConfidence}%
+              </span>
+            )}
+          </div>
+          {/* サブ質問チップ */}
+          {!knLoading && subQuestions.length > 0 && (
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+              <span style={{fontSize:10,color:'#64748b',fontWeight:700,alignSelf:'center'}}>検出した質問:</span>
+              {subQuestions.map((q,i)=>(
+                <span key={i} style={{fontSize:11,padding:'3px 10px',borderRadius:12,background:'#eff6ff',color:'#1d4ed8',fontWeight:700,border:'1px solid #bfdbfe'}}>
+                  Q{i+1} {q}
+                </span>
+              ))}
+            </div>
+          )}
+          {/* 自動返信可能バナー */}
+          {!knLoading && autoReplyOk && !isReplied && (
+            <div style={{padding:'10px 12px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,fontSize:12,color:'#15803d',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+              🤖 <strong>信頼度{aiConfidence}% — 全質問に回答可能です。</strong>④の返信内容を確認して送信してください。
+            </div>
+          )}
+          {knLoading ? (
+            <div className="ai-scanning">
+              <span className="spin" style={{fontSize:18}}>🤖</span>
+              <div>
+                <div className="ai-scanning-txt">Claude が問い合わせを分析中...</div>
+                <div style={{fontSize:11,color:'#64748b',marginTop:2}}>質問を分解 → ナレッジマッチング → 返信下書き生成</div>
+              </div>
+            </div>
+          ) : knCands.length===0 ? (
+            <div className="no-cand">
+              <div style={{fontSize:24,marginBottom:6}}>🤔</div>
+              <strong>一致するナレッジが見つかりません</strong><br/>
+              <span style={{fontSize:12}}>③ 欄に正解を直接入力 → 「ナレッジ登録」で次回から学習されます</span>
+            </div>
+          ) : (
+            <>
+              {/* 判定前のガイド */}
+              {!isReplied && aiVerdict===null && (
+                <div style={{padding:'10px 12px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:8,fontSize:12,color:'#0369a1',marginBottom:10}}>
+                  💡 AI候補を確認して <strong>✅ 正しい</strong> または <strong>❌ 違う</strong> を選んでください
+                </div>
+              )}
+              {/* 判定済みバナー */}
+              {!isReplied && aiVerdict==='correct' && (
+                <div className="ai-done-bar" style={{background:'#f0fdf4',border:'1px solid #86efac',color:'#15803d'}}>
+                  ✅ AI正解と判定しました — ④の返信内容を確認して送信できます
+                </div>
+              )}
+              {!isReplied && aiVerdict==='wrong' && (
+                <div className="ai-done-bar" style={{background:'#fef2f2',border:'1px solid #fca5a5',color:'#b91c1c'}}>
+                  ❌ AI間違いと判定しました — ③ に正解を入力してください
+                </div>
+              )}
+              {/* 候補リスト */}
+              <div className="cand-list">
+                {knCands.map((c,ci) => (
+                  <div key={c.id||ci} className={`cand ${pickedId===(c.id||c.knowledge_num)?'picked':''}`}>
+                    <div className="cand-top" onClick={()=>pickCand(c)} style={{cursor:'pointer'}}>
+                      <span className="cand-cat">{pickedId===(c.id||c.knowledge_num)?'✓ ':''}{c.category}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        {/* どの質問に対応するか */}
+                        {subQuestions.length > 0 && c.sub_q_idx !== undefined && subQuestions[c.sub_q_idx] && (
+                          <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:'#eff6ff',color:'#1d4ed8',fontWeight:700}}>Q{c.sub_q_idx+1}</span>
+                        )}
+                        <span className={`cand-score ${scoreClass(c.score)}`}>信頼度 {c.score}%</span>
+                      </div>
+                    </div>
+                    <div className="cand-q" onClick={()=>pickCand(c)} style={{cursor:'pointer'}}>❓ {c.question||c.bestPattern}</div>
+                    <div style={{marginBottom:8}}>
+                      <div className="cand-prev" style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:13,color:'#374151'}}>
+                        {expandedCands[c.id]
+                          ? c.answer
+                          : c.answer?.substring(0,80)+(c.answer?.length>80?'…':'')}
+                      </div>
+                      {c.answer?.length>80 && (
+                        <button onClick={()=>setExpandedCands(p=>({...p,[c.id]:!p[c.id]}))}
+                          style={{fontSize:11,color:'#3b82f6',background:'none',border:'none',cursor:'pointer',padding:'2px 0',fontWeight:600}}>
+                          {expandedCands[c.id]?'▲ 閉じる':'▼ 全文を見る'}
+                        </button>
+                      )}
+                    </div>
+                    {/* ✅/❌ 判定ボタン */}
+                    {!isReplied && (
+                      <div style={{display:'flex',gap:8,marginTop:4}}>
+                        <button
+                          onClick={()=>handleCorrect(c)}
+                          style={{flex:1,padding:'8px 0',borderRadius:8,border:'2px solid',
+                            borderColor: pickedId===c.id&&aiVerdict==='correct'?'#16a34a':'#86efac',
+                            background: pickedId===c.id&&aiVerdict==='correct'?'#16a34a':'#f0fdf4',
+                            color: pickedId===c.id&&aiVerdict==='correct'?'white':'#16a34a',
+                            cursor:'pointer',fontSize:13,fontWeight:700,minHeight:40,transition:'all .15s'}}>
+                          ✅ 正しい
+                        </button>
+                        <button
+                          onClick={()=>handleWrong(c)}
+                          style={{flex:1,padding:'8px 0',borderRadius:8,border:'2px solid',
+                            borderColor: pickedId===c.id&&aiVerdict==='wrong'?'#dc2626':'#fca5a5',
+                            background: pickedId===c.id&&aiVerdict==='wrong'?'#dc2626':'#fef2f2',
+                            color: pickedId===c.id&&aiVerdict==='wrong'?'white':'#dc2626',
+                            cursor:'pointer',fontSize:13,fontWeight:700,minHeight:40,transition:'all .15s'}}>
+                          ❌ 違う
+                        </button>
+                      </div>
+                    )}
+                    {/* 返信済みの場合は判定結果を表示 */}
+                    {isReplied && pickedId===c.id && (
+                      <div style={{marginTop:4,fontSize:12,fontWeight:700,color:inq.was_edited===false?'#16a34a':'#d97706'}}>
+                        {inq.was_edited===false?'✅ AI正解と記録済み':'✏️ スタッフ修正済み'}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ③ 正解回答（verdict ベース） */}
+        {(() => {
+          // 返信済みの表示
+          if (isReplied) {
+            return (
+              <div className="sec">
+                <div className="sec-title">
+                  <span className="sec-num" style={{background:'#f59e0b'}}>3</span>
+                  <span style={{color:'#92400e'}}>正解回答</span>
+                  {inq.was_edited===false && <span className="tbadge tbadge-ai">🤖 AI正解（編集なし）</span>}
+                  {inq.was_edited===true  && <span className="tbadge tbadge-edit">✏️ スタッフ修正済み</span>}
+                </div>
+                {inq.was_edited===false && (
+                  <div style={{padding:'10px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,fontSize:13,color:'#15803d',fontWeight:600}}>
+                    ✅ AI候補が正しいと判定されました。スタッフ入力なしで学習記録されます。
+                  </div>
+                )}
+                {inq.was_edited===true && inq.correct_answer && (
+                  <div>
+                    <div style={{fontSize:12,color:'#92400e',marginBottom:6,fontWeight:600}}>スタッフが入力した正解：</div>
+                    <div style={{padding:'10px 14px',background:'#fffbeb',border:'1.5px solid #f59e0b',borderRadius:8,fontSize:14,lineHeight:1.8,whiteSpace:'pre-wrap',color:'#374151'}}>
+                      {inq.correct_answer}
+                    </div>
+                    {inq.edit_reason && (
+                      <div style={{marginTop:6,fontSize:12,color:'#8b5cf6',fontWeight:600}}>
+                        修正理由: {[{k:'wrong_info',l:'情報が間違い'},{k:'missing_info',l:'情報が不足'},{k:'wrong_tone',l:'文体・トーンが不適切'},{k:'too_long',l:'長すぎた'},{k:'no_candidate',l:'候補がなかった'},{k:'other',l:'その他'}].find(r=>r.k===inq.edit_reason)?.l||inq.edit_reason}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {inq.was_edited===null && (
+                  <div style={{padding:'10px 14px',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,color:'#64748b'}}>
+                    — 判定なし（送信済み）
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // 未返信: verdict ベースの表示
+          return (
+            <div className={`sec ${aiVerdict==='wrong'?'sec-correct':''}`}>
+              <div className="sec-title">
+                <span className="sec-num" style={{background:'#f59e0b'}}>3</span>
+                <span style={{color:'#92400e'}}>正解回答</span>
+                {aiVerdict==='correct' && <span className="tbadge tbadge-ai">✅ AI正解</span>}
+                {aiVerdict==='wrong'   && <span className="tbadge tbadge-edit">❌ スタッフ入力待ち</span>}
+              </div>
+
+              {/* verdict = null または correct → 非活性 */}
+              {(aiVerdict===null || aiVerdict==='correct') && (
+                <div style={{
+                  padding:'14px 16px',
+                  background: aiVerdict==='correct'?'#f0fdf4':'#f8fafc',
+                  border: `1.5px solid ${aiVerdict==='correct'?'#86efac':'#e2e8f0'}`,
+                  borderRadius:8, fontSize:13,
+                  color: aiVerdict==='correct'?'#15803d':'#94a3b8',
+                  fontWeight: aiVerdict==='correct'?600:400,
+                  lineHeight:1.7
+                }}>
+                  {aiVerdict==='correct'
+                    ? '✅ AI候補が正しいと判定されました。③の入力は不要です。このまま④の返信を送信してください。'
+                    : '② のAI候補を確認して ✅ 正しい または ❌ 違う を押してください。\nAIが正しければここは空白のままで学習記録されます。'}
+                </div>
+              )}
+
+              {/* verdict = wrong → 活性テキストエリア */}
+              {aiVerdict==='wrong' && (
+                <div>
+                  <div style={{fontSize:12,color:'#92400e',marginBottom:8,fontWeight:600}}>
+                    ❌ AIが間違っていました。正しい回答をここに入力してください。
+                    <span style={{fontWeight:400,marginLeft:6,color:'#b45309'}}>(この内容が学習データになります)</span>
+                  </div>
+                  <textarea
+                    className="correct-ta"
+                    value={correctAnswer}
+                    onChange={e=>handleCorrectChange(e.target.value)}
+                    rows={5}
+                    placeholder={'正しい回答本文を入力してください。\n挨拶・署名は不要です（本文のみ）。'}
+                    autoFocus
+                  />
+
+                  {/* 修正理由セレクター */}
+                  <div style={{marginTop:12,padding:'12px 14px',background:'#f8fafc',borderRadius:10,border:'1px solid #e2e8f0'}}>
+                    <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:8}}>
+                      なぜ違いましたか？ <span style={{fontWeight:400,color:'#94a3b8'}}>(学習精度が上がります)</span>
+                    </div>
+                    <div className="reason-sel">
+                      {[
+                        {k:'wrong_info',   l:'❌ 情報が間違い',        hint:'内容に誤りがあった'},
+                        {k:'missing_info', l:'➕ 情報が不足',          hint:'追加すべき情報があった'},
+                        {k:'wrong_tone',   l:'🎭 文体・トーンが不適切', hint:'表現や言い回しが合わなかった'},
+                        {k:'too_long',     l:'✂️ 長すぎた',            hint:'回答が冗長だった'},
+                        {k:'no_candidate', l:'🔍 候補がなかった',       hint:'知識ベースに該当なし'},
+                        {k:'other',        l:'🔧 その他',              hint:''},
+                      ].map(r=>(
+                        <button key={r.k} className={`reason-btn ${editReason===r.k?'on':''}`}
+                          onClick={()=>setEditReason(r.k)} title={r.hint}>
+                          {r.l}
+                        </button>
+                      ))}
+                    </div>
+                    {editReason && (
+                      <div style={{fontSize:11,color:'#16a34a',marginTop:8,fontWeight:600}}>
+                        ✅ 「{[{k:'wrong_info',l:'情報が間違い'},{k:'missing_info',l:'情報が不足'},{k:'wrong_tone',l:'文体・トーンが不適切'},{k:'too_long',l:'長すぎた'},{k:'no_candidate',l:'候補がなかった'},{k:'other',l:'その他'}].find(r=>r.k===editReason)?.l}」として記録されます
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ③入力済み → 送信時に自動登録される旨を表示 */}
+                  {canRegister && (
+                    <div style={{marginTop:10,padding:'10px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,fontSize:12,color:'#15803d',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      <span style={{fontWeight:700}}>🧠 送信時に自動でナレッジ登録されます</span>
+                      <span style={{color:'#64748b',fontWeight:400}}>次回から同じ質問に候補として表示されます</span>
+                      <button onClick={()=>setShowRegister(true)}
+                        style={{marginLeft:'auto',fontSize:11,color:'#059669',background:'white',border:'1px solid #86efac',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                        今すぐ登録
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ④ 返信内容 */}
+        <div className="sec">
+          <div className="sec-title">
+            <span className="sec-num">4</span> 返信内容（送信テキスト）
+            {replyManual && <span className="tbadge tbadge-edit">✏️ 直接編集中</span>}
+          </div>
+          <textarea
+            className="reply-ta"
+            value={replyTxt}
+            onChange={e=>{setReplyTxt(e.target.value);setReplyManual(true);}}
+            disabled={isReplied}
+            placeholder="② ✅ 正しい を押すとAI回答が自動セットされます。❌ 違う → ③入力後に自動生成されます。"
+          />
+          <div className="reply-btns">
+            <button className="send-btn" onClick={handleSend} disabled={sending||isReplied}>
+              {sending?<><span className="spin">⟳</span> 送信中...</>
+                :isReplied?'✅ 送信済み':<>📤 reserve@ から送信</>}
+            </button>
+            <div className="send-info">
+              送信元: <span className="send-from">reserve.touring@buddica.co.jp</span>
+              {inq.email && !isMobile && <> → <strong>{inq.email}</strong></>}
+            </div>
+            {!isReplied && replyManual && (
+              <button onClick={()=>{setReplyTxt(buildReply(inq,correctAnswer));setReplyManual(false);}}
+                style={{padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,cursor:'pointer',fontSize:13,color:'#64748b',minHeight:36}}>
+                ↩ 正解から再生成
+              </button>
+            )}
+          </div>
+          {msgState && <div className={msgState.type==='ok'?'msg-ok':'msg-err'}>{msgState.txt}</div>}
+        </div>
+
+        {inq.reply_content && (
+          <div className="sec">
+            <div className="sec-title"><span>📤</span> 送信済み内容</div>
+            <div className="hist-box">{inq.reply_content}</div>
+            {inq.replied_at && <div style={{fontSize:11,color:'#86efac',marginTop:8}}>送信日時: {fmtFull(inq.replied_at)}</div>}
+          </div>
+        )}
+      </div>
+
+      {showRegister && (
+        <RegisterKnowledgeModal inq={inq} correctAnswer={correctAnswer}
+          onClose={()=>setShowRegister(false)}
+          onSaved={()=>setToast('🧠 ナレッジに登録しました！')}/>
+      )}
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </>
+  );
+}
+
+// ===== INBOX VIEW =====
+function InboxView({staff}) {
+  const isMobile = useIsMobile();
+  const [inqs, setInqs]         = useState([]);
+  const [sel, setSel]           = useState(null);
+  const [mobilePane, setMobilePane] = useState('list'); // 'list' | 'detail'
+  const [filter, setFilter]     = useState('all');
+  const [search, setSearch]     = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [syncing, setSyncing]   = useState(false);
+  const [showAdd, setShowAdd]   = useState(false);
+  const [toast, setToast]       = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected]     = useState(new Set());
+
+  const fetchInqs = useCallback(async () => {
+    // source='training' は過去学習タブで管理 → 受信ビューから除外
+    const {data} = await sb.from('bt_inquiries').select('*')
+      .or('source.eq.manual,source.eq.demo,source.eq.gmail_live,source.is.null')
+      .order('received_at',{ascending:false});
+    setInqs(data||[]); setLoading(false);
+  }, []);
+  useEffect(()=>{
+    fetchInqs();
+
+    // ① Supabase Realtime（テーブルにPublication設定済みの場合に即時反映）
+    const channel = sb.channel('inq_realtime_v2')
+      .on('postgres_changes', {event:'*', schema:'public', table:'inquiries'}, payload => {
+        if (payload.eventType === 'DELETE') {
+          setInqs(p => p.filter(i => i.id !== payload.old.id));
+          setSel(prev => prev?.id === payload.old.id ? null : prev);
+        } else {
+          fetchInqs();
+        }
+      })
+      .subscribe((status) => {
+        console.log('[Realtime]', status);
+      });
+
+    // ② 5秒ポーリング（Realtimeが無効でも確実に同期するフォールバック）
+    const poll = setInterval(() => { fetchInqs(); }, 5000);
+
+    return () => {
+      sb.removeChannel(channel);
+      clearInterval(poll);
+    };
+  },[fetchInqs]);
+
+  const selectItem = async item => {
+    if (selectMode) { toggleInboxSelect(item.id); return; }
+    setSel(item);
+    if (isMobile) setMobilePane('detail');
+    if (item.status === 'new') {
+      await sb.from('bt_inquiries').update({status:'in_progress'}).eq('id', item.id);
+      setInqs(prev => prev.map(i => i.id===item.id ? {...i, status:'in_progress'} : i));
+      setSel(prev => prev?.id===item.id ? {...prev, status:'in_progress'} : prev);
+    }
+  };
+  const goBack = () => { setMobilePane('list'); };
+
+  const toggleInboxSelect = (id) => {
+    setSelected(prev => { const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
+  };
+  const toggleInboxSelectAll = (e) => {
+    e.stopPropagation();
+    if (selected.size===filtered.length && filtered.length>0) setSelected(new Set());
+    else setSelected(new Set(filtered.map(i=>i.id)));
+  };
+  const handleInboxBulkDelete = async (e) => {
+    e.stopPropagation();
+    if (selected.size===0) return;
+    if (!confirm(`選択した ${selected.size} 件を削除しますか？`)) return;
+    const ids=[...selected];
+    await sb.from('bt_inquiries').delete().in('id',ids);
+    setInqs(p=>p.filter(i=>!ids.includes(i.id)));
+    if (ids.includes(sel?.id)) setSel(null);
+    setSelected(new Set());
+    setSelectMode(false);
+    setToast(`🗑 ${ids.length}件削除しました`);
+  };
+
+  const filtered = inqs.filter(i=>{
+    if (filter==='new')     return i.status==='new' || !i.status;
+    if (filter==='prog')    return i.status==='in_progress';
+    if (filter==='pending') return i.status==='pending';
+    if (filter==='done')    return i.status==='replied';
+    return true;
+  }).filter(i=>{
+    if (!search) return true;
+    const q=search.toLowerCase();
+    return (i.name||'').toLowerCase().includes(q)||(i.inquiry_content||'').toLowerCase().includes(q)||(i.assigned_to||'').toLowerCase().includes(q);
+  });
+
+  const newCount     = inqs.filter(i=>i.status==='new'||!i.status).length;
+  const progCount    = inqs.filter(i=>i.status==='in_progress').length;
+  const pendingCount = inqs.filter(i=>i.status==='pending').length;
+
+  const handleAdd = async form => {
+    const {data} = await sb.from('bt_inquiries').insert([{...form,status:'new',received_at:new Date().toISOString()}]).select().single();
+    if (data) { setInqs(p=>[data,...p]); selectItem(data); setToast('✅ 追加しました'); }
+  };
+  const handleReplyOk = (id, txt) => {
+    setInqs(p=>p.map(i=>i.id===id?{...i,status:'replied',reply_content:txt}:i));
+    setSel(p=>p?.id===id?{...p,status:'replied',reply_content:txt}:p);
+    setToast('✅ 送信・保存完了！');
+    setTimeout(fetchInqs, 1000);
+  };
+  const syncEmails = async () => {
+    if (GAS_URL==='YOUR_GAS_WEBAPP_URL_HERE') { alert('GAS URLが未設定のため同期できません'); return; }
+    setSyncing(true);
+    try {
+      await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'sync_emails'})});
+      setTimeout(()=>{fetchInqs();setSyncing(false);setToast('📬 メールを同期しました');},3000);
+    } catch(e){setSyncing(false);}
+  };
+
+  // モバイルでサイドバー or 詳細を切り替え
+  const showSidebar = !isMobile || mobilePane==='list';
+  const showDetail  = !isMobile || mobilePane==='detail';
+
+  return (
+    <div className="wrap">
+      {/* リスト */}
+      {showSidebar && (
+        <div className="sidebar">
+          <div className="sb-head">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <div className="sb-filters" style={{flex:1,flexWrap:'wrap'}}>
+                {[
+                  {k:'all',    l:'すべて'},
+                  {k:'new',    l:`🔴 未対応${newCount>0?`(${newCount})`:''}`,     urgent:newCount>0},
+                  {k:'prog',   l:`🟡 対応中${progCount>0?`(${progCount})`:''}`,   urgent:progCount>0},
+                  {k:'pending',l:`⏸ 保留中${pendingCount>0?`(${pendingCount})`:''}`, urgent:false},
+                  {k:'done',   l:'✅ 完了'},
+                ].map(f=>(
+                  <button key={f.k} className={`f-btn ${filter===f.k?'on':''}`} onClick={()=>setFilter(f.k)}
+                    style={f.urgent&&filter!==f.k?{borderColor:'#ef4444',color:'#ef4444'}:{}}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+              <button onClick={()=>{setSelectMode(v=>!v);setSelected(new Set());}}
+                style={{flexShrink:0,marginLeft:6,fontSize:11,fontWeight:700,padding:'4px 9px',borderRadius:6,border:'1px solid',cursor:'pointer',
+                  borderColor:selectMode?'#ef4444':'#94a3b8',
+                  background:selectMode?'#fef2f2':'#f8fafc',
+                  color:selectMode?'#ef4444':'#64748b'}}>
+                {selectMode?'✕ 解除':'☑ 選択'}
+              </button>
+            </div>
+            {selectMode && (
+              <div style={{display:'flex',gap:6,marginBottom:6,padding:'7px 10px',background:'#fef2f2',borderRadius:8,alignItems:'center'}}>
+                <button onClick={toggleInboxSelectAll}
+                  style={{fontSize:11,fontWeight:700,padding:'3px 9px',borderRadius:6,border:'1px solid #fca5a5',background:'white',color:'#ef4444',cursor:'pointer',whiteSpace:'nowrap'}}>
+                  {selected.size===filtered.length&&filtered.length>0?'✕ 全解除':'✓ 全選択'}
+                </button>
+                <span style={{fontSize:11,color:'#ef4444',fontWeight:600}}>{selected.size}件選択中</span>
+                <button onClick={handleInboxBulkDelete} disabled={selected.size===0}
+                  style={{marginLeft:'auto',fontSize:11,fontWeight:800,padding:'5px 13px',borderRadius:6,border:'none',
+                    background:selected.size>0?'#ef4444':'#fca5a5',color:'white',
+                    cursor:selected.size>0?'pointer':'not-allowed',whiteSpace:'nowrap'}}>
+                  🗑 {selected.size}件削除
+                </button>
+              </div>
+            )}
+            <input className="sb-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="名前・内容で検索..." type="search"/>
+          </div>
+          <div className="inq-list">
+            {loading ? <div style={{padding:30,textAlign:'center',color:'#94a3b8'}}>読み込み中...</div>
+             : filtered.length===0 ? <div style={{padding:30,textAlign:'center',color:'#94a3b8'}}>該当なし</div>
+             : filtered.map(i=>{
+              const sl=stCfg(i.status);
+              return (
+                <div key={i.id} className={`inq-card ${sel?.id===i.id&&!isMobile&&!selectMode?'sel':''} ${selectMode&&selected.has(i.id)?'sel':''}`}
+                  onClick={()=>selectItem(i)}
+                  style={selectMode&&selected.has(i.id)?{background:'#fef2f2',borderColor:'#fca5a5'}:{}}>
+                  <div className="ic-top">
+                    {selectMode && (
+                      <span style={{marginRight:8,fontSize:16,color:selected.has(i.id)?'#ef4444':'#cbd5e1',flexShrink:0}}>
+                        {selected.has(i.id)?'☑':'☐'}
+                      </span>
+                    )}
+                    <span className="ic-name">{i.name}</span>
+                    <span className="ic-date">{fmt(i.received_at)}</span>
+                  </div>
+                  <div className="ic-row2">
+                    <span className={`st ${sl.c}`}>{sl.icon} {sl.t}</span>
+                    {i.assigned_to&&i.status!=='replied'&&<span className="st st-assignee">👤{i.assigned_to}</span>}
+                    <span style={{fontSize:11,color:'#64748b'}}>{i.inquiry_type}</span>
+                    {i.store&&<span className="st st-store" style={{fontSize:10}}>{'🚐'}</span>}
+                    {i.source==='demo'&&<span style={{fontSize:10,background:'#fef9c3',color:'#854d0e',padding:'1px 6px',borderRadius:4,fontWeight:700}}>DEMO</span>}
+                    {i.was_edited===false&&i.reply_content&&<span className="tbadge tbadge-ai" style={{fontSize:10}}>🤖</span>}
+                    {i.was_edited===true&&<span className="tbadge tbadge-edit" style={{fontSize:10}}>✏️</span>}
+                  </div>
+                  <div className="ic-preview">{i.inquiry_content}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 詳細 */}
+      {showDetail && (
+        <div className="detail-wrap">
+          {sel ? (
+            <InquiryDetail key={sel.id} inq={sel} onReplyOk={handleReplyOk} onRefresh={fetchInqs}
+              onBack={isMobile ? goBack : null} isMobile={isMobile} staff={staff}/>
+          ) : (
+            <div className="detail-empty">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <span>左のリストから問い合わせを選択してください</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* フロートボタン（リスト表示中のみ） */}
+      {showSidebar && (
+        <div className="float-btns">
+          <button className="btn-add-inq" onClick={()=>setShowAdd(true)}>＋ 追加</button>
+          <button className="sync-btn" onClick={syncEmails} disabled={syncing}>
+            {syncing?<><span className="spin">⟳</span></>:'📬 同期'}
+          </button>
+        </div>
+      )}
+
+      {showAdd && <AddModal onClose={()=>setShowAdd(false)} onSave={handleAdd}/>}
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// ===== 学習一覧 =====
+function LearningView() {
+  const [replied, setReplied] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [kbCount, setKbCount] = useState(0);
+  const [viewMode, setViewMode] = useState('category');
+  const [expandedDiffs, setExpandedDiffs] = useState({});
+  const [showLoop, setShowLoop] = useState(true);
+
+  useEffect(()=>{
+    Promise.all([
+      sb.from('bt_inquiries').select('*').eq('status','replied').neq('source','training').order('replied_at',{ascending:false}),
+      sb.from('bt_knowledge').select('*',{count:'exact',head:true})
+    ]).then(([{data},{count}])=>{ setReplied(data||[]); setKbCount(count||0); setLoading(false); });
+  },[]);
+
+  // auto_draftから本文を抽出
+  const extractBody = (draft) => {
+    if (!draft) return null;
+    const m = draft.match(/でございます。\n\n([\s\S]+?)\n\nご不明な点/);
+    return m ? m[1] : null;
+  };
+
+  const grouped = {};
+  replied.forEach(inq=>{ const k=inq.intent_label||'（未分類）'; if(!grouped[k])grouped[k]=[]; grouped[k].push(inq); });
+  const catStats = Object.entries(grouped).map(([cat,items])=>{
+    const aiCorrect=items.filter(i=>i.was_edited===false).length;
+    const ws=items.filter(i=>i.match_score!=null);
+    const avgScore=ws.length>0?Math.round(ws.reduce((s,i)=>s+(i.match_score||0),0)/ws.length):null;
+    return {cat,items,aiCorrect,avgScore,total:items.length};
+  }).sort((a,b)=>b.total-a.total);
+
+  const total=replied.length;
+  const aiCorrect=replied.filter(i=>i.was_edited===false).length;
+  const editedCount=replied.filter(i=>i.was_edited===true).length;
+  const ws=replied.filter(i=>i.match_score!=null);
+  const avgScore=ws.length>0?Math.round(ws.reduce((s,i)=>s+(i.match_score||0),0)/ws.length):0;
+
+  // 現在フェーズの判定
+  const phase = kbCount===0 ? 0 : total===0 ? 1 : aiCorrect/Math.max(total,1)>=0.7 ? 3 : 2;
+
+  const LvItem = ({inq}) => {
+    const aiBody = extractBody(inq.auto_draft);
+    const hasDiff = inq.was_edited && aiBody && inq.correct_answer && aiBody !== inq.correct_answer;
+    const open = expandedDiffs[inq.id];
+    return (
+      <div className="lv-item">
+        <div className="lv-item-top">
+          <div className="lv-item-q">{inq.inquiry_content?.substring(0,70)}...</div>
+          <div className="lv-item-meta">
+            {inq.store&&<span className="st st-store" style={{fontSize:10}}>{'🚐'}</span>}
+            {inq.was_edited===false&&<span className="tbadge tbadge-ai">🤖 AI正解</span>}
+            {inq.was_edited===true&&<span className="tbadge tbadge-edit">✏️ 修正</span>}
+            {inq.match_score!=null&&<span style={{fontSize:11,color:'#94a3b8'}}>{inq.match_score}%一致</span>}
+          </div>
+        </div>
+        {inq.correct_answer&&<div className="lv-answer">{inq.correct_answer?.substring(0,100)}...</div>}
+        {hasDiff && (
+          <div style={{marginTop:6}}>
+            <button onClick={()=>setExpandedDiffs(p=>({...p,[inq.id]:!p[inq.id]}))}
+              style={{fontSize:11,color:'#d97706',background:'none',border:'1px solid #fed7aa',borderRadius:4,padding:'2px 8px',cursor:'pointer',fontWeight:600}}>
+              {open?'▲ 差分を閉じる':'▼ ② → ③ 差分を見る'}
+            </button>
+            {open && (
+              <div className="diff-box" style={{marginTop:6}}>
+                <div className="diff-cols">
+                  <div className="diff-col diff-col-ai">
+                    <div className="diff-col-label">🤖 ② AI提案</div>
+                    <div className="diff-col-body">{aiBody}</div>
+                  </div>
+                  <div className="diff-col diff-col-staff">
+                    <div className="diff-col-label">✏️ ③ スタッフ修正</div>
+                    <div className="diff-col-body">{inq.correct_answer}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 修正理由ラベル
+  const reasonLabel = {
+    wrong_info:'❌ 情報が間違い', missing_info:'➕ 情報が不足',
+    wrong_tone:'🎭 文体が不適切', too_long:'✂️ 長すぎた',
+    no_candidate:'🔍 候補なし', other:'🔧 その他'
+  };
+  // 修正理由の集計
+  const reasonCounts = {};
+  replied.filter(i=>i.edit_reason).forEach(i=>{ reasonCounts[i.edit_reason]=(reasonCounts[i.edit_reason]||0)+1; });
+  const reasonTotal = Object.values(reasonCounts).reduce((s,v)=>s+v,0);
+
+  // フライホイール5段階
+  const fw5 = [
+    {icon:'📥',stage:'Stage 1',lbl:'シード',desc:'公式FAQから知識ベースを構築',kpi:`${kbCount}件`,ref:'IBM Watson Knowledge Base',ok:kbCount>0},
+    {icon:'🎯',stage:'Stage 2',lbl:'キャプチャ',desc:'AI提案→スタッフ確認→差分を記録',kpi:`${total}件・差分${editedCount}件`,ref:'RLHF (OpenAI)',ok:total>0},
+    {icon:'🔬',stage:'Stage 3',lbl:'エラー分析',desc:'修正理由を分類して弱点を特定',kpi:reasonTotal>0?`理由付き${reasonTotal}件`:'未収集',ref:'Active Learning (Google)',ok:reasonTotal>=5},
+    {icon:'🔁',stage:'Stage 4',lbl:'ナレッジ更新',desc:'失敗パターンから知識ベースを改善',kpi:'週次レビュー',ref:'CBR Retain (IBM)',ok:aiCorrect>0&&aiCorrect/Math.max(total,1)>=0.5},
+    {icon:'🚀',stage:'Stage 5',lbl:'自動化',desc:'高信頼度案件は自動返信',kpi:'正解率70%以上',ref:'Intercom Resolution Bot',ok:total>0&&aiCorrect/Math.max(total,1)>=0.7},
+  ];
+  const currentStage = fw5.findIndex(s=>!s.ok);
+  const stageIdx = currentStage===-1?5:currentStage;
+
+  return (
+    <div className="full-area">
+      <div className="lv-wrap">
+        <div className="lv-title">📚 学習フライホイール</div>
+        <div className="lv-sub">世界的な事例（RLHF・CBR・Active Learning）に基づく永続的な自己改善ループ</div>
+
+        {/* 知識ベース未登録の警告 */}
+        {kbCount===0 && !loading && (
+          <div className="kb-warn">
+            <div className="kb-warn-icon">⚠️</div>
+            <div className="kb-warn-body">
+              <strong>知識ベースが空です — Stage 1 が未完了です</strong><br/>
+              Supabase の SQL Editor で以下のファイルを順番に実行してください：
+              <ol>
+                <li>knowledge_base_setup.sql</li>
+                <li>knowledge_naha.sql</li>
+                <li>knowledge_insurance.sql</li>
+                <li>knowledge_sapporo_faq.sql</li>
+                <li>knowledge_naha_faq.sql</li>
+                <li>add_training_columns.sql</li>
+                <li>add_correct_answer_column.sql</li>
+                <li>add_edit_reason_column.sql</li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {/* フライホイール図 */}
+        <div className="fw-wrap">
+          <div className="fw-title">🔄 フライホイール — 回り続けるほど精度が上がる
+            <button onClick={()=>setShowLoop(v=>!v)}
+              style={{marginLeft:'auto',fontSize:11,color:'#94a3b8',background:'none',border:'1px solid #e2e8f0',borderRadius:4,padding:'2px 8px',cursor:'pointer'}}>
+              {showLoop?'閉じる':'開く'}
+            </button>
+          </div>
+          <div className="fw-sub">終点のない改善サイクル — 問い合わせが増えるほど自動的に精度が向上する</div>
+          {showLoop && (
+            <div className="fw-cycle">
+              {fw5.map((s,i)=>(
+                <React.Fragment key={i}>
+                  <div className={`fw-step ${s.ok?'active-step':i===stageIdx?'current-step':''}`}>
+                    <div className="fw-icon">{s.icon}</div>
+                    <div className="fw-stage">{s.stage}</div>
+                    <div className="fw-lbl">{s.lbl}</div>
+                    <div className="fw-desc">{s.desc}</div>
+                    <div className="fw-ref">{s.ref}</div>
+                    <div style={{marginTop:4,fontSize:10,fontWeight:700,color:s.ok?'#16a34a':i===stageIdx?'#d97706':'#94a3b8'}}>
+                      {s.ok?'✅ 完了':i===stageIdx?'▶ 実施中':'待機'}
+                    </div>
+                  </div>
+                  {i<fw5.length-1 && (
+                    <div className="fw-arrow">→</div>
+                  )}
+                </React.Fragment>
+              ))}
+              <div className="fw-arrow" style={{color:'#f59e0b'}}>↩</div>
+            </div>
+          )}
+          <div style={{marginTop:12,padding:'10px 14px',background:'#f8fafc',borderRadius:8,fontSize:12,color:'#374151',lineHeight:1.9}}>
+            <strong>なぜフライホイールか：</strong>
+            線形計画（Phase 1→2→3→終了）は「終わったら止まる」。フライホイールは「問い合わせが来るたびに自動で学習が深まる」自己強化ループ。
+            Amazon・OpenAI・Intercomが採用する設計原則で、<span style={{fontWeight:700,color:'#1d4ed8'}}>使えば使うほど賢くなる</span>。<br/>
+            <strong>最重要指標:</strong> AI正解率ではなく<span style={{fontWeight:700,color:'#d97706'}}>「修正理由の分布」</span>—これがどこを直せばいいかを教えてくれる。
+          </div>
+        </div>
+
+        {/* 5段階ステージバー */}
+        <div className="stage-bar">
+          {fw5.map((s,i)=>(
+            <div key={i} className={`stage-card ${s.ok?'done':i===stageIdx?'now':'todo'}`}>
+              <div className="stage-num" style={{color:s.ok?'#16a34a':i===stageIdx?'#d97706':'#94a3b8'}}>{s.icon}</div>
+              <div className="stage-name">{s.stage}: {s.lbl}</div>
+              <div className="stage-kpi">{s.kpi}</div>
+              <span className={`stage-status ${s.ok?'ok':i===stageIdx?'go':'wait'}`}>
+                {s.ok?'✅ 完了':i===stageIdx?'▶ 現在地':'待機'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* 数値サマリー */}
+        <div className="lv-stats">
+          <div className="lv-stat">
+            <div className="lv-stat-num" style={{color:kbCount>0?'#16a34a':'#ef4444'}}>{kbCount}</div>
+            <div className="lv-stat-label">知識ベース<br/><span style={{fontSize:10,color:kbCount===0?'#ef4444':'#64748b'}}>{kbCount===0?'⚠️ SQL未実行':'Stage 1 完了'}</span></div>
+          </div>
+          <div className="lv-stat">
+            <div className="lv-stat-num">{total}</div>
+            <div className="lv-stat-label">返信件数<br/><span style={{fontSize:10,color:'#64748b'}}>学習データ数</span></div>
+          </div>
+          <div className="lv-stat">
+            <div className="lv-stat-num" style={{color:total>0&&aiCorrect/total>=0.7?'#16a34a':'#d97706'}}>{total>0?Math.round(aiCorrect/total*100):0}%</div>
+            <div className="lv-stat-label">AI正解率<br/><span style={{fontSize:10,color:'#64748b'}}>目標: 70%</span></div>
+          </div>
+          <div className="lv-stat">
+            <div className="lv-stat-num" style={{color:editedCount>0?'#d97706':'#94a3b8'}}>{editedCount}</div>
+            <div className="lv-stat-label">スタッフ修正<br/><span style={{fontSize:10,color:'#64748b'}}>学習信号数</span></div>
+          </div>
+          <div className="lv-stat">
+            <div className="lv-stat-num" style={{color:reasonTotal>0?'#8b5cf6':'#94a3b8'}}>{reasonTotal}</div>
+            <div className="lv-stat-label">理由付き修正<br/><span style={{fontSize:10,color:'#64748b'}}>Stage 3 データ</span></div>
+          </div>
+        </div>
+
+        {/* 修正理由の分析（Stage 3） */}
+        {reasonTotal > 0 && (
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:800,color:'#374151',marginBottom:8}}>🔬 Stage 3: 修正理由分析（エラーパターン）</div>
+            <div style={{fontSize:12,color:'#64748b',marginBottom:10}}>
+              どのカテゴリの失敗が多いかを把握することで、次に強化すべき知識ベースのポイントが分かる（Active Learning の原則）
+            </div>
+            <div className="reason-bar">
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+                <div key={k} className="reason-card">
+                  <div className="reason-icon">{reasonLabel[k]?.split(' ')[0]||'🔧'}</div>
+                  <div>
+                    <div className="reason-label">{reasonLabel[k]?.split(' ').slice(1).join(' ')||k}</div>
+                    <div className="reason-pct">{Math.round(v/reasonTotal*100)}%</div>
+                  </div>
+                  <div className="reason-count">{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:'10px 12px',background:'#ede9fe',borderRadius:8,fontSize:12,color:'#374151',lineHeight:1.8}}>
+              <strong>次のアクション：</strong>{' '}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='wrong_info'&&'知識ベースの情報に誤りがあります。該当カテゴリのanswerを修正してください。'}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='missing_info'&&'知識ベースの回答に不足情報があります。answerに追記するか、新しいエントリを追加してください。'}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='no_candidate'&&'ナレッジに登録されていない新しい問い合わせパターンがあります。「ナレッジ登録」で追加してください。'}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='wrong_tone'&&'回答の文体がBUDDICA TOURISMのスタイルと合っていません。knowledge_base_setup.sqlのanswerを見直してください。'}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='too_long'&&'回答が長すぎます。知識ベースの該当answerを簡潔にまとめてください。'}
+              {Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]==='other'&&'理由を「その他」以外で記録するとより詳細な分析が可能です。'}
+            </div>
+          </div>
+        )}
+
+        {/* データ一覧 */}
+        <div className="lv-view-switch">
+          <button className={`kb-f ${viewMode==='category'?'on':''}`} onClick={()=>setViewMode('category')}>📂 カテゴリ別</button>
+          <button className={`kb-f ${viewMode==='list'?'on':''}`} onClick={()=>setViewMode('list')}>📋 一覧</button>
+          <button className={`kb-f ${viewMode==='diff'?'on':''}`} onClick={()=>setViewMode('diff')} style={editedCount>0?{borderColor:'#d97706',color:'#d97706'}:{}}>✏️ 差分{editedCount>0?`(${editedCount})`:''}</button>
+        </div>
+
+        {loading ? <div className="lv-empty">読み込み中...</div>
+        : total===0 ? (
+          <div className="lv-empty">
+            <div style={{fontSize:40,marginBottom:12}}>📭</div>
+            <strong>まだ学習データがありません</strong><br/>
+            <span style={{fontSize:13,color:'#94a3b8',marginTop:6,display:'block'}}>Stage 1（知識ベース登録）完了後、問い合わせに返信すると自動で蓄積されます</span>
+          </div>
+        ) : viewMode==='category' ? (
+          catStats.map(({cat,items,aiCorrect,avgScore,total})=>(
+            <div key={cat} className="lv-cat-group">
+              <div className="lv-cat-hd">
+                {cat}
+                <span className="lv-cat-cnt">{total}件</span>
+                <span className="lv-cat-stats">AI正解: {Math.round(aiCorrect/total*100)}%{avgScore!=null&&` / 一致率: ${avgScore}%`}</span>
+              </div>
+              {items.map(inq=><LvItem key={inq.id} inq={inq}/>)}
+            </div>
+          ))
+        ) : viewMode==='diff' ? (
+          replied.filter(i=>i.was_edited===true).length===0 ? (
+            <div className="lv-empty">差分あり（スタッフ修正）の件数はまだありません</div>
+          ) : (
+            <>
+              <div style={{fontSize:12,color:'#64748b',marginBottom:10}}>
+                スタッフが修正した件（RLHF の学習信号） — 最も価値ある学習データ。理由付きは特に高品質。
+              </div>
+              {replied.filter(i=>i.was_edited===true).map(inq=>(
+                <div key={inq.id} style={{marginBottom:8}}>
+                  {inq.edit_reason && (
+                    <div style={{fontSize:11,fontWeight:700,color:'#8b5cf6',marginBottom:2}}>
+                      修正理由: {reasonLabel[inq.edit_reason]||inq.edit_reason}
+                    </div>
+                  )}
+                  <LvItem inq={inq}/>
+                </div>
+              ))}
+            </>
+          )
+        ) : (
+          <div className="lv-list-table">
+            {replied.map(inq=>{
+              const aiBody = extractBody(inq.auto_draft);
+              const hasDiff = inq.was_edited && aiBody && inq.correct_answer && aiBody !== inq.correct_answer;
+              return (
+                <div key={inq.id} className="lv-list-row">
+                  <div className="lv-list-q">{inq.inquiry_content?.substring(0,60)}...</div>
+                  <div className="lv-list-meta">
+                    <span style={{fontSize:12,color:'#64748b'}}>{inq.intent_label||'-'}</span>
+                    {inq.store&&<span className="st st-store" style={{fontSize:10}}>{'🚐'}</span>}
+                    {inq.was_edited===false&&<span className="tbadge tbadge-ai">🤖</span>}
+                    {inq.was_edited===true&&<span className="tbadge tbadge-edit">✏️</span>}
+                    {inq.edit_reason&&<span style={{fontSize:10,color:'#8b5cf6',fontWeight:600}}>{reasonLabel[inq.edit_reason]?.split(' ')[0]}</span>}
+                    {hasDiff&&<span style={{fontSize:11,color:'#d97706',fontWeight:600}}>差分あり</span>}
+                    {inq.match_score!=null&&<span style={{fontSize:11,color:'#94a3b8'}}>{inq.match_score}%</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== 知識ベース =====
+function KnowledgeView() {
+  const [items, setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [storeF, setStoreF] = useState('all');
+  const [catF, setCatF]     = useState('all');
+  const [search, setSearch] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const load = () => {
+    sb.from('bt_knowledge').select('*').order('priority').order('store').order('category')
+      .then(({data})=>{setItems(data||[]);setLoading(false);});
+  };
+
+  useEffect(()=>{ load(); },[]);
+
+  useEffect(()=>{ if(toast){const t=setTimeout(()=>setToast(null),2500);return()=>clearTimeout(t);} },[toast]);
+
+  const cats=['all',...new Set(items.map(i=>i.category))];
+  const filtered=items.filter(i=>{
+    if(storeF!=='all'&&i.store!==storeF)return false;
+    if(catF!=='all'&&i.category!==catF)return false;
+    if(search){const q=search.toLowerCase();return(i.question||'').toLowerCase().includes(q)||(i.answer||'').toLowerCase().includes(q)||(i.category||'').toLowerCase().includes(q);}
+    return true;
+  });
+  const storeLabel=s=>({sapporo:'🗾 札幌',naha:'🏝 那覇',takamatsu:'🚐 高松',both:'🌐 共通'}[s]||s);
+  const storeClass=s=>({sapporo:'kb-s-sapporo',naha:'kb-s-naha',takamatsu:'kb-s-naha',both:'kb-s-both'}[s]||'');
+
+  function AddKnowledgeModal({onClose}){
+    const [f,setF]=useState({store:'both',category:'',question:'',answer:'',rule_basis:'',priority:3});
+    const upd=(k,v)=>setF(p=>({...p,[k]:v}));
+    const [saving,setSaving]=useState(false);
+    const save=async()=>{
+      if(!f.category.trim()||!f.question.trim()||!f.answer.trim()){alert('カテゴリ・質問パターン・回答は必須です');return;}
+      setSaving(true);
+      const{error}=await sb.from('bt_knowledge').insert([{
+        store:f.store,category:f.category.trim(),question:f.question.trim(),
+        answer:f.answer.trim(),rule_basis:f.rule_basis.trim(),priority:Number(f.priority)||3
+      }]);
+      setSaving(false);
+      if(error){alert('登録失敗: '+error.message);return;}
+      setToast('🧠 ナレッジを登録しました');
+      load();
+      onClose();
+    };
+    return(
+      <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+        <div className="modal">
+          <div className="modal-handle"/>
+          <div className="m-title">🧠 ナレッジを登録</div>
+          <div className="fg">
+            <label className="fl">店舗 *</label>
+            <select className="fi" value={f.store} onChange={e=>upd('store',e.target.value)} style={{height:40}}>
+              <option value="both">🌐 共通（両店舗）</option>
+              <option value="takamatsu">🚐 高松</option>
+              
+            </select>
+          </div>
+          <div className="fg">
+            <label className="fl">カテゴリ *</label>
+            <input className="fi" value={f.category} onChange={e=>upd('category',e.target.value)} placeholder="例: 営業時間 / デリバリーエリア / キャンセル"/>
+          </div>
+          <div className="fg">
+            <label className="fl">質問パターン * <span style={{fontSize:11,color:'#94a3b8'}}>（複数は / で区切り）</span></label>
+            <textarea className="ft" value={f.question} onChange={e=>upd('question',e.target.value)} placeholder="例: 何時から使えますか / 営業時間を教えてください" style={{minHeight:70}}/>
+          </div>
+          <div className="fg">
+            <label className="fl">回答 *</label>
+            <textarea className="ft" value={f.answer} onChange={e=>upd('answer',e.target.value)} placeholder="例: 営業時間は9:00〜19:00です。" style={{minHeight:100}}/>
+          </div>
+          <div className="fg">
+            <label className="fl">根拠メモ <span style={{fontSize:11,color:'#94a3b8'}}>（任意）</span></label>
+            <input className="fi" value={f.rule_basis} onChange={e=>upd('rule_basis',e.target.value)} placeholder="例: 公式サイト記載 / オーナー確認済み"/>
+          </div>
+          <div className="m-actions">
+            <button className="btn-cancel" onClick={onClose}>キャンセル</button>
+            <button className="btn-save" onClick={save} disabled={saving} style={{background:'#f59e0b'}}>
+              {saving?'登録中...':'🧠 登録する'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="full-area">
+      {toast&&<div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',background:'#1e293b',color:'white',padding:'10px 20px',borderRadius:10,zIndex:9999,fontSize:14,fontWeight:600}}>{toast}</div>}
+      {showAdd&&<AddKnowledgeModal onClose={()=>setShowAdd(false)}/>}
+      <div className="kb-wrap">
+        <div className="kb-hd">
+          <div>
+            <div className="kb-title">🧠 知識ベース</div>
+            <div className="kb-sub">{items.length}件のナレッジ登録済み</div>
+          </div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <input className="kb-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 キーワード検索..." type="search"/>
+            <button className="btn-new" onClick={()=>setShowAdd(true)} style={{whiteSpace:'nowrap',flexShrink:0}}>＋ 登録</button>
+          </div>
+        </div>
+        <div className="kb-filters">
+          {['all','takamatsu','both'].map(s=>(
+            <button key={s} className={`kb-f ${storeF===s?'on':''}`} onClick={()=>setStoreF(s)}>
+              {s==='all'?'すべての店舗':storeLabel(s)}
+            </button>
+          ))}
+          <span style={{color:'#cbd5e1',marginLeft:4}}>|</span>
+          {cats.map(c=>(
+            <button key={c} className={`kb-f ${catF===c?'on':''}`} onClick={()=>setCatF(c)}>
+              {c==='all'?'全カテゴリ':c}
+            </button>
+          ))}
+        </div>
+        {loading ? <div className="kb-empty">読み込み中...</div>
+        : filtered.length===0 ? (
+          <div className="kb-empty">
+            {items.length===0
+              ? <>ナレッジがまだ登録されていません<br/><br/>
+                 <span style={{fontSize:13,lineHeight:2}}>SQLファイルを順番に実行してください</span></>
+              : '該当するナレッジがありません'}
+          </div>
+        ) : (
+          <div className="kb-grid">
+            {filtered.map(item=>(
+              <div key={item.id} className="kb-row">
+                <div className="kb-top">
+                  <span className="kb-cat">{item.category}</span>
+                  <div className="kb-tags">
+                    <span className={`kb-store ${storeClass(item.store)}`}>{storeLabel(item.store)}</span>
+                  </div>
+                </div>
+                <div className="kb-q">{item.question}</div>
+                <div className="kb-a">{item.answer}</div>
+                {item.rule_basis&&<div className="kb-basis">📌 {item.rule_basis}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== テンプレート =====
+function TemplatesView() {
+  const [tmpls, setTmpls] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  useEffect(()=>{
+    sb.from('reply_templates').select('*').order('usage_count',{ascending:false})
+      .then(({data})=>setTmpls(data||[]));
+  },[]);
+
+  const handleSave=async t=>{
+    if(t.id){const{data}=await sb.from('reply_templates').update({category:t.category,keywords:t.keywords,template_text:t.template_text,updated_at:new Date().toISOString()}).eq('id',t.id).select().single();if(data){setTmpls(p=>p.map(x=>x.id===data.id?data:x));setToast('✅ 更新しました');}}
+    else{const{data}=await sb.from('reply_templates').insert([{category:t.category,keywords:t.keywords,template_text:t.template_text,usage_count:0}]).select().single();if(data){setTmpls(p=>[...p,data]);setToast('✅ 追加しました');}}
+  };
+  const handleDel=async id=>{if(!confirm('削除しますか？'))return;await sb.from('reply_templates').delete().eq('id',id);setTmpls(p=>p.filter(t=>t.id!==id));setToast('🗑️ 削除しました');};
+
+  function TmplModal({tmpl,onClose}){
+    const[f,setF]=useState({category:tmpl?.category||'',kws_str:(tmpl?.keywords||[]).join(', '),template_text:tmpl?.template_text||''});
+    const upd=(k,v)=>setF(p=>({...p,[k]:v}));
+    const save=async()=>{if(!f.category.trim()||!f.template_text.trim()){alert('カテゴリと本文は必須です');return;}const kws=f.kws_str.split(',').map(k=>k.trim()).filter(Boolean);await handleSave({...tmpl,category:f.category,keywords:kws,template_text:f.template_text});onClose();};
+    return(<div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="modal-handle"/><div className="m-title">{tmpl?.id?'✏️ 編集':'➕ 新規作成'}</div><div className="fg"><label className="fl">カテゴリ *</label><input className="fi" value={f.category} onChange={e=>upd('category',e.target.value)}/></div><div className="fg"><label className="fl">キーワード（カンマ区切り）</label><input className="fi" value={f.kws_str} onChange={e=>upd('kws_str',e.target.value)}/></div><div className="fg"><label className="fl">本文 *</label><textarea className="ft" value={f.template_text} onChange={e=>upd('template_text',e.target.value)} style={{minHeight:140}}/></div><div className="m-actions"><button className="btn-cancel" onClick={onClose}>キャンセル</button><button className="btn-save" onClick={save}>保存する</button></div></div></div>);
+  }
+
+  return(
+    <div className="full-area">
+      <div className="tmpl-wrap">
+        <div className="tmpl-hd">
+          <div><div className="tmpl-title">📋 テンプレート</div><div style={{fontSize:13,color:'#64748b',marginTop:4}}>補助テンプレート管理</div></div>
+          <button className="btn-new" onClick={()=>{setEditing(null);setShowModal(true);}}>＋ 新規作成</button>
+        </div>
+        {tmpls.length===0?<div className="tmpl-empty">テンプレートがありません</div>:(
+          <div className="tmpl-grid">
+            {tmpls.sort((a,b)=>(b.usage_count||0)-(a.usage_count||0)).map(t=>(
+              <div className="tmpl-row" key={t.id}>
+                <div className="tmpl-rt">
+                  <span className="tmpl-cat">{t.category}</span>
+                  <div className="tmpl-btn-grp">
+                    <span className="tmpl-usage">{t.usage_count||0}回</span>
+                    <button className="btn-edit" onClick={()=>{setEditing(t);setShowModal(true);}}>編集</button>
+                    <button className="btn-del" onClick={()=>handleDel(t.id)}>削除</button>
+                  </div>
+                </div>
+                <div className="tmpl-kws">{(t.keywords||[]).map(k=><span key={k} className="tmpl-kw">🔑 {k}</span>)}</div>
+                <div className="tmpl-txt">{t.template_text}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {showModal&&<TmplModal tmpl={editing} onClose={()=>setShowModal(false)}/>}
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// ===== 定数 =====
+const STAFF_LIST = ['oshita','saito','ie','hirose','takeyama','mikuni'];
+
+// ===== 過去学習 詳細 =====
+function TrainingDetail({inq, onDone}) {
+  const [knCands, setKnCands]   = useState([]);
+  const [knLoading, setKnLoading] = useState(true);
+  const [pickedId, setPickedId] = useState(null);
+  const [aiVerdict, setAiVerdict] = useState(null);
+  const [correctAnswer, setCorrectAnswer] = useState('');
+  const [autoCandAnswer, setAutoCandAnswer] = useState('');
+  const [expandedCands, setExpandedCands] = useState({});
+  const [editReason, setEditReason] = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [done, setDone]         = useState(inq.status === 'replied');
+  const [toast, setToast]       = useState(null);
+
+  useEffect(() => {
+    setKnLoading(true);
+    searchKnowledge(inq).then(results => {
+      setKnCands(results); setKnLoading(false);
+      if (results.length > 0) {
+        setPickedId(results[0].id);
+        setAutoCandAnswer(results[0].answer);
+      }
+    });
+  }, [inq.id]);
+
+  const handleCorrect = (c) => { setPickedId(c.id); setAiVerdict('correct'); setAutoCandAnswer(c.answer); };
+  const handleWrong   = (c) => { setPickedId(c.id); setAiVerdict('wrong');   setAutoCandAnswer(c.answer); setCorrectAnswer(''); };
+  const scoreClass = s => s>=70?'score-hi':s>=40?'score-mid':'score-lo';
+
+  const handleComplete = async () => {
+    setSaving(true);
+    try {
+      // ナレッジ登録（❌ + ③入力時）
+      if (aiVerdict === 'wrong' && correctAnswer.trim()) {
+        const pickedCand = knCands.find(c => c.id === pickedId);
+        await sb.from('bt_knowledge').insert({
+          category: pickedCand?.category || inq.inquiry_type || 'その他',
+          question:  inq.inquiry_content?.substring(0, 200) || '',
+          answer:    correctAnswer.trim(),
+          store:     inq.store || 'both',
+          priority:  50,
+          rule_basis:`過去学習: ${new Date().toLocaleDateString('ja-JP')} / ID:${inq.id}`,
+        });
+      }
+      // 問い合わせを「完了」に更新
+      await sb.from('bt_inquiries').update({
+        status:        'replied',
+        was_edited:    aiVerdict === 'correct' ? false : aiVerdict === 'wrong' ? true : null,
+        correct_answer: aiVerdict === 'wrong' ? correctAnswer : null,
+        edit_reason:   aiVerdict === 'wrong' ? (editReason || 'other') : null,
+        intent_label:  knCands.find(c => c.id === pickedId)?.category || null,
+        replied_at:    new Date().toISOString(),
+      }).eq('id', inq.id);
+      setDone(true);
+      setToast(aiVerdict === 'wrong' && correctAnswer.trim() ? '🧠 ナレッジ登録 + 学習完了！' : '✅ 学習完了');
+      onDone(inq.id);
+    } catch(e) { alert('エラー: ' + e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <>
+      <div className="detail-inner">
+        {/* 過去学習バナー */}
+        <div className="training-banner">
+          📖 過去学習モード — 返信は不要。③正解を入力して「学習完了」を押すとナレッジに蓄積されます
+        </div>
+
+        {/* ① 問い合わせ内容 */}
+        <div className="sec">
+          <div className="sec-title"><span className="sec-num" style={{background:'#6d28d9'}}>1</span> お問い合わせ内容</div>
+          <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{new Date(inq.received_at).toLocaleString('ja-JP')} / {'🚐 高松'} / {inq.email}</div>
+          <div style={{background:'#f8fafc',borderRadius:8,padding:'12px 14px',fontSize:14,lineHeight:1.8,whiteSpace:'pre-wrap',color:'#1e293b',border:'1px solid #e2e8f0'}}>
+            {inq.inquiry_content}
+          </div>
+        </div>
+
+        {/* ② AI候補 */}
+        <div className="sec" style={{borderColor:'#a5b4fc',background:'#eef2ff'}}>
+          <div className="sec-title">
+            <span className="sec-num" style={{background:knLoading?'#6d28d9':knCands.length>0?'#16a34a':'#94a3b8',transition:'background .5s'}}>2</span>
+            <span>AI 回答候補</span>
+            {!knLoading && knCands.length > 0 && <span style={{fontSize:11,fontWeight:400,color:'#15803d',textTransform:'none',letterSpacing:0}}>✅ {knCands.length}件ヒット</span>}
+            {!knLoading && knCands.length === 0 && <span style={{fontSize:11,fontWeight:400,color:'#94a3b8',textTransform:'none',letterSpacing:0}}>該当なし</span>}
+          </div>
+          {knLoading ? (
+            <div className="ai-scanning"><span className="spin">⟳</span><div className="ai-scanning-txt">検索中...</div></div>
+          ) : knCands.length === 0 ? (
+            <div className="no-cand">🤔 一致するルールが見つかりません<br/><span style={{fontSize:12}}>③に正解を入力してナレッジ登録してください</span></div>
+          ) : (
+            <div className="cand-list">
+              {knCands.map(c => (
+                <div key={c.id} className={`cand ${pickedId===c.id?'picked':''}`}>
+                  <div className="cand-top">
+                    <span className="cand-cat">{c.category}</span>
+                    <span className={`cand-score ${scoreClass(c.score)}`}>関連度 {c.score}%</span>
+                  </div>
+                  <div className="cand-q">❓ {c.bestPattern}</div>
+                  <div style={{marginBottom:8}}>
+                    <div className="cand-prev" style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:13,color:'#374151'}}>
+                      {expandedCands[c.id] ? c.answer : c.answer?.substring(0,80)+(c.answer?.length>80?'…':'')}
+                    </div>
+                    {c.answer?.length>80 && (
+                      <button onClick={()=>setExpandedCands(p=>({...p,[c.id]:!p[c.id]}))}
+                        style={{fontSize:11,color:'#3b82f6',background:'none',border:'none',cursor:'pointer',padding:'2px 0',fontWeight:600}}>
+                        {expandedCands[c.id]?'▲ 閉じる':'▼ 全文を見る'}
+                      </button>
+                    )}
+                  </div>
+                  {!done && (
+                    <div style={{display:'flex',gap:8}}>
+                      <button onClick={()=>handleCorrect(c)} style={{flex:1,padding:'8px 0',borderRadius:8,border:'2px solid',
+                        borderColor:pickedId===c.id&&aiVerdict==='correct'?'#16a34a':'#86efac',
+                        background:pickedId===c.id&&aiVerdict==='correct'?'#16a34a':'#f0fdf4',
+                        color:pickedId===c.id&&aiVerdict==='correct'?'white':'#16a34a',
+                        cursor:'pointer',fontSize:13,fontWeight:700,minHeight:40}}>✅ 正しい</button>
+                      <button onClick={()=>handleWrong(c)} style={{flex:1,padding:'8px 0',borderRadius:8,border:'2px solid',
+                        borderColor:pickedId===c.id&&aiVerdict==='wrong'?'#dc2626':'#fca5a5',
+                        background:pickedId===c.id&&aiVerdict==='wrong'?'#dc2626':'#fef2f2',
+                        color:pickedId===c.id&&aiVerdict==='wrong'?'white':'#dc2626',
+                        cursor:'pointer',fontSize:13,fontWeight:700,minHeight:40}}>❌ 違う</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ③ 正解回答 */}
+        <div className={`sec ${aiVerdict==='wrong'?'sec-correct':''}`}>
+          <div className="sec-title">
+            <span className="sec-num" style={{background:'#f59e0b'}}>3</span>
+            <span style={{color:'#92400e'}}>正解回答</span>
+            {aiVerdict==='correct' && <span className="tbadge tbadge-ai">✅ AI正解</span>}
+            {aiVerdict==='wrong'   && <span className="tbadge tbadge-edit">❌ スタッフ入力待ち</span>}
+          </div>
+          {done ? (
+            <div style={{padding:'10px 14px',background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,fontSize:13,color:'#15803d',fontWeight:600}}>
+              ✅ 学習完了済み
+            </div>
+          ) : (aiVerdict===null || aiVerdict==='correct') ? (
+            <div style={{padding:'14px 16px',background:aiVerdict==='correct'?'#f0fdf4':'#f8fafc',
+              border:`1.5px solid ${aiVerdict==='correct'?'#86efac':'#e2e8f0'}`,borderRadius:8,fontSize:13,
+              color:aiVerdict==='correct'?'#15803d':'#94a3b8',fontWeight:aiVerdict==='correct'?600:400,lineHeight:1.7}}>
+              {aiVerdict==='correct'
+                ? '✅ AI正解と判定。そのまま「学習完了」を押してください。'
+                : '② のAI候補を確認して ✅ 正しい または ❌ 違う を選んでください。'}
+            </div>
+          ) : (
+            <div>
+              <div style={{fontSize:12,color:'#92400e',marginBottom:8,fontWeight:600}}>
+                ❌ AIが間違っていました。正しい回答を入力してください。
+              </div>
+              <textarea className="correct-ta" value={correctAnswer}
+                onChange={e=>setCorrectAnswer(e.target.value)} rows={5} autoFocus
+                placeholder="正しい回答本文を入力してください（挨拶・署名不要）"/>
+              <div style={{marginTop:10,padding:'10px 14px',background:'#f8fafc',borderRadius:8,border:'1px solid #e2e8f0'}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:6}}>なぜ違いましたか？</div>
+                <div className="reason-sel">
+                  {[{k:'wrong_info',l:'❌ 情報が間違い'},{k:'missing_info',l:'➕ 情報が不足'},
+                    {k:'wrong_tone',l:'🎭 文体が不適切'},{k:'too_long',l:'✂️ 長すぎた'},
+                    {k:'no_candidate',l:'🔍 候補がなかった'},{k:'other',l:'🔧 その他'}
+                  ].map(r=>(
+                    <button key={r.k} className={`reason-btn ${editReason===r.k?'on':''}`}
+                      onClick={()=>setEditReason(r.k)}>{r.l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 完了ボタン */}
+        {!done && (
+          <button className="training-done-btn" onClick={handleComplete} disabled={saving}>
+            {saving ? '⟳ 保存中...' : aiVerdict==='wrong' && correctAnswer.trim()
+              ? '🧠 ナレッジ登録して学習完了'
+              : aiVerdict==='correct'
+              ? '✅ AI正解として学習完了'
+              : '⏭ スキップして次へ（判定なし）'}
+          </button>
+        )}
+        {done && (
+          <div style={{padding:'12px 16px',background:'#ede9fe',borderRadius:10,textAlign:'center',fontSize:14,fontWeight:700,color:'#6d28d9'}}>
+            ✅ 学習完了済み
+          </div>
+        )}
+      </div>
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </>
+  );
+}
+
+// ===== 過去学習 ビュー =====
+function TrainingView() {
+  const isMobile = useIsMobile();
+  const [items, setItems]       = useState([]);
+  const [sel, setSel]           = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState('pending'); // pending | done
+  const [mobilePane, setMobilePane] = useState('list');
+  const [selected, setSelected] = useState(new Set()); // 複数選択
+  const [selectMode, setSelectMode] = useState(false); // 選択モード
+
+  const fetch_ = async () => {
+    setLoading(true);
+    const {data} = await sb.from('bt_inquiries').select('*')
+      .eq('source','training').order('received_at',{ascending:true});
+    setItems(data||[]); setLoading(false);
+  };
+  useEffect(()=>{ fetch_(); },[]);
+
+  const [search, setSearch] = useState('');
+
+  const pending = items.filter(i => i.status !== 'replied');
+  const done    = items.filter(i => i.status === 'replied');
+  const baseList = filter === 'pending' ? pending : done;
+  const shown = search
+    ? baseList.filter(i => (i.name||'').includes(search) || (i.inquiry_content||'').includes(search) || (i.email||'').includes(search))
+    : baseList;
+
+  const handleDone = (id) => {
+    setItems(prev => prev.map(i => i.id===id ? {...i, status:'replied'} : i));
+    if (isMobile) setMobilePane('list');
+  };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (e) => {
+    e.stopPropagation();
+    if (selected.size === shown.length && shown.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(shown.map(i => i.id)));
+    }
+  };
+
+  const handleBulkDelete = async (e) => {
+    e.stopPropagation();
+    if (selected.size === 0) return;
+    if (!confirm(`選択した ${selected.size} 件を削除しますか？`)) return;
+    const ids = [...selected];
+    await sb.from('bt_inquiries').delete().in('id', ids);
+    setItems(prev => prev.filter(i => !ids.includes(i.id)));
+    if (ids.includes(sel?.id)) setSel(null);
+    setSelected(new Set());
+    setSelectMode(false);
+  };
+
+  const selectItem = (item) => {
+    if (selectMode) return; // 選択モード中は詳細を開かない
+    setSel(item);
+    if (isMobile) setMobilePane('detail');
+  };
+
+  // リストパネルのJSX（コンポーネント化しない＝再マウント防止）
+  const listPanel = (
+    <div className="list-panel">
+      {/* ヘッダー固定 */}
+      <div style={{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',background:'white',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <div style={{fontSize:15,fontWeight:800,color:'#6d28d9'}}>📖 過去学習</div>
+          <button onClick={()=>{ setSelectMode(v=>!v); setSelected(new Set()); }}
+            style={{fontSize:12,fontWeight:700,padding:'4px 10px',borderRadius:6,border:'1px solid',cursor:'pointer',
+              borderColor:selectMode?'#ef4444':'#6d28d9',
+              background:selectMode?'#fef2f2':'#ede9fe',
+              color:selectMode?'#ef4444':'#6d28d9'}}>
+            {selectMode ? '✕ キャンセル' : '☑ 選択'}
+          </button>
+        </div>
+
+        {/* 選択モード：一括操作バー */}
+        {selectMode && (
+          <div style={{display:'flex',gap:6,marginBottom:8,padding:'8px 10px',background:'#fef2f2',borderRadius:8,alignItems:'center'}}>
+            <button onClick={toggleSelectAll}
+              style={{fontSize:12,fontWeight:700,padding:'4px 10px',borderRadius:6,border:'1px solid #fca5a5',
+                background:'white',color:'#ef4444',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {selected.size === shown.length && shown.length > 0 ? '✕ 全解除' : '✓ 全選択'}
+            </button>
+            <span style={{fontSize:12,color:'#ef4444',fontWeight:600}}>{selected.size}件選択中</span>
+            <button onClick={handleBulkDelete} disabled={selected.size===0}
+              style={{marginLeft:'auto',fontSize:12,fontWeight:800,padding:'6px 14px',borderRadius:6,border:'none',
+                background:selected.size>0?'#ef4444':'#fca5a5',color:'white',
+                cursor:selected.size>0?'pointer':'not-allowed',whiteSpace:'nowrap'}}>
+              🗑 {selected.size}件削除
+            </button>
+          </div>
+        )}
+
+        {/* フィルタータブ */}
+        <div style={{display:'flex',gap:6,marginBottom:8}}>
+          <button onClick={()=>setFilter('pending')}
+            style={{flex:1,padding:'6px 0',border:'1px solid',borderRadius:6,cursor:'pointer',fontWeight:700,fontSize:12,
+              borderColor:filter==='pending'?'#6d28d9':'#e2e8f0',
+              background:filter==='pending'?'#6d28d9':'white',
+              color:filter==='pending'?'white':'#64748b'}}>
+            未学習 {pending.length}件
+          </button>
+          <button onClick={()=>setFilter('done')}
+            style={{flex:1,padding:'6px 0',border:'1px solid',borderRadius:6,cursor:'pointer',fontWeight:700,fontSize:12,
+              borderColor:filter==='done'?'#16a34a':'#e2e8f0',
+              background:filter==='done'?'#16a34a':'white',
+              color:filter==='done'?'white':'#64748b'}}>
+            完了 {done.length}件
+          </button>
+        </div>
+
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="🔍 名前・内容で検索..."
+          style={{width:'100%',padding:'6px 10px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,outline:'none'}}/>
+      </div>
+
+      {/* リスト（スクロール） */}
+      <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+        {loading ? (
+          <div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>読み込み中...</div>
+        ) : shown.length === 0 ? (
+          <div style={{padding:40,textAlign:'center',color:'#94a3b8',fontSize:14}}>
+            {filter==='pending' ? '🎉 未学習メールはありません' : '該当データがありません'}
+          </div>
+        ) : shown.map(inq => {
+          const isChecked = selected.has(inq.id);
+          return (
+            <div key={inq.id}
+              onClick={() => selectMode ? toggleSelect(inq.id) : selectItem(inq)}
+              style={{padding:'12px 16px',borderBottom:'1px solid #f1f5f9',cursor:'pointer',
+                display:'flex',alignItems:'flex-start',gap:10,userSelect:'none',
+                background: isChecked ? '#fef2f2' : sel?.id===inq.id ? '#ede9fe' : 'white',
+                borderLeft: isChecked ? '3px solid #ef4444' : sel?.id===inq.id ? '3px solid #6d28d9' : '3px solid transparent'}}>
+
+              {/* チェックボックス表示のみ（pointerEvents:none で親のonClickだけ使う） */}
+              {selectMode && (
+                <div style={{width:20,height:20,borderRadius:4,flexShrink:0,marginTop:2,
+                  border:`2px solid ${isChecked?'#ef4444':'#cbd5e1'}`,
+                  background:isChecked?'#ef4444':'white',
+                  display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+                  {isChecked && <span style={{color:'white',fontSize:12,fontWeight:900,lineHeight:1}}>✓</span>}
+                </div>
+              )}
+
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                  <span style={{fontSize:13,fontWeight:700,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {inq.name||'お客様'}
+                  </span>
+                  <span style={{fontSize:11,color:'#94a3b8',flexShrink:0,marginLeft:6}}>
+                    {new Date(inq.received_at).toLocaleDateString('ja-JP')}
+                  </span>
+                </div>
+                <div style={{fontSize:12,color:'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  {inq.inquiry_content?.substring(0,60)}
+                </div>
+                <div style={{marginTop:4,display:'flex',gap:4}}>
+                  <span style={{fontSize:10,background:'#ede9fe',color:'#6d28d9',padding:'1px 6px',borderRadius:4,fontWeight:600}}>
+                    {'🚐 高松'}
+                  </span>
+                  {inq.status==='replied' &&
+                    <span style={{fontSize:10,background:'#dcfce7',color:'#15803d',padding:'1px 6px',borderRadius:4,fontWeight:600}}>✅ 完了</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div style={{height:'100%',overflow:'hidden'}}>
+        {mobilePane==='list' ? listPanel : sel && (
+          <div style={{height:'100%',overflow:'auto'}}>
+            <div className="back-bar">
+              <button className="back-btn" onClick={()=>setMobilePane('list')}>← 一覧に戻る</button>
+            </div>
+            <TrainingDetail inq={sel} onDone={handleDone}/>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="inbox-layout">
+      {listPanel}
+      <div className="detail-panel">
+        {sel ? <TrainingDetail inq={sel} onDone={handleDone}/> : (
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'#94a3b8',gap:12}}>
+            <div style={{fontSize:48}}>📖</div>
+            <div style={{fontSize:15,fontWeight:700}}>過去のメールを選んで学習開始</div>
+            <div style={{fontSize:13}}>未学習 {pending.length}件 / 完了 {done.length}件</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== APP =====
+function App() {
+  const [tab, setTab]       = useState('inbox');
+  const [newCnt, setNewCnt] = useState(0);
+  const [staff, setStaff]   = useState(() => localStorage.getItem('hm_staff') || '');
+
+  useEffect(()=>{
+    const poll=async()=>{const{count}=await sb.from('bt_inquiries').select('*',{count:'exact',head:true}).eq('status','new').eq('source','manual');setNewCnt(count||0);};
+    poll();const t=setInterval(poll,30000);return()=>clearInterval(t);
+  },[]);
+
+  const handleStaffChange = (e) => {
+    const v = e.target.value;
+    setStaff(v);
+    localStorage.setItem('hm_staff', v);
+  };
+
+  // スタッフ未選択ならログイン画面
+  if (!staff) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',background:'#f0f2f5',gap:20}}>
+        <div style={{fontSize:28,fontWeight:900,color:'#0f172a',letterSpacing:2}}>BUDDICA TOURISM</div>
+        <div style={{fontSize:15,color:'#64748b'}}>お問い合わせ管理システム</div>
+        <div style={{background:'white',borderRadius:16,padding:32,width:300,boxShadow:'0 4px 24px rgba(0,0,0,.1)'}}>
+          <div style={{fontSize:14,fontWeight:700,color:'#374151',marginBottom:16}}>スタッフを選択してください</div>
+          {STAFF_LIST.map(s => (
+            <button key={s} onClick={()=>{setStaff(s);localStorage.setItem('hm_staff',s);}}
+              style={{display:'block',width:'100%',padding:'12px 16px',margin:'6px 0',background:'#f8fafc',
+                border:'2px solid #e2e8f0',borderRadius:10,cursor:'pointer',fontSize:15,fontWeight:700,
+                color:'#374151',textAlign:'left',transition:'all .15s'}}
+              onMouseOver={e=>e.target.style.borderColor='#3b82f6'}
+              onMouseOut={e=>e.target.style.borderColor='#e2e8f0'}>
+              👤 {s}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-root">
+      <div className="hd">
+        <span className="hd-logo">BUDDICA TOURISM</span>
+        <span className="hd-title" style={{display:'none'}}>お問い合わせ管理</span>
+        <div className="hd-tabs">
+          <button className={`tab-btn ${tab==='inbox'?'on':''}`} onClick={()=>setTab('inbox')}>
+            📬 受信 {newCnt>0&&<span className="badge-new">{newCnt}</span>}
+          </button>
+          <button className={`tab-btn ${tab==='training'?'on':''}`} onClick={()=>setTab('training')}>📖 過去学習</button>
+          <button className={`tab-btn ${tab==='learning'?'on':''}`} onClick={()=>setTab('learning')}>📚 学習</button>
+          <button className={`tab-btn ${tab==='knowledge'?'on':''}`} onClick={()=>setTab('knowledge')}>🧠 知識</button>
+          <button className={`tab-btn ${tab==='tmpls'?'on':''}`} onClick={()=>setTab('tmpls')}>📋 テンプレ</button>
+        </div>
+        <div className="staff-sel">
+          <span className="staff-badge">👤</span>
+          <select value={staff} onChange={handleStaffChange}>
+            {STAFF_LIST.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {tab==='inbox'    && <InboxView staff={staff}/>}
+      {tab==='training' && <TrainingView/>}
+      {tab==='learning' && <div className="wrap" style={{display:'block',overflow:'auto'}}><LearningView/></div>}
+      {tab==='knowledge'&& <div className="wrap" style={{display:'block',overflow:'auto'}}><KnowledgeView/></div>}
+      {tab==='tmpls'    && <div className="wrap" style={{display:'block',overflow:'auto'}}><TemplatesView/></div>}
+    </div>
+  );
+}
+
+// ===== 認証ゲート（2026-06-10 セキュリティ強化：anon全開を廃しauthenticated経路へ）=====
+function _renderApp(){ ReactDOM.createRoot(document.getElementById('root')).render(<App/>); }
+async function _bootstrap(){
+  try { const { data } = await sb.auth.getSession(); if (data && data.session) { _renderApp(); return; } } catch(e) {}
+  _showLogin();
+}
+function _showLogin(){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;font-family:-apple-system,sans-serif';
+  ov.innerHTML='<div style="background:#fff;padding:32px 26px;border-radius:16px;width:90%;max-width:360px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4)">'
+    +'<div style="font-size:18px;font-weight:800;margin-bottom:4px">問い合わせ管理</div>'
+    +'<div style="font-size:12px;color:#64748b;margin-bottom:18px">ログインしてください</div>'
+    +'<input id="_le" type="email" autocapitalize="off" autocorrect="off" placeholder="メールアドレス" style="width:100%;padding:11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:15px;margin-bottom:8px;outline:none">'
+    +'<input id="_lp" type="password" placeholder="パスワード" style="width:100%;padding:11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:15px;margin-bottom:8px;outline:none">'
+    +'<div id="_lerr" style="color:#dc2626;font-size:12px;font-weight:700;display:none;margin-bottom:8px"></div>'
+    +'<button id="_lb" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer">ログイン</button></div>';
+  document.body.appendChild(ov);
+  const doLogin=async()=>{
+    const b=document.getElementById('_lb'),err=document.getElementById('_lerr');
+    const email=(document.getElementById('_le')||{}).value||'', pw=(document.getElementById('_lp')||{}).value||'';
+    if(!email||!pw){err.style.display='';err.textContent='メールとパスワードを入力してください';return;}
+    b.disabled=true;b.textContent='確認中...';err.style.display='none';
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if(error){err.style.display='';err.textContent='メールまたはパスワードが違います';b.disabled=false;b.textContent='ログイン';return;}
+    ov.remove(); _renderApp();
+  };
+  document.getElementById('_lb').onclick=doLogin;
+  ov.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  setTimeout(()=>{const el=document.getElementById('_le');if(el)el.focus();},100);
+}
+_bootstrap();
+</script>
+</body>
+</html>
