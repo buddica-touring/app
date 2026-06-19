@@ -19981,7 +19981,7 @@ function ReceivedInvoicesTab({sb,store}){
     if(!vehRec)return;if(!vehCar){alert("車両を選んでください");return;}
     const r=vehRec;
     try{
-      await DB.hm.saveLog({id:"loginv_"+r.id,store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,detail:"受領請求書: "+(r.payee||""),description:"受領請求書連携 "+(r.payee||"")});
+      await DB.hm.saveLog({id:"loginv_"+r.id,store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,description:"受領請求書連携 "+(r.payee||"")});
       setVehRec(null);await reload();
     }catch(e){alert("車両連携に失敗: "+(e.message||e));}
   };
@@ -20108,7 +20108,7 @@ function ReceivedInvoicesTab({sb,store}){
         }
         if(editRec&&vehLinkedMap[editRec.id]){
           const ex=vehLinkedMap[editRec.id];
-          await DB.hm.saveLog({id:"loginv_"+editRec.id,store_id:DB.hm.STORE,car_id:ex.car,date:(row.issue_date||row.received_date||null),type:ex.type||"other",cost:row.amount||0,detail:"受領請求書: "+(row.payee||""),description:"受領請求書連携 "+(row.payee||"")});
+          await DB.hm.saveLog({id:"loginv_"+editRec.id,store_id:DB.hm.STORE,car_id:ex.car,date:(row.issue_date||row.received_date||null),type:ex.type||"other",cost:row.amount||0,description:"受領請求書連携 "+(row.payee||"")});
         }
       }catch(e){console.warn("連携追従(任意):",e);}
     }catch(err){alert("保存失敗: "+err.message);}
@@ -22166,7 +22166,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.91-BT";
+const APP_VERSION="v1.0.92-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
