@@ -19937,6 +19937,465 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
 /* ==========================================
    App
    ========================================== */
+/* ===== 受領請求書タブ（NHA/SPKから移植・store=bt） ===== */
+function ReceivedInvoicesTab({sb,store}){
+  const BUCKET="received-invoices";
+  const TABLE="received_invoices";
+  const [list,setList]=React.useState([]);
+  const [loading,setLoading]=React.useState(false);
+  const [showForm,setShowForm]=React.useState(false);
+  const [editRec,setEditRec]=React.useState(null);
+  const [filterYM,setFilterYM]=React.useState("");
+  const [filterSt,setFilterSt]=React.useState("");
+  const [uploading,setUploading]=React.useState(false);
+  const [pendingFile,setPendingFile]=React.useState(null);
+  const fileRef=React.useRef();
+  const [form,setForm]=React.useState({payee:"",amount:"",received_date:"",issue_date:"",due_date:"",paid_date:"",description:"",tax_rate:"込",status:"unpaid",memo:"",pay_method:"カード",category:""});
+  const todayYM=new Date().toISOString().slice(0,7);
+  const [openMonths,setOpenMonths]=React.useState({[todayYM]:true});
+  const [reqErr,setReqErr]=React.useState({});  // 必須未入力の点滅（received_date / description）
+  // 💳 会計カード連携（保存後にボタンで送る・登録処理とは完全に分離）
+  const [linkedMap,setLinkedMap]=React.useState({});
+  const [linkRec,setLinkRec]=React.useState(null);
+  const [linkCat,setLinkCat]=React.useState("");
+  const [linkPaidDate,setLinkPaidDate]=React.useState("");
+  const CARD_CATS=(typeof ACCT_CARD_CATEGORIES!=="undefined")?ACCT_CARD_CATEGORIES:["燃料費","車両整備費","車検費","点検費","修理費","保険料","駐車場代","消耗品費","広告宣伝費","通信費","水道光熱費","旅費交通費","外注費","支払手数料","租税公課","雑費","その他"];
+  // 🚗 車両整備連携（保存後にボタンで送る・発行日基準で原価計上）
+  const [vehLinkedMap,setVehLinkedMap]=React.useState({});
+  const [vehRec,setVehRec]=React.useState(null);
+  const [vehCar,setVehCar]=React.useState("");
+  const [vehCat,setVehCat]=React.useState("repair");
+  const [vehAmt,setVehAmt]=React.useState("");
+  const [carsList,setCarsList]=React.useState([]);
+  const VEH_CATS=[{v:"inspection",l:"車検"},{v:"semi_annual",l:"半年点検"},{v:"repair",l:"修理"},{v:"oil",l:"オイル交換"},{v:"other",l:"その他"}];
+  const openVehLink=async r=>{
+    let cars=carsList;
+    if(!cars.length){try{cars=await DB.hm.fetchCars();setCarsList(cars||[]);}catch(e){}}
+    const ex=vehLinkedMap[r.id];
+    setVehCar(ex?ex.car:((cars&&cars[0])?cars[0].id:""));
+    setVehCat(ex?ex.type:"repair");
+    setVehAmt(String(r.amount||""));
+    setVehRec(r);
+  };
+  const doVehLink=async()=>{
+    if(!vehRec)return;if(!vehCar){alert("車両を選んでください");return;}
+    const r=vehRec;
+    try{
+      await DB.hm.saveLog({id:"loginv_"+r.id,store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,detail:"受領請求書: "+(r.payee||""),description:"受領請求書連携 "+(r.payee||"")});
+      setVehRec(null);await reload();
+    }catch(e){alert("車両連携に失敗: "+(e.message||e));}
+  };
+  const unVehLink=async()=>{
+    if(!vehRec)return;const r=vehRec;
+    try{await DB.hm.deleteLog("loginv_"+r.id);setVehRec(null);await reload();}catch(e){alert("解除に失敗: "+(e.message||e));}
+  };
+
+  const reload=async()=>{
+    if(!sb)return;
+    setLoading(true);
+    try{
+      // 自店ぶん＋本社(hq)ぶんを表示（本社請求書も各店から見え、支払済が本社↔店で双方向同期する）
+      const {data,error}=await sb.from(TABLE).select("*").in("store",[store,"hq"]).order("received_date",{ascending:false});
+      if(!error)setList(data||[]);
+      // 会計連携済みの請求書を把握（best-effort）
+      try{
+        const {data:ar}=await sb.from(store+"_accounting").select("id,category").like("id","acct_inv_%");
+        const m={};(ar||[]).forEach(a=>{m[String(a.id).replace("acct_inv_","")]=a.category||"";});
+        setLinkedMap(m);
+      }catch(e){}
+      try{
+        const logs=await DB.hm.fetchLogs();
+        const vm={};(logs||[]).forEach(l=>{if(String(l.id).startsWith("loginv_"))vm[String(l.id).replace("loginv_","")]={car:l.car_id,type:l.type};});
+        setVehLinkedMap(vm);
+      }catch(e){}
+    }finally{setLoading(false);}
+  };
+  const openLink=r=>{setLinkCat(linkedMap[r.id]||"");setLinkPaidDate(r.paid_date||r.due_date||"");setLinkRec(r);};
+  const doLink=async()=>{
+    if(!linkRec)return;if(!linkCat){alert("科目を選んでください");return;}
+    if(!linkPaidDate){alert("支払い日を入力してください（会計カードの計上月になります）");return;}
+    const r=linkRec;
+    try{
+      await sb.from(store+"_accounting").upsert({id:"acct_inv_"+r.id,date:linkPaidDate,type:"card_pay",category:linkCat,
+        payee:r.payee||"",pay_content:(r.description||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||"",
+        amount:r.amount||0,paid:(r.status==="paid"),pay_method:"カード",user_name:"受領請求書連携",memo:"受領請求書#"+r.id+" 連携"},{onConflict:"id"});
+      try{await sb.from(TABLE).update({paid_date:linkPaidDate}).eq("id",r.id);}catch(e){}
+      setLinkRec(null);await reload();
+    }catch(e){alert("会計連携に失敗: "+(e.message||e));}
+  };
+  const unLink=async()=>{
+    if(!linkRec)return;const r=linkRec;
+    try{await sb.from(store+"_accounting").delete().eq("id","acct_inv_"+r.id);setLinkRec(null);await reload();}catch(e){alert("解除に失敗: "+(e.message||e));}
+  };
+
+  React.useEffect(()=>{
+    if(!document.getElementById("kreq-style")){const st=document.createElement("style");st.id="kreq-style";st.textContent="@keyframes kReqBlink{0%,100%{border-color:#fca5a5;box-shadow:0 0 0 0 rgba(220,38,38,0)}50%{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.25)}}.kreq{animation:kReqBlink .8s ease-in-out infinite;border-color:#dc2626!important}";document.head.appendChild(st);}
+  },[]);
+  React.useEffect(()=>{
+    reload();
+    // 本社(invoice_manager)や他店での支払済変更を、開いたまま反映（フォーカス復帰時＋45秒ごと）
+    const onVis=()=>{if(!document.hidden)reload();};
+    document.addEventListener("visibilitychange",onVis);
+    window.addEventListener("focus",reload);
+    const iv=setInterval(reload,45000);
+    return ()=>{document.removeEventListener("visibilitychange",onVis);window.removeEventListener("focus",reload);clearInterval(iv);};
+  },[store]);
+
+  const resetForm=()=>{
+    setForm({payee:"",amount:"",received_date:new Date().toISOString().slice(0,10),issue_date:"",due_date:"",paid_date:"",description:"",tax_rate:"込",status:"unpaid",memo:"",pay_method:"カード",category:""});
+    setPendingFile(null);
+    setEditRec(null);
+  };
+
+  const openNew=()=>{resetForm();setShowForm(true);};
+  const openEdit=r=>{
+    setEditRec(r);
+    setForm({payee:r.payee||"",amount:r.amount||"",received_date:r.received_date||"",issue_date:r.issue_date||"",due_date:r.due_date||"",paid_date:r.paid_date||"",description:r.description||"",tax_rate:r.tax_rate||"込",status:r.status||"unpaid",memo:r.memo||"",pay_method:"カード",category:""});
+    setPendingFile(r.file_url?{name:r.file_name,type:r.file_type,url:r.file_url}:null);
+    setShowForm(true);
+  };
+
+  const handleFile=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    if(f.size>20*1024*1024){alert("20MB以下のファイルを選択してください");return;}
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e2=>res(e2.target.result);r.onerror=rej;r.readAsDataURL(f);});
+    setPendingFile({name:f.name,type:f.type,data:b64,url:null});
+  };
+
+  const save=async()=>{
+    const _descEmpty=!((form.description||"").split("\n").map(s=>s.trim()).filter(Boolean).length);
+    if(!form.received_date||_descEmpty){
+      setReqErr({received_date:!form.received_date,description:_descEmpty});
+      alert("最低限の必須項目です。\n・受領日\n・内容\nを入力してください（未入力の枠が赤く点滅します）。");
+      return;
+    }
+    setReqErr({});
+    setUploading(true);
+    try{
+      let file_url=editRec?.file_url||null;
+      let file_name=editRec?.file_name||null;
+      let file_type=editRec?.file_type||null;
+      if(pendingFile&&pendingFile.data){
+        const base64=pendingFile.data.split(",")[1];
+        const byteStr=atob(base64);
+        const bytes=new Uint8Array(byteStr.length);
+        for(let i=0;i<byteStr.length;i++)bytes[i]=byteStr.charCodeAt(i);
+        const blob=new Blob([bytes],{type:pendingFile.type});
+        const path=`${store}/${Date.now()}_${pendingFile.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+        const {error:upErr}=await sb.storage.from(BUCKET).upload(path,blob,{contentType:pendingFile.type,upsert:true});
+        if(upErr)throw upErr;
+        const{data:pub}=sb.storage.from(BUCKET).getPublicUrl(path);
+        file_url=pub.publicUrl;
+        file_name=pendingFile.name;
+        file_type=pendingFile.type;
+      }
+      const row={store,payee:form.payee,amount:form.amount?parseInt(form.amount):null,received_date:form.received_date||null,issue_date:form.issue_date||null,due_date:form.due_date||null,description:(form.description||"").split("\n").map(s=>s.trim()).filter(Boolean).join("\n"),tax_rate:form.tax_rate,status:form.status,memo:form.memo,file_url,file_name,file_type};
+      if(editRec){
+        await sb.from(TABLE).update(row).eq("id",editRec.id);
+      }else{
+        await sb.from(TABLE).insert(row);
+      }
+      setShowForm(false);
+      await reload();
+      // 連携済み請求書を編集したら会計カード側も追従（科目・連携は維持・非ブロック）
+      try{
+        // 支払い日を保存（best-effort・列が無くても登録は成立済み）
+        let invId=editRec?editRec.id:null;
+        if(!invId){const {data:f}=await sb.from(TABLE).select("id").eq("store",store).eq("received_date",row.received_date||"").eq("payee",row.payee||"").order("id",{ascending:false}).limit(1);invId=f&&f[0]&&f[0].id;}
+        if(invId){try{await sb.from(TABLE).update({paid_date:form.paid_date||null}).eq("id",invId);}catch(e){}}
+        if(editRec&&linkedMap[editRec.id]){
+          await sb.from(store+"_accounting").update({date:(form.paid_date||row.due_date||row.received_date||null),amount:row.amount||0,payee:row.payee||"",pay_content:(row.description||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||"",paid:(row.status==="paid")}).eq("id","acct_inv_"+editRec.id);
+        }
+        if(editRec&&vehLinkedMap[editRec.id]){
+          const ex=vehLinkedMap[editRec.id];
+          await DB.hm.saveLog({id:"loginv_"+editRec.id,store_id:DB.hm.STORE,car_id:ex.car,date:(row.issue_date||row.received_date||null),type:ex.type||"other",cost:row.amount||0,detail:"受領請求書: "+(row.payee||""),description:"受領請求書連携 "+(row.payee||"")});
+        }
+      }catch(e){console.warn("連携追従(任意):",e);}
+    }catch(err){alert("保存失敗: "+err.message);}
+    finally{setUploading(false);}
+  };
+
+  const del=async id=>{
+    if(!window.confirm("この受領請求書を削除しますか？"+((linkedMap[id]||vehLinkedMap[id])?"\n（会計/車両へ連携した分も一緒に削除されます）":"")))return;
+    await sb.from(TABLE).delete().eq("id",id);
+    try{await sb.from(store+"_accounting").delete().eq("id","acct_inv_"+id);}catch(e){}
+    try{await DB.hm.deleteLog("loginv_"+id);}catch(e){}
+    await reload();
+  };
+
+  const toggleStatus=async r=>{
+    const ns=r.status==="paid"?"unpaid":"paid";
+    await sb.from(TABLE).update({status:ns}).eq("id",r.id);
+    setList(prev=>prev.map(x=>x.id===r.id?{...x,status:ns}:x));
+  };
+
+  const fmtAmt=v=>v!=null?`¥${Number(v).toLocaleString()}`:"¥0";
+  const fmtD=d=>{if(!d)return"-";const[y,m,dd]=d.split("-");return`${y}/${m}/${dd}`;};
+
+  let filtered=list;
+  if(filterYM)filtered=filtered.filter(r=>r.received_date&&r.received_date.slice(0,7)===filterYM);
+  if(filterSt)filtered=filtered.filter(r=>r.status===filterSt);
+
+  const total=filtered.reduce((s,r)=>s+(r.amount||0),0);
+  const unpaid=filtered.filter(r=>r.status!=="paid").reduce((s,r)=>s+(r.amount||0),0);
+  const paid=filtered.filter(r=>r.status==="paid").reduce((s,r)=>s+(r.amount||0),0);
+
+  const groups={};
+  filtered.forEach(r=>{const ym=r.received_date?r.received_date.slice(0,7):"不明";if(!groups[ym])groups[ym]=[];groups[ym].push(r);});
+  const sortedYMs=Object.keys(groups).sort().reverse();
+
+  const yearSums={};
+  sortedYMs.forEach(ym=>{const y=ym.slice(0,4);if(!yearSums[y])yearSums[y]={t:0,u:0,p:0,c:0};groups[ym].forEach(r=>{yearSums[y].c++;yearSums[y].t+=(r.amount||0);if(r.status==="paid")yearSums[y].p+=(r.amount||0);else yearSums[y].u+=(r.amount||0);});});
+  const years=Object.keys(yearSums).sort().reverse();
+
+  const toggleMonth=ym=>setOpenMonths(prev=>({...prev,[ym]:!prev[ym]}));
+
+  const inp={border:"1px solid #d1d5db",borderRadius:5,padding:"7px 10px",width:"100%",boxSizing:"border-box",fontSize:13};
+  const sel={...inp};
+
+  return <div style={{padding:"16px 16px 32px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+      <h2 style={{fontSize:16,fontWeight:"bold",flex:1}}>📥 受領請求書管理</h2>
+      <select value={filterYM} onChange={e=>setFilterYM(e.target.value)} style={{border:"1px solid #d1d5db",borderRadius:5,padding:"5px 10px",fontSize:12}}>
+        <option value="">全月</option>
+        {[...new Set(list.map(r=>r.received_date?r.received_date.slice(0,7):null).filter(Boolean))].sort().reverse().map(ym=>{const[y,m]=ym.split("-");return<option key={ym} value={ym}>{y}年{parseInt(m)}月</option>;})}
+      </select>
+      <select value={filterSt} onChange={e=>setFilterSt(e.target.value)} style={{border:"1px solid #d1d5db",borderRadius:5,padding:"5px 10px",fontSize:12}}>
+        <option value="">全ステータス</option>
+        <option value="unpaid">未払い</option>
+        <option value="paid">支払済</option>
+      </select>
+      <button onClick={openNew} style={{background:"#16a34a",color:"white",border:"none",borderRadius:6,padding:"7px 14px",fontWeight:"bold",fontSize:12,cursor:"pointer"}}>＋ 登録</button>
+    </div>
+
+    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+      {[["件数",filtered.length+"件","#64748b"],["合計",fmtAmt(total),"#1a56db"],["未払い",fmtAmt(unpaid),"#dc2626"],["支払済",fmtAmt(paid),"#16a34a"]].map(([l,v,c])=><div key={l} style={{background:"white",borderRadius:8,padding:"10px 16px",boxShadow:"0 1px 6px rgba(0,0,0,0.07)",borderTop:`3px solid ${c}`,minWidth:110}}>
+        <div style={{fontSize:11,color:"#666"}}>{l}</div>
+        <div style={{fontSize:18,fontWeight:"bold",color:c==="#dc2626"?c:undefined}}>{v}</div>
+      </div>)}
+    </div>
+
+    {years.length>1&&<div style={{background:"white",borderRadius:8,padding:"12px 16px",marginBottom:12,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+      <div style={{fontSize:12,fontWeight:"bold",color:"#333",marginBottom:8}}>📅 年別サマリー</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {years.map(y=>{const ys=yearSums[y];return<div key={y} style={{background:"#f8fafc",borderRadius:8,padding:"8px 14px",border:"1px solid #e5e7eb"}}>
+          <div style={{fontSize:12,fontWeight:"bold",marginBottom:4}}>{y}年 <span style={{fontSize:10,color:"#888"}}>{ys.c}件</span></div>
+          <div style={{fontSize:11,color:"#1a56db"}}>¥{ys.t.toLocaleString()}</div>
+          {ys.u>0&&<div style={{fontSize:11,color:"#dc2626"}}>未払い ¥{ys.u.toLocaleString()}</div>}
+          {ys.p>0&&<div style={{fontSize:11,color:"#16a34a"}}>支払済 ¥{ys.p.toLocaleString()}</div>}
+        </div>;})}
+      </div>
+    </div>}
+
+    {loading?<div style={{textAlign:"center",padding:40,color:"#888"}}>読み込み中...</div>:
+     filtered.length===0?<div style={{textAlign:"center",padding:40,color:"#999"}}>受領請求書がありません</div>:
+     sortedYMs.map(ym=>{
+      const grp=groups[ym];
+      const gt=grp.reduce((s,r)=>s+(r.amount||0),0);
+      const gu=grp.filter(r=>r.status!=="paid").reduce((s,r)=>s+(r.amount||0),0);
+      const gp=grp.filter(r=>r.status==="paid").reduce((s,r)=>s+(r.amount||0),0);
+      const isOpen=!!openMonths[ym];
+      const isCur=(ym===todayYM);
+      const [y,m2]=ym.split("-");
+      const label=ym==="不明"?"日付不明":`${y}年${parseInt(m2)}月`;
+      return<div key={ym} style={{marginBottom:8}}>
+        <div onClick={()=>toggleMonth(ym)} style={{background:"white",borderRadius:isOpen?"8px 8px 0 0":"8px",padding:"11px 16px",boxShadow:"0 1px 6px rgba(0,0,0,0.07)",cursor:"pointer",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",borderLeft:`4px solid ${isCur?"#1a56db":"#e5e7eb"}`,userSelect:"none"}}>
+          <span style={{fontSize:11,color:"#888"}}>{isOpen?"▼":"▶"}</span>
+          <span style={{fontSize:14,fontWeight:"bold"}}>{label}</span>
+          {isCur&&<span style={{background:"#dbeafe",color:"#1a56db",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:"bold"}}>今月</span>}
+          <span style={{fontSize:11,color:"#888",background:"#f1f5f9",borderRadius:10,padding:"1px 7px"}}>{grp.length}件</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:12,color:"#1a56db",fontWeight:"bold"}}>¥{gt.toLocaleString()}</span>
+            {gu>0&&<span style={{fontSize:11,color:"#dc2626",fontWeight:"bold",background:"#fee2e2",borderRadius:6,padding:"1px 7px"}}>未払い ¥{gu.toLocaleString()}</span>}
+            {gp>0&&<span style={{fontSize:11,color:"#16a34a",fontWeight:"bold",background:"#dcfce7",borderRadius:6,padding:"1px 7px"}}>支払済 ¥{gp.toLocaleString()}</span>}
+          </div>
+        </div>
+        {isOpen&&<div style={{overflowX:"auto",boxShadow:"0 2px 6px rgba(0,0,0,0.06)",borderRadius:"0 0 8px 8px",background:"white"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:"#1a56db",color:"white"}}>
+              <th style={{padding:"8px 10px",textAlign:"left",fontWeight:"bold",fontSize:11}}>受領日</th>
+              <th style={{padding:"8px 10px",textAlign:"left",fontWeight:"bold",fontSize:11}}>支払い先</th>
+              <th style={{padding:"8px 10px",textAlign:"left",fontWeight:"bold",fontSize:11}}>内容</th>
+              <th style={{padding:"8px 10px",textAlign:"right",fontWeight:"bold",fontSize:11}}>金額</th>
+              <th style={{padding:"8px 10px",textAlign:"center",fontWeight:"bold",fontSize:11}}>支払期日</th>
+              <th style={{padding:"8px 10px",textAlign:"center",fontWeight:"bold",fontSize:11}}>ステータス</th>
+              <th style={{padding:"8px 10px",textAlign:"center",fontWeight:"bold",fontSize:11}}>ファイル</th>
+              <th style={{padding:"8px 10px",textAlign:"center",fontWeight:"bold",fontSize:11}}>操作</th>
+            </tr></thead>
+            <tbody>{grp.map(r=>{
+              const days=r.due_date?Math.ceil((new Date(r.due_date)-new Date())/86400000):null;
+              const overdue=r.status!=="paid"&&days!==null&&days<0;
+              const neardue=r.status!=="paid"&&days!==null&&days>=0&&days<=7;
+              return<tr key={r.id} style={{borderBottom:"1px solid #f0f0f0"}}>
+                <td style={{padding:"8px 10px"}}>{fmtD(r.received_date)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"bold"}}>{r.store==="hq"&&<span style={{background:"#f3e8ff",color:"#7c3aed",borderRadius:6,padding:"1px 6px",fontSize:9,fontWeight:800,marginRight:5}}>🏢本社</span>}{r.payee||"-"}</td>
+                <td style={{padding:"8px 10px",maxWidth:160,wordBreak:"break-word",whiteSpace:"pre-line"}}>{r.description||"-"}</td>
+                <td style={{padding:"8px 10px",textAlign:"right",fontWeight:"bold"}}>{fmtAmt(r.amount)}</td>
+                <td style={{padding:"8px 10px",textAlign:"center",color:overdue?"#dc2626":neardue?"#d97706":"inherit",fontWeight:overdue||neardue?"bold":"normal"}}>
+                  {r.due_date?<>{fmtD(r.due_date)}{r.status!=="paid"&&days!==null&&<><br/><span style={{fontSize:10}}>{days<0?`⚠${-days}日超過`:`残${days}日`}</span></>}</>:"-"}
+                </td>
+                <td style={{padding:"8px 10px",textAlign:"center"}}>
+                  <span style={{padding:"2px 8px",borderRadius:10,fontSize:11,fontWeight:"bold",background:r.status==="paid"?"#dcfce7":"#fee2e2",color:r.status==="paid"?"#16a34a":"#dc2626"}}>{r.status==="paid"?"支払済":"未払い"}</span>
+                </td>
+                <td style={{padding:"8px 10px",textAlign:"center"}}>
+                  {r.file_url?<a href={r.file_url} target="_blank" rel="noreferrer" style={{background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:5,padding:"3px 8px",fontSize:11,color:"#1a56db",textDecoration:"none",whiteSpace:"nowrap"}}>📄 表示</a>:"—"}
+                </td>
+                <td style={{padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}}>
+                    <button onClick={()=>toggleStatus(r)} style={{background:r.status==="paid"?"#6b7280":"#16a34a",color:"white",border:"none",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",whiteSpace:"nowrap"}}>{r.status==="paid"?"未払いに戻す":"支払済にする"}</button>
+                    <button onClick={()=>openLink(r)} title="会計カードへ連携" style={{background:linkedMap[r.id]?"#ede9fe":"#fff",border:"1px solid "+(linkedMap[r.id]?"#7c3aed":"#d1d5db"),color:linkedMap[r.id]?"#6d28d9":"#374151",borderRadius:4,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{linkedMap[r.id]?"💳連携済":"💳会計へ"}</button>
+                    <button onClick={()=>openVehLink(r)} title="車両整備へ連携" style={{background:vehLinkedMap[r.id]?"#dbeafe":"#fff",border:"1px solid "+(vehLinkedMap[r.id]?"#2563eb":"#d1d5db"),color:vehLinkedMap[r.id]?"#1d4ed8":"#374151",borderRadius:4,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{vehLinkedMap[r.id]?"🚗連携済":"🚗車両へ"}</button>
+                    <button onClick={()=>openEdit(r)} style={{background:"none",border:"1px solid #d1d5db",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>✏️</button>
+                    <button onClick={()=>del(r.id)} style={{background:"#fee2e2",border:"none",color:"#dc2626",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
+                  </div>
+                </td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>}
+      </div>;
+    })}
+
+    {showForm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,overflowY:"auto",padding:"20px 0"}} onClick={e=>{if(e.target===e.currentTarget){setShowForm(false);}}}>
+      <div style={{background:"white",borderRadius:14,maxWidth:600,margin:"0 auto",overflow:"hidden"}}>
+        <div style={{background:"#16a34a",color:"white",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontSize:15,fontWeight:"bold"}}>{editRec?"📝 受領請求書を編集":"📨 受領請求書を登録"}</span>
+          <button onClick={()=>setShowForm(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"white",width:26,height:26,borderRadius:"50%",cursor:"pointer",fontSize:15}}>✕</button>
+        </div>
+        <div style={{padding:20}}>
+          <div style={{border:"2px dashed #16a34a",borderRadius:8,padding:16,textAlign:"center",cursor:"pointer",background:"#f0fdf4",marginBottom:14}} onClick={()=>fileRef.current.click()}>
+            <div style={{fontSize:28,marginBottom:4}}>📄</div>
+            <div style={{fontSize:13,color:"#166534",fontWeight:"bold"}}>PDF / JPEG / PNG をクリックして選択</div>
+            {pendingFile&&<div style={{marginTop:6,fontSize:11,color:"#888"}}>📎 {pendingFile.name}</div>}
+            <input type="file" ref={fileRef} accept=".pdf,.png,.jpg,.jpeg" style={{display:"none"}} onChange={handleFile}/>
+          </div>
+          <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+            <div style={{flex:"0 0 auto",minWidth:140}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>支払い先</label>
+              <input style={inp} value={form.payee} onChange={e=>setForm(f=>({...f,payee:e.target.value}))} placeholder="会社名・個人名"/>
+            </div>
+            <div style={{flex:"0 0 auto",minWidth:120}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>金額（税込）</label>
+              <input style={inp} type="number" min="0" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="0"/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+            <div style={{flex:"0 0 auto",minWidth:140}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>受領日 *</label>
+              <input className={reqErr.received_date?"kreq":""} style={inp} type="date" value={form.received_date} onChange={e=>{setForm(f=>({...f,received_date:e.target.value}));if(reqErr.received_date)setReqErr(p=>({...p,received_date:false}));}}/>
+            </div>
+            <div style={{flex:"0 0 auto",minWidth:140}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>発行日</label>
+              <input style={inp} type="date" value={form.issue_date} onChange={e=>setForm(f=>({...f,issue_date:e.target.value}))}/>
+            </div>
+            <div style={{flex:"0 0 auto",minWidth:140}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>支払期日</label>
+              <input style={inp} type="date" value={form.due_date} onChange={e=>setForm(f=>({...f,due_date:e.target.value}))}/>
+            </div>
+            <div style={{flex:"0 0 auto",minWidth:140}}>
+              <label style={{fontSize:11,color:"#7c3aed",fontWeight:"bold",display:"block",marginBottom:3}}>支払い日 <span style={{fontWeight:400,fontSize:9,color:"#94a3b8"}}>（会計計上月）</span></label>
+              <input style={inp} type="date" value={form.paid_date||""} onChange={e=>setForm(f=>({...f,paid_date:e.target.value}))}/>
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>内容 * <span style={{fontWeight:400,color:"#94a3b8",fontSize:10}}>（請求内容が複数ある場合は＋で追加）</span></label>
+            {(()=>{const lines=(form.description||"").split("\n");if(lines.length===0)lines.push("");
+              const setLine=(i,v)=>{const a=(form.description||"").split("\n");if(a.length===0)a.push("");a[i]=v;setForm(f=>({...f,description:a.join("\n")}));if(reqErr.description)setReqErr(p=>({...p,description:false}));};
+              const addLine=()=>{const a=(form.description||"").split("\n");a.push("");setForm(f=>({...f,description:a.join("\n")}));};
+              const delLine=i=>{const a=(form.description||"").split("\n");a.splice(i,1);if(a.length===0)a.push("");setForm(f=>({...f,description:a.join("\n")}));};
+              return <div>
+                {lines.map((ln,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+                  <input className={reqErr.description?"kreq":""} style={{...inp,flex:1}} value={ln} onChange={e=>setLine(i,e.target.value)} placeholder="品目・サービス名"/>
+                  {lines.length>1&&<button type="button" onClick={()=>delLine(i)} title="この行を削除" style={{border:"1px solid #fca5a5",background:"#fef2f2",color:"#b91c1c",borderRadius:5,width:32,height:32,cursor:"pointer",fontWeight:800,flexShrink:0}}>−</button>}
+                </div>)}
+                <button type="button" onClick={addLine} style={{marginTop:2,border:"1px dashed #16a34a",background:"#f0fdf4",color:"#15803d",borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>＋ 内容を追加</button>
+              </div>;})()}
+          </div>
+          <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+            <div style={{flex:"0 0 auto",minWidth:100}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>ステータス</label>
+              <select style={sel} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+                <option value="unpaid">未払い</option>
+                <option value="paid">支払済</option>
+              </select>
+            </div>
+            <div style={{flex:1,minWidth:160}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:3}}>メモ</label>
+              <input style={inp} value={form.memo} onChange={e=>setForm(f=>({...f,memo:e.target.value}))}/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
+            <button onClick={()=>setShowForm(false)} style={{background:"white",border:"1px solid #d1d5db",borderRadius:5,padding:"7px 16px",cursor:"pointer",fontSize:12}}>キャンセル</button>
+            <button onClick={save} disabled={uploading} style={{background:uploading?"#86efac":"#16a34a",color:"white",border:"none",borderRadius:5,padding:"7px 16px",fontWeight:"bold",fontSize:12,cursor:uploading?"wait":"pointer"}}>
+              {uploading?"⏳ 保存中...":"📥 登録する"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>}
+    {linkRec&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:320,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setLinkRec(null);}}>
+      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:420,overflow:"hidden"}}>
+        <div style={{background:"#7c3aed",color:"#fff",padding:"13px 16px",fontWeight:"bold",fontSize:15}}>💳 会計カードへ連携</div>
+        <div style={{padding:18}}>
+          <div style={{fontSize:12,color:"#475569",marginBottom:10,background:"#f8fafc",borderRadius:8,padding:"8px 10px"}}>
+            <div><b>{linkRec.payee||"(支払先なし)"}</b> ／ ¥{(linkRec.amount||0).toLocaleString()}</div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{linkRec.status==="paid"?"支払済":"未払い"}</div>
+          </div>
+          <label style={{fontSize:11,color:"#7c3aed",fontWeight:"bold",display:"block",marginBottom:4}}>支払い日 *（この月の会計カードに計上）</label>
+          <input style={{...inp,marginBottom:10}} type="date" value={linkPaidDate} onChange={e=>setLinkPaidDate(e.target.value)}/>
+          <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:4}}>科目 *</label>
+          <select style={sel} value={linkCat} onChange={e=>setLinkCat(e.target.value)}>
+            <option value="">選択してください</option>
+            {CARD_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+          <div style={{fontSize:10,color:"#7c3aed",marginTop:8}}>→ 会計タブ「💳カード」に計上されます。請求書を編集/削除すると会計側も追従します。</div>
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:16,paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
+            <div>{linkedMap[linkRec.id]&&<button onClick={unLink} style={{background:"#fee2e2",border:"none",color:"#dc2626",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>連携を解除</button>}</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setLinkRec(null)} style={{background:"#fff",border:"1px solid #d1d5db",borderRadius:6,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>キャンセル</button>
+              <button onClick={doLink} style={{background:"#7c3aed",color:"#fff",border:"none",borderRadius:6,padding:"7px 16px",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>💳 会計へ連携</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>}
+    {vehRec&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:320,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setVehRec(null);}}>
+      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:420,overflow:"hidden"}}>
+        <div style={{background:"#2563eb",color:"#fff",padding:"13px 16px",fontWeight:"bold",fontSize:15}}>🚗 車両整備へ連携</div>
+        <div style={{padding:18}}>
+          <div style={{fontSize:12,color:"#475569",marginBottom:10,background:"#f8fafc",borderRadius:8,padding:"8px 10px"}}>
+            <div><b>{vehRec.payee||"(支払先なし)"}</b> ／ 請求額 ¥{(vehRec.amount||0).toLocaleString()}</div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:2}}>計上日＝発行日（{vehRec.issue_date||vehRec.received_date||"—"}）</div>
+          </div>
+          <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:4}}>車両 *</label>
+          <select style={sel} value={vehCar} onChange={e=>setVehCar(e.target.value)}>
+            <option value="">選択してください</option>
+            {carsList.map(c=><option key={c.id} value={c.id}>{c.name||c.id}{c.plate?(" / "+c.plate):""}</option>)}
+          </select>
+          <div style={{display:"flex",gap:10,marginTop:8}}>
+            <div style={{flex:1}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:4}}>整備種別</label>
+              <select style={sel} value={vehCat} onChange={e=>setVehCat(e.target.value)}>{VEH_CATS.map(c=><option key={c.v} value={c.v}>{c.l}</option>)}</select>
+            </div>
+            <div style={{flex:1}}>
+              <label style={{fontSize:11,color:"#666",fontWeight:"bold",display:"block",marginBottom:4}}>金額（按分可）</label>
+              <input style={inp} type="number" min="0" value={vehAmt} onChange={e=>setVehAmt(e.target.value)}/>
+            </div>
+          </div>
+          <div style={{fontSize:10,color:"#1d4ed8",marginTop:8}}>→ 車両タブ「整備管理」にこの車両の費用として計上されます（複数車両に分けるなら金額を変えて各車両へ連携）。</div>
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:16,paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
+            <div>{vehLinkedMap[vehRec.id]&&<button onClick={unVehLink} style={{background:"#fee2e2",border:"none",color:"#dc2626",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>連携を解除</button>}</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setVehRec(null)} style={{background:"#fff",border:"1px solid #d1d5db",borderRadius:6,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>キャンセル</button>
+              <button onClick={doVehLink} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:6,padding:"7px 16px",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>🚗 車両へ連携</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
 function App(){
   const[data,setData]=useState([]);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);
   // ★ 2026-05-02 v3.4.34 自己治癒: data state に id 重複が混入したら自動除去
@@ -20639,7 +21098,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -21360,6 +21819,7 @@ function App(){
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
           {tab==="foreign"&&<ForeignVisitorAnalysis data={data}/>}
           {tab==="accounting"&&<PASGuard label="会計管理"><AccountingPanel staff={staff} onSynced={()=>markDbSync("accounting")}/></PASGuard>}
+          {tab==="recv_invoice"&&<ReceivedInvoicesTab sb={sb} store="bt"/>}
           {tab==="monthly"&&<MonthlyLedger isSpk={false} resvData={data}/>}
           {tab==="import"&&<CSVPanel onImport={imp} onUpdatePlaces={updatePlaces} dataCount={data.length} pendingPlaces={pendingPlaces} onSetPendingPlaces={setPendingPlaces} files={csvFiles} setFiles={setCsvFiles} logs={csvLogs} setLogs={setCsvLogs} placeLogs={csvPlaceLogs} setPlaceLogs={setCsvPlaceLogs}/>}
           {tab==="staff"&&<PASGuard label="スタッフ情報"><StaffManager staff={staff} onStaffChange={setStaffSync} onDeleteStaff={(name)=>DB.deleteStaff(name)}/></PASGuard>}
@@ -21706,7 +22166,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.90-BT";
+const APP_VERSION="v1.0.91-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
