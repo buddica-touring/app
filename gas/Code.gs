@@ -1,6 +1,6 @@
 // ============================================================
 // GAS - Reservation Email Import & Vehicle Auto-Assignment
-// Gmail: reserve@rent-buddica-touring.jp
+// Gmail: reserve.touring@buddica.co.jp
 // Target: 高松空港 (BUDDICA TOURISM / Takamatsu) store only
 // OTA: 楽天(R), じゃらん(J), skyticket(S), エアトリ(O), オフィシャル(HP)
 // ============================================================
@@ -2699,7 +2699,7 @@ function checkUnknownSenders_() {
   var knownSenders = Object.values(OTA_SENDERS);
   // 予約系キーワードを含むreserve@宛メールを直近2日で検索
   var reserveKeywords = ['予約確定', '予約通知', '予約受付', '新規予約', 'ご予約完了', '予約を受け付け', '予約登録'];
-  var query = 'to:reserve@rent-buddica-touring.jp newer_than:2d -label:' + LABEL_NAME;
+  var query = 'to:reserve.touring@buddica.co.jp newer_than:2d -label:' + LABEL_NAME;
   var threads;
   try {
     threads = GmailApp.search(query, 0, 50);
@@ -4117,7 +4117,7 @@ function btSendJalanPaymentEmail_(pay) {
       + 'BUDDICA TOURISM 高松空港店\n'
       + 'TEL: 050-1724-6197（9:00〜19:00）\n'
       + 'LINE ID👉 @466dbckq\n';
-    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM 高松空港店', from: 'reserve@rent-buddica-touring.jp', replyTo: 'reserve@rent-buddica-touring.jp'});
+    GmailApp.sendEmail(pay.customer_email, subject, body, {name: 'BUDDICA TOURISM 高松空港店', from: 'reserve.touring@buddica.co.jp', replyTo: 'reserve.touring@buddica.co.jp'});
     return true;
   } catch (e) { Logger.log('[NhaJalanEmail] Error: ' + e.message); return false; }
 }
@@ -5239,7 +5239,7 @@ function inspectOtaDeliveryMatches7Days() {
 }
 
 // テスト用: 直近7日分 / 予約IDで重複排除 + 高松店判定フィルタ
-// reserve@rent-buddica-touring.jp は高松/札幌共通インボックスのため isTakamatsuReservation_ で絞る
+// reserve.touring@buddica.co.jp は高松/札幌共通インボックスのため isTakamatsuReservation_ で絞る
 function backfillOtaDeliveryFlagsTest7Days() {
   var OTA_TARGETS = ['jalan', 'rakuten', 'skyticket', 'airtrip', 'airtrip_dp'];
   var fromClause = OTA_TARGETS.map(function(k) { return 'from:' + OTA_SENDERS[k]; }).join(' OR ');
@@ -5783,7 +5783,7 @@ function backfillHpVisitReturn(options) {
         var from = msg.getFrom();
         var body = msg.getPlainBody();
         // HP送信元のみ
-        if (from.indexOf('reserve@rent-buddica-touring.jp') === -1
+        if (from.indexOf('reserve.touring@buddica.co.jp') === -1
             && from.indexOf('noreply@rent-buddica-touring.jp') === -1) continue;
         if (body.indexOf(rid) === -1) continue;
         try {
@@ -7559,8 +7559,8 @@ function btSendJalanReminderEmail_(pay) {
       + 'TEL: 050-1724-6197（9:00〜19:00）\n';
     GmailApp.sendEmail(pay.customer_email, subject, body, {
       name: 'BUDDICA TOURISM 高松空港店',
-      from: 'reserve@rent-buddica-touring.jp',
-      replyTo: 'reserve@rent-buddica-touring.jp'
+      from: 'reserve.touring@buddica.co.jp',
+      replyTo: 'reserve.touring@buddica.co.jp'
     });
     return true;
   } catch (e) {
