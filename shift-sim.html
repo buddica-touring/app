@@ -143,9 +143,11 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost" onclick="clearMonth()">この月をクリア</button>
         <button class="btn btn-navy" onclick="reflectToShiftbook()">📥 出勤簿に反映</button>
+        <button class="btn btn-ghost" onclick="clearReflected()">🧹 反映を削除</button>
         <button class="btn btn-ghost" onclick="window.print()">🖨 PDF</button>
       </div>
     </div>
+    <div style="font-size:11px;color:var(--gray);margin:2px 0 10px;line-height:1.6">📌 <b>試算＝計画（下書き）／ 出勤簿＝正本（マスター）</b>。ここで組んだバイトのシフトを「📥 出勤簿に反映」で送ります。連携は<b>反映／反映を削除ボタンのときだけ</b>（自動同期はしません）。正社員や出勤簿側の手入力・公休はこの操作で消えません。</div>
     <div class="cal" id="dows"></div>
     <div class="cal" id="cal" style="margin-top:5px"></div>
     <div style="font-size:11px;color:var(--gray);margin-top:8px">左の色帯＝その日の充足（緑=充足/橙=不足/赤=大幅不足）。右下＝その日の人件費。色ピルをクリックで個別解除。</div>
@@ -243,6 +245,20 @@ async function reflectToShiftbook(){
     if(!r.ok){throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,160));}
     alert(`✅ 出勤簿に反映しました（${rows.length}件）。\nタスク管理→出勤簿を開き、${cur.y}年${cur.m+1}月 をご確認ください。\n\n※ 名前が一致せず表示されない人がいたら、出勤簿のスタッフ名と試算の氏名を合わせてください。`);
   }catch(e){alert('反映に失敗しました：'+e.message);}
+}
+// ★ 反映した分だけ出勤簿から削除（memo='試算反映'で絞る → 正社員・手入力・公休は残す）
+async function clearReflected(){
+  const tok=_sbToken();
+  if(!tok){alert('本体APP（タスク管理）にログイン済みの端末で実行してください。');return;}
+  const pre=`${cur.y}-${pad(cur.m+1)}-`;
+  if(!confirm(`${cur.y}年${cur.m+1}月の「試算から反映した分」を出勤簿から削除します。\n\n● 試算で入れた●だけを消します\n● 正社員・手入力・公休はそのまま残ります`))return;
+  try{
+    const url=SB_URL+'/rest/v1/bt_shifts?date=like.'+encodeURIComponent(pre+'%')+'&memo=eq.'+encodeURIComponent('試算反映');
+    const r=await fetch(url,{method:'DELETE',headers:Object.assign(_hdr(tok),{'Prefer':'return=representation'})});
+    if(!r.ok){throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,160));}
+    let n=0;try{n=(await r.json()).length;}catch(e){}
+    alert(`✅ 出勤簿から ${n}件 を削除しました（${cur.y}年${cur.m+1}月・試算反映分）。\n出勤簿を開いてご確認ください。`);
+  }catch(e){alert('削除に失敗しました：'+e.message);}
 }
 const COLORS=['#e8505b','#1ec8b0','#f0a020','#5b7cfa','#9b59b6','#16a085','#e67e22','#2c82c9','#d6457e','#27ae60'];
 const DOWJP=['日','月','火','水','木','金','土'];
