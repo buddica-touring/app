@@ -19938,6 +19938,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
    App
    ========================================== */
 /* ===== 受領請求書タブ（NHA/SPKから移植・store=bt） ===== */
+function _loginvId(v){return '0a1b2c3d-0000-4000-8000-'+(Number(v)||0).toString(16).padStart(12,'0').slice(-12);}
 function ReceivedInvoicesTab({sb,store}){
   const BUCKET="received-invoices";
   const TABLE="received_invoices";
@@ -19981,13 +19982,13 @@ function ReceivedInvoicesTab({sb,store}){
     if(!vehRec)return;if(!vehCar){alert("車両を選んでください");return;}
     const r=vehRec;
     try{
-      await DB.hm.saveLog({id:"loginv_"+r.id,store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,description:"受領請求書連携 "+(r.payee||"")});
+      await DB.hm.saveLog({id:_loginvId(r.id),store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,description:"受領請求書連携 "+(r.payee||"")});
       setVehRec(null);await reload();
     }catch(e){alert("車両連携に失敗: "+(e.message||e));}
   };
   const unVehLink=async()=>{
     if(!vehRec)return;const r=vehRec;
-    try{await DB.hm.deleteLog("loginv_"+r.id);setVehRec(null);await reload();}catch(e){alert("解除に失敗: "+(e.message||e));}
+    try{await DB.hm.deleteLog(_loginvId(r.id));setVehRec(null);await reload();}catch(e){alert("解除に失敗: "+(e.message||e));}
   };
 
   const reload=async()=>{
@@ -20005,7 +20006,7 @@ function ReceivedInvoicesTab({sb,store}){
       }catch(e){}
       try{
         const logs=await DB.hm.fetchLogs();
-        const vm={};(logs||[]).forEach(l=>{if(String(l.id).startsWith("loginv_"))vm[String(l.id).replace("loginv_","")]={car:l.car_id,type:l.type};});
+        const vm={};(logs||[]).forEach(l=>{var lid=String(l.id);if(lid.startsWith("0a1b2c3d-0000-4000-8000-")){var inv=parseInt(lid.slice(24),16);if(!isNaN(inv))vm[String(inv)]={car:l.car_id,type:l.type};}});
         setVehLinkedMap(vm);
       }catch(e){}
     }finally{setLoading(false);}
@@ -20108,7 +20109,7 @@ function ReceivedInvoicesTab({sb,store}){
         }
         if(editRec&&vehLinkedMap[editRec.id]){
           const ex=vehLinkedMap[editRec.id];
-          await DB.hm.saveLog({id:"loginv_"+editRec.id,store_id:DB.hm.STORE,car_id:ex.car,date:(row.issue_date||row.received_date||null),type:ex.type||"other",cost:row.amount||0,description:"受領請求書連携 "+(row.payee||"")});
+          await DB.hm.saveLog({id:_loginvId(editRec.id),store_id:DB.hm.STORE,car_id:ex.car,date:(row.issue_date||row.received_date||null),type:ex.type||"other",cost:row.amount||0,description:"受領請求書連携 "+(row.payee||"")});
         }
       }catch(e){console.warn("連携追従(任意):",e);}
     }catch(err){alert("保存失敗: "+err.message);}
@@ -20119,7 +20120,7 @@ function ReceivedInvoicesTab({sb,store}){
     if(!window.confirm("この受領請求書を削除しますか？"+((linkedMap[id]||vehLinkedMap[id])?"\n（会計/車両へ連携した分も一緒に削除されます）":"")))return;
     await sb.from(TABLE).delete().eq("id",id);
     try{await sb.from(store+"_accounting").delete().eq("id","acct_inv_"+id);}catch(e){}
-    try{await DB.hm.deleteLog("loginv_"+id);}catch(e){}
+    try{await DB.hm.deleteLog(_loginvId(id));}catch(e){}
     await reload();
   };
 
@@ -22166,7 +22167,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.92-BT";
+const APP_VERSION="v1.0.93-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
