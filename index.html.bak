@@ -623,7 +623,7 @@ const DB = {
     // localStorage→Supabase同期: LSにあってSBにない or 金額が異なるレコードをアップロード
     const lsData=DB._acctLsLoad();
     const sbIds=new Set(result.map(r=>r.id));
-    const toSync=lsData.filter(r=>r.id&&(!sbIds.has(r.id)||(()=>{const sbr=result.find(x=>x.id===r.id);return sbr&&sbr.amount!==r.amount;})()));
+    const toSync=lsData.filter(r=>r.id&&!String(r.id).startsWith("acct_inv_")&&(!sbIds.has(r.id)||(()=>{const sbr=result.find(x=>x.id===r.id);return sbr&&sbr.amount!==r.amount;})()));
     if(toSync.length>0){
       dbLog("fetchAcct",true,"LS→SB同期: "+toSync.length+"件");
       for(const rec of toSync){
@@ -22171,7 +22171,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.96-BT";
+const APP_VERSION="v1.0.97-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
