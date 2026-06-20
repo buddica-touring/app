@@ -6284,6 +6284,22 @@ function FleetManager(p){
   var startEditLog=function(log){setEditLogId(log.id);setLogDate(log.date||"");setLogCost(String(log.cost||""));setLogDesc(log.detail||log.description||"");setLogCat(log.type||"other")};
   var cancelEditLog=function(){setEditLogId(null);setLogCost("");setLogDesc("");setLogDate(new Date().toISOString().slice(0,10));setLogCat("oil")};
   var delLog=function(id){if(!window.confirm("削除しますか？"))return;save(function(){return DB.hm.deleteLog(id)})};
+  // 受領請求書連携ログ(id=0a1b2c3d-...)から、連携元の受領請求書の画像/PDFを開く
+  var INV_LOG_PREFIX="0a1b2c3d-0000-4000-8000-";
+  var isInvLog=function(id){return String(id||"").indexOf(INV_LOG_PREFIX)===0;};
+  var openLinkedInvoice=function(id){
+    try{
+      var hex=String(id).slice(INV_LOG_PREFIX.length);var invId=parseInt(hex,16);
+      if(!invId){alert("請求書IDを特定できません");return;}
+      sb.from("received_invoices").select("file_url,file_name,payee").eq("id",invId).maybeSingle().then(function(res){
+        if(res.error){alert("請求書の取得に失敗: "+res.error.message);return;}
+        var r=res.data;
+        if(!r){alert("連携元の受領請求書が見つかりません（削除済みの可能性）");return;}
+        if(!r.file_url){alert("この受領請求書には画像/PDFが添付されていません（受領請求書タブで画像を登録してください）");return;}
+        window.open(r.file_url,"_blank","noopener,noreferrer");
+      });
+    }catch(e){alert("請求書の取得に失敗: "+(e.message||e));}
+  };
 
   // --- 共通パーツ ---
   var navBtn=function(id,label){return E("button",{key:id,onClick:function(){setView(id)},style:{padding:"6px 14px",fontSize:12,fontWeight:view===id?700:500,background:view===id?"#2563eb":"#f1f5f9",color:view===id?"#fff":"#64748b",border:"none",borderRadius:6,cursor:"pointer"}},label)};
@@ -6533,8 +6549,9 @@ function FleetManager(p){
               E("td",{style:{padding:"5px 8px"}},l.date||""),
               E("td",{style:{padding:"5px 8px"}},E("span",{style:{fontSize:10,padding:"2px 8px",borderRadius:4,background:l.type==="inspection"?"#dbeafe":l.type==="repair"?"#fee2e2":l.type==="semi_annual"?"#fef3c7":l.type==="oil"?"#fff7ed":"#f1f5f9",color:l.type==="inspection"?"#1e40af":l.type==="repair"?"#991b1b":l.type==="semi_annual"?"#92400e":l.type==="oil"?"#9a3412":"#475569",fontWeight:600}},catLabel(l.type))),
               E("td",{style:{padding:"5px 8px",textAlign:"right",fontWeight:700}},"¥"+Number(l.cost||0).toLocaleString()),
-              E("td",{style:{padding:"5px 8px",color:"#475569",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}},l.detail||l.description||""),
+              E("td",{style:{padding:"5px 8px",color:"#475569",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}},l.detail||l.description||"",isInvLog(l.id)?E("span",{style:{marginLeft:6,fontSize:9,fontWeight:700,color:"#1a56db",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:4,padding:"1px 5px",whiteSpace:"nowrap"}},"📥連携"):null),
               E("td",{style:{padding:"5px 8px",textAlign:"right",whiteSpace:"nowrap"}},
+                isInvLog(l.id)?E("button",{onClick:function(){openLinkedInvoice(l.id)},style:{fontSize:10,color:"#1a56db",background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:5,cursor:"pointer",padding:"2px 7px",marginRight:6,fontWeight:700}},"📄 請求書"):null,
                 E("button",{onClick:function(){startEditLog(l)},style:{fontSize:10,color:"#2563eb",background:"none",border:"none",cursor:"pointer",marginRight:6}},"編集"),
                 E("button",{onClick:function(){delLog(l.id)},style:{fontSize:10,color:"#dc2626",background:"none",border:"none",cursor:"pointer"}},"削除")
               )
@@ -21177,6 +21194,7 @@ function App(){
               ]},
               {title:"会計",color:"#d97706",items:[
                 {id:"accounting",ico:"🧾",l:"会計管理",desc:"現金出納帳・予約外売上"},
+                {id:"recv_invoice",ico:"📥",l:"受領請求書",desc:"受領した請求書(PDF/画像)の保管・支払管理"},
                 {id:"monthly",ico:"📊",l:"予算実績",desc:"予算・実績・予実比較"},
               ]},
               {title:"データ・分析",color:"#7c3aed",items:[
@@ -22171,7 +22189,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.97-BT";
+const APP_VERSION="v1.0.98-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
