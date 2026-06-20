@@ -20001,12 +20001,12 @@ function ReceivedInvoicesTab({sb,store}){
       // 会計連携済みの請求書を把握（best-effort）
       try{
         const {data:ar}=await sb.from(store+"_accounting").select("id,category").like("id","acct_inv_%");
-        const m={};(ar||[]).forEach(a=>{m[String(a.id).replace("acct_inv_","")]=a.category||"";});
+        const _ii=new Set((data||[]).map(x=>String(x.id)));if(!error){for(const _a of (ar||[])){if(!_ii.has(String(_a.id).replace("acct_inv_","")))try{await sb.from(store+"_accounting").delete().eq("id",_a.id);}catch(e){}}}const m={};(ar||[]).forEach(a=>{if(_ii.has(String(a.id).replace("acct_inv_","")))m[String(a.id).replace("acct_inv_","")]=a.category||"";});
         setLinkedMap(m);
       }catch(e){}
       try{
         const logs=await DB.hm.fetchLogs();
-        const vm={};(logs||[]).forEach(l=>{var lid=String(l.id);if(lid.startsWith("0a1b2c3d-0000-4000-8000-")){var inv=parseInt(lid.slice(24),16);if(!isNaN(inv))vm[String(inv)]={car:l.car_id,type:l.type};}});
+        const _ij=new Set((data||[]).map(x=>String(x.id)));const vm={};for(const l of (logs||[])){var lid=String(l.id);if(lid.startsWith("0a1b2c3d-0000-4000-8000-")){var inv=parseInt(lid.slice(24),16);if(!isNaN(inv)){if(!error&&!_ij.has(String(inv))){try{await DB.hm.deleteLog(l.id);}catch(e){}}else{vm[String(inv)]={car:l.car_id,type:l.type};}}}}
         setVehLinkedMap(vm);
       }catch(e){}
     }finally{setLoading(false);}
@@ -22169,7 +22169,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.94-BT";
+const APP_VERSION="v1.0.95-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
