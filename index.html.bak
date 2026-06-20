@@ -19981,6 +19981,7 @@ function ReceivedInvoicesTab({sb,store}){
   const doVehLink=async()=>{
     if(!vehRec)return;if(!vehCar){alert("車両を選んでください");return;}
     const r=vehRec;
+    {const {data:_ex}=await sb.from(TABLE).select("id").eq("id",r.id).maybeSingle();if(!_ex){alert("この請求書は削除済みです。一覧を更新します。");setVehRec(null);await reload();return;}}
     try{
       await DB.hm.saveLog({id:_loginvId(r.id),store_id:DB.hm.STORE,car_id:vehCar,date:(r.issue_date||r.received_date||null),type:vehCat||"other",cost:parseInt(vehAmt)||0,description:"受領請求書連携 "+(r.payee||"")});
       setVehRec(null);await reload();
@@ -20016,6 +20017,7 @@ function ReceivedInvoicesTab({sb,store}){
     if(!linkRec)return;if(!linkCat){alert("科目を選んでください");return;}
     if(!linkPaidDate){alert("支払い日を入力してください（会計カードの計上月になります）");return;}
     const r=linkRec;
+    {const {data:_ex}=await sb.from(TABLE).select("id").eq("id",r.id).maybeSingle();if(!_ex){alert("この請求書は削除済みです。一覧を更新します。");setLinkRec(null);await reload();return;}}
     try{
       await sb.from(store+"_accounting").upsert({id:"acct_inv_"+r.id,date:linkPaidDate,type:"card_pay",category:linkCat,
         payee:r.payee||"",pay_content:(r.description||"").split("\n").map(s=>s.trim()).filter(Boolean)[0]||"",
@@ -22169,7 +22171,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.95-BT";
+const APP_VERSION="v1.0.96-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
