@@ -19956,7 +19956,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
    ========================================== */
 /* ===== 受領請求書タブ（NHA/SPKから移植・store=bt） ===== */
 function _loginvId(v){return '0a1b2c3d-0000-4000-8000-'+(Number(v)||0).toString(16).padStart(12,'0').slice(-12);}
-function ReceivedInvoicesTab({sb,store}){
+function ReceivedInvoicesTab({sb,store,vehicles}){
   const BUCKET="received-invoices";
   const TABLE="received_invoices";
   const [list,setList]=React.useState([]);
@@ -19988,7 +19988,9 @@ function ReceivedInvoicesTab({sb,store}){
   const VEH_CATS=[{v:"inspection",l:"車検"},{v:"semi_annual",l:"半年点検"},{v:"repair",l:"修理"},{v:"oil",l:"オイル交換"},{v:"other",l:"その他"}];
   const openVehLink=async r=>{
     let cars=carsList;
-    if(!cars.length){try{cars=await DB.hm.fetchCars();setCarsList(cars||[]);}catch(e){}}
+    if(!cars.length){try{cars=await DB.hm.fetchCars(vehicles);setCarsList(cars||[]);}catch(e){}}
+    // bt_cars/整備carsが空でも、マスター(vehicles)から車両候補を補完
+    if((!cars||!cars.length)&&vehicles&&vehicles.length){cars=vehicles.map(v=>({id:v.code,name:v.name,plate:v.no,class_id:v.type}));setCarsList(cars);}
     const ex=vehLinkedMap[r.id];
     setVehCar(ex?ex.car:((cars&&cars[0])?cars[0].id:""));
     setVehCat(ex?ex.type:"repair");
@@ -21842,7 +21844,7 @@ function App(){
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
           {tab==="foreign"&&<ForeignVisitorAnalysis data={data}/>}
           {tab==="accounting"&&<PASGuard label="会計管理"><AccountingPanel staff={staff} onSynced={()=>markDbSync("accounting")}/></PASGuard>}
-          {tab==="recv_invoice"&&<ReceivedInvoicesTab sb={sb} store="bt"/>}
+          {tab==="recv_invoice"&&<ReceivedInvoicesTab sb={sb} store="bt" vehicles={vehicles}/>}
           {tab==="monthly"&&<MonthlyLedger isSpk={false} resvData={data}/>}
           {tab==="import"&&<CSVPanel onImport={imp} onUpdatePlaces={updatePlaces} dataCount={data.length} pendingPlaces={pendingPlaces} onSetPendingPlaces={setPendingPlaces} files={csvFiles} setFiles={setCsvFiles} logs={csvLogs} setLogs={setCsvLogs} placeLogs={csvPlaceLogs} setPlaceLogs={setCsvPlaceLogs}/>}
           {tab==="staff"&&<PASGuard label="スタッフ情報"><StaffManager staff={staff} onStaffChange={setStaffSync} onDeleteStaff={(name)=>DB.deleteStaff(name)}/></PASGuard>}
@@ -22189,7 +22191,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.98-BT";
+const APP_VERSION="v1.0.99-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
