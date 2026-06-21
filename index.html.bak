@@ -277,9 +277,9 @@ const DB = {
   _pendingSave:0,
   _hasChangedCol:null, // null=未チェック, true=あり, false=なし
   async fetchTasks(date){
-    if(!sb){return DB._lsLoad(date)||[];}
+    if(!sb){const ls=DB._lsLoad(date)||[];if(!ls.length){ls._fetchError=true;}return ls;}
     const{data,error}=await sb.from("bt_tasks").select("*").eq("date",date).order("sort_order");
-    if(error){dbLog("fetchTasks",false,error.message);return DB._lsLoad(date)||[];}
+    if(error){dbLog("fetchTasks",false,error.message);const ls=DB._lsLoad(date)||[];ls._fetchError=true;return ls;}
     const tasks=(data||[]).map(DB._fromDbTask);
     // ★ 保存中の場合はlocalStorageを上書きしない（保存中のデータが消えるのを防ぐ）
     if(tasks.length&&DB._pendingSave<=0)DB._lsSave(tasks,date);
@@ -307,7 +307,34 @@ const DB = {
     if(!e2){dbLog(label+"-bare",true,"ベア保存成功");DB._dbSaveOk=true;DB._hasChangedCol=false;return;}
     dbLog(label+"-bare",false,e2.message);DB._dbSaveOk=false;
   },
-  async upsertTasks(tasks,date){
+  // ★ スタッフ手入力フィールド（再生成/同期で絶対に潰さない）
+  _USER_FIELDS:["assignee","place","colPlace","time","returnTime"],
+  // 既存DB行(prev)のユーザー入力を、再生成タスク(t)に焼き戻してから保存する
+  _mergeUserInput(t,prev){
+    if(!prev)return t;
+    const m={...t};
+    if(String(prev.assignee||"").trim())m.assignee=prev.assignee;
+    if(prev._assigneeCustom)m._assigneeCustom=true;
+    if(prev._placeSource==="manual"){m.place=prev.place;m._placeSource="manual";}
+    else if(String(prev.place||"").trim()&&!String(m.place||"").trim())m.place=prev.place;
+    if(String(prev.colPlace||"").trim()&&!String(m.colPlace||"").trim())m.colPlace=prev.colPlace;
+    if(prev.timeChange||(prev._changed&&prev._changed.time)){m.time=prev.time;m.timeChange=prev.timeChange;}
+    else if(String(prev.time||"").trim()&&!String(m.time||"").trim())m.time=prev.time;
+    if(String(prev.returnTime||"").trim()&&!String(m.returnTime||"").trim())m.returnTime=prev.returnTime;
+    if(prev._ssPlace){m._ssPlace=prev._ssPlace;m._ssPlaceAt=prev._ssPlaceAt;}
+    if(prev._ssTime){m._ssTime=prev._ssTime;m._ssTimeAt=prev._ssTimeAt;}
+    if(prev._changed&&Object.keys(prev._changed).length)m._changed={...(m._changed||{}),...prev._changed};
+    if(prev.manual)m.manual=true;
+    if(prev.done)m.done=true;
+    if(String(prev.memo||"").split("\n##BCJ:")[0].trim())m.memo=DB._mergeMemo(m.memo,prev.memo);
+    return m;
+  },
+  _mergeMemo(newMemo,prevMemo){
+    const prevBase=(prevMemo||"").split("\n##BCJ:")[0];
+    const newBcj=(newMemo||"").includes("\n##BCJ:")?("\n##BCJ:"+(newMemo||"").split("\n##BCJ:")[1]):"";
+    return prevBase+newBcj;
+  },
+  async upsertTasks(tasks,date,opts){
     DB._lsSave(tasks,date);
     if(!sb||!tasks.length)return;
     DB._pendingSave++;
@@ -315,7 +342,22 @@ const DB = {
       // ★ 2026-05-09 緊急 revert (v3.5.14): UNIQUE制約と_id継承の組合せでタスク消失障害発生
       //   担当振り分け保存時にUNIQUE違反となり bt_tasks への保存失敗→ローカル更新だけ→リロードで消える
       //   → _id継承ロジック撤去 + DB UNIQUE INDEX も別途撤去（DROP INDEX SQL ユーザー実行）
-      const rows=tasks.map((t,i)=>DB._toDbTask(t,date,i));
+      let toSave=tasks;
+      // 🛡 protect=true: 再生成/同期由来の保存。DBの既存行を読み、スタッフ入力を焼き戻してから保存
+      if(opts&&opts.protect){
+        try{
+          const ids=tasks.map(t=>t._id).filter(Boolean);
+          if(ids.length){
+            const{data:exRows}=await sb.from("bt_tasks").select("*").in("_id",ids);
+            if(exRows&&exRows.length){
+              const exMap={};exRows.forEach(r=>{exMap[r._id]=DB._fromDbTask(r);});
+              toSave=tasks.map(t=>exMap[t._id]?DB._mergeUserInput(t,exMap[t._id]):t);
+              DB._lsSave(toSave,date);
+            }
+          }
+        }catch(e){console.warn("[upsertTasks protect] merge skip:",e.message);}
+      }
+      const rows=toSave.map((t,i)=>DB._toDbTask(t,date,i));
       await DB._upsertWithFallback(rows,"upsertTasks");
     }finally{DB._pendingSave--;}
   },
@@ -16248,6 +16290,13 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     if(lsData)lsData.forEach(x=>{lsMap[x._id]=x;});
     // 1. DB(+localStorage)から取得
     const saved=await DB.fetchTasks(date);
+    // 🛡 2026-06-21 データ消失対策: fetchがエラー由来（DB/RLS/瞬断）で空のときは
+    //   絶対に再生成→upsertしない（既存DB行をスタッフ入力ごと丸ごと上書きする事故を防止）。
+    if(saved&&saved._fetchError){
+      if(saved.length>0){setTasks(saved);console.warn("[loadTasks] fetchエラー→LS表示維持（再生成スキップ）",date,saved.length+"件");}
+      else{console.warn("[loadTasks] fetchエラー＆LS空→再生成スキップ（上書き事故防止）",date);}
+      return;
+    }
     if(saved&&saved.length>0){
       // 日付ズレ修正: DELタスクの予約lendDateがこの日と合わないものを除去
       const removed=[];
@@ -16397,7 +16446,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       if(sp&&g.type==="DEL"&&!g.colPlace&&sp.colPlace)g.colPlace=sp.colPlace;
     });
     setTasks(gen);
-    if(gen.length)DB.upsertTasks(gen,date);
+    // 🛡 protect=true: 万一DBに既存行があってもスタッフ入力(担当/場所/時間)を焼き戻して上書き事故を防止
+    if(gen.length)DB.upsertTasks(gen,date,{protect:true});
   },[reservations,vehicles]);
   useEffect(()=>{loadTasks(selDate,true);},[selDate]);
   // ★ 予約データ変更時（CSV入替等）にも現在日のタスクをリロード（キャンセル済みタスク除去等）
@@ -22191,7 +22241,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.99-BT";
+const APP_VERSION="v1.0.100-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
