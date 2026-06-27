@@ -132,6 +132,22 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
     <div class="brush" id="brush"></div>
   </div>
 
+  <!-- 曜日×時間帯 稼働人数シミュレーション -->
+  <div class="card">
+    <h2>🕒 曜日 × 時間帯 稼働人数（試算）</h2>
+    <div style="font-size:11px;color:var(--gray);margin:2px 0 10px;line-height:1.6">各スタッフの<b>開始時刻</b>と<b>曜日ごとの勤務時間</b>から、その曜日・その時間に<b>何人が勤務しているか</b>を集計します。色が濃いほど人数が多い＝手厚い時間帯／薄い・空白＝手薄。ピーク把握と穴埋めに。</div>
+    <div id="coverPeak" style="font-size:12px;font-weight:800;margin-bottom:8px;color:var(--navy)"></div>
+    <div style="overflow-x:auto"><div id="coverGrid"></div></div>
+    <style>
+      #coverGrid table.covtbl{width:100%;border-collapse:collapse;font-size:11px;text-align:center;min-width:420px}
+      #coverGrid .covtbl th,#coverGrid .covtbl td{border:1px solid #e5e7eb;padding:4px 2px;font-weight:800;color:#0b3a2a}
+      #coverGrid .covtbl th{background:#0f1f45;color:#fff;font-weight:700}
+      #coverGrid .covtbl th.sun{background:#7f1d1d}#coverGrid .covtbl th.sat{background:#1e3a8a}
+      #coverGrid .covtbl td.ch{background:#f8fafc;color:#475569;font-weight:700;white-space:nowrap}
+      #coverGrid .covtbl tr.tot td{background:#fffbeb;color:#92400e;font-weight:800}
+    </style>
+  </div>
+
   <!-- カレンダー -->
   <div class="card">
     <div class="cal-head">
@@ -427,6 +443,32 @@ function summary(){
   const tb=$('pbody');tb.innerHTML='';
   staff.forEach(s=>{const p=per[s.id];const bm2=g.minwage>0&&s.wage<g.minwage;tb.innerHTML+=`<tr><td><span class="cdot" style="background:${s.color}"></span>${s.name||'(未入力)'}</td><td style="${bm2?'color:var(--red);font-weight:700':''}">¥${s.wage}</td><td>${p.days}日</td><td>${p.hrs.toFixed(0)}h</td><td>${yen(p.trans)}</td><td style="font-weight:700;color:var(--navy)">${yen(p.costFull||0)}</td></tr>`;});
   tb.innerHTML+=`<tr style="background:#f0fbf9"><td style="font-weight:700">合計</td><td></td><td style="font-weight:700">${totShifts}</td><td style="font-weight:700">${totHrs.toFixed(0)}h</td><td></td><td style="font-weight:800;color:var(--navy)">${yen(totCost)}</td></tr>`;
+  renderCoverage();
+}
+
+/* ---- 曜日×時間帯 稼働人数（標準週・曜日パターン基準） ---- */
+function renderCoverage(){
+  const el=document.getElementById('coverGrid'); if(!el) return;
+  const pk=document.getElementById('coverPeak');
+  const toMin=t=>{const p=(t||'09:00').split(':');return (+p[0]||0)*60+(+p[1]||0);};
+  const act=staff.filter(s=>s.dayHours&&s.dayHours.some(h=>h>0));
+  if(!act.length){el.innerHTML='<div style="color:var(--gray);font-size:12px">スタッフの「開始時刻」と「曜日ごとの勤務時間」を設定すると、稼働人数が表示されます。</div>';if(pk)pk.textContent='';return;}
+  let minH=24,maxH=0;
+  act.forEach(s=>{const sm=toMin(s.start);s.dayHours.forEach(h=>{if(h>0){const sh=Math.floor(sm/60),eh=Math.ceil((sm+h*60)/60);if(sh<minH)minH=sh;if(eh>maxH)maxH=eh;}});});
+  minH=Math.max(0,minH);maxH=Math.min(24,maxH);if(minH>=maxH){minH=8;maxH=20;}
+  const cnt=(wd,H)=>{let c=0;act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(s.start),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)c++;}});return c;};
+  let gmax=1,peak={c:0,wd:1,H:minH};
+  for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cnt(wd,H);if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
+  let html='<table class="covtbl"><thead><tr><th>時間</th>'+DOWJP.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')+'</tr></thead><tbody>';
+  for(let H=minH;H<maxH;H++){
+    html+=`<tr><td class="ch">${pad(H)}:00</td>`;
+    for(let wd=0;wd<7;wd++){const c=cnt(wd,H);const a=c?(0.18+0.62*c/gmax):0;html+=`<td style="background:rgba(20,160,110,${a.toFixed(2)});color:${c?'#0b3a2a':'#cbd5e1'}">${c||''}</td>`;}
+    html+='</tr>';
+  }
+  html+='<tr class="tot"><td class="ch">延べh</td>'+DOWJP.map((d,wd)=>{let t=0;act.forEach(s=>{if(s.dayHours[wd]>0)t+=s.dayHours[wd];});return `<td>${t?t+'h':''}</td>`;}).join('')+'</tr>';
+  html+='</tbody></table>';
+  el.innerHTML=html;
+  if(pk)pk.innerHTML=`🔝 最大同時稼働 <span style="color:#0f766e">${peak.c}人</span>（${DOWJP[peak.wd]}曜 ${pad(peak.H)}:00台）　／　標準的な1週間の曜日パターンに基づく集計`;
 }
 
 function save(silent){const st={staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}};localStorage.setItem(KEY,JSON.stringify(st));dbPut(st);if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
