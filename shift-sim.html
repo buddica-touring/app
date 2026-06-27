@@ -482,19 +482,21 @@ function renderCoverage(){
   act.forEach(s=>{s.dayHours.forEach((h,i)=>{if(h>0){const sm=toMin(dayStartOf(s,i));const sh=Math.floor(sm/60),eh=Math.ceil((sm+h*60)/60);if(sh<minH)minH=sh;if(eh>maxH)maxH=eh;}});});
   minH=Math.max(0,minH);maxH=Math.min(24,maxH);if(minH>=maxH){minH=8;maxH=20;}
   const sur=s=>((s.name||'').trim().split(/[\s　]+/)[0]||'');
-  const cellOf=(wd,H)=>{const ns=[];act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(dayStartOf(s,wd)),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)ns.push(sur(s));}});return ns;};
+  const hexA=(h,a)=>{h=(h||'#16a06e').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16)||0;return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;};
+  const cellOf=(wd,H)=>{const arr=[];act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(dayStartOf(s,wd)),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)arr.push({sur:sur(s),color:s.color||'#16a06e'});}});return arr;};
   let gmax=1,peak={c:0,wd:1,H:minH};
   for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cellOf(wd,H).length;if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
   let html='<table class="covtbl"><thead><tr><th>時間</th>'+DOWJP.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')+'</tr></thead><tbody>';
   for(let H=minH;H<maxH;H++){
     html+=`<tr><td class="ch">${pad(H)}:00</td>`;
-    for(let wd=0;wd<7;wd++){const ns=cellOf(wd,H);const c=ns.length;const a=c?(0.18+0.62*c/gmax):0;const nm=ns.filter(Boolean).join('・');html+=`<td style="background:rgba(20,160,110,${a.toFixed(2)});color:${c?'#0b3a2a':'#cbd5e1'}"><div style="font-weight:800">${c||''}</div>${c&&nm?`<div class="cnm">${nm}</div>`:''}</td>`;}
+    for(let wd=0;wd<7;wd++){const it=cellOf(wd,H);const c=it.length;const bg=c===1?hexA(it[0].color,0.22):(c>1?'#eef2f6':'transparent');const nm=it.filter(x=>x.sur).map(x=>`<span style="color:${x.color}">${x.sur}</span>`).join('・');html+=`<td style="background:${bg};color:${c?'#0b3a2a':'#cbd5e1'}"><div style="font-weight:800">${c||''}</div>${c&&nm?`<div class="cnm">${nm}</div>`:''}</td>`;}
     html+='</tr>';
   }
   html+='<tr class="tot"><td class="ch">延べh</td>'+DOWJP.map((d,wd)=>{let t=0;act.forEach(s=>{if(s.dayHours[wd]>0)t+=s.dayHours[wd];});return `<td>${t?t+'h':''}</td>`;}).join('')+'</tr>';
   html+='</tbody></table>';
   el.innerHTML=html;
-  if(pk)pk.innerHTML=`🔝 最大同時稼働 <span style="color:#0f766e">${peak.c}人</span>（${DOWJP[peak.wd]}曜 ${pad(peak.H)}:00台）　／　標準的な1週間の曜日パターンに基づく集計`;
+  const legend=act.filter(s=>(s.name||'').trim()).map(s=>`<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px"><span style="width:9px;height:9px;border-radius:2px;background:${s.color||'#16a06e'};display:inline-block"></span><span style="color:${s.color||'#16a06e'};font-weight:700">${sur(s)}</span></span>`).join('');
+  if(pk)pk.innerHTML=`🔝 最大同時稼働 <span style="color:#0f766e">${peak.c}人</span>（${DOWJP[peak.wd]}曜 ${pad(peak.H)}:00台）　／　標準的な1週間の曜日パターンに基づく集計`+(legend?`<div style="margin-top:6px;font-size:11px;font-weight:600">${legend}</div>`:'');
 }
 
 function save(silent){const st={staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}};localStorage.setItem(KEY,JSON.stringify(st));dbPut(st);if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
