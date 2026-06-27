@@ -48,6 +48,8 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 .dh input{width:100%;border:1px solid var(--line);border-radius:5px;padding:4px 2px;font-size:12px;text-align:center;background:#fff}
 .dh input:focus{outline:none;border-color:var(--teal)}
 .dh.on input{font-weight:700;color:var(--navy)}
+.dh .dhs{margin-top:3px;font-size:10px;padding:3px 1px;color:#64748b;font-weight:600}
+.dh.on .dhs{color:var(--teal2)}
 .presets{display:flex;gap:5px;margin-top:8px;align-items:center;flex-wrap:wrap}
 .pbtn{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--gray);cursor:pointer}
 .pbtn:hover{border-color:var(--navy);color:var(--navy)}
@@ -245,7 +247,7 @@ async function reflectToShiftbook(){
     (shifts[d]||[]).forEach(x=>{
       const s=staff.find(st=>st.id===x.s);
       if(!s||!s.name||!s.name.trim())return;
-      const st=s.start||'09:00';const en=addHours(st,(x.h||s.hours||0));
+      const dow=new Date(d+'T00:00:00').getDay();const st=dayStartOf(s,dow);const en=addHours(st,(x.h||s.hours||0));
       rows.push({date:d,staff_name:s.name.trim(),symbol:'●',start_time:st,end_time:en,memo:'試算反映',status:'確定'});
     });
   });
@@ -297,7 +299,9 @@ function loadStore(){
     {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,start:'09:00',color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
   ],shifts:{},y:now.getFullYear(),m:now.getMonth(),genMonths:{},manualMonths:{}};
 }
-function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}if(!s.start)s.start='09:00';});}
+function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}if(!s.start)s.start='09:00';if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];});}
+// 曜日別の開始時刻（未設定なら既定の開始時刻にフォールバック）
+function dayStartOf(s,i){return (s.dayStart&&s.dayStart[i])||s.start||'09:00';}
 // 開始時刻 + 時間数 → 終了時刻(HH:MM)
 function addHours(start,h){const p=(start||'09:00').split(':').map(Number);let t=(p[0]||0)*60+(p[1]||0)+Math.round((+h||0)*60);t=((t%1440)+1440)%1440;return pad(Math.floor(t/60))+':'+pad(t%60);}
 function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
@@ -323,11 +327,11 @@ function renderStaff(){
         <div><span class="fl">時給(円)</span><input type="number" value="${s.wage}" onclick="event.stopPropagation()" oninput="setS(${s.id},'wage',this.value)"></div>
         <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
         <div><span class="fl">既定時間</span><input type="number" step="0.5" value="${s.hours}" onclick="event.stopPropagation()" oninput="setS(${s.id},'hours',this.value)"></div>
-        <div><span class="fl">開始時刻</span><input type="time" value="${s.start||'09:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'start',this.value)"></div>
+        <div><span class="fl">既定開始</span><input type="time" value="${s.start||'09:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'start',this.value)" title="曜日で個別指定がない日に使う開始時刻"></div>
       </div>
-      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間（曜日名タップでON/OFF・空欄＝休み）</div>
+      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間＋開始時刻（上＝時間h／下＝開始時刻・曜日名タップでON/OFF・空欄＝休み）</div>
       <div class="dows-hours" onclick="event.stopPropagation()">
-        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)"></div>`).join('')}
+        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)" title="${d}の勤務時間(h)"><input type="time" class="dhs" value="${dayStartOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayStart(${s.id},${i},this.value)" title="${d}の開始時刻"></div>`).join('')}
       </div>
       <div class="presets" onclick="event.stopPropagation()">
         <button class="pbtn" onclick="preset(${s.id},'weekday')">平日に既定</button>
@@ -349,6 +353,7 @@ function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='n
   if(k==='target'){fillMonth(s);renderCal();} // 希望週日数は配置に影響 → 即反映
   updBrush();summary();save(true);}
 function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);fillMonth(s);updBrush();renderCal();save(true);}
+function setDayStart(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];s.dayStart[i]=v;summary();save(true);}
 function toggleWday(id,i){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;s.dayHours[i]=s.dayHours[i]>0?0:h;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap){wrap.classList.toggle('on',s.dayHours[i]>0);const inp=wrap.querySelector('input');if(inp)inp.value=s.dayHours[i]||'';}fillMonth(s);updBrush();renderCal();save(true);}
 function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;
   if(type==='weekday')s.dayHours=[0,h,h,h,h,h,0];
@@ -361,7 +366,7 @@ function updBrush(){const s=staff.find(x=>x.id===active);
   const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
-function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,start:'09:00',color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
+function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,start:'09:00',color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],dayStart:['','','','','','',''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
 /* ---- 条件 → カレンダー 自動反映 ---- */
@@ -454,9 +459,9 @@ function renderCoverage(){
   const act=staff.filter(s=>s.dayHours&&s.dayHours.some(h=>h>0));
   if(!act.length){el.innerHTML='<div style="color:var(--gray);font-size:12px">スタッフの「開始時刻」と「曜日ごとの勤務時間」を設定すると、稼働人数が表示されます。</div>';if(pk)pk.textContent='';return;}
   let minH=24,maxH=0;
-  act.forEach(s=>{const sm=toMin(s.start);s.dayHours.forEach(h=>{if(h>0){const sh=Math.floor(sm/60),eh=Math.ceil((sm+h*60)/60);if(sh<minH)minH=sh;if(eh>maxH)maxH=eh;}});});
+  act.forEach(s=>{s.dayHours.forEach((h,i)=>{if(h>0){const sm=toMin(dayStartOf(s,i));const sh=Math.floor(sm/60),eh=Math.ceil((sm+h*60)/60);if(sh<minH)minH=sh;if(eh>maxH)maxH=eh;}});});
   minH=Math.max(0,minH);maxH=Math.min(24,maxH);if(minH>=maxH){minH=8;maxH=20;}
-  const cnt=(wd,H)=>{let c=0;act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(s.start),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)c++;}});return c;};
+  const cnt=(wd,H)=>{let c=0;act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(dayStartOf(s,wd)),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)c++;}});return c;};
   let gmax=1,peak={c:0,wd:1,H:minH};
   for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cnt(wd,H);if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
   let html='<table class="covtbl"><thead><tr><th>時間</th>'+DOWJP.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')+'</tr></thead><tbody>';
