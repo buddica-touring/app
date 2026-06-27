@@ -377,7 +377,14 @@ function updBrush(){const s=staff.find(x=>x.id===active);
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
 function addStaff(){const id=Date.now();const st='09:00',en='18:00',hh=hrsBetween(st,en);const s={id,name:'',emp:'part',wage:1000,trans:0,start:st,endDef:en,color:COLORS[staff.length%COLORS.length],dayHours:[0,hh,hh,hh,hh,hh,0],dayStart:['',st,st,st,st,st,''],dayEnd:['',en,en,en,en,en,''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
-function setEmp(id,v){const s=staff.find(x=>x.id===id);if(!s)return;s.emp=v;renderStaff();updBrush();summary();save(true);}
+function setEmp(id,v){const s=staff.find(x=>x.id===id);if(!s)return;s.emp=v;
+  if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];
+  if(v==='full'){
+    s.start='09:00';s.endDef='19:00';const hh=hrsBetween('09:00','19:00');
+    const anyOn=s.dayHours.some(h=>h>0);
+    for(let i=0;i<7;i++){ if(s.dayHours[i]>0||!anyOn){ s.dayStart[i]='09:00';s.dayEnd[i]='19:00';s.dayHours[i]=hh; } }
+  }else{ s.start='09:00';s.endDef='18:00'; }
+  fillMonth(s);renderStaff();updBrush();summary();renderCal();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
 /* ---- 条件 → カレンダー 自動反映 ---- */
