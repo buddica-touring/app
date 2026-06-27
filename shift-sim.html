@@ -150,6 +150,7 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
       #coverGrid .covtbl th.sun{background:#7f1d1d}#coverGrid .covtbl th.sat{background:#1e3a8a}
       #coverGrid .covtbl td.ch{background:#f8fafc;color:#475569;font-weight:700;white-space:nowrap}
       #coverGrid .covtbl tr.tot td{background:#fffbeb;color:#92400e;font-weight:800}
+      #coverGrid .covtbl .cnm{font-size:9px;font-weight:700;line-height:1.25;margin-top:1px;word-break:break-all}
     </style>
   </div>
 
@@ -464,13 +465,14 @@ function renderCoverage(){
   let minH=24,maxH=0;
   act.forEach(s=>{s.dayHours.forEach((h,i)=>{if(h>0){const sm=toMin(dayStartOf(s,i));const sh=Math.floor(sm/60),eh=Math.ceil((sm+h*60)/60);if(sh<minH)minH=sh;if(eh>maxH)maxH=eh;}});});
   minH=Math.max(0,minH);maxH=Math.min(24,maxH);if(minH>=maxH){minH=8;maxH=20;}
-  const cnt=(wd,H)=>{let c=0;act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(dayStartOf(s,wd)),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)c++;}});return c;};
+  const sur=s=>((s.name||'').trim().split(/[\s　]+/)[0]||'');
+  const cellOf=(wd,H)=>{const ns=[];act.forEach(s=>{const h=s.dayHours[wd];if(h>0){const sm=toMin(dayStartOf(s,wd)),em=sm+h*60;if(sm<(H+1)*60&&em>H*60)ns.push(sur(s));}});return ns;};
   let gmax=1,peak={c:0,wd:1,H:minH};
-  for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cnt(wd,H);if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
+  for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cellOf(wd,H).length;if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
   let html='<table class="covtbl"><thead><tr><th>時間</th>'+DOWJP.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')+'</tr></thead><tbody>';
   for(let H=minH;H<maxH;H++){
     html+=`<tr><td class="ch">${pad(H)}:00</td>`;
-    for(let wd=0;wd<7;wd++){const c=cnt(wd,H);const a=c?(0.18+0.62*c/gmax):0;html+=`<td style="background:rgba(20,160,110,${a.toFixed(2)});color:${c?'#0b3a2a':'#cbd5e1'}">${c||''}</td>`;}
+    for(let wd=0;wd<7;wd++){const ns=cellOf(wd,H);const c=ns.length;const a=c?(0.18+0.62*c/gmax):0;const nm=ns.filter(Boolean).join('・');html+=`<td style="background:rgba(20,160,110,${a.toFixed(2)});color:${c?'#0b3a2a':'#cbd5e1'}"><div style="font-weight:800">${c||''}</div>${c&&nm?`<div class="cnm">${nm}</div>`:''}</td>`;}
     html+='</tr>';
   }
   html+='<tr class="tot"><td class="ch">延べh</td>'+DOWJP.map((d,wd)=>{let t=0;act.forEach(s=>{if(s.dayHours[wd]>0)t+=s.dayHours[wd];});return `<td>${t?t+'h':''}</td>`;}).join('')+'</tr>';
