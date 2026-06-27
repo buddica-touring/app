@@ -49,10 +49,12 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 .dh input:focus{outline:none;border-color:var(--teal)}
 .dh input[type=number]::-webkit-inner-spin-button,.dh input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .dh.on input{font-weight:700;color:var(--navy)}
-.dh .dhs{margin-top:3px;font-size:9px;padding:3px 0;color:#64748b;font-weight:600;width:100%;min-width:0;box-sizing:border-box}
-.dh .dhs::-webkit-calendar-picker-indicator{display:none;-webkit-appearance:none;margin:0;width:0}
-.dh .dhs::-webkit-date-and-time-value{margin:0;text-align:center}
-.dh.on .dhs{color:var(--teal2)}
+.dh .dhs,.dh .dhe{margin-top:3px;font-size:9px;padding:3px 0;color:#64748b;font-weight:600;width:100%;min-width:0;box-sizing:border-box}
+.dh .dhs::-webkit-calendar-picker-indicator,.dh .dhe::-webkit-calendar-picker-indicator{display:none;-webkit-appearance:none;margin:0;width:0}
+.dh .dhs::-webkit-date-and-time-value,.dh .dhe::-webkit-date-and-time-value{margin:0;text-align:center}
+.dh.on .dhs,.dh.on .dhe{color:var(--teal2)}
+.dh .dhh{margin-top:3px;font-size:9.5px;font-weight:800;color:var(--navy)}
+.dh .dhoff{margin-top:6px;font-size:11px;font-weight:700;color:#94a3b8;cursor:pointer;padding:6px 0}
 .presets{display:flex;gap:5px;margin-top:8px;align-items:center;flex-wrap:wrap}
 .pbtn{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--gray);cursor:pointer}
 .pbtn:hover{border-color:var(--navy);color:var(--navy)}
@@ -303,9 +305,20 @@ function loadStore(){
     {id:2,name:'スタッフB',wage:1000,trans:0,hours:8,start:'09:00',color:COLORS[1],dayHours:[8,0,0,0,0,0,8],target:0}
   ],shifts:{},y:now.getFullYear(),m:now.getMonth(),genMonths:{},manualMonths:{}};
 }
-function migrate(){staff.forEach(s=>{if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}if(!s.start)s.start='09:00';if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];});}
-// 曜日別の開始時刻（未設定なら既定の開始時刻にフォールバック）
+function migrate(){staff.forEach(s=>{
+  if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}
+  if(!s.start)s.start='09:00';
+  if(!s.endDef)s.endDef=addHours(s.start,s.hours||6)||'18:00';
+  if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];
+  if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];
+  // 旧データ(勤務時間h+開始)→ 曜日別 開始/終業 に変換（その曜日が稼働の時のみ）
+  for(let i=0;i<7;i++){ if(s.dayHours[i]>0){ if(!s.dayStart[i])s.dayStart[i]=s.start||'09:00'; if(!s.dayEnd[i])s.dayEnd[i]=addHours(s.dayStart[i],s.dayHours[i]); } }
+});}
+// 曜日別の開始/終業（未設定なら既定にフォールバック）
 function dayStartOf(s,i){return (s.dayStart&&s.dayStart[i])||s.start||'09:00';}
+function dayEndOf(s,i){return (s.dayEnd&&s.dayEnd[i])||s.endDef||'18:00';}
+// 開始〜終業 → 勤務時間(h・小数2桁・終業≤開始は0)
+function hrsBetween(a,b){const t=x=>{const p=(x||'').split(':');return (+p[0]||0)*60+(+p[1]||0);};const d=t(b)-t(a);return d>0?Math.round(d/60*100)/100:0;}
 // 開始時刻 + 時間数 → 終了時刻(HH:MM)
 function addHours(start,h){const p=(start||'09:00').split(':').map(Number);let t=(p[0]||0)*60+(p[1]||0)+Math.round((+h||0)*60);t=((t%1440)+1440)%1440;return pad(Math.floor(t/60))+':'+pad(t%60);}
 function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
@@ -330,12 +343,12 @@ function renderStaff(){
       <div class="scd-grid">
         <div><span class="fl">時給(円)</span><input type="number" value="${s.wage}" onclick="event.stopPropagation()" oninput="setS(${s.id},'wage',this.value)"></div>
         <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
-        <div><span class="fl">既定時間</span><input type="number" step="0.5" value="${s.hours}" onclick="event.stopPropagation()" oninput="setS(${s.id},'hours',this.value)"></div>
-        <div><span class="fl">既定開始</span><input type="time" value="${s.start||'09:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'start',this.value)" title="曜日で個別指定がない日に使う開始時刻"></div>
+        <div><span class="fl">既定開始</span><input type="time" value="${s.start||'09:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'start',this.value)" title="ONにした曜日・プリセットの初期開始時刻"></div>
+        <div><span class="fl">既定終業</span><input type="time" value="${s.endDef||'18:00'}" onclick="event.stopPropagation()" oninput="setS(${s.id},'endDef',this.value)" title="ONにした曜日・プリセットの初期終業時刻"></div>
       </div>
-      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとの勤務時間＋開始時刻（上＝時間h／下＝開始時刻・曜日名タップでON/OFF・空欄＝休み）</div>
+      <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとに開始・終業を入力（勤務時間は自動計算）。曜日名タップでON/OFF（休み）</div>
       <div class="dows-hours" onclick="event.stopPropagation()">
-        ${DOWJP.map((d,i)=>`<div class="dh ${i===0?'sun':i===6?'sat':''} ${s.dayHours[i]>0?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span><input type="number" step="0.5" min="0" value="${s.dayHours[i]||''}" placeholder="0" onclick="event.stopPropagation()" oninput="setDayHours(${s.id},${i},this.value)" title="${d}の勤務時間(h)"><input type="time" class="dhs" value="${dayStartOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayStart(${s.id},${i},this.value)" title="${d}の開始時刻"></div>`).join('')}
+        ${DOWJP.map((d,i)=>{const on=s.dayHours[i]>0;return `<div class="dh ${i===0?'sun':i===6?'sat':''} ${on?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span>${on?`<input type="time" class="dhs" value="${dayStartOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayStart(${s.id},${i},this.value)" title="${d} 開始"><input type="time" class="dhe" value="${dayEndOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayEnd(${s.id},${i},this.value)" title="${d} 終業"><div class="dhh">${(s.dayHours[i]||0)}h</div>`:`<div class="dhoff" onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="タップで勤務ON">休</div>`}</div>`;}).join('')}
       </div>
       <div class="presets" onclick="event.stopPropagation()">
         <button class="pbtn" onclick="preset(${s.id},'weekday')">平日に既定</button>
@@ -350,27 +363,30 @@ function renderStaff(){
     el.appendChild(card);
   });
 }
-function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='name'||k==='start')?v:(+v||0);
+function setS(id,k,v){const s=staff.find(x=>x.id===id);if(!s)return;s[k]=(k==='name'||k==='start'||k==='endDef')?v:(+v||0);
   // 入力欄のフォーカスを保つため renderStaff() は呼ばない。必要な表示だけ更新
   if(k==='name'){const card=document.querySelector(`.scd[data-id="${id}"] .dot`);}
   if(k==='wage'){const g=G();const card=document.querySelector(`.scd[data-id="${id}"]`);if(card){let w=card.querySelector('.minw');const ng=g.minwage>0&&s.wage<g.minwage;if(ng){if(!w){w=document.createElement('div');w.className='minw ng';card.appendChild(w);}w.className='minw ng';w.textContent=`⚠ 最低賃金 ¥${g.minwage} を下回っています`;}else if(w){w.remove();}}}
+  // 既定開始/終業を変えたら、その既定にフォールバックしている曜日の勤務時間を再計算
+  if(k==='start'||k==='endDef'){for(let i=0;i<7;i++){if(s.dayHours[i]>0)s.dayHours[i]=hrsBetween(dayStartOf(s,i),dayEndOf(s,i));}fillMonth(s);renderCal();}
   if(k==='target'){fillMonth(s);renderCal();} // 希望週日数は配置に影響 → 即反映
   updBrush();summary();save(true);}
-function setDayHours(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;s.dayHours[i]=+v||0;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap)wrap.classList.toggle('on',s.dayHours[i]>0);fillMonth(s);updBrush();renderCal();save(true);}
-function setDayStart(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];s.dayStart[i]=v;summary();save(true);}
-function toggleWday(id,i){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;s.dayHours[i]=s.dayHours[i]>0?0:h;const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap){wrap.classList.toggle('on',s.dayHours[i]>0);const inp=wrap.querySelector('input');if(inp)inp.value=s.dayHours[i]||'';}fillMonth(s);updBrush();renderCal();save(true);}
-function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;const h=s.hours||6;
-  if(type==='weekday')s.dayHours=[0,h,h,h,h,h,0];
-  if(type==='weekend')s.dayHours=[h,0,0,0,0,0,h];
-  if(type==='all')s.dayHours=[h,h,h,h,h,h,h];
-  if(type==='clear')s.dayHours=[0,0,0,0,0,0,0];
+function _updDayCell(id,i,s){const wrap=document.querySelector(`.scd[data-id="${id}"] .dh[data-i="${i}"]`);if(wrap){wrap.classList.toggle('on',s.dayHours[i]>0);const lab=wrap.querySelector('.dhh');if(lab)lab.textContent=(s.dayHours[i]||0)+'h';}}
+function setDayStart(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];s.dayStart[i]=v;s.dayHours[i]=hrsBetween(dayStartOf(s,i),dayEndOf(s,i));_updDayCell(id,i,s);fillMonth(s);updBrush();renderCal();save(true);}
+function setDayEnd(id,i,v){const s=staff.find(x=>x.id===id);if(!s)return;if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];s.dayEnd[i]=v;s.dayHours[i]=hrsBetween(dayStartOf(s,i),dayEndOf(s,i));_updDayCell(id,i,s);fillMonth(s);updBrush();renderCal();save(true);}
+function toggleWday(id,i){const s=staff.find(x=>x.id===id);if(!s)return;if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];if(s.dayHours[i]>0){s.dayStart[i]='';s.dayEnd[i]='';s.dayHours[i]=0;}else{s.dayStart[i]=s.start||'09:00';s.dayEnd[i]=s.endDef||'18:00';s.dayHours[i]=hrsBetween(s.dayStart[i],s.dayEnd[i]);}renderStaff();fillMonth(s);updBrush();renderCal();save(true);}
+function preset(id,type){const s=staff.find(x=>x.id===id);if(!s)return;
+  if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];
+  const pat=type==='weekday'?[0,1,1,1,1,1,0]:type==='weekend'?[1,0,0,0,0,0,1]:type==='all'?[1,1,1,1,1,1,1]:[0,0,0,0,0,0,0];
+  const st=s.start||'09:00',en=s.endDef||'18:00',hh=hrsBetween(st,en);
+  pat.forEach((on,i)=>{if(on){s.dayStart[i]=st;s.dayEnd[i]=en;s.dayHours[i]=hh;}else{s.dayStart[i]='';s.dayEnd[i]='';s.dayHours[i]=0;}});
   fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function updBrush(){const s=staff.find(x=>x.id===active);
   if(!s){$('brush').innerHTML='各スタッフの「曜日ごとの勤務時間」を設定すると、自動でカレンダーに反映されます。個別調整したい時はカードを選択 → 日付クリックで配置／解除。';return;}
   const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
-function addStaff(){const id=Date.now();const s={id,name:'',wage:1000,trans:0,hours:6,start:'09:00',color:COLORS[staff.length%COLORS.length],dayHours:[0,6,6,6,6,6,0],dayStart:['','','','','','',''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
+function addStaff(){const id=Date.now();const st='09:00',en='18:00',hh=hrsBetween(st,en);const s={id,name:'',wage:1000,trans:0,start:st,endDef:en,color:COLORS[staff.length%COLORS.length],dayHours:[0,hh,hh,hh,hh,hh,0],dayStart:['',st,st,st,st,st,''],dayEnd:['',en,en,en,en,en,''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
 /* ---- 条件 → カレンダー 自動反映 ---- */
