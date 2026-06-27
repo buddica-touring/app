@@ -38,6 +38,7 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 .scd-grid .fl{font-size:10px;color:var(--gray);font-weight:700;display:block;margin-bottom:2px}
 .scd-grid input{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 7px;font-size:12.5px;background:#fff;text-align:right}
 .scd-grid input:focus{outline:none;border-color:var(--teal)}
+.empsel{font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:#fff;font-weight:700;color:var(--navy)}
 .dows-hours{display:flex;gap:3px;margin-top:10px}
 .dh{flex:1;min-width:0;text-align:center;border-radius:7px;background:#eef2f6;padding:3px 2px 4px;border:1px solid transparent;transition:.1s}
 .dh.on{background:#e3f8f4;border-color:var(--teal)}
@@ -114,18 +115,6 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 
 <div class="wrap">
 
-  <!-- 前提 -->
-  <div class="card">
-    <h2>🏪 店舗・予算の前提 <span style="font-weight:400;font-size:11px;color:var(--gray)">※仮の初期値。実態に合わせて変更</span></h2>
-    <div class="row">
-      <div class="f sm"><label>営業時間/日</label><input id="g_open" type="number" value="10" step="0.5"></div>
-      <div class="f sm"><label>必要人数(同時)</label><input id="g_staff" type="number" value="2"></div>
-      <div class="f sm"><label>会社負担%</label><input id="g_burden" type="number" value="0"></div>
-      <div class="f sm"><label>最低賃金</label><input id="g_minwage" type="number" value="970"></div>
-      <div class="f"><label>月間人件費予算</label><input id="g_budget" type="number" placeholder="任意"></div>
-      <div class="f"><label>月間売上見込み</label><input id="g_sales" type="number" placeholder="任意"></div>
-    </div>
-  </div>
 
   <!-- スタッフ条件 -->
   <div class="card">
@@ -308,6 +297,7 @@ function loadStore(){
 function migrate(){staff.forEach(s=>{
   if(!s.dayHours){const h=s.hours||6;s.dayHours=(s.days||[1,1,1,1,1,1,1]).map(b=>b?h:0);}
   if(!s.start)s.start='09:00';
+  if(!s.emp)s.emp='part';
   if(!s.endDef)s.endDef=addHours(s.start,s.hours||6)||'18:00';
   if(!Array.isArray(s.dayStart))s.dayStart=['','','','','','',''];
   if(!Array.isArray(s.dayEnd))s.dayEnd=['','','','','','',''];
@@ -321,8 +311,8 @@ function dayEndOf(s,i){return (s.dayEnd&&s.dayEnd[i])||s.endDef||'18:00';}
 function hrsBetween(a,b){const t=x=>{const p=(x||'').split(':');return (+p[0]||0)*60+(+p[1]||0);};const d=t(b)-t(a);return d>0?Math.round(d/60*100)/100:0;}
 // 開始時刻 + 時間数 → 終了時刻(HH:MM)
 function addHours(start,h){const p=(start||'09:00').split(':').map(Number);let t=(p[0]||0)*60+(p[1]||0)+Math.round((+h||0)*60);t=((t%1440)+1440)%1440;return pad(Math.floor(t/60))+':'+pad(t%60);}
-function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{if(g[k]!==undefined&&g[k]!=='')$(k).value=g[k];});}
-function G(){return{open:+$('g_open').value||0,staff:+$('g_staff').value||0,burden:+$('g_burden').value||0,minwage:+$('g_minwage').value||0,budget:+$('g_budget').value||0,sales:+$('g_sales').value||0};}
+function applyG(g){if(!g)return;['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{const e=$(k);if(e&&g[k]!==undefined&&g[k]!=='')e.value=g[k];});}
+function G(){const v=id=>{const e=$(id);return e?(+e.value||0):0;};return{open:v('g_open'),staff:v('g_staff'),burden:v('g_burden'),minwage:v('g_minwage'),budget:v('g_budget'),sales:v('g_sales')};}
 
 /* ---- staff cards ---- */
 function renderStaff(){
@@ -332,18 +322,20 @@ function renderStaff(){
     const card=document.createElement('div');
     card.className='scd'+(active===s.id?' active':'');
     card.setAttribute('data-id',s.id);
-    const belowMin=g.minwage>0&&s.wage<g.minwage;
+    const full=s.emp==='full';
+    const belowMin=!full&&g.minwage>0&&s.wage<g.minwage;
     card.innerHTML=`
       <div class="scd-top">
         <span class="dot" style="background:${s.color}"></span>
         <input class="nm" value="${s.name||''}" placeholder="氏名" onclick="event.stopPropagation()" oninput="setS(${s.id},'name',this.value)">
+        <select class="empsel" onclick="event.stopPropagation()" onchange="setEmp(${s.id},this.value)" title="雇用形態"><option value="part"${full?'':' selected'}>アルバイト</option><option value="full"${full?' selected':''}>正社員</option></select>
         <span class="sel">${active===s.id?'配置中':'選択'}</span>
         <button class="x" title="削除" onclick="event.stopPropagation();delStaff(${s.id})">×</button>
       </div>
-      <div class="scd-grid">
+      ${full?`<div style="font-size:10.5px;color:#3730a3;background:#e0e7ff;border-radius:7px;padding:6px 9px;margin-top:9px;font-weight:700">👔 正社員：勤務（曜日・時間）のみ設定。人件費試算の対象外です。</div>`:`<div class="scd-grid">
         <div><span class="fl">時給(円)</span><input type="number" value="${s.wage}" onclick="event.stopPropagation()" oninput="setS(${s.id},'wage',this.value)"></div>
         <div><span class="fl">交通費/日</span><input type="number" value="${s.trans}" onclick="event.stopPropagation()" oninput="setS(${s.id},'trans',this.value)"></div>
-      </div>
+      </div>`}
       <div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:10px">曜日ごとに開始・終業を入力（勤務時間は自動計算）。曜日名タップでON/OFF（休み）</div>
       <div class="dows-hours" onclick="event.stopPropagation()">
         ${DOWJP.map((d,i)=>{const on=s.dayHours[i]>0;return `<div class="dh ${i===0?'sun':i===6?'sat':''} ${on?'on':''}" data-i="${i}"><span onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="クリックでON/OFF">${d}</span>${on?`<input type="time" class="dhs" value="${dayStartOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayStart(${s.id},${i},this.value)" title="${d} 開始"><input type="time" class="dhe" value="${dayEndOf(s,i)}" onclick="event.stopPropagation()" oninput="setDayEnd(${s.id},${i},this.value)" title="${d} 終業"><div class="dhh">${(s.dayHours[i]||0)}h</div>`:`<div class="dhoff" onclick="event.stopPropagation();toggleWday(${s.id},${i})" title="タップで勤務ON">休</div>`}</div>`;}).join('')}
@@ -384,7 +376,8 @@ function updBrush(){const s=staff.find(x=>x.id===active);
   const dws=s.dayHours.map((h,i)=>h>0?`${DOWJP[i]}${h}h`:'').filter(x=>x).join('・');
   $('brush').innerHTML=`配置中：<b>${s.name||'(未入力)'}</b>（¥${s.wage}・交通費¥${s.trans}/日）　勤務可能：<b>${dws||'なし'}</b>${s.target?`／週<b>${s.target}</b>日まで`:''}　→ 日付クリックで配置`;
 }
-function addStaff(){const id=Date.now();const st='09:00',en='18:00',hh=hrsBetween(st,en);const s={id,name:'',wage:1000,trans:0,start:st,endDef:en,color:COLORS[staff.length%COLORS.length],dayHours:[0,hh,hh,hh,hh,hh,0],dayStart:['',st,st,st,st,st,''],dayEnd:['',en,en,en,en,en,''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
+function addStaff(){const id=Date.now();const st='09:00',en='18:00',hh=hrsBetween(st,en);const s={id,name:'',emp:'part',wage:1000,trans:0,start:st,endDef:en,color:COLORS[staff.length%COLORS.length],dayHours:[0,hh,hh,hh,hh,hh,0],dayStart:['',st,st,st,st,st,''],dayEnd:['',en,en,en,en,en,''],target:0};staff.push(s);active=id;fillMonth(s);renderStaff();updBrush();renderCal();save(true);}
+function setEmp(id,v){const s=staff.find(x=>x.id===id);if(!s)return;s.emp=v;renderStaff();updBrush();summary();save(true);}
 function delStaff(id){if(!confirm('このスタッフと全シフトを削除しますか？'))return;staff=staff.filter(s=>s.id!==id);Object.keys(shifts).forEach(d=>{shifts[d]=shifts[d].filter(x=>x.s!==id);if(!shifts[d].length)delete shifts[d];});if(active===id)active=null;renderStaff();updBrush();renderCal();save(true);}
 
 /* ---- 条件 → カレンダー 自動反映 ---- */
@@ -431,7 +424,7 @@ function renderCal(){
     const k=key(cur.y,cur.m,d);
     const list=shifts[k]||[];
     let cost=0,hrs=0,chips='';
-    list.forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;cost+=s.wage*it.h+ +s.trans;hrs+=it.h;chips+=`<div class="pill" style="background:${s.color}" onclick="event.stopPropagation();removeShift('${k}',${it.s})" title="クリックで解除">${s.name||'?'} ${it.h}h</div>`;});
+    list.forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;if(s.emp!=='full')cost+=s.wage*it.h+ +s.trans;hrs+=it.h;chips+=`<div class="pill" style="background:${s.color}" onclick="event.stopPropagation();removeShift('${k}',${it.s})" title="クリックで解除">${s.name||'?'} ${it.h}h</div>`;});
     cost*=(1+g.burden/100);
     let cov=needDay>0?hrs/needDay:1;
     let cc=cov>=1?'var(--green)':cov>=.6?'var(--amber)':cov>0?'var(--red)':'transparent';
@@ -453,9 +446,9 @@ function summary(){
   const g=G();const pre=`${cur.y}-${pad(cur.m+1)}-`;
   const per={};let totHrs=0,totShifts=0;
   staff.forEach(s=>per[s.id]={days:0,hrs:0,trans:0,cost:0});
-  Object.keys(shifts).forEach(k=>{if(!k.startsWith(pre))return;shifts[k].forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;per[s.id].days++;per[s.id].hrs+=it.h;per[s.id].trans+= +s.trans;per[s.id].cost+=s.wage*it.h;totHrs+=it.h;totShifts++;});});
+  Object.keys(shifts).forEach(k=>{if(!k.startsWith(pre))return;shifts[k].forEach(it=>{const s=staff.find(x=>x.id===it.s);if(!s)return;per[s.id].days++;per[s.id].hrs+=it.h;if(s.emp!=='full'){per[s.id].trans+= +s.trans;per[s.id].cost+=s.wage*it.h;}totHrs+=it.h;totShifts++;});});
   const bm=1+g.burden/100;
-  staff.forEach(s=>{per[s.id].costFull=(per[s.id].cost*bm)+per[s.id].trans;});
+  staff.forEach(s=>{per[s.id].costFull=s.emp==='full'?0:((per[s.id].cost*bm)+per[s.id].trans);});
   const totCost=staff.reduce((a,s)=>a+(per[s.id].costFull||0),0);
   $('s_month').textContent=yen(totCost);
   $('s_burden').textContent=g.burden>0?`社保等 +${g.burden}% 込み`:'社保等 加算なし';
@@ -464,7 +457,7 @@ function summary(){
   if(g.budget>0){const diff=g.budget-totCost;$('s_budget').textContent=(diff>=0?'＋':'－')+'¥'+Math.abs(Math.round(diff)).toLocaleString();$('s_budget_sub').innerHTML=diff>=0?`予算内 <span class="badge b-ok">OK</span>`:`超過 <span class="badge b-over">超過</span>`;}else{$('s_budget').textContent='—';$('s_budget_sub').textContent='予算 未入力';}
   if(g.sales>0){const r=totCost/g.sales*100;$('s_rate').textContent=r.toFixed(1)+'%';let b='b-ok',t='適正';if(r>35){b='b-over';t='高め';}else if(r<20){b='b-under';t='余裕';}$('s_rate_sub').innerHTML=`<span class="badge ${b}">${t}</span>`;}else{$('s_rate').textContent='—';$('s_rate_sub').textContent='売上 未入力';}
   const tb=$('pbody');tb.innerHTML='';
-  staff.forEach(s=>{const p=per[s.id];const bm2=g.minwage>0&&s.wage<g.minwage;tb.innerHTML+=`<tr><td><span class="cdot" style="background:${s.color}"></span>${s.name||'(未入力)'}</td><td style="${bm2?'color:var(--red);font-weight:700':''}">¥${s.wage}</td><td>${p.days}日</td><td>${p.hrs.toFixed(0)}h</td><td>${yen(p.trans)}</td><td style="font-weight:700;color:var(--navy)">${yen(p.costFull||0)}</td></tr>`;});
+  staff.forEach(s=>{const p=per[s.id];const full=s.emp==='full';const bm2=!full&&g.minwage>0&&s.wage<g.minwage;tb.innerHTML+=`<tr><td><span class="cdot" style="background:${s.color}"></span>${s.name||'(未入力)'}${full?' <span style="font-size:9px;background:#e0e7ff;color:#3730a3;padding:1px 5px;border-radius:8px;font-weight:700">正社員</span>':''}</td><td style="${bm2?'color:var(--red);font-weight:700':''}">${full?'—':'¥'+s.wage}</td><td>${p.days}日</td><td>${p.hrs.toFixed(0)}h</td><td>${full?'—':yen(p.trans)}</td><td style="font-weight:700;color:var(--navy)">${full?'—':yen(p.costFull||0)}</td></tr>`;});
   tb.innerHTML+=`<tr style="background:#f0fbf9"><td style="font-weight:700">合計</td><td></td><td style="font-weight:700">${totShifts}</td><td style="font-weight:700">${totHrs.toFixed(0)}h</td><td></td><td style="font-weight:800;color:var(--navy)">${yen(totCost)}</td></tr>`;
   renderCoverage();
 }
@@ -486,7 +479,7 @@ function renderCoverage(){
   for(let H=minH;H<maxH;H++)for(let wd=0;wd<7;wd++){const c=cellOf(wd,H).length;if(c>gmax)gmax=c;if(c>peak.c)peak={c,wd,H};}
   let html='<table class="covtbl"><thead><tr><th>時間</th>'+DOWJP.map((d,i)=>`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`).join('')+'</tr></thead><tbody>';
   for(let H=minH;H<maxH;H++){
-    html+=`<tr><td class="ch">${pad(H)}:00</td>`;
+    html+=`<tr><td class="ch">${pad(H)}:00–${pad(H+1)}:00</td>`;
     for(let wd=0;wd<7;wd++){const it=cellOf(wd,H);const c=it.length;const bg=c===1?hexA(it[0].color,0.22):(c>1?'#eef2f6':'transparent');const nm=it.filter(x=>x.sur).map(x=>`<span style="color:${x.color}">${x.sur}</span>`).join('・');html+=`<td style="background:${bg};color:${c?'#0b3a2a':'#cbd5e1'}"><div style="font-weight:800">${c||''}</div>${c&&nm?`<div class="cnm">${nm}</div>`:''}</td>`;}
     html+='</tr>';
   }
@@ -497,9 +490,9 @@ function renderCoverage(){
   if(pk)pk.innerHTML=`🔝 最大同時稼働 <span style="color:#0f766e">${peak.c}人</span>（${DOWJP[peak.wd]}曜 ${pad(peak.H)}:00台）　／　標準的な1週間の曜日パターンに基づく集計`+(legend?`<div style="margin-top:6px;font-size:11px;font-weight:600">${legend}</div>`:'');
 }
 
-function save(silent){const st={staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:$('g_open').value,g_staff:$('g_staff').value,g_burden:$('g_burden').value,g_minwage:$('g_minwage').value,g_budget:$('g_budget').value,g_sales:$('g_sales').value}};localStorage.setItem(KEY,JSON.stringify(st));dbPut(st);if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
+function save(silent){const gv=id=>{const e=$(id);return e?e.value:'';};const st={staff,shifts,y:cur.y,m:cur.m,genMonths,manualMonths,g:{g_open:gv('g_open'),g_staff:gv('g_staff'),g_burden:gv('g_burden'),g_minwage:gv('g_minwage'),g_budget:gv('g_budget'),g_sales:gv('g_sales')}};localStorage.setItem(KEY,JSON.stringify(st));dbPut(st);if(!silent&&event&&event.target){const b=event.target,o=b.textContent;b.textContent='✓ 保存';setTimeout(()=>b.textContent=o,1000);}}
 function resetAll(){if(confirm('全データ（スタッフ・シフト）をリセットします。よろしいですか？')){localStorage.removeItem(KEY);location.reload();}}
-['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>$(k).addEventListener('input',()=>{renderStaff();renderCal();save(true);}));
+['g_open','g_staff','g_burden','g_minwage','g_budget','g_sales'].forEach(k=>{const e=$(k);if(e)e.addEventListener('input',()=>{renderStaff();renderCal();save(true);});});
 
 migrate();ensureMonth();renderDows();renderStaff();updBrush();renderCal();
 
