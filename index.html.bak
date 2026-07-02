@@ -2415,13 +2415,32 @@ function KpiTab({store,data,vehicles,fleet}){
     const{data:rows}=await sb.from("monthly_snapshots").select("*").eq("store",store).order("year_month",{ascending:false});
     if(rows)setSnapshots(rows);
   };
-  useEffect(()=>{load();},[]);
+  const curYM=(()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0");})();
+  const _autoRef=React.useRef(false);
+  useEffect(()=>{
+    (async()=>{
+      const{data:rows}=await sb.from("monthly_snapshots").select("*").eq("store",store).order("year_month",{ascending:false});
+      if(rows)setSnapshots(rows);
+      if(!_autoRef.current&&data&&data.length&&vehicles&&vehicles.length){
+        _autoRef.current=true;
+        const fut=[...new Set([curYM,...(rows||[]).map(s=>s.year_month).filter(ym=>ym>=curYM)])];
+        for(const ym of fut){
+          try{
+            const{data:kr}=await sb.from(kpiTable).select("*").eq("year_month",ym);
+            const pf={};(kr||[]).forEach(r=>pf[r.vehicle_code]=r.active);
+            await saveMonthlySnapshot(store,ym,data,vehicles,fleet,pf,kpiTable,true);
+          }catch(e){}
+        }
+        await load();
+      }
+    })();
+  },[data,vehicles]);
   const saveableMonths=useMemo(()=>{
     const now=new Date();
-    let py=now.getFullYear(),pm=now.getMonth();if(pm===0){pm=12;py--;}
+    const cy=now.getFullYear(),cm=now.getMonth()+1;
     const list=[];
     let[y,m]=RELIABLE_FROM.split("-").map(Number);
-    while(y<py||(y===py&&m<=pm)){
+    while(y<cy||(y===cy&&m<=cm)){
       list.push(y+"-"+String(m).padStart(2,"0"));
       m++;if(m>12){m=1;y++;}
     }
@@ -2465,6 +2484,7 @@ function KpiTab({store,data,vehicles,fleet}){
           <div style={{padding:"12px 14px",background:"linear-gradient(135deg,#f0fdf4,#ecfdf5)",borderBottom:"1px solid #e2e8f0"}}>
             <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:16,fontWeight:900,color:"#1e293b"}}>{s.year_month.split("-")[0]}年{moLabel}</span>
+              {s.year_month>=curYM&&<span style={{fontSize:9,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1px solid #fde68a",borderRadius:6,padding:"1px 6px"}}>途中</span>}
               <span style={{fontSize:20,fontWeight:900,color:uC}}>{s.utilization_pct}%</span>
               <span style={{fontSize:10,color:"#64748b"}}>稼働率（{s.total_rental_days}/{s.total_available_days}日・{s.active_vehicles}台）</span>
               <span style={{fontSize:13,fontWeight:800,color:"#0284c7",marginLeft:8}}>RevPACD ¥{fmtY(s.revpacd)}</span>
@@ -22323,7 +22343,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.101-BT";
+const APP_VERSION="v1.0.102-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
