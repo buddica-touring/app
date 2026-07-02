@@ -2423,7 +2423,9 @@ function KpiTab({store,data,vehicles,fleet}){
       if(rows)setSnapshots(rows);
       if(!_autoRef.current&&data&&data.length&&vehicles&&vehicles.length){
         _autoRef.current=true;
-        const fut=[...new Set([curYM,...(rows||[]).map(s=>s.year_month).filter(ym=>ym>=curYM)])];
+        let maxResvYM=curYM;(data||[]).forEach(r=>{const rd=r.returnDate||r.return_date||r.end_date;if(rd&&rd.slice(0,7)>maxResvYM)maxResvYM=rd.slice(0,7);});
+        const futMonths=[];{let[fy,fm]=curYM.split("-").map(Number);const[my,mm]=maxResvYM.split("-").map(Number);let g=0;while((fy<my||(fy===my&&fm<=mm))&&g++<24){futMonths.push(fy+"-"+String(fm).padStart(2,"0"));fm++;if(fm>12){fm=1;fy++;}}}
+        const fut=[...new Set([...futMonths,...(rows||[]).map(s=>s.year_month).filter(ym=>ym>=curYM)])];
         for(const ym of fut){
           try{
             const{data:kr}=await sb.from(kpiTable).select("*").eq("year_month",ym);
@@ -22343,7 +22345,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.102-BT";
+const APP_VERSION="v1.0.103-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
