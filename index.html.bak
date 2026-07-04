@@ -242,7 +242,7 @@ function dedupReservations(arr){
 }
 const DB = {
   // --- 予約 ---
-  async fetchReservations(){if(!sb)return[];const data=await fetchAllRows("bt_reservations");dbLog("fetchRes",true,data.length+"件");return data.map(DB._fromDbRes);},
+  async fetchReservations(){if(!sb)return DB._resLsLoad();let data;try{data=await fetchAllRows("bt_reservations");}catch(e){dbLog("fetchRes",false,e.message);return DB._resLsLoad();}if(!data||!data.length){const c=DB._resLsLoad();if(c.length){dbLog("fetchRes","cache","DB空→キャッシュ"+c.length+"件");return c;}return[];}dbLog("fetchRes",true,data.length+"件");const mapped=data.map(DB._fromDbRes);DB._resLsSave(mapped);return mapped;},
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||""};},
@@ -251,6 +251,13 @@ const DB = {
   _fleetLsKey:"bt_fleet",
   _fleetLsSave(f){try{const cnt=Object.keys(f).filter(k=>k!=="_unassignedReasons").length;if(cnt>=10){localStorage.setItem("bt_fleet_backup",JSON.stringify({data:f,ts:Date.now(),count:cnt}));}localStorage.setItem(DB._fleetLsKey,JSON.stringify(f));}catch(e){}},
   _fleetLsLoad(){try{const s=localStorage.getItem(DB._fleetLsKey);return s?JSON.parse(s):{};}catch(e){return{};}},
+  // オフライン継続用キャッシュ（Supabase障害中も当日OP/配車/データタブが読める）
+  _resLsKey:"bt_reservations_cache",
+  _resLsSave(a){try{localStorage.setItem(DB._resLsKey,JSON.stringify(a));}catch(e){}},
+  _resLsLoad(){try{const s=localStorage.getItem(DB._resLsKey);return s?JSON.parse(s):[];}catch(e){return[];}},
+  _vehLsKey:"bt_vehicles_cache",
+  _vehLsSave(a){try{localStorage.setItem(DB._vehLsKey,JSON.stringify(a));}catch(e){}},
+  _vehLsLoad(){try{const s=localStorage.getItem(DB._vehLsKey);return s?JSON.parse(s):null;}catch(e){return null;}},
   _fleetBackupSave(f){try{const backup={data:f,ts:Date.now(),count:Object.keys(f).filter(k=>k!=="_unassignedReasons").length};localStorage.setItem("bt_fleet_backup",JSON.stringify(backup));}catch(e){}},
   _fleetBackupLoad(){try{const s=localStorage.getItem("bt_fleet_backup");return s?JSON.parse(s):null;}catch(e){return null;}},
   async fetchFleet(){if(!sb){return DB._fleetLsLoad();}const data=await fetchAllRows("bt_fleet");if(!data.length){const ls=DB._fleetLsLoad();const lsCount=Object.keys(ls).filter(k=>k!=="_unassignedReasons").length;if(lsCount>0){console.warn("[fetchFleet] DB空だがlocalStorage有り("+lsCount+"件) → LS使用");}if(lsCount===0){const backup=DB._fleetBackupLoad();if(backup&&backup.count>0){console.warn("[fetchFleet] DB空+LS空 → バックアップ復元("+backup.count+"件)");return backup.data;}}return ls;}const f={};data.forEach(r=>f[r.reservation_id]=r.vehicle_code);dbLog("fetchFleet",true,Object.keys(f).length+"件");DB._fleetLsSave(f);return f;},
@@ -517,7 +524,7 @@ const DB = {
     return entries.length>0?entries[0].hourly_wage:null;
   },
   // --- 車両 ---
-  async fetchVehicles(){if(!sb)return null;const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return null;}dbLog("fetchVehicles",true,data.length+"件");return(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false}));},
+  async fetchVehicles(){if(!sb)return DB._vehLsLoad();const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return DB._vehLsLoad();}dbLog("fetchVehicles",true,data.length+"件");const _vm=(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false}));DB._vehLsSave(_vm);return _vm;},
   async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
   async deleteVehicle(code){if(!sb)return;const{error}=await sb.from("bt_vehicles").delete().eq("code",code);if(error)dbLog("deleteVehicle",false,error.message);else dbLog("deleteVehicle",true,code);},
   // --- シフト ---
@@ -22368,7 +22375,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.110-BT";
+const APP_VERSION="v1.0.111-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
