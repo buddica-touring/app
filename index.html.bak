@@ -3951,8 +3951,8 @@ function generateTasks(reservations,date,fleet,vehicles){
     else if(isAirportOrBus(r.colPlace))retType="BD";  // ハイエース送迎
     else if(cpOk)retType="COL";
     else retType="BD";
-    if(sD(r.lendDate,date)){const lTask={...base,_id:uid(),type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);}
-    if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:uid(),type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:""};tasks.push(rTask);}
+    if(sD(r.lendDate,date)){const lTask={...base,_id:"d-"+r.id,type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);}
+    if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:"c-"+r.id,type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:""};tasks.push(rTask);}
   });
   // 洗車タスク: 翌日DELの配車済み車両のみ（未配車分はloadTasks内で追加管理）
   tomorrowDELVehicles.forEach(vc=>{
@@ -16444,10 +16444,10 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       }
       // 不足予約を追加
       const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
-      const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+t.type));
+      const _sd=(ty)=>["BD","BDB","COL","返却"].includes(ty)?"R":(ty==="洗車"?"W":"L");const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));
       // ★ 新規生成タスクにsheetPlacesの場所情報を補完
       gen.forEach(g=>{
-        if(g.reservationId&&!existIds.has(g.reservationId+":"+g.type)){
+        if(g.reservationId&&!existIds.has(g.reservationId+":"+_sd(g.type))){
           const sp=sheetPlaces[g.reservationId];
           if(sp&&!g.place){if((g.type==="DEL"||g.type==="PU")&&sp.delPlace)g.place=sp.delPlace;if((g.type==="COL"||g.type==="BD")&&sp.colPlace)g.place=sp.colPlace;}
           if(sp&&(g.type==="DEL"||g.type==="PU")&&!g.colPlace&&sp.colPlace)g.colPlace=sp.colPlace;
@@ -22368,7 +22368,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.109-BT";
+const APP_VERSION="v1.0.110-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
