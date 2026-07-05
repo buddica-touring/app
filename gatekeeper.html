@@ -70,14 +70,15 @@ async function load(){
   else{[led,act]=await Promise.all([rpc('gk_ledger',{p_limit:300,p_store:C.store}),rpc('gk_activity',{p_limit:40})]);}
   led=(led||[]).filter(r=>showAll||!isNoise(r));
   let items=led.map(r=>({kind:'led',at:r.at,r}));
-  (act||[]).forEach(a=>{if((a.fixed||0)+(a.reported||0)>0)items.push({kind:'act',at:a.at,a});});
+  let patrolShown=false;
+  (act||[]).forEach(a=>{const real=(a.fixed||0)+(a.reported||0)>0;if(real){items.push({kind:'act',at:a.at,a});}else if(a.note&&!patrolShown){patrolShown=true;items.push({kind:'act',at:a.at,a});}});
   items.sort((x,y)=>new Date(y.at)-new Date(x.at));
   const nWarn=led.filter(r=>classify(r)==='warn').length, nMove=led.filter(r=>classify(r)==='move').length;
   const nGk=(act||[]).reduce((s,a)=>s+(a.fixed||0),0);
   document.getElementById('stat').innerHTML='<span class="pill">📜 '+led.length+'件</span><span class="pill" style="color:#ff9a9a">⚠️ 足跡 '+nWarn+'</span><span class="pill" style="color:#e0a020">📅 移動 '+nMove+'</span><span class="pill" style="color:#4ade80">🛡️ 3号が戻した '+nGk+'</span>';
   let html='';
   items.slice(0,250).forEach(it=>{
-   if(it.kind==='act'){html+='<div class="row gk"><div class="t">'+tfmt(it.at)+'</div><div class="who gk">🛡️ 3号</div><div class="body">'+(it.a.fixed>0?'<span class="badge" style="background:#0e9f50;color:#fff">戻した '+it.a.fixed+'件</span> ':'')+(it.a.reported>0?'<span class="badge" style="background:#e0a020;color:#000">要確認 '+it.a.reported+'件</span>':'')+' 正常化を実行</div></div>';return;}
+   if(it.kind==='act'){const a=it.a;let bd=(a.fixed>0?'<span class="badge" style="background:#0e9f50;color:#fff">戻した '+a.fixed+'件</span> ':'')+(a.reported>0?'<span class="badge" style="background:#e0a020;color:#000">要確認 '+a.reported+'件</span> ':'');if((a.fixed||0)+(a.reported||0)>0)bd+='正常化を実行';else bd=(a.note||'巡回・異常なし ✅');html+='<div class="row gk"><div class="t">'+tfmt(it.at)+'</div><div class="who gk">🛡️ 3号</div><div class="body">'+bd+'</div></div>';return;}
    const r=it.r;const c=classify(r);if(onlyWarn&&c==='')return;
    const cls=whoClass(r.who);
    html+='<div class="row '+c+'"><div class="t">'+tfmt(r.at)+'</div><div class="who '+cls+'">'+whoLabel(r.who)+'</div><div class="body">'+(c==='warn'?'<span class="badge" style="background:#e23b3b;color:#fff">足跡</span> ':'')+(c==='move'?'<span class="badge" style="background:#e0a020;color:#000">移動</span> ':'')+(r.resv&&r.resv!=='?'?'<span class="resv">〈'+r.resv+'〉</span>':'')+human(r)+'</div></div>';
