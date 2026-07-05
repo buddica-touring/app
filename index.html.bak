@@ -108,7 +108,7 @@ const sbAuthPromise = (async () => {
 })();
 
 /* ===== Auth UI (ログイン画面) =====
-   ユーザー名 → Email マッピングテーブル（v1.0.28-BT）
+   ユーザー名 → Email マッピングテーブル（v1.0.29-BT）
    スタッフはユーザー名と4桁パスコードでログイン → 内部で Supabase Auth (email) に変換 */
 const BT_USER_MAP = {
   'toshima':  'hiroya.toshima@buddica.co.jp',
@@ -3968,7 +3968,7 @@ function generateTasks(reservations,date,fleet,vehicles){
     if(!veh)return;
     if(tasks.find(t=>t.type==="洗車"&&t.assignedVehicle===vc))return;
     const wType=tRes?(tRes.visitType==="DEL"?"DEL":"PU"):"DEL";
-    tasks.push({_id:uid(),type:"洗車",time:"",name:`翌日出発: ${tRes?tRes.name:""}`,people:0,place:"",vehicle:veh.type,insurance:"",flight:"",reservationId:tRes?tRes.id:"",ota:tRes?tRes.ota:"",tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrow)} ${wType} ${tRes?tRes.lendTime:""} ${tRes?tRes.name:""}`,assignedVehicle:vc,plateNo:veh.no,insuranceChange:"",opts:{b:+(tRes&&tRes.optB||0),c:+(tRes&&tRes.optC||0),j:+(tRes&&tRes.optJ||0),usb:+(tRes&&tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date)});
+    tasks.push({_id:tRes?("w-"+tRes.id):uid(),type:"洗車",time:"",name:`翌日出発: ${tRes?tRes.name:""}`,people:0,place:"",vehicle:veh.type,insurance:"",flight:"",reservationId:tRes?tRes.id:"",ota:tRes?tRes.ota:"",tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrow)} ${wType} ${tRes?tRes.lendTime:""} ${tRes?tRes.name:""}`,assignedVehicle:vc,plateNo:veh.no,insuranceChange:"",opts:{b:+(tRes&&tRes.optB||0),c:+(tRes&&tRes.optC||0),j:+(tRes&&tRes.optJ||0),usb:+(tRes&&tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date)});
   });
   return tasks.sort((a,b)=>{
     // 洗車は最後にまとめる
@@ -16493,7 +16493,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         if(washByVehicle.has(key))return;
         const vc=key.startsWith("unassigned:")?"":(key);
         const veh=vc?vehicles.find(v=>v.code===vc):null;
-        fixed.push({_id:uid(),type:"洗車",time:"",name:`翌日出発: ${tRes.name||""}`,people:0,place:"",vehicle:veh?veh.type:tRes.vehicle,insurance:"",flight:"",reservationId:tRes.id,ota:tRes.ota,tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrowDate)} DEL ${tRes.lendTime||""} ${tRes.name||""}`,assignedVehicle:vc,plateNo:veh?veh.no:"",insuranceChange:"",opts:{b:+(tRes.optB||0),c:+(tRes.optC||0),j:+(tRes.optJ||0),usb:+(tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:""});
+        fixed.push({_id:"w-"+tRes.id,type:"洗車",time:"",name:`翌日出発: ${tRes.name||""}`,people:0,place:"",vehicle:veh?veh.type:tRes.vehicle,insurance:"",flight:"",reservationId:tRes.id,ota:tRes.ota,tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrowDate)} DEL ${tRes.lendTime||""} ${tRes.name||""}`,assignedVehicle:vc,plateNo:veh?veh.no:"",insuranceChange:"",opts:{b:+(tRes.optB||0),c:+(tRes.optC||0),j:+(tRes.optJ||0),usb:+(tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:""});
         washByVehicle.set(key,true);
       });
       // ★ STEP0: 重複排除（同じ予約ID+同系統タイプの重複を除去）
@@ -22375,7 +22375,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.111-BT";
+const APP_VERSION="v1.0.112-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
