@@ -59,7 +59,12 @@ let onlyWarn=false, showAll=false;
 async function rpc(fn,args){const tok=_sbToken();const H={apikey:C.anon,'Content-Type':'application/json'};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/rpc/'+fn,{method:'POST',headers:H,body:JSON.stringify(args||{})});if(!r.ok)throw new Error(fn+' '+r.status);return r.json();}
 function whoClass(w){w=(w||'').toLowerCase();if(w.indexOf('gatekeeper')>=0)return'gk';if(w==='customer'||w.indexOf('mypage')>=0)return'cust';if(w==='staff')return'staff';return'mach';}
 function whoLabel(w){const c=whoClass(w);if(c==='gk')return'🛡️ 3号';if(c==='cust')return'👤 顧客';if(c==='staff')return'🧑‍🔧 スタッフ';return'⚙️ システム';}
-function classify(r){const s=r.summary||'';if(r.op==='DELETE')return'warn';if(/→\s*$/.test((s||'').trim())||/→\s*\//.test(s))return'warn';if(/date|日付|start_date|end_date|lend_date|return_date/i.test(s)&&/→/.test(s))return'move';return'';}
+function classify(r){const s=r.summary||'';const human=(r.who==='staff'||r.who==='customer');
+ // 人間(スタッフ/顧客)の編集は正当=フラグしない。機械/システムの書込だけ疑う。
+ if(r.op==='DELETE')return human?'':'warn';
+ if(!human&&(/→\s*$/.test((s||'').trim())||/→\s*\//.test(s)))return'warn';
+ if(!human&&/date|日付|start_date|end_date|lend_date|return_date/i.test(s)&&/→/.test(s))return'move';
+ return'';}
 function tfmt(t){const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 async function load(){
  const feed=document.getElementById('feed');
