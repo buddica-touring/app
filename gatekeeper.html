@@ -57,9 +57,9 @@ function human(r){ // 一文で「何をしたか」
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
 let onlyWarn=false, showAll=false;
 async function rpc(fn,args){const tok=_sbToken();const H={apikey:C.anon,'Content-Type':'application/json'};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/rpc/'+fn,{method:'POST',headers:H,body:JSON.stringify(args||{})});if(!r.ok)throw new Error(fn+' '+r.status);return r.json();}
-function whoClass(w){w=(w||'').toLowerCase();if(w.indexOf('gatekeeper')>=0)return'gk';if(w==='customer'||w.indexOf('mypage')>=0)return'cust';if(w==='staff')return'staff';return'mach';}
-function whoLabel(w){const c=whoClass(w);if(c==='gk')return'🛡️ 3号';if(c==='cust')return'👤 顧客';if(c==='staff')return'🧑‍🔧 スタッフ';return'⚙️ システム';}
-function classify(r){const s=r.summary||'';const human=(r.who==='staff'||r.who==='customer');
+function whoClass(w){w=(w||'').toLowerCase();if(w.indexOf('gatekeeper')>=0)return'gk';if(w==='customer'||w.indexOf('mypage')>=0)return'cust';if(w.indexOf('staff')===0)return'staff';return'mach';}
+function whoLabel(w){const c=whoClass(w);if(c==='gk')return'🛡️ 3号';if(c==='cust')return'👤 顧客';if(c==='staff'){const p=(w||'').split(':')[1];return '🧑‍🔧 '+(p||'スタッフ');}return'⚙️ システム';}
+function classify(r){const s=r.summary||'';const human=((r.who||'').indexOf('staff')===0||r.who==='customer');
  // 人間(スタッフ/顧客)の編集は正当=フラグしない。機械/システムの書込だけ疑う。
  if(r.op==='DELETE')return human?'':'warn';
  if(!human&&(/→\s*$/.test((s||'').trim())||/→\s*\//.test(s)))return'warn';
