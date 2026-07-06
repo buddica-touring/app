@@ -40,7 +40,7 @@ document.getElementById('ttl').textContent='📒 台帳（'+C.name+'）';
 // テーブル日本語化
 const TBL_JP={tasks:'タスク',nha_tasks:'タスク',bt_tasks:'タスク',reservations:'予約',nha_reservations:'予約',bt_reservations:'予約',fleet:'配車',nha_fleet:'配車',bt_fleet:'配車',places:'場所',nha_places:'場所',shifts:'シフト',nha_shifts:'シフト',bt_shifts:'シフト',attendance:'勤怠',nha_attendance:'勤怠',spk_attendance:'勤怠',spk_accounting:'会計',nha_accounting:'会計',bt_accounting:'会計',jalan_payment:'じゃらん決済',jalan_payments:'じゃらん決済',nha_jalan_payment:'じゃらん決済',nha_jalan_payments:'じゃらん決済',mypage_changes:'マイページ変更',vehicles:'車両',nha_vehicles:'車両',maintenance:'整備',nha_maintenance:'整備',app_settings:'設定',nha_app_settings:'設定',bt_app_settings:'設定',spk_line_links:'LINE紐付け',nha_line_links:'LINE紐付け',spk_task_assignments:'担当割当',nha_task_assignments:'担当割当'};
 // 項目(field)日本語化
-const FLD_JP={assignee:'担当','担当':'担当',del_place:'お届け場所',col_place:'回収場所','送迎場所':'お届け場所','集客':'回収場所',place:'場所',lend_date:'貸出日',return_date:'返却日',start_date:'貸出日',end_date:'返却日',date:'日付',lend_time:'貸出時間',return_time:'返却時間',time:'時間','時間':'時間',status:'状態',pay_status:'決済状態',vehicle:'車両',vehicle_code:'車両','クラス':'車両クラス',price:'料金',insurance:'補償','確定':'補償',deleted:'削除フラグ',people:'人数','人数':'人数',value:'設定値','内容':'種別',type:'種別','予約者':'予約者',name:'氏名',done:'完了','確認':'完了'};
+const FLD_JP={_ssPlace:'お届け場所',_ssTime:'時間',_taskDate:'日付',_optB:'ベビーシート',_optC:'チャイルドシート',_optJ:'ジュニアシート',_placeSource:'場所の出所',_manualPlace:'お届け場所',_typeChange:'種別変更',_timeChange:'時間変更',assignee:'担当','担当':'担当',del_place:'お届け場所',col_place:'回収場所','送迎場所':'お届け場所','集客':'回収場所',place:'場所',lend_date:'貸出日',return_date:'返却日',start_date:'貸出日',end_date:'返却日',date:'日付',lend_time:'貸出時間',return_time:'返却時間',time:'時間','時間':'時間',status:'状態',pay_status:'決済状態',vehicle:'車両',vehicle_code:'車両','クラス':'車両クラス',price:'料金',insurance:'補償','確定':'補償',deleted:'削除フラグ',people:'人数','人数':'人数',value:'設定値','内容':'種別',type:'種別','予約者':'予約者',name:'氏名',done:'完了','確認':'完了'};
 // 既定で隠すノイズ(システムの自動処理・設定のハートビート等)
 const NOISE_TBL=new Set(['app_settings','nha_app_settings','bt_app_settings']);
 function isNoise(r){ if(NOISE_TBL.has(r.tbl))return true; const s=r.summary||''; if(/last_run|heartbeat|updated_at.*→/.test(s))return true; if(/v\d+\.\d+\.\d+/.test(s))return true; return false; }
@@ -85,6 +85,7 @@ async function load(){
   items.slice(0,250).forEach(it=>{
    if(it.kind==='act'){const a=it.a;let bd=(a.fixed>0?'<span class="badge" style="background:#0e9f50;color:#fff">戻した '+a.fixed+'件</span> ':'')+(a.reported>0?'<span class="badge" style="background:#e0a020;color:#000">要確認 '+a.reported+'件</span> ':'');if((a.fixed||0)+(a.reported||0)>0)bd+='正常化を実行';else bd=(a.note||'巡回・異常なし ✅');html+='<div class="row gk"><div class="t">'+tfmt(it.at)+'</div><div class="who gk">🛡️ 3号</div><div class="body">'+bd+'</div></div>';return;}
    const r=it.r;const c=classify(r);if(onlyWarn&&c==='')return;
+   if(r.op==='UPDATE'&&!(r.summary&&r.summary.trim())&&!showAll)return;
    const cls=whoClass(r.who);
    html+='<div class="row '+c+'"><div class="t">'+tfmt(r.at)+'</div><div class="who '+cls+'">'+whoLabel(r.who)+'</div><div class="body">'+(c==='warn'?'<span class="badge" style="background:#e23b3b;color:#fff">足跡</span> ':'')+(c==='move'?'<span class="badge" style="background:#e0a020;color:#000">移動</span> ':'')+(r.resv&&r.resv!=='?'?'<span class="resv">〈'+r.resv+'〉</span>':'')+human(r)+'</div></div>';
   });
