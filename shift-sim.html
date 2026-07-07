@@ -105,6 +105,30 @@ body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-s
 </style>
 </head>
 <body>
+<div id="_pasGate" style="position:fixed;inset:0;z-index:99999;background:#0e2a47;display:flex;align-items:center;justify-content:center;font-family:-apple-system,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif">
+  <div style="background:#fff;border-radius:16px;padding:32px 28px;width:300px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center">
+    <div style="font-size:34px;margin-bottom:8px">🔒</div>
+    <div style="font-size:16px;font-weight:800;color:#0e2a47;margin-bottom:4px">シフト試算</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:18px">パスコードを入力してください</div>
+    <input id="_pasInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" style="width:100%;font-size:20px;text-align:center;letter-spacing:6px;padding:12px;border:2px solid #e6ebf0;border-radius:10px;box-sizing:border-box">
+    <div id="_pasErr" style="color:#e8505b;font-size:12px;height:16px;margin-top:8px"></div>
+    <button id="_pasBtn" style="margin-top:10px;width:100%;background:#1ec8b0;color:#063;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:800;cursor:pointer">解錠</button>
+  </div>
+</div>
+<script>
+(function(){
+  var CODE="1173";
+  var g=document.getElementById('_pasGate'),i=document.getElementById('_pasInput'),b=document.getElementById('_pasBtn'),e=document.getElementById('_pasErr');
+  document.documentElement.style.overflow='hidden';
+  function tryUnlock(){
+    if(i.value===CODE){g.remove();document.documentElement.style.overflow='';}
+    else{e.textContent='パスコードが違います';i.value='';i.focus();}
+  }
+  b.addEventListener('click',tryUnlock);
+  i.addEventListener('keydown',function(ev){if(ev.key==='Enter')tryUnlock();});
+  setTimeout(function(){i.focus();},100);
+})();
+</script>
 <div class="bar"><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
   <div>
     <h1><img src="bc-logo.png" alt="BUDDICA" style="height:1.3em;width:auto;vertical-align:-0.22em;margin-right:9px">🗓 シフト試算（バイト予算・人件費）</h1>
