@@ -525,8 +525,8 @@ const DB = {
     return entries.length>0?entries[0].hourly_wage:null;
   },
   // --- 車両 ---
-  async fetchVehicles(){if(!sb)return DB._vehLsLoad();const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return DB._vehLsLoad();}dbLog("fetchVehicles",true,data.length+"件");const _vm=(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false}));DB._vehLsSave(_vm);return _vm;},
-  async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
+  async fetchVehicles(){if(!sb)return DB._vehLsLoad();const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return DB._vehLsLoad();}dbLog("fetchVehicles",true,data.length+"件");const _vm=(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false,specs:(v.specs&&typeof v.specs==="object")?v.specs:{}}));DB._vehLsSave(_vm);return _vm;},
+  async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false,specs:(v.specs&&typeof v.specs==="object")?v.specs:{}}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
   async deleteVehicle(code){if(!sb)return;const{error}=await sb.from("bt_vehicles").delete().eq("code",code);if(error)dbLog("deleteVehicle",false,error.message);else dbLog("deleteVehicle",true,code);},
   // --- シフト ---
   _shiftsLsKey:"bt_shifts_backup",
@@ -4195,8 +4195,69 @@ function CSVPanel({onImport,onUpdatePlaces,dataCount,pendingPlaces,onSetPendingP
 /* ==========================================
    車両管理画面
    ========================================== */
+function VehDetailList({vehicles,vehicleClasses,maintenance,onEdit}){
+  const rows=useMemo(()=>{
+    const out=[];const seen={};
+    (vehicleClasses||[]).forEach(vc=>{(vehicles||[]).filter(v=>v.type===vc.type).forEach(v=>{out.push(v);seen[v.id]=1;});});
+    (vehicles||[]).forEach(v=>{if(!seen[v.id])out.push(v);});
+    return out;
+  },[vehicles,vehicleClasses]);
+  const maintCost=(code)=>(maintenance||[]).filter(m=>(m.vehicleCode||m.vehicle_code)===code).reduce((s,m)=>s+Number(m.actualCost||m.cost||0),0);
+  const monthlyCost=(v)=>Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12);
+  const S=v=>(v&&typeof v.specs==="object")?v.specs:{};
+  const Chk=on=>on?<span style={{color:"#16a34a",fontWeight:900}}>✓</span>:<span style={{color:"#cbd5e1"}}>−</span>;
+  const th={padding:"6px 8px",fontSize:10,fontWeight:800,color:"#475569",borderBottom:"2px solid #cbd5e1",whiteSpace:"nowrap",textAlign:"center",background:"#f1f5f9",position:"sticky",top:0,zIndex:2};
+  const td={padding:"5px 8px",fontSize:11,borderBottom:"1px solid #eef2f7",whiteSpace:"nowrap",textAlign:"center"};
+  const stickyTh={...th,left:0,zIndex:3,textAlign:"left",boxShadow:"2px 0 0 #e2e8f0"};
+  const stickyTd=(bg)=>({...td,position:"sticky",left:0,background:bg,textAlign:"left",zIndex:1,boxShadow:"2px 0 0 #e2e8f0"});
+  const cols=["グレード","油種","タイヤ","ETC位置","ドラレコ","USB","BT","バックカメラ","リアモニター","ナビ言語","ハンドル","AT/MT","定員","年式","カラー","型式","車体番号","車検満了","車検予定","点検期限","点検予定","保険/月","リース/月","整備実費","月次原価"];
+  return <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"auto",maxHeight:"72vh"}}>
+    <table style={{borderCollapse:"collapse",fontSize:11,minWidth:1400,width:"100%"}}>
+      <thead><tr>
+        <th style={stickyTh}>車両（クラス / 略称 / ナンバー）</th>
+        {cols.map((c,i)=><th key={i} style={th}>{c}</th>)}
+        <th style={th}>編集</th>
+      </tr></thead>
+      <tbody>{rows.map((v,i)=>{const s=S(v);const bg=i%2===0?"#fff":"#fafbfc";const langs=[s.nav_en&&"EN",s.nav_zh&&"中",s.nav_ko&&"韓"].filter(Boolean).join(" ");return <tr key={v.id} style={{background:bg}} onClick={()=>onEdit&&onEdit(v)} title="タップで編集">
+        <td style={stickyTd(bg)}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:10,fontWeight:900,padding:"1px 6px",borderRadius:5,background:v.type==="AA"?"#fef3c7":"#dbeafe",color:v.type==="AA"?"#92400e":"#1e40af"}}>{v.type}</span>
+            <div><div style={{fontWeight:700,color:"#1e293b"}}>{s.abbr||v.name}</div><div style={{fontSize:10,color:"#2563eb",fontFamily:"monospace",fontWeight:700}}>{v.no}{v.insuranceVeh?" 🛡️":""}{v.active===false?" ⏸":""}</div></div>
+          </div>
+        </td>
+        <td style={{...td,textAlign:"left"}}>{v.grade||"−"}</td>
+        <td style={td}>{s.fuel||"−"}</td>
+        <td style={td}>{s.tire||"−"}</td>
+        <td style={{...td,textAlign:"left",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{s.etc_image?<span title="画像あり">📷 </span>:null}{s.etc_location||<span style={{color:"#cbd5e1"}}>−</span>}</td>
+        <td style={td}>{Chk(s.dashcam)}</td>
+        <td style={td}>{Chk(s.usb)}</td>
+        <td style={td}>{Chk(s.bluetooth)}</td>
+        <td style={td}>{Chk(s.backcam)}</td>
+        <td style={td}>{Chk(s.rearmonitor)}</td>
+        <td style={td}>{langs?<span style={{fontWeight:700,color:"#2563eb"}}>{langs}</span>:<span style={{color:"#cbd5e1"}}>−</span>}</td>
+        <td style={td}>{s.handle||"−"}</td>
+        <td style={td}>{s.transmission||"−"}</td>
+        <td style={td}>{v.seats}</td>
+        <td style={td}>{v.year||"−"}</td>
+        <td style={{...td,textAlign:"left"}}>{v.color||"−"}</td>
+        <td style={{...td,textAlign:"left"}}>{s.model_code||"−"}</td>
+        <td style={{...td,textAlign:"left"}}>{s.shatai_no||"−"}</td>
+        <td style={td}>{v.inspectionDueDate||"−"}</td>
+        <td style={td}>{v.inspectionNextDate||"−"}</td>
+        <td style={td}>{v.tenkenDueDate||"−"}</td>
+        <td style={td}>{v.tenkenNextDate||"−"}</td>
+        <td style={{...td,textAlign:"right"}}>{Number(v.insuranceAnnual)?"¥"+Number(v.insuranceAnnual).toLocaleString():"−"}</td>
+        <td style={{...td,textAlign:"right"}}>{Number(v.leaseMonthly)?"¥"+Number(v.leaseMonthly).toLocaleString():"−"}</td>
+        <td style={{...td,textAlign:"right"}}>{(()=>{const mc=maintCost(v.code);return mc?"¥"+mc.toLocaleString():"−";})()}</td>
+        <td style={{...td,textAlign:"right",fontWeight:700,color:"#d97706"}}>{(()=>{const m=monthlyCost(v);return m?"¥"+m.toLocaleString():"−";})()}</td>
+        <td style={td}><button onClick={e=>{e.stopPropagation();onEdit&&onEdit(v);}} style={{fontSize:10,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>編集</button></td>
+      </tr>;})}</tbody>
+    </table>
+    <div style={{padding:"8px 12px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #eef2f7"}}>{rows.length}台 ／ 横スクロールで全項目 ／ 行タップで編集 ／ 🛡️保険事業車 ⏸未稼働 ／ 保険・リースは月額 ／ 月次原価＝保険+リース+車検/12+点検/6+税/12</div>
+  </div>;
+}
 function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicle,highlightVehicle,maintenance}){
-  const EMPTY={name:"",no:"",type:"A",grade:"",brand:"",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:""};
+  const EMPTY={name:"",no:"",type:"A",grade:"",brand:"",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:"",specs:{}};
   const[modal,setModal]=useState(null);
   const[form,setForm]=useState(EMPTY);
   const[mTab,setMTab]=useState("basic");
@@ -4211,6 +4272,10 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
   const[addingService,setAddingService]=useState(false);
   const[svcForm,setSvcForm]=useState({checkin_date:"",checkout_date:"",workshop:"",notes:"",cost:"",invoice_no:""});
   const upF=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const upS=(k,v)=>setForm(p=>({...p,specs:{...(p.specs||{}),[k]:v}}));
+  const[etcUploading,setEtcUploading]=useState(false);
+  const[vehListView,setVehListView]=useState(false);
+  const onEtcImg=async(file)=>{if(!file)return;setEtcUploading(true);try{const url=await DB.uploadMemoImage(file);upS("etc_image",url);}catch(e){alert("画像アップロード失敗: "+(e.message||"不明"));}setEtcUploading(false);};
   const today=new Date().toISOString().slice(0,10);
   const MAINT_CATS=["車検","半年点検","オイル交換"]; // 走行距離は「距離管理」タブに移動 / オイル交換は距離管理から入力・ここで自動表示
 
@@ -4234,7 +4299,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
 
   const openAdd=()=>{setForm(EMPTY);setModal({mode:"add",v:null});setMTab("basic");setMaintRecs([]);setUpdType(null);setAddingService(false);};
   const openEdit=(v)=>{
-    setForm({name:v.name||"",no:v.no||"",type:v.type||"A",grade:v.grade||"",brand:v.brand||"",seats:v.seats||5,insuranceVeh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.insPrice||"",memo:v.memo||"",insuranceAnnual:Number(v.insuranceAnnual)||0,leaseMonthly:Number(v.leaseMonthly)||0,shakenCost:Number(v.shakenCost)||0,tenkenCost:Number(v.tenkenCost)||0,carTax:Number(v.carTax)||0,inspectionDueDate:v.inspectionDueDate||"",inspectionNextDate:v.inspectionNextDate||"",tenkenDueDate:v.tenkenDueDate||"",tenkenNextDate:v.tenkenNextDate||""});
+    setForm({name:v.name||"",no:v.no||"",type:v.type||"A",grade:v.grade||"",brand:v.brand||"",seats:v.seats||5,insuranceVeh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.insPrice||"",memo:v.memo||"",insuranceAnnual:Number(v.insuranceAnnual)||0,leaseMonthly:Number(v.leaseMonthly)||0,shakenCost:Number(v.shakenCost)||0,tenkenCost:Number(v.tenkenCost)||0,carTax:Number(v.carTax)||0,inspectionDueDate:v.inspectionDueDate||"",inspectionNextDate:v.inspectionNextDate||"",tenkenDueDate:v.tenkenDueDate||"",tenkenNextDate:v.tenkenNextDate||"",specs:(v.specs&&typeof v.specs==="object")?{...v.specs}:{}});
     setModal({mode:"edit",v});setMTab("basic");setUpdType(null);setAddingService(false);
     loadMaint(v.code);
   };
@@ -4259,7 +4324,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
       }
       // 直接DBに保存して成否を確認
       if(sb&&vToSave){
-        const row={code:vToSave.code,name:vToSave.name,plate_no:vToSave.no,type:vToSave.type,grade:vToSave.grade||"",brand:vToSave.brand||"",seats:vToSave.seats,insurance_veh:!!vToSave.insuranceVeh,year:vToSave.year||"",color:vToSave.color||"",equip:vToSave.equip||"",ins_price:vToSave.insPrice||"",memo:vToSave.memo||"",insurance_annual:Number(vToSave.insuranceAnnual)||0,lease_monthly:Number(vToSave.leaseMonthly)||0,shaken_cost:Number(vToSave.shakenCost)||0,tenken_cost:Number(vToSave.tenkenCost)||0,car_tax:Number(vToSave.carTax)||0,oil_interval_km:Number(vToSave.oilIntervalKm)||5000,inspection_due_date:vToSave.inspectionDueDate||null,inspection_next_date:vToSave.inspectionNextDate||null,tenken_due_date:vToSave.tenkenDueDate||null,tenken_next_date:vToSave.tenkenNextDate||null,active:vToSave.active!==false};
+        const row={code:vToSave.code,name:vToSave.name,plate_no:vToSave.no,type:vToSave.type,grade:vToSave.grade||"",brand:vToSave.brand||"",seats:vToSave.seats,insurance_veh:!!vToSave.insuranceVeh,year:vToSave.year||"",color:vToSave.color||"",equip:vToSave.equip||"",ins_price:vToSave.insPrice||"",memo:vToSave.memo||"",insurance_annual:Number(vToSave.insuranceAnnual)||0,lease_monthly:Number(vToSave.leaseMonthly)||0,shaken_cost:Number(vToSave.shakenCost)||0,tenken_cost:Number(vToSave.tenkenCost)||0,car_tax:Number(vToSave.carTax)||0,oil_interval_km:Number(vToSave.oilIntervalKm)||5000,inspection_due_date:vToSave.inspectionDueDate||null,inspection_next_date:vToSave.inspectionNextDate||null,tenken_due_date:vToSave.tenkenDueDate||null,tenken_next_date:vToSave.tenkenNextDate||null,active:vToSave.active!==false,specs:(vToSave.specs&&typeof vToSave.specs==="object")?vToSave.specs:{}};
         const{error}=await sb.from("bt_vehicles").upsert(row,{onConflict:"code"});
         if(error)throw new Error(error.message);
         // ★ 保存成功後にDBから再取得してローカルstateを確実に更新
@@ -4309,13 +4374,20 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
   const tabBtn=(id,label)=><button key={id} onClick={()=>setMTab(id)} style={{padding:"8px 14px",fontSize:12,fontWeight:mTab===id?700:500,color:mTab===id?"#2563eb":"#64748b",background:"none",border:"none",borderBottom:mTab===id?"2px solid #2563eb":"2px solid transparent",cursor:"pointer",whiteSpace:"nowrap"}}>{label}</button>;
   const fmtYen=(n)=>n>0?"¥"+Number(n).toLocaleString():"-";
 
-  return <div style={{maxWidth:960,margin:"0 auto"}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+  return <div style={{maxWidth:vehListView?1440:960,margin:"0 auto"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,gap:8,flexWrap:"wrap"}}>
       <h3 style={{fontSize:15,fontWeight:800,margin:0}}>車両登録管理</h3>
-      <button onClick={openAdd} style={{padding:"7px 18px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>＋ 車両追加</button>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{display:"flex",border:"1px solid #cbd5e1",borderRadius:8,overflow:"hidden"}}>
+          <button onClick={()=>setVehListView(false)} style={{padding:"6px 12px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:vehListView?"#fff":"#2563eb",color:vehListView?"#64748b":"#fff"}}>📇 登録管理</button>
+          <button onClick={()=>setVehListView(true)} style={{padding:"6px 12px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:vehListView?"#2563eb":"#fff",color:vehListView?"#fff":"#64748b"}}>📋 詳細一覧</button>
+        </div>
+        <button onClick={openAdd} style={{padding:"7px 18px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>＋ 車両追加</button>
+      </div>
     </div>
 
-    {grouped.map(g=>{
+    {vehListView&&<VehDetailList vehicles={vehicles} vehicleClasses={vehicleClasses} maintenance={maintenance} onEdit={openEdit}/>}
+    {!vehListView&&grouped.map(g=>{
       const isOpen=!!openCls[g.type];
       const mc=g.items.reduce((s,v)=>s+Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12),0);
       return<div key={g.type} style={{marginBottom:8}}>
@@ -4377,10 +4449,10 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
           </div>)}
       </div>;
     })}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+    {!vehListView&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
       <div style={{fontSize:11,color:"#94a3b8"}}>合計: {vehicles.length}台</div>
       {(()=>{const total=vehicles.reduce((s,v)=>s+Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12),0);return total>0&&<div style={{fontSize:12,fontWeight:700,color:"#d97706"}}>月次原価 合計: ¥{total.toLocaleString()}/月</div>;})()}
-    </div>
+    </div>}
 
     {modal&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 16px",overflowY:"auto"}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
@@ -4400,16 +4472,51 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
 
           {/* ===== 基本情報 ===== */}
           {mTab==="basic"&&<div>
+            {secH("基本スペック")}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={lS}>クラス</label><select value={form.type} onChange={e=>upF("type",e.target.value)} style={fS}>{vehicleClasses.map(c=><option key={c.type} value={c.type}>{c.type} — {c.label}</option>)}</select></div>
               <div><label style={lS}>車種名</label><input value={form.name} onChange={e=>upF("name",e.target.value)} style={fS} placeholder={form.type==="AA"?"例: Mercedes GL500 / Lamborghini Urus":"アルファード①"}/></div>
+              <div><label style={lS}>略称</label><input value={(form.specs&&form.specs.abbr)||""} onChange={e=>upS("abbr",e.target.value)} style={fS} placeholder="アル①"/></div>
               <div><label style={lS}>グレード</label><input value={form.grade} onChange={e=>upF("grade",e.target.value)} style={fS} placeholder="2.5S Cパッケージ"/></div>
               <div><label style={lS}>ナンバー</label><input value={form.no} onChange={e=>upF("no",e.target.value)} style={fS} placeholder="2340"/></div>
               <div><label style={lS}>定員</label><input type="number" value={form.seats} onChange={e=>upF("seats",e.target.value)} style={fS}/></div>
               <div><label style={lS}>年式</label><input value={form.year} onChange={e=>upF("year",e.target.value)} style={fS} placeholder="2022"/></div>
+              <div><label style={lS}>油種</label><select value={(form.specs&&form.specs.fuel)||""} onChange={e=>upS("fuel",e.target.value)} style={fS}><option value="">未設定</option>{["レギュラー","ハイオク","軽油","ハイブリッド","EV"].map(o=><option key={o} value={o}>{o}</option>)}</select></div>
               <div style={{gridColumn:"1/-1"}}><label style={lS}>カラー</label><input value={form.color} onChange={e=>upF("color",e.target.value)} style={fS} placeholder="ホワイトパールクリスタルシャイン"/></div>
-              <div style={{gridColumn:"1/-1"}}><label style={lS}>装備・オプション</label><input value={form.equip} onChange={e=>upF("equip",e.target.value)} style={fS} placeholder="ナビ, ETC, バックカメラ, フリップダウンモニター"/></div>
-              <div style={{gridColumn:"1/-1"}}><label style={lS}>メモ</label><textarea value={form.memo} onChange={e=>upF("memo",e.target.value)} rows={2} style={{...fS,resize:"vertical"}} placeholder="備考"/></div>
+              <div><label style={lS}>型式</label><input value={(form.specs&&form.specs.model_code)||""} onChange={e=>upS("model_code",e.target.value)} style={fS} placeholder="3BA-AGH30W"/></div>
+              <div><label style={lS}>車体番号</label><input value={(form.specs&&form.specs.shatai_no)||""} onChange={e=>upS("shatai_no",e.target.value)} style={fS} placeholder="AGH30-0123456"/></div>
+            </div>
+            {secH("走行・操作情報")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div><label style={lS}>ハンドル</label><select value={(form.specs&&form.specs.handle)||""} onChange={e=>upS("handle",e.target.value)} style={fS}><option value="">未設定</option><option value="右">右</option><option value="左">左</option></select></div>
+              <div><label style={lS}>AT / MT</label><select value={(form.specs&&form.specs.transmission)||""} onChange={e=>upS("transmission",e.target.value)} style={fS}><option value="">未設定</option><option value="AT">AT</option><option value="MT">MT</option></select></div>
+              <div><label style={lS}>タイヤ</label><select value={(form.specs&&form.specs.tire)||""} onChange={e=>upS("tire",e.target.value)} style={fS}><option value="">未設定</option>{["ノーマル","スタッドレス","オールシーズン"].map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+              <div>
+                <label style={lS}>ナビ言語</label>
+                <div style={{display:"flex",gap:14,flexWrap:"wrap",padding:"7px 0"}}>
+                  {[["nav_en","英語"],["nav_zh","中国語"],["nav_ko","韓国語"]].map(([k,l])=><label key={k} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:600,color:(form.specs&&form.specs[k])?"#2563eb":"#64748b"}}><input type="checkbox" checked={!!(form.specs&&form.specs[k])} onChange={e=>upS(k,e.target.checked)}/>{l}</label>)}
+                </div>
+              </div>
+            </div>
+            {secH("装備")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
+              <div><label style={lS}>ETC位置</label><input value={(form.specs&&form.specs.etc_location)||""} onChange={e=>upS("etc_location",e.target.value)} style={fS} placeholder="グローブボックス内 など"/></div>
+              <div>
+                <label style={lS}>ETC画像</label>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {form.specs&&form.specs.etc_image?<a href={form.specs.etc_image} target="_blank" rel="noreferrer"><img src={form.specs.etc_image} alt="ETC" style={{width:44,height:44,objectFit:"cover",borderRadius:6,border:"1px solid #cbd5e1"}}/></a>:<div style={{width:44,height:44,borderRadius:6,border:"1px dashed #cbd5e1",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:"#cbd5e1"}}>📷</div>}
+                  <label style={{fontSize:11,padding:"5px 10px",background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:6,cursor:"pointer",fontWeight:600}}>{etcUploading?"アップロード中…":(form.specs&&form.specs.etc_image?"変更":"画像を選択")}<input type="file" accept="image/*" style={{display:"none"}} disabled={etcUploading} onChange={e=>onEtcImg(e.target.files&&e.target.files[0])}/></label>
+                  {form.specs&&form.specs.etc_image&&<button type="button" onClick={()=>upS("etc_image","")} style={{fontSize:10,color:"#ef4444",background:"none",border:"none",cursor:"pointer"}}>削除</button>}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+              {[["dashcam","🎥 ドラレコ"],["usb","🔌 USB"],["bluetooth","📶 Bluetooth"],["backcam","📹 バックカメラ"],["rearmonitor","🖥️ リアモニター"]].map(([k,l])=>{const on=!!(form.specs&&form.specs[k]);return <label key={k} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1px solid "+(on?"#86efac":"#e2e8f0"),background:on?"#f0fdf4":"#f8fafc",color:on?"#15803d":"#94a3b8"}}><input type="checkbox" checked={on} onChange={e=>upS(k,e.target.checked)}/>{l}</label>;})}
+            </div>
+            {secH("補足（自由記述）")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr",gap:12,marginBottom:12}}>
+              <div><label style={lS}>装備・オプション（自由記述・上記トグル以外の補足）</label><input value={form.equip} onChange={e=>upF("equip",e.target.value)} style={fS} placeholder="フリップダウンモニター など"/></div>
+              <div><label style={lS}>メモ</label><textarea value={form.memo} onChange={e=>upF("memo",e.target.value)} rows={2} style={{...fS,resize:"vertical"}} placeholder="備考"/></div>
             </div>
           </div>}
 
@@ -22377,7 +22484,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.114-BT";
+const APP_VERSION="v1.0.115-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
