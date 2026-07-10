@@ -890,7 +890,7 @@ function normClass(raw){
   if(cls2.includes(c))return c;
   if(c.length<=2&&cls1.includes(c.charAt(0))&&/^[A-Z]\d?$/.test(c))return c.charAt(0);
   // ③ 日本語車名・カテゴリからクラス推定（長いキーから先にマッチ）
-  const nameMap={"アルファードHクラス":"A","アルファードH":"A","アルファードM":"B","ヴェルファイア":"B","セレナH":"B","ヴォクシー":"B","ノアH":"B","ヤリスクロス":"C","ライズ":"C","プリウスα":"H","プリウスアルファ":"H","プリウス":"H","ヴィッツ":"F","ノート":"F","アクア":"F","セレナM":"D","ノアM":"D","エスクァイア":"D","ハリアー":"S","コンパクトSUV":"C","コンパクトカー":"F","コンパクト":"F","ミニバン":"B","ワゴン":"B","1BOX":"B","ワンボックス":"B","SUV":"C","ハイブリッド":"H","セダン":"H","エコノミー":"F","軽自動車":"F","プレミアム":"S","アルファード":"A"};
+  const nameMap={"アルファード/ヴェルファイア":"A","ヴェルファイア":"A","アルファード":"A","デリカD5":"B","デリカ":"B","ヤリスクロス":"F","ライズ":"F","ロッキー":"F","ノア":"C","ヴォクシー":"C","セレナ":"C","エスクァイア":"C","ハリアー":"D","プリウスα":"E","プリウスアルファ":"E","プリウス":"E","ルーミー":"H","ソリオ":"H","タンク":"H","ヤリス":"G","ヴィッツ":"G","アクア":"G","ノート":"G","ラグジュアリーミニバン":"A","コンパクトSUV":"F","コンパクトカー":"G","コンパクト":"G","ミニバン":"C","ワゴン":"C","1BOX":"C","ワンボックス":"C","SUV":"D","セダン":"E","ハイブリッド":"E","エコノミー":"G","軽自動車":"G"};
   for(const[k,v]of Object.entries(nameMap)){if(raw.includes(k))return v;}
   // ④ マッチしない場合はログ出力してデフォルト
   console.warn("[normClass] クラス判定失敗:",raw,"→デフォルトC");
@@ -2681,7 +2681,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
       const set=maintByVeh[mm.vehicleCode]||(maintByVeh[mm.vehicleCode]=new Set());
       for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))set.add(toLD(d));
     });
-    const CLASS_C={"A":"#7c3aed","A2":"#9333ea","B":"#0284c7","B2":"#0369a1","C":"#059669","D":"#0d9488","F":"#db2777","H":"#64748b","S":"#d97706"};
+    const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
     const byClass={};
     vehicles.forEach(v=>{
       if(!isKpiActive(v.code))return;
@@ -3685,19 +3685,21 @@ function useMobile(){const[m,setM]=useState(()=>window.innerWidth<=768);useEffec
 // BUDDICA TOURISM 高松空港店 クラス定義（7クラス：AA/A/B/C/S/H/F）
 const INIT_CLASSES=[
   {type:"AA",label:"ハイエンド車両",seats:5},
-  {type:"A",label:"高級系MV",seats:8},
-  {type:"B",label:"一般MV",seats:8},
-  {type:"C",label:"コンパクトSUV",seats:5},
-  {type:"S",label:"SUV",seats:5},
-  {type:"H",label:"セダン",seats:5},
-  {type:"F",label:"コンパクト",seats:5},
+  {type:"A",label:"ラグジュアリーミニバン",seats:8},
+  {type:"B",label:"ラグジュアリーミニバン",seats:8},
+  {type:"C",label:"ミニバン",seats:8},
+  {type:"D",label:"SUV",seats:5},
+  {type:"E",label:"セダン",seats:5},
+  {type:"F",label:"コンパクトSUV",seats:5},
+  {type:"G",label:"コンパクト",seats:5},
+  {type:"H",label:"コンパクト",seats:5},
 ];
 // BUDDICA TOURISM 高松空港店 車両マスター（初期データなし）
 const INIT_VEHICLES=[];
 // 車輌保守管理 初期データ（空）
 const INIT_VMT=[];
 // 高松店 車両カラー（クラス別配色）
-const V_COLORS=(()=>{const c={};const cm={AA:"#facc15",A:"#dc2626",B:"#2563eb",C:"#16a34a",S:"#ea580c",H:"#475569",F:"#7c3aed"};
+const V_COLORS=(()=>{const c={};const cm={AA:"#facc15",A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea"};
 INIT_VEHICLES.forEach(v=>{c[v.code]=cm[v.type]||"#6b7280";});return c;})();
 
 function toLD(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
@@ -19192,7 +19194,7 @@ function Dashboard({data,fleet,vehicles,maintenance}){
   },[vehicles,curVehDayMap,curMaintMap,daysInMo]);
 
   // === 年間推移 ===
-  const ANN_CLASS_C={"A":"#7c3aed","B":"#0284c7","C":"#059669","S":"#d97706","F":"#db2777","H":"#64748b"};
+  const ANN_CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
   const annTabItems=[
     {id:"revenue",label:"売上",ico:"💰"},{id:"utilization",label:"稼働率",ico:"🚗"},
     {id:"classRev",label:"クラス売上",ico:"🏷️"},{id:"vehRev",label:"車両売上",ico:"🚙"},
@@ -19498,7 +19500,7 @@ function Dashboard({data,fleet,vehicles,maintenance}){
 
     {/* クラス別売上 */}
     {(()=>{
-      const CLASS_C={"A":"#7c3aed","B":"#0284c7","C":"#059669","S":"#d97706","F":"#db2777","H":"#64748b"};
+      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
       // 車両コード→クラスtype マッピング
       const codeToType={};vehicles.forEach(v=>{codeToType[v.code]=v.type;});
       // クラス別集計
@@ -19560,7 +19562,7 @@ function Dashboard({data,fleet,vehicles,maintenance}){
 
     {/* クラス別稼働率 */}
     {(()=>{
-      const CLASS_C={"A":"#7c3aed","B":"#0284c7","C":"#059669","S":"#d97706","F":"#db2777","H":"#64748b"};
+      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
       const codeToType={};vehicles.forEach(v=>{codeToType[v.code]=v.type;});
       // クラスごとの車両台数
       const classVehCount={};
@@ -22481,7 +22483,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.120-BT";
+const APP_VERSION="v1.0.121-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
