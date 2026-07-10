@@ -193,11 +193,26 @@ async function ensureAuthenticated() {
 }
 
 async function signOut() {
-  if (!sb) return;
-  await sb.auth.signOut();
+  try { if (sb) await sb.auth.signOut(); } catch(e) {}
   sbCurrentUser = null;
+  try { Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k)); } catch(e) {}
   location.reload();
 }
+// コンソールからも呼べるように公開（btLogout() でログアウト）
+window.btLogout = signOut;
+// 常時表示の小さなログアウトボタン（右上固定）
+(function(){
+  function addBtn(){
+    if (document.getElementById('bt-logout-fab')) return;
+    var b = document.createElement('button');
+    b.id = 'bt-logout-fab';
+    b.textContent = '⏻ ログアウト';
+    b.style.cssText = 'position:fixed;top:6px;right:8px;z-index:99998;background:rgba(30,58,138,.85);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;opacity:.85';
+    b.onclick = function(){ if(confirm('ログアウトしますか？')) signOut(); };
+    document.body.appendChild(b);
+  }
+  if (document.body) addBtn(); else document.addEventListener('DOMContentLoaded', addBtn);
+})();
 
 // 起動時にログインチェック
 ensureAuthenticated();
@@ -22485,7 +22500,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.122-BT";
+const APP_VERSION="v1.0.123-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
