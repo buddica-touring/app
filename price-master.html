@@ -1,0 +1,116 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>現価格マスター（BT高松・コントローラー）</title><style>
+body{font-family:-apple-system,"Hiragino Sans",sans-serif;margin:0;background:#eef1f5;color:#17202a}
+.top{position:sticky;top:0;z-index:5;background:#0f172a;color:#fff;padding:10px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.top b{font-size:15px}.top select{padding:5px 9px;border-radius:7px;border:0;font-weight:700;font-size:13px}
+.storebtn{border:0;padding:5px 12px;border-radius:14px;font-weight:800;font-size:13px;cursor:pointer;background:#1e293b;color:#94a3b8}.storebtn.on{background:#2563eb;color:#fff}
+.save{margin-left:auto;background:#16a34a;color:#fff;border:0;padding:7px 16px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer}
+.wrap{max-width:1000px;margin:0 auto;padding:12px}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px;padding:12px 14px}
+h2{font-size:15px;margin:2px 0 8px}.sub{font-size:11.5px;color:#64748b;line-height:1.5;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:5px 6px;border-bottom:1px solid #eee;text-align:center}th{background:#1e293b;color:#fff;font-size:11px}
+td.l,th.l{text-align:left}
+input.p{width:78px;padding:5px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:13px;text-align:right;font-weight:700}
+input.p:focus{border-color:#2563eb;outline:none}
+.tier-a{background:#dcfce7}.tier-b{background:#fef9c3}.tier-c{background:#fee2e2}
+.tierchip{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px;margin-right:4px}
+.rng{font-size:11px;color:#475569;margin:3px 0}
+.rng input{width:108px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px}
+.msg{font-size:12px;margin-top:6px}.ok{color:#16a34a}.err{color:#dc2626}
+.muted{font-size:11px;color:#94a3b8;margin-top:6px}
+.scrim{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:50;display:flex;align-items:center;justify-content:center}
+.lg{background:#fff;border-radius:12px;padding:20px;width:min(320px,90vw)}.lg input{width:100%;padding:9px;margin:5px 0;border:1.5px solid #cbd5e1;border-radius:8px;font-size:16px}
+.lg button{width:100%;padding:10px;background:#2563eb;color:#fff;border:0;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer}
+</style></head><body>
+<div class="top"><b>💴 現価格マスター</b>
+ <span style="display:flex;gap:4px;margin-left:6px"><button class="storebtn on" data-s="bt">高松</button></span>
+ <select id="mon" onchange="render()"></select>
+ <button class="save" onclick="save()">💾 保存（コントローラー更新）</button>
+</div>
+<div class="wrap">
+ <div class="card"><div class="sub">ここが<b>自社価格の正本（唯一のコントローラー・SS価格タブをAPPに一本化）</b>。OTA/KEYDROP連動はこの値を参照。<b>価格タブ形式</b>＝月×シーズナル×クラスで<b>日帰り〜4泊5日を個別編集＋価格設定日</b>。「泊数=日帰り×日数で一括」ボタンで一括もOK（KEYDROP連動は日帰りを使用）。tier＝シーズナル（A通常/B準繁忙/C繁忙）。<span id="status" style="color:#94a3b8"></span></div></div>
+ <div id="body"></div>
+ <div class="card"><div class="muted">保存＝BT DB `bt_app_settings` の `hdm_price_master`（BUDDICA TOURISM高松・自社販売価格の正本）。</div></div>
+</div>
+<script>
+const SU='https://ggqugvyskyiblxiycpci.supabase.co';
+const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const TN={A:'A 通常',B:'B 準繁忙',C:'C 繁忙(お盆/年末)'};const TC={A:'tier-a',B:'tier-b',C:'tier-c'};
+let STORE='bt', MASTER=null, MONTH=null;
+const tbl=()=>'bt_app_settings';
+function authHeader(){try{var t=JSON.parse(localStorage.getItem('sb-ggqugvyskyiblxiycpci-auth-token'));if(t&&t.access_token&&(!t.expires_at||t.expires_at>Math.floor(Date.now()/1000)))return 'Bearer '+t.access_token;}catch(e){}return 'Bearer '+SK;}
+async function sbGet(path){const r=await fetch(SU+'/rest/v1/'+path,{headers:{apikey:SK,'Authorization':authHeader()}});if(!r.ok)return null;return await r.json();}
+async function sbPutKey(key,value){const r=await fetch(SU+'/rest/v1/'+tbl()+'?on_conflict=key',{method:'POST',headers:{apikey:SK,'Authorization':authHeader(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({key:key,value:JSON.stringify(value)})});if(!r.ok)throw new Error('HTTP '+r.status+' '+await r.text());}
+async function sbPut(value){return sbPutKey('hdm_price_master',value);}
+// 現価格マスター → KEYDROP価格(prices+presets)へ変換。日付ごとに現価格課金を再現（keydrop.js無改修）
+function masterToKeydrop(m){
+ const prices={},presets=[];let idx=0;const classes=new Set();
+ Object.values(m.prices||{}).forEach(mo=>Object.values(mo).forEach(t=>Object.keys(t).forEach(c=>classes.add(c))));
+ const cls=[...classes].sort();cls.forEach(c=>prices[c]=[]);
+ Object.keys(m.prices||{}).sort().forEach(month=>{
+  Object.keys(m.prices[month]).forEach(tier=>{
+   cls.forEach(c=>{const v=(m.prices[month][tier]||{})[c];prices[c].push(v?v[0]:0);});
+   ((m.ranges||{})[month]||{})[tier]&&(m.ranges[month][tier]||[]).forEach(r=>{if(r[0]&&r[1])presets.push({start:r[0].slice(5),end:r[1].slice(5),tier:idx});});
+   idx++;
+  });
+ });
+ return {prices:prices,presets:presets,default:0,_linkedFrom:'hdm_price_master',_at:new Date().toISOString().slice(0,10)};
+}
+let KDMODE='manual';
+async function loadKDMode(){const r=await sbGet(tbl()+'?key=eq.hdm_keydrop_mode&select=value');let v=(r&&r[0])?r[0].value:null;try{v=JSON.parse(v);}catch(e){}KDMODE=(v&&v.mode)||v||'manual';if(KDMODE!=='linked')KDMODE='manual';paintKD();}
+function paintKD(){const b=document.getElementById('kdlink');if(!b)return;const on=KDMODE==='linked';b.textContent='🔗 KEYDROP連動: '+(on?'ON':'OFF');b.style.background=on?'#16a34a':'#334155';b.style.color=on?'#fff':'#cbd5e1';}
+async function syncKD(){if(!MASTER)return;const kd=masterToKeydrop(MASTER);await sbPutKey('hdm_keydrop_price',kd);}
+async function toggleKD(){
+ const on=KDMODE==='linked';
+ if(!on){ if(!confirm('高松'+'のKEYDROP価格を「現価格マスターと連動」にします。\nKEYDROPの手動価格は現価格で上書きされ、以降マスター保存で自動反映されます。よろしいですか？'))return;
+  try{await syncKD();KDMODE='linked';await sbPutKey('hdm_keydrop_mode',{mode:'linked'});paintKD();document.getElementById('status').textContent='✅ KEYDROP連動ON（現価格を反映済み）';document.getElementById('status').style.color='#16a34a';}
+  catch(e){if(String(e).match(/40[13]/)){needLogin();return;}alert('連動失敗: '+e.message);}
+ }else{ if(!confirm('KEYDROP連動をOFF（手動）に戻します。現在の価格は維持され、以降マスター保存では変わりません。'))return;
+  KDMODE='manual';await sbPutKey('hdm_keydrop_mode',{mode:'manual'});paintKD();document.getElementById('status').textContent='KEYDROP連動OFF（手動）';
+ }
+}
+function needLogin(){const s=document.createElement('div');s.className='scrim';s.innerHTML='<div class="lg"><div style="font-weight:800;margin-bottom:8px">ログイン</div><input id="ae" placeholder="メール" autocomplete="username"><input id="ap" type="password" placeholder="パスワード" autocomplete="current-password"><div id="aerr" class="err" style="display:none"></div><button id="ab" onclick="doLogin()">ログイン</button></div>';document.body.appendChild(s);window._lov=s;}
+async function doLogin(){var e=document.getElementById('ae').value,p=document.getElementById('ap').value,err=document.getElementById('aerr');try{var r=await fetch(SU+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:SK,'Content-Type':'application/json'},body:JSON.stringify({email:e,password:p})});var d=await r.json();if(d&&d.access_token){localStorage.setItem('sb-ggqugvyskyiblxiycpci-auth-token',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token||'',expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),token_type:'bearer',user:d.user||{}}));window._lov.remove();load();}else{err.style.display='';err.textContent='メール/パスワードが違います';}}catch(x){err.style.display='';err.textContent='接続エラー';}}
+function selStore(s){STORE=s;document.querySelectorAll('.storebtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));load();}
+async function load(){
+ document.getElementById('status').textContent='読込中…';
+ const r=await sbGet(tbl()+'?key=eq.hdm_price_master&select=value');
+ if(!r){needLogin();return;}
+ if(!r.length){document.getElementById('status').textContent='マスター未作成';MASTER=null;document.getElementById('body').innerHTML='<div class="card">この店舗のマスターがありません</div>';return;}
+ try{MASTER=JSON.parse(r[0].value);}catch(e){MASTER=r[0].value;}
+ const mons=Object.keys(MASTER.prices||{}).sort();
+ const sel=document.getElementById('mon');sel.innerHTML=mons.map(m=>`<option ${m===MONTH?'selected':''}>${m}</option>`).join('');
+ if(!mons.includes(MONTH))MONTH=mons[0];sel.value=MONTH;
+ document.getElementById('status').textContent='読込OK（'+'高松'+'・更新:'+(MASTER.updated_at||'-')+'）';
+ render();
+}
+const NL=[[0,'日帰り'],[1,'1泊2日'],[2,'2泊3日'],[3,'3泊4日'],[4,'4泊5日']];
+function render(){
+ if(!MASTER)return;MONTH=document.getElementById('mon').value;
+ const mp=MASTER.prices[MONTH]||{};const rng=(MASTER.ranges||{})[MONTH]||{};const sd=(MASTER.setdate||{})[MONTH]||{};
+ const tiers=Object.keys(mp);const classes=[...new Set(tiers.flatMap(t=>Object.keys(mp[t])))];
+ let h=`<div class="card"><h2>${MONTH} の価格（価格タブ形式：シーズナル × クラス × 泊数）</h2>`;
+ for(const t of tiers){
+  const rs=(rng[t]||[]).map((r,i)=>`<input value="${r[0]}" onchange="setRange('${t}',${i},0,this.value)"> 〜 <input value="${r[1]}" onchange="setRange('${t}',${i},1,this.value)">`).join('　/　')||'<span style="color:#cbd5e1">期間未設定</span>';
+  h+=`<div style="margin:12px 0 4px"><span class="tierchip ${TC[t]}">${TN[t]||t}</span><span class="rng">期間: ${rs}</span> <button onclick="fillNights('${t}')" style="font-size:10px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;cursor:pointer">泊数=日帰り×日数で一括</button></div>`;
+  h+=`<div style="overflow-x:auto"><table><thead><tr><th class="l">項目 ＼ クラス</th>`+classes.map(c=>`<th>${c}</th>`).join('')+`</tr></thead><tbody>`;
+  h+=`<tr><td class="l">価格設定日</td>`+classes.map(c=>`<td class="${TC[t]}"><input class="p" style="width:100px;text-align:center" value="${(sd[t]&&sd[t][c])||''}" placeholder="YYYY-MM-DD" onchange="setDate('${t}','${c}',this.value)"></td>`).join('')+`</tr>`;
+  NL.forEach(function(n){h+=`<tr><td class="l">${n[1]}</td>`+classes.map(c=>{const arr=(mp[t]&&mp[t][c])?mp[t][c]:[];const v=(arr[n[0]]!=null&&arr[n[0]]!=='')?arr[n[0]]:'';return `<td class="${TC[t]}"><input class="p" type="number" value="${v}" onchange="setP('${t}','${c}',${n[0]},this.value)"></td>`;}).join('')+`</tr>`;});
+  h+=`</tbody></table></div>`;
+ }
+ h+=`</div>`;document.getElementById('body').innerHTML=h;
+}
+function setP(t,c,idx,v){v=parseInt(v,10)||0;MASTER.prices[MONTH]=MASTER.prices[MONTH]||{};MASTER.prices[MONTH][t]=MASTER.prices[MONTH][t]||{};var a=MASTER.prices[MONTH][t][c]||[];while(a.length<5)a.push(0);a[idx]=v;MASTER.prices[MONTH][t][c]=a;}
+function fillNights(t){var mp=MASTER.prices[MONTH][t]||{};Object.keys(mp).forEach(function(c){var d=parseInt((mp[c]||[])[0],10)||0;mp[c]=[d,d*2,d*3,d*4,d*5];});render();}
+function setDate(t,c,v){MASTER.setdate=MASTER.setdate||{};MASTER.setdate[MONTH]=MASTER.setdate[MONTH]||{};MASTER.setdate[MONTH][t]=MASTER.setdate[MONTH][t]||{};MASTER.setdate[MONTH][t][c]=v;}
+function setRange(t,i,j,v){MASTER.ranges=MASTER.ranges||{};MASTER.ranges[MONTH]=MASTER.ranges[MONTH]||{};MASTER.ranges[MONTH][t]=MASTER.ranges[MONTH][t]||[];MASTER.ranges[MONTH][t][i]=MASTER.ranges[MONTH][t][i]||['',''];MASTER.ranges[MONTH][t][i][j]=v;}
+async function save(){
+ if(!MASTER)return;MASTER.updated_at=new Date().toISOString().slice(0,10);MASTER.store=STORE;
+ try{await sbPut(MASTER);
+   let extra='';
+   if(KDMODE==='linked'){await syncKD();extra='＋KEYDROPに連動反映';}
+   document.getElementById('status').textContent='✅ 保存しました（'+MASTER.updated_at+'）'+extra;document.getElementById('status').style.color='#16a34a';}
+ catch(e){if(String(e).includes('401')||String(e).includes('403')){needLogin();return;}document.getElementById('status').textContent='保存失敗: '+e.message;document.getElementById('status').style.color='#dc2626';}
+}
+load();
+</script></body></html>
