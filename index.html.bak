@@ -17289,28 +17289,27 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                   const resolvedP=(t._placeSource==="manual"?t.place:(t._ssPlace||t.place))||"";
                   const ts=typeStyle(t.type);
                   const vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;
-                  return <div key={t._id} onClick={()=>{if(t.reservationId){setEditResId(t.reservationId);setEditBlock(null);setOpView("edit");}else{setResDetailPopup(t);}}} style={{display:"flex",alignItems:"stretch",gap:0,borderBottom:"1px solid #e2e8f0",cursor:"pointer",opacity:t.done?.5:1,background:t.done?"#fafafa":"#fff"}}>
-                    <div style={{width:isMob?56:52,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:isMob?13:12,color:"#334155",fontFamily:"monospace",background:"#f8fafc",borderRight:"1px solid #e2e8f0"}}>{resolvedT}</div>
-                    <div style={{width:isMob?48:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:ts.bg,borderRight:"2px solid "+ts.border}}>
-                      <span style={{fontSize:isMob?11:10,fontWeight:800,color:ts.c}}>{t.type}</span>
+                  const _no=vn?vn.no:t.plateNo;const _vnm=vn?vn.name:"";
+                  return <div key={t._id} onClick={()=>{if(t.reservationId){setEditResId(t.reservationId);setEditBlock(null);setOpView("edit");}else{setResDetailPopup(t);}}} style={{border:"1px solid #e2e8f0",borderLeft:"4px solid "+ts.c,borderRadius:8,marginBottom:6,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:"pointer",opacity:t.done?.5:1,background:t.done?"#fafafa":"#fff",padding:isMob?"7px 10px":"6px 12px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{flexShrink:0,fontSize:isMob?15:14,fontWeight:900,color:"#fff",background:ts.c,borderRadius:6,padding:isMob?"3px 0":"2px 0",width:isMob?58:54,textAlign:"center",letterSpacing:.5}}>{t.type}</span>
+                      <span style={{flexShrink:0,fontSize:isMob?17:15,fontWeight:800,color:"#0f172a",fontFamily:"monospace"}}>{resolvedT}</span>
+                      <div style={{flex:1}}/>
+                      {_no?<span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:6,padding:isMob?"3px 9px":"2px 8px"}}>🚗<span style={{fontFamily:"monospace",fontSize:isMob?17:15,fontWeight:900,color:"#065f46"}}>{_no}</span>{_vnm&&<span style={{fontSize:isMob?10:9,fontWeight:700,color:"#047857"}}>{_vnm}</span>}</span>:(t.type!=="来店"&&t.type!=="返却"&&t.type!=="洗車"?<span style={{flexShrink:0,fontSize:isMob?11:10,fontWeight:800,color:"#fff",background:"#dc2626",borderRadius:5,padding:"2px 8px"}}>未配車</span>:null)}
                     </div>
-                    <div style={{flex:1,padding:isMob?"6px 10px":"5px 10px",minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontWeight:700,fontSize:isMob?13:12,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
-                        {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600,flexShrink:0}}>{t.memo}</span>}
-                        {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>{ppl}名</span>}
-                        {t.done&&<span style={{flexShrink:0}}>✅</span>}
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
-                        {cleanPlace(resolvedP)&&<span style={{fontSize:isMob?10:9,color:"#475569",fontWeight:600}}>📍{cleanPlace(resolvedP)}</span>}
-                        {t.flight&&<span style={{fontSize:isMob?10:9,color:"#1565c0",fontWeight:600}}>✈{t.flight}</span>}
-                        {vn&&<span style={{fontSize:isMob?10:9,color:"#059669",fontWeight:600}}>🚗{vn.name}({vn.no})</span>}
-                        {!vn&&t.plateNo&&<span style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:600}}>{t.plateNo}</span>}
-                        {!vn&&!t.plateNo&&t.assignedVehicle===""&&t.type!=="来店"&&t.type!=="返却"&&t.type!=="洗車"&&<span style={{fontSize:isMob?9:8,color:"#dc2626",fontWeight:700}}>未配車</span>}
-                        {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
-                        {t.assignee&&<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>}
-                        {!t.assignee&&t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>}
-                      </div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                      <span style={{fontWeight:700,fontSize:isMob?14:13,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
+                      {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600}}>{t.memo}</span>}
+                      {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>👥{ppl}</span>}
+                      {t.done&&<span style={{flexShrink:0}}>✅</span>}
+                    </div>
+                    {(cleanPlace(resolvedP)||t.flight)&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                      {cleanPlace(resolvedP)&&<span style={{fontSize:isMob?11:10,color:"#475569",fontWeight:600}}>📍{cleanPlace(resolvedP)}</span>}
+                      {t.flight&&<span style={{fontSize:isMob?10:9,color:"#1565c0",fontWeight:600}}>✈{t.flight}</span>}
+                    </div>}
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                      {t.assignee?<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>:(t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>)}
+                      {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
                     </div>
                   </div>;
               })}
@@ -18324,7 +18323,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             const storedOpts=!resOptsDirect&&t.reservationId&&resOpts?resOpts[t.reservationId]:null;
             const liveOpts=resOptsDirect||storedOpts||t.opts||{};
             const isCXL=t.type==="CXL";
-            const rowBg=isCXL?"#e5e7eb":t.done?"#f9fafb":isWash?"#FFFDE7":t.manual?"#f0fdf4":ri%2===0?"#fff":"#fafbfc";
+            const rowBg=isCXL?"#e5e7eb":t.done?"#f9fafb":ri%2===0?"#fff":"#fafbfc";
             const ch=t._changed||{};
             const isRep=repeaterMap&&t.reservationId&&repeaterMap[t.reservationId];
             const cellR=(i)=>({position:i<3?"sticky":"static",left:i===0?0:i===1?28:i===2?76:undefined,zIndex:i<3?2:0,background:rowBg,padding:"2px 4px",borderBottom:"1px solid #f1f5f9",borderRight:i===2?"2px solid #cbd5e1":"1px solid #f1f5f9",opacity:isCXL?0.4:t.done?0.4:1,verticalAlign:"middle",fontSize:9,textDecoration:isCXL?"line-through":"none",color:isCXL?"#9ca3af":undefined});
@@ -22484,7 +22483,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.116-BT";
+const APP_VERSION="v1.0.117-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
