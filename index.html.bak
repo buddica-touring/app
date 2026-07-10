@@ -91,8 +91,16 @@ const SB_ENABLED = !!(SUPABASE_URL && SUPABASE_KEY);
 let sb = null;
 let sbAuthReady = false;
 let sbCurrentUser = null;
+// ★ 強制ログアウト epoch：この文字列を変えると全端末が次回起動時に1回だけ強制ログアウトする
+const BT_LOGOUT_EPOCH = '2026-07-11a';
 const sbAuthPromise = (async () => {
   if (!SB_ENABLED) { sbAuthReady = true; return; }
+  try {
+    if (localStorage.getItem('bt_logout_epoch') !== BT_LOGOUT_EPOCH) {
+      localStorage.setItem('bt_logout_epoch', BT_LOGOUT_EPOCH);
+      Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));
+    }
+  } catch(e) {}
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
   });
@@ -22500,7 +22508,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.123-BT";
+const APP_VERSION="v1.0.124-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
