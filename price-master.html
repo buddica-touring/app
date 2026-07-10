@@ -76,7 +76,7 @@ async function load(){
  document.getElementById('status').textContent='読込中…';
  const r=await sbGet(tbl()+'?key=eq.hdm_price_master&select=value');
  if(!r){needLogin();return;}
- if(!r.length){document.getElementById('status').textContent='マスター未作成';MASTER=null;document.getElementById('body').innerHTML='<div class="card">この店舗のマスターがありません</div>';return;}
+ if(!r.length){ if(authHeader()==='Bearer '+SK){needLogin();return;} document.getElementById('status').textContent='マスター未作成';MASTER=null;document.getElementById('body').innerHTML='<div class="card">この店舗のマスターがありません</div>';return;}
  try{MASTER=JSON.parse(r[0].value);}catch(e){MASTER=r[0].value;}
  const mons=Object.keys(MASTER.prices||{}).sort();
  const sel=document.getElementById('mon');sel.innerHTML=mons.map(m=>`<option ${m===MONTH?'selected':''}>${m}</option>`).join('');
