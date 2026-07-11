@@ -16856,6 +16856,22 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     }
     return arr;
   },[today,shifts,reservations,fleet]);
+  // ★ PCキーボード ←/→ で前日/翌日へ移動（文字入力中・修飾キー時は無効）
+  useEffect(()=>{
+    const onKey=(e)=>{
+      if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;
+      if(e.ctrlKey||e.metaKey||e.altKey)return;
+      const ae=document.activeElement;
+      if(ae){const tn=(ae.tagName||"").toUpperCase();if(tn==="INPUT"||tn==="TEXTAREA"||tn==="SELECT"||ae.isContentEditable)return;}
+      const minI=dayButtons.length?dayButtons[0].i:0;
+      const maxI=dayButtons.length?dayButtons[dayButtons.length-1].i:60;
+      const dir=e.key==="ArrowRight"?1:-1;
+      const nx=Math.max(minI,Math.min(maxI,dayOff+dir));
+      if(nx!==dayOff){e.preventDefault();setDayOff(nx);}
+    };
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[dayButtons,dayOff]);
   const CONTENT_OPTIONS=["PU","BD","来店","洗車","DEL","COL","送り","迎え","回収","点検","入庫","その他","マニュアル入力"];
   const[timeLoading,setTimeLoading]=useState(false);
   const updateTimes=async()=>{
@@ -22508,7 +22524,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.124-BT";
+const APP_VERSION="v1.0.125-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

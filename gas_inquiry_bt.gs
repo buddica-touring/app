@@ -12,7 +12,7 @@ const REPLY_FROM_NAME = 'BUDDICA TOURISM 高松空港店';
 const REPLY_FROM_ADDR = 'reserve.touring@buddica.co.jp';
 
 // Slack 通知先（BUDDICA専用WS #operation）— Bot APIで投稿
-const INQ_SLACK_CHANNEL = 'C0B4THT54DR'; // #operation
+const INQ_SLACK_CHANNEL = 'C0BFMBLEJGZ'; // #operation-高松空港店
 function btInqSlack_(text){
   try{
     var tok=PropertiesService.getScriptProperties().getProperty('SLACK_BOT_TOKEN');
@@ -167,7 +167,7 @@ function importInquiryEmails_() {
   const processed = JSON.parse(props[STORE_KEY] || '{}');
   const seen      = new Set(Object.keys(processed));
 
-  const query = 'newer_than:2d -in:sent -in:drafts -in:trash';
+  const query = 'to:reserve.touring@buddica.co.jp newer_than:2d -in:sent -in:drafts -in:trash';
   let threads;
   try { threads = GmailApp.search(query, 0, 200); }
   catch(e) { console.error('Gmail検索エラー:', e.message); return 0; }
@@ -372,7 +372,7 @@ function debugImport() {
   const seen = new Set(Object.keys(processed));
   console.log('処理済みID件数:', seen.size);
 
-  const query = 'newer_than:2d -in:sent -in:drafts -in:trash';
+  const query = 'to:reserve.touring@buddica.co.jp newer_than:2d -in:sent -in:drafts -in:trash';
   let threads;
   try { threads = GmailApp.search(query, 0, 200); }
   catch(e) { console.error('Gmail検索エラー:', e.message); return; }
