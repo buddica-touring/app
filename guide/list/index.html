@@ -1,0 +1,80 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>マイページ一覧｜BUDDICA TOURISM</title>
+<style>
+:root{--or:#ee6a1c;--bg:#0e0e12;--ink:#1a1f2b;--sub:#5b6b7b;--line:#e6e9ef;--ok:#15803d;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans",sans-serif;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--ink);font-size:14px;}
+.wrap{max-width:1000px;margin:0 auto;padding:16px;}
+.top{background:linear-gradient(120deg,#121214,#1c1c1f 60%,#241a12);color:#fff;border-radius:12px;padding:15px 20px;margin-bottom:14px;position:relative;overflow:hidden;border:1px solid #2a2a2e;}
+.top::after{content:"";position:absolute;right:-30px;top:0;bottom:0;width:100px;background:linear-gradient(120deg,transparent,var(--or));transform:skewX(-18deg);opacity:.85;}
+.brand{font-size:12px;color:var(--or);font-weight:900;letter-spacing:.14em;position:relative;z-index:1;}
+.h1{font-size:19px;font-weight:800;margin-top:2px;position:relative;z-index:1;}
+.h1 small{font-size:12px;color:#c9c9cf;font-weight:600;margin-left:8px;}
+.card{background:#fff;border-radius:12px;padding:6px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.bar{display:flex;gap:8px;align-items:center;padding:8px 10px;}
+.search{flex:1;border:1.5px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;}
+.cnt{font-size:12px;color:var(--sub);font-weight:700;white-space:nowrap;}
+table{width:100%;border-collapse:collapse;}
+th{background:#f4f6fa;color:#475569;font-size:11px;font-weight:800;padding:8px 8px;text-align:left;border-bottom:2px solid #e2e8f0;position:sticky;top:0;}
+td{padding:9px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:middle;}
+tr.row{cursor:pointer;}
+tr.row:hover{background:#fff7ef;}
+.rid{font-family:monospace;font-weight:800;color:#12324d;}
+.date{font-weight:700;color:#334;white-space:nowrap;}
+.veh{color:#334;}
+.cls{display:inline-block;background:#fff6e6;color:#8a5a12;border:1px solid #f0d79a;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:5px;}
+.st{font-size:11px;font-weight:800;border-radius:12px;padding:2px 9px;white-space:nowrap;}
+.st.done{background:#dcfce7;color:var(--ok);}
+.st.part{background:#fef9c3;color:#854d0e;}
+.st.none{background:#f1f5f9;color:#94a3b8;}
+.act{display:flex;gap:6px;white-space:nowrap;}
+.btn{font-size:12px;font-weight:800;border-radius:7px;padding:6px 11px;border:none;cursor:pointer;text-decoration:none;display:inline-block;}
+.btn.open{background:var(--or);color:#fff;}
+.btn.copy{background:#eef1f6;color:#475569;}
+.empty{padding:40px;text-align:center;color:#94a3b8;}
+.note{font-size:11px;color:#8a94a0;margin-top:10px;padding:0 4px;}
+@media(max-width:640px){.hide-sp{display:none;}td,th{padding:8px 5px;font-size:12px;}}
+</style></head>
+<body><div class="wrap">
+<div class="top"><div class="brand">BUDDICA TOURISM ／ 高松空港店</div><div class="h1">マイページ一覧<small>予約ごとのご利用ガイドURL</small></div></div>
+<div class="card">
+  <div class="bar"><input class="search" id="q" placeholder="🔍 予約番号・お名前・車両で絞り込み" oninput="render()"><span class="cnt" id="cnt">—</span></div>
+  <div style="overflow-x:auto;"><table><thead><tr>
+    <th>利用日</th><th>予約番号</th><th>お名前</th><th class="hide-sp">車両</th><th>締結</th><th>操作</th>
+  </tr></thead><tbody id="tb"><tr><td colspan="6" class="empty">読込中…</td></tr></tbody></table></div>
+</div>
+<div class="note">※ 行をタップで各予約の「ご利用ガイド（マイページ）」を開きます。「URL」でコピー、共有可能。締結＝傷承認＋約款同意（2件）。</div>
+</div>
+<script>
+var BT_URL="https://ggqugvyskyiblxiycpci.supabase.co";
+var BT_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+var BASE=location.origin+location.pathname.replace(/list\/.*/,"");
+var DATA=[];
+function urlOf(t){return BASE+"?t="+t;}
+async function load(){
+  try{var r=await fetch(BT_URL+"/rest/v1/rpc/bt_mypage_list",{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:"{}"});DATA=await r.json()||[];}catch(e){DATA=[];}
+  render();
+}
+function render(){
+  var q=(document.getElementById('q').value||"").toLowerCase();
+  var rows=DATA.filter(function(d){return !q||((d.id||"")+(d.name||"")+(d.vehicle||"")).toLowerCase().indexOf(q)>=0;});
+  document.getElementById('cnt').textContent=rows.length+" 件";
+  var tb=document.getElementById('tb');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="empty">該当する予約がありません</td></tr>';return;}
+  tb.innerHTML=rows.map(function(d){
+    var sc=d.signs||0;var st=sc>=2?'<span class="st done">締結済</span>':sc===1?'<span class="st part">1/2</span>':'<span class="st none">未</span>';
+    var u=urlOf(d.token);
+    return '<tr class="row" onclick="if(!/BUTTON|A/.test(event.target.tagName))window.open(\''+u+'\',\'_blank\')">'
+      +'<td class="date">'+(d.start_date||"")+'</td>'
+      +'<td class="rid">'+(d.id||"")+'</td>'
+      +'<td>'+(d.name||"")+' 様</td>'
+      +'<td class="veh hide-sp">'+(d.vehicle||"")+(d.class?'<span class="cls">'+d.class+'</span>':'')+'</td>'
+      +'<td>'+st+'</td>'
+      +'<td><div class="act"><a class="btn open" href="'+u+'" target="_blank" rel="noopener">開く</a><button class="btn copy" onclick="copyU(\''+u+'\',this)">URL</button></div></td>'
+      +'</tr>';
+  }).join("");
+}
+function copyU(u,btn){navigator.clipboard.writeText(u).then(function(){var o=btn.textContent;btn.textContent="✓";setTimeout(function(){btn.textContent=o;},900);});}
+load();
+</script>
+</body></html>
