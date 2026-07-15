@@ -272,7 +272,7 @@ const DB = {
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||""};},
-  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:d.status,visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||""};},
+  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:d.status,visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",mypageToken:d.mypage_token||""};},
   // --- 配車（LS併用で車両変更保護） ---
   _fleetLsKey:"bt_fleet",
   _fleetLsSave(f){try{const cnt=Object.keys(f).filter(k=>k!=="_unassignedReasons").length;if(cnt>=10){localStorage.setItem("bt_fleet_backup",JSON.stringify({data:f,ts:Date.now(),count:cnt}));}localStorage.setItem(DB._fleetLsKey,JSON.stringify(f));}catch(e){}},
@@ -20176,7 +20176,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
           {Object.keys(OTA).map(k=><button key={k} onClick={()=>setOtaF(k)} style={{padding:"3px 7px",borderRadius:4,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:otaF===k?OTA[k].c:OTA[k].bg,color:otaF===k?"#fff":OTA[k].c}}>{k}</button>)}
         </div>
         <button onClick={doFetchPlaces} disabled={plLoading} style={{padding:"3px 8px",borderRadius:6,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:plLoading?"#94a3b8":"#fbbf24",color:"#78350f"}}>{plLoading?"取得中...":"📍場所取得"}</button>
-        <button onClick={exportDataCsv} style={{padding:"3px 8px",borderRadius:6,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:"#059669",color:"#fff"}}>📥CSV出力</button>
+        <button onClick={exportDataCsv} style={{padding:"3px 8px",borderRadius:6,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:"#059669",color:"#fff"}}>📥CSV出力</button><button onClick={()=>window.open("https://buddica-touring.github.io/app/guide/list/","_blank")} title="予約ごとのご利用ガイド(マイページ)URL一覧" style={{padding:"3px 8px",borderRadius:6,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:"#ee6a1c",color:"#fff"}}>🪪ご利用ガイド一覧</button>
         <div style={{display:"flex",gap:2,marginLeft:4,borderLeft:"1px solid #e2e8f0",paddingLeft:4}}>
           {[{k:"active",l:"有効",bg:"#dcfce7",c:"#166534"},{k:"cancelled",l:"CXL"+( cxlCount>0?" ("+cxlCount+")":""),bg:"#fee2e2",c:"#991b1b"},{k:"all",l:"全件",bg:"#f1f5f9",c:"#475569"}].map(p=>
             <button key={p.k} onClick={()=>setStatusF(p.k)} style={{padding:"3px 7px",borderRadius:4,border:"none",fontSize:9,fontWeight:700,cursor:"pointer",background:statusF===p.k?p.c:p.bg,color:statusF===p.k?"#fff":p.c}}>{p.l}</button>
@@ -22524,7 +22524,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.125-BT";
+const APP_VERSION="v1.0.126-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
