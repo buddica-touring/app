@@ -280,7 +280,7 @@ const DB = {
   // オフライン継続用キャッシュ（Supabase障害中も当日OP/配車/データタブが読める）
   _resLsKey:"bt_reservations_cache",
   _resLsSave(a){try{localStorage.setItem(DB._resLsKey,JSON.stringify(a));}catch(e){}},
-  _resLsLoad(){try{const s=localStorage.getItem(DB._resLsKey);return s?JSON.parse(s):[];}catch(e){return[];}},
+  _resLsLoad(){try{const s=localStorage.getItem(DB._resLsKey);const a=s?JSON.parse(s):[];if(a.length&&(!DB._resIdx||!Object.keys(DB._resIdx).length)){DB._resIdx={};a.forEach(r=>{if(r&&r.id)DB._resIdx[r.id]=r;});}return a;}catch(e){return[];}},
   _vehLsKey:"bt_vehicles_cache",
   _vehLsSave(a){try{localStorage.setItem(DB._vehLsKey,JSON.stringify(a));}catch(e){}},
   _vehLsLoad(){try{const s=localStorage.getItem(DB._vehLsKey);return s?JSON.parse(s):null;}catch(e){return null;}},
@@ -22524,7 +22524,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.127-BT";
+const APP_VERSION="v1.0.128-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
