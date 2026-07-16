@@ -16414,7 +16414,10 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
    ========================================== */
 function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFleet,vehicles,staff,resOpts,sheetPlaces,onUpdateSheetPlaces,repeaterMap,jalanPay,onReservationUpdate,maintenance,openIntent,onOpenIntentConsumed,initialView}){
   const[dayOff,setDayOff]=useState(0);const selDate=dOff(today,dayOff);const[tasks,setTasks]=useState([]);
-  const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit" (バスタブは廃止)
+  const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit" | "guide" (バスタブは廃止)
+  // ★ 2026-07-16 ご利用ガイド送信: 締結状況(サイン数)を bt_mypage_list から取得
+  const[guideSignMap,setGuideSignMap]=useState({});
+  React.useEffect(()=>{if(opView!=="guide"||!sb)return;let go=true;sb.rpc("bt_mypage_list").then(({data})=>{if(!go||!Array.isArray(data))return;const m={};data.forEach(x=>{if(x&&x.id)m[x.id]=x.signs||0;});setGuideSignMap(m);}).catch(()=>{});return()=>{go=false;};},[opView]);
   const[washAddCat,setWashAddCat]=useState("");const[washAddVc,setWashAddVc]=useState("");const[washAddTime,setWashAddTime]=useState("");const[washAddMemo,setWashAddMemo]=useState("");
   // ★ その他タブ用 state (SPK v4.6.5 から完全コピー)
   const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherEditId,setOtherEditId]=useState(null);
@@ -17178,7 +17181,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         {k:"raiten",l:"🏪来店",cnt:sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="BD"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&/^(来店|店舗|店頭|ヤード|営業所)$/.test((t.place||"").trim()))).length,ac:"#6d4c41"},
         {k:"other",l:"📌その他",cnt:sortedTasks.filter(t=>(OTHER_TASK_TYPES.includes(t.type)||OTHER_TASK_TYPES_LEGACY.includes(t.type))&&t.manual===true).length,ac:"#4338ca"},
         {k:"master",l:"📋マスター",cnt:0,ac:"#7c3aed"},
-        {k:"edit",l:"✏️編集",cnt:0,ac:"#dc2626"}
+        {k:"edit",l:"✏️編集",cnt:0,ac:"#dc2626"},
+        {k:"guide",l:"📧ガイド送信",cnt:0,ac:"#0e9f50"}
       ].map(v=>{
         const sel=opView===v.k;
         return <button key={v.k} onClick={()=>setOpView(v.k)} style={{padding:"3px 8px",borderRadius:6,fontSize:9,fontWeight:sel?800:500,background:sel?v.ac:"#f1f5f9",color:sel?"#fff":"#374151",border:"none",cursor:"pointer",position:"relative",whiteSpace:"nowrap",flexShrink:0}}>
@@ -18330,6 +18334,47 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             </div>;
           })}
           {otherTasks.length===0&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>その他タスクなし — 上のフォームから追加できます</div>}
+        </div>;
+      })()}
+      {opView==="guide"&&(()=>{
+        // ★ 2026-07-16 ご利用ガイド送信リスト（締結完了後、個別URLをお客様へメール送信。送信は当面スタッフが手動）
+        const GB="https://buddica-touring.github.io/app/guide/";
+        const seen={};const rows=[];
+        sortedTasks.forEach(t=>{
+          if(!t.reservationId||seen[t.reservationId])return;
+          if(!["DEL","来店","PU","PUB","PUB来店"].includes(t.type))return;
+          seen[t.reservationId]=1;
+          const r=(reservations||[]).find(x=>x.id===t.reservationId)||{};
+          rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||""});
+        });
+        return <div style={{padding:12}}>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.6}}>📧 締結完了後、ご利用ガイド（個別URL）をお客様へメール送信します。各行のボタンからメーラーが開きます（本文・URLは自動入力）。<b style={{color:"#dc2626"}}>メール未登録の予約は🚩表示</b>。</div>
+          {rows.length===0&&<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>本日の対象予約（引渡し）はありません</div>}
+          {rows.map(r=>{
+            const url=GB+"?t="+r.token;
+            const signs=guideSignMap[r.id];
+            const stB=signs>=2?{t:"締結済",bg:"#dcfce7",c:"#15803d"}:signs===1?{t:"サイン1/2",bg:"#fef9c3",c:"#854d0e"}:{t:"未締結",bg:"#f1f5f9",c:"#94a3b8"};
+            const subj="【BUDDICA TOURISM】ご利用ガイド（お手続きのご案内）";
+            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\nご利用車両の確認（傷チェック）・貸渡約款のご同意は、下記のご利用ガイドページよりお願いいたします。\n\n"+url+"\n\n※サイン完了後は閲覧専用となります。\n\nBUDDICA TOURISM 高松空港店";
+            return <div key={r.id} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:10,marginBottom:8,background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
+                <span style={{fontWeight:800,fontSize:14}}>{r.name} 様</span>
+                <span style={{fontFamily:"monospace",fontSize:11,color:"#12324d",fontWeight:700}}>{r.id}</span>
+                <span style={{fontSize:11,color:"#475569"}}>{r.vehicle}{r.lend?" / "+fmtD(norm(r.lend)):""}{r.time?" "+r.time:""}</span>
+                <span style={{fontSize:10,fontWeight:800,borderRadius:10,padding:"1px 9px",background:stB.bg,color:stB.c}}>{stB.t}</span>
+              </div>
+              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                {r.token?<React.Fragment>
+                  {r.mail?
+                    <a href={"mailto:"+r.mail+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(bodyRaw)} style={{background:"#0e9f50",color:"#fff",fontSize:12,fontWeight:800,borderRadius:7,padding:"6px 12px",textDecoration:"none"}}>📧 メール送信</a>
+                    :<span style={{background:"#fee2e2",color:"#dc2626",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px"}}>🚩 メール未登録</span>}
+                  <button onClick={()=>{navigator.clipboard.writeText(url);alert("URLをコピーしました\n"+url);}} style={{background:"#eef1f6",color:"#475569",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px",border:"none",cursor:"pointer"}}>🔗 URLコピー</button>
+                  <a href={url} target="_blank" rel="noopener" style={{background:"#f1f5f9",color:"#334155",fontSize:11,fontWeight:700,borderRadius:7,padding:"6px 10px",textDecoration:"none"}}>開く</a>
+                  {r.mail&&<span style={{fontSize:10,color:"#64748b"}}>{r.mail}</span>}
+                </React.Fragment>:<span style={{fontSize:11,color:"#b45309"}}>⚠️ マイページ未生成（予約データ要確認）</span>}
+              </div>
+            </div>;
+          })}
         </div>;
       })()}
       {opView==="master"&&<div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-2"><div style={{overflowX:"auto"}}>
@@ -22531,7 +22576,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.129-BT";
+const APP_VERSION="v1.0.130-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
