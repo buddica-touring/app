@@ -18347,16 +18347,25 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           const r=(reservations||[]).find(x=>x.id===t.reservationId)||{};
           rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||""});
         });
+        // 未締結を先頭にソート＋締結状況カウント
+        rows.sort((a,b)=>((guideSignMap[a.id]||0)>=2?1:0)-((guideSignMap[b.id]||0)>=2?1:0));
+        const cntDone=rows.filter(r=>(guideSignMap[r.id]||0)>=2).length;
+        const cntPend=rows.length-cntDone;
         return <div style={{padding:12}}>
-          <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.6}}>📧 締結完了後、ご利用ガイド（個別URL）をお客様へメール送信します。各行のボタンからメーラーが開きます（本文・URLは自動入力）。<b style={{color:"#dc2626"}}>メール未登録の予約は🚩表示</b>。</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:8,lineHeight:1.6}}>📧 <b>締結（傷承認＋約款同意の2サイン）が完了した予約のみ</b>メール送信できます。未締結は🔒表示＝先にタブレットでサインを取得してください。<b style={{color:"#dc2626"}}>メール未登録は🚩表示</b>。</div>
+          {rows.length>0&&<div style={{display:"flex",gap:8,marginBottom:10}}>
+            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:cntPend>0?"#fef3c7":"#f1f5f9",color:cntPend>0?"#92400e":"#94a3b8"}}>🔒 未締結 {cntPend}件</span>
+            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:"#dcfce7",color:"#15803d"}}>✅ 締結済 {cntDone}件</span>
+          </div>}
           {rows.length===0&&<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>本日の対象予約（引渡し）はありません</div>}
           {rows.map(r=>{
             const url=GB+"?t="+r.token;
-            const signs=guideSignMap[r.id];
-            const stB=signs>=2?{t:"締結済",bg:"#dcfce7",c:"#15803d"}:signs===1?{t:"サイン1/2",bg:"#fef9c3",c:"#854d0e"}:{t:"未締結",bg:"#f1f5f9",c:"#94a3b8"};
+            const signs=guideSignMap[r.id]||0;
+            const done=signs>=2;
+            const stB=done?{t:"✅ 締結済",bg:"#dcfce7",c:"#15803d"}:signs===1?{t:"サイン 1/2",bg:"#fef9c3",c:"#854d0e"}:{t:"未締結",bg:"#fee2e2",c:"#dc2626"};
             const subj="【BUDDICA TOURISM】ご利用ガイド（お手続きのご案内）";
-            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\nご利用車両の確認（傷チェック）・貸渡約款のご同意は、下記のご利用ガイドページよりお願いいたします。\n\n"+url+"\n\n※サイン完了後は閲覧専用となります。\n\nBUDDICA TOURISM 高松空港店";
-            return <div key={r.id} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:10,marginBottom:8,background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\n貸渡内容の確認書類（サイン済）は、下記のご利用ガイドページよりいつでもご確認いただけます。\n\n"+url+"\n\nBUDDICA TOURISM 高松空港店";
+            return <div key={r.id} style={{border:"1px solid "+(done?"#bbf7d0":"#fde68a"),borderLeft:"4px solid "+(done?"#0e9f50":"#f59e0b"),borderRadius:10,padding:10,marginBottom:8,background:done?"#fff":"#fffbeb",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
                 <span style={{fontWeight:800,fontSize:14}}>{r.name} 様</span>
                 <span style={{fontFamily:"monospace",fontSize:11,color:"#12324d",fontWeight:700}}>{r.id}</span>
@@ -18364,14 +18373,13 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <span style={{fontSize:10,fontWeight:800,borderRadius:10,padding:"1px 9px",background:stB.bg,color:stB.c}}>{stB.t}</span>
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                {r.token?<React.Fragment>
-                  {r.mail?
-                    <a href={"mailto:"+r.mail+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(bodyRaw)} style={{background:"#0e9f50",color:"#fff",fontSize:12,fontWeight:800,borderRadius:7,padding:"6px 12px",textDecoration:"none"}}>📧 メール送信</a>
-                    :<span style={{background:"#fee2e2",color:"#dc2626",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px"}}>🚩 メール未登録</span>}
-                  <button onClick={()=>{navigator.clipboard.writeText(url);alert("URLをコピーしました\n"+url);}} style={{background:"#eef1f6",color:"#475569",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px",border:"none",cursor:"pointer"}}>🔗 URLコピー</button>
-                  <a href={url} target="_blank" rel="noopener" style={{background:"#f1f5f9",color:"#334155",fontSize:11,fontWeight:700,borderRadius:7,padding:"6px 10px",textDecoration:"none"}}>開く</a>
-                  {r.mail&&<span style={{fontSize:10,color:"#64748b"}}>{r.mail}</span>}
-                </React.Fragment>:<span style={{fontSize:11,color:"#b45309"}}>⚠️ マイページ未生成（予約データ要確認）</span>}
+                {!r.token?<span style={{fontSize:11,color:"#b45309"}}>⚠️ マイページ未生成（予約データ要確認）</span>
+                 :!done?<span style={{background:"#f1f5f9",color:"#94a3b8",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 12px"}}>🔒 締結後に送信可（サイン未完了）</span>
+                 :!r.mail?<span style={{background:"#fee2e2",color:"#dc2626",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px"}}>🚩 メール未登録</span>
+                 :<a href={"mailto:"+r.mail+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(bodyRaw)} style={{background:"#0e9f50",color:"#fff",fontSize:12,fontWeight:800,borderRadius:7,padding:"6px 12px",textDecoration:"none"}}>📧 メール送信</a>}
+                <button onClick={()=>{navigator.clipboard.writeText(url);alert("URLをコピーしました\n"+url);}} style={{background:"#eef1f6",color:"#475569",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px",border:"none",cursor:"pointer"}}>🔗 URLコピー</button>
+                <a href={url} target="_blank" rel="noopener" style={{background:"#f1f5f9",color:"#334155",fontSize:11,fontWeight:700,borderRadius:7,padding:"6px 10px",textDecoration:"none"}}>開く</a>
+                {r.mail&&<span style={{fontSize:10,color:"#64748b"}}>{r.mail}</span>}
               </div>
             </div>;
           })}
@@ -22576,7 +22584,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.130-BT";
+const APP_VERSION="v1.0.131-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
