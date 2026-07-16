@@ -111,6 +111,13 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .status .fin.ready{background:var(--ok);}
 .note{font-size:12px;color:#8a94a0;margin-top:6px;}
 .demo{background:#fffbe6;border:1px solid #f5e08a;border-radius:8px;padding:8px 12px;font-size:12px;color:#7a5b12;margin-bottom:14px;font-weight:700;}
+.card.collapsible .sec-h{cursor:pointer;position:relative;padding-right:28px;-webkit-user-select:none;user-select:none;}
+.collapse-ar{position:absolute;right:0;top:3px;font-size:13px;color:#b0b8c4;transition:transform .2s;}
+.card.collapsed .collapse-ar{transform:rotate(-90deg);}
+.card.collapsible .sec-h{margin-bottom:12px;}
+.card.collapsed .sec-h{margin-bottom:0;}
+.card.collapsed>*:not(.sec-h){display:none!important;}
+.card.collapsed{padding-top:14px;padding-bottom:14px;}
 </style></head>
 <body><div class="wrap">
 <div id="langbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px;"><button onclick="setLang('ja')" data-lang="ja" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">日本語</button><button onclick="setLang('en')" data-lang="en" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">EN</button><button onclick="setLang('zh')" data-lang="zh" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">繁體</button><button onclick="setLang('ko')" data-lang="ko" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">한국어</button></div>
@@ -133,7 +140,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 </div>
 
 <!-- 🚐 無料送迎（お迎え） -->
-<div class="card pickup">
+<div class="card pickup collapsible">
   <div class="sec-h"><span style="font-size:22px;">🚐</span><span data-t="sec_pickup">無料送迎（お迎え）</span><span class="pu-free" data-t="pu_free">無料</span></div>
   <div class="pu-route">
     <div class="pu-node"><div class="pu-emoji">✈️</div><span data-t="pu_from">高松空港</span></div>
@@ -150,7 +157,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 </div>
 
 <!-- ① 傷チェック + 承認サイン -->
-<div class="card" id="card1">
+<div class="card collapsible" id="card1">
   <div class="sec-h"><span class="badge-no">2</span><span data-t="sec_dmg">車両の状態確認（傷チェック）</span><span class="done-chip" data-t="chip_appr">✅ 承認済み</span></div>
   <div class="dmg-embed">
     <div class="lead2" data-t="dmg_lead">現在の車両の傷・状態です。車両図の <b style="color:#ee6a1c;">●印</b> をタップすると写真が見られます。</div>
@@ -168,7 +175,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 </div>
 
 <!-- 📖 車両基本ガイド（この車は外車=あり） -->
-<div class="card guide" id="guideCard">
+<div class="card guide collapsible" id="guideCard">
   <div class="sec-h"><span class="badge-no g">3</span><span data-t="sec_guide">この車の基本操作ガイド</span></div>
   <details open>
     <summary data-t="g_summary">▼ メルセデス・ベンツ Eクラス カブリオレ — 操作ガイド（タップで開閉）</summary>
@@ -241,7 +248,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 </div>
 
 <!-- ② 約款 + 同意サイン -->
-<div class="card" id="card2">
+<div class="card collapsible" id="card2">
   <div class="sec-h"><span class="badge-no">4</span><span data-t="sec_terms">貸渡約款のご同意</span><span class="done-chip" data-t="chip_agree">✅ 同意済み</span></div>
   <div class="terms" data-t="terms_html">
     <h4>第1条（貸渡）</h4>当社は本約款に基づき、お客様に車両を貸渡します。
@@ -370,5 +377,22 @@ async function boot(){
 }
 setupPad('pad1');setupPad('pad2');
 applyLang();boot();
+
+/* セクション折りたたみ（①予約情報は固定・他はアコーディオン） */
+(function(){
+  function initCollapse(){
+    document.querySelectorAll('.card.collapsible').forEach(function(c){
+      if(c._clp)return; c._clp=1;
+      var h=c.querySelector('.sec-h'); if(!h)return;
+      var ar=document.createElement('span'); ar.className='collapse-ar'; ar.textContent='\u25BC'; h.appendChild(ar);
+      h.addEventListener('click',function(e){
+        if(e.target.closest('button,a,input,canvas,iframe,details,summary,select,textarea'))return;
+        c.classList.toggle('collapsed');
+      });
+    });
+  }
+  if(document.readyState!=='loading')initCollapse();
+  else document.addEventListener('DOMContentLoaded',initCollapse);
+})();
 </script>
 </body></html>
