@@ -16417,7 +16417,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit" | "guide" (バスタブは廃止)
   // ★ 2026-07-16 ご利用ガイド送信: 締結状況(サイン数)を bt_mypage_list から取得
   const[guideSignMap,setGuideSignMap]=useState({});
-  React.useEffect(()=>{if(opView!=="guide"||!sb)return;let go=true;sb.rpc("bt_mypage_list").then(({data})=>{if(!go||!Array.isArray(data))return;const m={};data.forEach(x=>{if(x&&x.id)m[x.id]=x.signs||0;});setGuideSignMap(m);}).catch(()=>{});return()=>{go=false;};},[opView]);
+  React.useEffect(()=>{if(!sb)return;let go=true;const load=()=>sb.rpc("bt_mypage_list").then(({data})=>{if(!go||!Array.isArray(data))return;const m={};data.forEach(x=>{if(x&&x.id)m[x.id]=x.signs||0;});setGuideSignMap(m);}).catch(()=>{});load();const iv=setInterval(load,60000);return()=>{go=false;clearInterval(iv);};},[]);
   const[washAddCat,setWashAddCat]=useState("");const[washAddVc,setWashAddVc]=useState("");const[washAddTime,setWashAddTime]=useState("");const[washAddMemo,setWashAddMemo]=useState("");
   // ★ その他タブ用 state (SPK v4.6.5 から完全コピー)
   const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherEditId,setOtherEditId]=useState(null);
@@ -17358,6 +17358,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
                       {t.assignee?<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>:(t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>)}
                       {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
+                      {t.reservationId&&["DEL","来店","PU","PUB","PUB来店"].includes(t.type)&&(()=>{const sg=guideSignMap[t.reservationId];if(sg===undefined)return null;const done=sg>=2;return <span title="ご利用ガイドの締結状況（傷承認＋約款同意）" style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 6px",borderRadius:3,background:done?"#dcfce7":sg===1?"#fef9c3":"#f1f5f9",color:done?"#15803d":sg===1?"#854d0e":"#94a3b8",border:"1px solid "+(done?"#86efac":sg===1?"#fde68a":"#e2e8f0")}}>{done?"✅締結済 受付スキップ可":sg===1?"🖊サイン1/2":"🖊未締結"}</span>;})()}
                     </div>
                   </div>;
               })}
@@ -22584,7 +22585,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.131-BT";
+const APP_VERSION="v1.0.132-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
