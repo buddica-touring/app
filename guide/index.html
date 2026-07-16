@@ -134,6 +134,8 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .card.collapsed .sec-h{margin-bottom:0;}
 .card.collapsed>*:not(.sec-h){display:none!important;}
 .card.collapsed{padding-top:14px;padding-bottom:14px;}
+.ro-banner{background:#334155;color:#fff;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-weight:800;font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.ro #card1 button,.ro #card2 button,.ro #card1 canvas,.ro #card2 canvas,.ro .pu-pick{pointer-events:none;opacity:.55;}
 </style></head>
 <body><div class="wrap">
 <div id="langbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px;"><button onclick="setLang('ja')" data-lang="ja" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">日本語</button><button onclick="setLang('en')" data-lang="en" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">EN</button><button onclick="setLang('zh')" data-lang="zh" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">繁體</button><button onclick="setLang('ko')" data-lang="ko" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">한국어</button></div>
@@ -364,7 +366,7 @@ function setupPad(id){
 }
 function clearPad(id){var pad=document.getElementById(id),cv=pad._cv;cv._c.clearRect(0,0,cv.width,cv.height);pad.classList.remove('has');}
 var RES_NAME='';
-async function sign(cardId,padId,n){
+async function sign(cardId,padId,n){if(RO){alert('閲覧専用モードです（お客様のご利用ガイドを確認中）');return;}
   var pad=document.getElementById(padId);
   if(!pad.classList.contains('has')){alert({ja:'ご署名をお願いします',en:'Please sign.',zh:'請簽名。',ko:'서명해 주세요.'}[LANG]);return;}
   var type=(n==1?'damage_approval':'terms_agree');
@@ -386,6 +388,7 @@ function applyLock(cardId,n,srec,sigimg){
 var BT_URL="https://ggqugvyskyiblxiycpci.supabase.co";
 var BT_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var TOKEN=new URLSearchParams(location.search).get('t');
+var RO=new URLSearchParams(location.search).get('ro')==='1';
 async function rpc(fn,args){
   try{var r=await fetch(BT_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});return await r.json();}catch(e){return null;}
 }
@@ -410,6 +413,7 @@ async function boot(){
 }
 setupPad('pad1');setupPad('pad2');
 applyLang();boot();
+if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_rb.className='ro-banner';_rb.textContent='🔒 スタッフ閲覧専用（お客様のご利用ガイドを確認中・編集不可）';var _rw=document.querySelector('.wrap');if(_rw)_rw.insertBefore(_rb,_rw.firstChild);}
 
 /* セクション折りたたみ（①予約情報は固定・他はアコーディオン） */
 (function(){
@@ -430,7 +434,7 @@ applyLang();boot();
 
 /* お迎え時間プルダウン */
 (function(){var sel=document.getElementById("puSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,30].forEach(function(m){if(h===18&&m===30)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
-async function savePickup(){var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;btn.textContent=I18N["pu_save"][LANG];if(r&&r.ok){showPuCur(t);var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');}else{alert("保存に失敗しました");}}
+async function savePickup(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;btn.textContent=I18N["pu_save"][LANG];if(r&&r.ok){showPuCur(t);var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');}else{alert("保存に失敗しました");}}
 function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT=function(k,dv){return (I18N[k]&&I18N[k][LANG])||dv;};c.style.display="block";c.innerHTML='<div class="pu-done"><div class="pu-done-ic">✅</div><div><div class="pu-done-t">'+TT("pu_done_t","お迎え時間をリクエストしました")+'</div><div class="pu-done-time">'+t+'</div><div class="pu-done-sub">'+TT("pu_done_sub","スタッフが確認いたします")+'</div></div></div>';}
 </script>
 </body></html>
