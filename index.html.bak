@@ -17292,6 +17292,22 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           </div>
           {/* じゃらん決済状況 */}
           {(()=>{const jTasks=sortedTasks.filter(t=>(t.type==="DEL"||t.type==="PU")&&t.ota==="J");if(jTasks.length===0)return null;const paid=jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return njp&&njp.status==="paid";}).length;const unpaid=jTasks.length-paid;return <div style={{background:"#fff",borderRadius:8,border:"1px solid "+(unpaid>0?"#fecaca":"#bbf7d0"),padding:isMob?"10px 12px":"8px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{fontSize:14}}>💳</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#1e293b"}}>じゃらん決済</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#059669"}}>{paid}件 入金済</span>{unpaid>0&&<span style={{fontWeight:800,fontSize:isMob?13:12,color:"#dc2626"}}>{unpaid}件 未入金</span>}{unpaid===0&&jTasks.length>0&&<span style={{fontSize:10,color:"#059669",fontWeight:700}}>✅ 全件入金済</span>}{unpaid>0&&<div style={{width:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:2}}>{jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return !njp||njp.status!=="paid";}).map(t=><span key={t._id} style={{fontSize:9,fontWeight:700,color:"#dc2626",background:"#fef2f2",padding:"1px 6px",borderRadius:4}}>{t.name}</span>)}</div>}</div>;})()}
+          {/* 🚐 お迎え送迎（お客様がマイページで選択した希望時間・読取のみ） */}
+          {(()=>{
+            const pk=(reservations||[]).filter(r=>r.pickupTime&&norm(r.lendDate)===norm(selDate)&&r.status!=="cancelled").sort((a,b)=>(a.pickupTime||"").localeCompare(b.pickupTime||""));
+            if(!pk.length)return null;
+            return <div style={{background:"#fff",borderRadius:8,border:"2px solid #ee6a1c",marginBottom:8,overflow:"hidden"}}>
+              <div style={{background:"linear-gradient(135deg,#ee6a1c,#f5893e)",padding:"8px 12px",color:"#fff",fontWeight:800,fontSize:isMob?13:12,display:"flex",alignItems:"center",gap:8}}>
+                <span>🚐 お迎え送迎（お客様希望時間）</span><span style={{fontSize:10,fontWeight:700,opacity:.9}}>{pk.length}件</span>
+              </div>
+              {pk.map(r=>{const vn=fleet[r.id]?vehicles.find(v=>v.code===fleet[r.id]):null;return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:isMob?"8px 12px":"6px 12px",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap"}}>
+                <span title="お客様希望のお迎え時間" style={{fontSize:isMob?17:15,fontWeight:900,color:"#fff",background:"#ee6a1c",borderRadius:6,padding:isMob?"3px 9px":"2px 8px",fontFamily:"monospace",flexShrink:0}}>🚐{r.pickupTime}</span>
+                <span style={{fontWeight:800,fontSize:isMob?13:12,color:"#1e293b"}}>{r.name} 様</span>
+                <span style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:600}}>予約時間 {r.lendTime||"--:--"}</span>
+                {vn&&<span style={{fontSize:isMob?10:9,color:"#059669",fontWeight:700}}>🚗{vn.name}</span>}
+              </div>;})}
+            </div>;
+          })()}
           {/* カテゴリカード */}
           <div style={{display:"grid",gridTemplateColumns:isMob?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMob?6:8,marginBottom:8}}>
             {categories.filter(c=>c.tasks.length>0).map(c=>{
