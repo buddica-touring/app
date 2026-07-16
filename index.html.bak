@@ -16584,12 +16584,15 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       if(removed.length&&sb){
         dbLog("cleanStale",true,"表示除外のみ(★2026-07-04 DB削除なし):"+removed.length);/* 開くだけでDBを書かない: 孤立/キャンセルは表示除外のみ。掃除は日次に委ねる。 */
       }
+      // ★2026-07-16 クラス③墓標ガード(SPK/NHA移植・根絶): 削除タスクを生成補完が復活させない。失敗時は空Set=現状維持(fail-safe)。
+      let _tomb=new Set();
+      try{if(sb){const{data:_dd}=await sb.from("bt_tasks").select("_id").eq("date",date).eq("deleted",true);(_dd||[]).forEach(x=>_tomb.add(x._id));}}catch(_e){}
       // 不足予約を追加
       const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
       const _sd=(ty)=>["BD","BDB","COL","返却"].includes(ty)?"R":(ty==="洗車"?"W":"L");const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));
       // ★ 新規生成タスクにsheetPlacesの場所情報を補完
       gen.forEach(g=>{
-        if(g.reservationId&&!existIds.has(g.reservationId+":"+_sd(g.type))){
+        if(g.reservationId&&!existIds.has(g.reservationId+":"+_sd(g.type))&&!_tomb.has(g._id)){
           const sp=sheetPlaces[g.reservationId];
           if(sp&&!g.place){if((g.type==="DEL"||g.type==="PU")&&sp.delPlace)g.place=sp.delPlace;if((g.type==="COL"||g.type==="BD")&&sp.colPlace)g.place=sp.colPlace;}
           if(sp&&(g.type==="DEL"||g.type==="PU")&&!g.colPlace&&sp.colPlace)g.colPlace=sp.colPlace;
@@ -16626,6 +16629,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       // 不足洗車タスクを追加（翌日DEL予約があるのに洗車がない場合）
       tomorrowResMap.forEach((tRes,key)=>{
         if(washByVehicle.has(key))return;
+        if(_tomb.has("w-"+tRes.id))return;/* ★2026-07-16 墓標ガード: 削除した洗車を再生成しない */
         const vc=key.startsWith("unassigned:")?"":(key);
         const veh=vc?vehicles.find(v=>v.code===vc):null;
         fixed.push({_id:"w-"+tRes.id,type:"洗車",time:"",name:`翌日出発: ${tRes.name||""}`,people:0,place:"",vehicle:veh?veh.type:tRes.vehicle,insurance:"",flight:"",reservationId:tRes.id,ota:tRes.ota,tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrowDate)} DEL ${tRes.lendTime||""} ${tRes.name||""}`,assignedVehicle:vc,plateNo:veh?veh.no:"",insuranceChange:"",opts:{b:+(tRes.optB||0),c:+(tRes.optC||0),j:+(tRes.optJ||0),usb:+(tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:""});
@@ -16668,7 +16672,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       });
       // fleet情報をタスクに反映（DBが古い場合の対策）
       const fl=fleetRef.current;let fleetApplied=false;
-      const fixedWithFleet=fixed.map(t=>{
+      let fixedWithFleet=fixed.map(t=>{
         if(!t.reservationId)return t;
         const vc=fl[t.reservationId];
         if(!vc&&!t.assignedVehicle)return t;
@@ -16697,6 +16701,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;
         }
       });
+      fixedWithFleet=fixedWithFleet.filter(t=>!_tomb.has(t._id));/* ★2026-07-16 墓標ガード: 削除済みは表示/永続化から除外(ゾンビ根絶) */
       if(fixedWithFleet.length!==saved.length||fixedWithFleet.some((t,i)=>t._id!==saved[i]?._id)||fleetApplied||removed.length){
         DB.upsertTasks(fixedWithFleet,date);
       } else {
@@ -16706,7 +16711,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       setTasks(fixedWithFleet);return;
     }
     // 2. DBにタスクなし→自動生成
-    const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
+    let gen=generateTasks(reservations,date,fleetRef.current,vehicles);
+    // ★2026-07-16 クラス③墓標ガード(根絶): DB空(全タスク削除含む)でも削除済みは再生成しない。失敗時は現状維持(fail-safe)。
+    try{if(sb){const{data:_dd}=await sb.from("bt_tasks").select("_id").eq("date",date).eq("deleted",true);if(_dd&&_dd.length){const _tb=new Set(_dd.map(x=>x._id));gen=gen.filter(g=>!_tb.has(g._id));}}}catch(_e){}
     // ★ sheetPlacesから場所情報を補完
     gen.forEach(g=>{
       if(!g.reservationId)return;
@@ -22524,7 +22531,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.128-BT";
+const APP_VERSION="v1.0.129-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
