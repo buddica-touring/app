@@ -33,6 +33,8 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .pu-spot-d{font-size:12px;color:var(--sub);line-height:1.75;margin-top:8px;}
 .pu-call{margin-top:14px;background:#eef4ff;border:1px solid #c7d7fe;border-radius:10px;padding:11px 12px;font-size:13px;font-weight:700;color:#1d4ed8;text-align:center;line-height:1.6;}
 .pu-pick{background:#fff7ef;border:1.5px solid #ffd9b8;border-radius:12px;padding:13px 14px;margin-bottom:14px;}
+@keyframes puPulse{0%,100%{box-shadow:0 0 0 0 rgba(238,106,28,.55);border-color:#ffd9b8;}50%{box-shadow:0 0 0 8px rgba(238,106,28,0);border-color:var(--or);}}
+.pu-pick.blink{animation:puPulse 1.3s ease-in-out infinite;}
 .pu-pick-h{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:3px;}
 .pu-pick-sub{font-size:12px;color:var(--sub);margin-bottom:10px;}
 .pu-pick-row{display:flex;gap:8px;}
@@ -321,6 +323,7 @@ function renderRes(){
   if(ei){var v=(d.insurance||'').toString();var ik='ins_basic';if(/フル|安心パック|安心ワイド|フルカバー/.test(v))ik='ins_full';else if(/NOC|ノンオペ|安心/.test(v))ik='ins_noc';else if(/免責|CDW/.test(v))ik='ins_cdw';ei.textContent=_to(ik);}
   var pr=document.getElementById('puResv');
   if(pr&&(d.start_time||d.del_time)){pr.style.display='block';pr.innerHTML=_to('l_resv_time')+' <b>'+(d.start_time||d.del_time)+'</b>';}
+  var pp=document.querySelector('.pu-pick');if(pp){if(d.pickup_time)pp.classList.remove('blink');else pp.classList.add('blink');}
 }
 function applyLang(){
   document.documentElement.lang=LANG;
@@ -422,7 +425,7 @@ applyLang();boot();
 
 /* お迎え時間プルダウン */
 (function(){var sel=document.getElementById("puSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,30].forEach(function(m){if(h===18&&m===30)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
-async function savePickup(){var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;btn.textContent=I18N["pu_save"][LANG];if(r&&r.ok){showPuCur(t);}else{alert("保存に失敗しました");}}
+async function savePickup(){var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;btn.textContent=I18N["pu_save"][LANG];if(r&&r.ok){showPuCur(t);var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');}else{alert("保存に失敗しました");}}
 function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;c.style.display="block";c.innerHTML="✅ "+(I18N["pu_cur"]?I18N["pu_cur"][LANG]:"お迎え時間")+"：<b>"+t+"</b>";}
 </script>
 </body></html>
