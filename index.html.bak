@@ -16417,7 +16417,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const[opView,setOpView]=useState(initialView||"summary"); // ★ 表示切替: "summary" | "hia" | "tasks" | "wash" | "raiten" | "other" | "master" | "edit" | "guide" (バスタブは廃止)
   // ★ 2026-07-16 ご利用ガイド送信: 締結状況(サイン数)を bt_mypage_list から取得
   const[guideSignMap,setGuideSignMap]=useState({});
-  React.useEffect(()=>{if(!sb)return;let go=true;const load=()=>sb.rpc("bt_mypage_list").then(({data})=>{if(!go||!Array.isArray(data))return;const m={};data.forEach(x=>{if(x&&x.id)m[x.id]=x.signs||0;});setGuideSignMap(m);}).catch(()=>{});load();const iv=setInterval(load,60000);return()=>{go=false;clearInterval(iv);};},[]);
+  React.useEffect(()=>{if(!sb)return;let go=true;const load=()=>sb.rpc("bt_mypage_list").then(({data})=>{if(!go||!Array.isArray(data))return;const m={};data.forEach(x=>{if(x&&x.id)m[x.id]={dmg:!!x.sign_dmg,terms:!!x.sign_terms};});setGuideSignMap(m);}).catch(()=>{});load();const iv=setInterval(load,60000);return()=>{go=false;clearInterval(iv);};},[]);
+  const gStat=id=>{const o=guideSignMap[id]||{};return{has:!!guideSignMap[id],dmg:!!o.dmg,terms:!!o.terms,both:!!(o.dmg&&o.terms),skip:!!o.dmg};};
   const[washAddCat,setWashAddCat]=useState("");const[washAddVc,setWashAddVc]=useState("");const[washAddTime,setWashAddTime]=useState("");const[washAddMemo,setWashAddMemo]=useState("");
   // ★ その他タブ用 state (SPK v4.6.5 から完全コピー)
   const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherEditId,setOtherEditId]=useState(null);
@@ -17376,7 +17377,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
                       {t.assignee?<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>:(t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>)}
                       {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
-                      {t.reservationId&&["DEL","来店","PU","PUB","PUB来店"].includes(t.type)&&(()=>{const sg=guideSignMap[t.reservationId];if(sg===undefined)return null;const done=sg>=2;return <span title="ご利用ガイドの締結状況（傷承認＋約款同意）" style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 6px",borderRadius:3,background:done?"#dcfce7":sg===1?"#fef9c3":"#f1f5f9",color:done?"#15803d":sg===1?"#854d0e":"#94a3b8",border:"1px solid "+(done?"#86efac":sg===1?"#fde68a":"#e2e8f0")}}>{done?"✅締結済 受付スキップ可":sg===1?"🖊サイン1/2":"🖊未締結"}</span>;})()}
+                      {t.reservationId&&["DEL","来店","PU","PUB","PUB来店"].includes(t.type)&&(()=>{const st=gStat(t.reservationId);if(!st.has)return null;const _bg=st.skip?"#dcfce7":st.terms?"#fef9c3":"#f1f5f9",_cc=st.skip?"#15803d":st.terms?"#854d0e":"#94a3b8",_bd=st.skip?"#86efac":st.terms?"#fde68a":"#e2e8f0";const _lbl=st.both?"✅傷+約款済 受付スキップ可":st.dmg?"✅傷サイン済 受付スキップ可":st.terms?"📄約款のみ(傷未)":"🖊未サイン";return <span title="ご利用ガイドのサイン状況（傷サイン／約款サイン）" style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 6px",borderRadius:3,background:_bg,color:_cc,border:"1px solid "+_bd}}>{_lbl}</span>;})()}
                     </div>
                   </div>;
               })}
@@ -18367,25 +18368,25 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||""});
         });
         // 未締結を先頭にソート＋締結状況カウント
-        rows.sort((a,b)=>((guideSignMap[a.id]||0)>=2?1:0)-((guideSignMap[b.id]||0)>=2?1:0));
-        const cntDone=rows.filter(r=>(guideSignMap[r.id]||0)>=2).length;
+        rows.sort((a,b)=>(gStat(a.id).skip?1:0)-(gStat(b.id).skip?1:0));
+        const cntDone=rows.filter(r=>gStat(r.id).skip).length;
         const cntPend=rows.length-cntDone;
         const cntNoMail=rows.filter(r=>!r.mail).length;
         return <div style={{padding:12}}>
-          <div style={{fontSize:11,color:"#64748b",marginBottom:8,lineHeight:1.6}}>📧 <b>締結（傷承認＋約款同意の2サイン）が完了した予約のみ</b>メール送信できます。未締結は🔒表示＝先にタブレットでサインを取得してください。<b style={{color:"#dc2626"}}>メール未登録は🚩表示＝自動送信されないので手動対応</b>。</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:8,lineHeight:1.6}}>📧 各予約に<b>ご利用ガイドの個別URL</b>をメール送信します。ステータスは<b>傷サイン／約款サイン</b>で識別＝<b style={{color:"#15803d"}}>傷サイン済＝受付スキップ可</b>。傷チェックはご出発日の当日に公開されるため、<b>ガイドは事前に送信</b>してかまいません。<b style={{color:"#dc2626"}}>メール未登録は🚩表示＝手動対応</b>。</div>
           {rows.length>0&&<div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:cntPend>0?"#fef3c7":"#f1f5f9",color:cntPend>0?"#92400e":"#94a3b8"}}>🔒 未締結 {cntPend}件</span>
-            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:"#dcfce7",color:"#15803d"}}>✅ 締結済 {cntDone}件</span>
+            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:cntPend>0?"#fef3c7":"#f1f5f9",color:cntPend>0?"#92400e":"#94a3b8"}}>🖊 傷サイン未 {cntPend}件</span>
+            <span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:"#dcfce7",color:"#15803d"}}>✅ 傷サイン済 {cntDone}件</span>
             {cntNoMail>0&&<span style={{fontSize:12,fontWeight:800,padding:"4px 12px",borderRadius:8,background:"#fee2e2",color:"#dc2626"}}>🚩 メール未登録 {cntNoMail}件</span>}
           </div>}
           {rows.length===0&&<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>本日の対象予約（引渡し）はありません</div>}
           {rows.map(r=>{
             const url=GB+"?t="+r.token;
-            const signs=guideSignMap[r.id]||0;
-            const done=signs>=2;
-            const stB=done?{t:"✅ 締結済",bg:"#dcfce7",c:"#15803d"}:signs===1?{t:"サイン 1/2",bg:"#fef9c3",c:"#854d0e"}:{t:"未締結",bg:"#fee2e2",c:"#dc2626"};
-            const subj="【BUDDICA TOURISM】ご利用ガイド（お手続きのご案内）";
-            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\n貸渡内容の確認書類（サイン済）は、下記のご利用ガイドページよりいつでもご確認いただけます。\n\n"+url+"\n\nBUDDICA TOURISM 高松空港店";
+            const st=gStat(r.id);
+            const done=st.skip;
+            const stB=st.both?{t:"✅ 傷+約款済 受付スキップ可",bg:"#dcfce7",c:"#15803d"}:st.dmg?{t:"✅ 傷サイン済 受付スキップ可",bg:"#dcfce7",c:"#15803d"}:st.terms?{t:"📄 約款のみ(傷未)",bg:"#fef9c3",c:"#854d0e"}:{t:"🖊 未サイン",bg:"#fee2e2",c:"#dc2626"};
+            const subj="【BUDDICA TOURISM】ご利用ガイド（ご出発前のご確認）";
+            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\nご出発前のご確認を、下記のご利用ガイドページからお願いいたします。\n\n・公式LINEのご登録／お迎え時間のご指定\n・貸渡約款のご確認（サインは不要です）\n・車両の傷チェック（ご出発日の当日に公開されます）\n\n▼ ご利用ガイド\n"+url+"\n\n当日の車両チェックを事前にお済ませいただくと、当日の受付がスムーズです。\n\nBUDDICA TOURISM 高松空港店";
             return <div key={r.id} style={{border:"1px solid "+(done?"#bbf7d0":"#fde68a"),borderLeft:"4px solid "+(done?"#0e9f50":"#f59e0b"),borderRadius:10,padding:10,marginBottom:8,background:done?"#fff":"#fffbeb",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
                 <span style={{fontWeight:800,fontSize:14}}>{r.name} 様</span>
@@ -18396,7 +18397,6 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                 {!r.token?<span style={{fontSize:11,color:"#b45309"}}>⚠️ マイページ未生成（予約データ要確認）</span>
                  :!r.mail?<span style={{background:"#fee2e2",color:"#dc2626",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px"}}>🚩 メール未登録（自動送信されません・手動対応）</span>
-                 :!done?<span style={{background:"#f1f5f9",color:"#94a3b8",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 12px"}}>🔒 締結後に送信可（サイン未完了）</span>
                  :<a href={"mailto:"+r.mail+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(bodyRaw)} style={{background:"#0e9f50",color:"#fff",fontSize:12,fontWeight:800,borderRadius:7,padding:"6px 12px",textDecoration:"none"}}>📧 メール送信</a>}
                 <button onClick={()=>{navigator.clipboard.writeText(url);alert("URLをコピーしました\n"+url);}} style={{background:"#eef1f6",color:"#475569",fontSize:11,fontWeight:800,borderRadius:7,padding:"6px 10px",border:"none",cursor:"pointer"}}>🔗 URLコピー</button>
                 <a href={url} target="_blank" rel="noopener" style={{background:"#f1f5f9",color:"#334155",fontSize:11,fontWeight:700,borderRadius:7,padding:"6px 10px",textDecoration:"none"}}>開く</a>
@@ -22608,7 +22608,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.141-BT";
+const APP_VERSION="v1.0.142-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
