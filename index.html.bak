@@ -3621,7 +3621,7 @@ function ForeignVisitorAnalysis({data}){
 /* ===== 定数 ===== */
 const SLOTS=["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00"];
 // ★ 「その他」タブ（手動タスク）で選択可能な種類。既存DEL/COL/事前駐車はreservation由来と区別するため manual===true フラグで識別する
-const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","その他"];
+const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","開店業務","閉店業務","休憩","その他"];
 // 旧バージョン（車検/整備/小タスク）で作成されたタスクの後方互換用（フィルタのみ、ドロップダウンには出さない）
 const OTHER_TASK_TYPES_LEGACY=["車検","整備","小タスク"];
 const NHA_PLACE_OPTIONS=["来店","高松空港","DEL","COL"];
@@ -18169,7 +18169,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <span style={{fontSize:11,fontWeight:800,color:"#5D4037",flexShrink:0}}>➕ 追加</span>
                 <select value={washAddCat} onChange={e=>setWashAddCat(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#5D4037",background:"#fff",flex:"0 1 auto"}}>
                   <option value="">カテゴリ</option>
-                  {["事前洗車","当日洗車","緊急洗車","引渡前洗車","返却後洗車"].map(c=><option key={c} value={c}>{c}</option>)}
+                  {["事前洗車","当日洗車","緊急洗車","引渡前洗車","返却後洗車","内装洗車","外装洗車"].map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
                 <select value={washAddVc} onChange={e=>setWashAddVc(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両を選択</option>
@@ -18254,10 +18254,11 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const addOtherTask=()=>{
           if(!otherAddType){alert("タスク種類を選択してください");return;}
           if(!otherAddName&&otherAddType!=="送迎"&&!otherAddVc){alert("内容を入力するか車両を選択してください");return;}
-          const veh=otherAddVc?vehicles.find(v=>v.code===otherAddVc):null;
+          const isAllVc=otherAddVc==="__ALL__"; // ★全車両（特定車両に紐づかない）
+          const veh=(otherAddVc&&!isAllVc)?vehicles.find(v=>v.code===otherAddVc):null;
           const newId="other_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
-          const displayName=otherAddName||(otherAddType+(veh?" "+veh.name:""));
-          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:veh?veh.type:"",assignedVehicle:otherAddVc||"",plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
+          const displayName=otherAddName||(otherAddType+(isAllVc?" 全車両":(veh?" "+veh.name:"")));
+          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:isAllVc?"全車両":(veh?veh.type:""),assignedVehicle:isAllVc?"":(otherAddVc||""),plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
           setTasks(ts=>{const next=[...ts,newTask];try{DB.updateTask(newTask,selDate);}catch(e){}return next;}); // ★2026-07-04 その他=新規1件だけ書く
           setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");
         };
@@ -18271,6 +18272,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           "送迎":{bg:"#f0fdfa",c:"#0d9488",border:"#5eead4",ico:"🚐"},
           "入庫":{bg:"#ecfdf5",c:"#047857",border:"#6ee7b7",ico:"🏠"},
           "引取":{bg:"#fff7ed",c:"#c2410c",border:"#fed7aa",ico:"📤"},
+          "開店業務":{bg:"#fef9c3",c:"#a16207",border:"#fde68a",ico:"🌅"},
+          "閉店業務":{bg:"#e0e7ff",c:"#3730a3",border:"#c7d2fe",ico:"🌙"},
+          "休憩":{bg:"#dcfce7",c:"#15803d",border:"#bbf7d0",ico:"☕"},
           "その他":{bg:"#f9fafb",c:"#6b7280",border:"#d1d5db",ico:"📌"},
           "車検":{bg:"#e0f2fe",c:"#0369a1",border:"#7dd3fc",ico:"🔍"},
           "整備":{bg:"#f5f3ff",c:"#7e22ce",border:"#c4b5fd",ico:"🔧"},
@@ -18299,6 +18303,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <input value={otherAddName} onChange={e=>setOtherAddName(e.target.value)} placeholder="内容（例: 山田太郎/車両回送）" style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,color:"#1e293b",background:"#fff",flex:"1 1 150px"}}/>
                 <select value={otherAddVc} onChange={e=>setOtherAddVc(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両（任意）</option>
+                  <option value="__ALL__">🚗 全車両</option>
                   {(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
                 </select>
               </div>
@@ -18335,18 +18340,47 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                   {cleanPlace(t.place)&&<div style={{marginTop:2,paddingLeft:22,fontSize:isMob?10:9,color:"#059669"}}>📍{cleanPlace(t.place)}</div>}
                   {t.memo&&<div style={{marginTop:2,paddingLeft:22,fontSize:isMob?10:9,color:"#475569",background:"#fefce8",display:"inline-block",padding:"1px 4px",borderRadius:3}}>{t.memo}</div>}
                   {isEdit&&<div style={{marginTop:6,paddingLeft:22,display:"flex",flexDirection:"column",gap:4,background:"#f8fafc",padding:8,borderRadius:8}}>
+                    {/* 1行目: 項目 + 時間 + 担当 */}
                     <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
-                      <select value={t.assignee||""} onChange={e=>updateOtherTask(t._id,{assignee:e.target.value})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10}}>
-                        <option value="">担当未定</option>
-                        {activeMembers.map(m=><option key={m} value={m}>{m}</option>)}
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0}}>📋項目</label>
+                      <select value={t.type||""} onChange={e=>updateOtherTask(t._id,{type:e.target.value})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10}}>
+                        {OTHER_TASK_TYPES.map(tp=><option key={tp} value={tp}>{tp}</option>)}
+                        {OTHER_TASK_TYPES_LEGACY.includes(t.type)&&<option value={t.type}>{t.type}（旧）</option>}
                       </select>
-                      <select value={t.timeChange||t.time||""} onChange={e=>updateOtherTask(t._id,{timeChange:e.target.value,_changed:{...(t._changed||{}),timeChange:e.target.value}})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,width:75}}>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0,marginLeft:6}}>⏰時間</label>
+                      <select value={t.timeChange||t.time||""} onChange={e=>updateOtherTask(t._id,{time:e.target.value,timeChange:""})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,width:75}}>
                         <option value="">時間</option>
                         {SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
                       </select>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0,marginLeft:6}}>👤担当</label>
+                      <select value={t.assignee||""} onChange={e=>updateOtherTask(t._id,{assignee:e.target.value})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:"1 1 100px"}}>
+                        <option value="">担当未定</option>
+                        {activeMembers.map(m=><option key={m} value={m}>{m}</option>)}
+                        {t.assignee&&!activeMembers.includes(t.assignee)&&<option value={t.assignee}>{t.assignee}（出勤外）</option>}
+                      </select>
+                    </div>
+                    {/* 2行目: 内容 */}
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0}}>📝内容</label>
+                      <input value={t.name||""} onChange={e=>updateOtherTask(t._id,{name:e.target.value})} placeholder="内容（例: 山田太郎/車両回送）" style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:1}}/>
+                    </div>
+                    {/* 3行目: 車両 */}
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0}}>🚗車両</label>
+                      <select value={t.vehicle==="全車両"?"__ALL__":(t.assignedVehicle||"")} onChange={e=>{const vc=e.target.value;if(vc==="__ALL__"){updateOtherTask(t._id,{assignedVehicle:"",vehicle:"全車両",plateNo:""});}else{const veh=vc?vehicles.find(v=>v.code===vc):null;updateOtherTask(t._id,{assignedVehicle:vc,vehicle:veh?veh.type:"",plateNo:veh?veh.no:""});}}} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:1}}>
+                        <option value="">車両なし</option>
+                        <option value="__ALL__">🚗 全車両</option>
+                        {(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
+                      </select>
+                    </div>
+                    {/* 4行目: 場所 */}
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0}}>📍場所</label>
                       <input value={t.place||""} onChange={e=>updateOtherTask(t._id,{place:e.target.value})} placeholder="場所" style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:1}}/>
                     </div>
+                    {/* 5行目: メモ + 削除 */}
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0}}>💬メモ</label>
                       <input value={t.memo||""} onChange={e=>updateOtherTask(t._id,{memo:e.target.value})} placeholder="メモ" style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:1}}/>
                       <button onClick={()=>deleteOtherTask(t._id)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:4,fontSize:isMob?10:9,color:"#dc2626",fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>削除</button>
                     </div>
@@ -22610,7 +22644,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.144-BT";
+const APP_VERSION="v1.0.145-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
