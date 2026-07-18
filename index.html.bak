@@ -16498,6 +16498,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       return!offSymbols.has(s.symbol)&&!!(s.start&&s.end);
     }).map(s=>s.name);
   },[shifts,selDate,staffTypeMapOP]);
+  // ★ 出勤者ごとの勤務時間（出勤簿 start/end から。未確定=空白）
+  const memberShiftTimeOP=useMemo(()=>{const m={};(shifts[selDate]||[]).forEach(s=>{if(s.start&&s.end)m[s.name]=s.start.replace(/^0/,"")+"-"+s.end.replace(/^0/,"");});return m;},[shifts,selDate]);
   const fleetRef=React.useRef(fleet);fleetRef.current=fleet;
   // fleet変更時にタスクの車種情報を同期 + LS/DB永続化
   useEffect(()=>{
@@ -17170,7 +17172,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     <div style={{padding:"4px 6px",background:"#fff",borderBottom:"1px solid #e5e7eb",overflowX:"auto",display:"flex",gap:3,flexShrink:0}}>
       {dayButtons.map(db=>{const sel=dayOff===db.i;const dt=new Date(db.d);return <button key={db.i} onClick={()=>setDayOff(db.i)} style={{flexShrink:0,padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:sel?700:500,background:sel?"#2563eb":"#f1f5f9",color:sel?"#fff":"#374151",border:"none",cursor:"pointer",minWidth:48,textAlign:"center"}}><div style={{fontWeight:700}}>{db.i===0?"今日":db.i===1?"明日":`${dt.getMonth()+1}/${dt.getDate()}`}</div><div style={{fontSize:8,opacity:.7}}>{WK[dt.getDay()]}</div>{db.tc>0&&<div style={{fontSize:7,background:sel?"rgba(255,255,255,.25)":"#dbeafe",color:sel?"#fff":"#1d4ed8",borderRadius:6,padding:"0 3px"}}>{db.tc}件</div>}</button>;})}
     </div>
-    {activeMembers.length>0&&<div style={{padding:"3px 6px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",display:"flex",gap:3,flexWrap:"wrap",flexShrink:0}}><span style={{fontSize:9,color:"#64748b",fontWeight:600}}>出勤:</span>{activeMembers.map(name=>{const isReg=staff.find(x=>x.name===name)?.type==="正社員";return <span key={name} style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:3,background:isReg?"#dbeafe":"#fef3c7",color:isReg?"#1d4ed8":"#92400e"}}>{name}</span>;})}</div>}
+    {activeMembers.length>0&&<div style={{padding:"3px 6px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",display:"flex",gap:3,flexWrap:"wrap",flexShrink:0}}><span style={{fontSize:9,color:"#64748b",fontWeight:600}}>出勤:</span>{activeMembers.map(name=>{const isReg=staff.find(x=>x.name===name)?.type==="正社員";const tm=memberShiftTimeOP[name];return <span key={name} style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:3,background:isReg?"#dbeafe":"#fef3c7",color:isReg?"#1d4ed8":"#92400e"}}>{name}{tm?<span style={{fontWeight:600,marginLeft:3,opacity:.75}}>{tm}</span>:null}</span>;})}</div>}
     {/* ★ 表示切替タブ */}
     <div style={{padding:"4px 8px",background:"#fff",borderBottom:"1px solid #e5e7eb",display:"flex",gap:4,flexShrink:0,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       {[
@@ -22608,7 +22610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.142-BT";
+const APP_VERSION="v1.0.143-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
