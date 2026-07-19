@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<title>ご利用ガイド 利用状況（高松）</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN',sans-serif;background:#f3f4f6;color:#1e293b;padding:12px;max-width:760px;margin:0 auto}
+h2{font-size:17px;margin:4px 0 8px}
+.sub{font-size:11.5px;color:#64748b;margin-bottom:8px;line-height:1.6}
+.cov{margin-bottom:10px;padding:10px 12px;border-radius:10px}
+.cards{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.stat{flex:1;min-width:66px;border-radius:10px;padding:8px 6px;text-align:center}
+.stat .n{font-size:20px;font-weight:800}
+.stat .l{font-size:10px;color:#475569;font-weight:700}
+.rate{font-size:11.5px;color:#475569;margin-bottom:10px;text-align:center}
+.chips{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.chip{padding:5px 11px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:700;font-size:12px;cursor:pointer}
+.chip.on{background:#0F1F45;color:#fff;border-color:#0F1F45}
+.list{max-height:100vh;overflow:auto}
+.rowi{display:flex;gap:8px;align-items:center;padding:8px 4px;border-top:1px solid #eef2f7;font-size:12.5px;text-decoration:none;color:inherit}
+.otatag{display:inline-block;padding:1px 6px;border-radius:4px;color:#fff;font-size:10px;font-weight:700}
+.pill{padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap}
+.reload{background:#0F1F45;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:800;cursor:pointer}
+.empty{padding:24px;text-align:center;color:#94a3b8}
+</style>
+</head>
+<body>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+  <button onclick="if(history.length>1){history.back()}else{location.href='index.html'}" style="background:#fff;border:1.5px solid #0F1F45;color:#0F1F45;border-radius:8px;padding:6px 12px;font-weight:800;font-size:13px;cursor:pointer">← 戻る</button>
+  <button class="reload" onclick="load()">↻ 更新</button>
+</div>
+<div id="app"><div class="empty">読み込み中…</div></div>
+<script>
+const SB="https://ggqugvyskyiblxiycpci.supabase.co";
+const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+function authTok(){try{for(const k in localStorage){if(/sb-.*-auth-token/.test(k)){let v=localStorage[k];try{v=JSON.parse(v)}catch(e){}const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)||(Array.isArray(v)&&v[0]))||(typeof v==="string"?v:null);if(t&&(""+t).split(".").length===3)return t;}}}catch(e){}return ANON;}
+async function apiAll(path){let out=[],from=0;while(true){const r=await fetch(SB+"/rest/v1/"+path,{headers:{apikey:ANON,Authorization:"Bearer "+authTok(),Range:from+"-"+(from+999),"Range-Unit":"items"}});if(!r.ok){break}const rows=await r.json();if(!Array.isArray(rows))break;out.push(...rows);if(rows.length<1000)break;from+=1000;}return out;}
+function today(){const d=new Date(Date.now()+9*3600*1000);return d.toISOString().slice(0,10);}
+function esc(s){return(""+(s==null?"":s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmtDT(s){if(!s)return"-";const d=new Date(s);if(isNaN(d))return"-";const p=n=>("0"+n).slice(-2);return p(d.getMonth()+1)+"/"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());}
+function daysSince(s){const d=new Date(s);if(isNaN(d))return 0;return(Date.now()-d.getTime())/86400000;}
+const OTA={J:["じゃらん","#ec4899"],R:["楽天","#ef4444"],S:["skyticket","#0ea5e9"],O:["エアトリ","#06b6d4"],RC:["レンタカーcom","#f97316"],G:["GoGoOut","#eab308"],HP:["オフィシャル","#6366f1"],SP:["オフィシャル","#6366f1"],direct:["直販","#64748b"]};
+function otaL(o){return(OTA[o]||[o||"-","#64748b"])[0]}
+function otaC(o){return(OTA[o]||["","#64748b"])[1]}
+let RES=[],SENDS={},SIGN={},UF="all";
+// 有効メール判定（noreply / 空 / ダミー を除外）＝ガイドをメール送信できる相手
+function validMail(r){const m=(r&&r.mail||"").trim();return !!(m && m.indexOf("@")>0 && !/^noreply/i.test(m) && !/^ota.*@/i.test(m));}
+// BTは開封トラッキング無し → お迎え設定(pickup_time) or サイン を「アクティブ(反応あり)」の代理指標にする
+function ustat(r){const id=r.id,sent=SENDS[id],sg=SIGN[id]||{},pk=(r.pickup_time&&String(r.pickup_time).trim());
+  const engaged=pk||sg.dmg||sg.terms;
+  if(engaged){
+    if(sg.dmg)return{k:"active",chip:"🟢 締結済（受付スキップ可）",c:"#0e7a3b",b:"#dcfce7"};
+    return{k:"active",chip:pk?"🟢 アクティブ（お迎え設定）":"🟢 アクティブ（約款のみ）",c:"#0e7a3b",b:"#dcfce7"};
+  }
+  if(sent&&sent.status==="sent"){if(daysSince(sent.at)>=2)return{k:"through",chip:"🟡 スルー（2日以上反応なし）",c:"#b45309",b:"#fef3c7"};return{k:"sent",chip:"🔵 送信済（未反応）",c:"#0284c7",b:"#e0f2fe"};}
+  if(validMail(r))return{k:"unsent",chip:"⚪ 未送信（メール登録あり）",c:"#475569",b:"#e2e8f0"};
+  return{k:"nomail",chip:"🚩 メール未登録（手動）",c:"#b91c1c",b:"#fee2e2"};}
+function render(){
+  const rows=RES.map(r=>({r,u:ustat(r)}));
+  const cnt={active:0,sent:0,through:0,unsent:0,nomail:0};rows.forEach(x=>cnt[x.u.k]++);
+  const sentN=rows.filter(x=>SENDS[x.r.id]&&SENDS[x.r.id].status==="sent").length;
+  const isToday=s=>{if(!s)return false;const d=new Date(s);if(isNaN(d))return false;return(d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2))===today();};
+  const todayNewN=rows.filter(x=>SENDS[x.r.id]&&SENDS[x.r.id].status==="sent"&&isToday(SENDS[x.r.id].at)).length;
+  const activeN=cnt.active,mailOkN=RES.filter(validMail).length,issuedN=RES.filter(r=>r.mypage_token).length,noTok=RES.filter(r=>!r.mypage_token).length;
+  const signedN=RES.filter(r=>(SIGN[r.id]||{}).dmg).length;
+  const rate=(a,b)=>b>0?Math.round(a/b*100)+"%":"–";
+  const stat=(n,l,c)=>`<div class="stat" style="background:${c}12;border:1px solid ${c}44"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`;
+  const chip=(k,l)=>`<button class="chip ${UF===k?"on":""}" onclick="UF='${k}';render()">${l}</button>`;
+  let list=rows.filter(x=>UF==="all"?true:x.u.k===UF);
+  list.sort((a,b)=>{const o={active:0,sent:1,through:2,unsent:3,nomail:4};return(o[a.u.k]-o[b.u.k])||((a.r.start_date||"").localeCompare(b.r.start_date||""));});
+  const row=x=>{const r=x.r,u=x.u,sent=SENDS[r.id],sg=SIGN[r.id]||{},pk=(r.pickup_time&&String(r.pickup_time).trim()),url=r.mypage_token?("guide/?t="+r.mypage_token+"&ro=1"):"#";
+    return `<a class="rowi" href="${url}" target="_blank" rel="noopener">
+      <div style="flex:1;min-width:0"><b>${esc(r.name||"")}</b>様 ${r.ota?`<span class="otatag" style="background:${otaC(r.ota)}">${esc(otaL(r.ota))}</span> `:""}<span style="color:#94a3b8;font-size:11px">${esc(r.id)}</span><br>
+      <span style="color:#64748b;font-size:11px">利用 ${esc(r.start_date||"")}〜${esc(r.end_date||"")}</span><br><span style="font-size:11px;font-weight:${validMail(r)?700:400};color:${validMail(r)?'#0284c7':'#dc2626'}">📧 ${validMail(r)?esc(r.mail):(String(r.mail||"").trim()?esc(r.mail)+"（無効）":"メール無し")}</span></div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
+        <span style="font-size:10px;color:${r.mypage_token?"#0e7a3b":"#dc2626"}">${r.mypage_token?"🪪発行":"🪪未発行"}</span>
+        <span style="font-size:10px;color:${sent&&sent.status==="sent"?"#334155":"#cbd5e1"}">${sent&&sent.status==="sent"?"送信"+fmtDT(sent.at):"未送信"}</span>
+        ${pk?`<span style="font-size:10px;color:#0e7a3b">🕐お迎え ${esc(pk)}</span>`:""}
+        ${sg.dmg?`<span style="font-size:10px;color:#15803d">✅傷サイン</span>`:(sg.terms?`<span style="font-size:10px;color:#854d0e">📄約款のみ</span>`:"")}
+        <span class="pill" style="color:${u.c};background:${u.b}">${u.chip}</span>
+      </div></a>`;};
+  document.getElementById("app").innerHTML=`
+    <h2>📲 ご利用ガイド 利用状況（高松）</h2>
+    <div class="sub">現在〜未来の予約 <b>${RES.length}件</b>。ガイドURLを<b>メール送信</b>→開封（お迎え設定/サイン）→締結 のファネル。<b>🔵送信済=送った直後（未反応）</b>／<b>🟢アクティブ=お迎え設定 or サイン済</b>／<b>🟡スルー=送信後2日以上反応なし</b>。行タップでご利用ガイド。<br><b style="color:#b45309">※BTは開封トラッキングが無いため、お迎え時間設定・サインを"反応あり"の代理指標にしています。</b></div>
+    <div class="cov" style="background:${noTok?'#fef2f2':'#f0fdf4'};border:1.5px solid ${noTok?'#fecaca':'#bbf7d0'}">
+      <div style="font-weight:800;font-size:13.5px;color:${noTok?'#b91c1c':'#0e7a3b'}">🪪 ご利用ガイド発行：${issuedN}/${RES.length}件（${rate(issuedN,RES.length)}）${noTok?'':' ✓ 全予約者に付与済み'}</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed ${noTok?'#fecaca':'#bbf7d0'};font-size:13px;font-weight:800;color:#0284c7">📤 本日の新規送信（ガイドメール）：${todayNewN}件 ／ 🤝 締結完了（傷サイン済＝受付スキップ可）：<b style="color:#15803d">${signedN}件</b></div>
+    </div>
+    <div class="cards">${stat(cnt.active,"🟢 アクティブ","#0e9f50")}${stat(cnt.sent,"🔵 送信済(未反応)","#0284c7")}${stat(cnt.through,"🟡 スルー","#d97706")}${stat(cnt.unsent,"⚪ 未送信","#64748b")}${stat(cnt.nomail,"🚩 メール未登録","#dc2626")}</div>
+    <div class="rate">メール登録率 <b>${rate(mailOkN,RES.length)}</b>（${mailOkN}/${RES.length}） ／ 送信済 <b>${sentN}</b> ／ 反応率 <b>${rate(activeN,sentN)}</b>（反応${activeN}/送信${sentN}）</div>
+    <div style="margin-bottom:10px;padding:8px 11px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;font-size:12.5px;color:#1e3a8a"><b>📧 メール訴求対象</b>：メール登録ありで<b>まだガイド未送信</b> <b style="color:#0284c7;font-size:14px">${cnt.unsent}名</b>（ここに送ればガイド着手が進む）／ メール未登録 ${cnt.nomail}名は🚩手動対応。</div>
+    <div class="chips">${chip("all","すべて "+RES.length)}${chip("unsent","⚪ 未送信 "+cnt.unsent)}${chip("active","🟢 アクティブ "+cnt.active)}${chip("sent","🔵 送信済 "+cnt.sent)}${chip("through","🟡 スルー "+cnt.through)}${chip("nomail","🚩 メール未登録 "+cnt.nomail)}</div>
+    <div class="list">${list.length?list.map(row).join(""):`<div class="empty">該当なし</div>`}</div>`;
+}
+async function load(){
+  document.getElementById("app").innerHTML='<div class="empty">読み込み中…</div>';
+  const td=today();
+  const [res,sends,signs]=await Promise.all([
+    apiAll("bt_reservations?end_date=gte."+td+"&status=not.in.(%22キャンセル%22,cancelled,cancel)&select=id,name,ota,start_date,end_date,mypage_token,mail,pickup_time"),
+    apiAll("bt_mail_log?kind=eq.guide&select=reservation_id,status,sent_at&order=sent_at.desc"),
+    apiAll("handover_signatures?select=reservation_id,sign_type,signed_at")
+  ]);
+  RES=(res||[]);
+  SENDS={};(sends||[]).forEach(s=>{if(s.reservation_id&&!SENDS[s.reservation_id])SENDS[s.reservation_id]={at:s.sent_at,status:s.status};});
+  SIGN={};(signs||[]).forEach(s=>{if(!s.reservation_id)return;const o=SIGN[s.reservation_id]=SIGN[s.reservation_id]||{};if(s.sign_type==="damage_approval")o.dmg=true;if(s.sign_type==="terms_agree")o.terms=true;});
+  if(!RES.length){document.getElementById("app").innerHTML='<div class="empty">対象予約がありません（またはログインが必要です。本体APPにログインしてから開いてください）。</div>';return;}
+  render();
+}
+load();
+</script>
+</body>
+</html>
