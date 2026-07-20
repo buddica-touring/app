@@ -40,14 +40,17 @@ var CARS=[
   {key:'urus',label:'ランボルギーニ ウルス'}
 ];
 var tabs=document.getElementById('tabs'),cars=document.getElementById('cars');
-CARS.forEach(function(c,idx){
-  var b=document.createElement('button');b.className='tab'+(idx===0?' on':'');b.textContent=c.label.split(' ').slice(-1)[0]||c.label;
-  b.onclick=function(){show(idx);};tabs.appendChild(b);
+var only=new URLSearchParams(location.search).get('car');
+var LIST=only?CARS.filter(function(c){return c.key===only;}):CARS;
+if(only)tabs.style.display='none';
+LIST.forEach(function(c,idx){
+  if(!only){var b=document.createElement('button');b.className='tab'+(idx===0?' on':'');b.textContent=c.label.split(' ').slice(-1)[0]||c.label;b.onclick=function(){show(idx);};tabs.appendChild(b);}
   var d=document.createElement('div');d.className='car'+(idx===0?' on':'');d.id='car_'+idx;
   var h='<h2>'+c.label+'</h2>';
   for(var i=1;i<=4;i++){h+='<img loading="lazy" src="vehicle-guides/'+c.key+'_'+i+'.jpg" alt="'+c.label+' '+i+'">';}
   d.innerHTML=h;cars.appendChild(d);
 });
+if(only&&!LIST.length){cars.innerHTML='<div class="note">該当する車両ガイドが見つかりません。</div>';}
 function show(idx){
   [].forEach.call(document.querySelectorAll('.tab'),function(t,i){t.classList.toggle('on',i===idx);});
   [].forEach.call(document.querySelectorAll('.car'),function(t,i){t.classList.toggle('on',i===idx);});
