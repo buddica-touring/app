@@ -374,9 +374,22 @@ function renderVehicleGuide(d){
   box.innerHTML=html;
 }
 async function boot(){
-  if(!TOKEN){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">URLが正しくありません（予約トークンがありません）</div>';return;}
-  var d=await rpc('bt_mypage_lookup',{p_token:TOKEN});
-  if(!d){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">ご予約が見つかりませんでした。<br>スタッフにお問い合わせください。</div>';return;}
+  var DEMO=new URLSearchParams(location.search).get('demo');
+  var d;
+  if(DEMO){
+    // 🧪 デモ表示：トークン無しでご利用ガイド全体を実フォーマットのまま確認（閲覧専用・モックデータ）
+    RO=true;
+    var DL={eclass:{n:'メルセデス・ベンツ Eクラス カブリオレ',cls:'AA'},g400d:{n:'メルセデス・ベンツ G400d',cls:'AA'},porsche911:{n:'ポルシェ 911',cls:'AA'},evoque:{n:'レンジローバー イヴォーク',cls:'AA'},urus:{n:'ランボルギーニ ウルス',cls:'AA'}}[DEMO];
+    if(!DL){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">デモ対象の車両が見つかりません（demo=eclass / g400d / porsche911 / evoque / urus）</div>';return;}
+    var _p=jstToday().split('-').map(Number);
+    var _dd=function(o){var x=new Date(Date.UTC(_p[0],_p[1]-1,_p[2]+o));return x.getUTCFullYear()+'-'+('0'+(x.getUTCMonth()+1)).slice(-2)+'-'+('0'+x.getUTCDate()).slice(-2);};
+    d={name:'サンプル 太郎',id:'DEMO-'+DEMO,veh_name:DL.n,veh_class:DL.cls,veh_plate:'香川 300 あ ・・-・・',start_date:_dd(2),end_date:_dd(4),start_time:'11:00',end_time:'17:00',insurance:'安心ワイドパック',opt_c:1,opt_b:0,opt_j:0,opt_usb:0,pickup_time:'',signs:[]};
+    var _wrap=document.querySelector('.wrap');if(_wrap){var _db=document.createElement('div');_db.style.cssText='background:#fef3c7;border:1.5px solid #f59e0b;color:#92400e;border-radius:10px;padding:9px 12px;font-weight:800;font-size:12.5px;text-align:center;margin-bottom:10px';_db.textContent='🧪 デモ表示（サンプルデータ）— '+DL.n+' のご利用ガイド全体プレビュー';_wrap.insertBefore(_db,_wrap.firstChild);}
+  }else{
+    if(!TOKEN){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">URLが正しくありません（予約トークンがありません）</div>';return;}
+    d=await rpc('bt_mypage_lookup',{p_token:TOKEN});
+    if(!d){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">ご予約が見つかりませんでした。<br>スタッフにお問い合わせください。</div>';return;}
+  }
   RES_NAME=d.name||'';
   document.getElementById('r_id').textContent=d.id||'';
   RES=d;renderRes();if(d.pickup_time){var _ps=document.getElementById("puSel");if(_ps)_ps.value=d.pickup_time;showPuCur(d.pickup_time);var _sv=document.getElementById("puSave");if(_sv)_sv.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";}
