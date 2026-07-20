@@ -3620,6 +3620,7 @@ function ForeignVisitorAnalysis({data}){
 
 /* ===== 定数 ===== */
 const SLOTS=["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00"];
+const SLOTS15=(()=>{const a=[];for(let h=6;h<=22;h++)for(let m=0;m<60;m+=15){if(h===22&&m>0)break;a.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}return a;})();
 // ★ 「その他」タブ（手動タスク）で選択可能な種類。既存DEL/COL/事前駐車はreservation由来と区別するため manual===true フラグで識別する
 const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","開店業務","閉店業務","休憩","その他"];
 // 旧バージョン（車検/整備/小タスク）で作成されたタスクの後方互換用（フィルタのみ、ドロップダウンには出さない）
@@ -18296,7 +18297,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 </select>
                 <select value={otherAddTime} onChange={e=>setOtherAddTime(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e293b",background:"#fff",width:75,flexShrink:0}}>
                   <option value="">時間</option>
-                  {SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
+                  {SLOTS15.map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -18350,7 +18351,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                       <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0,marginLeft:6}}>⏰時間</label>
                       <select value={t.timeChange||t.time||""} onChange={e=>updateOtherTask(t._id,{time:e.target.value,timeChange:""})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,width:75}}>
                         <option value="">時間</option>
-                        {SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
+                        {SLOTS15.map(s=><option key={s} value={s}>{s}</option>)}
                       </select>
                       <label style={{fontSize:isMob?10:9,color:"#64748b",fontWeight:700,flexShrink:0,marginLeft:6}}>👤担当</label>
                       <select value={t.assignee||""} onChange={e=>updateOtherTask(t._id,{assignee:e.target.value})} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:"1 1 100px"}}>
@@ -22647,7 +22648,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.150-BT";
+const APP_VERSION="v1.0.151-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
