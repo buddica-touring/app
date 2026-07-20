@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<title>高級車 操作ガイド プレビュー｜BUDDICA TOURISM</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN',sans-serif;background:#0f1f45;color:#1e293b;padding:0 0 40px}
+header{background:#0f1f45;color:#fff;padding:16px 14px;text-align:center;border-bottom:3px solid #fabe00}
+header .t{font-size:16px;font-weight:800;letter-spacing:.04em}
+header .s{font-size:11px;color:#c7d0e6;margin-top:4px}
+.wrap{max-width:760px;margin:0 auto;padding:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}
+.tab{flex:1;min-width:96px;padding:9px 6px;border-radius:10px;border:1px solid #35406b;background:#182a55;color:#dbe3f5;font-weight:800;font-size:12px;cursor:pointer;text-align:center}
+.tab.on{background:#fabe00;color:#0f1f45;border-color:#fabe00}
+.car{display:none}
+.car.on{display:block}
+.car h2{color:#fff;font-size:15px;margin:6px 2px 10px;font-weight:800}
+.car img{width:100%;display:block;border-radius:12px;margin:0 0 12px;box-shadow:0 3px 14px rgba(0,0,0,.35)}
+.note{color:#c7d0e6;font-size:11px;text-align:center;margin:6px 0 16px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <div class="t">高級車 操作ガイド プレビュー</div>
+  <div class="s">BUDDICA TOURISM ／ 顧客ご利用ガイドに表示される実写ガイド（確認用）</div>
+</header>
+<div class="wrap">
+  <div class="note">※これは中身確認用の一覧です。実際は各予約のご利用ガイドURLを開くと、その予約の車の4ページだけが自動表示されます。</div>
+  <div class="tabs" id="tabs"></div>
+  <div id="cars"></div>
+</div>
+<script>
+var CARS=[
+  {key:'eclass',label:'メルセデス・ベンツ Eクラス カブリオレ'},
+  {key:'g400d',label:'メルセデス・ベンツ G400d'},
+  {key:'porsche911',label:'ポルシェ 911'},
+  {key:'evoque',label:'レンジローバー イヴォーク'},
+  {key:'urus',label:'ランボルギーニ ウルス'}
+];
+var tabs=document.getElementById('tabs'),cars=document.getElementById('cars');
+CARS.forEach(function(c,idx){
+  var b=document.createElement('button');b.className='tab'+(idx===0?' on':'');b.textContent=c.label.split(' ').slice(-1)[0]||c.label;
+  b.onclick=function(){show(idx);};tabs.appendChild(b);
+  var d=document.createElement('div');d.className='car'+(idx===0?' on':'');d.id='car_'+idx;
+  var h='<h2>'+c.label+'</h2>';
+  for(var i=1;i<=4;i++){h+='<img loading="lazy" src="vehicle-guides/'+c.key+'_'+i+'.jpg" alt="'+c.label+' '+i+'">';}
+  d.innerHTML=h;cars.appendChild(d);
+});
+function show(idx){
+  [].forEach.call(document.querySelectorAll('.tab'),function(t,i){t.classList.toggle('on',i===idx);});
+  [].forEach.call(document.querySelectorAll('.car'),function(t,i){t.classList.toggle('on',i===idx);});
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
