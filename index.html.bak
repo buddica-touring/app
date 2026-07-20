@@ -21634,6 +21634,7 @@ function App(){
             const sections=[
               {title:"日常業務",color:"#2563eb",items:[
                 {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
+                {id:"lic_send",ico:"🪪",l:"免許証チェック",desc:"当日〜3日先の出発で免許証未提出のリスト・案内コピー"},
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
@@ -22302,6 +22303,7 @@ function App(){
           })()}
           {tab==="customer"&&<CustomerList data={data}/>}
           {tab==="todo"&&window.TodoTab&&React.createElement(window.TodoTab,{store:"bt",sb:sb,label:"高松店",hostStaff:staff,hostShifts:shifts})}
+          {tab==="lic_send"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>🪪 免許証チェックリスト</h2><LicenseSendListBT sb={sb}/></div>}
           {tab==="kpi"&&<KpiTab store="tkm" data={data} vehicles={vehicles} fleet={fleet}/>}
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
           {tab==="foreign"&&<ForeignVisitorAnalysis data={data}/>}
@@ -22653,7 +22655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.152-BT";
+const APP_VERSION="v1.0.153-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -23749,6 +23751,60 @@ function TaskEditor({task,initial,tasks,onSave,onClose,onDelete,me}){
 /* ===== 本体統合ルート：TodoTab（per-entity + Realtime + 認証sb） ===== */
 function _todoTaskToRow(t){return {id:t.id,area:t.area||null,title:t.title||"",assignee:t.assignee||"全員",parent_id:t.parentId||null,priority:t.priority||"中",status:t.status||"未着手",progress:t.progress||0,start_date:t.start||null,due_date:t.due||null,description:t.description||"",logs:t.logs||[],attachments:t.attachments||[],admin_confirmed:!!t.adminConfirmed,completed_at:t.completedAt||null,created_at:t.createdAt||TODAY,deleted:false,updated_at:new Date().toISOString()};}
 function _todoRowToTask(r){return {id:r.id,area:r.area,title:r.title,assignee:r.assignee,parentId:r.parent_id,priority:r.priority,status:r.status,progress:r.progress||0,start:r.start_date,due:r.due_date,description:r.description||"",logs:r.logs||[],attachments:r.attachments||[],adminConfirmed:!!r.admin_confirmed,completedAt:r.completed_at,createdAt:r.created_at};}
+
+/* LicenseSendListBT — 2026-07-21: 免許証チェックリスト（当日〜3日先の出発・未提出）※BTはLINE未配線＝コピー専用
+   完了判定=license_uploads(store=bt)。📋コピー→エルメ/LINEで手動送信 */
+function LicenseSendListBT({sb}){
+  const [rows,setRows]=React.useState([]);
+  const [open,setOpen]=React.useState(true);
+  const [ver,setVer]=React.useState(0);
+  const [copied,setCopied]=React.useState(()=>{try{return JSON.parse(localStorage.getItem("bt_lic_copied")||"{}");}catch(e){return{};}});
+  const days=React.useMemo(()=>{const a=[];for(let i=0;i<=3;i++){const d=new Date();d.setDate(d.getDate()+i);a.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return a;},[ver]);
+  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url="https://buddica-touring.github.io/app/license.html?id="+encodeURIComponent(r.resv)+"&name="+encodeURIComponent(r.name||"");return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ページからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
+  const load=React.useCallback(async()=>{
+    if(!sb)return;
+    try{
+      const{data}=await sb.from("bt_tasks").select("date,時間,予約者,担当,予約番号,内容").in("date",days).neq("deleted",true);
+      let tasks=(data||[]).filter(t=>["PUB","DEL","来店"].includes(t["内容"])).map(t=>({date:t.date,time:t["時間"]||"",name:t["予約者"]||"",assignee:t["担当"]||"",resv:t["予約番号"]||"",type:t["内容"]}));
+      tasks=tasks.filter(t=>t.resv);
+      const byResv={};
+      tasks.forEach(t=>{const k=t.resv;if(!byResv[k]||(t.date+" "+t.time)<(byResv[k].date+" "+byResv[k].time))byResv[k]=t;});
+      const uniq=Object.values(byResv);
+      const resvs=uniq.map(t=>t.resv);
+      const doneM={};
+      if(resvs.length){
+        const{data:lu}=await sb.from("license_uploads").select("reservation_id,cnt").in("reservation_id",resvs);
+        (lu||[]).forEach(x=>{if(x.cnt>0)doneM[x.reservation_id]=true;});
+      }
+      const out=uniq.map(t=>({...t,done:!!doneM[t.resv]})).sort((a,b)=>{ if(a.done!==b.done)return a.done?1:-1; return (a.date+" "+(a.time||"99")).localeCompare(b.date+" "+(b.time||"99")); });
+      setRows(out);
+    }catch(e){console.warn("[licSendListBT]",e.message);}
+  },[sb,days]);
+  React.useEffect(()=>{ load(); const t=setInterval(()=>{if(document.visibilityState==="visible")setVer(v=>v+1);},120000); return ()=>clearInterval(t); },[load]);
+  const copyMsg=async(r)=>{const msg=buildMsg(r);try{await navigator.clipboard.writeText(msg);const nc={...copied,[r.resv]:new Date().toISOString()};setCopied(nc);try{localStorage.setItem("bt_lic_copied",JSON.stringify(nc));}catch(_){}alert("📋 免許証案内をコピーしました。\nエルメ/LINEに貼り付けて送ってください。");}catch(e){alert("コピーに失敗しました");}};
+  const md=(dt)=>{try{return String(dt).slice(5).replace("-","/");}catch(e){return dt;}};
+  const notDone=rows.filter(r=>!r.done).length;
+  if(!rows.length)return <div style={{padding:16,color:"#94a3b8",fontSize:13,textAlign:"center"}}>直近（当日〜3日先）の出発予約はありません。</div>;
+  return <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,margin:"8px 0",overflow:"hidden"}}>
+    <div onClick={()=>setOpen(o=>!o)} style={{padding:"10px 12px",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:open?"1px solid #bfdbfe":"none"}}>
+      <span style={{fontSize:14,fontWeight:800,color:"#0f172a"}}>🪪 免許証チェック（当日〜3日先 {rows.length}件）</span>
+      {notDone>0&&<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#dc2626",padding:"1px 8px",borderRadius:10}}>未提出 {notDone}</span>}
+      <span style={{marginLeft:"auto",fontSize:12,color:"#64748b"}}>{open?"▲":"▼"}</span>
+    </div>
+    {open&&<div>
+      {rows.map((r,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap",fontSize:12,opacity:r.done?.55:1}}>
+        <span style={{fontFamily:"monospace",fontWeight:800,color:"#334155",width:78}}>{md(r.date)} {r.time||"--:--"}</span>
+        <span style={{fontSize:9,fontWeight:800,color:"#2563eb"}}>{r.type}</span>
+        <span style={{fontWeight:700,color:"#0f172a",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name||"名前なし"}</span>
+        {r.assignee&&<span style={{fontSize:10,background:"#dbeafe",color:"#1d4ed8",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{r.assignee}</span>}
+        <span style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}>
+          {r.done&&<span style={{fontSize:11,fontWeight:800,color:"#15803d"}}>✅提出済</span>}
+          {!r.done&&<button onClick={()=>copyMsg(r)} style={{fontSize:10,fontWeight:800,padding:"4px 9px",borderRadius:6,background:copied[r.resv]?"#94a3b8":"#2563eb",color:"#fff",border:"none",cursor:"pointer"}}>{copied[r.resv]?"📋コピー済":"📋コピー"}</button>}
+        </span>
+      </div>)}
+    </div>}
+  </div>;
+}
 
 function TodoTab({store, sb, label, hostStaff, hostShifts}){
   const PFX=store; // 'nha' | 'spk' | 'bt'
