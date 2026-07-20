@@ -306,7 +306,7 @@ function applyLang(){
   var s1=document.getElementById('st1'), f=document.getElementById('fin');
   if(s1)s1.innerHTML=I18N[signed[1]?'st1_d':'st1_p'][LANG];
   if(f)f.innerHTML=I18N[signed[1]?'fin_d':'fin_p'][LANG];
-  if(RES)renderRes();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
+  if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
 }
 function setLang(c){LANG=c;localStorage.setItem('bt_lang',c);applyLang();}
 function TT(k){return (I18N[k]&&I18N[k][LANG])||k;}
@@ -361,17 +361,34 @@ var VEHICLE_GUIDES=[
   {key:'evoque',re:/イヴォーク|イヴォーグ|evoque|レンジ|range\s*rover/i,label:'レンジローバー イヴォーク'},
   {key:'urus',re:/ウルス|urus|ランボ|lambo/i,label:'ランボルギーニ ウルス'}
 ];
+var GUIDE_DATA=null,GUIDE_KEY=null;
 function renderVehicleGuide(d){
   var card=document.getElementById('guideCard');if(!card)return;
   var hay=((d&&d.veh_name)||'')+' '+((d&&d.veh_class)||'');
   var g=VEHICLE_GUIDES.find(function(x){return x.re.test(hay);});
-  if(!g){card.style.display='none';return;}
-  card.style.display='';
-  var sm=document.getElementById('guideSummary');if(sm)sm.textContent='▼ '+g.label+' — 操作ガイド（タップで開閉）';
+  if(!g){card.style.display='none';GUIDE_KEY=null;return;}
+  card.style.display='';GUIDE_KEY=g.key;
+  if(GUIDE_DATA){paintGuide();return;}
+  fetch('guide-data.json').then(function(r){return r.json();}).then(function(j){GUIDE_DATA=j;paintGuide();}).catch(function(){});
+}
+function paintGuide(){
+  if(!GUIDE_KEY||!GUIDE_DATA||!GUIDE_DATA[GUIDE_KEY])return;
+  var c=GUIDE_DATA[GUIDE_KEY],L=LANG||'ja';
+  var pick=function(o){return o?(o[L]||o.ja||''):'';};
+  var sm=document.getElementById('guideSummary');
+  if(sm)sm.textContent='▼ '+pick(c.model)+' — '+((I18N['sec_guide']&&I18N['sec_guide'][L])||'操作ガイド');
   var box=document.getElementById('guideImgs');if(!box)return;
-  var html='';
-  for(var i=1;i<=4;i++){html+='<img src="vehicle-guides/'+g.key+'_'+i+'.jpg" loading="lazy" alt="操作ガイド'+i+'" style="width:100%;display:block;border-radius:10px;margin:0 0 10px;box-shadow:0 1px 6px rgba(0,0,0,.12)">';}
-  box.innerHTML=html;
+  var badge=function(t){return '<span style="display:inline-block;background:#eef2f7;color:#334155;border:1px solid #d7dee8;border-radius:6px;padding:2px 9px;font-size:10.5px;font-weight:800;margin-right:6px">'+t+'</span>';};
+  var h='<div style="margin-bottom:12px">'+badge('🚗 '+pick(c.drive))+badge('⛽ '+pick(c.fuel))+'</div>';
+  if(c.warn)h+='<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:9px;padding:8px 11px;font-size:12px;font-weight:700;line-height:1.6;margin-bottom:14px">⚠️ '+pick(c.warn)+'</div>';
+  (c.items||[]).forEach(function(it,idx){
+    h+='<div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #eef2f7">';
+    h+='<div style="font-weight:800;font-size:13.5px;color:#0f1b3d;margin-bottom:6px"><span style="display:inline-block;min-width:21px;height:21px;line-height:21px;text-align:center;background:#0f1f45;color:#fff;border-radius:6px;font-size:11px;margin-right:8px">'+(idx+1)+'</span>'+pick(it.t)+'</div>';
+    h+='<div style="font-size:12.5px;color:#334155;line-height:1.8;margin:0 0 '+(it.img?'9px':'0')+' 29px">'+pick(it.b)+'</div>';
+    if(it.img)h+='<img loading="lazy" src="vehicle-guides/photos/'+GUIDE_KEY+'/'+it.img+'" alt="" style="width:calc(100% - 29px);max-width:520px;display:block;border-radius:10px;margin:0 0 0 29px;box-shadow:0 1px 6px rgba(0,0,0,.12)">';
+    h+='</div>';
+  });
+  box.innerHTML=h;
 }
 async function boot(){
   var DEMO=new URLSearchParams(location.search).get('demo');
