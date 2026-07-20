@@ -16527,7 +16527,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       // ★ 変更があればLS/DBに即時保存（タブ移動で元に戻る問題を防止）
       if(changed&&next.length){
         DB._lsSave(next,selDate);
-        DB.upsertTasks(next,selDate);
+        DB.upsertTasks(next,selDate,{protect:true});/* ★2026-07-20 クラス④根治: 車両マスター照合の再保存でも人入力(担当/時間/場所)を焼き戻す */
         next.forEach(t=>selfUpdatedIds.current.set(t._id,Date.now()));
       }
       return changed?next:prev;
@@ -16666,7 +16666,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       });
       if(autoDemoted>0){
         console.log("[loadTasks] バス→ハイエース降格:",autoDemoted,"件");
-        DB.upsertTasks(fixed,date);
+        DB.upsertTasks(fixed,date,{protect:true});/* ★2026-07-20 クラス④根治: protectで人入力(担当/時間/場所)を焼き戻してから保存 */
       }
       // ★ LSにあるmanualタスクがDB結果に欠けていれば復元
       const fixedIds=new Set(fixed.map(t=>t._id));
@@ -16709,7 +16709,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       });
       fixedWithFleet=fixedWithFleet.filter(t=>!_tomb.has(t._id));/* ★2026-07-16 墓標ガード: 削除済みは表示/永続化から除外(ゾンビ根絶) */
       if(fixedWithFleet.length!==saved.length||fixedWithFleet.some((t,i)=>t._id!==saved[i]?._id)||fleetApplied||removed.length){
-        DB.upsertTasks(fixedWithFleet,date);
+        DB.upsertTasks(fixedWithFleet,date,{protect:true});/* ★2026-07-20 クラス④根治: 照合再保存は必ずprotect＝古いタブ/端末の再保存が人入力(担当/時間/場所)を空で潰すのを防ぐ */
       } else {
         // ★ upsertTasksを呼ばない場合でも、マージ結果（_changed/place等）をLSに確実に保存
         DB._lsSave(fixedWithFleet,date);
@@ -22647,7 +22647,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.149-BT";
+const APP_VERSION="v1.0.150-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
