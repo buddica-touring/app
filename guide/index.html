@@ -203,7 +203,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <!-- ② 貸渡約款（ご確認・サイン不要） -->
 <div class="card collapsible" id="card2">
-  <div class="sec-h"><span class="badge-no">2</span><span data-t="sec_terms">貸渡約款のご確認</span></div>
+  <div class="sec-h"><span class="badge-no">2</span><span data-t="sec_terms">貸渡約款のご同意</span><span class="done-chip" data-t="chip_agree">✅ 同意済み</span></div>
   <div class="terms" data-t="terms_html">
     <h4>第1条（貸渡）</h4>当社は本約款に基づき、お客様に車両を貸渡します。
     <h4>第2条（補償・免責）</h4>対人・対物補償は無制限。車両補償は免責額を上限にお客様負担が生じる場合があります。NOC（ノンオペレーションチャージ）が適用される場合があります。
@@ -213,7 +213,15 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
     <h4>第6条（キャンセル）</h4>所定のキャンセル規定に従います。
     <div style="color:#8a94a0;font-size:12px;margin-top:6px;">（本番は正式な貸渡約款の全文を表示）</div>
   </div>
-  <div class="terms-note" data-t="terms_note">※ ご予約・ご出発をもって本約款にご同意いただいたものといたします（サインは不要です）。</div>
+  <div class="sign-area">
+    <div class="sign-label" data-t="sign_terms">上記の貸渡約款に同意します（お客様サイン）</div>
+    <div class="pad" id="pad2"><canvas></canvas><div class="ph" data-t="ph">ここに指またはペンでご署名ください</div></div>
+    <div class="row">
+      <button class="btn clear" data-t="btn_clear" onclick="clearPad('pad2')">消す</button>
+      <button class="btn go" id="go2" data-t="btn_agree" onclick="sign('card2','pad2',2)">同意する</button>
+    </div>
+  </div>
+  <div class="signed-view"><span class="who" id="who2"></span><br><img id="img2"/></div>
 </div>
 
 <!-- ③ 傷チェック + 承認サイン（貸出日当日に公開） -->
@@ -251,6 +259,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <div class="status">
   <span class="s" id="st1" data-t="st1_p">傷承認：未</span>
+  <span class="s" id="st2" data-t="st2_p">約款同意：未</span>
   <span class="fin" id="fin" data-t="fin_p">締結 未完了</span>
 </div>
 </div>
@@ -267,7 +276,7 @@ Object.assign(I18N,{
   dmg_locked:{ja:"🔒 車両の傷チェックは<b>貸出日当日</b>に公開されます。<br>当日、こちらでご確認・ご承認をお願いします。",en:"🔒 The vehicle damage check opens <b>on your pickup day</b>.<br>Please check &amp; approve here on that day.",zh:"🔒 車輛車損檢查將於<b>取車當日</b>開放。<br>請於當天在此確認並同意。",ko:"🔒 차량 손상 체크는 <b>대여 당일</b> 공개됩니다.<br>당일 여기서 확인·승인해 주세요."},
   terms_note:{ja:"※ ご予約・ご出発をもって本約款にご同意いただいたものといたします（サインは不要です）。",en:"* By booking and departing, you are deemed to agree to these terms (no signature required).",zh:"※ 完成預約並取車即視為同意本條款（無需簽名）。",ko:"※ 예약·출발로 본 약관에 동의하신 것으로 간주합니다 (서명 불필요)."},
   banner:{ja:"✅ 車両の状態確認（傷チェック）が完了しました",en:"✅ Vehicle condition check completed",zh:"✅ 車輛狀態確認已完成",ko:"✅ 차량 상태 확인이 완료되었습니다"},
-  sec_terms:{ja:"貸渡約款のご確認",en:"Rental Agreement",zh:"租賃條款（請確認）",ko:"대여 약관 (확인)"}
+  sec_terms:{ja:"貸渡約款のご同意",en:"Rental Agreement",zh:"租賃條款同意",ko:"대여 약관 동의"}
 });
 var LANG=localStorage.getItem('bt_lang')||'ja';
 var RES=null;
@@ -301,9 +310,10 @@ function applyLang(){
     b.style.background=on?'#ee6a1c':'#1a1a1e'; b.style.color=on?'#fff':'#ddd'; b.style.borderColor=on?'#ee6a1c':'#333';
   });
   // ステータス（サイン状況）を現在状態で言語反映
-  var s1=document.getElementById('st1'), f=document.getElementById('fin');
+  var s1=document.getElementById('st1'), s2=document.getElementById('st2'), f=document.getElementById('fin');
   if(s1)s1.innerHTML=I18N[signed[1]?'st1_d':'st1_p'][LANG];
-  if(f)f.innerHTML=I18N[signed[1]?'fin_d':'fin_p'][LANG];
+  if(s2)s2.innerHTML=I18N[signed[2]?'st2_d':'st2_p'][LANG];
+  if(f)f.innerHTML=I18N[(signed[1]&&signed[2])?'fin_d':'fin_p'][LANG];
   if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
 }
 function setLang(c){LANG=c;localStorage.setItem('bt_lang',c);applyLang();}
@@ -340,7 +350,7 @@ function applyLock(cardId,n,srec,sigimg){
   if(sigimg)document.getElementById('img'+n).src=sigimg;
   signed[n]=true;
   var st=document.getElementById('st'+n);st.innerHTML=I18N[n==1?'st1_d':'st2_d'][LANG];st.classList.add('ok');
-  if(signed[1]){var f=document.getElementById('fin');f.innerHTML=I18N['fin_d'][LANG];f.classList.add('ready');var b=document.getElementById('doneBanner');if(b){b.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}}
+  if(signed[1]&&signed[2]){var f=document.getElementById('fin');f.innerHTML=I18N['fin_d'][LANG];f.classList.add('ready');var b=document.getElementById('doneBanner');if(b){b.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}}
 }
 /* ===== 動的読取（トークン→予約） ===== */
 var BT_URL="https://ggqugvyskyiblxiycpci.supabase.co";
@@ -428,9 +438,10 @@ async function boot(){
   }
   applyLang();(d.signs||[]).forEach(function(sg){
     if(sg.type==='damage_approval')applyLock('card1',1,sg,null);
+    if(sg.type==='terms_agree')applyLock('card2',2,sg,null);
   });
 }
-setupPad('pad1');
+setupPad('pad1');setupPad('pad2');
 applyLang();boot();
 if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_rb.className='ro-banner';_rb.textContent='🔒 スタッフ閲覧専用（お客様のご利用ガイドを確認中・編集不可）';var _rw=document.querySelector('.wrap');if(_rw)_rw.insertBefore(_rb,_rw.firstChild);}
 
