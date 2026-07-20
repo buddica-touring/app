@@ -16422,7 +16422,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const gStat=id=>{const o=guideSignMap[id]||{};return{has:!!guideSignMap[id],dmg:!!o.dmg,terms:!!o.terms,both:!!(o.dmg&&o.terms),skip:!!o.dmg};};
   const[washAddCat,setWashAddCat]=useState("");const[washAddVc,setWashAddVc]=useState("");const[washAddTime,setWashAddTime]=useState("");const[washAddMemo,setWashAddMemo]=useState("");
   // ★ その他タブ用 state (SPK v4.6.5 から完全コピー)
-  const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherEditId,setOtherEditId]=useState(null);
+  const[otherAddType,setOtherAddType]=useState("");const[otherAddName,setOtherAddName]=useState("");const[otherAddTime,setOtherAddTime]=useState("");const[otherAddPlace,setOtherAddPlace]=useState("");const[otherAddVc,setOtherAddVc]=useState("");const[otherAddMemo,setOtherAddMemo]=useState("");const[otherAddAssignee,setOtherAddAssignee]=useState("");const[otherEditId,setOtherEditId]=useState(null);
   const[editResId,setEditResId]=useState(null); // ★ 編集対象の予約ID（マスターからの遷移用）
   const[editBlock,setEditBlock]=useState(null); // ★ 編集ブロック: null(入口選択) | "dep"(出発) | "ret"(返却) | "common"(共通)
   const[suppressDayOffReset,setSuppressDayOffReset]=useState(false); // ★ openIntent処理中はdayOff変更時のリセットを抑止
@@ -18259,9 +18259,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           const veh=(otherAddVc&&!isAllVc)?vehicles.find(v=>v.code===otherAddVc):null;
           const newId="other_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
           const displayName=otherAddName||(otherAddType+(isAllVc?" 全車両":(veh?" "+veh.name:"")));
-          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:isAllVc?"全車両":(veh?veh.type:""),assignedVehicle:isAllVc?"":(otherAddVc||""),plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
+          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:isAllVc?"全車両":(veh?veh.type:""),assignedVehicle:isAllVc?"":(otherAddVc||""),plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:otherAddAssignee||"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
           setTasks(ts=>{const next=[...ts,newTask];try{DB.updateTask(newTask,selDate);}catch(e){}return next;}); // ★2026-07-04 その他=新規1件だけ書く
-          setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");
+          setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");setOtherAddAssignee("");
         };
         const deleteOtherTask=(id)=>{if(!window.confirm("このタスクを削除しますか？"))return;setTasks(ts=>{const next=ts.filter(x=>x._id!==id);try{DB.deleteTask&&DB.deleteTask(id,selDate);}catch(e){}return next;});};
         const updateOtherTask=(id,updates)=>{setTasks(ts=>{const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
@@ -18306,6 +18306,11 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                   <option value="">🚗 車両（任意）</option>
                   <option value="__ALL__">🚗 全車両</option>
                   {(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
+                </select>
+                <select value={otherAddAssignee} onChange={e=>setOtherAddAssignee(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#7c3aed",background:"#fff",flex:"1 1 120px"}}>
+                  <option value="">👤 担当（任意）</option>
+                  {activeMembers.map(m=><option key={m} value={m}>{m}</option>)}
+                  {otherAddAssignee&&!activeMembers.includes(otherAddAssignee)&&<option value={otherAddAssignee}>{otherAddAssignee}（出勤外）</option>}
                 </select>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -22648,7 +22653,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.151-BT";
+const APP_VERSION="v1.0.152-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
