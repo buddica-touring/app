@@ -203,7 +203,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <!-- 🪪 運転免許証のご登録（ご出発前・GAS→Googleドライブ保存） -->
 <div class="card" id="licCard" style="display:none">
-  <div class="sec-h"><span class="badge-no">🪪</span><span>運転免許証のご登録</span><span class="done-chip" id="licDoneChip">✅ 登録済み</span></div>
+  <div class="sec-h"><span class="badge-no">🪪</span><span id="licHead">運転免許証のご登録</span><span class="done-chip" id="licDoneChip">✅ 登録済み</span></div>
   <div id="licBody"></div>
 </div>
 
@@ -321,6 +321,7 @@ function applyLang(){
   if(s2)s2.innerHTML=I18N[signed[2]?'st2_d':'st2_p'][LANG];
   if(f)f.innerHTML=I18N[(signed[1]&&signed[2])?'fin_d':'fin_p'][LANG];
   if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
+  if(document.getElementById('licBody'))renderLicCard(); // 🪪 免許証カードも言語連動で再描画
 }
 function setLang(c){LANG=c;localStorage.setItem('bt_lang',c);applyLang();}
 function TT(k){return (I18N[k]&&I18N[k][LANG])||k;}
@@ -371,36 +372,47 @@ async function rpc(fn,args){
   try{var r=await fetch(BT_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});return await r.json();}catch(e){return null;}
 }
 /* 🪪 運転免許証アップロード（保存先=GAS→Googleドライブ／記録=license_uploads・予約番号キー＝どの導線でも同じ予約に紐づく） */
-var LIC_ROWS=1;
-function renderLicCard(alreadyCnt){
+var LIC_ROWS=1, LIC_CNT=0;
+var LICT={
+ ja:{head:"運転免許証のご登録",chip:"✅ 登録済み",done:"✅ 免許証は登録済みです。ありがとうございます。",done2:"（追加の運転者がいる場合は下から追加できます）",desc:"ご出発をスムーズにするため、運転される方の運転免許証（表面）を事前にアップロードください。外国のお客様はパスポート＋国外運転免許証をお願いします。",driver:"運転者",front:"（免許証 表面）",add:"＋ 別の運転者を追加",upbtn:"アップロードする",uploading:"アップロード中…",note:"画像は本人確認・貸渡手続きのみに使用し、法令に基づき安全に保管します。",need:"表面の画像を選んでください",okmsg:"✓ アップロードが完了しました。ありがとうございます。",errmsg:"アップロードに失敗しました。通信環境をご確認のうえ、再度お試しください。",uped:"アップロード済み",ro:"閲覧専用モード（スタッフ確認用）のためアップロードできません"},
+ en:{head:"Driver's License",chip:"✅ Registered",done:"✅ Your license is registered. Thank you.",done2:"(You can add another driver below.)",desc:"To speed up your pickup, please upload the front of each driver's license in advance. International customers: passport + international driving permit.",driver:"Driver",front:" (License front)",add:"+ Add another driver",upbtn:"Upload",uploading:"Uploading…",note:"Images are used only for identity verification and rental procedures, and stored securely per law.",need:"Please select the front image.",okmsg:"✓ Upload complete. Thank you.",errmsg:"Upload failed. Please check your connection and try again.",uped:"Uploaded",ro:"View-only mode (staff). Upload is disabled."},
+ zh:{head:"駕照登記",chip:"✅ 已登記",done:"✅ 駕照已登記，謝謝。",done2:"（如有其他駕駛人，可於下方新增。）",desc:"為使交車更順暢，請事先上傳每位駕駛人的駕照（正面）。外國旅客請上傳護照＋國際駕照。",driver:"駕駛人",front:"（駕照 正面）",add:"＋ 新增其他駕駛人",upbtn:"上傳",uploading:"上傳中…",note:"影像僅用於身分確認及租賃手續，並依法規安全保管。",need:"請選擇正面影像。",okmsg:"✓ 上傳完成，謝謝。",errmsg:"上傳失敗，請確認網路後再試。",uped:"已上傳",ro:"僅供瀏覽（工作人員確認用），無法上傳。"},
+ ko:{head:"운전면허증 등록",chip:"✅ 등록됨",done:"✅ 면허증이 등록되었습니다. 감사합니다.",done2:"（다른 운전자가 있으면 아래에서 추가할 수 있습니다.）",desc:"원활한 출발을 위해 운전자의 운전면허증(앞면)을 미리 업로드해 주세요. 해외 고객은 여권＋국제운전면허증을 부탁드립니다.",driver:"운전자",front:"（면허증 앞면）",add:"＋ 다른 운전자 추가",upbtn:"업로드",uploading:"업로드 중…",note:"이미지는 본인확인·대여 절차에만 사용되며 법령에 따라 안전하게 보관됩니다.",need:"앞면 이미지를 선택해 주세요.",okmsg:"✓ 업로드가 완료되었습니다. 감사합니다.",errmsg:"업로드에 실패했습니다. 통신 상태를 확인 후 다시 시도해 주세요.",uped:"업로드됨",ro:"열람 전용(직원 확인용)이라 업로드할 수 없습니다."}
+};
+function _lict(){ return LICT[LANG]||LICT.ja; }
+function renderLicCard(cnt){
+  if(typeof cnt==='number')LIC_CNT=cnt;
   var card=document.getElementById('licCard'); if(!card)return;
   card.style.display='block';
-  var chip=document.getElementById('licDoneChip'); var body=document.getElementById('licBody');
-  var done=(alreadyCnt>0);
-  if(done){ card.classList.add('signed'); if(chip)chip.style.display='inline-block'; }
+  var T=_lict(), done=(LIC_CNT>0);
+  var head=document.getElementById('licHead'); if(head)head.textContent=T.head;
+  var chip=document.getElementById('licDoneChip'); if(chip){chip.textContent=T.chip; chip.style.display=done?'inline-block':'none';}
+  if(done)card.classList.add('signed');
+  var body=document.getElementById('licBody');
   var rows='';
   for(var i=0;i<LIC_ROWS;i++){
-    rows+='<div style="margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:5px">運転者'+(i+1)+'（免許証 表面）</div>'
+    rows+='<div style="margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:5px">'+T.driver+(i+1)+T.front+'</div>'
       +'<input type="file" accept="image/*" capture="environment" id="licf'+i+'" style="width:100%;font-size:14px"></div>';
   }
   body.innerHTML=(done
-      ?'<div style="background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;padding:11px 13px;margin-bottom:10px;color:#15803d;font-weight:800;font-size:14px">✅ 免許証は登録済みです。ありがとうございます。<div style="font-weight:600;font-size:12px;margin-top:3px">（追加の運転者がいる場合は下から追加できます）</div></div>'
-      :'<div style="font-size:13px;color:#444;margin-bottom:10px;line-height:1.6">ご出発をスムーズにするため、運転される方の運転免許証（表面）を事前にアップロードください。外国のお客様はパスポート＋国外運転免許証をお願いします。</div>')
+      ?'<div style="background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;padding:11px 13px;margin-bottom:10px;color:#15803d;font-weight:800;font-size:14px">'+T.done+'<div style="font-weight:600;font-size:12px;margin-top:3px">'+T.done2+'</div></div>'
+      :'<div style="font-size:13px;color:#444;margin-bottom:10px;line-height:1.6">'+T.desc+'</div>')
     +rows
-    +'<button type="button" onclick="licAddRow()" style="background:none;border:none;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer;padding:4px 0">＋ 別の運転者を追加</button>'
-    +'<button type="button" id="licUpBtn" onclick="licUpload()" style="display:block;width:100%;margin-top:10px;background:#0F1F45;color:#fff;font-weight:800;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer">アップロードする</button>'
+    +'<button type="button" onclick="licAddRow()" style="background:none;border:none;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer;padding:4px 0">'+T.add+'</button>'
+    +'<button type="button" id="licUpBtn" onclick="licUpload()" style="display:block;width:100%;margin-top:10px;background:#0F1F45;color:#fff;font-weight:800;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer">'+T.upbtn+'</button>'
     +'<div id="licMsg" style="font-size:12px;margin-top:8px;text-align:center"></div>'
-    +'<div style="font-size:11px;color:#8a94a0;margin-top:8px">画像は本人確認・貸渡手続きのみに使用し、法令に基づき安全に保管します。</div>';
+    +'<div style="font-size:11px;color:#8a94a0;margin-top:8px">'+T.note+'</div>';
 }
-function licAddRow(){ LIC_ROWS++; renderLicCard(0); }
+function licAddRow(){ LIC_ROWS++; renderLicCard(); }
 async function licUpload(){
-  if(RO){ alert('閲覧専用モード（スタッフ確認用）のためアップロードできません'); return; }
-  if(!GAS_LICENSE_URL){ alert('免許証アップロードは準備中です'); return; }
+  var T=_lict();
+  if(RO){ alert(T.ro); return; }
+  if(!GAS_LICENSE_URL){ alert('準備中 / Coming soon'); return; }
   var files=[];
   for(var i=0;i<LIC_ROWS;i++){ var el=document.getElementById('licf'+i); if(el&&el.files&&el.files[0])files.push(el.files[0]); }
   var msg=document.getElementById('licMsg');
-  if(!files.length){ msg.innerHTML='<span style="color:#dc2626;font-weight:700">表面の画像を選んでください</span>'; return; }
-  var btn=document.getElementById('licUpBtn'); btn.disabled=true; btn.textContent='アップロード中…'; msg.innerHTML='';
+  if(!files.length){ msg.innerHTML='<span style="color:#dc2626;font-weight:700">'+T.need+'</span>'; return; }
+  var btn=document.getElementById('licUpBtn'); btn.disabled=true; btn.textContent=T.uploading; msg.innerHTML='';
   var ok=0;
   for(var j=0;j<files.length;j++){
     try{
@@ -412,11 +424,11 @@ async function licUpload(){
   }
   if(ok>0){
     try{ await fetch(BT_URL+'/rest/v1/license_uploads?on_conflict=reservation_id',{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({reservation_id:(typeof RES!=='undefined'&&RES&&RES.id)||'',store:'bt',cnt:ok,drivers:files.length,last_at:new Date().toISOString()})}); }catch(e){}
-    msg.innerHTML='<span style="color:#15803d;font-weight:800">✓ アップロードが完了しました。ありがとうございます。</span>';
-    btn.textContent='アップロード済み'; document.getElementById('licCard').classList.add('signed'); document.getElementById('licDoneChip').style.display='inline-block';
+    msg.innerHTML='<span style="color:#15803d;font-weight:800">'+T.okmsg+'</span>';
+    btn.textContent=T.uped; document.getElementById('licCard').classList.add('signed'); var _c=document.getElementById('licDoneChip'); if(_c){_c.textContent=T.chip;_c.style.display='inline-block';}
   }else{
-    msg.innerHTML='<span style="color:#dc2626;font-weight:700">アップロードに失敗しました。通信環境をご確認のうえ、再度お試しください。</span>';
-    btn.disabled=false; btn.textContent='アップロードする';
+    msg.innerHTML='<span style="color:#dc2626;font-weight:700">'+T.errmsg+'</span>';
+    btn.disabled=false; btn.textContent=T.upbtn;
   }
 }
 // 🚗 車両ごとの操作ガイド（実写PDF→画像）。車名/クラスにマッチした車のみ4枚表示、他は非表示
