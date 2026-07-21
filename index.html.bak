@@ -22655,7 +22655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.154-BT";
+const APP_VERSION="v1.0.155-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -23752,54 +23752,60 @@ function TaskEditor({task,initial,tasks,onSave,onClose,onDelete,me}){
 function _todoTaskToRow(t){return {id:t.id,area:t.area||null,title:t.title||"",assignee:t.assignee||"全員",parent_id:t.parentId||null,priority:t.priority||"中",status:t.status||"未着手",progress:t.progress||0,start_date:t.start||null,due_date:t.due||null,description:t.description||"",logs:t.logs||[],attachments:t.attachments||[],admin_confirmed:!!t.adminConfirmed,completed_at:t.completedAt||null,created_at:t.createdAt||TODAY,deleted:false,updated_at:new Date().toISOString()};}
 function _todoRowToTask(r){return {id:r.id,area:r.area,title:r.title,assignee:r.assignee,parentId:r.parent_id,priority:r.priority,status:r.status,progress:r.progress||0,start:r.start_date,due:r.due_date,description:r.description||"",logs:r.logs||[],attachments:r.attachments||[],adminConfirmed:!!r.admin_confirmed,completedAt:r.completed_at,createdAt:r.created_at};}
 
-/* LicenseSendListBT — 2026-07-21: 免許証チェックリスト（当日〜3日先の出発・未提出）※BTはLINE未配線＝コピー専用
-   完了判定=license_uploads(store=bt)。📋コピー→エルメ/LINEで手動送信 */
+/* LicenseSendListBT — 2026-07-21 改: 免許証「未提出」の予約を表示して対応。予約全体ベース(受け渡し種類問わず=全店同一運用)。
+   ★紐づけキー=予約番号。完了=license_uploads(cnt>0)。BTはLINE無し＝ご利用ガイドURLを📋コピーして案内。対応済=bt_line_sends(license_ack・可逆)。 */
 function LicenseSendListBT({sb}){
   const [rows,setRows]=React.useState([]);
+  const [subCnt,setSubCnt]=React.useState(0);
   const [open,setOpen]=React.useState(true);
   const [ver,setVer]=React.useState(0);
-  const [copied,setCopied]=React.useState(()=>{try{return JSON.parse(localStorage.getItem("bt_lic_copied")||"{}");}catch(e){return{};}});
   const days=React.useMemo(()=>{const a=[];for(let i=0;i<=3;i++){const d=new Date();d.setDate(d.getDate()+i);a.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return a;},[ver]);
-  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url="https://buddica-touring.github.io/app/license.html?id="+encodeURIComponent(r.resv)+"&name="+encodeURIComponent(r.name||"");return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ページからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
+  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url=r.mytoken?("https://buddica-touring.github.io/app/guide/?t="+encodeURIComponent(r.mytoken)):"https://buddica-touring.github.io/app/guide/";return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ご利用ガイドからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
   const load=React.useCallback(async()=>{
     if(!sb)return;
     try{
-      const{data}=await sb.from("bt_tasks").select("date,時間,予約者,担当,予約番号,内容").in("date",days).neq("deleted",true);
-      let tasks=(data||[]).filter(t=>["PUB","DEL","来店"].includes(t["内容"])).map(t=>({date:t.date,time:t["時間"]||"",name:t["予約者"]||"",assignee:t["担当"]||"",resv:t["予約番号"]||"",type:t["内容"]}));
-      tasks=tasks.filter(t=>t.resv);
-      const byResv={};
-      tasks.forEach(t=>{const k=t.resv;if(!byResv[k]||(t.date+" "+t.time)<(byResv[k].date+" "+byResv[k].time))byResv[k]=t;});
-      const uniq=Object.values(byResv);
-      const resvs=uniq.map(t=>t.resv);
-      const doneM={};
+      // 予約全体ベース＝その期間に出発する予約を種類問わず全部（免許証は運転者全員必要）
+      const{data}=await sb.from("bt_reservations").select("id,name,status,start_date,start_time,mypage_token").in("start_date",days);
+      const alive=(data||[]).filter(r=>{const st=String(r.status||"").toLowerCase();return r.id&&!st.includes("cancel")&&!st.includes("キャンセル");});
+      const resvs=alive.map(r=>r.id);
+      const doneM={},ackSet=new Set();
       if(resvs.length){
         const{data:lu}=await sb.from("license_uploads").select("reservation_id,cnt").in("reservation_id",resvs);
         (lu||[]).forEach(x=>{if(x.cnt>0)doneM[x.reservation_id]=true;});
+        const{data:sd}=await sb.from("bt_line_sends").select("resv_no,status,action").eq("action","license_ack").in("resv_no",resvs);
+        (sd||[]).forEach(s=>{if(s.status==="manual_done")ackSet.add(s.resv_no);});
       }
-      const out=uniq.map(t=>({...t,done:!!doneM[t.resv]})).sort((a,b)=>{ if(a.done!==b.done)return a.done?1:-1; return (a.date+" "+(a.time||"99")).localeCompare(b.date+" "+(b.time||"99")); });
-      setRows(out);
+      const all=alive.map(r=>({resv:r.id,name:r.name||"",date:r.start_date,time:r.start_time||"",mytoken:r.mypage_token||"",done:!!doneM[r.id],ack:ackSet.has(r.id)}));
+      setSubCnt(all.filter(r=>r.done).length);
+      const unsub=all.filter(r=>!r.done).sort((a,b)=>{ if(a.ack!==b.ack)return a.ack?1:-1; return (a.date+" "+(a.time||"99")).localeCompare(b.date+" "+(b.time||"99")); });
+      setRows(unsub);
     }catch(e){console.warn("[licSendListBT]",e.message);}
   },[sb,days]);
-  React.useEffect(()=>{ load(); const t=setInterval(()=>{if(document.visibilityState==="visible")setVer(v=>v+1);},120000); return ()=>clearInterval(t); },[load]);
-  const copyMsg=async(r)=>{const msg=buildMsg(r);try{await navigator.clipboard.writeText(msg);const nc={...copied,[r.resv]:new Date().toISOString()};setCopied(nc);try{localStorage.setItem("bt_lic_copied",JSON.stringify(nc));}catch(_){}alert("📋 免許証案内をコピーしました。\nエルメ/LINEに貼り付けて送ってください。");}catch(e){alert("コピーに失敗しました");}};
+  React.useEffect(()=>{ load(); const u=()=>load(); window.addEventListener("licenseUpdate",u); const t=setInterval(()=>{if(document.visibilityState==="visible")setVer(v=>v+1);},120000); return ()=>{window.removeEventListener("licenseUpdate",u);clearInterval(t);}; },[load]);
+  const copyMsg=async(r)=>{const msg=buildMsg(r);try{await navigator.clipboard.writeText(msg);alert("📋 免許証案内をコピーしました。\nメール/エルメでお客様に送ってください。\n対応が済んだら『✅対応済』を押してください。");}catch(e){alert("コピーに失敗しました");}};
+  const markDone=async(r)=>{try{await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"license_ack",status:"manual_done",message:"消し込み(対応済)"});load();}catch(e){alert("記録に失敗:"+e.message);}};
+  const ackUndo=async(r)=>{if(!window.confirm((r.name||"")+" 様の対応済を取り消しますか？"))return;try{await sb.from("bt_line_sends").delete().eq("resv_no",r.resv).eq("action","license_ack");load();}catch(e){alert("取消に失敗:"+e.message);}};
   const md=(dt)=>{try{return String(dt).slice(5).replace("-","/");}catch(e){return dt;}};
-  const notDone=rows.filter(r=>!r.done).length;
-  if(!rows.length)return <div style={{padding:16,color:"#94a3b8",fontSize:13,textAlign:"center"}}>直近（当日〜3日先）の出発予約はありません。</div>;
+  const needAct=rows.filter(r=>!r.ack).length;
   return <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,margin:"8px 0",overflow:"hidden"}}>
-    <div onClick={()=>setOpen(o=>!o)} style={{padding:"10px 12px",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:open?"1px solid #bfdbfe":"none"}}>
-      <span style={{fontSize:14,fontWeight:800,color:"#0f172a"}}>🪪 免許証チェック（当日〜3日先 {rows.length}件）</span>
-      {notDone>0&&<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#dc2626",padding:"1px 8px",borderRadius:10}}>未提出 {notDone}</span>}
+    <div onClick={()=>setOpen(o=>!o)} style={{padding:"10px 12px",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:open?"1px solid #bfdbfe":"none",flexWrap:"wrap"}}>
+      <span style={{fontSize:14,fontWeight:800,color:"#0f172a"}}>🪪 免許証 未提出（当日〜3日先）</span>
+      <span style={{fontSize:11,fontWeight:800,color:"#15803d",background:"#dcfce7",padding:"1px 8px",borderRadius:10}}>提出済 {subCnt}</span>
+      {rows.length>0?(needAct>0?<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#dc2626",padding:"1px 8px",borderRadius:10}}>未提出 {rows.length}（要対応 {needAct}）</span>:<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#16a34a",padding:"1px 8px",borderRadius:10}}>✅全員対応済</span>):<span style={{fontSize:11,fontWeight:800,color:"#16a34a",background:"#dcfce7",padding:"1px 8px",borderRadius:10}}>✅未提出なし</span>}
       <span style={{marginLeft:"auto",fontSize:12,color:"#64748b"}}>{open?"▲":"▼"}</span>
     </div>
     {open&&<div>
-      {rows.map((r,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap",fontSize:12,opacity:r.done?.55:1}}>
+      <div style={{padding:"7px 12px",fontSize:11,color:"#475569",background:"#f8fafc",borderBottom:"1px solid #f1f5f9",lineHeight:1.65}}>免許証をまだアップしていない方の一覧です。<b style={{color:"#2563eb"}}>📋コピー</b>してメール/エルメで<b>ご利用ガイド</b>を送信→お客様がガイドからアップ。対応が済んだら<b style={{color:"#16a34a"}}>✅対応済</b>を押す→<b>要対応が0で漏れなし</b>。</div>
+      {rows.length===0&&<div style={{padding:16,color:"#16a34a",fontSize:13,textAlign:"center",fontWeight:700}}>未提出の方はいません 🎉</div>}
+      {rows.map((r,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap",fontSize:12,opacity:r.ack?.5:1}}>
         <span style={{fontFamily:"monospace",fontWeight:800,color:"#334155",width:78}}>{md(r.date)} {r.time||"--:--"}</span>
-        <span style={{fontSize:9,fontWeight:800,color:"#2563eb"}}>{r.type}</span>
-        <span style={{fontWeight:700,color:"#0f172a",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name||"名前なし"}</span>
-        {r.assignee&&<span style={{fontSize:10,background:"#dbeafe",color:"#1d4ed8",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{r.assignee}</span>}
+        <span style={{fontWeight:700,color:"#0f172a",maxWidth:150,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name||"名前なし"}</span>
         <span style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}>
-          {r.done&&<span style={{fontSize:11,fontWeight:800,color:"#15803d"}}>✅提出済</span>}
-          {!r.done&&<button onClick={()=>copyMsg(r)} style={{fontSize:10,fontWeight:800,padding:"4px 9px",borderRadius:6,background:copied[r.resv]?"#94a3b8":"#2563eb",color:"#fff",border:"none",cursor:"pointer"}}>{copied[r.resv]?"📋コピー済":"📋コピー"}</button>}
+          {r.ack?<><span style={{fontSize:11,fontWeight:800,color:"#15803d"}}>✅対応済</span><button onClick={()=>ackUndo(r)} style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:5,background:"#f1f5f9",color:"#475569",border:"1px solid #cbd5e1",cursor:"pointer"}}>取消</button></>
+           :<>
+             <button onClick={()=>copyMsg(r)} style={{fontSize:10,fontWeight:800,padding:"5px 10px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer"}}>📋コピー</button>
+             <button onClick={()=>markDone(r)} title="対応が済んだら押す（消し込み）" style={{fontSize:10,fontWeight:800,padding:"5px 10px",borderRadius:6,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer"}}>✅対応済</button>
+           </>}
         </span>
       </div>)}
     </div>}
