@@ -14627,7 +14627,7 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
       let budgetDays=0,budgetHours=0;
       days.forEach(d=>{
         if(d.shift&&d.shift.symbol!=="公"&&d.shift.symbol!=="希"&&d.shift.symbol!=="有"){
-          budgetDays++;budgetHours+=calcHours(d.shift.start||"09:00",d.shift.end||"18:00");
+          budgetDays++;budgetHours+=calcHours(d.shift.start||"09:00",d.shift.end||(s.type==="正社員"?"19:00":"18:00"));
         }
       });
       const isP=s.type==="アルバイト";
@@ -14688,9 +14688,9 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
         const attKey=ds+"_"+s.name;
         const att=curAtt[attKey]||null;
         if(sh&&!att){
-          toCreate.push({date:ds,name:s.name,start:sh.start||"09:00",end:sh.end||"18:00",approved:false,memo:""});
+          toCreate.push({date:ds,name:s.name,start:sh.start||"09:00",end:sh.end||(s.type==="正社員"?"19:00":"18:00"),approved:false,memo:""});
         }else if(sh&&att&&!att.approved){
-          const newStart=sh.start||"09:00";const newEnd=sh.end||"18:00";
+          const newStart=sh.start||"09:00";const newEnd=sh.end||(s.type==="正社員"?"19:00":"18:00");
           if(att.start!==newStart||att.end!==newEnd){
             toUpdate.push({...att,start:newStart,end:newEnd});
           }
@@ -15251,9 +15251,9 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   const handleCellClick=(dateStr,name,type)=>{
     const cur=getShift(dateStr);const existing=cur.find(s=>s.name===name);
     if(existing){
-      setCellEdit({dateStr,name,type,symbol:existing.symbol||"●",start:existing.start||"09:00",end:existing.end||"18:00",status:existing.status||"確定",isNew:false});
+      setCellEdit({dateStr,name,type,symbol:existing.symbol||"●",start:existing.start||"09:00",end:existing.end||(type==="正社員"?"19:00":"18:00"),status:existing.status||"確定",isNew:false});
     }else{
-      setCellEdit({dateStr,name,type,symbol:type==="正社員"?"●":"",start:"09:00",end:"18:00",status:type==="アルバイト"?"申請":"確定",isNew:true});
+      setCellEdit({dateStr,name,type,symbol:type==="正社員"?"●":"",start:"09:00",end:type==="正社員"?"19:00":"18:00",status:type==="アルバイト"?"申請":"確定",isNew:true});
     }
   };
 
@@ -22655,7 +22655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.155-BT";
+const APP_VERSION="v1.0.156-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
