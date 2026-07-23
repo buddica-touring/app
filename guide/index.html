@@ -332,7 +332,7 @@ function setupPad(id){
   setTimeout(fit,30);window.addEventListener('resize',fit);
   var drawing=false,last=null;
   function pos(e){var r=cv.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
-  function start(e){e.preventDefault();drawing=true;last=pos(e);pad.classList.add('has');}
+  function start(e){e.preventDefault();if(!cv._c||cv.width<10){fit();}drawing=true;last=pos(e);pad.classList.add('has');}
   function move(e){if(!drawing)return;e.preventDefault();var p=pos(e),c=cv._c;c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();last=p;}
   function end(){drawing=false;}
   cv.addEventListener('mousedown',start);cv.addEventListener('mousemove',move);window.addEventListener('mouseup',end);
