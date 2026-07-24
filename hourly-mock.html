@@ -15,11 +15,12 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .topbar .cl{margin-left:auto;font-size:9px;letter-spacing:2px;color:var(--sub)}
 .hero{position:relative;background:#0d0d0f;overflow:hidden}
 .hero .kv{width:100%;display:block}
-.carscrim{position:absolute;inset:0;background:radial-gradient(58% 62% at 50% 60%,rgba(11,11,15,.75),rgba(11,11,15,0) 72%);opacity:0;transition:opacity .7s;pointer-events:none}
+.carscrim{position:absolute;inset:0;background:radial-gradient(62% 66% at 50% 58%,rgba(9,9,12,.9),rgba(9,9,12,0) 74%);opacity:0;transition:opacity .6s;pointer-events:none}
 .carscrim.on{opacity:1}
-.carlayer{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);width:60%;opacity:0;transition:opacity .55s ease;filter:drop-shadow(0 14px 16px rgba(0,0,0,.55));pointer-events:none}
-.carlayer.on{opacity:1}
-.dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;z-index:2}
+.carlayer{position:absolute;left:50%;bottom:12%;width:62%;opacity:0;transform:translateX(calc(-50% + 40px));transition:opacity .5s ease,transform .5s ease;filter:drop-shadow(0 14px 16px rgba(0,0,0,.6));pointer-events:none;z-index:2}
+.carlayer.on{opacity:1;transform:translateX(-50%)}
+.carcap{position:absolute;left:12px;bottom:12px;z-index:3;font-size:11px;font-weight:800;letter-spacing:1px;color:#fff;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.18);padding:4px 11px;border-radius:20px}
+.dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;z-index:3}
 .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);transition:.3s;cursor:pointer}
 .dots i.on{background:var(--org);width:16px;border-radius:3px}
 .herobody{padding:16px 18px 22px}
@@ -101,6 +102,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
     <div class="carscrim" id="hscrim"></div>
     <img class="carlayer" id="hcar" alt="">
+    <div class="carcap" id="hcap">Lamborghini Urus</div>
     <div class="dots" id="hdots"></div>
   </div>
 
@@ -210,20 +212,23 @@ recalc();renderCars();updateBar();
 /* ===== ヒーロー：背景固定・車だけスライド（1枚目=既存ウルス） ===== */
 (function(){
   var SLIDES=[null,"images/car-evoque.png","images/car-gclass.png","images/car-eclass.png","images/car-911.png"];
+  var NAMES=["Lamborghini Urus","Range Rover Evoque Cabriolet","Mercedes-AMG G-Class","Mercedes E-Class Cabriolet","Porsche 911"];
   SLIDES.forEach(function(s){if(s){var im=new Image();im.src=s;}}); // 先読み
-  var car=document.getElementById("hcar"),scrim=document.getElementById("hscrim"),dotsEl=document.getElementById("hdots");
+  var car=document.getElementById("hcar"),scrim=document.getElementById("hscrim"),dotsEl=document.getElementById("hdots"),cap=document.getElementById("hcap");
+  if(!car||!dotsEl){return;}
   dotsEl.innerHTML=SLIDES.map(function(_,i){return '<i data-i="'+i+'"'+(i===0?' class="on"':'')+'></i>';}).join("");
   var dots=dotsEl.children,idx=0,timer;
   function show(i){
     idx=i;
     for(var d=0;d<dots.length;d++)dots[d].className=(d===i)?"on":"";
+    if(cap)cap.textContent=NAMES[i];
     if(SLIDES[i]===null){car.classList.remove("on");scrim.classList.remove("on");return;}
     car.classList.remove("on");
-    setTimeout(function(){car.src=SLIDES[i];car.classList.add("on");scrim.classList.add("on");},260);
+    setTimeout(function(){car.src=SLIDES[i];car.classList.add("on");scrim.classList.add("on");},220);
   }
-  function play(){timer=setInterval(function(){show((idx+1)%SLIDES.length);},3500);}
-  dotsEl.addEventListener("click",function(e){var el=e.target.closest("i");if(!el)return;clearInterval(timer);show(+el.dataset.i);play();});
-  play();
+  function play(){clearInterval(timer);timer=setInterval(function(){show((idx+1)%SLIDES.length);},3000);}
+  dotsEl.addEventListener("click",function(e){var el=e.target.closest("i");if(!el)return;show(+el.getAttribute("data-i"));play();});
+  setTimeout(function(){show(1);play();},1800); // 最初の切替を早めに
 })();
 </script>
 </body></html>
