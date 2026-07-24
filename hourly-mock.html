@@ -15,13 +15,6 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .topbar .cl{margin-left:auto;font-size:9px;letter-spacing:2px;color:var(--sub)}
 .hero{position:relative;background:#0d0d0f;overflow:hidden}
 .hero .kv{width:100%;display:block}
-.carscrim{position:absolute;inset:0;background:radial-gradient(72% 92% at 47% 54%,rgba(8,8,11,.99),rgba(8,8,11,.92) 44%,rgba(8,8,11,0) 82%);opacity:0;transition:opacity .55s;pointer-events:none}
-.carscrim.on{opacity:1}
-.carlayer{position:absolute;left:50%;bottom:7%;width:44%;opacity:0;transform:translateX(calc(-50% + 26px));transition:opacity .5s ease,transform .5s ease;filter:drop-shadow(0 10px 12px rgba(0,0,0,.6));pointer-events:none;z-index:2}
-.carlayer.on{opacity:1;transform:translateX(-50%)}
-.dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;z-index:3}
-.dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);transition:.3s;cursor:pointer}
-.dots i.on{background:var(--org);width:16px;border-radius:3px}
 .herobody{padding:16px 18px 22px}
 .badge{display:inline-block;background:var(--org);color:#fff;font-weight:800;font-size:11px;padding:4px 12px;border-radius:20px;letter-spacing:1px}
 .hsub{color:var(--sub);font-size:13px;margin-top:10px}
@@ -57,7 +50,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .cars{display:flex;flex-direction:column;gap:12px}
 .car{background:var(--card);border:1.5px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:.15s}
 .car.on{border-color:var(--org);box-shadow:0 0 0 3px rgba(242,101,34,.12)}
-.car .pic{height:120px;background:radial-gradient(120% 130% at 70% 20%,#2c2c34,#141418);display:flex;align-items:center;justify-content:center;font-size:54px;position:relative}
+.car .pic{height:132px;background:radial-gradient(120% 130% at 70% 20%,#2c2c34,#141418);display:flex;align-items:center;justify-content:center;font-size:54px;position:relative;overflow:hidden}
+.car .pic .carimg{height:118px;width:auto;max-width:94%;object-fit:contain;filter:drop-shadow(0 8px 9px rgba(0,0,0,.5))}
 .car .cat{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border:1px solid var(--line);color:#ddd;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px}
 .car .avail{position:absolute;top:10px;right:10px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px}
 .av-ok{background:rgba(34,197,94,.18);color:#4ade80;border:1px solid rgba(34,197,94,.4)}
@@ -99,9 +93,6 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   </div>
   <div class="hero">
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
-    <div class="carscrim" id="hscrim"></div>
-    <img class="carlayer" id="hcar" alt="">
-    <div class="dots" id="hdots"></div>
   </div>
 
   <!-- STEP1 利用日・利用時間 -->
@@ -151,8 +142,10 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 <script>
 var CATS=[
   {cat:"ラグジュアリー",nm:"ランボルギーニ ウルス",mk:"Lamborghini",emo:"🏎️",p:{3:80000,6:100000,12:150000,24:200000},add:20000,av:"few"},
-  {cat:"ラグジュアリー",nm:"911",mk:"Porsche",emo:"🏎️",p:{3:60000,6:80000,12:120000,24:150000},add:15000,av:"ok"},
-  {cat:"ラグジュアリー",nm:"G-Class / Eクラス カブリオレ",mk:"Mercedes-Benz",emo:"🚙",p:{3:40000,6:55000,12:80000,24:100000},add:12000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Porsche 911",mk:"Porsche",img:"images/car-911.png",p:{3:60000,6:80000,12:120000,24:150000},add:15000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Mercedes-AMG G-Class",mk:"Mercedes-Benz",img:"images/car-gclass.png",p:{3:40000,6:55000,12:80000,24:100000},add:12000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"E-Class カブリオレ",mk:"Mercedes-Benz",img:"images/car-eclass.png",p:{3:38000,6:52000,12:76000,24:95000},add:12000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Evoque コンバーチブル",mk:"Land Rover",img:"images/car-evoque.png",p:{3:36000,6:50000,12:72000,24:90000},add:10000,av:"ok"},
   {cat:"ラグジュアリーミニバン",nm:"アルファード エグゼクティブ",mk:"Toyota",emo:"🚐",p:{3:24000,6:30750,12:43050,24:45750},add:6000,av:"ok"},
   {cat:"ミニバン",nm:"ノア / ヴォクシー",mk:"Toyota",emo:"🚐",p:{3:7600,6:9800,12:11800,24:13000},add:4500,av:"ok"},
   {cat:"セダン",nm:"ハリアー",mk:"Toyota",emo:"🚗",p:{3:6000,6:8000,12:9800,24:11000},add:3000,av:"ok"},
@@ -188,7 +181,7 @@ function renderCars(){
     var av=c.av==="few"?'<span class="avail av-few">△ 残りわずか</span>':'<span class="avail av-ok">◯ 空きあり</span>';
     var price=slot?yen(c.p[slot]):"—", unit=slot?(" / "+slot+"h枠"):"";
     h+='<div class="car'+(i===carIdx?' on':'')+'" onclick="pick('+i+')">'
-      +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+c.emo+'</div>'
+      +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+(c.img?('<img class="carimg" src="'+c.img+'" alt="">'):c.emo)+'</div>'
       +'<div class="body"><div><div class="nm">'+c.nm+'</div><div class="mk">'+c.mk+'</div></div>'
       +'<div class="price"><span class="p">'+price+'</span><span class="u">'+unit+'</span>'
       +'<div class="add">以降1泊 +'+yen(c.add)+'</div></div></div></div>';
@@ -206,30 +199,5 @@ document.getElementById("start").addEventListener("change",function(){recalc();r
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
 recalc();renderCars();updateBar();
-
-/* ===== ヒーロー：背景固定・車だけスライド（1枚目=既存ウルス） ===== */
-(function(){
-  var SLIDES=[null,"images/car-evoque.png","images/car-gclass.png","images/car-eclass.png","images/car-911.png"];
-  var NAMES=["Lamborghini Urus","Range Rover Evoque Cabriolet","Mercedes-AMG G-Class","Mercedes E-Class Cabriolet","Porsche 911"];
-  SLIDES.forEach(function(s){if(s){var im=new Image();im.src=s;}}); // 先読み
-  var car=document.getElementById("hcar"),scrim=document.getElementById("hscrim"),dotsEl=document.getElementById("hdots"),cap=document.getElementById("hcap");
-  if(!car||!dotsEl){return;}
-  dotsEl.innerHTML=SLIDES.map(function(_,i){return '<i data-i="'+i+'"'+(i===0?' class="on"':'')+'></i>';}).join("");
-  var dots=dotsEl.children,idx=0,timer;
-  function show(i){
-    idx=i;
-    for(var d=0;d<dots.length;d++)dots[d].className=(d===i)?"on":"";
-    if(SLIDES[i]===null){
-      car.classList.remove("on");scrim.classList.remove("on");
-      setTimeout(function(){if(cap)cap.textContent=NAMES[i];},300);
-      return;
-    }
-    car.classList.remove("on");
-    setTimeout(function(){car.src=SLIDES[i];car.classList.add("on");scrim.classList.add("on");if(cap)cap.textContent=NAMES[i];},220);
-  }
-  function play(){clearInterval(timer);timer=setInterval(function(){show((idx+1)%SLIDES.length);},3000);}
-  dotsEl.addEventListener("click",function(e){var el=e.target.closest("i");if(!el)return;show(+el.getAttribute("data-i"));play();});
-  setTimeout(function(){show(1);play();},1800); // 最初の切替を早めに
-})();
 </script>
 </body></html>
