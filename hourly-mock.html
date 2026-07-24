@@ -44,7 +44,14 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .trow{margin-top:10px;display:flex;align-items:center;gap:10px}
 .trow .field{flex:1}
 .tilde{color:var(--sub);font-weight:800;font-size:18px}
-.tend{font-size:13px;color:var(--sub);margin-top:10px}
+.field.tc{text-align:center;text-align-last:center}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.tg{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;opacity:.5;transition:.2s}
+.tg b{display:block;font-size:16px;font-weight:900}
+.tg span{font-size:10px;color:var(--sub)}
+.tg.on{opacity:1;border-color:var(--org);background:linear-gradient(180deg,rgba(242,101,34,.18),rgba(242,101,34,.03))}
+.tg.on b{color:var(--org)}
+.tend{font-size:13px;color:var(--sub);margin-top:12px;text-align:center}
 .tend b{color:var(--org)}
 /* car cards */
 .cars{display:flex;flex-direction:column;gap:12px}
@@ -100,13 +107,19 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   <!-- STEP1 利用日・利用時間 -->
   <div class="sec">
     <div class="slabel"><span class="no">1</span>利用日・利用時間</div>
-    <input type="date" id="date" class="field">
+    <input type="date" id="date" class="field tc">
     <div class="trow">
-      <select id="start" class="field"></select>
+      <select id="start" class="field tc"></select>
       <span class="tilde">〜</span>
-      <select id="end" class="field"></select>
+      <select id="end" class="field tc"></select>
     </div>
-    <div class="tend">利用時間 <b id="dur">—</b>　料金区分 <b id="tier">—</b><span style="color:#5a5a63"> ／ 返却後3hは整備のため次の貸出不可</span></div>
+    <div class="tiers" id="tiers">
+      <div class="tg" data-h="3"><b>3h</b><span>〜3時間</span></div>
+      <div class="tg" data-h="6"><b>6h</b><span>〜6時間</span></div>
+      <div class="tg" data-h="12"><b>12h</b><span>〜12時間</span></div>
+      <div class="tg" data-h="24"><b>24h</b><span>〜1日</span></div>
+    </div>
+    <div class="tend">利用時間 <b id="dur">—</b>　料金は <b id="tier">—</b> で計算<span style="color:#5a5a63"> ／ 返却後3hは整備のため次の貸出不可</span></div>
   </div>
 
   <!-- STEP2 車種 -->
@@ -162,12 +175,14 @@ function recalc(){
   var st=+document.getElementById("start").value, en=+document.getElementById("end").value;
   dur=(en-st)/60; // 時間
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
-  if(dur<=0){dEl.innerText="開始＜終了で選択";tEl.innerText="—";slot=0;return;}
+  if(dur<=0){dEl.innerText="開始＜終了で選択";tEl.innerText="—";slot=0;markTier();return;}
   slot=tierFor(dur);
   var over=en>=24*60?"（翌"+hhmm(en)+"）":"";
   dEl.innerText=(Number.isInteger(dur)?dur:dur.toFixed(1))+"時間"+over;
-  tEl.innerText=slot+"時間 枠";
+  tEl.innerText=slot+"時間枠";
+  markTier();
 }
+function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++)tgs[k].classList.toggle("on",+tgs[k].getAttribute("data-h")===slot);}
 function renderCars(){
   var h="";CATS.forEach(function(c,i){
     var av=c.av==="few"?'<span class="avail av-few">△ 残りわずか</span>':'<span class="avail av-ok">◯ 空きあり</span>';
