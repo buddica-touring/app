@@ -102,9 +102,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 /* ゲート（段階開示） */
 .sec.gated{filter:grayscale(1);opacity:.4;pointer-events:none;transition:filter .35s,opacity .35s}
 @keyframes pulseb{0%,100%{box-shadow:0 0 0 0 rgba(242,101,34,0)}50%{box-shadow:0 0 0 5px rgba(242,101,34,.32)}}
-.sec.await #timepick,.sec.await .datef{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
+.sec.await #timepick{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
 .gobtn{width:100%;margin-top:15px;background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:15px;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 14px rgba(242,101,34,.3)}
 .gobtn:active{transform:translateY(1px)}
+.stepbar{display:flex;gap:6px;padding:12px 14px;background:#0a0a0c;border-bottom:1px solid var(--line)}
+.stepbar .st{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:10.5px;font-weight:800;padding:7px 3px;border-radius:8px;background:#1a1a20;color:#7a7a85;border:1.5px solid transparent;white-space:nowrap}
+.stepbar .st.now{background:rgba(242,101,34,.15);color:#ffb98a;border-color:var(--org)}
+.stepbar .st.done{background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.4)}
 </style></head>
 <body>
 <div class="mockbar">🖼 デザインモック（DB未接続・料金/写真は仮）</div>
@@ -116,12 +120,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   <div class="hero">
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
   </div>
-  <div class="stepbar">
-    <div class="st now">日時</div>
-    <div class="st">お車</div>
-    <div class="st">ご確認</div>
-    <div class="st">お支払い</div>
-  </div>
+  <div class="stepbar"><div class="st now">日時・お車</div><div class="st">ご確認</div><div class="st">お支払い</div></div>
 
   <!-- STEP① 時間 -->
   <div class="sec await" id="sec1">
@@ -156,58 +155,100 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
       <div class="pl2">ご利用プラン<b id="tier">—</b></div>
     </div>
     <div class="tnote">ご返却後3時間は点検・清掃のため、次のご予約はお受けできません</div>
+    <button class="gobtn" id="toCars">この内容でお車を選ぶ →</button>
+  </div>
+
+  <!-- STEP③ お車 -->
+  <div class="sec gated" id="sec3">
+    <div class="slabel"><span class="no">3</span>お車を選ぶ</div>
+    <div class="stitle">この時間でご利用いただけるお車</div>
+    <div class="cars" id="cars"></div>
+    <div class="hint">※ ◯=空きあり／△=残りわずか（当日の他予約＋整備3hを考慮）。写真・料金は仮置きです。</div>
   </div>
 
   <div class="foot"><img src="images/bt-logo.png" class="logo" alt="BUDDICA TOURISM"><div style="margin-top:8px">高松空港店｜お問い合わせ：reserve.touring@buddica.co.jp</div></div>
 </div>
 
 <div class="bar"><div class="in">
-  <div class="sum"><div class="l1" id="sumL">まず、ご利用日時をお選びください</div><div class="l2" id="sumP" style="font-size:14px;color:#9a9aa5">日付・時間の選択でお進みいただけます</div></div>
-  <button class="go" id="go" disabled>お車を選ぶ →</button>
+  <div class="sum"><div class="l1" id="sumL">3時間・車種未選択</div><div class="l2" id="sumP">¥—</div></div>
+  <button class="go" id="go" disabled>予約へ進む</button>
 </div></div>
 
 <script>
-var slot=0, dur=0;
+// 料金は税抜。add=24時間超の超過1時間あたり単価（税抜）
+var CATS=[
+  {cat:"ラグジュアリー",nm:"ランボルギーニ ウルス",mk:"Lamborghini",img:"images/car-urus.png",p:{3:80000,6:100000,12:150000,24:200000},add:20000,av:"few"},
+  {cat:"ラグジュアリー",nm:"Porsche 911",mk:"Porsche",img:"images/car-911.png",p:{3:48000,6:60000,12:90000,24:120000},add:12000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Mercedes-Benz G400d",mk:"Mercedes-Benz",img:"images/car-gclass.png",p:{3:40000,6:50000,12:75000,24:100000},add:10000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Mercedes-Benz E カブリオレ",mk:"Mercedes-Benz",img:"images/car-eclass.png",p:{3:24000,6:30000,12:45000,24:60000},add:6000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Range Rover イヴォーク",mk:"Land Rover",img:"images/car-evoque.png",p:{3:18000,6:22500,12:33750,24:45000},add:4500,av:"ok"},
+  {cat:"ラグジュアリーミニバン",nm:"アルファード 等",mk:"Toyota",img:"images/car-alphard.png",p:{3:10800,6:13500,12:20250,24:27000},add:2700,av:"ok"}
+];
+var carIdx=-1, slot=3, dur=0;
+var yen=function(n){return "¥"+n.toLocaleString();};
 function opts(sel,from,to){var h='<option value="" selected>--:--</option>';for(var m=from;m<=to;m+=30){var d=m>=1440?"翌":"";var mm2=m%1440;var hh=("0"+Math.floor(mm2/60)).slice(-2),mm=("0"+(mm2%60)).slice(-2);h+='<option value="'+m+'">'+d+hh+":"+mm+'</option>';}sel.innerHTML=h;}
+// 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）・初期は未選択
 opts(document.getElementById("start"),9*60,19*60);
 opts(document.getElementById("end"),9*60+30,33*60);
-// 日付・時間ともに初期未選択（セットで選ばせる）
+// 日付初期=明日
+(function(){var d=new Date(Date.now()+9*36e5+864e5);document.getElementById("date").value=d.toISOString().slice(0,10);})();
 function tierFor(h){return h<=3?3:h<=6?6:h<=12?12:24;}
 function hhmm(m){m=((m%(24*60))+24*60)%(24*60);return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
-function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
-function updateGate(){
-  var s1=document.getElementById("sec1"),s2=document.getElementById("sec2");
-  var dateOk=!!document.getElementById("date").value, ok=dateOk&&slot>0;
-  s2.classList.toggle("gated",!ok);
-  s1.classList.toggle("await",!ok);
-  var g=document.getElementById("go"),L=document.getElementById("sumL"),P=document.getElementById("sumP");
-  g.disabled=!ok;
-  if(ok){L.textContent="ご利用プラン "+slot+"時間プラン";P.innerHTML='この日時でお車を選べます';}
-  else{L.textContent="まず、ご利用日時をお選びください";P.innerHTML='日付・時間の選択でお進みいただけます';}
-}
 function recalc(){
   var sv=document.getElementById("start").value, ev=document.getElementById("end").value;
   var st=+sv, en=+ev;
-  var dEl=document.getElementById("dur"), tEl=document.getElementById("tier"), box=document.getElementById("tiers");
-  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updateGate();return;}
+  var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
+  var box=document.getElementById("tiers");
+  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
   if(box)box.classList.remove("dim");
   dur=(en-st)/60;
-  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updateGate();return;}
+  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
   slot=tierFor(dur);
   var enTxt=(en>=24*60?"翌":"")+hhmm(en);
   dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
   tEl.innerText=slot+"時間プラン";
-  markTier();updateGate();
+  markTier();updatePlanPrice();updateGate();
 }
-document.getElementById("date").addEventListener("change",recalc);
-document.getElementById("start").addEventListener("change",recalc);
-document.getElementById("end").addEventListener("change",recalc);
-document.getElementById("go").addEventListener("click",function(){
-  if(!document.getElementById("date").value||slot<=0)return;
-  var q="d="+encodeURIComponent(document.getElementById("date").value)+"&s="+document.getElementById("start").value+"&e="+document.getElementById("end").value+"&slot="+slot;
-  location.href="hourly-mock2.html?"+q;
+function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
+function updatePlanPrice(){
+  var el=document.getElementById("planprice");if(!el)return;
+  if(carIdx>=0&&slot){var c=CATS[carIdx];el.innerHTML=c.nm+'<span class="amt">'+yen(c.p[slot])+'</span><span class="sub">'+slot+'時間プラン ・ 税抜 ・ 店頭お受け取り</span>';}
+  else{el.innerHTML='<span class="sub" style="font-size:13px">お車をお選びください</span>';}
+}
+function renderCars(){
+  var h="";CATS.forEach(function(c,i){
+    var av=c.av==="few"?'<span class="avail av-few">△ 残りわずか</span>':'<span class="avail av-ok">◯ 空きあり</span>';
+    var price=slot?yen(c.p[slot]):"—", unit=slot?("／"+slot+"時間プラン"):"";
+    h+='<div class="car'+(i===carIdx?' on':'')+'" onclick="pick('+i+')">'
+      +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+(c.img?('<img class="carimg" src="'+c.img+'" alt="">'):c.emo)+'</div>'
+      +'<div class="body"><div><div class="nm">'+c.nm+'</div><div class="mk">'+c.mk+'</div></div>'
+      +'<div class="price"><span class="p">'+price+'</span><span class="u">'+unit+'</span>'
+      +'<div class="add">24時間超は1時間ごと +'+yen(c.add)+'</div></div></div></div>';
+  });
+  document.getElementById("cars").innerHTML=h;
+}
+function updateBar(){
+  var s=document.getElementById("sumL"),p=document.getElementById("sumP"),g=document.getElementById("go");
+  if(!slot){s.innerText="利用時間を選択してください";p.innerHTML="¥—";g.disabled=true;return;}
+  if(carIdx<0){s.innerText=slot+"時間プラン・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
+  var c=CATS[carIdx];s.innerText=slot+"時間プラン｜"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>税抜／店頭お受け取り</small>';g.disabled=false;
+}
+function updateGate(){
+  var s1=document.getElementById("sec1"),s2=document.getElementById("sec2"),s3=document.getElementById("sec3");
+  var ok=slot>0;
+  s2.classList.toggle("gated",!ok);
+  s1.classList.toggle("await",!ok);
+  if(!ok){s3.classList.add("gated");}   // 時間が無効なら車も再ロック
+}
+window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
+document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
+document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
+document.getElementById("toCars").addEventListener("click",function(){
+  if(slot<=0)return;
+  document.getElementById("sec3").classList.remove("gated");
+  document.getElementById("sec3").scrollIntoView({behavior:"smooth",block:"start"});
 });
-recalc();
-
+document.getElementById("go").addEventListener("click",function(){if(carIdx<0||!slot)return;var c=CATS[carIdx];var q="d="+encodeURIComponent(document.getElementById("date").value)+"&s="+document.getElementById("start").value+"&e="+document.getElementById("end").value+"&slot="+slot+"&car="+encodeURIComponent(c.nm)+"&mk="+encodeURIComponent(c.mk)+"&price="+c.p[slot]+"&over="+c.add+"&img="+encodeURIComponent(c.img||"");location.href="hourly-mock3.html?"+q;});
+recalc();renderCars();updateBar();
 </script>
 </body></html>
