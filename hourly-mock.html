@@ -15,6 +15,13 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .topbar .cl{margin-left:auto;font-size:9px;letter-spacing:2px;color:var(--sub)}
 .hero{position:relative;background:#0d0d0f;overflow:hidden}
 .hero .kv{width:100%;display:block}
+.carscrim{position:absolute;inset:0;background:radial-gradient(58% 62% at 50% 60%,rgba(11,11,15,.75),rgba(11,11,15,0) 72%);opacity:0;transition:opacity .7s;pointer-events:none}
+.carscrim.on{opacity:1}
+.carlayer{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);width:60%;opacity:0;transition:opacity .55s ease;filter:drop-shadow(0 14px 16px rgba(0,0,0,.55));pointer-events:none}
+.carlayer.on{opacity:1}
+.dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;z-index:2}
+.dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);transition:.3s;cursor:pointer}
+.dots i.on{background:var(--org);width:16px;border-radius:3px}
 .herobody{padding:16px 18px 22px}
 .badge{display:inline-block;background:var(--org);color:#fff;font-weight:800;font-size:11px;padding:4px 12px;border-radius:20px;letter-spacing:1px}
 .hsub{color:var(--sub);font-size:13px;margin-top:10px}
@@ -85,6 +92,9 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   </div>
   <div class="hero">
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
+    <div class="carscrim" id="hscrim"></div>
+    <img class="carlayer" id="hcar" alt="">
+    <div class="dots" id="hdots"></div>
   </div>
 
   <!-- STEP1 利用日・利用時間 -->
@@ -181,5 +191,24 @@ document.getElementById("start").addEventListener("change",function(){recalc();r
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
 recalc();renderCars();updateBar();
+
+/* ===== ヒーロー：背景固定・車だけスライド（1枚目=既存ウルス） ===== */
+(function(){
+  var SLIDES=[null,"images/car-evoque.png","images/car-gclass.png","images/car-eclass.png","images/car-911.png"];
+  SLIDES.forEach(function(s){if(s){var im=new Image();im.src=s;}}); // 先読み
+  var car=document.getElementById("hcar"),scrim=document.getElementById("hscrim"),dotsEl=document.getElementById("hdots");
+  dotsEl.innerHTML=SLIDES.map(function(_,i){return '<i data-i="'+i+'"'+(i===0?' class="on"':'')+'></i>';}).join("");
+  var dots=dotsEl.children,idx=0,timer;
+  function show(i){
+    idx=i;
+    for(var d=0;d<dots.length;d++)dots[d].className=(d===i)?"on":"";
+    if(SLIDES[i]===null){car.classList.remove("on");scrim.classList.remove("on");return;}
+    car.classList.remove("on");
+    setTimeout(function(){car.src=SLIDES[i];car.classList.add("on");scrim.classList.add("on");},260);
+  }
+  function play(){timer=setInterval(function(){show((idx+1)%SLIDES.length);},3500);}
+  dotsEl.addEventListener("click",function(e){var el=e.target.closest("i");if(!el)return;clearInterval(timer);show(+el.dataset.i);play();});
+  play();
+})();
 </script>
 </body></html>
