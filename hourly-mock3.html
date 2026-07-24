@@ -68,6 +68,7 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .seg.on{background:var(--org);color:#fff}
 .shbox{margin-top:10px;font-size:13px;color:#d7d7dd;background:#0e0e12;border:1px solid #2a2a31;border-radius:12px;padding:12px 14px;line-height:1.6}
 .shbox b{color:#fff}
+.minisel{background:#0e0e12;border:1px solid #3a3a44;border-radius:10px;color:#fff;font-size:13px;font-weight:700;padding:8px 30px 8px 12px;appearance:none;-webkit-appearance:none;color-scheme:dark;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23f26522'%3E%3Cpath d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
 </style></head>
 <body>
 <div class="mockbar">🖼 デザインモック（DB未接続・お手続きは仮）</div>
@@ -113,7 +114,7 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
       <div class="t">🏬 高松空港店（店頭でお受け取り）</div>
       <div class="l"><span class="k">ご利用予定時間</span><span id="rplanned">—</span></div>
       <div class="l" style="align-items:center"><span class="k">空港送迎</span>
-        <span class="segwrap"><button type="button" class="seg on" id="segNo" onclick="setShuttle(false)">なし（店舗引き取り）</button><button type="button" class="seg" id="segYes" onclick="setShuttle(true)">あり</button></span>
+        <select id="shSel" class="minisel" onchange="setShuttle(this.value==='yes')"><option value="no">なし（店舗引き取り）</option><option value="yes">あり（空港送迎）</option></select>
       </div>
       <div id="shNo" class="shbox">🏬 高松空港店の店頭でお引き取りください（お受け取り時刻：<b id="pickNo">—</b>）</div>
       <div id="shYes" class="shbox" style="display:none">
@@ -149,7 +150,7 @@ document.getElementById("brice").textContent=yen(price);
 var _pn=document.getElementById("pickNo");if(_pn)_pn.textContent=(s!=null?hhmm(s):"—");
 var _rp=document.getElementById("rplanned");if(_rp)_rp.textContent=((s!=null?hhmm(s):"—")+" – "+(e!=null?hhmm(e):"—")+"（予定）");
 if(img){document.getElementById("rpic").innerHTML='<img src="'+img+'" alt="">';}else{document.getElementById("rpic").textContent="🚗";}
-window.setShuttle=function(yes){document.getElementById("segYes").classList.toggle("on",yes);document.getElementById("segNo").classList.toggle("on",!yes);document.getElementById("shYes").style.display=yes?"block":"none";document.getElementById("shNo").style.display=yes?"none":"block";};
+window.setShuttle=function(yes){document.getElementById("shYes").style.display=yes?"block":"none";document.getElementById("shNo").style.display=yes?"none":"block";};
 document.getElementById("pay").addEventListener("click",function(){location.href="hourly-mock3b.html"+location.search;});
 </script>
 </body></html>
