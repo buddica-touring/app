@@ -148,6 +148,13 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .dmg-state.open{background:#15803d;color:#fff;}
 .dmg-state.wait{background:#94a3b8;color:#fff;}
 .terms-note{margin-top:10px;font-size:13px;font-weight:700;color:#5b6b7b;background:#f6f8fb;border:1px solid #d9dee7;border-radius:9px;padding:10px 12px;line-height:1.7;}
+@keyframes licpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
+#licAlert{align-items:center;gap:11px;background:#fef2f2;border:2px solid #dc2626;border-radius:14px;padding:13px 15px;margin-bottom:16px;cursor:pointer;animation:licpulse 1.15s ease-in-out infinite}
+#licAlert .la-ic{font-size:26px;flex:none}
+#licAlert .la-tx{flex:1;min-width:0}
+#licAlert .la-tx b{display:block;color:#b91c1c;font-size:15px;font-weight:900;margin-bottom:2px}
+#licAlert .la-tx span{display:block;color:#7f1d1d;font-size:12.5px;line-height:1.55}
+#licAlert .la-go{flex:none;background:#dc2626;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:9px 12px;white-space:nowrap}
 </style></head>
 <body><div class="wrap">
 <div id="langbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px;"><button onclick="setLang('ja')" data-lang="ja" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">日本語</button><button onclick="setLang('en')" data-lang="en" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">EN</button><button onclick="setLang('zh')" data-lang="zh" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">繁體</button><button onclick="setLang('ko')" data-lang="ko" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">한국어</button></div>
@@ -158,6 +165,8 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 </div>
 
 <div id="doneBanner" style="display:none;background:#dcfce7;border:1.5px solid #86efac;border-radius:12px;padding:15px 18px;margin-bottom:16px;color:#166534;font-weight:800;font-size:16px;text-align:center;" data-t="banner">✅ 締結が完了しました（傷の確認・約款へのご同意をいただきました）</div>
+
+<div id="licAlert" style="display:none" onclick="document.getElementById('licCard').scrollIntoView({behavior:'smooth',block:'center'})"></div>
 
 <!-- ③ 予約情報 -->
 <div class="card">
@@ -373,22 +382,24 @@ async function rpc(fn,args){
   try{var r=await fetch(BT_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});return await r.json();}catch(e){return null;}
 }
 /* 🪪 運転免許証アップロード（保存先=GAS→Googleドライブ／記録=license_uploads・予約番号キー＝どの導線でも同じ予約に紐づく） */
-var LIC_ROWS=1, LIC_CNT=0;
+var LIC_ROWS=1, LIC_CNT=0, LIC_READY=false;
 var LICT={
- ja:{head:"運転免許証のご登録",chip:"✅ 登録済み",done:"✅ 免許証は登録済みです。ありがとうございます。",done2:"（追加の運転者がいる場合は下から追加できます）",desc:"ご出発をスムーズにするため、運転される方の運転免許証（表面・裏面）を事前にアップロードください。外国のお客様はパスポート＋国外運転免許証をお願いします。",driver:"運転者",front:"（免許証 表面）",add:"＋ 別の運転者を追加",upbtn:"アップロードする",uploading:"アップロード中…",note:"画像は本人確認・貸渡手続きのみに使用し、法令に基づき安全に保管します。",need:"免許証（表面・裏面）の画像を選んでください",needset:"表面と裏面の両方を選択してください",okmsg:"✓ アップロードが完了しました。ありがとうございます。",errmsg:"アップロードに失敗しました。通信環境をご確認のうえ、再度お試しください。",uped:"アップロード済み",ro:"閲覧専用モード（スタッフ確認用）のためアップロードできません"},
- en:{head:"Driver's License",chip:"✅ Registered",done:"✅ Your license is registered. Thank you.",done2:"(You can add another driver below.)",desc:"To speed up your pickup, please upload the front of each driver's license in advance. International customers: passport + international driving permit.",driver:"Driver",front:" (License front)",add:"+ Add another driver",upbtn:"Upload",uploading:"Uploading…",note:"Images are used only for identity verification and rental procedures, and stored securely per law.",need:"Please select the front image.",okmsg:"✓ Upload complete. Thank you.",errmsg:"Upload failed. Please check your connection and try again.",uped:"Uploaded",ro:"View-only mode (staff). Upload is disabled."},
- zh:{head:"駕照登記",chip:"✅ 已登記",done:"✅ 駕照已登記，謝謝。",done2:"（如有其他駕駛人，可於下方新增。）",desc:"為使交車更順暢，請事先上傳每位駕駛人的駕照（正面）。外國旅客請上傳護照＋國際駕照。",driver:"駕駛人",front:"（駕照 正面）",add:"＋ 新增其他駕駛人",upbtn:"上傳",uploading:"上傳中…",note:"影像僅用於身分確認及租賃手續，並依法規安全保管。",need:"請選擇正面影像。",okmsg:"✓ 上傳完成，謝謝。",errmsg:"上傳失敗，請確認網路後再試。",uped:"已上傳",ro:"僅供瀏覽（工作人員確認用），無法上傳。"},
- ko:{head:"운전면허증 등록",chip:"✅ 등록됨",done:"✅ 면허증이 등록되었습니다. 감사합니다.",done2:"（다른 운전자가 있으면 아래에서 추가할 수 있습니다.）",desc:"원활한 출발을 위해 운전자의 운전면허증(앞면)을 미리 업로드해 주세요. 해외 고객은 여권＋국제운전면허증을 부탁드립니다.",driver:"운전자",front:"（면허증 앞면）",add:"＋ 다른 운전자 추가",upbtn:"업로드",uploading:"업로드 중…",note:"이미지는 본인확인·대여 절차에만 사용되며 법령에 따라 안전하게 보관됩니다.",need:"앞면 이미지를 선택해 주세요.",okmsg:"✓ 업로드가 완료되었습니다. 감사합니다.",errmsg:"업로드에 실패했습니다. 통신 상태를 확인 후 다시 시도해 주세요.",uped:"업로드됨",ro:"열람 전용(직원 확인용)이라 업로드할 수 없습니다."}
+ ja:{head:"運転免許証のご登録",chip:"✅ 登録済み",done:"✅ 免許証は登録済みです。ありがとうございます。",done2:"（追加の運転者がいる場合は下から追加できます）",desc:"ご出発をスムーズにするため、運転される方の運転免許証（表面・裏面）を事前にアップロードください。外国のお客様はパスポート＋国外運転免許証をお願いします。",driver:"運転者",front:"（免許証 表面）",add:"＋ 別の運転者を追加",upbtn:"アップロードする",uploading:"アップロード中…",note:"画像は本人確認・貸渡手続きのみに使用し、法令に基づき安全に保管します。",need:"免許証（表面・裏面）の画像を選んでください",needset:"表面と裏面の両方を選択してください",okmsg:"✓ アップロードが完了しました。ありがとうございます。",errmsg:"アップロードに失敗しました。通信環境をご確認のうえ、再度お試しください。",uped:"アップロード済み",ro:"閲覧専用モード（スタッフ確認用）のためアップロードできません",a_title:"運転免許証が未提出です",a_body:"ご出発をスムーズにするため、運転される方の免許証（表面・裏面）を今すぐご登録ください。",a_btn:"今すぐ登録 →"},
+ en:{head:"Driver's License",chip:"✅ Registered",done:"✅ Your license is registered. Thank you.",done2:"(You can add another driver below.)",desc:"To speed up your pickup, please upload the front of each driver's license in advance. International customers: passport + international driving permit.",driver:"Driver",front:" (License front)",add:"+ Add another driver",upbtn:"Upload",uploading:"Uploading…",note:"Images are used only for identity verification and rental procedures, and stored securely per law.",need:"Please select the front image.",okmsg:"✓ Upload complete. Thank you.",errmsg:"Upload failed. Please check your connection and try again.",uped:"Uploaded",ro:"View-only mode (staff). Upload is disabled.",a_title:"Driver's license not submitted",a_body:"Please register the driver's license (front & back) now for a smooth pickup.",a_btn:"Register now →"},
+ zh:{head:"駕照登記",chip:"✅ 已登記",done:"✅ 駕照已登記，謝謝。",done2:"（如有其他駕駛人，可於下方新增。）",desc:"為使交車更順暢，請事先上傳每位駕駛人的駕照（正面）。外國旅客請上傳護照＋國際駕照。",driver:"駕駛人",front:"（駕照 正面）",add:"＋ 新增其他駕駛人",upbtn:"上傳",uploading:"上傳中…",note:"影像僅用於身分確認及租賃手續，並依法規安全保管。",need:"請選擇正面影像。",okmsg:"✓ 上傳完成，謝謝。",errmsg:"上傳失敗，請確認網路後再試。",uped:"已上傳",ro:"僅供瀏覽（工作人員確認用），無法上傳。",a_title:"尚未登記駕照",a_body:"為使交車順暢，請立即登記駕駛人的駕照（正反面）。",a_btn:"立即登記 →"},
+ ko:{head:"운전면허증 등록",chip:"✅ 등록됨",done:"✅ 면허증이 등록되었습니다. 감사합니다.",done2:"（다른 운전자가 있으면 아래에서 추가할 수 있습니다.）",desc:"원활한 출발을 위해 운전자의 운전면허증(앞면)을 미리 업로드해 주세요. 해외 고객은 여권＋국제운전면허증을 부탁드립니다.",driver:"운전자",front:"（면허증 앞면）",add:"＋ 다른 운전자 추가",upbtn:"업로드",uploading:"업로드 중…",note:"이미지는 본인확인·대여 절차에만 사용되며 법령에 따라 안전하게 보관됩니다.",need:"앞면 이미지를 선택해 주세요.",okmsg:"✓ 업로드가 완료되었습니다. 감사합니다.",errmsg:"업로드에 실패했습니다. 통신 상태를 확인 후 다시 시도해 주세요.",uped:"업로드됨",ro:"열람 전용(직원 확인용)이라 업로드할 수 없습니다.",a_title:"운전면허증 미제출",a_body:"원활한 출발을 위해 지금 운전자의 면허증(앞·뒷면)을 등록해 주세요.",a_btn:"지금 등록 →"}
 };
 function _lict(){ return LICT[LANG]||LICT.ja; }
 function renderLicCard(cnt){
-  if(typeof cnt==='number')LIC_CNT=cnt;
+  if(typeof cnt==='number'){LIC_CNT=cnt;LIC_READY=true;}
   var card=document.getElementById('licCard'); if(!card)return;
   card.style.display='block';
   var T=_lict(), done=(LIC_CNT>0);
   var head=document.getElementById('licHead'); if(head)head.textContent=T.head;
   var chip=document.getElementById('licDoneChip'); if(chip){chip.textContent=T.chip; chip.style.display=done?'inline-block':'none';}
   if(done)card.classList.add('signed');
+  var la=document.getElementById('licAlert');
+  if(la){ if(done||RO||!LIC_READY){ la.style.display='none'; } else { la.innerHTML='<div class="la-ic">🪪</div><div class="la-tx"><b>⚠️ '+T.a_title+'</b><span>'+T.a_body+'</span></div><div class="la-go">'+T.a_btn+'</div>'; la.style.display='flex'; } }
   var body=document.getElementById('licBody');
   var rows='';
   var backLabel={ja:'（免許証 裏面）',en:'(License — Back)',zh:'（駕照 背面）',ko:'（면허증 뒷면）'}[LANG]||'（免許証 裏面）';
