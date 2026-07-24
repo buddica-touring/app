@@ -45,7 +45,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .tcap{font-size:11px;color:#8a8a95;text-align:center;margin-top:13px;letter-spacing:.5px}
 .flowline{text-align:center;font-size:12px;color:#9a9aa5;font-weight:600;margin:14px 0 4px;letter-spacing:.5px}
 .flowline .fl-ico{color:var(--org);font-weight:900}
-.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;pointer-events:none}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;pointer-events:none;transition:.25s}
+.tiers.dim{filter:grayscale(1);opacity:.55}
 .tg{background:transparent;border:none;border-radius:10px;padding:7px 4px;text-align:center;opacity:.35;transition:.2s;cursor:default}
 .tg b{display:block;font-size:15px;font-weight:800}
 .tg span{font-size:10px;color:var(--sub)}
@@ -177,21 +178,23 @@ var CATS=[
 ];
 var carIdx=-1, slot=3, dur=0;
 var yen=function(n){return "¥"+n.toLocaleString();};
-function opts(sel,from,to){var h="";for(var m=from;m<=to;m+=30){var d=m>=1440?"翌":"";var mm2=m%1440;var hh=("0"+Math.floor(mm2/60)).slice(-2),mm=("0"+(mm2%60)).slice(-2);h+='<option value="'+m+'">'+d+hh+":"+mm+'</option>';}sel.innerHTML=h;}
-// 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）
+function opts(sel,from,to){var h='<option value="" selected>--:--</option>';for(var m=from;m<=to;m+=30){var d=m>=1440?"翌":"";var mm2=m%1440;var hh=("0"+Math.floor(mm2/60)).slice(-2),mm=("0"+(mm2%60)).slice(-2);h+='<option value="'+m+'">'+d+hh+":"+mm+'</option>';}sel.innerHTML=h;}
+// 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）・初期は未選択
 opts(document.getElementById("start"),9*60,19*60);
 opts(document.getElementById("end"),9*60+30,33*60);
-document.getElementById("start").value=10*60;
-document.getElementById("end").value=13*60;
 // 日付初期=明日
 (function(){var d=new Date(Date.now()+9*36e5+864e5);document.getElementById("date").value=d.toISOString().slice(0,10);})();
 function tierFor(h){return h<=3?3:h<=6?6:h<=12?12:24;}
 function hhmm(m){m=((m%(24*60))+24*60)%(24*60);return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
 function recalc(){
-  var st=+document.getElementById("start").value, en=+document.getElementById("end").value;
-  dur=(en-st)/60; // 時間
+  var sv=document.getElementById("start").value, ev=document.getElementById("end").value;
+  var st=+sv, en=+ev;
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
-  if(dur<=0){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;markTier();updatePlanPrice();return;}
+  var box=document.getElementById("tiers");
+  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();return;}
+  if(box)box.classList.remove("dim");
+  dur=(en-st)/60;
+  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();return;}
   slot=tierFor(dur);
   var enTxt=(en>=24*60?"翌":"")+hhmm(en);
   dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
