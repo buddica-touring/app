@@ -61,7 +61,27 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .pl3{margin-top:13px;padding-top:13px;border-top:1px solid #30303a;font-size:13px;font-weight:600;color:#c7c7d0}
 .pl3 .amt{display:block;color:var(--org);font-size:25px;font-weight:900;letter-spacing:.6px;margin-top:4px}
 .pl3 .sub{display:block;font-size:11px;color:#8a8a95;font-weight:500;letter-spacing:.5px;margin-top:5px}
+.plhint{font-size:11.5px;color:#ffcfae;margin-top:9px;line-height:1.5;background:rgba(242,101,34,.09);border:1px solid rgba(242,101,34,.25);border-radius:9px;padding:7px 10px;display:none}
+.plview{margin-top:12px;background:transparent;color:#ffb98a;border:1.5px solid rgba(242,101,34,.5);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;width:100%}
 .tnote{font-size:11px;color:#6a6a73;text-align:center;margin-top:10px;letter-spacing:.3px}
+/* 料金表モーダル */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:none;align-items:flex-end;justify-content:center;padding:0}
+.modal.on{display:flex}
+.mbox{background:#141418;border:1px solid #33333c;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:86vh;display:flex;flex-direction:column;animation:mup .25s ease}
+@keyframes mup{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.mhd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;font-size:16px;font-weight:900;border-bottom:1px solid #262630}
+.mhd small{font-size:11px;color:var(--sub);font-weight:600;margin-left:6px}
+.mx{background:#22222a;border:none;color:#c7c7d0;width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer}
+.mbody{overflow:auto;padding:12px 14px}
+.ptbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.ptbl th,.ptbl td{padding:8px 5px;text-align:right;white-space:nowrap;border-bottom:1px solid #24242e}
+.ptbl th{color:var(--sub);font-weight:700;font-size:10.5px}
+.ptbl td:first-child,.ptbl th:first-child{text-align:left;font-weight:800}
+.ptbl td:first-child{color:#e7e7ea}
+.ptbl .hl{background:rgba(242,101,34,.16)}
+.ptbl th.hl{color:var(--org)}
+.ptbl td.hl{color:var(--org);font-weight:900}
+.mnote{font-size:11px;color:#8a8a95;padding:10px 16px 18px;line-height:1.6;border-top:1px solid #262630}
 /* car cards */
 .cars{display:flex;flex-direction:column;gap:12px}
 .car{background:var(--card);border:1.5px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:.15s}
@@ -102,7 +122,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 /* ゲート（段階開示） */
 .sec.gated{filter:grayscale(1);opacity:.4;pointer-events:none;transition:filter .35s,opacity .35s}
 @keyframes pulseb{0%,100%{box-shadow:0 0 0 0 rgba(242,101,34,0)}50%{box-shadow:0 0 0 5px rgba(242,101,34,.32)}}
-.sec.await #timepick{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
+.sec.await #timepick,.sec.await .datef{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
 .gobtn{width:100%;margin-top:15px;background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:15px;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 14px rgba(242,101,34,.3)}
 .gobtn:active{transform:translateY(1px)}
 .stepbar{display:flex;gap:6px;padding:12px 14px;background:#0a0a0c;border-bottom:1px solid var(--line)}
@@ -153,6 +173,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
     <div class="planbox">
       <div class="pl1" id="dur">貸出・返却のお時間をお選びください</div>
       <div class="pl2">ご利用プラン<b id="tier">—</b></div>
+      <div class="plhint" id="plhint"></div>
+      <button class="plview" id="plView" type="button">📋 料金プランを見る</button>
     </div>
     <div class="tnote">ご返却後3時間は点検・清掃のため、次のご予約はお受けできません</div>
     <button class="gobtn" id="toCars">この内容でお車を選ぶ →</button>
@@ -174,6 +196,12 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   <button class="go" id="go" disabled>予約へ進む</button>
 </div></div>
 
+<div class="modal" id="planModal"><div class="mbox">
+  <div class="mhd"><span>料金プラン<small>税抜</small></span><button class="mx" id="plClose">✕</button></div>
+  <div class="mbody" id="planTable"></div>
+  <div class="mnote">※ ご利用の<b>合計時間</b>を、上のプランに<b>繰り上げ</b>て計算します（例：3.5時間 → 6時間プラン）。<br>※ 24時間を超える場合は、1時間ごとに超過料金がかかります。</div>
+</div></div>
+
 <script>
 // 料金は税抜。add=24時間超の超過1時間あたり単価（税抜）
 var CATS=[
@@ -191,7 +219,7 @@ function opts(sel,from,to){var h='<option value="" selected>--:--</option>';for(
 opts(document.getElementById("start"),9*60,19*60);
 opts(document.getElementById("end"),9*60+30,33*60);
 // 日付初期=明日
-(function(){var d=new Date(Date.now()+9*36e5+864e5);document.getElementById("date").value=d.toISOString().slice(0,10);})();
+// 日付は初期未選択（時間とセットで選ばせる）
 function tierFor(h){return h<=3?3:h<=6?6:h<=12?12:24;}
 function hhmm(m){m=((m%(24*60))+24*60)%(24*60);return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
 function recalc(){
@@ -199,15 +227,24 @@ function recalc(){
   var st=+sv, en=+ev;
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
   var box=document.getElementById("tiers");
-  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
+  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");setPlanHint(0);markTier();updatePlanPrice();updateGate();return;}
   if(box)box.classList.remove("dim");
   dur=(en-st)/60;
-  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
+  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");setPlanHint(0);markTier();updatePlanPrice();updateGate();return;}
   slot=tierFor(dur);
   var enTxt=(en>=24*60?"翌":"")+hhmm(en);
-  dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
+  var durTxt=(Number.isInteger(dur)?dur:dur.toFixed(1));
+  dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b>　合計 <b style="color:#fff">'+durTxt+'時間</b>';
   tEl.innerText=slot+"時間プラン";
+  setPlanHint(dur,durTxt);
   markTier();updatePlanPrice();updateGate();
+}
+function setPlanHint(dur,durTxt){
+  var el=document.getElementById("plhint");if(!el)return;
+  if(!dur||dur<=0){el.style.display="none";return;}
+  var b={3:"〜3時間",6:"3〜6時間",12:"6〜12時間",24:"12〜24時間"};
+  el.style.display="block";
+  el.innerHTML=(dur<slot)?('合計 '+durTxt+'時間のご利用は <b>'+slot+'時間プラン</b>（'+b[slot]+'）の料金でご案内します。'):('<b>'+slot+'時間プラン</b>（'+b[slot]+'）でのご案内です。');
 }
 function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
 function updatePlanPrice(){
@@ -235,12 +272,26 @@ function updateBar(){
 }
 function updateGate(){
   var s1=document.getElementById("sec1"),s2=document.getElementById("sec2"),s3=document.getElementById("sec3");
-  var ok=slot>0;
+  var dateOk=!!document.getElementById("date").value, ok=dateOk&&slot>0;   // 日付＋時間セットで確定
   s2.classList.toggle("gated",!ok);
   s1.classList.toggle("await",!ok);
-  if(!ok){s3.classList.add("gated");}   // 時間が無効なら車も再ロック
+  if(!ok){s3.classList.add("gated");}
 }
+function shortName(nm){return nm.replace(/^(Mercedes-Benz|Porsche|Range Rover|ランボルギーニ)\s*/,"");}
+function renderPlanTable(){
+  var cur=slot||0,h='<table class="ptbl"><thead><tr><th>車種</th>';
+  [3,6,12,24].forEach(function(t){h+='<th class="'+(t===cur?"hl":"")+'">'+t+'h</th>';});
+  h+='<th>超過/1h</th></tr></thead><tbody>';
+  CATS.forEach(function(c){h+='<tr><td>'+shortName(c.nm)+'</td>';[3,6,12,24].forEach(function(t){h+='<td class="'+(t===cur?"hl":"")+'">'+yen(c.p[t])+'</td>';});h+='<td>'+yen(c.add)+'</td></tr>';});
+  document.getElementById("planTable").innerHTML=h+'</tbody></table>';
+}
+function openPlans(){renderPlanTable();document.getElementById("planModal").classList.add("on");}
+function closePlans(){document.getElementById("planModal").classList.remove("on");}
+document.getElementById("plView").addEventListener("click",openPlans);
+document.getElementById("plClose").addEventListener("click",closePlans);
+document.getElementById("planModal").addEventListener("click",function(e){if(e.target===this)closePlans();});
 window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
+document.getElementById("date").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("toCars").addEventListener("click",function(){
