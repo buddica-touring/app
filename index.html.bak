@@ -17286,7 +17286,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           {key:"del",label:"DEL",sub:"配送",icon:"🚗",tasks:delTasks,color:"#1565c0",bg:"#e3f2fd",people:pplSum(delTasks)},
           {key:"col",label:"COL",sub:"回収",icon:"🚛",tasks:colTasks,color:"#e65100",bg:"#fff3e0",people:pplSum(colTasks)},
           {key:"raiten",label:"来店",sub:"来店貸出/返却",icon:"🏪",tasks:raitenTasks,color:"#7c3aed",bg:"#f5f3ff",people:pplSum(raitenTasks)},
-          {key:"wash",label:"洗車",sub:"事前洗車",icon:"🧽",tasks:washTasks,color:"#546e7a",bg:"#f5f5f5",people:0},
+          {key:"wash",label:"洗車",sub:"出発準備/洗車",icon:"🧽",tasks:washTasks,color:"#546e7a",bg:"#f5f5f5",people:0},
         ];
         return <div style={{padding:isMob?4:8}}>
           {/* ヘッダー */}
@@ -18170,7 +18170,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <span style={{fontSize:11,fontWeight:800,color:"#5D4037",flexShrink:0}}>➕ 追加</span>
                 <select value={washAddCat} onChange={e=>setWashAddCat(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#5D4037",background:"#fff",flex:"0 1 auto"}}>
                   <option value="">カテゴリ</option>
-                  {["事前洗車","当日洗車","緊急洗車","引渡前洗車","返却後洗車","内装洗車","外装洗車"].map(c=><option key={c} value={c}>{c}</option>)}
+                  {["出発準備/洗車","当日洗車","緊急洗車","引渡前洗車","返却後洗車","内装洗車","外装洗車","内装メンテ/美装","外装メンテ/美装"].map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
                 <select value={washAddVc} onChange={e=>setWashAddVc(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両を選択</option>
@@ -18190,7 +18190,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           {/* 事前洗車（自動生成） */}
           {autoWash.length>0&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
             <div style={{padding:"6px 12px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontWeight:800,fontSize:12,color:"#64748b"}}>📋 事前洗車（翌日出発車両）</span>
+              <span style={{fontWeight:800,fontSize:12,color:"#64748b"}}>📋 出発準備/洗車（翌日出発車両）</span>
               <span style={{fontSize:10,fontWeight:600,color:"#94a3b8"}}>{autoWash.length}件</span>
             </div>
             {autoWash.map(renderWashRow)}
@@ -22671,7 +22671,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.158-BT";
+const APP_VERSION="v1.0.159-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
