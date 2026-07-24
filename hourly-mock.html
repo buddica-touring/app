@@ -30,6 +30,9 @@ input[type=date]{color-scheme:dark}
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.85);opacity:.9}
 .datef::-webkit-datetime-edit{color:#fff}
 .dlab{font-size:11px;letter-spacing:2px;color:var(--org);font-weight:800;margin:2px 0 7px}
+.datewrap{position:relative}
+.dateph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#9a9aa5;font-weight:700;font-size:15px}
+.datef.empty{color:transparent}
 /* slots */
 .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .slot{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:14px 6px;text-align:center;cursor:pointer;transition:.15s}
@@ -154,7 +157,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.85);opacity:.
   <div class="sec await" id="sec1">
     <div class="slabel"><span class="no">1</span>まず、ご利用時間をお選びください</div>
     <div class="dlab">📅 ご利用日</div>
-    <input type="date" id="date" class="field tc datef">
+    <div class="datewrap"><input type="date" id="date" class="field tc datef"><div class="dateph" id="dateph">タップして利用日を選択</div></div>
     <div class="timepick" id="timepick">
       <div class="tcol">
         <div class="tlab">貸出</div>
@@ -300,7 +303,8 @@ document.getElementById("plView").addEventListener("click",openPlans);
 document.getElementById("plClose").addEventListener("click",closePlans);
 document.getElementById("planModal").addEventListener("click",function(e){if(e.target===this)closePlans();});
 window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
-document.getElementById("date").addEventListener("change",function(){recalc();renderCars();updateBar();});
+function syncDatePH(){var d=document.getElementById("date"),ph=document.getElementById("dateph");if(!ph)return;if(d.value){d.classList.remove("empty");ph.style.display="none";}else{d.classList.add("empty");ph.style.display="flex";}}
+document.getElementById("date").addEventListener("change",function(){syncDatePH();recalc();renderCars();updateBar();});
 document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("toCars").addEventListener("click",function(){
@@ -309,6 +313,6 @@ document.getElementById("toCars").addEventListener("click",function(){
   document.getElementById("sec3").scrollIntoView({behavior:"smooth",block:"start"});
 });
 document.getElementById("go").addEventListener("click",function(){if(carIdx<0||!slot)return;var c=CATS[carIdx];var q="d="+encodeURIComponent(document.getElementById("date").value)+"&s="+document.getElementById("start").value+"&e="+document.getElementById("end").value+"&slot="+slot+"&car="+encodeURIComponent(c.nm)+"&mk="+encodeURIComponent(c.mk)+"&price="+c.p[slot]+"&over="+c.add+"&img="+encodeURIComponent(c.img||"");location.href="hourly-mock3.html?"+q;});
-recalc();renderCars();updateBar();
+syncDatePH();recalc();renderCars();updateBar();
 </script>
 </body></html>
