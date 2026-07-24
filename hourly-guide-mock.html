@@ -150,14 +150,23 @@ function render(){
   var elapsedMs=endT-start, hrs=elapsedMs/3600000;
   var pl=planFor(hrs);
   if(!stop){ // running（計測中）
-    var nt=nextTier(hrs), warn=false, ntHtml="";
-    if(nt){var toNextMs=(nt*3600000)-(elapsedMs);warn=toNextMs<=15*60000;
-      var np=planFor(nt-0.001===nt?nt:nt); var npObj=planFor(nt); // 次tier料金
-      ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと '+fmtDur(toNextMs)+' で <b>'+npObj.slot+'時間プラン</b>（'+yen(npObj.total)+'）に変わります</div>';
-    } else { warn=true;
-      ntHtml='<div class="nexttier warn">24時間を超過中：1時間ごと +'+yen(car.add)+'</div>';
+    var cslot=pl.slot;                        // 現在のプラン
+    var idx=TIERS.indexOf(cslot);
+    var boundaryMs=cslot*3600000;             // 現在プランの終了時点
+    var toEndMs=boundaryMs-elapsedMs;         // 現在プラン終了まで
+    var warn=(toEndMs<=15*60000);
+    var ntHtml, prog;
+    if(elapsedMs>=boundaryMs){                // 24hプランも超過中
+      warn=true; prog=100;
+      ntHtml='<div class="nexttier warn">⚠️ 24時間を超過中：1時間ごと <b>+'+yen(car.add)+'</b></div>';
+    } else if(idx<TIERS.length-1){            // 次のプランがある(3→6→12→24)
+      var nextT=TIERS[idx+1];
+      prog=Math.min(100,100*(elapsedMs/boundaryMs));
+      ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>'+cslot+'時間プラン</b>のご利用時間が終了します。<br>超過すると <b>'+nextT+'時間プラン（'+yen(car.p[nextT])+'）</b> になります</div>';
+    } else {                                  // 24hプラン内（次は時間超過）
+      prog=Math.min(100,100*(elapsedMs/boundaryMs));
+      ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>24時間プラン</b>のご利用時間が終了します。<br>超過すると <b>1時間ごと +'+yen(car.add)+'</b> になります</div>';
     }
-    var prog=nt?Math.min(100,100*(elapsedMs/(nt*3600000))):100;
     tm.innerHTML='<div class="state">⏱ ご利用中（計測中）</div>'
       +'<div class="cd run" id="cdv">'+fmtDur(elapsedMs)+'</div>'
       +'<div class="now-plan">現在のプラン <b>'+pl.slot+'時間プラン</b> ／ '+yen(pl.total)+'</div>'
