@@ -44,8 +44,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .tg span{font-size:10px;color:var(--sub)}
 .tg.on{opacity:1;border-color:var(--org);background:linear-gradient(180deg,rgba(242,101,34,.18),rgba(242,101,34,.03))}
 .tg.on b{color:var(--org)}
-.tend{font-size:13px;color:var(--sub);margin-top:12px;text-align:center}
-.tend b{color:var(--org)}
+.planbox{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;text-align:center}
+.pl1{font-size:14px;font-weight:700;color:#cbd5e1}
+.pl2{font-size:13px;color:var(--sub);margin-top:7px}
+.pl2 b{font-size:17px;color:var(--org);font-weight:900}
+.pl3{font-size:14px;font-weight:700;color:#e5e7eb;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.pl3 .amt{color:var(--org);font-size:21px;font-weight:900}
+.tnote{font-size:11px;color:#5a5a63;text-align:center;margin-top:8px}
 /* car cards */
 .cars{display:flex;flex-direction:column;gap:12px}
 .car{background:var(--card);border:1.5px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:.15s}
@@ -110,7 +115,12 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
       <div class="tg" data-h="12"><b>12h</b><span>〜12時間</span></div>
       <div class="tg" data-h="24"><b>24h</b><span>〜1日</span></div>
     </div>
-    <div class="tend">利用時間 <b id="dur">—</b>　料金は <b id="tier">—</b> で計算<span style="color:#5a5a63"> ／ 返却後3hは整備のため次の貸出不可</span></div>
+    <div class="planbox">
+      <div class="pl1" id="dur">貸出・返却の時間を選択してください</div>
+      <div class="pl2">該当プラン <b id="tier">—</b></div>
+      <div class="pl3" id="planprice">料金：下の車種を選ぶと表示されます</div>
+    </div>
+    <div class="tnote">※ 返却後3hは整備のため次の貸出不可</div>
   </div>
 
   <!-- STEP2 車種 -->
@@ -164,18 +174,24 @@ function recalc(){
   var st=+document.getElementById("start").value, en=+document.getElementById("end").value;
   dur=(en-st)/60; // 時間
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
-  if(dur<=0){dEl.innerText="開始＜終了で選択";tEl.innerText="—";slot=0;markTier();return;}
+  if(dur<=0){dEl.innerText="貸出＜返却の順で選択してください";tEl.innerText="—";slot=0;markTier();updatePlanPrice();return;}
   slot=tierFor(dur);
   var over=en>=24*60?"（翌"+hhmm(en)+"）":"";
-  dEl.innerText=(Number.isInteger(dur)?dur:dur.toFixed(1))+"時間"+over;
-  tEl.innerText=slot+"時間枠";
-  markTier();
+  dEl.innerHTML='貸出 <b style="color:#fff">'+hhmm(st)+'</b> → 返却 <b style="color:#fff">'+hhmm(en)+'</b>'+over+'（'+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間）';
+  tEl.innerText=slot+"時間プラン";
+  markTier();updatePlanPrice();
 }
 function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++)tgs[k].classList.toggle("on",+tgs[k].getAttribute("data-h")===slot);}
+function updatePlanPrice(){
+  var el=document.getElementById("planprice");if(!el)return;
+  if(!slot){el.innerHTML="料金：貸出・返却の時間を選ぶと表示されます";return;}
+  if(carIdx>=0){var c=CATS[carIdx];el.innerHTML=c.nm+' ＝ <span class="amt">'+yen(c.p[slot])+'</span>';}
+  else{var mn=Infinity,mx=0;CATS.forEach(function(c){mn=Math.min(mn,c.p[slot]);mx=Math.max(mx,c.p[slot]);});el.innerHTML='この時間の料金 <span class="amt">'+yen(mn)+'〜'+yen(mx)+'</span>　→ 下の車種で確定';}
+}
 function renderCars(){
   var h="";CATS.forEach(function(c,i){
     var av=c.av==="few"?'<span class="avail av-few">△ 残りわずか</span>':'<span class="avail av-ok">◯ 空きあり</span>';
-    var price=slot?yen(c.p[slot]):"—", unit=slot?(" / "+slot+"h枠"):"";
+    var price=slot?yen(c.p[slot]):"—", unit=slot?("／"+slot+"時間プラン"):"";
     h+='<div class="car'+(i===carIdx?' on':'')+'" onclick="pick('+i+')">'
       +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+(c.img?('<img class="carimg" src="'+c.img+'" alt="">'):c.emo)+'</div>'
       +'<div class="body"><div><div class="nm">'+c.nm+'</div><div class="mk">'+c.mk+'</div></div>'
@@ -187,10 +203,10 @@ function renderCars(){
 function updateBar(){
   var s=document.getElementById("sumL"),p=document.getElementById("sumP"),g=document.getElementById("go");
   if(!slot){s.innerText="利用時間を選択してください";p.innerHTML="¥—";g.disabled=true;return;}
-  if(carIdx<0){s.innerText=slot+"時間枠・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
-  var c=CATS[carIdx];s.innerText=slot+"時間枠・"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>／店頭受取</small>';g.disabled=false;
+  if(carIdx<0){s.innerText=slot+"時間プラン・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
+  var c=CATS[carIdx];s.innerText=slot+"時間プラン｜"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>／店頭受取</small>';g.disabled=false;
 }
-window.pick=function(i){carIdx=i;renderCars();updateBar();};
+window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
 document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
