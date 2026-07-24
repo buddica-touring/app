@@ -170,13 +170,14 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 </div></div>
 
 <script>
+// 料金は税抜。add=24時間超の超過1時間あたり単価（税抜）
 var CATS=[
   {cat:"ラグジュアリー",nm:"ランボルギーニ ウルス",mk:"Lamborghini",img:"images/car-urus.png",p:{3:80000,6:100000,12:150000,24:200000},add:20000,av:"few"},
-  {cat:"ラグジュアリー",nm:"Porsche 911",mk:"Porsche",img:"images/car-911.png",p:{3:60000,6:80000,12:120000,24:150000},add:15000,av:"ok"},
-  {cat:"ラグジュアリー",nm:"Mercedes-AMG G-Class",mk:"Mercedes-Benz",img:"images/car-gclass.png",p:{3:40000,6:55000,12:80000,24:100000},add:12000,av:"ok"},
-  {cat:"ラグジュアリー",nm:"E-Class カブリオレ",mk:"Mercedes-Benz",img:"images/car-eclass.png",p:{3:38000,6:52000,12:76000,24:95000},add:12000,av:"ok"},
-  {cat:"ラグジュアリー",nm:"Evoque コンバーチブル",mk:"Land Rover",img:"images/car-evoque.png",p:{3:36000,6:50000,12:72000,24:90000},add:10000,av:"ok"},
-  {cat:"ラグジュアリーミニバン",nm:"アルファード エグゼクティブ",mk:"Toyota",img:"images/car-alphard.png",p:{3:24000,6:30750,12:43050,24:45750},add:6000,av:"ok"}
+  {cat:"ラグジュアリー",nm:"Porsche 911",mk:"Porsche",img:"images/car-911.png",p:{3:48000,6:60000,12:90000,24:120000},add:12000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Mercedes-Benz G400d",mk:"Mercedes-Benz",img:"images/car-gclass.png",p:{3:40000,6:50000,12:75000,24:100000},add:10000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Mercedes-Benz E カブリオレ",mk:"Mercedes-Benz",img:"images/car-eclass.png",p:{3:24000,6:30000,12:45000,24:60000},add:6000,av:"ok"},
+  {cat:"ラグジュアリー",nm:"Range Rover イヴォーク",mk:"Land Rover",img:"images/car-evoque.png",p:{3:18000,6:22500,12:33750,24:45000},add:4500,av:"ok"},
+  {cat:"ラグジュアリーミニバン",nm:"アルファード 等",mk:"Toyota",img:"images/car-alphard.png",p:{3:10800,6:13500,12:20250,24:27000},add:2700,av:"ok"}
 ];
 var carIdx=-1, slot=3, dur=0;
 var yen=function(n){return "¥"+n.toLocaleString();};
@@ -206,7 +207,7 @@ function recalc(){
 function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
 function updatePlanPrice(){
   var el=document.getElementById("planprice");if(!el)return;
-  if(carIdx>=0&&slot){var c=CATS[carIdx];el.innerHTML=c.nm+'<span class="amt">'+yen(c.p[slot])+'</span><span class="sub">'+slot+'時間プラン ・ 税込 ・ 店頭お受け取り</span>';}
+  if(carIdx>=0&&slot){var c=CATS[carIdx];el.innerHTML=c.nm+'<span class="amt">'+yen(c.p[slot])+'</span><span class="sub">'+slot+'時間プラン ・ 税抜 ・ 店頭お受け取り</span>';}
   else{el.innerHTML='<span class="sub" style="font-size:13px">お車をお選びください</span>';}
 }
 function renderCars(){
@@ -217,7 +218,7 @@ function renderCars(){
       +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+(c.img?('<img class="carimg" src="'+c.img+'" alt="">'):c.emo)+'</div>'
       +'<div class="body"><div><div class="nm">'+c.nm+'</div><div class="mk">'+c.mk+'</div></div>'
       +'<div class="price"><span class="p">'+price+'</span><span class="u">'+unit+'</span>'
-      +'<div class="add">延長 1泊ごと +'+yen(c.add)+'</div></div></div></div>';
+      +'<div class="add">24時間超は1時間ごと +'+yen(c.add)+'</div></div></div></div>';
   });
   document.getElementById("cars").innerHTML=h;
 }
@@ -225,7 +226,7 @@ function updateBar(){
   var s=document.getElementById("sumL"),p=document.getElementById("sumP"),g=document.getElementById("go");
   if(!slot){s.innerText="利用時間を選択してください";p.innerHTML="¥—";g.disabled=true;return;}
   if(carIdx<0){s.innerText=slot+"時間プラン・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
-  var c=CATS[carIdx];s.innerText=slot+"時間プラン｜"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>税込／店頭お受け取り</small>';g.disabled=false;
+  var c=CATS[carIdx];s.innerText=slot+"時間プラン｜"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>税抜／店頭お受け取り</small>';g.disabled=false;
 }
 function updateGate(){
   var s1=document.getElementById("sec1"),s2=document.getElementById("sec2"),s3=document.getElementById("sec3");
