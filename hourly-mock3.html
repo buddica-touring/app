@@ -63,6 +63,11 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .er{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#e7d7cc;line-height:1.6;padding:5px 0}
 .er b{color:#ffcfae}
 .en{flex:0 0 20px;background:var(--org);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin-top:1px}
+.segwrap{display:inline-flex;background:#0e0e12;border:1px solid #3a3a44;border-radius:10px;padding:3px;gap:3px}
+.seg{background:transparent;border:none;color:#9a9aa5;font-size:12px;font-weight:800;padding:7px 11px;border-radius:8px;cursor:pointer}
+.seg.on{background:var(--org);color:#fff}
+.shbox{margin-top:10px;font-size:13px;color:#d7d7dd;background:#0e0e12;border:1px solid #2a2a31;border-radius:12px;padding:12px 14px;line-height:1.6}
+.shbox b{color:#fff}
 </style></head>
 <body>
 <div class="mockbar">🖼 デザインモック（DB未接続・お手続きは仮）</div>
@@ -106,9 +111,16 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
     <div class="slabel"><span class="no">3</span>お受け取り・ご返却</div>
     <div class="infobox">
       <div class="t">🏬 高松空港店（店頭でお受け取り）</div>
-      <div class="l"><span class="k">お受け取り時刻</span><span id="rpick">—</span></div>
       <div class="l"><span class="k">ご返却時刻</span><span id="rret">—</span></div>
-      <div class="l"><span class="k">送迎</span><span>店頭お受け取り・ご返却（空港送迎は別途ご案内）</span></div>
+      <div class="l" style="align-items:center"><span class="k">空港送迎</span>
+        <span class="segwrap"><button type="button" class="seg on" id="segNo" onclick="setShuttle(false)">なし（店舗引き取り）</button><button type="button" class="seg" id="segYes" onclick="setShuttle(true)">あり</button></span>
+      </div>
+      <div id="shNo" class="shbox">🏬 高松空港店の店頭でお引き取りください（お受け取り時刻：<b id="pickNo">—</b>）</div>
+      <div id="shYes" class="shbox" style="display:none">
+        🚐 高松空港ターミナルまでお迎えにあがります。
+        <div class="fld" style="margin-top:10px"><label>ご希望お迎え時間<span class="req">必須</span></label><input type="time" id="shTime" style="color-scheme:dark"></div>
+        <div class="fld"><label>ご到着便名（任意）</label><input type="text" placeholder="例：ANA531"></div>
+      </div>
       <div class="pill">📄 ご予約後、ご利用ガイドで免許証のご登録・貸渡約款へのご署名をお願いします</div>
     </div>
   </div>
@@ -168,9 +180,10 @@ document.getElementById("rtime").textContent=(s!=null?hhmm(s):"—")+" – "+(e!
 document.getElementById("rplan").textContent=slot?(slot+"時間プラン"):"—";
 document.getElementById("rprice").innerHTML=yen(price)+'<small> 税抜</small>';
 document.getElementById("brice").textContent=yen(price);
-document.getElementById("rpick").textContent=(s!=null?hhmm(s):"—");
+var _pn=document.getElementById("pickNo");if(_pn)_pn.textContent=(s!=null?hhmm(s):"—");
 document.getElementById("rret").textContent=(e!=null?hhmm(e):"—");
 if(img){document.getElementById("rpic").innerHTML='<img src="'+img+'" alt="">';}else{document.getElementById("rpic").textContent="🚗";}
+window.setShuttle=function(yes){document.getElementById("segYes").classList.toggle("on",yes);document.getElementById("segNo").classList.toggle("on",!yes);document.getElementById("shYes").style.display=yes?"block":"none";document.getElementById("shNo").style.display=yes?"none":"block";};
 document.getElementById("pay").addEventListener("click",function(){if(!document.getElementById("ag1").checked){alert("貸渡約款・キャンセル規定へのご同意が必要です");return;}location.href="hourly-mock4.html"+location.search;});
 </script>
 </body></html>

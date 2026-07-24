@@ -54,7 +54,36 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .infobox .l{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:#d7d7dd;border-top:1px solid #242430}
 .infobox .l:first-of-type{border-top:none}.infobox .l .k{color:var(--sub)}
 .map{height:120px;border-radius:12px;margin-top:10px;background:linear-gradient(135deg,#1d1d24,#12121a);display:flex;align-items:center;justify-content:center;color:#4a4a55;font-size:12px;border:1px solid var(--line)}
+.item.tap{cursor:pointer}.item.tap:active{opacity:.85}
+.item .chev{color:#6a6a73;font-size:18px;margin-left:2px}
 .foot{padding:22px 18px 30px;text-align:center;color:var(--sub);font-size:11px}.foot .logo{height:20px;opacity:.9}
+/* モーダル（免許/約款） */
+.gm{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.gm.on{display:flex}
+.gmb{background:#141418;border:1px solid #33333c;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column}
+.gmh{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;font-size:16px;font-weight:900;border-bottom:1px solid #262630}
+.gmx{background:#22222a;border:none;color:#c7c7d0;width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer}
+.gmc{overflow:auto;padding:16px 18px}
+.gmf{padding:12px 18px 16px;border-top:1px solid #262630}
+.gbtn{width:100%;background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:14px;cursor:pointer}
+.gbtn:disabled{background:#3a3a42;color:#888}
+/* 免許 */
+.drv{background:#1b1b21;border:1px solid #2f2f38;border-radius:14px;padding:14px;margin-bottom:12px}
+.drv .dh{font-size:13px;font-weight:800;margin-bottom:10px}
+.lic2{display:flex;gap:10px}
+.licup{flex:1;aspect-ratio:1.5;border:1.5px dashed #4a4a55;border-radius:12px;background:#121216;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8a8a95;font-size:12px;cursor:pointer;overflow:hidden;position:relative}
+.licup input{display:none}
+.licup img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.licup .lb{font-size:11px;margin-top:4px}
+.addrv{width:100%;background:transparent;border:1.5px solid #3a3a44;color:#c7c7d0;border-radius:10px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:4px}
+/* 約款 */
+.terms{background:#0e0e12;border:1px solid #2a2a31;border-radius:12px;padding:14px;height:230px;overflow:auto;font-size:12px;line-height:1.8;color:#c7c7d0}
+.terms h4{color:#fff;font-size:13px;margin:10px 0 4px}
+.pad-wrap{margin-top:14px}
+.pad-wrap .pl{font-size:12px;color:var(--sub);font-weight:700;margin-bottom:6px}
+.pad{width:100%;height:150px;background:#fff;border-radius:12px;touch-action:none;display:block}
+.pad-act{display:flex;justify-content:flex-end;margin-top:6px}
+.pad-act button{background:none;border:none;color:#8a8a95;font-size:12px;text-decoration:underline;cursor:pointer}
 </style></head>
 <body>
 <div class="mockbar">🖼 デザインモック（DB未接続・利用メーター）</div>
@@ -73,9 +102,9 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 
   <div class="sec">
     <div class="slabel">📋 ご出発前のお手続き</div>
-    <div class="item"><div class="ic">🪪</div><div class="tx"><div class="tt">運転免許証のご登録</div><div class="ts">運転される方全員分</div></div><span class="badge todo">未登録</span></div>
-    <div class="item"><div class="ic">📝</div><div class="tx"><div class="tt">貸渡約款のご署名</div><div class="ts">内容をご確認のうえご署名ください</div></div><span class="badge todo">未署名</span></div>
-    <div class="item"><div class="ic">🚗</div><div class="tx"><div class="tt">お車の状態確認</div><div class="ts">外装のキズ等（お受け取り時）</div></div><span class="badge done">受取時</span></div>
+    <div class="item tap" onclick="openLic()"><div class="ic">🪪</div><div class="tx"><div class="tt">運転免許証のご登録</div><div class="ts">運転される方全員分（表・裏）</div></div><span class="badge todo" id="licBadge">未登録</span><span class="chev">›</span></div>
+    <div class="item tap" onclick="openTerms()"><div class="ic">📝</div><div class="tx"><div class="tt">貸渡約款のご署名</div><div class="ts">内容をご確認のうえご署名ください</div></div><span class="badge todo" id="termsBadge">未署名</span><span class="chev">›</span></div>
+    <div class="item"><div class="ic">🚗</div><div class="tx"><div class="tt">お車の状態確認</div><div class="ts">外装のキズ等（お受け取り時に店頭で）</div></div><span class="badge done">受取時</span></div>
   </div>
 
   <div class="sec">
@@ -91,6 +120,91 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 
   <div class="foot"><img src="images/bt-logo.png" class="logo" alt="BUDDICA TOURISM"><div style="margin-top:8px">高松空港店｜お問い合わせ：reserve.touring@buddica.co.jp</div></div>
 </div>
+
+<!-- 免許証モーダル（本番同様：運転者ごとに表・裏） -->
+<div class="gm" id="licModal"><div class="gmb">
+  <div class="gmh"><span>運転免許証のご登録</span><button class="gmx" onclick="closeLic()">✕</button></div>
+  <div class="gmc">
+    <div style="font-size:12px;color:#8a8a95;margin-bottom:12px;line-height:1.6">運転される方<b style="color:#ffcfae">全員分</b>の運転免許証を、<b style="color:#ffcfae">表面・裏面</b>それぞれ撮影またはアップロードしてください。</div>
+    <div id="drivers"></div>
+    <button class="addrv" onclick="addDriver()">＋ 運転者を追加</button>
+  </div>
+  <div class="gmf"><button class="gbtn" id="licSave" onclick="saveLic()" disabled>登録する</button></div>
+</div></div>
+
+<!-- 約款署名モーダル（本番同様：約款＋署名パッド） -->
+<div class="gm" id="termsModal"><div class="gmb">
+  <div class="gmh"><span>貸渡約款のご署名</span><button class="gmx" onclick="closeTerms()">✕</button></div>
+  <div class="gmc">
+    <div class="terms" id="termsBody">
+      <h4>貸渡約款（抜粋）</h4>
+      第1条（適用）本約款は、BUDDICA TOURISM（以下「当社」）と借受人との間のレンタカー貸渡しに適用されます。<br>
+      第2条（貸渡期間）貸渡期間は、お客様が利用を開始された時刻から、店頭にてご返却・当社が確認した時刻までとします。ご利用時間が予約プランを超えた場合、料金表に基づき超過分を申し受けます。<br>
+      第3条（運転者）貸渡自動車を運転できるのは、当社に運転免許証を登録した方に限ります。<br>
+      第4条（返却）借受人は、契約に定めた日時・場所（高松空港店 店頭）に貸渡自動車を返却するものとします。<br>
+      第5条（禁止事項）飲酒運転、又貸し、契約者以外の運転、危険物の輸送等を禁止します。<br>
+      第6条（事故・故障）事故・故障が発生した場合、直ちに当社及び警察へ連絡するものとします。<br>
+      …（本番では正式な貸渡約款の全文を表示します）
+    </div>
+    <div class="pad-wrap"><div class="pl">下の白い枠に、ご署名ください</div><canvas class="pad" id="pad"></canvas><div class="pad-act"><button onclick="clearPad()">消去してやり直す</button></div></div>
+  </div>
+  <div class="gmf"><button class="gbtn" id="termsSave" onclick="saveTerms()" disabled>約款に同意して署名する</button></div>
+</div></div>
+
+<script>
+/* ===== 手続き：免許（表裏・運転者ごと）＋約款署名パッド（本番仕様） ===== */
+var drvN=0;
+function openLic(){document.getElementById("licModal").classList.add("on");if(!drvN)addDriver();}
+function closeLic(){document.getElementById("licModal").classList.remove("on");}
+function addDriver(){
+  drvN++;var i=drvN;
+  var d=document.createElement("div");d.className="drv";d.id="drv"+i;
+  d.innerHTML='<div class="dh">運転者 '+i+'</div><div class="lic2">'
+    +'<label class="licup" id="up'+i+'f"><input type="file" accept="image/*" onchange="licPrev(this,'+i+',\'f\')"><span>📷</span><span class="lb">表面</span></label>'
+    +'<label class="licup" id="up'+i+'b"><input type="file" accept="image/*" onchange="licPrev(this,'+i+',\'b\')"><span>📷</span><span class="lb">裏面</span></label></div>';
+  document.getElementById("drivers").appendChild(d);
+  licChk();
+}
+window.licPrev=function(inp,i,side){
+  if(!inp.files||!inp.files[0])return;
+  var url=URL.createObjectURL(inp.files[0]);
+  var box=document.getElementById("up"+i+side);box.setAttribute("data-ok","1");
+  box.innerHTML='<img src="'+url+'">';box.appendChild(inp);
+  licChk();
+};
+function licChk(){
+  var ok=drvN>0, boxes=document.querySelectorAll(".licup");
+  boxes.forEach(function(b){if(b.getAttribute("data-ok")!=="1")ok=false;});
+  document.getElementById("licSave").disabled=!ok;
+}
+function saveLic(){
+  document.getElementById("licBadge").textContent="登録済";
+  document.getElementById("licBadge").className="badge done";
+  closeLic();
+}
+/* 約款署名パッド */
+var pad,ctx,drawing=false,signed=false;
+function openTerms(){document.getElementById("termsModal").classList.add("on");setTimeout(setupPad,60);}
+function closeTerms(){document.getElementById("termsModal").classList.remove("on");}
+function setupPad(){
+  pad=document.getElementById("pad");if(!pad)return;
+  var r=pad.getBoundingClientRect();pad.width=r.width;pad.height=r.height;
+  ctx=pad.getContext("2d");ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#111";
+}
+function pos(e){var r=pad.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
+function pstart(e){e.preventDefault();if(!ctx||pad.width<10)setupPad();drawing=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+function pmove(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();signed=true;document.getElementById("termsSave").disabled=false;}
+function pend(){drawing=false;}
+window.clearPad=function(){if(ctx){ctx.clearRect(0,0,pad.width,pad.height);}signed=false;document.getElementById("termsSave").disabled=true;};
+function saveTerms(){if(!signed)return;document.getElementById("termsBadge").textContent="署名済";document.getElementById("termsBadge").className="badge done";closeTerms();}
+document.addEventListener("DOMContentLoaded",function(){
+  var p=document.getElementById("pad");
+  ["mousedown","touchstart"].forEach(function(ev){p.addEventListener(ev,pstart,{passive:false});});
+  ["mousemove","touchmove"].forEach(function(ev){p.addEventListener(ev,pmove,{passive:false});});
+  ["mouseup","mouseleave","touchend"].forEach(function(ev){p.addEventListener(ev,pend);});
+});
+[document.getElementById("licModal"),document.getElementById("termsModal")].forEach(function(m){m.addEventListener("click",function(e){if(e.target===m)m.classList.remove("on");});});
+</script>
 
 <script>
 // 料金は税抜。add=24時間超の超過1時間あたり単価
