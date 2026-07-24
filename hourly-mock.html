@@ -102,7 +102,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 /* ゲート（段階開示） */
 .sec.gated{filter:grayscale(1);opacity:.4;pointer-events:none;transition:filter .35s,opacity .35s}
 @keyframes pulseb{0%,100%{box-shadow:0 0 0 0 rgba(242,101,34,0)}50%{box-shadow:0 0 0 5px rgba(242,101,34,.32)}}
-.sec.await #timepick{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
+.sec.await #timepick,.sec.await .datef{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
 .gobtn{width:100%;margin-top:15px;background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:15px;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 14px rgba(242,101,34,.3)}
 .gobtn:active{transform:translateY(1px)}
 </style></head>
@@ -185,8 +185,7 @@ function opts(sel,from,to){var h='<option value="" selected>--:--</option>';for(
 // 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）・初期は未選択
 opts(document.getElementById("start"),9*60,19*60);
 opts(document.getElementById("end"),9*60+30,33*60);
-// 日付初期=明日
-(function(){var d=new Date(Date.now()+9*36e5+864e5);document.getElementById("date").value=d.toISOString().slice(0,10);})();
+// 日付は初期未選択（時間とセットで選ばせる）
 function tierFor(h){return h<=3?3:h<=6?6:h<=12?12:24;}
 function hhmm(m){m=((m%(24*60))+24*60)%(24*60);return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
 function recalc(){
@@ -230,12 +229,14 @@ function updateBar(){
 }
 function updateGate(){
   var s1=document.getElementById("sec1"),s2=document.getElementById("sec2"),s3=document.getElementById("sec3");
-  var ok=slot>0;
+  var dateOk=!!document.getElementById("date").value;
+  var ok=dateOk && slot>0;                // 日付＋時間がセットで揃って初めて確定
   s2.classList.toggle("gated",!ok);
   s1.classList.toggle("await",!ok);
-  if(!ok){s3.classList.add("gated");}   // 時間が無効なら車も再ロック
+  if(!ok){s3.classList.add("gated");}   // 未確定なら車も再ロック
 }
 window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
+document.getElementById("date").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("toCars").addEventListener("click",function(){
