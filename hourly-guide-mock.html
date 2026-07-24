@@ -241,16 +241,16 @@ function fmtShort(hrs){var h=Math.floor(hrs),m=Math.round((hrs-h)*60);return h+"
 var LS=window.localStorage, KEYP="btq_"+(q.get("d")||"x")+"_"+s;
 function gs(k){return LS.getItem(KEYP+k);}
 function ss(k,v){LS.setItem(KEYP+k,v);}
-function cl(){LS.removeItem(KEYP+"start");LS.removeItem(KEYP+"stop");LS.removeItem(KEYP+"done");}
+function cl(){LS.removeItem(KEYP+"start");LS.removeItem(KEYP+"req");LS.removeItem(KEYP+"done");}
 window.demoReset=function(){cl();render();};
 window.doStart=function(){ss("start",Date.now());render();};
-window.doStop=function(){ss("stop",Date.now());render();};
+window.doRequest=function(){ss("req",Date.now());render();};
 window.doAuth=function(){ss("done",Date.now());render();};
+function clk(ms){return new Date(ms).toTimeString().slice(0,5);}
 
 function render(){
   var tm=document.getElementById("tm");
-  var start=+gs("start")||0, stop=+gs("stop")||0, done=+gs("done")||0;
-  // 状態: before / running / pending / done
+  var start=+gs("start")||0, req=+gs("req")||0, done=+gs("done")||0;
   if(!start){
     tm.innerHTML='<div class="state">ご利用前</div>'
       +'<div class="cd pre">00:00:00</div>'
@@ -260,56 +260,44 @@ function render(){
       +'<button class="btn start" onclick="doStart()">▶ お受け取り・利用を開始する</button>';
     return;
   }
-  var endT=stop||Date.now();
-  var elapsedMs=endT-start, hrs=elapsedMs/3600000;
-  var pl=planFor(hrs);
-  if(!stop){ // running（計測中）
-    var cslot=pl.slot;                        // 現在のプラン
-    var idx=TIERS.indexOf(cslot);
-    var boundaryMs=cslot*3600000;             // 現在プランの終了時点
-    var toEndMs=boundaryMs-elapsedMs;         // 現在プラン終了まで
-    var warn=(toEndMs<=15*60000);
-    var ntHtml, prog;
-    if(elapsedMs>=boundaryMs){                // 24hプランも超過中
-      warn=true; prog=100;
-      ntHtml='<div class="nexttier warn">⚠️ 24時間を超過中：1時間ごと <b>+'+yen(car.add)+'</b></div>';
-    } else if(idx<TIERS.length-1){            // 次のプランがある(3→6→12→24)
-      var nextT=TIERS[idx+1];
-      prog=Math.min(100,100*(elapsedMs/boundaryMs));
-      ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>'+cslot+'時間プラン</b>のご利用時間が終了します。<br>超過すると <b>'+nextT+'時間プラン（'+yen(car.p[nextT])+'）</b> になります</div>';
-    } else {                                  // 24hプラン内（次は時間超過）
-      prog=Math.min(100,100*(elapsedMs/boundaryMs));
-      ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>24時間プラン</b>のご利用時間が終了します。<br>超過すると <b>1時間ごと +'+yen(car.add)+'</b> になります</div>';
+  // メーターは店舗承認(done)まで動き続ける（ユーザーは止められない）
+  var endT=done||Date.now();
+  var elapsedMs=endT-start, hrs=elapsedMs/3600000, pl=planFor(hrs);
+  if(!done){
+    var cslot=pl.slot, idx=TIERS.indexOf(cslot), boundaryMs=cslot*3600000, toEndMs=boundaryMs-elapsedMs, warn=(toEndMs<=15*60000), ntHtml, prog;
+    if(elapsedMs>=boundaryMs){warn=true;prog=100;ntHtml='<div class="nexttier warn">⚠️ 24時間を超過中：1時間ごと <b>+'+yen(car.add)+'</b></div>';}
+    else if(idx<TIERS.length-1){var nextT=TIERS[idx+1];prog=Math.min(100,100*(elapsedMs/boundaryMs));ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>'+cslot+'時間プラン</b>のご利用時間が終了します。<br>超過すると <b>'+nextT+'時間プラン（'+yen(car.p[nextT])+'）</b> になります</div>';}
+    else{prog=Math.min(100,100*(elapsedMs/boundaryMs));ntHtml='<div class="nexttier'+(warn?' warn':'')+'">あと <b>'+fmtDur(toEndMs)+'</b> で <b>24時間プラン</b>のご利用時間が終了します。<br>超過すると <b>1時間ごと +'+yen(car.add)+'</b> になります</div>';}
+    if(!req){ // ご利用中（返却リクエスト前）
+      tm.innerHTML='<div class="state">⏱ ご利用中（計測中）</div>'
+        +'<div class="cd run">'+fmtDur(elapsedMs)+'</div>'
+        +'<div class="now-plan">現在のプラン <b>'+pl.slot+'時間プラン</b> ／ '+yen(pl.total)+'</div>'
+        +'<div class="prog'+(warn?' warn':'')+'"><i style="width:'+prog+'%"></i></div>'+ntHtml
+        +'<div class="times"><div class="c"><div class="k">利用開始</div><div class="v">'+clk(start)+'</div></div><div class="c"><div class="k">現在の請求</div><div class="v" style="color:var(--org)">'+yen(pl.total)+'</div></div></div>'
+        +'<button class="btn stop" onclick="doRequest()">🏁 ご返却をリクエストする</button>'
+        +'<div class="subnote">店頭にお車をお戻しのうえ、上のボタンで返却をリクエストしてください。店舗スタッフが確認・<b>承認</b>すると返却が確定します。</div>';
+    } else {  // 返却リクエスト済み・店舗承認待ち（メーターは継続）
+      tm.innerHTML='<div class="state" style="color:#93c5fd">🏁 返却リクエスト済み・店舗承認待ち</div>'
+        +'<div class="cd run">'+fmtDur(elapsedMs)+'</div>'
+        +'<div class="now-plan">現在のプラン <b>'+pl.slot+'時間プラン</b> ／ '+yen(pl.total)+'</div>'
+        +'<div class="authwait">返却リクエストを受け付けました（<b>'+clk(req)+'</b>）。<br>店頭スタッフがお車を確認し<b>承認</b>すると、その時刻で返却が確定します。</div>'
+        +'<div class="times"><div class="c"><div class="k">返却リクエスト</div><div class="v">'+clk(req)+'</div></div><div class="c"><div class="k">現在の請求</div><div class="v" style="color:var(--org)">'+yen(pl.total)+'</div></div></div>'
+        +'<button class="btn auth" onclick="doAuth()">🏬 店舗スタッフが承認（デモ）</button>'
+        +'<div class="subnote">※ 承認時点の実利用時間でプラン・料金が最終確定します。承認までメーターは計測を継続します。</div>';
     }
-    tm.innerHTML='<div class="state">⏱ ご利用中（計測中）</div>'
-      +'<div class="cd run" id="cdv">'+fmtDur(elapsedMs)+'</div>'
-      +'<div class="now-plan">現在のプラン <b>'+pl.slot+'時間プラン</b> ／ '+yen(pl.total)+'</div>'
-      +'<div class="prog'+(warn?' warn':'')+'"><i style="width:'+prog+'%"></i></div>'
-      +ntHtml
-      +'<div class="times"><div class="c"><div class="k">利用開始</div><div class="v">'+new Date(start).toTimeString().slice(0,5)+'</div></div><div class="c"><div class="k">現在の請求</div><div class="v" style="color:var(--org)">'+yen(pl.total)+'</div></div></div>'
-      +'<button class="btn stop" onclick="doStop()">■ ご返却する（計測を止める）</button>'
-      +'<div class="subnote">ご返却は、店頭でスタッフの認証を受けて確定します。</div>';
     return;
   }
-  if(stop&&!done){ // pending（返却申請・店舗認証待ち）
-    tm.innerHTML='<div class="state">🏬 店舗認証をお待ちください</div>'
-      +'<div class="cd pre">'+fmtDur(elapsedMs)+'</div>'
-      +'<div class="now-plan">ご利用時間 <b>'+fmtShort(hrs)+'</b>（'+pl.slot+'時間プラン）</div>'
-      +'<div class="authwait">■ ご返却を受け付けました。<br>店頭スタッフがお車を確認し、<b>認証</b>すると返却時間が確定します。</div>'
-      +'<button class="btn auth" onclick="doAuth()">🏬 店舗スタッフ認証（デモ）</button>'
-      +'<div class="subnote">※ 認証時点の実利用時間でプラン・料金が最終確定します。</div>';
-    return;
-  }
-  // done（返却完了・確定）
-  var fMs=stop-start, fh=fMs/3600000, fp=planFor(fh);
+  // 承認・確定（承認時刻=done で確定）
+  var fMs=done-start, fh=fMs/3600000, fp=planFor(fh);
   tm.innerHTML='<div class="state" style="color:#86efac">✓ ご返却完了・確定</div>'
     +'<div class="cd done">'+fmtDur(fMs)+'</div>'
-    +'<div class="now-plan">ご利用時間 <b style="color:#fff">'+fmtShort(fh)+'</b></div>'
-    +'<div class="times"><div class="c"><div class="k">確定プラン</div><div class="v">'+fp.slot+'時間プラン</div></div><div class="c"><div class="k">確定ご請求</div><div class="v" style="color:var(--org)">'+yen(fp.total)+'</div></div></div>'
+    +'<div class="now-plan">ご利用時間 <b style="color:#fff">'+fmtShort(fh)+'</b>（'+fp.slot+'時間プラン）</div>'
+    +'<div class="times"><div class="c"><div class="k">🏁 返却リクエスト</div><div class="v">'+(req?clk(req):'—')+'</div></div><div class="c"><div class="k">🏬 店舗 承認・確定</div><div class="v" style="color:#86efac">'+clk(done)+'</div></div></div>'
+    +'<div class="times" style="margin-top:8px"><div class="c"><div class="k">確定プラン</div><div class="v">'+fp.slot+'時間プラン</div></div><div class="c"><div class="k">確定ご請求</div><div class="v" style="color:var(--org)">'+yen(fp.total)+'</div></div></div>'
     +(fp.over>0?('<div class="nexttier warn">24時間超過 '+fp.oh+'時間分 超過料金 '+yen(fp.over)+' を含みます</div>'):'')
     +'<div class="subnote">ご利用ありがとうございました。確定内容はメールでもお送りします。</div>';
 }
 render();
-setInterval(function(){var start=+gs("start")||0,stop=+gs("stop")||0;if(start&&!stop)render();},1000);
+setInterval(function(){var start=+gs("start")||0,done=+gs("done")||0;if(start&&!done)render();},1000);
 </script>
 </body></html>
