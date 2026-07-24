@@ -99,6 +99,12 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .bar .go{background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:14px 20px;white-space:nowrap;cursor:pointer}
 .bar .go:disabled{background:#3a3a42;color:#777}
 .hint{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6}
+/* ゲート（段階開示） */
+.sec.gated{filter:grayscale(1);opacity:.4;pointer-events:none;transition:filter .35s,opacity .35s}
+@keyframes pulseb{0%,100%{box-shadow:0 0 0 0 rgba(242,101,34,0)}50%{box-shadow:0 0 0 5px rgba(242,101,34,.32)}}
+.sec.await #timepick{animation:pulseb 1.7s ease-in-out infinite;border-color:var(--org)}
+.gobtn{width:100%;margin-top:15px;background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:15px;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 14px rgba(242,101,34,.3)}
+.gobtn:active{transform:translateY(1px)}
 </style></head>
 <body>
 <div class="mockbar">🖼 デザインモック（DB未接続・料金/写真は仮）</div>
@@ -111,11 +117,11 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
   </div>
 
-  <!-- STEP1 利用日・利用時間 -->
-  <div class="sec">
+  <!-- STEP① 時間 -->
+  <div class="sec await" id="sec1">
     <div class="slabel"><span class="no">1</span>まず、ご利用時間をお選びください</div>
     <input type="date" id="date" class="field tc datef">
-    <div class="timepick">
+    <div class="timepick" id="timepick">
       <div class="tcol">
         <div class="tlab">貸出</div>
         <select id="start" class="tbig"></select>
@@ -126,8 +132,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
         <select id="end" class="tbig"></select>
       </div>
     </div>
-    <div class="flowline"><span class="fl-ico">▼</span> 選んだ時間で、料金プランが決まります</div>
-    <div class="slabel" style="margin-top:2px"><span class="no">2</span>ご利用プランが確定します<span style="margin-left:auto;font-size:10px;color:#8a8a95;font-weight:600;letter-spacing:0">自動判定・タップ不要</span></div>
+  </div>
+
+  <div class="flowline"><span class="fl-ico">▼</span> 選んだ時間で、料金プランが決まります</div>
+
+  <!-- STEP② プラン確定 -->
+  <div class="sec gated" id="sec2">
+    <div class="slabel"><span class="no">2</span>ご利用プランが確定します<span style="margin-left:auto;font-size:10px;color:#8a8a95;font-weight:600;letter-spacing:0">自動判定</span></div>
     <div class="tiers" id="tiers">
       <div class="tg" data-h="3"><b>3h</b><span data-sub="〜3時間">〜3時間</span></div>
       <div class="tg" data-h="6"><b>6h</b><span data-sub="〜6時間">〜6時間</span></div>
@@ -139,24 +150,15 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
       <div class="pl2">ご利用プラン<b id="tier">—</b></div>
     </div>
     <div class="tnote">ご返却後3時間は点検・清掃のため、次のご予約はお受けできません</div>
+    <button class="gobtn" id="toCars">この内容でお車を選ぶ →</button>
   </div>
 
-  <!-- STEP2 車種 -->
-  <div class="sec">
+  <!-- STEP③ お車 -->
+  <div class="sec gated" id="sec3">
     <div class="slabel"><span class="no">3</span>お車を選ぶ</div>
     <div class="stitle">この時間でご利用いただけるお車</div>
     <div class="cars" id="cars"></div>
     <div class="hint">※ ◯=空きあり／△=残りわずか（当日の他予約＋整備3hを考慮）。写真・料金は仮置きです。</div>
-  </div>
-
-  <!-- PROCESS -->
-  <div class="proc">
-    <div class="ph">PROCESS</div>
-    <div class="pt">ご利用の流れ</div>
-    <div class="step"><div class="n">1</div><div><div class="st">検索・予約</div><div class="sd">利用日・時間枠・車種を選び、オンラインで予約・決済。</div></div></div>
-    <div class="step"><div class="n">2</div><div><div class="st">事前手続き</div><div class="sd">マイページで免許証の登録・貸渡約款へのご署名。</div></div></div>
-    <div class="step"><div class="n">3</div><div><div class="st">店頭で受取</div><div class="sd">高松空港店の店頭でお車をお受け取り（送迎なし）。</div></div></div>
-    <div class="step"><div class="n">4</div><div><div class="st">返却</div><div class="sd">時間内に店頭へご返却ください。</div></div></div>
   </div>
 
   <div class="foot"><img src="images/bt-logo.png" class="logo" alt="BUDDICA TOURISM"><div style="margin-top:8px">高松空港店｜お問い合わせ：reserve.touring@buddica.co.jp</div></div>
@@ -191,15 +193,15 @@ function recalc(){
   var st=+sv, en=+ev;
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
   var box=document.getElementById("tiers");
-  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();return;}
+  if(!sv||!ev){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
   if(box)box.classList.remove("dim");
   dur=(en-st)/60;
-  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();return;}
+  if(dur<=0){dEl.innerText="返却は貸出より後のお時間をお選びください";tEl.innerText="—";slot=0;if(box)box.classList.add("dim");markTier();updatePlanPrice();updateGate();return;}
   slot=tierFor(dur);
   var enTxt=(en>=24*60?"翌":"")+hhmm(en);
   dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
   tEl.innerText=slot+"時間プラン";
-  markTier();updatePlanPrice();
+  markTier();updatePlanPrice();updateGate();
 }
 function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
 function updatePlanPrice(){
@@ -225,9 +227,21 @@ function updateBar(){
   if(carIdx<0){s.innerText=slot+"時間プラン・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
   var c=CATS[carIdx];s.innerText=slot+"時間プラン｜"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>税込／店頭お受け取り</small>';g.disabled=false;
 }
+function updateGate(){
+  var s1=document.getElementById("sec1"),s2=document.getElementById("sec2"),s3=document.getElementById("sec3");
+  var ok=slot>0;
+  s2.classList.toggle("gated",!ok);
+  s1.classList.toggle("await",!ok);
+  if(!ok){s3.classList.add("gated");}   // 時間が無効なら車も再ロック
+}
 window.pick=function(i){carIdx=i;renderCars();updateBar();updatePlanPrice();};
 document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
+document.getElementById("toCars").addEventListener("click",function(){
+  if(slot<=0)return;
+  document.getElementById("sec3").classList.remove("gated");
+  document.getElementById("sec3").scrollIntoView({behavior:"smooth",block:"start"});
+});
 document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
 recalc();renderCars();updateBar();
 </script>
