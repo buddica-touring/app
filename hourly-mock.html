@@ -34,11 +34,11 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .slot .l{font-size:10px;color:var(--sub);margin-top:2px}
 .slot.on{border-color:var(--org);background:linear-gradient(180deg,rgba(242,101,34,.18),rgba(242,101,34,.04));box-shadow:0 0 0 3px rgba(242,101,34,.12)}
 .slot.on .h{color:var(--org)}
-.tsel{margin-top:12px;display:flex;align-items:center;gap:10px}
-.tsel label{font-size:13px;color:var(--sub);white-space:nowrap}
-.tsel .field{flex:1}
-.tend{font-size:13px;color:var(--sub);margin-top:8px}
-.tend b{color:var(--txt)}
+.trow{margin-top:10px;display:flex;align-items:center;gap:10px}
+.trow .field{flex:1}
+.tilde{color:var(--sub);font-weight:800;font-size:18px}
+.tend{font-size:13px;color:var(--sub);margin-top:10px}
+.tend b{color:var(--org)}
 /* car cards */
 .cars{display:flex;flex-direction:column;gap:12px}
 .car{background:var(--card);border:1.5px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:.15s}
@@ -87,33 +87,21 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
     <img src="images/bt-kv.png" class="kv" alt="BUDDICA TOURISM その旅にふさわしいクルマを。">
   </div>
 
-  <!-- STEP1 日付 -->
+  <!-- STEP1 利用日・利用時間 -->
   <div class="sec">
-    <div class="slabel"><span class="no">1</span>利用日</div>
-    <div class="stitle">いつ乗りますか？</div>
+    <div class="slabel"><span class="no">1</span>利用日・利用時間</div>
     <input type="date" id="date" class="field">
-  </div>
-
-  <!-- STEP2 時間枠 -->
-  <div class="sec">
-    <div class="slabel"><span class="no">2</span>時間枠</div>
-    <div class="stitle">どのくらい乗りますか？</div>
-    <div class="slots" id="slots">
-      <div class="slot on" data-h="3"><div class="h">3<span style="font-size:12px">h</span></div><div class="l">3時間</div></div>
-      <div class="slot" data-h="6"><div class="h">6<span style="font-size:12px">h</span></div><div class="l">6時間</div></div>
-      <div class="slot" data-h="12"><div class="h">12<span style="font-size:12px">h</span></div><div class="l">12時間</div></div>
-      <div class="slot" data-h="24"><div class="h">24<span style="font-size:12px">h</span></div><div class="l">1日</div></div>
-    </div>
-    <div class="tsel">
-      <label>開始時刻</label>
+    <div class="trow">
       <select id="start" class="field"></select>
+      <span class="tilde">〜</span>
+      <select id="end" class="field"></select>
     </div>
-    <div class="tend">返却予定：<b id="endt">—</b><span style="color:#5a5a63"> ／ 返却後3時間は整備のため次の貸出不可</span></div>
+    <div class="tend">利用時間 <b id="dur">—</b>　料金区分 <b id="tier">—</b><span style="color:#5a5a63"> ／ 返却後3hは整備のため次の貸出不可</span></div>
   </div>
 
-  <!-- STEP3 車種 -->
+  <!-- STEP2 車種 -->
   <div class="sec">
-    <div class="slabel"><span class="no">3</span>クルマを選ぶ</div>
+    <div class="slabel"><span class="no">2</span>クルマを選ぶ</div>
     <div class="stitle">車種を選択</div>
     <div class="cars" id="cars"></div>
     <div class="hint">※ ◯=空きあり／△=残りわずか（当日の他予約＋整備3hを考慮）。写真・料金は仮置きです。</div>
@@ -148,34 +136,50 @@ var CATS=[
   {cat:"コンパクトSUV",nm:"ライズ / ヤリスクロス",mk:"Toyota",emo:"🚙",p:{3:4000,6:5000,12:6000,24:8000},add:1000,av:"ok"},
   {cat:"コンパクト",nm:"ヤリス / パッソ",mk:"Toyota",emo:"🚗",p:{3:3200,6:4500,12:5250,24:7000},add:700,av:"ok"}
 ];
-var slot=3, carIdx=-1;
+var carIdx=-1, slot=3, dur=0;
 var yen=function(n){return "¥"+n.toLocaleString();};
-// 開始時刻 09:00-18:00 30分
-(function(){var s=document.getElementById("start"),h="";for(var m=9*60;m<=18*60;m+=30){var hh=("0"+Math.floor(m/60)).slice(-2),mm=("0"+(m%60)).slice(-2);h+='<option value="'+(m)+'">'+hh+":"+mm+'</option>';}s.innerHTML=h;s.value=10*60;})();
+function opts(sel,from,to){var h="";for(var m=from;m<=to;m+=30){var hh=("0"+Math.floor(m/60)).slice(-2),mm=("0"+(m%60)).slice(-2);h+='<option value="'+m+'">'+hh+":"+mm+'</option>';}sel.innerHTML=h;}
+// 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）
+opts(document.getElementById("start"),9*60,19*60);
+opts(document.getElementById("end"),9*60+30,33*60);
+document.getElementById("start").value=10*60;
+document.getElementById("end").value=13*60;
 // 日付初期=明日
 (function(){var d=new Date(Date.now()+9*36e5+864e5);document.getElementById("date").value=d.toISOString().slice(0,10);})();
-function endText(){var st=+document.getElementById("start").value;var en=st+slot*60;var hh=("0"+Math.floor(en/60)%24).slice(-2),mm=("0"+(en%60)).slice(-2);var nd=en>=24*60?"（翌 ）":"";return (slot>=12?nd:"")+hh+":"+mm;}
+function tierFor(h){return h<=3?3:h<=6?6:h<=12?12:24;}
+function hhmm(m){m=((m%(24*60))+24*60)%(24*60);return ("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
+function recalc(){
+  var st=+document.getElementById("start").value, en=+document.getElementById("end").value;
+  dur=(en-st)/60; // 時間
+  var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
+  if(dur<=0){dEl.innerText="開始＜終了で選択";tEl.innerText="—";slot=0;return;}
+  slot=tierFor(dur);
+  var over=en>=24*60?"（翌"+hhmm(en)+"）":"";
+  dEl.innerText=(Number.isInteger(dur)?dur:dur.toFixed(1))+"時間"+over;
+  tEl.innerText=slot+"時間 枠";
+}
 function renderCars(){
   var h="";CATS.forEach(function(c,i){
     var av=c.av==="few"?'<span class="avail av-few">△ 残りわずか</span>':'<span class="avail av-ok">◯ 空きあり</span>';
+    var price=slot?yen(c.p[slot]):"—", unit=slot?(" / "+slot+"h枠"):"";
     h+='<div class="car'+(i===carIdx?' on':'')+'" onclick="pick('+i+')">'
       +'<div class="pic"><span class="cat">'+c.cat+'</span>'+av+c.emo+'</div>'
       +'<div class="body"><div><div class="nm">'+c.nm+'</div><div class="mk">'+c.mk+'</div></div>'
-      +'<div class="price"><span class="p">'+yen(c.p[slot])+'</span><span class="u"> / '+slot+'h</span>'
+      +'<div class="price"><span class="p">'+price+'</span><span class="u">'+unit+'</span>'
       +'<div class="add">以降1泊 +'+yen(c.add)+'</div></div></div></div>';
   });
   document.getElementById("cars").innerHTML=h;
 }
 function updateBar(){
-  document.getElementById("endt").innerText=endText();
   var s=document.getElementById("sumL"),p=document.getElementById("sumP"),g=document.getElementById("go");
-  if(carIdx<0){s.innerText=slot+"時間・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
-  var c=CATS[carIdx];s.innerText=slot+"時間・"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>／店頭受取</small>';g.disabled=false;
+  if(!slot){s.innerText="利用時間を選択してください";p.innerHTML="¥—";g.disabled=true;return;}
+  if(carIdx<0){s.innerText=slot+"時間枠・車種未選択";p.innerHTML="¥—";g.disabled=true;return;}
+  var c=CATS[carIdx];s.innerText=slot+"時間枠・"+c.nm;p.innerHTML=yen(c.p[slot])+' <small>／店頭受取</small>';g.disabled=false;
 }
 window.pick=function(i){carIdx=i;renderCars();updateBar();};
-document.getElementById("slots").addEventListener("click",function(e){var el=e.target.closest(".slot");if(!el)return;slot=+el.dataset.h;[].forEach.call(this.children,function(x){x.classList.toggle("on",x===el);});renderCars();updateBar();});
-document.getElementById("start").addEventListener("change",updateBar);
+document.getElementById("start").addEventListener("change",function(){recalc();renderCars();updateBar();});
+document.getElementById("end").addEventListener("change",function(){recalc();renderCars();updateBar();});
 document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
-renderCars();updateBar();
+recalc();renderCars();updateBar();
 </script>
 </body></html>
