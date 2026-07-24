@@ -149,12 +149,12 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .dmg-state.wait{background:#94a3b8;color:#fff;}
 .terms-note{margin-top:10px;font-size:13px;font-weight:700;color:#5b6b7b;background:#f6f8fb;border:1px solid #d9dee7;border-radius:9px;padding:10px 12px;line-height:1.7;}
 @keyframes licpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
-#licAlert{align-items:center;gap:11px;background:#fef2f2;border:2px solid #dc2626;border-radius:14px;padding:13px 15px;margin-bottom:16px;cursor:pointer;animation:licpulse 1.15s ease-in-out infinite}
-#licAlert .la-ic{font-size:26px;flex:none}
-#licAlert .la-tx{flex:1;min-width:0}
-#licAlert .la-tx b{display:block;color:#b91c1c;font-size:15px;font-weight:900;margin-bottom:2px}
-#licAlert .la-tx span{display:block;color:#7f1d1d;font-size:12.5px;line-height:1.55}
-#licAlert .la-go{flex:none;background:#dc2626;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:9px 12px;white-space:nowrap}
+#licAlert,#termsAlert{align-items:center;gap:11px;background:#fef2f2;border:2px solid #dc2626;border-radius:14px;padding:13px 15px;margin-bottom:16px;cursor:pointer;animation:licpulse 1.15s ease-in-out infinite}
+#licAlert .la-ic,#termsAlert .la-ic{font-size:26px;flex:none}
+#licAlert .la-tx,#termsAlert .la-tx{flex:1;min-width:0}
+#licAlert .la-tx b,#termsAlert .la-tx b{display:block;color:#b91c1c;font-size:15px;font-weight:900;margin-bottom:2px}
+#licAlert .la-tx span,#termsAlert .la-tx span{display:block;color:#7f1d1d;font-size:12.5px;line-height:1.55}
+#licAlert .la-go,#termsAlert .la-go{flex:none;background:#dc2626;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:9px 12px;white-space:nowrap}
 </style></head>
 <body><div class="wrap">
 <div id="langbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px;"><button onclick="setLang('ja')" data-lang="ja" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">日本語</button><button onclick="setLang('en')" data-lang="en" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">EN</button><button onclick="setLang('zh')" data-lang="zh" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">繁體</button><button onclick="setLang('ko')" data-lang="ko" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">한국어</button></div>
@@ -166,6 +166,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <div id="doneBanner" style="display:none;background:#dcfce7;border:1.5px solid #86efac;border-radius:12px;padding:15px 18px;margin-bottom:16px;color:#166534;font-weight:800;font-size:16px;text-align:center;" data-t="banner">✅ 締結が完了しました（傷の確認・約款へのご同意をいただきました）</div>
 
+<div id="termsAlert" style="display:none" onclick="var s=document.querySelector('#card2 .sign-area');if(s)s.scrollIntoView({behavior:'smooth',block:'center'})"></div>
 <div id="licAlert" style="display:none" onclick="document.getElementById('licCard').scrollIntoView({behavior:'smooth',block:'center'})"></div>
 
 <!-- ③ 予約情報 -->
@@ -282,6 +283,14 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <script>
 var signed={1:false,2:false};
+var TERMS_READY=false;
+function updateTermsAlert(){
+  var el=document.getElementById('termsAlert'); if(!el)return;
+  if(signed[2]||RO||!TERMS_READY){el.style.display='none';return;}
+  var A=({ja:{t:'貸渡約款のご署名がまだです',b:'ご出発前に、貸渡約款をご確認のうえ電子署名をお願いします。',g:'署名する →'},en:{t:'Rental terms not signed',b:'Please review and e-sign the rental terms before pickup.',g:'Sign now →'},zh:{t:'尚未簽署租車約款',b:'出發前請確認並電子簽署租車約款。',g:'前往簽署 →'},ko:{t:'대여 약관 서명 미완료',b:'출발 전에 대여 약관을 확인하고 전자 서명해 주세요.',g:'서명하기 →'}})[LANG]||{t:'貸渡約款のご署名がまだです',b:'ご出発前に、貸渡約款をご確認のうえ電子署名をお願いします。',g:'署名する →'};
+  el.innerHTML='<div class="la-ic">📝</div><div class="la-tx"><b>⚠️ '+A.t+'</b><span>'+A.b+'</span></div><div class="la-go">'+A.g+'</div>';
+  el.style.display='flex';
+}
 
 /* ===== 多言語 i18n ===== */
 var LANGS=["ja", "en", "zh", "ko"];
@@ -332,6 +341,7 @@ function applyLang(){
   if(f)f.innerHTML=I18N[(signed[1]&&signed[2])?'fin_d':'fin_p'][LANG];
   if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
   if(document.getElementById('licBody'))renderLicCard(); // 🪪 免許証カードも言語連動で再描画
+  updateTermsAlert(); // 📝 約款未署名アラートも言語連動で再描画
 }
 function setLang(c){LANG=c;localStorage.setItem('bt_lang',c);applyLang();}
 function TT(k){return (I18N[k]&&I18N[k][LANG])||k;}
@@ -365,7 +375,7 @@ function applyLock(cardId,n,srec,sigimg){
   var card=document.getElementById(cardId);card.classList.add('signed');
   document.getElementById('who'+n).textContent=(srec.name||'')+' 様　'+new Date(srec.at).toLocaleString('ja-JP')+'　署名';
   if(sigimg)document.getElementById('img'+n).src=sigimg;
-  signed[n]=true;
+  signed[n]=true;updateTermsAlert();
   var st=document.getElementById('st'+n);st.innerHTML=I18N[n==1?'st1_d':'st2_d'][LANG];st.classList.add('ok');
   if(signed[1]&&signed[2]){var f=document.getElementById('fin');f.innerHTML=I18N['fin_d'][LANG];f.classList.add('ready');var b=document.getElementById('doneBanner');if(b){b.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}}
 }
@@ -535,6 +545,7 @@ async function boot(){
     if(sg.type==='damage_approval')applyLock('card1',1,sg,null);
     if(sg.type==='terms_agree')applyLock('card2',2,sg,null);
   });
+  TERMS_READY=true;updateTermsAlert();
 }
 setupPad('pad1');setupPad('pad2');
 applyLang();boot();
