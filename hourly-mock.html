@@ -42,8 +42,9 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 .tg{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;opacity:.5;transition:.2s}
 .tg b{display:block;font-size:16px;font-weight:900}
 .tg span{font-size:10px;color:var(--sub)}
-.tg.on{opacity:1;border-color:var(--org);background:linear-gradient(180deg,rgba(242,101,34,.18),rgba(242,101,34,.03))}
+.tg.on{opacity:1;border-color:var(--org);background:linear-gradient(180deg,rgba(242,101,34,.2),rgba(242,101,34,.04));box-shadow:0 0 0 2px rgba(242,101,34,.25)}
 .tg.on b{color:var(--org)}
+.tg.on span{color:var(--org);font-weight:800}
 .planbox{margin-top:14px;background:linear-gradient(180deg,#1b1b21,#141418);border:1px solid #30303a;border-radius:14px;padding:16px 18px;text-align:center}
 .pl1{font-size:14px;font-weight:600;color:#c7c7d0;letter-spacing:.3px}
 .pl1 b{color:#fff;font-weight:800}
@@ -112,10 +113,10 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
       <select id="end" class="field tc"></select>
     </div>
     <div class="tiers" id="tiers">
-      <div class="tg" data-h="3"><b>3h</b><span>〜3時間</span></div>
-      <div class="tg" data-h="6"><b>6h</b><span>〜6時間</span></div>
-      <div class="tg" data-h="12"><b>12h</b><span>〜12時間</span></div>
-      <div class="tg" data-h="24"><b>24h</b><span>〜1日</span></div>
+      <div class="tg" data-h="3"><b>3h</b><span data-sub="〜3時間">〜3時間</span></div>
+      <div class="tg" data-h="6"><b>6h</b><span data-sub="〜6時間">〜6時間</span></div>
+      <div class="tg" data-h="12"><b>12h</b><span data-sub="〜12時間">〜12時間</span></div>
+      <div class="tg" data-h="24"><b>24h</b><span data-sub="〜1日">〜1日</span></div>
     </div>
     <div class="planbox">
       <div class="pl1" id="dur">貸出・返却のお時間をお選びください</div>
@@ -161,7 +162,7 @@ var CATS=[
 ];
 var carIdx=-1, slot=3, dur=0;
 var yen=function(n){return "¥"+n.toLocaleString();};
-function opts(sel,from,to){var h="";for(var m=from;m<=to;m+=30){var hh=("0"+Math.floor(m/60)).slice(-2),mm=("0"+(m%60)).slice(-2);h+='<option value="'+m+'">'+hh+":"+mm+'</option>';}sel.innerHTML=h;}
+function opts(sel,from,to){var h="";for(var m=from;m<=to;m+=30){var d=m>=1440?"翌":"";var mm2=m%1440;var hh=("0"+Math.floor(mm2/60)).slice(-2),mm=("0"+(mm2%60)).slice(-2);h+='<option value="'+m+'">'+d+hh+":"+mm+'</option>';}sel.innerHTML=h;}
 // 開始09:00-19:00 / 終了09:30-翌09:00（30分刻み）
 opts(document.getElementById("start"),9*60,19*60);
 opts(document.getElementById("end"),9*60+30,33*60);
@@ -177,12 +178,12 @@ function recalc(){
   var dEl=document.getElementById("dur"), tEl=document.getElementById("tier");
   if(dur<=0){dEl.innerText="貸出・返却のお時間をお選びください";tEl.innerText="—";slot=0;markTier();updatePlanPrice();return;}
   slot=tierFor(dur);
-  var over=en>=24*60?"（翌"+hhmm(en)+"）":"";
-  dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+hhmm(en)+over+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
+  var enTxt=(en>=24*60?"翌":"")+hhmm(en);
+  dEl.innerHTML='ご利用 <b>'+hhmm(st)+' – '+enTxt+'</b> ・ '+(Number.isInteger(dur)?dur:dur.toFixed(1))+'時間';
   tEl.innerText=slot+"時間プラン";
   markTier();updatePlanPrice();
 }
-function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++)tgs[k].classList.toggle("on",+tgs[k].getAttribute("data-h")===slot);}
+function markTier(){var tgs=document.querySelectorAll("#tiers .tg");for(var k=0;k<tgs.length;k++){var on=(+tgs[k].getAttribute("data-h")===slot);tgs[k].classList.toggle("on",on);var sp=tgs[k].querySelector("span");if(sp)sp.textContent=on?"✓ ご希望":sp.getAttribute("data-sub");}}
 function updatePlanPrice(){
   var el=document.getElementById("planprice");if(!el)return;
   if(carIdx>=0&&slot){var c=CATS[carIdx];el.innerHTML=c.nm+'<span class="amt">'+yen(c.p[slot])+'</span><span class="sub">'+slot+'時間プラン ・ 税込 ・ 店頭お受け取り</span>';}
