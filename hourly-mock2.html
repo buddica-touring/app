@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BUDDICA TOURISM 時間貸し ご予約手続き（モック）</title>
+<style>
+:root{--org:#f26522;--bg:#0d0d0f;--card:#17171b;--line:#2a2a31;--sub:#9a9aa5}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;background:var(--bg);color:#f5f5f7;font-size:15px;line-height:1.5;padding-bottom:100px}
+.wrap{max-width:520px;margin:0 auto}
+.mockbar{background:#3a2410;color:#fcd9b6;text-align:center;font-size:11px;padding:6px 10px;letter-spacing:.5px}
+.topbar{background:#0a0a0c;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.topbar .back{color:#c7c7d0;text-decoration:none;font-size:20px;font-weight:800}
+.topbar .logo{height:24px;width:auto}
+.progress{display:flex;gap:6px;padding:14px 18px 4px}
+.pstep{flex:1;text-align:center;font-size:10px;letter-spacing:1px;color:#6a6a73;font-weight:700}
+.pstep .dot{height:4px;border-radius:2px;background:#2a2a31;margin-bottom:6px}
+.pstep.on{color:var(--org)}.pstep.on .dot{background:var(--org)}
+.sec{padding:16px 18px 4px}
+.slabel{font-size:12px;letter-spacing:2px;color:var(--org);font-weight:800;display:flex;align-items:center;gap:8px}
+.slabel .no{background:var(--org);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:italic}
+/* 予約内容 */
+.rescard{margin-top:12px;background:linear-gradient(180deg,#1b1b21,#141418);border:1px solid #30303a;border-radius:16px;overflow:hidden}
+.rescard .pic{height:120px;background:radial-gradient(120% 130% at 70% 20%,#2c2c34,#141418);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rescard .pic img{height:104px;width:auto;max-width:92%;object-fit:contain;filter:drop-shadow(0 8px 9px rgba(0,0,0,.5))}
+.rescard .rb{padding:14px 16px}
+.rescard .cn{font-size:18px;font-weight:800}
+.rescard .cm{font-size:11px;color:var(--sub);margin-top:2px;margin-bottom:10px}
+.rrow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #262630;font-size:14px}
+.rrow .k{color:var(--sub);font-weight:600}
+.rrow .v{font-weight:700;text-align:right}
+.rrow.total{border-top:1px solid #3a3a44;margin-top:4px;padding-top:11px}
+.rrow.total .v{color:var(--org);font-size:22px;font-weight:900}
+.rrow.total .v small{font-size:11px;color:var(--sub);font-weight:600}
+/* form */
+.fld{margin-top:12px}
+.fld label{display:block;font-size:12px;color:var(--sub);font-weight:700;margin-bottom:6px;letter-spacing:.5px}
+.fld label .req{color:var(--org);margin-left:4px}
+.fld input{width:100%;background:var(--card);border:1px solid #3a3a44;border-radius:12px;padding:13px 14px;font-size:16px;color:#fff}
+.fld input:focus{border-color:var(--org);outline:none}
+.two{display:flex;gap:10px}.two .fld{flex:1}
+/* 受取 */
+.infobox{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.infobox .t{font-size:14px;font-weight:800;margin-bottom:8px}
+.infobox .l{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#d7d7dd}
+.infobox .l .k{color:var(--sub)}
+.pill{display:inline-block;background:rgba(242,101,34,.14);border:1px solid rgba(242,101,34,.4);color:#ffd0b0;font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;margin-top:8px}
+/* 同意 */
+.agree{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.agree .row{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#d7d7dd;cursor:pointer}
+.agree input{width:20px;height:20px;accent-color:var(--org);flex:0 0 20px;margin-top:1px}
+.agree a{color:var(--org);text-decoration:underline}
+.note{font-size:11px;color:#6a6a73;margin-top:10px;line-height:1.7;padding:0 4px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(20,20,24,.97);border-top:1px solid var(--line);backdrop-filter:blur(8px);padding:10px 16px;z-index:20}
+.bar .in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar .sum{flex:1;min-width:0}.bar .sum .l1{font-size:11px;color:var(--sub)}.bar .sum .l2{font-size:20px;font-weight:900}
+.bar .sum .l2 small{font-size:11px;color:var(--sub);font-weight:600}
+.bar .go{background:var(--org);color:#fff;font-weight:900;font-size:15px;border:none;border-radius:12px;padding:14px 18px;white-space:nowrap;cursor:pointer;box-shadow:0 4px 14px rgba(242,101,34,.3)}
+.bar .go:disabled{background:#3a3a42;color:#777;box-shadow:none}
+.foot{padding:22px 18px 30px;text-align:center;color:var(--sub);font-size:11px}
+.foot .logo{height:20px;opacity:.9}
+</style></head>
+<body>
+<div class="mockbar">🖼 デザインモック（DB未接続・お手続きは仮）</div>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="javascript:history.back()">‹</a>
+    <img src="images/bt-logo.png" class="logo" alt="BUDDICA TOURISM">
+  </div>
+  <div class="progress">
+    <div class="pstep"><div class="dot"></div>お車を選ぶ</div>
+    <div class="pstep on"><div class="dot"></div>お客様情報</div>
+    <div class="pstep"><div class="dot"></div>お支払い</div>
+    <div class="pstep"><div class="dot"></div>完了</div>
+  </div>
+
+  <!-- ご予約内容 -->
+  <div class="sec">
+    <div class="slabel"><span class="no">1</span>ご予約内容</div>
+    <div class="rescard">
+      <div class="pic" id="rpic"></div>
+      <div class="rb">
+        <div class="cn" id="rcar">—</div>
+        <div class="cm" id="rmk">—</div>
+        <div class="rrow"><span class="k">ご利用日</span><span class="v" id="rdate">—</span></div>
+        <div class="rrow"><span class="k">ご利用時間</span><span class="v" id="rtime">—</span></div>
+        <div class="rrow"><span class="k">ご利用プラン</span><span class="v" id="rplan">—</span></div>
+        <div class="rrow"><span class="k">お受け取り</span><span class="v">高松空港店（店頭）</span></div>
+        <div class="rrow total"><span class="k">お支払い合計</span><span class="v" id="rprice">¥—<small> 税抜</small></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- お客様情報 -->
+  <div class="sec">
+    <div class="slabel"><span class="no">2</span>お客様情報</div>
+    <div class="fld"><label>お名前<span class="req">必須</span></label><input type="text" placeholder="山田 太郎"></div>
+    <div class="fld"><label>フリガナ<span class="req">必須</span></label><input type="text" placeholder="ヤマダ タロウ"></div>
+    <div class="two">
+      <div class="fld"><label>お電話番号<span class="req">必須</span></label><input type="tel" placeholder="09012345678"></div>
+    </div>
+    <div class="fld"><label>メールアドレス<span class="req">必須</span></label><input type="email" placeholder="example@email.com"></div>
+  </div>
+
+  <!-- 受取案内 -->
+  <div class="sec">
+    <div class="slabel"><span class="no">3</span>お受け取り・ご返却</div>
+    <div class="infobox">
+      <div class="t">🏬 高松空港店（店頭でお受け取り）</div>
+      <div class="l"><span class="k">お受け取り時刻</span><span id="rpick">—</span></div>
+      <div class="l"><span class="k">ご返却時刻</span><span id="rret">—</span></div>
+      <div class="l"><span class="k">送迎</span><span>なし（店頭お受け取り・ご返却）</span></div>
+      <div class="pill">📄 ご予約後、マイページで免許証のご登録・貸渡約款へのご署名をお願いします</div>
+    </div>
+  </div>
+
+  <!-- 同意 -->
+  <div class="sec">
+    <div class="slabel"><span class="no">4</span>ご確認・ご同意</div>
+    <div class="agree">
+      <label class="row"><input type="checkbox" id="ag1"><span><a href="#">貸渡約款</a>・<a href="#">キャンセル規定</a>に同意します</span></label>
+    </div>
+    <div class="note">※ ご返却後3時間は点検・清掃のため、次のご予約はお受けできません。<br>※ 運転される方全員の運転免許証のご登録が必要です。<br>※ 表示価格は税抜です。</div>
+  </div>
+
+  <div class="foot"><img src="images/bt-logo.png" class="logo" alt="BUDDICA TOURISM"><div style="margin-top:8px">高松空港店｜お問い合わせ：reserve.touring@buddica.co.jp</div></div>
+</div>
+
+<div class="bar"><div class="in">
+  <div class="sum"><div class="l1">お支払い合計（税抜）</div><div class="l2" id="brice">¥—</div></div>
+  <button class="go" id="pay">お支払いへ進む</button>
+</div></div>
+
+<script>
+var q=new URLSearchParams(location.search);
+var yen=function(n){return "¥"+Number(n||0).toLocaleString();};
+function hhmm(m){m=+m;var d=m>=1440?"翌":"";m=((m%1440)+1440)%1440;return d+("0"+Math.floor(m/60)).slice(-2)+":"+("0"+(m%60)).slice(-2);}
+function jpDate(s){var p=(s||"").split("-");if(p.length!==3)return s||"—";var wd="日月火水木金土"[new Date(+p[0],+p[1]-1,+p[2]).getDay()];return (+p[1])+"月"+(+p[2])+"日（"+wd+"）";}
+var slot=q.get("slot")||"", s=q.get("s"), e=q.get("e"), price=q.get("price"), car=q.get("car")||"—", mk=q.get("mk")||"", img=q.get("img")||"";
+var dur=(s!=null&&e!=null)?((+e-+s)/60):0;
+document.getElementById("rcar").textContent=car;
+document.getElementById("rmk").textContent=mk;
+document.getElementById("rdate").textContent=jpDate(q.get("d"));
+document.getElementById("rtime").textContent=(s!=null?hhmm(s):"—")+" – "+(e!=null?hhmm(e):"—")+(dur?("（"+(Number.isInteger(dur)?dur:dur.toFixed(1))+"時間）"):"");
+document.getElementById("rplan").textContent=slot?(slot+"時間プラン"):"—";
+document.getElementById("rprice").innerHTML=yen(price)+'<small> 税抜</small>';
+document.getElementById("brice").textContent=yen(price);
+document.getElementById("rpick").textContent=(s!=null?hhmm(s):"—");
+document.getElementById("rret").textContent=(e!=null?hhmm(e):"—");
+if(img){document.getElementById("rpic").innerHTML='<img src="'+img+'" alt="">';}else{document.getElementById("rpic").textContent="🚗";}
+document.getElementById("pay").addEventListener("click",function(){
+  if(!document.getElementById("ag1").checked){alert("貸渡約款・キャンセル規定へのご同意が必要です");return;}
+  alert("（モック）このあと お支払い（決済）→ ご予約完了 → マイページで免許証登録・約款署名 に進みます。");
+});
+</script>
+</body></html>

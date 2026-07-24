@@ -244,7 +244,15 @@ document.getElementById("toCars").addEventListener("click",function(){
   document.getElementById("sec3").classList.remove("gated");
   document.getElementById("sec3").scrollIntoView({behavior:"smooth",block:"start"});
 });
-document.getElementById("go").addEventListener("click",function(){alert("（モック）ここでお客様情報→免許/約款→決済→完了 に進みます。");});
+document.getElementById("go").addEventListener("click",function(){
+  if(carIdx<0||!slot)return;
+  var c=CATS[carIdx];
+  var q="d="+encodeURIComponent(document.getElementById("date").value)
+    +"&s="+document.getElementById("start").value+"&e="+document.getElementById("end").value
+    +"&slot="+slot+"&car="+encodeURIComponent(c.nm)+"&mk="+encodeURIComponent(c.mk)
+    +"&price="+c.p[slot]+"&over="+c.add+"&img="+encodeURIComponent(c.img||"");
+  location.href="hourly-mock2.html?"+q;
+});
 recalc();renderCars();updateBar();
 </script>
 </body></html>
