@@ -222,6 +222,8 @@ function hhmm(m){m=+m;var d=m>=1440?"翌":"";m=((m%1440)+1440)%1440;return d+("0
 var carNm=q.get("car")||"Porsche 911";
 var car=CATS.filter(function(c){return c.nm===carNm;})[0]||CATS[1];
 var s=+(q.get("s")||600), e=+(q.get("e")||780), dstr=q.get("d")||"";
+var bookedSlot=(function(){var h=(e-s)/60;return h<=3?3:h<=6?6:h<=12?12:24;})();
+var bookedPrice=(+(q.get("price")||0))||car.p[bookedSlot];   // 予約時に前払いした金額
 document.getElementById("gcar").textContent=carNm;
 document.getElementById("ischeduled").textContent=(dstr?dstr+" ":"")+hhmm(s)+" – "+hhmm(e);
 
@@ -273,6 +275,7 @@ function render(){
         +'<div class="cd run">'+fmtDur(elapsedMs)+'</div>'
         +'<div class="now-plan">現在のプラン <b>'+pl.slot+'時間プラン</b> ／ '+yen(pl.total)+'</div>'
         +'<div class="prog'+(warn?' warn':'')+'"><i style="width:'+prog+'%"></i></div>'+ntHtml
+        +(pl.total>bookedPrice?('<div class="nexttier warn">💳 予約プラン超過中：差額 <b>'+yen(pl.total-bookedPrice)+'</b> はご返却時に<b>店舗で精算</b>となります</div>'):'')
         +'<div class="times"><div class="c"><div class="k">利用開始</div><div class="v">'+clk(start)+'</div></div><div class="c"><div class="k">現在の請求</div><div class="v" style="color:var(--org)">'+yen(pl.total)+'</div></div></div>'
         +'<button class="btn stop" onclick="doRequest()">🏁 ご返却をリクエストする</button>'
         +'<div class="subnote">店頭にお車をお戻しのうえ、上のボタンで返却をリクエストしてください。店舗スタッフが確認・<b>承認</b>すると返却が確定します。</div>';
@@ -293,8 +296,11 @@ function render(){
     +'<div class="cd done">'+fmtDur(fMs)+'</div>'
     +'<div class="now-plan">ご利用時間 <b style="color:#fff">'+fmtShort(fh)+'</b>（'+fp.slot+'時間プラン）</div>'
     +'<div class="times"><div class="c"><div class="k">🏁 返却リクエスト</div><div class="v">'+(req?clk(req):'—')+'</div></div><div class="c"><div class="k">🏬 店舗 承認・確定</div><div class="v" style="color:#86efac">'+clk(done)+'</div></div></div>'
-    +'<div class="times" style="margin-top:8px"><div class="c"><div class="k">確定プラン</div><div class="v">'+fp.slot+'時間プラン</div></div><div class="c"><div class="k">確定ご請求</div><div class="v" style="color:var(--org)">'+yen(fp.total)+'</div></div></div>'
-    +(fp.over>0?('<div class="nexttier warn">24時間超過 '+fp.oh+'時間分 超過料金 '+yen(fp.over)+' を含みます</div>'):'')
+    +'<div class="times" style="margin-top:8px"><div class="c"><div class="k">確定プラン</div><div class="v">'+fp.slot+'時間プラン</div></div><div class="c"><div class="k">確定ご利用料金</div><div class="v" style="color:var(--org)">'+yen(fp.total)+'</div></div></div>'
+    +(function(){var addl=Math.max(0,fp.total-bookedPrice);
+        var h='<div class="times" style="margin-top:8px"><div class="c"><div class="k">前払い済み</div><div class="v">'+yen(bookedPrice)+'</div></div><div class="c"><div class="k">'+(addl>0?'店舗で追加清算':'追加清算')+'</div><div class="v" style="color:'+(addl>0?'#ef4444':'#4ade80')+'">'+(addl>0?('+'+yen(addl)):'なし')+'</div></div></div>';
+        if(addl>0)h+='<div class="nexttier warn">🏬 超過分 <b>'+yen(addl)+'</b> を、ご返却時に<b>店舗でご精算</b>ください'+(fp.over>0?('（うち24時間超過 '+fp.oh+'時間分 '+yen(fp.over)+'）'):'')+'</div>';
+        return h;})()
     +'<div class="subnote">ご利用ありがとうございました。確定内容はメールでもお送りします。</div>';
 }
 render();
