@@ -42,6 +42,10 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 .tm .authwait{margin-top:12px;font-size:13px;color:#93c5fd;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.4);border-radius:10px;padding:10px}
 .demo{text-align:center;margin-top:8px}
 .demo a{font-size:11px;color:#6a6a73;text-decoration:underline;cursor:pointer}
+.todoalert{margin:12px 18px 0;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.45);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
+.todoalert.warn{color:#fca5a5}.todoalert.ok{color:#4ade80;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)}
+.todoalert b{color:#fff}
+.todoalert a{color:#ffcfae;text-decoration:underline;font-weight:800;cursor:pointer}
 /* 手続き */
 .item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .item .ic{font-size:24px;flex:0 0 30px;text-align:center}
@@ -93,6 +97,7 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
     <h1>ご利用ガイド</h1>
     <div class="who">ご予約 様 ／ <span id="gcar">—</span></div>
   </div>
+  <div id="todoAlert" class="todoalert" style="display:none"></div>
 
   <div class="sec">
     <div class="slabel">⏱ 利用時間メーター</div>
@@ -154,6 +159,8 @@ body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;backgrou
 <script>
 /* ===== 手続き：免許（表裏・運転者ごと）＋約款署名パッド（本番仕様） ===== */
 var drvN=0;
+window.licDone=false; window.termsDone=false;
+window.renderTodoAlert=function(){var el=document.getElementById("todoAlert");if(!el)return;var m=[];if(!window.licDone)m.push('<a onclick="openLic()">運転免許証のご登録</a>');if(!window.termsDone)m.push('<a onclick="openTerms()">貸渡約款へのご署名</a>');el.style.display="block";if(m.length){el.className="todoalert warn";el.innerHTML='⚠️ <b>ご出発前に必要なお手続きが残っています</b><br>'+m.join(' ／ ')+' をお済ませください。';}else{el.className="todoalert ok";el.innerHTML='✅ 出発前のお手続きは完了しています。ご出発いただけます。';}};
 function openLic(){document.getElementById("licModal").classList.add("on");if(!drvN)addDriver();}
 function closeLic(){document.getElementById("licModal").classList.remove("on");}
 function addDriver(){
@@ -180,6 +187,7 @@ function licChk(){
 function saveLic(){
   document.getElementById("licBadge").textContent="登録済";
   document.getElementById("licBadge").className="badge done";
+  window.licDone=true;window.renderTodoAlert();
   closeLic();
 }
 /* 約款署名パッド */
@@ -196,7 +204,7 @@ function pstart(e){e.preventDefault();if(!ctx||pad.width<10)setupPad();drawing=t
 function pmove(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();signed=true;document.getElementById("termsSave").disabled=false;}
 function pend(){drawing=false;}
 window.clearPad=function(){if(ctx){ctx.clearRect(0,0,pad.width,pad.height);}signed=false;document.getElementById("termsSave").disabled=true;};
-function saveTerms(){if(!signed)return;document.getElementById("termsBadge").textContent="署名済";document.getElementById("termsBadge").className="badge done";closeTerms();}
+function saveTerms(){if(!signed)return;document.getElementById("termsBadge").textContent="署名済";document.getElementById("termsBadge").className="badge done";window.termsDone=true;window.renderTodoAlert();closeTerms();}
 document.addEventListener("DOMContentLoaded",function(){
   var p=document.getElementById("pad");
   ["mousedown","touchstart"].forEach(function(ev){p.addEventListener(ev,pstart,{passive:false});});
@@ -204,6 +212,7 @@ document.addEventListener("DOMContentLoaded",function(){
   ["mouseup","mouseleave","touchend"].forEach(function(ev){p.addEventListener(ev,pend);});
 });
 [document.getElementById("licModal"),document.getElementById("termsModal")].forEach(function(m){m.addEventListener("click",function(e){if(e.target===m)m.classList.remove("on");});});
+window.renderTodoAlert();
 </script>
 
 <script>
@@ -245,7 +254,7 @@ function gs(k){return LS.getItem(KEYP+k);}
 function ss(k,v){LS.setItem(KEYP+k,v);}
 function cl(){LS.removeItem(KEYP+"start");LS.removeItem(KEYP+"req");LS.removeItem(KEYP+"done");}
 window.demoReset=function(){cl();render();};
-window.doStart=function(){ss("start",Date.now());render();};
+window.doStart=function(){if(!(window.licDone&&window.termsDone)){alert("ご出発前に、運転免許証のご登録と貸渡約款へのご署名をお済ませください。");if(window.renderTodoAlert)window.renderTodoAlert();var _a=document.getElementById("todoAlert");if(_a)_a.scrollIntoView({behavior:"smooth"});return;}ss("start",Date.now());render();};
 window.doRequest=function(){ss("req",Date.now());render();};
 window.doAuth=function(){ss("done",Date.now());render();};
 function clk(ms){return new Date(ms).toTimeString().slice(0,5);}
