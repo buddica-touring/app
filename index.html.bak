@@ -20880,17 +20880,19 @@ function LicenseBadge({resvNo,size,token}){
   const [n,setN]=React.useState(0);
   React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  if(n)return React.createElement("span",{title:"お客様がご利用ガイドで免許証をアップロード済み（"+n+"枚）",style:{...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"}}, "🪪免許OK");
+  const gurl="https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1";
+  if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚）",style:okst}, "🪪免許OK");}
   if(!token)return null;
-  return React.createElement("a",{href:"https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1",target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"免許証 未アップロード → クリックでガイドを開き撮影",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🪪免許必要");
+  return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"免許証 未アップロード → クリックでガイドを開き撮影",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🪪免許必要");
 }
 function SignBadge({resvNo,kind,size,token}){
   const [ok,setOk]=React.useState(false);
   React.useEffect(()=>{ const update=()=>{ const m=window._signMap||{}; const s=resvNo&&m[resvNo]; setOk(!!(s&&s[kind])); }; update(); window.addEventListener("signUpdate",update); return ()=>window.removeEventListener("signUpdate",update); },[resvNo,kind]);
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  if(ok){const label=kind==="terms"?"📝約款OK":"🔍傷OK";return React.createElement("span",{title:(kind==="terms"?"貸渡約款に同意（署名）済み":"傷確認 承認済み"),style:{...st,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"}}, label);}
+  const gurl="https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1";
+  if(ok){const label=kind==="terms"?"📝約款OK":"🔍傷OK";const okst={...st,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"};const ti=(kind==="terms"?"貸渡約款に同意（署名）済み":"傷確認 承認済み")+"・クリックでガイドを開く";return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:ti,style:{...okst,textDecoration:"none",cursor:"pointer"}}, label):React.createElement("span",{title:ti,style:okst}, label);}
   if(kind!=="terms"||!token)return null;
-  return React.createElement("a",{href:"https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1",target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"貸渡約款 未署名 → クリックでガイドを開き署名",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "📝約款必要");
+  return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"貸渡約款 未署名 → クリックでガイドを開き署名",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "📝約款必要");
 }
 function App(){
   const[data,setData]=useState([]);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);
@@ -22678,7 +22680,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.167-BT";
+const APP_VERSION="v1.0.168-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
