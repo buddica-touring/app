@@ -16622,6 +16622,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       const washByVehicle=new Map();const washDupIds=[];
       fixed.forEach(t=>{
         if(t.type!=="洗車")return;
+        // ★2026-07-25 手動洗車(wash_manual_)は予約非依存の独立タスク→孤児/重複判定の対象外（表示から消さない）
+        if(t.manual||(t._id&&String(t._id).indexOf("wash_manual")===0))return;
         const key=t.assignedVehicle||("unassigned:"+t.reservationId);
         if(washByVehicle.has(key)){washDupIds.push(t._id);}
         else{washByVehicle.set(key,t);}
@@ -22676,7 +22678,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.166-BT";
+const APP_VERSION="v1.0.167-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
