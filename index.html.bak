@@ -22706,7 +22706,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.173-BT";
+const APP_VERSION="v1.0.174-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24025,7 +24025,23 @@ window.TodoTab = TodoTab;
 })();
 
 
-ReactDOM.render(<Root/>,document.getElementById("root"));
+class ErrBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(e){return{err:e};}
+  componentDidCatch(e,info){try{console.error("[ErrBoundary]",e,info&&info.componentStack);}catch(_){}}
+  render(){
+    if(this.state.err){
+      return React.createElement("div",{style:{padding:20,fontFamily:"-apple-system,sans-serif"}},
+        React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#b91c1c",marginBottom:8}},"⚠️ 画面の表示でエラーが発生しました"),
+        React.createElement("div",{style:{fontSize:12,color:"#475569",marginBottom:12}},"下記のエラー内容を共有してください（スクショ可）。"),
+        React.createElement("pre",{style:{fontSize:11,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:12,whiteSpace:"pre-wrap",color:"#7f1d1d",maxHeight:340,overflow:"auto"}},String((this.state.err&&(this.state.err.stack||this.state.err.message))||this.state.err)),
+        React.createElement("button",{onClick:()=>{try{location.reload();}catch(_){}},style:{marginTop:12,padding:"11px 20px",background:"#0f172a",color:"#fff",border:"none",borderRadius:12,fontWeight:800,cursor:"pointer"}},"🔄 再読み込み")
+      );
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.render(<ErrBoundary><Root/></ErrBoundary>,document.getElementById("root"));
 // ★ React描画完了 → スプラッシュを非表示
 if(typeof window.hideSplash==='function') window.hideSplash();
 </script>
