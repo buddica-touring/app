@@ -166,9 +166,9 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <div id="doneBanner" style="display:none;background:#dcfce7;border:1.5px solid #86efac;border-radius:12px;padding:15px 18px;margin-bottom:16px;color:#166534;font-weight:800;font-size:16px;text-align:center;" data-t="banner">✅ 締結が完了しました（傷の確認・約款へのご同意をいただきました）</div>
 
-<div id="termsAlert" style="display:none" onclick="var s=document.querySelector('#card2 .sign-area');if(s)s.scrollIntoView({behavior:'smooth',block:'center'})"></div>
-<div id="licAlert" style="display:none" onclick="document.getElementById('licCard').scrollIntoView({behavior:'smooth',block:'center'})"></div>
-<div id="puAlert" style="display:none" onclick="var s=document.querySelector('.pu-pick');if(s)s.scrollIntoView({behavior:'smooth',block:'center'})"></div>
+<div id="termsAlert" style="display:none" onclick="goTo('#card2 .sign-area')"></div>
+<div id="licAlert" style="display:none" onclick="goTo('#licCard')"></div>
+<div id="puAlert" style="display:none" onclick="goTo('.pu-pick')"></div>
 
 <!-- ③ 予約情報 -->
 <div class="card">
@@ -378,6 +378,13 @@ function updatePuAlert(){
   var A=({ja:{t:'お迎え時間の選択をお願いします',b:'空港でのお迎えをスムーズにするため、ご希望のお迎え時間を必ずご選択ください。',g:'時間を選ぶ →'},en:{t:'Please select your pick-up time',b:'Please select your desired airport pick-up time to ensure a smooth arrival.',g:'Select →'},zh:{t:'請選擇迎接時間',b:'為了在機場順利迎接，請務必選擇您希望的迎接時間。',g:'選擇時間 →'},ko:{t:'픽업 시간을 선택해 주세요',b:'공항 픽업을 원활히 하기 위해 원하시는 픽업 시간을 반드시 선택해 주세요.',g:'시간 선택 →'}})[LANG]||{t:'お迎え時間の選択をお願いします',b:'空港でのお迎えをスムーズにするため、ご希望のお迎え時間を必ずご選択ください。',g:'時間を選ぶ →'};
   el.innerHTML='<div class="la-ic">🚐</div><div class="la-tx"><b>⚠️ '+A.t+'</b><span>'+A.b+'</span></div><div class="la-go">'+A.g+'</div>';
   el.style.display='flex';
+}
+// アラート→該当セクションへ。折りたたみ(collapsed=中身display:none)を先に開いてからスクロール
+function goTo(sel){
+  var el=document.querySelector(sel); if(!el)return;
+  var card=el.closest('.card'); if(card)card.classList.remove('collapsed');
+  var det=el.closest('details'); if(det)det.open=true;
+  setTimeout(function(){try{el.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){el.scrollIntoView();}},70);
 }
 function applyLang(){
   document.documentElement.lang=LANG;
