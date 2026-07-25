@@ -289,6 +289,14 @@ function checkUnrepliedAlert() {
   const SB_KEY = props['SUPABASE_KEY'];
   if (!SB_KEY) return;
 
+  // 営業時間ゲート：JST 8:30〜19:30 の外では通知しない
+  const _nowMinJST = parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H'), 10) * 60
+                   + parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'm'), 10);
+  if (_nowMinJST < 510 || _nowMinJST >= 1170) {
+    console.log('⏭ 営業時間外(8:30-19:30外)のため通知スキップ');
+    return;
+  }
+
   // 2時間前より古い status=new の問い合わせを取得
   const thresholdISO = new Date(Date.now() - ALERT_THRESHOLD_HOURS * 60 * 60 * 1000).toISOString();
   let inquiries = [];
