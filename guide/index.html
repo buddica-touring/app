@@ -149,12 +149,12 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 .dmg-state.wait{background:#94a3b8;color:#fff;}
 .terms-note{margin-top:10px;font-size:13px;font-weight:700;color:#5b6b7b;background:#f6f8fb;border:1px solid #d9dee7;border-radius:9px;padding:10px 12px;line-height:1.7;}
 @keyframes licpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
-#licAlert,#termsAlert{align-items:center;gap:11px;background:#fef2f2;border:2px solid #dc2626;border-radius:14px;padding:13px 15px;margin-bottom:16px;cursor:pointer;animation:licpulse 1.15s ease-in-out infinite}
-#licAlert .la-ic,#termsAlert .la-ic{font-size:26px;flex:none}
-#licAlert .la-tx,#termsAlert .la-tx{flex:1;min-width:0}
-#licAlert .la-tx b,#termsAlert .la-tx b{display:block;color:#b91c1c;font-size:15px;font-weight:900;margin-bottom:2px}
-#licAlert .la-tx span,#termsAlert .la-tx span{display:block;color:#7f1d1d;font-size:12.5px;line-height:1.55}
-#licAlert .la-go,#termsAlert .la-go{flex:none;background:#dc2626;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:9px 12px;white-space:nowrap}
+#licAlert,#termsAlert,#puAlert{align-items:center;gap:11px;background:#fef2f2;border:2px solid #dc2626;border-radius:14px;padding:13px 15px;margin-bottom:16px;cursor:pointer;animation:licpulse 1.15s ease-in-out infinite}
+#licAlert .la-ic,#termsAlert .la-ic,#puAlert .la-ic{font-size:26px;flex:none}
+#licAlert .la-tx,#termsAlert .la-tx,#puAlert .la-tx{flex:1;min-width:0}
+#licAlert .la-tx b,#termsAlert .la-tx b,#puAlert .la-tx b{display:block;color:#b91c1c;font-size:15px;font-weight:900;margin-bottom:2px}
+#licAlert .la-tx span,#termsAlert .la-tx span,#puAlert .la-tx span{display:block;color:#7f1d1d;font-size:12.5px;line-height:1.55}
+#licAlert .la-go,#termsAlert .la-go,#puAlert .la-go{flex:none;background:#dc2626;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:9px 12px;white-space:nowrap}
 </style></head>
 <body><div class="wrap">
 <div id="langbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px;"><button onclick="setLang('ja')" data-lang="ja" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">日本語</button><button onclick="setLang('en')" data-lang="en" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">EN</button><button onclick="setLang('zh')" data-lang="zh" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">繁體</button><button onclick="setLang('ko')" data-lang="ko" style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:8px;border:1px solid #333;background:#1a1a1e;color:#ddd;cursor:pointer;">한국어</button></div>
@@ -168,6 +168,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
 
 <div id="termsAlert" style="display:none" onclick="var s=document.querySelector('#card2 .sign-area');if(s)s.scrollIntoView({behavior:'smooth',block:'center'})"></div>
 <div id="licAlert" style="display:none" onclick="document.getElementById('licCard').scrollIntoView({behavior:'smooth',block:'center'})"></div>
+<div id="puAlert" style="display:none" onclick="var s=document.querySelector('.pu-pick');if(s)s.scrollIntoView({behavior:'smooth',block:'center'})"></div>
 
 <!-- ③ 予約情報 -->
 <div class="card">
@@ -369,6 +370,14 @@ function renderRes(){
   var pr=document.getElementById('puResv');
   if(pr&&(d.start_time||d.del_time)){pr.style.display='block';pr.innerHTML=_to('l_resv_time')+' <b>'+(d.start_time||d.del_time)+'</b>';}
   var pp=document.querySelector('.pu-pick');if(pp){if(d.pickup_time)pp.classList.remove('blink');else pp.classList.add('blink');}
+  updatePuAlert();
+}
+function updatePuAlert(){
+  var el=document.getElementById('puAlert'); if(!el)return;
+  if(!RES||RO||RES.pickup_time){el.style.display='none';return;}
+  var A=({ja:{t:'お迎え時間の選択をお願いします',b:'空港でのお迎えをスムーズにするため、ご希望のお迎え時間を必ずご選択ください。',g:'時間を選ぶ →'},en:{t:'Please select your pick-up time',b:'Please select your desired airport pick-up time to ensure a smooth arrival.',g:'Select →'},zh:{t:'請選擇迎接時間',b:'為了在機場順利迎接，請務必選擇您希望的迎接時間。',g:'選擇時間 →'},ko:{t:'픽업 시간을 선택해 주세요',b:'공항 픽업을 원활히 하기 위해 원하시는 픽업 시간을 반드시 선택해 주세요.',g:'시간 선택 →'}})[LANG]||{t:'お迎え時間の選択をお願いします',b:'空港でのお迎えをスムーズにするため、ご希望のお迎え時間を必ずご選択ください。',g:'時間を選ぶ →'};
+  el.innerHTML='<div class="la-ic">🚐</div><div class="la-tx"><b>⚠️ '+A.t+'</b><span>'+A.b+'</span></div><div class="la-go">'+A.g+'</div>';
+  el.style.display='flex';
 }
 function applyLang(){
   document.documentElement.lang=LANG;
@@ -387,6 +396,7 @@ function applyLang(){
   if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
   if(document.getElementById('licBody'))renderLicCard(); // 🪪 免許証カードも言語連動で再描画
   updateTermsAlert(); // 📝 約款未署名アラートも言語連動で再描画
+  updatePuAlert();    // 🚐 お迎え時間 未選択アラートも言語連動で再描画
 }
 function setLang(c){LANG=c;localStorage.setItem('bt_lang',c);applyLang();}
 function TT(k){return (I18N[k]&&I18N[k][LANG])||k;}
@@ -620,7 +630,7 @@ if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_
 
 /* お迎え時間プルダウン */
 (function(){var sel=document.getElementById("puSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,30].forEach(function(m){if(h===18&&m===30)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
-async function savePickup(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;if(r&&r.ok){showPuCur(t);btn.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');}else{btn.textContent=I18N["pu_save"][LANG];alert("保存に失敗しました");}}
+async function savePickup(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;if(r&&r.ok){showPuCur(t);btn.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');if(RES)RES.pickup_time=t;updatePuAlert();}else{btn.textContent=I18N["pu_save"][LANG];alert("保存に失敗しました");}}
 function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT=function(k,dv){return (I18N[k]&&I18N[k][LANG])||dv;};c.style.display="block";c.innerHTML='<div class="pu-done"><div class="pu-done-ic">✅</div><div><div class="pu-done-t">'+TT("pu_done_t","お迎え時間をリクエストしました")+'</div><div class="pu-done-time">'+t+'</div><div class="pu-done-sub">'+TT("pu_done_sub","スタッフが確認いたします")+'</div></div></div>';}
 </script>
 </body></html>
