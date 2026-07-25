@@ -26,6 +26,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Kaku Goth
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes needpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 4px rgba(220,38,38,0)}}
 .needbadge{animation:needpulse 1s ease-in-out infinite;cursor:pointer;text-decoration:none}
+@keyframes mmRun{0%{transform:translateX(0) rotate(0)}25%{transform:translateX(3px) translateY(-2px) rotate(-8deg)}50%{transform:translateX(0) translateY(0) rotate(0)}75%{transform:translateX(-3px) translateY(-2px) rotate(8deg)}100%{transform:translateX(0) rotate(0)}}
+@keyframes apPop{0%{transform:translate(-50%,-50%) scale(.5) rotate(-6deg);opacity:0}18%{transform:translate(-50%,-50%) scale(1.12) rotate(2deg);opacity:1}72%{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}100%{transform:translate(-50%,-50%) scale(.96) translateY(-16px);opacity:0}}
+.assign-pop{position:fixed;left:50%;top:42%;z-index:100002;pointer-events:none;display:flex;align-items:center;gap:10px;padding:16px 26px;border-radius:18px;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);color:#fff;font-weight:900;font-size:22px;box-shadow:0 12px 40px rgba(0,0,0,.35);animation:apPop 1.6s cubic-bezier(.34,1.56,.64,1) forwards;white-space:nowrap;text-shadow:0 2px 4px rgba(0,0,0,.3)}
+.assign-pop .ap-ic{font-size:30px;animation:mmRun .7s ease-in-out infinite}
 .tl-bar{position:absolute;top:3px;bottom:3px;border-radius:4px;cursor:pointer;display:flex;align-items:center;padding:0 4px;overflow:hidden;white-space:nowrap;font-size:9px;font-weight:600;transition:opacity .2s;z-index:2}
 .tl-bar:hover{opacity:.85;z-index:3}
 @keyframes searchPulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -3755,6 +3759,11 @@ function daysInMonth(ym){const[y,m]=ym.split("-").map(Number);return new Date(y,
 function ymLabel(ym){const[y,m]=ym.split("-").map(Number);return`${y}年${m}月`;}
 function ymOff(ym,n){const[y,m]=ym.split("-").map(Number);const d=new Date(y,m-1+n,1);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}
 let _id=0;function uid(){return"t"+(++_id);}
+// 🎉 お祝い演出（紙吹雪＋中央ポップ）
+function fireConfetti(){try{var c=document.createElement("canvas");c.style.cssText="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100000";document.body.appendChild(c);var ctx=c.getContext("2d");var W=c.width=window.innerWidth,H=c.height=window.innerHeight;var cols=["#f43f5e","#f59e0b","#10b981","#3b82f6","#a855f7","#22d3ee","#eab308","#ec4899"];var P=[];for(var i=0;i<160;i++){P.push({x:W/2+(Math.random()-.5)*180,y:H*0.34,vx:(Math.random()-.5)*13,vy:Math.random()*-13-4,g:0.30+Math.random()*0.22,s:6+Math.random()*8,rot:Math.random()*6.28,vr:(Math.random()-.5)*.5,col:cols[i%cols.length]});}var t0=null,dur=1800;function fr(ts){if(!t0)t0=ts;var el=ts-t0;ctx.clearRect(0,0,W,H);for(var k=0;k<P.length;k++){var p=P[k];p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.globalAlpha=Math.max(0,1-el/dur);ctx.fillStyle=p.col;ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.62);ctx.restore();}if(el<dur){requestAnimationFrame(fr);}else{c.remove();}}requestAnimationFrame(fr);}catch(e){}}
+function popCelebrate(html,grad){try{fireConfetti();var el=document.createElement("div");el.className="assign-pop";if(grad)el.style.background=grad;el.innerHTML=html;document.body.appendChild(el);setTimeout(function(){el.remove();},1600);}catch(e){}}
+function celebrateAssign(name){var nm=String(name||"").replace(/[<>&]/g,"");popCelebrate('<span class="ap-ic">🎉</span><span>'+(nm?nm+' さん ':'')+'担当！</span><span class="ap-ic">🙌</span>');}
+function celebrateDone(){popCelebrate('<span class="ap-ic">✅</span><span>完了！おつかれさま</span><span class="ap-ic">🎉</span>','linear-gradient(135deg,#10b981,#0891b2,#3b82f6)');}
 let _vid=100;function vuid(){return"v"+(++_vid);}
 
 /* ===== Googleスプレッドシートから場所データ取得 ===== */
@@ -16812,6 +16821,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           if(t[k]!==prev[k])changedFields[k]=t[k];
         });
       }else{changedFields=t;}
+      if(prev&&t.done&&!prev.done){setTimeout(function(){celebrateDone();},0);}
+      if(prev&&t.assignee&&t.assignee!==prev.assignee){setTimeout(function(){celebrateAssign(t.assignee);},0);}
       const next=ts.map(x=>x._id===id?t:x);DB._lsSave(next,selDate);return next;
     });
     pendingSaves.current++;setSaveStatus("saving");
@@ -18268,7 +18279,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");setOtherAddAssignee("");
         };
         const deleteOtherTask=(id)=>{if(!window.confirm("このタスクを削除しますか？"))return;setTasks(ts=>{const next=ts.filter(x=>x._id!==id);try{DB.deleteTask&&DB.deleteTask(id,selDate);}catch(e){}return next;});};
-        const updateOtherTask=(id,updates)=>{setTasks(ts=>{const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
+        const updateOtherTask=(id,updates)=>{setTasks(ts=>{const _p=ts.find(t=>t._id===id);if(_p&&updates&&updates.done&&!_p.done){setTimeout(function(){celebrateDone();},0);}if(_p&&updates&&updates.assignee&&updates.assignee!==_p.assignee){setTimeout(function(){celebrateAssign(updates.assignee);},0);}const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
         const typeColors={
           "DEL":{bg:"#dbeafe",c:"#1d4ed8",border:"#60a5fa",ico:"🚗"},
           "COL":{bg:"#ffedd5",c:"#9a3412",border:"#fdba74",ico:"📦"},
@@ -22690,7 +22701,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.171-BT";
+const APP_VERSION="v1.0.172-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
