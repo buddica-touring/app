@@ -359,7 +359,9 @@ const DB = {
     if(prev._placeSource==="manual"){m.place=prev.place;m._placeSource="manual";}
     else if(String(prev.place||"").trim()&&!String(m.place||"").trim())m.place=prev.place;
     if(String(prev.colPlace||"").trim()&&!String(m.colPlace||"").trim())m.colPlace=prev.colPlace;
-    if(prev.timeChange||(prev._changed&&prev._changed.time)){m.time=prev.time;m.timeChange=prev.timeChange;}
+    /* ★2026-07-26 時間クリアが戻るバグ根治: t(取込側)が自身の時間編集フラグを持つ=ユーザーの最新編集(空クリア含む)→tを尊重しprevで戻さない。tに編集情報が無い(=再生成)時だけprevの時間を復元。 */
+    if(t._changed&&t._changed.time){/* tのtime(クリア含む)をそのまま採用 */}
+    else if(prev.timeChange||(prev._changed&&prev._changed.time)){m.time=prev.time;m.timeChange=prev.timeChange;}
     else if(String(prev.time||"").trim()&&!String(m.time||"").trim())m.time=prev.time;
     if(String(prev.returnTime||"").trim()&&!String(m.returnTime||"").trim())m.returnTime=prev.returnTime;
     if(prev._ssPlace){m._ssPlace=prev._ssPlace;m._ssPlaceAt=prev._ssPlaceAt;}
@@ -22706,7 +22708,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.178-BT";
+const APP_VERSION="v1.0.179-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
