@@ -2765,13 +2765,13 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
   useEffect(()=>{
     if(!utilStats||!utilStats.byClass)return;
     window._kpi_byClass=window._kpi_byClass||{};
-    const key=(store||"nha")+"_"+viewYM;
+    const key="tkm_"+viewYM;
     const exported={};
     Object.entries(utilStats.byClass).forEach(function([cls,d]){
       exported[cls]={count:d.count,capDays:d.maxDays,usedDays:d.days,rev:d.revenue};
     });
     window._kpi_byClass[key]=exported;
-  },[utilStats,store,viewYM]);
+  },[utilStats,viewYM]);
   const stats=useMemo(()=>{
     if(!data||data.length===0)return null;
     const nowYM=viewYM;
@@ -22706,7 +22706,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.174-BT";
+const APP_VERSION="v1.0.175-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
