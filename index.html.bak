@@ -21872,6 +21872,7 @@ function App(){
                   // ★ 2026-05-10: タスクサマリーのチェックボックス機能実装（旧コードは onClick 欠落）
                   const _toggleDone=async function(_t){
                     const _newDone=!_t.done;
+                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     // 楽観的UI更新
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
@@ -22015,6 +22016,7 @@ function App(){
                   // ★ 2026-05-10: 翌日タスクサマリーもチェック実装
                   const _toggleDone2=async function(_t){
                     const _newDone=!_t.done;
+                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
                       await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
@@ -22706,7 +22708,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.180-BT";
+const APP_VERSION="v1.0.181-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
