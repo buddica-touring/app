@@ -5,6 +5,9 @@
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
 <title>スタッフ専用ページ - BUDDICA TOURISM 高松空港店</title>
 <style>
+.sa-pop{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:99999;pointer-events:none;background:linear-gradient(135deg,#10b981,#0891b2,#3b82f6);color:#fff;font-size:22px;font-weight:900;padding:18px 26px;border-radius:18px;box-shadow:0 12px 40px rgba(16,185,129,.45);display:flex;align-items:center;gap:10px;white-space:nowrap;animation:saPop 1.6s cubic-bezier(.2,.9,.3,1) forwards}
+.sa-pop .ic{font-size:26px}
+@keyframes saPop{0%{transform:translate(-50%,-50%) scale(.5) rotate(-6deg);opacity:0}18%{transform:translate(-50%,-50%) scale(1.12) rotate(2deg);opacity:1}72%{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}100%{transform:translate(-50%,-50%) scale(.96) translateY(-16px);opacity:0}}
 :root{--blue:#2563eb;--red:#dc2626;--teal:#0d9488;--green:#059669;--amber:#d97706;--slate:#64748b}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;background:#f1f5f9;color:#0f172a;font-size:15px;max-width:560px;margin:0 auto;padding-bottom:40px}
@@ -125,14 +128,15 @@ function renderHistory(d){
   h+='<div class="ver">'+VER+'</div></div>';
   app.innerHTML=h;
 }
+function saCelebrate(){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span class="ic">✅</span><span>完了！おつかれさま</span><span class="ic">🎉</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1650);}catch(e){}}
 window.saDone=function(tid){
   if(!confirm("このタスクを完了にしますか？"))return;
   fetch(SB+"/rest/v1/rpc/bt_staff_done",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:tid})})
     .then(function(r){return r.json();})
     .then(function(d){
       if(!d||d.ok===false){alert("⚠️ 完了にできませんでした（"+((d&&d.error)||"エラー")+"）");return;}
-      alert("✅ 完了しました");
-      load();
+      saCelebrate();
+      setTimeout(load,900);
     })
     .catch(function(){alert("⚠️ 通信エラー。電波を確認してください");});
 };
