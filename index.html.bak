@@ -8260,7 +8260,7 @@ function ManagementTab({store}){
       sb.from("reservations").select("id,ota,status,created_at,updated_at,return_date,lend_date,price,base_price,option_price,discount,customer_name,guest_name").gte("updated_at",cutoff).in("status",["cancelled","キャンセル","cancel"]).order("updated_at",{ascending:false}),
     ]).then(([{data:nhNew},{data:nhCan},{data:spNew},{data:spCan}])=>{
       const revCalcR=(r)=>{const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;return(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
-      const addStore=(arr,store,rdKey,ldKey)=>(arr||[]).map(r=>({...r,_store:store,_rd:r[rdKey],_ld:r[ldKey],_rev:revCalcR(r),_ch:DB_OTA_MAP[r.ota||"HP"]||"その他売上"}));
+      const addStore=(arr,store,rdKey,ldKey)=>(arr||[]).map(r=>({...r,_store:store,_rd:r[rdKey],_ld:r[ldKey],_rev:revCalcR(r),_ch:DB_OTA_MAP[r.ota]||"その他売上"}));
       const newAll=[...addStore(nhNew,"高松","end_date","start_date"),...addStore(spNew,"札幌","return_date","lend_date")].sort((a,b)=>b.created_at.localeCompare(a.created_at));
       const canAll=[...addStore(nhCan,"高松","end_date","start_date"),...addStore(spCan,"札幌","return_date","lend_date")].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||""));
       setRecentData({newAll,canAll,ts:new Date().toLocaleString("ja-JP"),hours:recentHours});
@@ -8378,7 +8378,7 @@ function ManagementTab({store}){
         totalBase:0,totalOpt:0,totalDisc:0,
       };
       const m=months[ym];
-      const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+      const ch=DB_OTA_MAP[r.ota]||"その他売上";
       // ★ 売上計上 = base_price + option_price - discount（割引差引後の最終金額）
       // base_price/option_price が未設定(0)の場合は price をフォールバック
       const bp=Number(r.base_price)||0;
@@ -8565,7 +8565,7 @@ function ManagementTab({store}){
     active.forEach(r=>{
       const rd=r[rdKey];if(!rd)return;
       const ym=rd.slice(0,7);
-      const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+      const ch=DB_OTA_MAP[r.ota]||"その他売上";
       const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
       const revenue=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
       ymSet.add(ym);chSet.add(ch);
@@ -8600,7 +8600,7 @@ function ManagementTab({store}){
     const active=dbResvs.filter(r=>r.status!=="cancelled"&&r.status!=="キャンセル"&&r.status!=="cancel");
     active.forEach(r=>{
       const rd=r[rdKey];if(!rd)return;
-      const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+      const ch=DB_OTA_MAP[r.ota]||"その他売上";
       const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
       const revenue=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
       // 入金月 = 売上月 + cycle月
@@ -8649,7 +8649,7 @@ function ManagementTab({store}){
     const byChBreak={};    // {ch: {rev, base, opt, disc, cnt}} 3分解
     active.forEach(r=>{
       const rd=r[rdKey];if(!rd||rd.slice(0,7)!==ym)return;
-      const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+      const ch=DB_OTA_MAP[r.ota]||"その他売上";
       const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
       const hasSplit=(bp>0||op>0);
       const rev=hasSplit?(bp+op-dc):(Number(r.price)||0);
@@ -8758,7 +8758,7 @@ function ManagementTab({store}){
       const byCh={};
       active.forEach(r=>{
         const rd=r[rdKey];if(!rd||rd.slice(0,7)!==ym)return;
-        const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+        const ch=DB_OTA_MAP[r.ota]||"その他売上";
         const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
         const hasSplit=(bp>0||op>0);
         const rev=hasSplit?(bp+op-dc):(Number(r.price)||0);
@@ -10740,7 +10740,7 @@ function ManagementTab({store}){
           const{data:spNew}=await sb.from("reservations").select("id,ota,status,created_at,return_date,lend_date,price,base_price,option_price,discount,customer_name,guest_name").gte("created_at",cutoff).neq("status","cancelled").neq("status","キャンセル").neq("status","cancel").order("created_at",{ascending:false});
           const{data:spCan}=await sb.from("reservations").select("id,ota,status,created_at,updated_at,return_date,lend_date,price,base_price,option_price,discount,customer_name,guest_name").gte("updated_at",cutoff).in("status",["cancelled","キャンセル","cancel"]).order("updated_at",{ascending:false});
           const revCalcR=(r)=>{const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;return(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
-          const addStore=(arr,store,rdKey,ldKey)=>(arr||[]).map(r=>({...r,_store:store,_rd:r[rdKey],_ld:r[ldKey],_rev:revCalcR(r),_ch:DB_OTA_MAP[r.ota||"HP"]||"その他売上"}));
+          const addStore=(arr,store,rdKey,ldKey)=>(arr||[]).map(r=>({...r,_store:store,_rd:r[rdKey],_ld:r[ldKey],_rev:revCalcR(r),_ch:DB_OTA_MAP[r.ota]||"その他売上"}));
           const newAll=[...addStore(nhNew,"高松","end_date","start_date"),...addStore(spNew,"札幌","return_date","lend_date")].sort((a,b)=>b.created_at.localeCompare(a.created_at));
           const canAll=[...addStore(nhCan,"高松","end_date","start_date"),...addStore(spCan,"札幌","return_date","lend_date")].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||""));
           setRecentData({newAll,canAll,ts:new Date().toLocaleString("ja-JP"),hours:recentHours});
@@ -10888,7 +10888,7 @@ function ManagementTab({store}){
           if(ld.slice(0,10)===rd2.slice(0,10))m.oneDay+=1;
         }
         // ota
-        const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+        const ch=DB_OTA_MAP[r.ota]||"その他売上";
         m.otaRev[ch]=(m.otaRev[ch]||0)+rev;m.otaCnt[ch]=(m.otaCnt[ch]||0)+1;
         m.otaBase[ch]=(m.otaBase[ch]||0)+bpAdj;
         m.otaOpt[ch]=(m.otaOpt[ch]||0)+opAdj;
@@ -11878,7 +11878,7 @@ function ManagementTab({store}){
               // ★ OTA別 デリバリ集計
               const byOta={};
               relForPeriod.forEach(r=>{
-                const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+                const ch=DB_OTA_MAP[r.ota]||"その他売上";
                 if(!byOta[ch])byOta[ch]={cnt:0,delCnt:0,rev:0,delRev:0};
                 const rev=revCalc(r);
                 byOta[ch].cnt+=1;
@@ -12125,7 +12125,7 @@ function ManagementTab({store}){
       active.forEach(r=>{
         const rd=r[rdKey];if(!rd)return;
         const ym=rd.slice(0,7);
-        const ch=DB_OTA_MAP[r.ota||"HP"]||"その他売上";
+        const ch=DB_OTA_MAP[r.ota]||"その他売上";
         const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;
         const rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
         if(!ymRevByCh[ym])ymRevByCh[ym]={total:0};
