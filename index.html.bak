@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.198-BT";
+const APP_VERSION="v1.0.199-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24155,11 +24155,16 @@ function DailyReportTab({data,vehicles,fleet}){
       setSavedMsg("");
       try{
         if(!sb){return;}
-        const{data:rows,error}=await sb.from("bt_daily_reports").select("*").eq("report_date",norm(date)).maybeSingle();
+        const ym=norm(date).substring(0,7);
+        // 目標＝月固定（bt_monthly_targets）／マーケ・運用＝日次（bt_daily_reports）
+        const[mt,dr]=await Promise.all([
+          sb.from("bt_monthly_targets").select("targets").eq("month",ym).maybeSingle(),
+          sb.from("bt_daily_reports").select("marketing,ops").eq("report_date",norm(date)).maybeSingle()
+        ]);
         if(!alive)return;
-        if(error){setTargets({});setMarketing("");setOps("");return;}
-        if(rows){setTargets(rows.targets||{});setMarketing(rows.marketing||"");setOps(rows.ops||"");}
-        else{setTargets({});setMarketing("");setOps("");}
+        setTargets((mt&&mt.data&&mt.data.targets)||{});
+        setMarketing((dr&&dr.data&&dr.data.marketing)||"");
+        setOps((dr&&dr.data&&dr.data.ops)||"");
       }catch(_){if(alive){setTargets({});setMarketing("");setOps("");}}
     })();
     return()=>{alive=false;};
@@ -24183,10 +24188,15 @@ function DailyReportTab({data,vehicles,fleet}){
     if(!sb){alert("DB未接続です");return;}
     setSaving(true);setSavedMsg("");
     try{
-      const row={report_date:norm(date),targets:targets,marketing:marketing,ops:ops,updated_at:new Date().toISOString()};
-      const{error}=await sb.from("bt_daily_reports").upsert(row,{onConflict:"report_date"});
+      const ym=norm(date).substring(0,7);const now=new Date().toISOString();
+      // 目標＝月単位で固定保存（翌日以降も同月なら引き継がれる）／マーケ・運用＝その日
+      const[e1,e2]=await Promise.all([
+        sb.from("bt_monthly_targets").upsert({month:ym,targets:targets,updated_at:now},{onConflict:"month"}),
+        sb.from("bt_daily_reports").upsert({report_date:norm(date),targets:{},marketing:marketing,ops:ops,updated_at:now},{onConflict:"report_date"})
+      ]);
+      const error=(e1&&e1.error)||(e2&&e2.error);
       if(error){setSavedMsg("❌ 保存失敗: "+error.message);}
-      else{setSavedMsg("✅ 保存しました");setTimeout(()=>setSavedMsg(""),2500);}
+      else{setSavedMsg("✅ 保存しました（目標は月固定）");setTimeout(()=>setSavedMsg(""),2500);}
     }catch(e){setSavedMsg("❌ 保存失敗: "+(e.message||e));}
     setSaving(false);
   };
@@ -24499,6 +24509,7 @@ function DailyReportTab({data,vehicles,fleet}){
       <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
         <h2 style={{fontSize:17,fontWeight:800,margin:0,color:"#0F1F45"}}>📋 日報レポート</h2>
         <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{padding:"6px 8px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:13}}/>
+        <span style={{fontSize:11,fontWeight:700,color:"#0F1F45",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:6,padding:"3px 8px"}}>🎯 目標は月単位（{norm(date).substring(0,7)}）＝同月の全日で共通</span>
         <button onClick={save} disabled={saving} style={{padding:"7px 16px",background:"#0F1F45",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"💾 保存"}</button>
         <button onClick={openPreview} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"👁 プレビュー"}</button>
         <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
