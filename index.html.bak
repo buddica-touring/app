@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.197-BT";
+const APP_VERSION="v1.0.198-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24387,9 +24387,15 @@ function DailyReportTab({data,vehicles,fleet}){
         y+=S(18);
       }
       // --- 📊 媒体構成比率（当月売上） ---
-      if(media.rows.length){
+      {
         ctx.fillStyle=NAVY;ctx.font="bold "+S(16)+"px sans-serif";
         ctx.fillText("📊 媒体構成比率（当月売上）",M,y);y+=S(24);
+      }
+      if(!media.rows.length){
+        ctx.fillStyle="#94a3b8";ctx.font=S(12)+"px sans-serif";
+        ctx.fillText("当月の実績予約がありません。",M+S(4),y);y+=S(30);
+      }
+      if(media.rows.length){
         // 積み上げバー
         const barY=y,barH=S(20);let bx=M;
         media.rows.forEach((r,i)=>{const w=innerW*(r.pct/100);ctx.fillStyle=MEDIA_COLORS[i%MEDIA_COLORS.length];ctx.fillRect(bx,barY,w,barH);bx+=w;});
@@ -24589,9 +24595,10 @@ function DailyReportTab({data,vehicles,fleet}){
         </div>
       </div>}
       <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
-      {media.rows.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#fff"}}>
+      {activeUnits.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#fff"}}>
         <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:2}}>📊 媒体構成比率（当月売上ベース）</div>
         <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>当月 {media.cnt}件・合計 {yen(media.total)}（経営タブと同じOTA分類）</div>
+        {media.rows.length>0?<React.Fragment>
         <div style={{display:"flex",height:22,borderRadius:6,overflow:"hidden",marginBottom:12,border:"1px solid #e2e8f0"}}>
           {media.rows.map((r,i)=><div key={r.ch} title={r.ch+" "+r.pct+"%"} style={{width:r.pct+"%",background:MEDIA_COLORS[i%MEDIA_COLORS.length],minWidth:r.pct>=6?"auto":0}}/>)}
         </div>
@@ -24603,6 +24610,7 @@ function DailyReportTab({data,vehicles,fleet}){
             <span style={{color:"#94a3b8"}}>({r.cnt}件・{yen(r.rev)})</span>
           </div>)}
         </div>
+        </React.Fragment>:<div style={{fontSize:12,color:"#94a3b8",padding:"6px 0"}}>当月の実績予約がありません（実績が入ると自動で構成比が表示されます）。</div>}
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
         <div>
