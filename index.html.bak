@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.192-BT";
+const APP_VERSION="v1.0.193-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24158,6 +24158,9 @@ function DailyReportTab({data,vehicles,fleet}){
   const tgtSalesOf=(cls)=>{const t=targets[cls]||{};const p=Number(t.price)||0,dd=tgtDaysOf(cls);if(p>0&&dd>0)return p*dd;return Number(t.sales)||0;};
   // 目標稼働率＝稼働日数÷当月日数（手動で稼働%を入れた旧データはそれを優先）
   const tgtUtilOf=(cls)=>{const t=targets[cls]||{};const dd=tgtDaysOf(cls);if(dd>0)return Math.min(100,Math.round(dd/daysInMonth*100));return(t.util!=null&&t.util!=="")?Number(t.util):0;};
+  // グループ月間目標金額（手動入力・targets._groupに保持）AA / それ以外(AA以外)
+  const gGroupOf=(k)=>{const g=targets._group;return(g&&g[k]!=null)?g[k]:"";};
+  const setGroup=(k,val)=>{setTargets(p=>({...p,_group:{...(p._group||{}),[k]:val===""?"":Number(val)||0}}));};
 
   const save=async()=>{
     if(!sb){alert("DB未接続です");return;}
@@ -24196,7 +24199,7 @@ function DailyReportTab({data,vehicles,fleet}){
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
       const rowsN=units.length+3;
-      let estH=(120+70+40+ (30) + 260 + (24+rowsN*30+40) + 200)*SCALE;
+      let estH=(120+70+40+ (30) + 160 + 260 + (24+rowsN*30+40) + 200)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24216,6 +24219,27 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillText(norm(date)+" ("+wd+")",M,S(74));
       y=S(150);
       ctx.textBaseline="alphabetic";
+      // --- 🎯 月間目標（テーマ）: グループ目標 vs KPI積み上げ ---
+      {
+        const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
+        const sAA=grpSum(aaU).ts,sOt=grpSum(otherU).ts,sTot=sAA+sOt;
+        ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
+        ctx.fillText("🎯 月間目標（テーマ）",M,y);y+=S(26);
+        const bw=(innerW-S(24))/3;
+        const drawCard=(cx,title,goal,sum,accent)=>{
+          const rate=goal>0?Math.round(sum/goal*100):0,diff=sum-goal,ok=diff>=0;const ch=S(96);
+          ctx.strokeStyle=accent;ctx.lineWidth=S(1.5);ctx.strokeRect(cx,y,bw,ch);
+          ctx.textAlign="left";ctx.fillStyle=accent;ctx.font="bold "+S(13)+"px sans-serif";ctx.fillText(title,cx+S(10),y+S(20));
+          ctx.fillStyle="#0F1F45";ctx.font="bold "+S(18)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+S(10),y+S(44));
+          ctx.fillStyle="#0f766e";ctx.font=S(13)+"px sans-serif";ctx.fillText("積み上げ ¥"+sum.toLocaleString(),cx+S(10),y+S(64));
+          ctx.fillStyle=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");ctx.font="bold "+S(13)+"px sans-serif";
+          ctx.fillText("達成率 "+rate+"%   "+(ok?"+":"−")+"¥"+Math.abs(diff).toLocaleString(),cx+S(10),y+S(84));
+        };
+        drawCard(M,"AAクラス",gAA,sAA,"#3730a3");
+        drawCard(M+bw+S(12),"AA以外",gOt,sOt,"#0369a1");
+        drawCard(M+(bw+S(12))*2,"合計",gTot,sTot,"#92400e");
+        ctx.textAlign="left";y+=S(96)+S(30);
+      }
       // --- 棒グラフ（車両別 当月累計 売上 目標 vs 実績）---
       const gTitle="車両別 当月累計 売上（目標 vs 実績）";
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
@@ -24423,6 +24447,37 @@ function DailyReportTab({data,vehicles,fleet}){
         </div>
       </div>}
       {units.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>車両（bt_vehicles）が読み込まれていません。</div>}
+      {activeUnits.length>0&&(()=>{
+        const gAA=Number(gGroupOf("aa"))||0, gOt=Number(gGroupOf("other"))||0, gTot=gAA+gOt;
+        const sAA=grpSum(aaU).ts, sOt=grpSum(otherU).ts, sTot=sAA+sOt;
+        const card=(title,goal,sum,accent)=>{const rate=goal>0?Math.round(sum/goal*100):0;const diff=sum-goal;const ok=diff>=0;return(
+          <div style={{flex:"1 1 220px",background:"#fff",border:"1px solid "+accent,borderRadius:10,padding:"10px 12px"}}>
+            <div style={{fontSize:12,fontWeight:800,color:accent,marginBottom:6}}>{title}</div>
+            <div style={{display:"flex",alignItems:"baseline",gap:6,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#64748b"}}>目標</span>
+              <span style={{fontSize:16,fontWeight:800,color:"#0F1F45"}}>{yen(goal)}</span>
+            </div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:4}}>KPI積み上げ <b style={{color:"#0f766e",fontSize:13}}>{yen(sum)}</b></div>
+            <div style={{marginTop:6,height:8,background:"#e2e8f0",borderRadius:6,overflow:"hidden"}}><div style={{width:Math.min(100,rate)+"%",height:"100%",background:rate>=100?"#059669":(rate>=70?"#f59e0b":"#dc2626")}}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:5,fontSize:12,fontWeight:800}}>
+              <span style={{color:rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626")}}>達成率 {rate}%</span>
+              <span style={{color:ok?"#059669":"#dc2626"}}>{ok?"+":"−"}{yen(Math.abs(diff))}</span>
+            </div>
+          </div>);};
+        return(<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:12,marginBottom:14,background:"#f8fafc"}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:4}}>🎯 月間目標（このレポートのテーマ）</div>
+          <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>目標金額を手動入力→ 下の各車両KPI（単価×予約×平均泊）の積み上げが目標に届くかを可視化。「何を何本売れば目標達成か」を設計してください。</div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+            <label style={{fontSize:12,fontWeight:700,color:"#3730a3"}}>AA目標 <input type="number" value={gGroupOf("aa")} onChange={e=>setGroup("aa",e.target.value)} placeholder="6705000" style={{width:130,padding:"5px 7px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
+            <label style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>AA以外目標 <input type="number" value={gGroupOf("other")} onChange={e=>setGroup("other",e.target.value)} placeholder="1800000" style={{width:130,padding:"5px 7px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
+          </div>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+            {card("AAクラス",gAA,sAA,"#3730a3")}
+            {card("AA以外",gOt,sOt,"#0369a1")}
+            {card("合計",gTot,sTot,"#92400e")}
+          </div>
+        </div>);
+      })()}
       {activeUnits.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
         <table style={{borderCollapse:"collapse",width:"100%",minWidth:900}}>
           <thead>
