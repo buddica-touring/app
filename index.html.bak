@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.184-BT";
+const APP_VERSION="v1.0.185-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24072,6 +24072,8 @@ function DailyReportTab({data,vehicles}){
   const [saving,setSaving]=React.useState(false);
   const [savedMsg,setSavedMsg]=React.useState("");
   const [pdfBusy,setPdfBusy]=React.useState(false);
+  const [previewUrl,setPreviewUrl]=React.useState(null);   // プレビュー画像(dataURL)
+  const previewCvsRef=React.useRef(null);                  // プレビュー用に保持したcanvas
 
   // active車両の type からクラス一覧を動的取得（将来クラス増でも自動対応）
   const classes=React.useMemo(()=>{
@@ -24173,9 +24175,7 @@ function DailyReportTab({data,vehicles}){
     document.head.appendChild(s);
   });
 
-  const makePdf=async()=>{
-    setPdfBusy(true);
-    try{
+  const buildCanvas=async()=>{
       await loadJsPdf();
       const NAVY="#0F1F45",GOLD="#FABE00",GRAY="#475569",LINE="#e2e8f0";
       // A4縦 = 210 x 297mm。canvasは高解像度で描いて縮小貼付
@@ -24307,17 +24307,18 @@ function DailyReportTab({data,vehicles}){
       // フッター
       ctx.fillStyle="#94a3b8";ctx.font=S(11)+"px sans-serif";
       ctx.fillText("BUDDICA TOURISM 高松空港店 / 自動生成 "+new Date().toLocaleString("ja-JP"),M,H-S(24));
-      // --- canvas → PDF ---
+      return cvs;
+  };
+  // canvas → PDF保存
+  const canvasToPdf=(cvs)=>{
       const img=cvs.toDataURL("image/jpeg",0.92);
       const{jsPDF}=window.jspdf;
       const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-      // canvas縦横比を保ち幅=210mmで貼付、はみ出しは複数ページ分割
       const pageW=210,pageH=297;
       const imgW=pageW;const imgH=cvs.height/cvs.width*pageW;
       if(imgH<=pageH){
         pdf.addImage(img,"JPEG",0,0,imgW,imgH);
       }else{
-        // 縦長 → ページ分割
         let remain=imgH,pos=0;
         while(remain>0){
           pdf.addImage(img,"JPEG",0,pos,imgW,imgH);
@@ -24326,7 +24327,18 @@ function DailyReportTab({data,vehicles}){
         }
       }
       pdf.save("BUDDICA日報_"+norm(date)+".pdf");
-    }catch(e){alert("PDF生成エラー: "+(e.message||e));}
+  };
+  const makePdf=async()=>{
+    setPdfBusy(true);
+    try{ const cvs=await buildCanvas(); canvasToPdf(cvs); }
+    catch(e){alert("PDF生成エラー: "+(e.message||e));}
+    setPdfBusy(false);
+  };
+  // プレビュー（画面に表示 → 確認・修正してからPDF保存）
+  const openPreview=async()=>{
+    setPdfBusy(true);
+    try{ const cvs=await buildCanvas(); previewCvsRef.current=cvs; setPreviewUrl(cvs.toDataURL("image/jpeg",0.92)); }
+    catch(e){alert("プレビュー生成エラー: "+(e.message||e));}
     setPdfBusy(false);
   };
 
@@ -24340,9 +24352,25 @@ function DailyReportTab({data,vehicles}){
         <h2 style={{fontSize:17,fontWeight:800,margin:0,color:"#0F1F45"}}>📋 日報レポート</h2>
         <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{padding:"6px 8px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:13}}/>
         <button onClick={save} disabled={saving} style={{padding:"7px 16px",background:"#0F1F45",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"💾 保存"}</button>
-        <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
+        <button onClick={openPreview} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"👁 プレビュー"}</button>
+        <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
         {savedMsg&&<span style={{fontSize:12,fontWeight:700,color:savedMsg[0]==="✅"?"#059669":"#dc2626"}}>{savedMsg}</span>}
       </div>
+      {previewUrl&&<div onClick={()=>setPreviewUrl(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,maxWidth:840,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #e2e8f0",position:"sticky",top:0,background:"#fff",borderRadius:"12px 12px 0 0",flexWrap:"wrap"}}>
+            <span style={{fontWeight:800,color:"#0F1F45",fontSize:14}}>👁 日報プレビュー</span>
+            <span style={{fontSize:11,color:"#94a3b8"}}>内容を確認 → 修正が必要なら閉じて数値/テキストを直してください</span>
+            <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+              <button onClick={()=>{if(previewCvsRef.current)canvasToPdf(previewCvsRef.current);}} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📄 このままPDF保存</button>
+              <button onClick={()=>setPreviewUrl(null)} style={{padding:"7px 14px",background:"#0F1F45",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>✕ 閉じて修正</button>
+            </div>
+          </div>
+          <div style={{padding:12,background:"#f1f5f9",borderRadius:"0 0 12px 12px"}}>
+            <img src={previewUrl} style={{width:"100%",display:"block",border:"1px solid #cbd5e1",borderRadius:6,background:"#fff"}}/>
+          </div>
+        </div>
+      </div>}
       {classes.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>アクティブな車両（bt_vehicles）が読み込まれていません。</div>}
       {classes.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
         <table style={{borderCollapse:"collapse",width:"100%",minWidth:820}}>
