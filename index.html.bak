@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.196-BT";
+const APP_VERSION="v1.0.197-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24215,8 +24215,8 @@ function DailyReportTab({data,vehicles,fleet}){
       // 高さは内容量で可変（1ページ想定・溢れたら縦長→縮小貼付）
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
-      const rowsN=units.length+3;
-      let estH=(120+70+40+ (30) + 160 + 260 + (24+rowsN*30+40) + 180 + 200)*SCALE;
+      const rowsN=units.length+5;
+      let estH=(120+70+40+ (30) + 170 + 260 + (50+rowsN*30+40) + 200 + 220)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24308,28 +24308,47 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📋 車両別 目標・実績",M,y);y+=S(24);
       const cols=[
-        {t:"クラス / 車両",w:0.17},
-        {t:"単価",w:0.075},{t:"予約",w:0.04},{t:"平均泊",w:0.04},{t:"稼働日",w:0.05},{t:"目標売上",w:0.095},{t:"目標稼働",w:0.05},
-        {t:"本日売上",w:0.095},{t:"本日予約",w:0.045},{t:"本日稼働",w:0.045},
-        {t:"月売上",w:0.09},{t:"月予約",w:0.04},{t:"月稼働",w:0.04}
+        {t:"クラス / 車両",w:0.20,g:""},
+        {t:"単価",w:0.072,g:"目標"},{t:"予約",w:0.04,g:"目標"},{t:"平均泊",w:0.045,g:"目標"},{t:"稼働日",w:0.045,g:"目標"},{t:"売上",w:0.085,g:"目標"},{t:"稼働%",w:0.048,g:"目標"},
+        {t:"売上",w:0.08,g:"本日"},{t:"予約",w:0.038,g:"本日"},{t:"稼働%",w:0.045,g:"本日"},
+        {t:"売上",w:0.08,g:"当月"},{t:"予約",w:0.038,g:"当月"},{t:"稼働%",w:0.045,g:"当月"},
+        {t:"差分",w:0.091,g:"対目標"}
       ];
-      const rowH=S(30);let tx=M;const colX=[];
+      const GCOL={"目標":"#64748b","本日":"#2563eb","当月":"#059669","対目標":"#b45309"};
+      const rowH=S(28),ghH=S(22);let tx=M;const colX=[];
       cols.forEach(c=>{colX.push(tx);tx+=innerW*c.w;});
-      // ヘッダー行
-      ctx.fillStyle=NAVY;ctx.fillRect(M,y,innerW,rowH);
-      ctx.fillStyle="#fff";ctx.font="bold "+S(12)+"px sans-serif";ctx.textBaseline="middle";
-      cols.forEach((c,i)=>{ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*c.w-S(6);ctx.fillText(c.t,px,y+rowH/2);});
+      const tableW=tx-M;
+      // グループヘッダー行（目標/本日/当月/対目標）
+      let gi=1;while(gi<cols.length){const gname=cols[gi].g;let gj=gi;let gw=0;while(gj<cols.length&&cols[gj].g===gname){gw+=innerW*cols[gj].w;gj++;}
+        ctx.fillStyle=GCOL[gname]||"#64748b";ctx.fillRect(colX[gi],y,gw,ghH);
+        ctx.fillStyle="#fff";ctx.font="bold "+S(11)+"px sans-serif";ctx.textBaseline="middle";ctx.textAlign="center";
+        const lbl=gname==="目標"?"🎯 月間目標":(gname==="本日"?"📅 本日実績":(gname==="当月"?"📈 当月累計":"対目標"));
+        ctx.fillText(lbl,colX[gi]+gw/2,y+ghH/2);gi=gj;}
+      y+=ghH;
+      // 項目ヘッダー行
+      ctx.fillStyle=NAVY;ctx.fillRect(M,y,tableW,rowH);
+      ctx.fillStyle="#fff";ctx.font="bold "+S(11)+"px sans-serif";ctx.textBaseline="middle";
+      cols.forEach((c,i)=>{ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*c.w-S(7);ctx.fillText(c.t,px,y+rowH/2);});
       y+=rowH;
+      // グループ境界線を引くx座標（目標/本日/当月/対目標の開始）
+      const sepX=[];{let pg=null;cols.forEach((c,i)=>{if(c.g&&c.g!==pg){sepX.push(colX[i]);pg=c.g;}});}
       const drawRow=(cells,bg,bold)=>{
-        ctx.fillStyle=bg;ctx.fillRect(M,y,innerW,rowH);
-        ctx.strokeStyle=LINE;ctx.lineWidth=1;ctx.strokeRect(M,y,innerW,rowH);
-        ctx.font=(bold?"bold ":"")+S(12)+"px sans-serif";
-        cells.forEach((v,i)=>{ctx.fillStyle=i===0?NAVY:"#334155";ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*cols[i].w-S(6);ctx.fillText(String(v),px,y+rowH/2);});
+        ctx.fillStyle=bg;ctx.fillRect(M,y,tableW,rowH);
+        ctx.strokeStyle=LINE;ctx.lineWidth=1;ctx.strokeRect(M,y,tableW,rowH);
+        ctx.font=(bold?"bold ":"")+S(11)+"px sans-serif";
+        cells.forEach((v,i)=>{
+          const isDiff=i===cols.length-1;
+          ctx.fillStyle=i===0?NAVY:(isDiff?(String(v).indexOf("−")===0?"#dc2626":"#059669"):"#334155");
+          ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*cols[i].w-S(7);ctx.fillText(String(v),px,y+rowH/2);
+        });
+        // グループ境界の縦線
+        ctx.strokeStyle="#cbd5e1";ctx.lineWidth=S(1);sepX.forEach(sx=>{ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(sx,y+rowH);ctx.stroke();});
         y+=rowH;
       };
+      const diffFmt=(v)=>(v<0?"−¥":"+¥")+Math.abs(v).toLocaleString();
       const drawUnit=(u,idx)=>{
         const c=u.code;const t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};
-        const lbl=u.label.length>18?u.label.slice(0,17)+"…":u.label;
+        const lbl=u.label.length>20?u.label.slice(0,19)+"…":u.label;
         drawRow([lbl,
           t.price?("¥"+Number(t.price).toLocaleString()):"-",
           (t.bookings!=null&&t.bookings!=="")?t.bookings:"-",
@@ -24337,13 +24356,15 @@ function DailyReportTab({data,vehicles,fleet}){
           tgtDaysOf(c)||"-",
           "¥"+tgtSalesOf(c).toLocaleString(),tgtUtilOf(c)+"%",
           "¥"+(d.sales||0).toLocaleString(),(d.bookings||0),(d.util||0)+"%",
-          "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%"
+          "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%",
+          diffFmt((m.sales||0)-tgtSalesOf(c))
         ],idx%2?"#f8fafc":"#ffffff",false);
       };
       const drawSub=(label,list,bg)=>{const g=grpSum(list);drawRow([label+" ("+list.length+"台)",
         "",g.tb||"-","",g.td||"-",g.ts?("¥"+g.ts.toLocaleString()):"-",g.tu+"%",
         "¥"+g.ds.toLocaleString(),g.db,g.du+"%",
-        "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%"],bg,true);};
+        "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%",
+        diffFmt(g.ms-g.ts)],bg,true);};
       aaU.forEach((u,i)=>drawUnit(u,i));
       if(aaU.length)drawSub("AA 合計",aaU,"#eef2ff");
       otherU.forEach((u,i)=>drawUnit(u,i));
@@ -24438,30 +24459,33 @@ function DailyReportTab({data,vehicles,fleet}){
 
   const cellIn={width:"100%",boxSizing:"border-box",padding:"5px 6px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right"};
   const th={padding:"6px 6px",fontSize:11,fontWeight:800,color:"#fff",whiteSpace:"nowrap"};
-  const td={padding:"4px 5px",fontSize:12,textAlign:"right",whiteSpace:"nowrap",borderBottom:"1px solid #eef2f7"};
+  const td={padding:"6px 8px",fontSize:12,textAlign:"right",whiteSpace:"nowrap",borderBottom:"1px solid #eef2f7"};
+  const gsep={borderLeft:"2px solid #cbd5e1"};// グループ境界
 
   // グループ小計（AA / AA以外 / グロス）※稼働車のみで集計（未稼働は売上対象外）
   // AAは販売単価(目標単価)の高い順に並べる（未入力は末尾）
   const aaU=activeUnits.filter(u=>u.type==="AA").slice().sort((a,b)=>(Number((targets[b.code]||{}).price)||0)-(Number((targets[a.code]||{}).price)||0));
   const otherU=activeUnits.filter(u=>u.type!=="AA");
   const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=tgtDaysOf(c);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,td:tvd,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
-  const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
+  const subRow=(label,list,bg,color)=>{const g=grpSum(list);const diff=g.ms-g.ts;return(<tr style={{background:bg,fontWeight:800}}>
     <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
-    <td style={td}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.td||"-"}</td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
-    <td style={{...td,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
-    <td style={{...td,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
+    <td style={{...td,...gsep}}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.td||"-"}</td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
+    <td style={{...td,...gsep,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
+    <td style={{...td,...gsep,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
+    <td style={{...td,...gsep,fontWeight:800,color:diff>=0?"#059669":"#dc2626"}}>{(diff>=0?"+¥":"−¥")+Math.abs(diff).toLocaleString()}</td>
   </tr>);};
   const unitRow=(u,i,arr)=>{const c=u.code,d=actual.day[c]||{},m=actual.month[c]||{};const prevType=i>0?arr[i-1].type:null;const newGrp=u.type!==prevType;
     return(<tr key={c} style={{background:i%2?"#f8fafc":"#fff",borderTop:newGrp?"2px solid #cbd5e1":"none"}}>
       <td style={{...td,textAlign:"left",fontWeight:700,color:"#0F1F45",whiteSpace:"nowrap"}}><span style={{display:"inline-block",minWidth:26,padding:"1px 5px",background:"#0F1F45",color:"#FABE00",borderRadius:5,fontSize:10,fontWeight:800,marginRight:6}}>{u.type}</span>{(u.name||"")+(u.no?(" "+u.no):"")||u.code}</td>
-      <td style={{...td,width:90}}><input type="number" value={tgtOf(c,"price")} onChange={e=>setTgt(c,"price",e.target.value)} style={cellIn} placeholder="単価"/></td>
+      <td style={{...td,...gsep,width:90}}><input type="number" value={tgtOf(c,"price")} onChange={e=>setTgt(c,"price",e.target.value)} style={cellIn} placeholder="単価"/></td>
       <td style={{...td,width:54}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
       <td style={{...td,width:54}}><input type="number" step="0.1" value={tgtOf(c,"avgNights")} onChange={e=>setTgt(c,"avgNights",e.target.value)} style={cellIn} placeholder="泊"/></td>
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtDaysOf(c)||"-"}</td>
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{yen(tgtSalesOf(c))}</td>
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtUtilOf(c)}%</td>
-      <td style={{...td,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
-      <td style={{...td,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td><td style={{...td,color:"#047857"}}>{m.bookings||0}</td><td style={{...td,color:"#047857"}}>{m.util||0}%</td>
+      <td style={{...td,...gsep,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
+      <td style={{...td,...gsep,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td><td style={{...td,color:"#047857"}}>{m.bookings||0}</td><td style={{...td,color:"#047857"}}>{m.util||0}%</td>
+      {(()=>{const df=(m.sales||0)-tgtSalesOf(c);return<td style={{...td,...gsep,fontWeight:800,color:df>=0?"#059669":"#dc2626"}}>{(df>=0?"+¥":"−¥")+Math.abs(df).toLocaleString()}</td>;})()}
     </tr>);};
 
   return(
@@ -24533,15 +24557,17 @@ function DailyReportTab({data,vehicles,fleet}){
           <thead>
             <tr>
               <th style={{...th,background:"#0F1F45",textAlign:"left"}}>クラス / 車両</th>
-              <th style={{...th,background:"#64748b"}} colSpan={6}>🎯 月間目標（単価・予約・平均泊=入力／稼働日数・売上・稼働=自動）</th>
-              <th style={{...th,background:"#2563eb"}} colSpan={3}>📅 本日実績</th>
-              <th style={{...th,background:"#059669"}} colSpan={3}>📈 当月累計実績</th>
+              <th style={{...th,background:"#64748b",borderLeft:"2px solid #fff"}} colSpan={6}>🎯 月間目標（単価・予約・平均泊=入力／稼働日数・売上・稼働=自動）</th>
+              <th style={{...th,background:"#2563eb",borderLeft:"2px solid #fff"}} colSpan={3}>📅 本日実績</th>
+              <th style={{...th,background:"#059669",borderLeft:"2px solid #fff"}} colSpan={3}>📈 当月累計実績</th>
+              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}}>対目標</th>
             </tr>
             <tr>
               <th style={{...th,background:"#0F1F45"}}></th>
-              <th style={{...th,background:"#64748b"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>稼働日数</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
-              <th style={{...th,background:"#2563eb"}}>売上</th><th style={{...th,background:"#2563eb"}}>予約</th><th style={{...th,background:"#2563eb"}}>稼働%</th>
-              <th style={{...th,background:"#059669"}}>売上</th><th style={{...th,background:"#059669"}}>予約</th><th style={{...th,background:"#059669"}}>稼働%</th>
+              <th style={{...th,background:"#64748b",borderLeft:"2px solid #fff"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>稼働日数</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
+              <th style={{...th,background:"#2563eb",borderLeft:"2px solid #fff"}}>売上</th><th style={{...th,background:"#2563eb"}}>予約</th><th style={{...th,background:"#2563eb"}}>稼働%</th>
+              <th style={{...th,background:"#059669",borderLeft:"2px solid #fff"}}>売上</th><th style={{...th,background:"#059669"}}>予約</th><th style={{...th,background:"#059669"}}>稼働%</th>
+              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}}>差分</th>
             </tr>
           </thead>
           <tbody>
