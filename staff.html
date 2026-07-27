@@ -62,7 +62,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.0-bt";
+var VER="staff-v1.1-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 var app=document.getElementById("app");
 
@@ -95,6 +95,7 @@ function taskCard(x){
 }
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
 window.openHistory=function(ym){
+  MODE="history";
   ym=ym||jstToday().slice(0,7);
   app.innerHTML='<div class="loading"><div class="spin"></div>対応履歴を読み込み中…</div>';
   fetch(SB+"/rest/v1/rpc/bt_staff_history",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_ym:ym})})
@@ -141,12 +142,14 @@ window.saDone=function(tid){
     .catch(function(){alert("⚠️ 通信エラー。電波を確認してください");});
 };
 
-var STAB="today";var LASTD=null;
+var STAB="today";var LASTD=null;var MODE="tasks";
 window.setTab=function(tab){
   if(tab==="history"){ openHistory(""); return; }
+  if(tab==="shift"){ openShift(""); return; }
   STAB=tab;if(LASTD)render(LASTD);
 };
 function render(d){
+  MODE="tasks";
   LASTD=d;
   var today=jstToday();
   var tk=(d.tasks||[]);
@@ -160,6 +163,7 @@ function render(d){
   h+='<div class="tabs">'
     +tab("today","📋本日",tdy.length)
     +tab("future","🗓未来",fut.length)
+    +tab("shift","🗓出勤簿")
     +tab("history","📋履歴")
     +'</div>';
   h+='<div class="wrap">';
@@ -179,6 +183,79 @@ function showErr(msg){
   app.innerHTML='<div class="err">⚠️ '+esc(msg)+'<br><button onclick="load()">再読み込み</button></div>';
 }
 
+// ===== 🗓 出勤簿（閲覧＋先の月の休み希望入力） =====
+var SHSYM={'●':{l:'出勤',c:'#2563eb',bg:'#D4EBFA'},'公':{l:'公休',c:'#64748b',bg:'#E8E8E8'},'希':{l:'希望休',c:'#b45309',bg:'#FFF3CD'},'有':{l:'有休',c:'#15803d',bg:'#dcfce7'},'出':{l:'出張',c:'#6d28d9',bg:'#ede9fe'}};
+var SHDATA=null;
+window.openShift=function(ym){
+  MODE="shift";
+  ym=ym||jstToday().slice(0,7);
+  app.innerHTML='<div class="loading"><div class="spin"></div>出勤簿を読み込み中…</div>';
+  fetch(SB+"/rest/v1/rpc/bt_staff_shifts",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_ym:ym})})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(!d||d.ok===false){showErr("出勤簿の読み込みに失敗しました");return;} MODE="shift"; SHDATA=d; renderShift(d); })
+    .catch(function(){showErr("通信エラー");});
+};
+window.toggleWish=function(date,on){
+  var el=document.getElementById("cell-"+date); if(el){el.style.opacity=.5;el.style.pointerEvents="none";}
+  fetch(SB+"/rest/v1/rpc/bt_staff_wish",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_date:date,p_on:on})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d||d.ok===false){ alert("⚠️ "+((d&&d.msg)||"登録できませんでした")); }
+      openShift((SHDATA&&SHDATA.ym)||date.slice(0,7));
+    })
+    .catch(function(){ alert("通信エラー。もう一度お試しください"); openShift((SHDATA&&SHDATA.ym)||date.slice(0,7)); });
+};
+function renderShift(d){
+  var ym=d.ym||jstToday().slice(0,7);var today=d.today||jstToday();
+  var name=esc(String(d.staff||"").replace(/\s*さん\s*$/,""));
+  var editable=!!d.editable;
+  var map={};(d.shifts||[]).forEach(function(s){map[s.date]=s;});
+  var yy=+ym.slice(0,4),mm=+ym.slice(5,7);
+  var first=new Date(yy,mm-1,1),ndays=new Date(yy,mm,0).getDate(),off=first.getDay();
+  var work=(d.shifts||[]).filter(function(s){return s.symbol==='●'||(!s.symbol&&s.start);}).length;
+  var wish=(d.shifts||[]).filter(function(s){return s.symbol==='希';}).length;
+  var h='<div class="hero" style="background:linear-gradient(135deg,#0f172a,#059669)"><div class="brand">🗓 出勤簿</div>'
+    +'<div class="name">'+name+' さん</div></div>';
+  h+='<div class="wrap">';
+  h+='<button class="parkbtn" onclick="load()">← タスクに戻る</button>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0">'
+    +'<button class="abtn" style="background:#e2e8f0;color:#334155" onclick="openShift(\''+ymShift(ym,-1)+'\')">‹ 前月</button>'
+    +'<div style="flex:1;text-align:center;font-weight:800;font-size:16px">'+ym.replace("-","年")+'月</div>'
+    +'<button class="abtn" style="background:#e2e8f0;color:#334155" onclick="openShift(\''+ymShift(ym,1)+'\')">翌月 ›</button></div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
+  Object.keys(SHSYM).forEach(function(k){var s=SHSYM[k];h+='<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+s.bg+';color:'+s.c+'">'+k+' '+s.l+'</span>';});
+  h+='</div>';
+  if(editable){
+    h+='<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">✏️ <b>先の月です。</b>休みたい日をタップすると <b>希望休</b>を登録できます（もう一度タップで取消）。<br>すでに出勤・公休などの予定が入っている日は変更できません。</div>';
+  }else{
+    h+='<div class="note">👀 閲覧専用です。休み希望は<b>先の月</b>から入力できます（「翌月 ›」で移動）。</div>';
+  }
+  var wd=['日','月','火','水','木','金','土'];
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+  wd.forEach(function(w,i){h+='<div style="text-align:center;font-size:11px;font-weight:800;padding:4px 0;color:'+(i===0?'#dc2626':i===6?'#2563eb':'#64748b')+'">'+w+'</div>';});
+  for(var i=0;i<off;i++){h+='<div></div>';}
+  for(var day=1;day<=ndays;day++){
+    var ds=ym+'-'+("0"+day).slice(-2);var s=map[ds];var sym=s?s.symbol:'';
+    var isToday=(ds===today);var dow=new Date(yy,mm-1,day).getDay();
+    var cfg=SHSYM[sym];var bg=cfg?cfg.bg:'#fff';var bd=isToday?'2px solid #059669':'1px solid #e2e8f0';
+    var canTap=editable&&(sym===''||sym==='希');
+    var inner='<div style="font-size:12px;font-weight:800;color:'+(dow===0?'#dc2626':dow===6?'#2563eb':'#334155')+'">'+day+'</div>';
+    if(cfg){inner+='<div style="font-size:11px;font-weight:800;color:'+cfg.c+';margin-top:2px">'+sym+'</div>';
+      if(sym==='●'&&s.start){inner+='<div style="font-size:8px;color:#475569;line-height:1.1">'+esc((s.start||'').slice(0,5))+'</div>';}
+    }else if(!sym&&s&&s.start){inner+='<div style="font-size:8px;color:#94a3b8;margin-top:2px">'+esc((s.start||'').slice(0,5))+'</div>';}
+    if(canTap&&sym==='希'){inner+='<div style="font-size:8px;color:#b45309;margin-top:1px">タップで取消</div>';}
+    else if(canTap){inner+='<div style="font-size:8px;color:#cbd5e1;margin-top:1px">＋休</div>';}
+    var tap=canTap?(' onclick="toggleWish(\''+ds+'\','+(sym==='希'?'false':'true')+')" style="cursor:pointer"'):'';
+    h+='<div id="cell-'+ds+'"'+tap+' style="min-height:52px;border:'+bd+';border-radius:8px;background:'+bg+';padding:3px 2px 2px;text-align:center;'+(canTap?'':'opacity:'+(editable?'.75':'1'))+'">'+inner+'</div>';
+  }
+  h+='</div>';
+  h+='<div style="margin-top:12px;display:flex;gap:8px;text-align:center">'
+    +'<div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px"><div style="font-size:11px;color:#1d4ed8;font-weight:700">出勤予定</div><div style="font-size:22px;font-weight:900;color:#1d4ed8">'+work+'<span style="font-size:12px">日</span></div></div>'
+    +'<div style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px"><div style="font-size:11px;color:#b45309;font-weight:700">希望休</div><div style="font-size:22px;font-weight:900;color:#b45309">'+wish+'<span style="font-size:12px">日</span></div></div></div>';
+  h+='<div class="ver">'+VER+'</div></div>';
+  app.innerHTML=h;
+}
+
 function load(){
   if(!TOKEN){showErr("URLが正しくありません（token無し）");return;}
   var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},15000);
@@ -192,7 +269,7 @@ function load(){
   .catch(function(e){clearTimeout(to);showErr("通信エラー。電波を確認して再読み込みしてください");});
 }
 load();
-setInterval(function(){if(!document.hidden&&TOKEN)load();},30000);
-document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+setInterval(function(){if(!document.hidden&&TOKEN&&MODE==="tasks")load();},30000);
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&MODE==="tasks")load();});
 </script>
 </body></html>
