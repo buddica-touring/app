@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.195-BT";
+const APP_VERSION="v1.0.196-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24131,6 +24131,23 @@ function DailyReportTab({data,vehicles,fleet}){
     return{day:dres,month:mres,dayTot:{sales:dS,bookings:dB},monTot:{sales:mS,bookings:mB},elapsedDays:elapsedDays};
   },[data,date,units,fleet]);
 
+  // ==== 媒体構成比率（当月・経営タブと同じ r.ota 分類 × 売上）====
+  const media=React.useMemo(()=>{
+    const sel=norm(date);if(!sel)return{rows:[],total:0,cnt:0};
+    const ym=sel.substring(0,7);const monStart=ym+"-01";
+    const by={};let total=0,cntAll=0;
+    (data||[]).forEach(r=>{
+      if(isCancel(r.status))return;
+      const ld=norm(r.lendDate);if(!ld||ld<monStart||ld>sel)return;
+      const ch=(r.ota||"").trim()||"その他";const rev=revOf(r);
+      if(!by[ch])by[ch]={rev:0,cnt:0};
+      by[ch].rev+=rev;by[ch].cnt++;total+=rev;cntAll++;
+    });
+    const rows=Object.keys(by).map(k=>({ch:k,rev:by[k].rev,cnt:by[k].cnt,pct:total>0?Math.round(by[k].rev/total*100):0})).sort((a,b)=>b.rev-a.rev);
+    return{rows,total,cnt:cntAll};
+  },[data,date]);
+  const MEDIA_COLORS=["#4f46e5","#0891b2","#059669","#d97706","#db2777","#7c3aed","#0369a1","#65a30d","#dc2626","#64748b"];
+
   // ==== 保存済みレポート読込（日付変更時）====
   React.useEffect(()=>{
     let alive=true;
@@ -24199,7 +24216,7 @@ function DailyReportTab({data,vehicles,fleet}){
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
       const rowsN=units.length+3;
-      let estH=(120+70+40+ (30) + 160 + 260 + (24+rowsN*30+40) + 200)*SCALE;
+      let estH=(120+70+40+ (30) + 160 + 260 + (24+rowsN*30+40) + 180 + 200)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24347,6 +24364,25 @@ function DailyReportTab({data,vehicles,fleet}){
         });
         if(line){ctx.fillText(line,M+S(4),y);y+=S(20);}
         y+=S(18);
+      }
+      // --- 📊 媒体構成比率（当月売上） ---
+      if(media.rows.length){
+        ctx.fillStyle=NAVY;ctx.font="bold "+S(16)+"px sans-serif";
+        ctx.fillText("📊 媒体構成比率（当月売上）",M,y);y+=S(24);
+        // 積み上げバー
+        const barY=y,barH=S(20);let bx=M;
+        media.rows.forEach((r,i)=>{const w=innerW*(r.pct/100);ctx.fillStyle=MEDIA_COLORS[i%MEDIA_COLORS.length];ctx.fillRect(bx,barY,w,barH);bx+=w;});
+        ctx.strokeStyle=LINE;ctx.lineWidth=S(1);ctx.strokeRect(M,barY,innerW,barH);
+        y+=barH+S(24);
+        // 凡例（2列）
+        ctx.font=S(12)+"px sans-serif";const colW=innerW/2;
+        media.rows.forEach((r,i)=>{
+          const cx=M+(i%2)*colW, cy=y+Math.floor(i/2)*S(22);
+          ctx.fillStyle=MEDIA_COLORS[i%MEDIA_COLORS.length];ctx.fillRect(cx,cy-S(10),S(12),S(12));
+          ctx.fillStyle="#334155";ctx.textAlign="left";
+          ctx.fillText(r.ch+"  "+r.pct+"%  ("+r.cnt+"件 ¥"+r.rev.toLocaleString()+")",cx+S(18),cy);
+        });
+        y+=Math.ceil(media.rows.length/2)*S(22)+S(20);
       }
       // --- テキスト2欄 ---
       const wrapText=(label,txt)=>{
@@ -24527,6 +24563,21 @@ function DailyReportTab({data,vehicles,fleet}){
         </div>
       </div>}
       <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
+      {media.rows.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#fff"}}>
+        <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:2}}>📊 媒体構成比率（当月売上ベース）</div>
+        <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>当月 {media.cnt}件・合計 {yen(media.total)}（経営タブと同じOTA分類）</div>
+        <div style={{display:"flex",height:22,borderRadius:6,overflow:"hidden",marginBottom:12,border:"1px solid #e2e8f0"}}>
+          {media.rows.map((r,i)=><div key={r.ch} title={r.ch+" "+r.pct+"%"} style={{width:r.pct+"%",background:MEDIA_COLORS[i%MEDIA_COLORS.length],minWidth:r.pct>=6?"auto":0}}/>)}
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:"6px 16px"}}>
+          {media.rows.map((r,i)=><div key={r.ch} style={{display:"flex",alignItems:"center",gap:6,fontSize:12}}>
+            <span style={{width:12,height:12,borderRadius:3,background:MEDIA_COLORS[i%MEDIA_COLORS.length],display:"inline-block"}}/>
+            <span style={{fontWeight:700,color:"#334155"}}>{r.ch}</span>
+            <span style={{fontWeight:800,color:"#0F1F45"}}>{r.pct}%</span>
+            <span style={{color:"#94a3b8"}}>({r.cnt}件・{yen(r.rev)})</span>
+          </div>)}
+        </div>
+      </div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
         <div>
           <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>🛠 運用準備中施策</label>
