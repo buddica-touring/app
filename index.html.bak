@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.187-BT";
+const APP_VERSION="v1.0.188-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24180,12 +24180,12 @@ function DailyReportTab({data,vehicles,fleet}){
       const PW=210,PH=297;           // mm
       const cw=Math.round(794*SCALE/ (794/ (PW))) ; // 使わず。直接px指定
       // px基準: A4 @ ~ 96dpi ≈ 794 x 1123
-      const W=794*SCALE, Hbase=1123*SCALE;
+      const W=1123*SCALE, Hbase=794*SCALE;   // A4横（ランドスケープ）
       const cvs=document.createElement("canvas");cvs.width=W;
       // 高さは内容量で可変（1ページ想定・溢れたら縦長→縮小貼付）
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
-      const rowsN=units.length;
+      const rowsN=units.length+3;
       let estH=(120+70+40+ (30) + 260 + (24+rowsN*30+40) + 200)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
@@ -24268,7 +24268,7 @@ function DailyReportTab({data,vehicles,fleet}){
         cells.forEach((v,i)=>{ctx.fillStyle=i===0?NAVY:"#334155";ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*cols[i].w-S(6);ctx.fillText(String(v),px,y+rowH/2);});
         y+=rowH;
       };
-      units.forEach((u,idx)=>{
+      const drawUnit=(u,idx)=>{
         const c=u.code;const t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};
         const lbl=u.label.length>20?u.label.slice(0,19)+"…":u.label;
         drawRow([lbl,
@@ -24278,12 +24278,16 @@ function DailyReportTab({data,vehicles,fleet}){
           "¥"+(d.sales||0).toLocaleString(),(d.bookings||0),(d.util||0)+"%",
           "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%"
         ],idx%2?"#f8fafc":"#ffffff",false);
-      });
-      // 合計行
-      drawRow(["合計","","","",
-        "¥"+actual.dayTot.sales.toLocaleString(),actual.dayTot.bookings,"",
-        "¥"+actual.monTot.sales.toLocaleString(),actual.monTot.bookings,""
-      ],"#fef9e7",true);
+      };
+      const drawSub=(label,list,bg)=>{const g=grpSum(list);drawRow([label+" ("+list.length+"台)",
+        g.ts?("¥"+g.ts.toLocaleString()):"-",g.tb||"-","",
+        "¥"+g.ds.toLocaleString(),g.db,g.du+"%",
+        "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%"],bg,true);};
+      aaU.forEach((u,i)=>drawUnit(u,i));
+      if(aaU.length)drawSub("AA 合計",aaU,"#eef2ff");
+      otherU.forEach((u,i)=>drawUnit(u,i));
+      if(otherU.length)drawSub("AA以外 合計",otherU,"#eef2ff");
+      drawSub("グロス（全体）",units,"#fef9e7");
       y+=S(28);
       ctx.textBaseline="alphabetic";ctx.textAlign="left";
       // --- テキスト2欄 ---
@@ -24314,8 +24318,8 @@ function DailyReportTab({data,vehicles,fleet}){
   const canvasToPdf=(cvs)=>{
       const img=cvs.toDataURL("image/jpeg",0.92);
       const{jsPDF}=window.jspdf;
-      const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-      const pageW=210,pageH=297;
+      const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"landscape"});
+      const pageW=297,pageH=210;
       const imgW=pageW;const imgH=cvs.height/cvs.width*pageW;
       if(imgH<=pageH){
         pdf.addImage(img,"JPEG",0,0,imgW,imgH);
@@ -24346,6 +24350,26 @@ function DailyReportTab({data,vehicles,fleet}){
   const cellIn={width:"100%",boxSizing:"border-box",padding:"5px 6px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right"};
   const th={padding:"6px 6px",fontSize:11,fontWeight:800,color:"#fff",whiteSpace:"nowrap"};
   const td={padding:"4px 5px",fontSize:12,textAlign:"right",whiteSpace:"nowrap",borderBottom:"1px solid #eef2f7"};
+
+  // グループ小計（AA / AA以外 / グロス）
+  const aaU=units.filter(u=>u.type==="AA");
+  const otherU=units.filter(u=>u.type!=="AA");
+  const grpSum=(list)=>{let ts=0,tb=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=Number(t.sales)||0;tb+=Number(t.bookings)||0;ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
+  const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
+    <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
+    <td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td>
+    <td style={{...td,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
+    <td style={{...td,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
+  </tr>);};
+  const unitRow=(u,i,arr)=>{const c=u.code,d=actual.day[c]||{},m=actual.month[c]||{};const prevType=i>0?arr[i-1].type:null;const newGrp=u.type!==prevType;
+    return(<tr key={c} style={{background:i%2?"#f8fafc":"#fff",borderTop:newGrp?"2px solid #cbd5e1":"none"}}>
+      <td style={{...td,textAlign:"left",fontWeight:700,color:"#0F1F45",whiteSpace:"nowrap"}}><span style={{display:"inline-block",minWidth:26,padding:"1px 5px",background:"#0F1F45",color:"#FABE00",borderRadius:5,fontSize:10,fontWeight:800,marginRight:6}}>{u.type}</span>{(u.name||"")+(u.no?(" "+u.no):"")||u.code}</td>
+      <td style={{...td,width:100}}><input type="number" value={tgtOf(c,"sales")} onChange={e=>setTgt(c,"sales",e.target.value)} style={cellIn} placeholder="0"/></td>
+      <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
+      <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"util")} onChange={e=>setTgt(c,"util",e.target.value)} style={cellIn} placeholder="0"/></td>
+      <td style={{...td,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
+      <td style={{...td,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td><td style={{...td,color:"#047857"}}>{m.bookings||0}</td><td style={{...td,color:"#047857"}}>{m.util||0}%</td>
+    </tr>);};
 
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
@@ -24390,32 +24414,11 @@ function DailyReportTab({data,vehicles,fleet}){
             </tr>
           </thead>
           <tbody>
-            {units.map((u,i)=>{
-              const c=u.code;const d=actual.day[c]||{},m=actual.month[c]||{};
-              const prevType=i>0?units[i-1].type:null;const newGrp=u.type!==prevType;
-              return(<tr key={c} style={{background:i%2?"#f8fafc":"#fff",borderTop:newGrp?"2px solid #cbd5e1":"none"}}>
-                <td style={{...td,textAlign:"left",fontWeight:700,color:"#0F1F45",whiteSpace:"nowrap"}}><span style={{display:"inline-block",minWidth:26,padding:"1px 5px",background:"#0F1F45",color:"#FABE00",borderRadius:5,fontSize:10,fontWeight:800,marginRight:6}}>{u.type}</span>{(u.name||"")+(u.no?(" "+u.no):"")||u.code}</td>
-                <td style={{...td,width:100}}><input type="number" value={tgtOf(c,"sales")} onChange={e=>setTgt(c,"sales",e.target.value)} style={cellIn} placeholder="0"/></td>
-                <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
-                <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"util")} onChange={e=>setTgt(c,"util",e.target.value)} style={cellIn} placeholder="0"/></td>
-                <td style={{...td,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td>
-                <td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td>
-                <td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
-                <td style={{...td,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td>
-                <td style={{...td,color:"#047857"}}>{m.bookings||0}</td>
-                <td style={{...td,color:"#047857"}}>{m.util||0}%</td>
-              </tr>);
-            })}
-            <tr style={{background:"#fef9e7",fontWeight:800}}>
-              <td style={{...td,textAlign:"left",color:"#92400e"}}>合計</td>
-              <td style={td}></td><td style={td}></td><td style={td}></td>
-              <td style={{...td,color:"#1d4ed8"}}>{yen(actual.dayTot.sales)}</td>
-              <td style={{...td,color:"#1d4ed8"}}>{actual.dayTot.bookings}</td>
-              <td style={td}></td>
-              <td style={{...td,color:"#047857"}}>{yen(actual.monTot.sales)}</td>
-              <td style={{...td,color:"#047857"}}>{actual.monTot.bookings}</td>
-              <td style={td}></td>
-            </tr>
+            {aaU.map((u,i)=>unitRow(u,i,aaU))}
+            {aaU.length>0&&subRow("AA 合計",aaU,"#eef2ff","#3730a3")}
+            {otherU.map((u,i)=>unitRow(u,i,otherU))}
+            {otherU.length>0&&subRow("AA以外 合計",otherU,"#eef2ff","#3730a3")}
+            {subRow("グロス（全体）",units,"#fef9e7","#92400e")}
           </tbody>
         </table>
       </div>}
