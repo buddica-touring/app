@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.190-BT";
+const APP_VERSION="v1.0.191-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24152,10 +24152,12 @@ function DailyReportTab({data,vehicles,fleet}){
   const tgtOf=(cls,key)=>{const t=targets[cls];return(t&&t[key]!=null)?t[key]:"";};
   // 当月の日数（選択日の月）
   const daysInMonth=React.useMemo(()=>{const s=norm(date);if(!s)return 30;const[y,m]=s.split("-").map(Number);return new Date(y,m,0).getDate();},[date]);
-  // 目標売上＝販売単価(手動)×予約本数(手動)。旧データ(priceなし)は保存済salesにフォールバック
-  const tgtSalesOf=(cls)=>{const t=targets[cls]||{};const p=Number(t.price)||0,b=Number(t.bookings)||0;if(p>0)return p*b;return Number(t.sales)||0;};
-  // 目標稼働率＝予約本数×平均泊÷当月日数（手動で稼働%を入れた旧データはそれを優先）
-  const tgtUtilOf=(cls)=>{const t=targets[cls]||{};const b=Number(t.bookings)||0,nt=Number(t.avgNights)||0;if(nt>0)return Math.min(100,Math.round(b*nt/daysInMonth*100));return(t.util!=null&&t.util!=="")?Number(t.util):0;};
+  // 稼働日数＝予約本数×平均泊（手動2値から自動）
+  const tgtDaysOf=(cls)=>{const t=targets[cls]||{};return(Number(t.bookings)||0)*(Number(t.avgNights)||0);};
+  // 目標売上＝稼働日数×販売単価(泊単価,手動)。旧データ(priceなし)は保存済salesにフォールバック
+  const tgtSalesOf=(cls)=>{const t=targets[cls]||{};const p=Number(t.price)||0,dd=tgtDaysOf(cls);if(p>0&&dd>0)return p*dd;return Number(t.sales)||0;};
+  // 目標稼働率＝稼働日数÷当月日数（手動で稼働%を入れた旧データはそれを優先）
+  const tgtUtilOf=(cls)=>{const t=targets[cls]||{};const dd=tgtDaysOf(cls);if(dd>0)return Math.min(100,Math.round(dd/daysInMonth*100));return(t.util!=null&&t.util!=="")?Number(t.util):0;};
 
   const save=async()=>{
     if(!sb){alert("DB未接続です");return;}
@@ -24257,10 +24259,10 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📋 車両別 目標・実績",M,y);y+=S(24);
       const cols=[
-        {t:"クラス / 車両",w:0.19},
-        {t:"目標単価",w:0.085},{t:"目標予約",w:0.05},{t:"平均泊",w:0.05},{t:"目標売上",w:0.105},{t:"目標稼働",w:0.06},
-        {t:"本日売上",w:0.10},{t:"本日予約",w:0.05},{t:"本日稼働",w:0.05},
-        {t:"月売上",w:0.095},{t:"月予約",w:0.045},{t:"月稼働",w:0.045}
+        {t:"クラス / 車両",w:0.17},
+        {t:"単価",w:0.075},{t:"予約",w:0.04},{t:"平均泊",w:0.04},{t:"稼働日",w:0.05},{t:"目標売上",w:0.095},{t:"目標稼働",w:0.05},
+        {t:"本日売上",w:0.095},{t:"本日予約",w:0.045},{t:"本日稼働",w:0.045},
+        {t:"月売上",w:0.09},{t:"月予約",w:0.04},{t:"月稼働",w:0.04}
       ];
       const rowH=S(30);let tx=M;const colX=[];
       cols.forEach(c=>{colX.push(tx);tx+=innerW*c.w;});
@@ -24283,13 +24285,14 @@ function DailyReportTab({data,vehicles,fleet}){
           t.price?("¥"+Number(t.price).toLocaleString()):"-",
           (t.bookings!=null&&t.bookings!=="")?t.bookings:"-",
           (t.avgNights!=null&&t.avgNights!=="")?t.avgNights:"-",
+          tgtDaysOf(c)||"-",
           "¥"+tgtSalesOf(c).toLocaleString(),tgtUtilOf(c)+"%",
           "¥"+(d.sales||0).toLocaleString(),(d.bookings||0),(d.util||0)+"%",
           "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%"
         ],idx%2?"#f8fafc":"#ffffff",false);
       };
       const drawSub=(label,list,bg)=>{const g=grpSum(list);drawRow([label+" ("+list.length+"台)",
-        "",g.tb||"-","",g.ts?("¥"+g.ts.toLocaleString()):"-",g.tu+"%",
+        "",g.tb||"-","",g.td||"-",g.ts?("¥"+g.ts.toLocaleString()):"-",g.tu+"%",
         "¥"+g.ds.toLocaleString(),g.db,g.du+"%",
         "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%"],bg,true);};
       aaU.forEach((u,i)=>drawUnit(u,i));
@@ -24337,35 +24340,42 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillText("BUDDICA TOURISM 高松空港店 / 自動生成 "+new Date().toLocaleString("ja-JP"),M,H-S(24));
       return cvs;
   };
-  // canvas → PDF保存
-  const canvasToPdf=(cvs)=>{
-      const img=cvs.toDataURL("image/jpeg",0.92);
+  // 縦長の内容canvasを「横A4(297:210)」ページに分割 → 各ページcanvasの配列を返す
+  const paginateLandscape=(content)=>{
+      const pw=content.width;                       // ページ幅=内容幅
+      const ph=Math.round(pw*210/297);              // 横A4比の高さ
+      const nPages=Math.max(1,Math.ceil(content.height/ph));
+      const pages=[];
+      for(let i=0;i<nPages;i++){
+        const srcY=i*ph;const sliceH=Math.min(ph,content.height-srcY);
+        const pc=document.createElement("canvas");pc.width=pw;pc.height=ph;
+        const c=pc.getContext("2d");
+        c.fillStyle="#ffffff";c.fillRect(0,0,pw,ph);
+        c.drawImage(content,0,srcY,pw,sliceH,0,0,pw,sliceH);
+        pages.push(pc);
+      }
+      return pages;
+  };
+  // 横A4ページ配列 → PDF保存
+  const pagesToPdf=(pages)=>{
       const{jsPDF}=window.jspdf;
       const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"landscape"});
-      const pageW=297,pageH=210;
-      const imgW=pageW;const imgH=cvs.height/cvs.width*pageW;
-      if(imgH<=pageH){
-        pdf.addImage(img,"JPEG",0,0,imgW,imgH);
-      }else{
-        let remain=imgH,pos=0;
-        while(remain>0){
-          pdf.addImage(img,"JPEG",0,pos,imgW,imgH);
-          remain-=pageH;pos-=pageH;
-          if(remain>0)pdf.addPage();
-        }
-      }
+      pages.forEach((pc,i)=>{
+        if(i>0)pdf.addPage("a4","landscape");
+        pdf.addImage(pc.toDataURL("image/jpeg",0.92),"JPEG",0,0,297,210);
+      });
       pdf.save("BUDDICA日報_"+norm(date)+".pdf");
   };
   const makePdf=async()=>{
     setPdfBusy(true);
-    try{ const cvs=await buildCanvas(); canvasToPdf(cvs); }
+    try{ const cvs=await buildCanvas(); pagesToPdf(paginateLandscape(cvs)); }
     catch(e){alert("PDF生成エラー: "+(e.message||e));}
     setPdfBusy(false);
   };
-  // プレビュー（画面に表示 → 確認・修正してからPDF保存）
+  // プレビュー（横A4ページ配列を画面表示 → 確認してからPDF保存）
   const openPreview=async()=>{
     setPdfBusy(true);
-    try{ const cvs=await buildCanvas(); previewCvsRef.current=cvs; setPreviewUrl(cvs.toDataURL("image/jpeg",0.92)); }
+    try{ const cvs=await buildCanvas(); const pages=paginateLandscape(cvs); previewCvsRef.current=pages; setPreviewUrl(pages.map(p=>p.toDataURL("image/jpeg",0.92))); }
     catch(e){alert("プレビュー生成エラー: "+(e.message||e));}
     setPdfBusy(false);
   };
@@ -24377,10 +24387,10 @@ function DailyReportTab({data,vehicles,fleet}){
   // グループ小計（AA / AA以外 / グロス）※稼働車のみで集計（未稼働は売上対象外）
   const aaU=activeUnits.filter(u=>u.type==="AA");
   const otherU=activeUnits.filter(u=>u.type!=="AA");
-  const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=(Number(t.bookings)||0)*(Number(t.avgNights)||0);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
+  const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=tgtDaysOf(c);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,td:tvd,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
   const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
     <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
-    <td style={td}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
+    <td style={td}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.td||"-"}</td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
     <td style={{...td,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
     <td style={{...td,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
   </tr>);};
@@ -24390,6 +24400,7 @@ function DailyReportTab({data,vehicles,fleet}){
       <td style={{...td,width:90}}><input type="number" value={tgtOf(c,"price")} onChange={e=>setTgt(c,"price",e.target.value)} style={cellIn} placeholder="単価"/></td>
       <td style={{...td,width:54}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
       <td style={{...td,width:54}}><input type="number" step="0.1" value={tgtOf(c,"avgNights")} onChange={e=>setTgt(c,"avgNights",e.target.value)} style={cellIn} placeholder="泊"/></td>
+      <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtDaysOf(c)||"-"}</td>
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{yen(tgtSalesOf(c))}</td>
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtUtilOf(c)}%</td>
       <td style={{...td,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
@@ -24406,18 +24417,21 @@ function DailyReportTab({data,vehicles,fleet}){
         <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
         {savedMsg&&<span style={{fontSize:12,fontWeight:700,color:savedMsg[0]==="✅"?"#059669":"#dc2626"}}>{savedMsg}</span>}
       </div>
-      {previewUrl&&<div onClick={()=>setPreviewUrl(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,maxWidth:840,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)"}}>
+      {previewUrl&&previewUrl.length&&<div onClick={()=>setPreviewUrl(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,maxWidth:1000,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #e2e8f0",position:"sticky",top:0,background:"#fff",borderRadius:"12px 12px 0 0",flexWrap:"wrap"}}>
-            <span style={{fontWeight:800,color:"#0F1F45",fontSize:14}}>👁 日報プレビュー</span>
+            <span style={{fontWeight:800,color:"#0F1F45",fontSize:14}}>👁 日報プレビュー（横A4・{previewUrl.length}ページ）</span>
             <span style={{fontSize:11,color:"#94a3b8"}}>内容を確認 → 修正が必要なら閉じて数値/テキストを直してください</span>
             <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-              <button onClick={()=>{if(previewCvsRef.current)canvasToPdf(previewCvsRef.current);}} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📄 このままPDF保存</button>
+              <button onClick={()=>{if(previewCvsRef.current)pagesToPdf(previewCvsRef.current);}} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📄 このままPDF保存</button>
               <button onClick={()=>setPreviewUrl(null)} style={{padding:"7px 14px",background:"#0F1F45",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>✕ 閉じて修正</button>
             </div>
           </div>
-          <div style={{padding:12,background:"#f1f5f9",borderRadius:"0 0 12px 12px"}}>
-            <img src={previewUrl} style={{width:"100%",display:"block",border:"1px solid #cbd5e1",borderRadius:6,background:"#fff"}}/>
+          <div style={{padding:12,background:"#f1f5f9",borderRadius:"0 0 12px 12px",display:"flex",flexDirection:"column",gap:12}}>
+            {previewUrl.map((u,i)=><div key={i}>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:4}}>ページ {i+1} / {previewUrl.length}（横向き）</div>
+              <img src={u} style={{width:"100%",display:"block",border:"1px solid #cbd5e1",borderRadius:6,background:"#fff",aspectRatio:"297/210"}}/>
+            </div>)}
           </div>
         </div>
       </div>}
@@ -24427,13 +24441,13 @@ function DailyReportTab({data,vehicles,fleet}){
           <thead>
             <tr>
               <th style={{...th,background:"#0F1F45",textAlign:"left"}}>クラス / 車両</th>
-              <th style={{...th,background:"#64748b"}} colSpan={5}>🎯 月間目標（単価・予約・平均泊=入力／売上・稼働=自動）</th>
+              <th style={{...th,background:"#64748b"}} colSpan={6}>🎯 月間目標（単価・予約・平均泊=入力／稼働日数・売上・稼働=自動）</th>
               <th style={{...th,background:"#2563eb"}} colSpan={3}>📅 本日実績</th>
               <th style={{...th,background:"#059669"}} colSpan={3}>📈 当月累計実績</th>
             </tr>
             <tr>
               <th style={{...th,background:"#0F1F45"}}></th>
-              <th style={{...th,background:"#64748b"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
+              <th style={{...th,background:"#64748b"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>稼働日数</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
               <th style={{...th,background:"#2563eb"}}>売上</th><th style={{...th,background:"#2563eb"}}>予約</th><th style={{...th,background:"#2563eb"}}>稼働%</th>
               <th style={{...th,background:"#059669"}}>売上</th><th style={{...th,background:"#059669"}}>予約</th><th style={{...th,background:"#059669"}}>稼働%</th>
             </tr>
@@ -24456,7 +24470,7 @@ function DailyReportTab({data,vehicles,fleet}){
           </span>)}
         </div>
       </div>}
-      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価・予約本数・平均泊を入力→<b>目標売上＝単価×予約</b>・<b>目標稼働率＝予約×平均泊÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
+      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
         <div>
           <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>📣 マーケ施策</label>
