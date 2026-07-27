@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.188-BT";
+const APP_VERSION="v1.0.189-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24075,19 +24075,21 @@ function DailyReportTab({data,vehicles,fleet}){
   const [previewUrl,setPreviewUrl]=React.useState(null);   // プレビュー画像(dataURL)
   const previewCvsRef=React.useRef(null);                  // プレビュー用に保持したcanvas
 
-  // active車両を「個体別」に列挙（クラス＋車両名）。複数台あるクラスは全車をバラして表示
+  // 車両を「個体別」に列挙（クラス＋車両名）。稼働/未稼働の両方を含め、inactiveフラグで区別
   const order=["AA","A","B","B2","C","D","E","F","G","H","S"];
   const units=React.useMemo(()=>{
-    const arr=(vehicles||[]).filter(v=>v&&v.active!==false&&v.type).map(v=>{
+    const arr=(vehicles||[]).filter(v=>v&&v.type).map(v=>{
       const nm=(v.name||"").trim(), no=String(v.no||v.plate_no||"").trim();
       const nmno=(nm+(no?(" "+no):"")).trim();
-      return {code:v.code, type:v.type, name:nm, no:no,
+      return {code:v.code, type:v.type, name:nm, no:no, inactive:v.active===false,
         label:(v.type||"")+" / "+(nmno||v.code||"-"),
         short:(no||nm||v.type||"-")};
     });
     arr.sort((a,b)=>{const ia=order.indexOf(a.type),ib=order.indexOf(b.type);return (ia<0?99:ia)-(ib<0?99:ib)||String(a.no).localeCompare(String(b.no))||String(a.name).localeCompare(String(b.name));});
     return arr;
   },[vehicles]);
+  const activeUnits=React.useMemo(()=>units.filter(u=>!u.inactive),[units]);
+  const inactiveUnits=React.useMemo(()=>units.filter(u=>u.inactive),[units]);
 
   const isCancel=(s)=>{const t=String(s||"").toLowerCase();return t==="cancelled"||t.includes("キャンセル")||t==="cancel";};
   const revOf=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
@@ -24287,9 +24289,23 @@ function DailyReportTab({data,vehicles,fleet}){
       if(aaU.length)drawSub("AA 合計",aaU,"#eef2ff");
       otherU.forEach((u,i)=>drawUnit(u,i));
       if(otherU.length)drawSub("AA以外 合計",otherU,"#eef2ff");
-      drawSub("グロス（全体）",units,"#fef9e7");
+      drawSub("グロス（全体）",activeUnits,"#fef9e7");
       y+=S(28);
       ctx.textBaseline="alphabetic";ctx.textAlign="left";
+      // --- 未稼働車両（コンパクト・売上対象外）---
+      if(inactiveUnits.length){
+        ctx.fillStyle=GRAY;ctx.font="bold "+S(15)+"px sans-serif";
+        ctx.fillText("⏸ 未稼働車両（"+inactiveUnits.length+"台・売上対象外）",M,y);y+=S(22);
+        ctx.fillStyle="#64748b";ctx.font=S(12)+"px sans-serif";
+        const maxW=innerW-S(8);let line="";
+        inactiveUnits.forEach(u=>{
+          const piece=(u.type+" "+((u.name||"")+(u.no?(" "+u.no):"")||u.code)).trim()+"　　";
+          if(ctx.measureText(line+piece).width>maxW){ctx.fillText(line,M+S(4),y);y+=S(20);line=piece;}
+          else line+=piece;
+        });
+        if(line){ctx.fillText(line,M+S(4),y);y+=S(20);}
+        y+=S(18);
+      }
       // --- テキスト2欄 ---
       const wrapText=(label,txt)=>{
         ctx.fillStyle=NAVY;ctx.font="bold "+S(16)+"px sans-serif";ctx.fillText(label,M,y);y+=S(22);
@@ -24351,9 +24367,9 @@ function DailyReportTab({data,vehicles,fleet}){
   const th={padding:"6px 6px",fontSize:11,fontWeight:800,color:"#fff",whiteSpace:"nowrap"};
   const td={padding:"4px 5px",fontSize:12,textAlign:"right",whiteSpace:"nowrap",borderBottom:"1px solid #eef2f7"};
 
-  // グループ小計（AA / AA以外 / グロス）
-  const aaU=units.filter(u=>u.type==="AA");
-  const otherU=units.filter(u=>u.type!=="AA");
+  // グループ小計（AA / AA以外 / グロス）※稼働車のみで集計（未稼働は売上対象外）
+  const aaU=activeUnits.filter(u=>u.type==="AA");
+  const otherU=activeUnits.filter(u=>u.type!=="AA");
   const grpSum=(list)=>{let ts=0,tb=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=Number(t.sales)||0;tb+=Number(t.bookings)||0;ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
   const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
     <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
@@ -24396,8 +24412,8 @@ function DailyReportTab({data,vehicles,fleet}){
           </div>
         </div>
       </div>}
-      {units.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>アクティブな車両（bt_vehicles）が読み込まれていません。</div>}
-      {units.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+      {units.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>車両（bt_vehicles）が読み込まれていません。</div>}
+      {activeUnits.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
         <table style={{borderCollapse:"collapse",width:"100%",minWidth:900}}>
           <thead>
             <tr>
@@ -24418,9 +24434,18 @@ function DailyReportTab({data,vehicles,fleet}){
             {aaU.length>0&&subRow("AA 合計",aaU,"#eef2ff","#3730a3")}
             {otherU.map((u,i)=>unitRow(u,i,otherU))}
             {otherU.length>0&&subRow("AA以外 合計",otherU,"#eef2ff","#3730a3")}
-            {subRow("グロス（全体）",units,"#fef9e7","#92400e")}
+            {subRow("グロス（全体）",activeUnits,"#fef9e7","#92400e")}
           </tbody>
         </table>
+      </div>}
+      {inactiveUnits.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14,padding:"10px 12px",background:"#f8fafc"}}>
+        <div style={{fontWeight:800,color:"#64748b",fontSize:13,marginBottom:8}}>⏸ 未稼働車両（{inactiveUnits.length}台・売上対象外）</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {inactiveUnits.map(u=><span key={u.code} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 9px",background:"#e2e8f0",color:"#475569",borderRadius:20,fontSize:12,fontWeight:700}}>
+            <span style={{display:"inline-block",minWidth:22,padding:"0 5px",background:"#94a3b8",color:"#fff",borderRadius:5,fontSize:10,fontWeight:800,textAlign:"center"}}>{u.type}</span>
+            {(u.name||"")+(u.no?(" "+u.no):"")||u.code} ⏸
+          </span>)}
+        </div>
       </div>}
       <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 実績は配車表（bt_fleetの車両割当）から車両個体別に自動算出。稼働率＝本日:当日稼働なら100%/非稼働0% ・当月:稼働台日÷当月経過{actual.elapsedDays}日。目標は車両別の日次目標。複数台あるクラスは全車を個別表示。</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
