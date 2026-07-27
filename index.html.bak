@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.193-BT";
+const APP_VERSION="v1.0.194-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24230,10 +24230,9 @@ function DailyReportTab({data,vehicles,fleet}){
           const rate=goal>0?Math.round(sum/goal*100):0,diff=sum-goal,ok=diff>=0;const ch=S(96);
           ctx.strokeStyle=accent;ctx.lineWidth=S(1.5);ctx.strokeRect(cx,y,bw,ch);
           ctx.textAlign="left";ctx.fillStyle=accent;ctx.font="bold "+S(13)+"px sans-serif";ctx.fillText(title,cx+S(10),y+S(20));
-          ctx.fillStyle="#0F1F45";ctx.font="bold "+S(18)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+S(10),y+S(44));
-          ctx.fillStyle="#0f766e";ctx.font=S(13)+"px sans-serif";ctx.fillText("積み上げ ¥"+sum.toLocaleString(),cx+S(10),y+S(64));
-          ctx.fillStyle=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");ctx.font="bold "+S(13)+"px sans-serif";
-          ctx.fillText("達成率 "+rate+"%   "+(ok?"+":"−")+"¥"+Math.abs(diff).toLocaleString(),cx+S(10),y+S(84));
+          ctx.fillStyle="#0F1F45";ctx.font="bold "+S(18)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+S(10),y+S(48));
+          ctx.fillStyle=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");ctx.font="bold "+S(16)+"px sans-serif";
+          ctx.fillText("達成率 "+rate+"%",cx+S(10),y+S(78));
         };
         drawCard(M,"AAクラス",gAA,sAA,"#3730a3");
         drawCard(M+bw+S(12),"AA以外",gOt,sOt,"#0369a1");
@@ -24457,12 +24456,8 @@ function DailyReportTab({data,vehicles,fleet}){
               <span style={{fontSize:11,color:"#64748b"}}>目標</span>
               <span style={{fontSize:16,fontWeight:800,color:"#0F1F45"}}>{yen(goal)}</span>
             </div>
-            <div style={{fontSize:11,color:"#64748b",marginTop:4}}>KPI積み上げ <b style={{color:"#0f766e",fontSize:13}}>{yen(sum)}</b></div>
-            <div style={{marginTop:6,height:8,background:"#e2e8f0",borderRadius:6,overflow:"hidden"}}><div style={{width:Math.min(100,rate)+"%",height:"100%",background:rate>=100?"#059669":(rate>=70?"#f59e0b":"#dc2626")}}/></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:5,fontSize:12,fontWeight:800}}>
-              <span style={{color:rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626")}}>達成率 {rate}%</span>
-              <span style={{color:ok?"#059669":"#dc2626"}}>{ok?"+":"−"}{yen(Math.abs(diff))}</span>
-            </div>
+            <div style={{marginTop:8,height:8,background:"#e2e8f0",borderRadius:6,overflow:"hidden"}}><div style={{width:Math.min(100,rate)+"%",height:"100%",background:rate>=100?"#059669":(rate>=70?"#f59e0b":"#dc2626")}}/></div>
+            <div style={{marginTop:5,fontSize:14,fontWeight:800,color:rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626")}}>達成率 {rate}%</div>
           </div>);};
         return(<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:12,marginBottom:14,background:"#f8fafc"}}>
           <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:4}}>🎯 月間目標（このレポートのテーマ）</div>
