@@ -21724,7 +21724,7 @@ function App(){
                 {id:"price_optimizer",ico:"💹",l:"価格最適化",desc:"空き台数カレンダー・需要曲線・市場調査・価格ギャップ（実績蓄積後に自動表示）",external:true,url:"price-optimizer.html?store=bt"},
               ]},
               {title:"データ・分析",color:"#7c3aed",items:[
-                {id:"daily_report",ico:"📋",l:"日報",desc:"クラス別 目標vs実績（本日/当月）＋マーケ施策・運用内容。ボタン一発でPDF出力"},
+                {id:"daily_report",ico:"📋",l:"日報",desc:"月間目標(テーマ)＋車両KPIで達成設計。運用準備中/運用中施策も記録。ボタン一発でPDF出力"},
                 {id:"mypage_usage",ico:"📲",l:"ご利用ガイド状況",desc:"予約→ガイドメール送信→開封(お迎え設定/サイン)→締結 のファネル。未送信・スルー・締結済を可視化",external:true,url:"mypage-usage-bt.html"},
                 {id:"gatekeeper",ico:"📒",l:"台帳",desc:"誰が・いつ・何を書いたか＋勝手な編集の足跡＋🛡️3号の正常化（改ざん不能台帳）",external:true,url:"gatekeeper.html?store=bt"},
                 {id:"dashboard",ico:"🔒",l:"経営",desc:"売上・稼働率（オーナー専用）"},
@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.194-BT";
+const APP_VERSION="v1.0.195-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24222,22 +24222,31 @@ function DailyReportTab({data,vehicles,fleet}){
       // --- 🎯 月間目標（テーマ）: グループ目標 vs KPI積み上げ ---
       {
         const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
-        const sAA=grpSum(aaU).ts,sOt=grpSum(otherU).ts,sTot=sAA+sOt;
+        const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt; // 実績(当月売上)
         ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
-        ctx.fillText("🎯 月間目標（テーマ）",M,y);y+=S(26);
+        ctx.fillText("🎯 月間目標（テーマ）",M,y);y+=S(28);
         const bw=(innerW-S(24))/3;
-        const drawCard=(cx,title,goal,sum,accent)=>{
-          const rate=goal>0?Math.round(sum/goal*100):0,diff=sum-goal,ok=diff>=0;const ch=S(96);
-          ctx.strokeStyle=accent;ctx.lineWidth=S(1.5);ctx.strokeRect(cx,y,bw,ch);
-          ctx.textAlign="left";ctx.fillStyle=accent;ctx.font="bold "+S(13)+"px sans-serif";ctx.fillText(title,cx+S(10),y+S(20));
-          ctx.fillStyle="#0F1F45";ctx.font="bold "+S(18)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+S(10),y+S(48));
-          ctx.fillStyle=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");ctx.font="bold "+S(16)+"px sans-serif";
-          ctx.fillText("達成率 "+rate+"%",cx+S(10),y+S(78));
+        const drawCard=(cx,title,goal,act,accent)=>{
+          const rate=goal>0?Math.round(act/goal*100):0;const barC=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");const ch=S(112);
+          // カード枠＋見出し帯
+          ctx.fillStyle="#ffffff";ctx.fillRect(cx,y,bw,ch);
+          ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.strokeRect(cx,y,bw,ch);
+          ctx.fillStyle=accent;ctx.fillRect(cx,y,bw,S(26));
+          ctx.textAlign="left";ctx.fillStyle="#ffffff";ctx.font="bold "+S(13)+"px sans-serif";ctx.fillText(title,cx+S(10),y+S(18));
+          // 達成率(大)
+          ctx.fillStyle="#94a3b8";ctx.font="bold "+S(10)+"px sans-serif";ctx.fillText("達成率（実績÷目標）",cx+S(10),y+S(44));
+          ctx.fillStyle=barC;ctx.font="bold "+S(30)+"px sans-serif";ctx.fillText(rate+"%",cx+S(10),y+S(76));
+          // 目標/実績(右)
+          ctx.textAlign="right";ctx.fillStyle="#0F1F45";ctx.font="bold "+S(15)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+bw-S(10),y+S(52));
+          ctx.fillStyle="#0f766e";ctx.font=S(12)+"px sans-serif";ctx.fillText("実績 ¥"+act.toLocaleString(),cx+bw-S(10),y+S(72));
+          // 進捗バー
+          ctx.textAlign="left";ctx.fillStyle="#eef2f7";ctx.fillRect(cx+S(10),y+S(92),bw-S(20),S(9));
+          ctx.fillStyle=barC;ctx.fillRect(cx+S(10),y+S(92),(bw-S(20))*Math.min(100,rate)/100,S(9));
         };
-        drawCard(M,"AAクラス",gAA,sAA,"#3730a3");
-        drawCard(M+bw+S(12),"AA以外",gOt,sOt,"#0369a1");
-        drawCard(M+(bw+S(12))*2,"合計",gTot,sTot,"#92400e");
-        ctx.textAlign="left";y+=S(96)+S(30);
+        drawCard(M,"AAクラス",gAA,aAA,"#3730a3");
+        drawCard(M+bw+S(12),"AA以外",gOt,aOt,"#0369a1");
+        drawCard(M+(bw+S(12))*2,"合計",gTot,aTot,"#92400e");
+        ctx.textAlign="left";y+=S(112)+S(30);
       }
       // --- 棒グラフ（車両別 当月累計 売上 目標 vs 実績）---
       const gTitle="車両別 当月累計 売上（目標 vs 実績）";
@@ -24356,8 +24365,8 @@ function DailyReportTab({data,vehicles,fleet}){
         });
         y+=S(14);
       };
-      wrapText("📣 マーケ施策",marketing);
-      wrapText("🛠 運用中の内容",ops);
+      wrapText("🛠 運用準備中施策",marketing);
+      wrapText("🚀 運用中施策",ops);
       // フッター
       ctx.fillStyle="#94a3b8";ctx.font=S(11)+"px sans-serif";
       ctx.fillText("BUDDICA TOURISM 高松空港店 / 自動生成 "+new Date().toLocaleString("ja-JP"),M,H-S(24));
@@ -24396,7 +24405,8 @@ function DailyReportTab({data,vehicles,fleet}){
   const td={padding:"4px 5px",fontSize:12,textAlign:"right",whiteSpace:"nowrap",borderBottom:"1px solid #eef2f7"};
 
   // グループ小計（AA / AA以外 / グロス）※稼働車のみで集計（未稼働は売上対象外）
-  const aaU=activeUnits.filter(u=>u.type==="AA");
+  // AAは販売単価(目標単価)の高い順に並べる（未入力は末尾）
+  const aaU=activeUnits.filter(u=>u.type==="AA").slice().sort((a,b)=>(Number((targets[b.code]||{}).price)||0)-(Number((targets[a.code]||{}).price)||0));
   const otherU=activeUnits.filter(u=>u.type!=="AA");
   const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=tgtDaysOf(c);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,td:tvd,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
   const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
@@ -24448,28 +24458,37 @@ function DailyReportTab({data,vehicles,fleet}){
       {units.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>車両（bt_vehicles）が読み込まれていません。</div>}
       {activeUnits.length>0&&(()=>{
         const gAA=Number(gGroupOf("aa"))||0, gOt=Number(gGroupOf("other"))||0, gTot=gAA+gOt;
-        const sAA=grpSum(aaU).ts, sOt=grpSum(otherU).ts, sTot=sAA+sOt;
-        const card=(title,goal,sum,accent)=>{const rate=goal>0?Math.round(sum/goal*100):0;const diff=sum-goal;const ok=diff>=0;return(
-          <div style={{flex:"1 1 220px",background:"#fff",border:"1px solid "+accent,borderRadius:10,padding:"10px 12px"}}>
-            <div style={{fontSize:12,fontWeight:800,color:accent,marginBottom:6}}>{title}</div>
-            <div style={{display:"flex",alignItems:"baseline",gap:6,flexWrap:"wrap"}}>
-              <span style={{fontSize:11,color:"#64748b"}}>目標</span>
-              <span style={{fontSize:16,fontWeight:800,color:"#0F1F45"}}>{yen(goal)}</span>
+        // 達成率＝実績(当月累計売上 ms)÷目標。積み上げ(plan)ではなく実売上ベース
+        const aAA=grpSum(aaU).ms, aOt=grpSum(otherU).ms, aTot=aAA+aOt;
+        const card=(title,goal,act,accent)=>{const rate=goal>0?Math.round(act/goal*100):0;const barC=rate>=100?"#059669":(rate>=70?"#f59e0b":"#dc2626");return(
+          <div style={{flex:"1 1 240px",background:"#fff",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 5px rgba(15,31,69,.12)",border:"1px solid #e2e8f0"}}>
+            <div style={{background:accent,color:"#fff",padding:"7px 14px",fontSize:13,fontWeight:800,letterSpacing:.5}}>{title}</div>
+            <div style={{padding:"12px 16px"}}>
+              <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{fontSize:10,color:"#94a3b8",fontWeight:800,letterSpacing:1}}>達成率（実績÷目標）</div>
+                  <div style={{fontSize:32,fontWeight:900,color:barC,lineHeight:1}}>{rate}<span style={{fontSize:16}}>%</span></div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:10,color:"#94a3b8",fontWeight:800,letterSpacing:1}}>月間目標</div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#0F1F45"}}>{yen(goal)}</div>
+                  <div style={{fontSize:11,color:"#0f766e",fontWeight:700,marginTop:2}}>実績 {yen(act)}</div>
+                </div>
+              </div>
+              <div style={{marginTop:11,height:10,background:"#eef2f7",borderRadius:8,overflow:"hidden"}}><div style={{width:Math.min(100,rate)+"%",height:"100%",background:barC,borderRadius:8}}/></div>
             </div>
-            <div style={{marginTop:8,height:8,background:"#e2e8f0",borderRadius:6,overflow:"hidden"}}><div style={{width:Math.min(100,rate)+"%",height:"100%",background:rate>=100?"#059669":(rate>=70?"#f59e0b":"#dc2626")}}/></div>
-            <div style={{marginTop:5,fontSize:14,fontWeight:800,color:rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626")}}>達成率 {rate}%</div>
           </div>);};
-        return(<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:12,marginBottom:14,background:"#f8fafc"}}>
-          <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:4}}>🎯 月間目標（このレポートのテーマ）</div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>目標金額を手動入力→ 下の各車両KPI（単価×予約×平均泊）の積み上げが目標に届くかを可視化。「何を何本売れば目標達成か」を設計してください。</div>
-          <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:700,color:"#3730a3"}}>AA目標 <input type="number" value={gGroupOf("aa")} onChange={e=>setGroup("aa",e.target.value)} placeholder="6705000" style={{width:130,padding:"5px 7px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
-            <label style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>AA以外目標 <input type="number" value={gGroupOf("other")} onChange={e=>setGroup("other",e.target.value)} placeholder="1800000" style={{width:130,padding:"5px 7px",border:"1px solid #cbd5e1",borderRadius:6,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
+        return(<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#f8fafc"}}>
+          <div style={{fontSize:15,fontWeight:800,color:"#0F1F45",marginBottom:3}}>🎯 月間目標（このレポートのテーマ）</div>
+          <div style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>目標金額を手動入力→ 達成率＝<b>当月の実績売上÷目標</b>。下の各車両KPI（単価×予約×平均泊）で「何を何本売れば目標達成か」を設計してください。</div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
+            <label style={{fontSize:12,fontWeight:700,color:"#3730a3"}}>AA目標 <input type="number" value={gGroupOf("aa")} onChange={e=>setGroup("aa",e.target.value)} placeholder="6705000" style={{width:130,padding:"6px 8px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
+            <label style={{fontSize:12,fontWeight:700,color:"#0369a1"}}>AA以外目標 <input type="number" value={gGroupOf("other")} onChange={e=>setGroup("other",e.target.value)} placeholder="1800000" style={{width:130,padding:"6px 8px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,textAlign:"right",marginLeft:4}}/></label>
           </div>
           <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-            {card("AAクラス",gAA,sAA,"#3730a3")}
-            {card("AA以外",gOt,sOt,"#0369a1")}
-            {card("合計",gTot,sTot,"#92400e")}
+            {card("AAクラス",gAA,aAA,"#3730a3")}
+            {card("AA以外",gOt,aOt,"#0369a1")}
+            {card("合計",gTot,aTot,"#92400e")}
           </div>
         </div>);
       })()}
@@ -24510,12 +24529,12 @@ function DailyReportTab({data,vehicles,fleet}){
       <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
         <div>
-          <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>📣 マーケ施策</label>
-          <textarea value={marketing} onChange={e=>setMarketing(e.target.value)} rows={5} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,resize:"vertical"}} placeholder="実施中／予定のマーケ施策を記入"/>
+          <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>🛠 運用準備中施策</label>
+          <textarea value={marketing} onChange={e=>setMarketing(e.target.value)} rows={5} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,resize:"vertical"}} placeholder="これから始める予定の施策を記入"/>
         </div>
         <div>
-          <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>🛠 運用中の内容</label>
-          <textarea value={ops} onChange={e=>setOps(e.target.value)} rows={5} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,resize:"vertical"}} placeholder="運用中の施策・オペレーション状況を記入"/>
+          <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>🚀 運用中施策</label>
+          <textarea value={ops} onChange={e=>setOps(e.target.value)} rows={5} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid #cbd5e1",borderRadius:8,fontSize:13,resize:"vertical"}} placeholder="現在運用中の施策を記入"/>
         </div>
       </div>
     </div>
