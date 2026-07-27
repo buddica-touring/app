@@ -22726,7 +22726,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.189-BT";
+const APP_VERSION="v1.0.190-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24150,6 +24150,12 @@ function DailyReportTab({data,vehicles,fleet}){
 
   const setTgt=(cls,key,val)=>{setTargets(p=>({...p,[cls]:{...(p[cls]||{}),[key]:val===""?"":Number(val)||0}}));};
   const tgtOf=(cls,key)=>{const t=targets[cls];return(t&&t[key]!=null)?t[key]:"";};
+  // 当月の日数（選択日の月）
+  const daysInMonth=React.useMemo(()=>{const s=norm(date);if(!s)return 30;const[y,m]=s.split("-").map(Number);return new Date(y,m,0).getDate();},[date]);
+  // 目標売上＝販売単価(手動)×予約本数(手動)。旧データ(priceなし)は保存済salesにフォールバック
+  const tgtSalesOf=(cls)=>{const t=targets[cls]||{};const p=Number(t.price)||0,b=Number(t.bookings)||0;if(p>0)return p*b;return Number(t.sales)||0;};
+  // 目標稼働率＝予約本数×平均泊÷当月日数（手動で稼働%を入れた旧データはそれを優先）
+  const tgtUtilOf=(cls)=>{const t=targets[cls]||{};const b=Number(t.bookings)||0,nt=Number(t.avgNights)||0;if(nt>0)return Math.min(100,Math.round(b*nt/daysInMonth*100));return(t.util!=null&&t.util!=="")?Number(t.util):0;};
 
   const save=async()=>{
     if(!sb){alert("DB未接続です");return;}
@@ -24214,19 +24220,19 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillText("📊 "+gTitle,M,y);y+=S(28);
       const gH=S(210), gW=innerW, gX=M, gY=y;
       // 最大値
-      let maxV=1;units.forEach(u=>{const t=(targets[u.code]&&Number(targets[u.code].sales))||0;const a=(actual.month[u.code]&&actual.month[u.code].sales)||0;maxV=Math.max(maxV,t,a);});
+      let maxV=1;activeUnits.forEach(u=>{const t=tgtSalesOf(u.code);const a=(actual.month[u.code]&&actual.month[u.code].sales)||0;maxV=Math.max(maxV,t,a);});
       // 軸
       ctx.strokeStyle=LINE;ctx.lineWidth=Math.max(1,S(1));
       ctx.beginPath();ctx.moveTo(gX,gY);ctx.lineTo(gX,gY+gH);ctx.lineTo(gX+gW,gY+gH);ctx.stroke();
-      const n=Math.max(1,units.length);
+      const n=Math.max(1,activeUnits.length);
       const grp=gW/n;
       const barW=Math.min(S(28),grp*0.30);
       const baseY=gY+gH;
-      const lblFs=units.length>12?9:(units.length>8?11:13);
+      const lblFs=activeUnits.length>12?9:(activeUnits.length>8?11:13);
       ctx.textAlign="center";
-      units.forEach((u,i)=>{
+      activeUnits.forEach((u,i)=>{
         const cx=gX+grp*i+grp/2;
-        const t=(targets[u.code]&&Number(targets[u.code].sales))||0;
+        const t=tgtSalesOf(u.code);
         const a=(actual.month[u.code]&&actual.month[u.code].sales)||0;
         const th=maxV>0?(t/maxV)*(gH-S(20)):0;
         const ah=maxV>0?(a/maxV)*(gH-S(20)):0;
@@ -24251,10 +24257,10 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📋 車両別 目標・実績",M,y);y+=S(24);
       const cols=[
-        {t:"クラス / 車両",w:0.22},
-        {t:"目標売上",w:0.13},{t:"目標予約",w:0.07},{t:"目標稼働",w:0.07},
-        {t:"本日売上",w:0.12},{t:"本日予約",w:0.06},{t:"本日稼働",w:0.06},
-        {t:"月売上",w:0.11},{t:"月予約",w:0.055},{t:"月稼働",w:0.055}
+        {t:"クラス / 車両",w:0.19},
+        {t:"目標単価",w:0.085},{t:"目標予約",w:0.05},{t:"平均泊",w:0.05},{t:"目標売上",w:0.105},{t:"目標稼働",w:0.06},
+        {t:"本日売上",w:0.10},{t:"本日予約",w:0.05},{t:"本日稼働",w:0.05},
+        {t:"月売上",w:0.095},{t:"月予約",w:0.045},{t:"月稼働",w:0.045}
       ];
       const rowH=S(30);let tx=M;const colX=[];
       cols.forEach(c=>{colX.push(tx);tx+=innerW*c.w;});
@@ -24272,17 +24278,18 @@ function DailyReportTab({data,vehicles,fleet}){
       };
       const drawUnit=(u,idx)=>{
         const c=u.code;const t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};
-        const lbl=u.label.length>20?u.label.slice(0,19)+"…":u.label;
+        const lbl=u.label.length>18?u.label.slice(0,17)+"…":u.label;
         drawRow([lbl,
-          t.sales?("¥"+Number(t.sales).toLocaleString()):"-",
+          t.price?("¥"+Number(t.price).toLocaleString()):"-",
           (t.bookings!=null&&t.bookings!=="")?t.bookings:"-",
-          (t.util!=null&&t.util!=="")?(t.util+"%"):"-",
+          (t.avgNights!=null&&t.avgNights!=="")?t.avgNights:"-",
+          "¥"+tgtSalesOf(c).toLocaleString(),tgtUtilOf(c)+"%",
           "¥"+(d.sales||0).toLocaleString(),(d.bookings||0),(d.util||0)+"%",
           "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%"
         ],idx%2?"#f8fafc":"#ffffff",false);
       };
       const drawSub=(label,list,bg)=>{const g=grpSum(list);drawRow([label+" ("+list.length+"台)",
-        g.ts?("¥"+g.ts.toLocaleString()):"-",g.tb||"-","",
+        "",g.tb||"-","",g.ts?("¥"+g.ts.toLocaleString()):"-",g.tu+"%",
         "¥"+g.ds.toLocaleString(),g.db,g.du+"%",
         "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%"],bg,true);};
       aaU.forEach((u,i)=>drawUnit(u,i));
@@ -24370,19 +24377,21 @@ function DailyReportTab({data,vehicles,fleet}){
   // グループ小計（AA / AA以外 / グロス）※稼働車のみで集計（未稼働は売上対象外）
   const aaU=activeUnits.filter(u=>u.type==="AA");
   const otherU=activeUnits.filter(u=>u.type!=="AA");
-  const grpSum=(list)=>{let ts=0,tb=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=Number(t.sales)||0;tb+=Number(t.bookings)||0;ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
+  const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=(Number(t.bookings)||0)*(Number(t.avgNights)||0);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
   const subRow=(label,list,bg,color)=>{const g=grpSum(list);return(<tr style={{background:bg,fontWeight:800}}>
     <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
-    <td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td>
+    <td style={td}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
     <td style={{...td,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
     <td style={{...td,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
   </tr>);};
   const unitRow=(u,i,arr)=>{const c=u.code,d=actual.day[c]||{},m=actual.month[c]||{};const prevType=i>0?arr[i-1].type:null;const newGrp=u.type!==prevType;
     return(<tr key={c} style={{background:i%2?"#f8fafc":"#fff",borderTop:newGrp?"2px solid #cbd5e1":"none"}}>
       <td style={{...td,textAlign:"left",fontWeight:700,color:"#0F1F45",whiteSpace:"nowrap"}}><span style={{display:"inline-block",minWidth:26,padding:"1px 5px",background:"#0F1F45",color:"#FABE00",borderRadius:5,fontSize:10,fontWeight:800,marginRight:6}}>{u.type}</span>{(u.name||"")+(u.no?(" "+u.no):"")||u.code}</td>
-      <td style={{...td,width:100}}><input type="number" value={tgtOf(c,"sales")} onChange={e=>setTgt(c,"sales",e.target.value)} style={cellIn} placeholder="0"/></td>
-      <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
-      <td style={{...td,width:64}}><input type="number" value={tgtOf(c,"util")} onChange={e=>setTgt(c,"util",e.target.value)} style={cellIn} placeholder="0"/></td>
+      <td style={{...td,width:90}}><input type="number" value={tgtOf(c,"price")} onChange={e=>setTgt(c,"price",e.target.value)} style={cellIn} placeholder="単価"/></td>
+      <td style={{...td,width:54}}><input type="number" value={tgtOf(c,"bookings")} onChange={e=>setTgt(c,"bookings",e.target.value)} style={cellIn} placeholder="0"/></td>
+      <td style={{...td,width:54}}><input type="number" step="0.1" value={tgtOf(c,"avgNights")} onChange={e=>setTgt(c,"avgNights",e.target.value)} style={cellIn} placeholder="泊"/></td>
+      <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{yen(tgtSalesOf(c))}</td>
+      <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtUtilOf(c)}%</td>
       <td style={{...td,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
       <td style={{...td,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td><td style={{...td,color:"#047857"}}>{m.bookings||0}</td><td style={{...td,color:"#047857"}}>{m.util||0}%</td>
     </tr>);};
@@ -24418,13 +24427,13 @@ function DailyReportTab({data,vehicles,fleet}){
           <thead>
             <tr>
               <th style={{...th,background:"#0F1F45",textAlign:"left"}}>クラス / 車両</th>
-              <th style={{...th,background:"#64748b"}} colSpan={3}>🎯 日次目標（入力）</th>
+              <th style={{...th,background:"#64748b"}} colSpan={5}>🎯 月間目標（単価・予約・平均泊=入力／売上・稼働=自動）</th>
               <th style={{...th,background:"#2563eb"}} colSpan={3}>📅 本日実績</th>
               <th style={{...th,background:"#059669"}} colSpan={3}>📈 当月累計実績</th>
             </tr>
             <tr>
               <th style={{...th,background:"#0F1F45"}}></th>
-              <th style={{...th,background:"#64748b"}}>売上</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>稼働%</th>
+              <th style={{...th,background:"#64748b"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
               <th style={{...th,background:"#2563eb"}}>売上</th><th style={{...th,background:"#2563eb"}}>予約</th><th style={{...th,background:"#2563eb"}}>稼働%</th>
               <th style={{...th,background:"#059669"}}>売上</th><th style={{...th,background:"#059669"}}>予約</th><th style={{...th,background:"#059669"}}>稼働%</th>
             </tr>
@@ -24447,7 +24456,7 @@ function DailyReportTab({data,vehicles,fleet}){
           </span>)}
         </div>
       </div>}
-      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 実績は配車表（bt_fleetの車両割当）から車両個体別に自動算出。稼働率＝本日:当日稼働なら100%/非稼働0% ・当月:稼働台日÷当月経過{actual.elapsedDays}日。目標は車両別の日次目標。複数台あるクラスは全車を個別表示。</div>
+      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価・予約本数・平均泊を入力→<b>目標売上＝単価×予約</b>・<b>目標稼働率＝予約×平均泊÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
         <div>
           <label style={{fontSize:13,fontWeight:800,color:"#0F1F45",display:"block",marginBottom:5}}>📣 マーケ施策</label>
