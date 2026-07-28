@@ -22727,7 +22727,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.204-BT";
+const APP_VERSION="v1.0.205-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24110,9 +24110,9 @@ function DailyReportTab({data,vehicles,fleet}){
       const ld=norm(r.lendDate),rd=norm(r.returnDate)||ld;
       if(!ld)return;
       const rev=revOf(r);
-      if(ld===sel){day[code].bookings++;day[code].sales+=rev;}                 // 本日
-      if(ld<=sel&&sel<=rd){day[code].dayActive=1;}                            // 本日 稼働中
-      if(ld>=monStart&&ld<=sel){month[code].bookings++;month[code].sales+=rev;} // 当月累計
+      if(rd===sel){day[code].bookings++;day[code].sales+=rev;}                 // 本日 売上/予約＝返却日ベース(売上計上=返却月)
+      if(ld<=sel&&sel<=rd){day[code].dayActive=1;}                            // 本日 稼働中(在庫占有=期間ベース)
+      if(rd>=monStart&&rd<=sel){month[code].bookings++;month[code].sales+=rev;} // 当月累計 売上/予約＝返却日ベース
       if(ld<=sel&&rd>=monStart){                                             // 当月 稼働台日
         const s=new Date((ld<monStart?monStart:ld)+"T00:00:00");
         const e=new Date((rd>sel?sel:rd)+"T00:00:00");
@@ -24139,7 +24139,7 @@ function DailyReportTab({data,vehicles,fleet}){
     const by={};let total=0,cntAll=0;
     (data||[]).forEach(r=>{
       if(isCancel(r.status))return;
-      const ld=norm(r.lendDate);if(!ld||ld<monStart||ld>sel)return;
+      const rd=norm(r.returnDate)||norm(r.lendDate);if(!rd||rd<monStart||rd>sel)return; // 返却日ベース
       const ch=(r.ota||"").trim()||"その他";const rev=revOf(r);
       if(!by[ch])by[ch]={rev:0,cnt:0};
       by[ch].rev+=rev;by[ch].cnt++;total+=rev;cntAll++;
@@ -24623,7 +24623,7 @@ function DailyReportTab({data,vehicles,fleet}){
           </span>)}
         </div>
       </div>}
-      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
+      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出。<b>売上/予約＝返却日ベース</b>（本日=返却が本日／当月=返却が月内の予約を計上＝売上計上と一致）。稼働率＝在庫占有ベース（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
       {activeUnits.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#fff"}}>
         <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:2}}>📊 媒体構成比率（当月売上ベース）</div>
         <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>当月 {media.cnt}件・合計 {yen(media.total)}（経営タブと同じOTA分類）</div>
