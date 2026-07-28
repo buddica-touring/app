@@ -22374,7 +22374,7 @@ function App(){
           })()}
           {tab==="customer"&&<CustomerList data={data}/>}
           {tab==="todo"&&window.TodoTab&&React.createElement(window.TodoTab,{store:"bt",sb:sb,label:"高松店",hostStaff:staff,hostShifts:shifts})}
-          {tab==="daily_report"&&<DailyReportTab data={data} vehicles={vehicles} fleet={fleet}/>}
+          {tab==="daily_report"&&<DailyReportTab data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance}/>}
           {tab==="lic_send"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>🪪 免許証チェックリスト</h2><LicenseSendListBT sb={sb}/></div>}
           {tab==="kpi"&&<KpiTab store="tkm" data={data} vehicles={vehicles} fleet={fleet}/>}
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
@@ -22727,7 +22727,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.205-BT";
+const APP_VERSION="v1.0.206-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24063,7 +24063,7 @@ class ErrBoundary extends React.Component{
   }
 }
 /* ===== 📋 日報レポート（DailyReportTab）— クラス別 目標/実績 + PDF出力 ===== */
-function DailyReportTab({data,vehicles,fleet}){
+function DailyReportTab({data,vehicles,fleet,maintenance}){
   const norm=(d)=>{if(!d)return"";const s=String(d).replace(/\//g,"-");return s.length<=10?s:s.substring(0,10);};
   const todayStr=(()=>{const t=new Date();return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");})();
   const [date,setDate]=React.useState(todayStr);
@@ -24102,6 +24102,18 @@ function DailyReportTab({data,vehicles,fleet}){
     const selDate=new Date(sel+"T00:00:00");
     const elapsedDays=selDate.getDate();  // 当月の経過日数（選択日まで）
     const fl=fleet||{};
+    // 車両ごとの当月メンテ日数（月初〜選択日にクリップ）＝実稼働ベースの分母から除外
+    const mDays={};
+    (maintenance||[]).forEach(mm=>{
+      if(!mm||!mm.vehicleCode)return;
+      const ms=norm(mm.startDate),me=norm(mm.endDate)||ms;if(!ms)return;
+      const s=(ms<monStart?monStart:ms),e=(me>sel?sel:me);if(s>e)return;
+      const d=Math.floor((new Date(e+"T00:00:00")-new Date(s+"T00:00:00"))/86400000)+1;
+      if(d>0)mDays[mm.vehicleCode]=(mDays[mm.vehicleCode]||0)+d;
+    });
+    // 本日がメンテ日か（本日稼働の判定用）
+    const maintToday={};
+    (maintenance||[]).forEach(mm=>{if(mm&&mm.vehicleCode){const ms=norm(mm.startDate),me=norm(mm.endDate)||ms;if(ms&&ms<=sel&&sel<=me)maintToday[mm.vehicleCode]=1;}});
     const day={},month={};
     units.forEach(u=>{day[u.code]={sales:0,bookings:0,dayActive:0};month[u.code]={sales:0,bookings:0,vehDays:0};});
     (data||[]).forEach(r=>{
@@ -24123,14 +24135,18 @@ function DailyReportTab({data,vehicles,fleet}){
     const dres={},mres={};let dS=0,dB=0,mS=0,mB=0;
     units.forEach(u=>{
       const c=u.code;
-      const dUtil=day[c].dayActive?100:0;                                    // 個体：稼働=100/非稼働=0
-      const mUtil=elapsedDays>0?Math.round(month[c].vehDays/elapsedDays*100):0; // 個体：稼働台日÷経過日数
+      // 本日稼働：配車で埋まれば100/整備日(未配車)は稼働不可=0/それ以外0
+      const dUtil=day[c].dayActive?100:0;
+      // 当月稼働(実稼働ベース)：配車日数 ÷ (当月経過日数 − メンテ日)。丸ごとメンテは分母0
+      const md=Math.min(elapsedDays,mDays[c]||0);
+      const avail=elapsedDays-md;
+      const mUtil=avail>0?Math.min(100,Math.round(month[c].vehDays/avail*100)):0;
       dres[c]={sales:day[c].sales,bookings:day[c].bookings,util:dUtil};
-      mres[c]={sales:month[c].sales,bookings:month[c].bookings,util:mUtil};
+      mres[c]={sales:month[c].sales,bookings:month[c].bookings,util:mUtil,maintDays:md,availDays:avail};
       dS+=day[c].sales;dB+=day[c].bookings;mS+=month[c].sales;mB+=month[c].bookings;
     });
     return{day:dres,month:mres,dayTot:{sales:dS,bookings:dB},monTot:{sales:mS,bookings:mB},elapsedDays:elapsedDays};
-  },[data,date,units,fleet]);
+  },[data,date,units,fleet,maintenance]);
 
   // ==== 媒体構成比率（当月・経営タブと同じ r.ota 分類 × 売上）====
   const media=React.useMemo(()=>{
@@ -24623,7 +24639,7 @@ function DailyReportTab({data,vehicles,fleet}){
           </span>)}
         </div>
       </div>}
-      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出。<b>売上/予約＝返却日ベース</b>（本日=返却が本日／当月=返却が月内の予約を計上＝売上計上と一致）。稼働率＝在庫占有ベース（本日:稼働なら100% / 当月:稼働台日÷当月経過{actual.elapsedDays}日）。複数台あるクラスは全車を個別表示。</div>
+      <div style={{fontSize:11,color:"#94a3b8",marginBottom:14}}>※ 目標=月間。販売単価(泊単価)・予約本数・平均泊を入力→<b>稼働日数＝予約×平均泊</b>・<b>目標売上＝稼働日数×販売単価</b>・<b>目標稼働率＝稼働日数÷当月{daysInMonth}日</b>（上限100%）を自動算出。実績は配車表（bt_fleet割当）から車両個体別に自動算出。<b>売上/予約＝返却日ベース</b>（本日=返却が本日／当月=返却が月内の予約を計上＝売上計上と一致）。稼働率＝配車表基準の実稼働（本日:配車で埋まれば100% / 当月:配車日数÷(当月経過{actual.elapsedDays}日−メンテ/車検日)＝メンテ日は分母から除外）。複数台あるクラスは全車を個別表示。</div>
       {activeUnits.length>0&&<div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:14,marginBottom:14,background:"#fff"}}>
         <div style={{fontSize:14,fontWeight:800,color:"#0F1F45",marginBottom:2}}>📊 媒体構成比率（当月売上ベース）</div>
         <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>当月 {media.cnt}件・合計 {yen(media.total)}（経営タブと同じOTA分類）</div>
