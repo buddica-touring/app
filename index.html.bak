@@ -22727,7 +22727,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.202-BT";
+const APP_VERSION="v1.0.203-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24456,12 +24456,12 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillText("BUDDICA TOURISM 高松空港店 / 自動生成 "+new Date().toLocaleString("ja-JP"),M,H-S(24));
       return cvs;
   };
-  // 内容canvasを縦A4(210×297)の1枚に収めて保存（全体をページ内にスケール）
+  // 内容canvasを横A4(297×210)の1枚に収めて保存（全体をページ内にスケール）
   const pagesToPdf=(pages)=>{
       const cvs=Array.isArray(pages)?pages[0]:pages;
       const{jsPDF}=window.jspdf;
-      const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-      const pageW=210,pageH=297,margin=6;
+      const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"landscape"});
+      const pageW=297,pageH=210,margin=6;
       const availW=pageW-margin*2,availH=pageH-margin*2;
       const ratio=cvs.width/cvs.height;
       let w=availW,h=w/ratio;
@@ -24533,7 +24533,7 @@ function DailyReportTab({data,vehicles,fleet}){
       {previewUrl&&previewUrl.length&&<div onClick={()=>setPreviewUrl(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,maxWidth:1000,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #e2e8f0",position:"sticky",top:0,background:"#fff",borderRadius:"12px 12px 0 0",flexWrap:"wrap"}}>
-            <span style={{fontWeight:800,color:"#0F1F45",fontSize:14}}>👁 日報プレビュー（縦A4・1枚）</span>
+            <span style={{fontWeight:800,color:"#0F1F45",fontSize:14}}>👁 日報プレビュー（横A4・1枚）</span>
             <span style={{fontSize:11,color:"#94a3b8"}}>内容を確認 → 修正が必要なら閉じて数値/テキストを直してください</span>
             <div style={{marginLeft:"auto",display:"flex",gap:8}}>
               <button onClick={()=>{if(previewCvsRef.current)pagesToPdf(previewCvsRef.current);}} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📄 このままPDF保存</button>
@@ -24586,7 +24586,7 @@ function DailyReportTab({data,vehicles,fleet}){
       })()}
       {activeUnits.length>0&&<div style={{fontSize:11,color:"#94a3b8",margin:"0 0 4px 2px"}}>← 横スクロールで全項目（目標／本日／当月／粗利試算）を表示</div>}
       {activeUnits.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
-        <table style={{borderCollapse:"collapse",width:"100%",minWidth:1680}}>
+        <table style={{borderCollapse:"collapse",width:"max-content",minWidth:"100%"}}>
           <thead>
             <tr>
               <th style={{...th,background:"#0F1F45",textAlign:"left"}}>クラス / 車両</th>
