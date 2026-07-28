@@ -24184,6 +24184,11 @@ function DailyReportTab({data,vehicles,fleet}){
   // グループ月間目標金額（手動入力・targets._groupに保持）AA / それ以外(AA以外)
   const gGroupOf=(k)=>{const g=targets._group;return(g&&g[k]!=null)?g[k]:"";};
   const setGroup=(k,val)=>{setTargets(p=>({...p,_group:{...(p._group||{}),[k]:val===""?"":Number(val)||0}}));};
+  // 💰 車両原価（月額）＝車両マスターの年額を月換算：リース(月)+保険+車検/12+点検/6+税/12（車両タブと同一式）
+  const costMap=React.useMemo(()=>{const m={};(vehicles||[]).forEach(v=>{if(v&&v.code)m[v.code]=Number(v.insuranceAnnual||0)+Number(v.leaseMonthly||0)+Math.round(Number(v.shakenCost||0)/12)+Math.round(Number(v.tenkenCost||0)/6)+Math.round(Number(v.carTax||0)/12);});return m;},[vehicles]);
+  const monCostOf=(c)=>Number(costMap[c]||0);
+  const gpTgtOf=(c)=>tgtSalesOf(c)-monCostOf(c);                                    // 台あたり粗利(目標)
+  const gpActOf=(c)=>((actual.month[c]&&actual.month[c].sales)||0)-monCostOf(c);    // 台あたり粗利(当月実績)
 
   const save=async()=>{
     if(!sb){alert("DB未接続です");return;}
@@ -24319,13 +24324,14 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📋 車両別 目標・実績",M,y);y+=S(24);
       const cols=[
-        {t:"クラス / 車両",w:0.20,g:""},
-        {t:"単価",w:0.072,g:"目標"},{t:"予約",w:0.04,g:"目標"},{t:"平均泊",w:0.045,g:"目標"},{t:"稼働日",w:0.045,g:"目標"},{t:"売上",w:0.085,g:"目標"},{t:"稼働%",w:0.048,g:"目標"},
-        {t:"売上",w:0.08,g:"本日"},{t:"予約",w:0.038,g:"本日"},{t:"稼働%",w:0.045,g:"本日"},
-        {t:"売上",w:0.08,g:"当月"},{t:"予約",w:0.038,g:"当月"},{t:"稼働%",w:0.045,g:"当月"},
-        {t:"差分",w:0.091,g:"対目標"}
+        {t:"クラス / 車両",w:0.15,g:""},
+        {t:"単価",w:0.058,g:"目標"},{t:"予約",w:0.032,g:"目標"},{t:"平均泊",w:0.036,g:"目標"},{t:"稼働日",w:0.036,g:"目標"},{t:"売上",w:0.065,g:"目標"},{t:"稼働%",w:0.038,g:"目標"},
+        {t:"売上",w:0.06,g:"本日"},{t:"予約",w:0.03,g:"本日"},{t:"稼働%",w:0.036,g:"本日"},
+        {t:"売上",w:0.06,g:"当月"},{t:"予約",w:0.03,g:"当月"},{t:"稼働%",w:0.036,g:"当月"},
+        {t:"月額原価",w:0.062,g:"粗利"},{t:"粗利(目標)",w:0.06,g:"粗利"},{t:"粗利(当月)",w:0.06,g:"粗利"},
+        {t:"差分",w:0.062,g:"対目標"}
       ];
-      const GCOL={"目標":"#64748b","本日":"#2563eb","当月":"#059669","対目標":"#b45309"};
+      const GCOL={"目標":"#64748b","本日":"#2563eb","当月":"#059669","粗利":"#b45309","対目標":"#7c3aed"};
       const rowH=S(28),ghH=S(22);let tx=M;const colX=[];
       cols.forEach(c=>{colX.push(tx);tx+=innerW*c.w;});
       const tableW=tx-M;
@@ -24333,7 +24339,7 @@ function DailyReportTab({data,vehicles,fleet}){
       let gi=1;while(gi<cols.length){const gname=cols[gi].g;let gj=gi;let gw=0;while(gj<cols.length&&cols[gj].g===gname){gw+=innerW*cols[gj].w;gj++;}
         ctx.fillStyle=GCOL[gname]||"#64748b";ctx.fillRect(colX[gi],y,gw,ghH);
         ctx.fillStyle="#fff";ctx.font="bold "+S(11)+"px sans-serif";ctx.textBaseline="middle";ctx.textAlign="center";
-        const lbl=gname==="目標"?"🎯 月間目標":(gname==="本日"?"📅 本日実績":(gname==="当月"?"📈 当月累計":"対目標"));
+        const lbl=gname==="目標"?"🎯 月間目標":(gname==="本日"?"📅 本日実績":(gname==="当月"?"📈 当月累計":(gname==="粗利"?"💰 台あたり粗利試算":"対目標")));
         ctx.fillText(lbl,colX[gi]+gw/2,y+ghH/2);gi=gj;}
       y+=ghH;
       // 項目ヘッダー行
@@ -24368,6 +24374,9 @@ function DailyReportTab({data,vehicles,fleet}){
           "¥"+tgtSalesOf(c).toLocaleString(),tgtUtilOf(c)+"%",
           "¥"+(d.sales||0).toLocaleString(),(d.bookings||0),(d.util||0)+"%",
           "¥"+(m.sales||0).toLocaleString(),(m.bookings||0),(m.util||0)+"%",
+          monCostOf(c)?("−¥"+monCostOf(c).toLocaleString()):"-",
+          (gpTgtOf(c)<0?"−¥":"¥")+Math.abs(gpTgtOf(c)).toLocaleString(),
+          (gpActOf(c)<0?"−¥":"¥")+Math.abs(gpActOf(c)).toLocaleString(),
           diffFmt((m.sales||0)-tgtSalesOf(c))
         ],idx%2?"#f8fafc":"#ffffff",false);
       };
@@ -24375,6 +24384,9 @@ function DailyReportTab({data,vehicles,fleet}){
         "",g.tb||"-","",g.td||"-",g.ts?("¥"+g.ts.toLocaleString()):"-",g.tu+"%",
         "¥"+g.ds.toLocaleString(),g.db,g.du+"%",
         "¥"+g.ms.toLocaleString(),g.mb,g.mu+"%",
+        g.cst?("−¥"+g.cst.toLocaleString()):"-",
+        (g.gpt<0?"−¥":"¥")+Math.abs(g.gpt).toLocaleString(),
+        (g.gpa<0?"−¥":"¥")+Math.abs(g.gpa).toLocaleString(),
         diffFmt(g.ms-g.ts)],bg,true);};
       aaU.forEach((u,i)=>drawUnit(u,i));
       if(aaU.length)drawSub("AA 合計",aaU,"#eef2ff");
@@ -24483,12 +24495,15 @@ function DailyReportTab({data,vehicles,fleet}){
   // AAは販売単価(目標単価)の高い順に並べる（未入力は末尾）
   const aaU=activeUnits.filter(u=>u.type==="AA").slice().sort((a,b)=>(Number((targets[b.code]||{}).price)||0)-(Number((targets[a.code]||{}).price)||0));
   const otherU=activeUnits.filter(u=>u.type!=="AA");
-  const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=tgtDaysOf(c);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;});return{ts,tb,td:tvd,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n)};};
+  const grpSum=(list)=>{let ts=0,tb=0,tvd=0,ds=0,db=0,ms=0,mb=0,du=0,mu=0,cst=0;const n=list.length||1;list.forEach(u=>{const c=u.code,t=targets[c]||{},d=actual.day[c]||{},m=actual.month[c]||{};ts+=tgtSalesOf(c);tb+=Number(t.bookings)||0;tvd+=tgtDaysOf(c);ds+=d.sales||0;db+=d.bookings||0;ms+=m.sales||0;mb+=m.bookings||0;du+=d.util||0;mu+=m.util||0;cst+=monCostOf(c);});return{ts,tb,td:tvd,tu:Math.min(100,Math.round(tvd/(n*daysInMonth)*100)),ds,db,ms,mb,du:Math.round(du/n),mu:Math.round(mu/n),cst,gpt:ts-cst,gpa:ms-cst};};
   const subRow=(label,list,bg,color)=>{const g=grpSum(list);const diff=g.ms-g.ts;return(<tr style={{background:bg,fontWeight:800}}>
     <td style={{...td,textAlign:"left",color:color}}>{label}<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}> ({list.length}台)</span></td>
     <td style={{...td,...gsep}}></td><td style={{...td,color:color}}>{g.tb||"-"}</td><td style={td}></td><td style={{...td,color:color}}>{g.td||"-"}</td><td style={{...td,color:color}}>{g.ts?yen(g.ts):"-"}</td><td style={{...td,color:color}}>{g.tu}%</td>
     <td style={{...td,...gsep,color:"#1d4ed8"}}>{yen(g.ds)}</td><td style={{...td,color:"#1d4ed8"}}>{g.db}</td><td style={{...td,color:"#1d4ed8"}}>{g.du}%</td>
     <td style={{...td,...gsep,color:"#047857"}}>{yen(g.ms)}</td><td style={{...td,color:"#047857"}}>{g.mb}</td><td style={{...td,color:"#047857"}}>{g.mu}%</td>
+    <td style={{...td,...gsep,color:"#b91c1c"}}>{g.cst?("−"+yen(g.cst)):"-"}</td>
+    <td style={{...td,color:g.gpt>=0?"#059669":"#dc2626"}}>{(g.gpt<0?"−¥":"¥")+Math.abs(g.gpt).toLocaleString()}</td>
+    <td style={{...td,color:g.gpa>=0?"#059669":"#dc2626"}}>{(g.gpa<0?"−¥":"¥")+Math.abs(g.gpa).toLocaleString()}</td>
     <td style={{...td,...gsep,fontWeight:800,color:diff>=0?"#059669":"#dc2626"}}>{(diff>=0?"+¥":"−¥")+Math.abs(diff).toLocaleString()}</td>
   </tr>);};
   const unitRow=(u,i,arr)=>{const c=u.code,d=actual.day[c]||{},m=actual.month[c]||{};const prevType=i>0?arr[i-1].type:null;const newGrp=u.type!==prevType;
@@ -24502,6 +24517,9 @@ function DailyReportTab({data,vehicles,fleet}){
       <td style={{...td,color:"#334155",fontWeight:700,background:"#f8fafc"}}>{tgtUtilOf(c)}%</td>
       <td style={{...td,...gsep,color:"#1d4ed8",fontWeight:700}}>{yen(d.sales)}</td><td style={{...td,color:"#1d4ed8"}}>{d.bookings||0}</td><td style={{...td,color:"#1d4ed8"}}>{d.util||0}%</td>
       <td style={{...td,...gsep,color:"#047857",fontWeight:700}}>{yen(m.sales)}</td><td style={{...td,color:"#047857"}}>{m.bookings||0}</td><td style={{...td,color:"#047857"}}>{m.util||0}%</td>
+      <td style={{...td,...gsep,color:"#b91c1c",fontWeight:700}}>{monCostOf(c)?("−"+yen(monCostOf(c))):"-"}</td>
+      {(()=>{const g=gpTgtOf(c);return<td style={{...td,fontWeight:800,color:g>=0?"#059669":"#dc2626"}}>{(g<0?"−¥":"¥")+Math.abs(g).toLocaleString()}</td>;})()}
+      {(()=>{const g=gpActOf(c);return<td style={{...td,fontWeight:800,color:g>=0?"#059669":"#dc2626"}}>{(g<0?"−¥":"¥")+Math.abs(g).toLocaleString()}</td>;})()}
       {(()=>{const df=(m.sales||0)-tgtSalesOf(c);return<td style={{...td,...gsep,fontWeight:800,color:df>=0?"#059669":"#dc2626"}}>{(df>=0?"+¥":"−¥")+Math.abs(df).toLocaleString()}</td>;})()}
     </tr>);};
 
@@ -24571,21 +24589,23 @@ function DailyReportTab({data,vehicles,fleet}){
         </div>);
       })()}
       {activeUnits.length>0&&<div style={{overflowX:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
-        <table style={{borderCollapse:"collapse",width:"100%",minWidth:900}}>
+        <table style={{borderCollapse:"collapse",width:"100%",minWidth:1120}}>
           <thead>
             <tr>
               <th style={{...th,background:"#0F1F45",textAlign:"left"}}>クラス / 車両</th>
               <th style={{...th,background:"#64748b",borderLeft:"2px solid #fff"}} colSpan={6}>🎯 月間目標（単価・予約・平均泊=入力／稼働日数・売上・稼働=自動）</th>
               <th style={{...th,background:"#2563eb",borderLeft:"2px solid #fff"}} colSpan={3}>📅 本日実績</th>
               <th style={{...th,background:"#059669",borderLeft:"2px solid #fff"}} colSpan={3}>📈 当月累計実績</th>
-              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}}>対目標</th>
+              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}} colSpan={3}>💰 台あたり粗利試算</th>
+              <th style={{...th,background:"#7c3aed",borderLeft:"2px solid #fff"}}>対目標</th>
             </tr>
             <tr>
               <th style={{...th,background:"#0F1F45"}}></th>
               <th style={{...th,background:"#64748b",borderLeft:"2px solid #fff"}}>販売単価</th><th style={{...th,background:"#64748b"}}>予約</th><th style={{...th,background:"#64748b"}}>平均泊</th><th style={{...th,background:"#64748b"}}>稼働日数</th><th style={{...th,background:"#64748b"}}>売上(自動)</th><th style={{...th,background:"#64748b"}}>稼働%(自動)</th>
               <th style={{...th,background:"#2563eb",borderLeft:"2px solid #fff"}}>売上</th><th style={{...th,background:"#2563eb"}}>予約</th><th style={{...th,background:"#2563eb"}}>稼働%</th>
               <th style={{...th,background:"#059669",borderLeft:"2px solid #fff"}}>売上</th><th style={{...th,background:"#059669"}}>予約</th><th style={{...th,background:"#059669"}}>稼働%</th>
-              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}}>差分</th>
+              <th style={{...th,background:"#b45309",borderLeft:"2px solid #fff"}}>月額原価</th><th style={{...th,background:"#b45309"}}>粗利(目標)</th><th style={{...th,background:"#b45309"}}>粗利(当月)</th>
+              <th style={{...th,background:"#7c3aed",borderLeft:"2px solid #fff"}}>差分</th>
             </tr>
           </thead>
           <tbody>
