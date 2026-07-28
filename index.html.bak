@@ -22727,7 +22727,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.203-BT";
+const APP_VERSION="v1.0.204-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24226,13 +24226,13 @@ function DailyReportTab({data,vehicles,fleet}){
       const PW=210,PH=297;           // mm
       const cw=Math.round(794*SCALE/ (794/ (PW))) ; // 使わず。直接px指定
       // px基準: A4 @ ~ 96dpi ≈ 794 x 1123
-      const W=1123*SCALE, Hbase=794*SCALE;   // A4横（ランドスケープ）
+      const W=1600*SCALE, Hbase=794*SCALE;   // A4横（ランドスケープ）＝横幅を広げて列に余裕＋横ページを埋める
       const cvs=document.createElement("canvas");cvs.width=W;
       // 高さは内容量で可変（1ページ想定・溢れたら縦長→縮小貼付）
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
       const rowsN=units.length+5;
-      let estH=(120+70+40+ (30) + 170 + 260 + (50+rowsN*30+40) + 200 + 220)*SCALE;
+      let estH=(120+70+40+ (30) + 170 + 200 + (50+rowsN*30+40) + 200 + 220)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24285,7 +24285,7 @@ function DailyReportTab({data,vehicles,fleet}){
       const gTitle="車両別 当月累計 売上（目標 vs 実績）";
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📊 "+gTitle,M,y);y+=S(28);
-      const gH=S(210), gW=innerW, gX=M, gY=y;
+      const gH=S(150), gW=innerW, gX=M, gY=y;
       // 最大値
       let maxV=1;activeUnits.forEach(u=>{const t=tgtSalesOf(u.code);const a=(actual.month[u.code]&&actual.month[u.code].sales)||0;maxV=Math.max(maxV,t,a);});
       // 軸
@@ -24324,12 +24324,12 @@ function DailyReportTab({data,vehicles,fleet}){
       ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
       ctx.fillText("📋 車両別 目標・実績",M,y);y+=S(24);
       const cols=[
-        {t:"クラス / 車両",w:0.15,g:""},
-        {t:"単価",w:0.058,g:"目標"},{t:"予約",w:0.032,g:"目標"},{t:"平均泊",w:0.036,g:"目標"},{t:"稼働日",w:0.036,g:"目標"},{t:"売上",w:0.065,g:"目標"},{t:"稼働%",w:0.038,g:"目標"},
-        {t:"売上",w:0.06,g:"本日"},{t:"予約",w:0.03,g:"本日"},{t:"稼働%",w:0.036,g:"本日"},
-        {t:"売上",w:0.06,g:"当月"},{t:"予約",w:0.03,g:"当月"},{t:"稼働%",w:0.036,g:"当月"},
-        {t:"月額原価",w:0.075,g:"粗利"},{t:"粗利(実績)",w:0.075,g:"粗利"},
-        {t:"差分",w:0.062,g:"対目標"}
+        {t:"クラス / 車両",w:0.19,g:""},
+        {t:"単価",w:0.056,g:"目標"},{t:"予約",w:0.03,g:"目標"},{t:"平均泊",w:0.034,g:"目標"},{t:"稼働日",w:0.034,g:"目標"},{t:"売上",w:0.062,g:"目標"},{t:"稼働%",w:0.036,g:"目標"},
+        {t:"売上",w:0.056,g:"本日"},{t:"予約",w:0.028,g:"本日"},{t:"稼働%",w:0.034,g:"本日"},
+        {t:"売上",w:0.056,g:"当月"},{t:"予約",w:0.028,g:"当月"},{t:"稼働%",w:0.034,g:"当月"},
+        {t:"月額原価",w:0.078,g:"粗利"},{t:"粗利(実績)",w:0.078,g:"粗利"},
+        {t:"差分",w:0.072,g:"対目標"}
       ];
       const GCOL={"目標":"#64748b","本日":"#2563eb","当月":"#059669","粗利":"#b45309","対目標":"#7c3aed"};
       const rowH=S(28),ghH=S(22);let tx=M;const colX=[];
@@ -24345,7 +24345,7 @@ function DailyReportTab({data,vehicles,fleet}){
       // 項目ヘッダー行
       ctx.fillStyle=NAVY;ctx.fillRect(M,y,tableW,rowH);
       ctx.fillStyle="#fff";ctx.font="bold "+S(11)+"px sans-serif";ctx.textBaseline="middle";
-      cols.forEach((c,i)=>{ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*c.w-S(7);ctx.fillText(c.t,px,y+rowH/2);});
+      cols.forEach((c,i)=>{ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*c.w-S(9);ctx.fillText(c.t,px,y+rowH/2);});
       y+=rowH;
       // グループ境界線を引くx座標（目標/本日/当月/対目標の開始）
       const sepX=[];{let pg=null;cols.forEach((c,i)=>{if(c.g&&c.g!==pg){sepX.push(colX[i]);pg=c.g;}});}
@@ -24356,7 +24356,7 @@ function DailyReportTab({data,vehicles,fleet}){
         cells.forEach((v,i)=>{
           const isDiff=i===cols.length-1;
           ctx.fillStyle=i===0?NAVY:(isDiff?(String(v).indexOf("−")===0?"#dc2626":"#059669"):"#334155");
-          ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*cols[i].w-S(7);ctx.fillText(String(v),px,y+rowH/2);
+          ctx.textAlign=i===0?"left":"right";const px=i===0?colX[i]+S(8):colX[i]+innerW*cols[i].w-S(9);ctx.fillText(String(v),px,y+rowH/2);
         });
         // グループ境界の縦線
         ctx.strokeStyle="#cbd5e1";ctx.lineWidth=S(1);sepX.forEach(sx=>{ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(sx,y+rowH);ctx.stroke();});
