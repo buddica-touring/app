@@ -280,7 +280,7 @@ const DB = {
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");/* ★2026-07-26 予約削除時は紐づくタスク(d-/c-/w-等)も墓標化=孤児タスク残存を防ぐ */try{await sb.from("bt_tasks").update({deleted:true}).in("予約番号",ids);}catch(e){dbLog("deleteRes_tasks",false,String(e));}},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||""};},
-  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:d.status,visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||""};},
+  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:normResStatus(d.status),visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||""};},
   // --- 配車（LS併用で車両変更保護） ---
   _fleetLsKey:"bt_fleet",
   _fleetLsSave(f){try{const cnt=Object.keys(f).filter(k=>k!=="_unassignedReasons").length;if(cnt>=10){localStorage.setItem("bt_fleet_backup",JSON.stringify({data:f,ts:Date.now(),count:cnt}));}localStorage.setItem(DB._fleetLsKey,JSON.stringify(f));}catch(e){}},
@@ -902,6 +902,8 @@ if(Enc){const d=Enc.detect(a);const u=Enc.convert(a,{to:"UNICODE",from:d||"AUTO"
 function parsePrice(g){return function(){for(let i=0;i<arguments.length;i++){const v=g(arguments[i]);if(v){const c=v.replace(/[,，¥￥\s円税込抜（）()\u3000]/g,"");const n=+c;if(!isNaN(n)&&n>0)return n;const m=v.match(/[\d,，]+/);if(m){const n2=+(m[0].replace(/[,，]/g,""));if(!isNaN(n2)&&n2>0)return n2;}}}return 0;};}
 // キャンセル判定（行全体のテキストからも検出）
 function isCancel(st,rowArr){if(st.includes("キャンセル"))return true;if(rowArr){const txt=rowArr.join(",");if(txt.includes("キャンセル"))return true;}return false;}
+// 予約statusの表記ゆれを"cancelled"に統一（GAS/手動は"キャンセル"、CSV/OTAは"cancelled"を書く）。読込1点で正規化＝全71箇所のstatus判定が効く
+function normResStatus(s){const t=String(s||"");return (/cancel/i.test(t)||t.indexOf("キャンセル")>=0)?"cancelled":t;}
 // シート検出ヘルパー（チャイルド/ジュニア/ベビーを行全体からも検出）
 // ★ CSVクラスコード正規化: "_OKI"等の店舗サフィックス除去 + サブクラス(A2→A等)をマスターに合わせる
 function normClass(raw){
@@ -22727,7 +22729,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.206-BT";
+const APP_VERSION="v1.0.207-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
