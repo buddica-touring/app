@@ -4033,10 +4033,15 @@ function generateTasks(reservations,date,fleet,vehicles){
     const wType=tRes?(tRes.visitType==="DEL"?"DEL":"PU"):"DEL";
     tasks.push({_id:tRes?("w-"+tRes.id):uid(),type:"洗車",time:"",name:`翌日出発: ${tRes?tRes.name:""}`,people:0,place:"",vehicle:veh.type,insurance:"",flight:"",reservationId:tRes?tRes.id:"",ota:tRes?tRes.ota:"",tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrow)} ${wType} ${tRes?tRes.lendTime:""} ${tRes?tRes.name:""}`,assignedVehicle:vc,plateNo:veh.no,insuranceChange:"",opts:{b:+(tRes&&tRes.optB||0),c:+(tRes&&tRes.optC||0),j:+(tRes&&tRes.optJ||0),usb:+(tRes&&tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date)});
   });
+  // ★ 固定デイリータスク（毎日必ず表示・店舗清掃/送迎車清掃）2026-07-29 オーナー指示
+  //   固定ID＝重複せず毎日1件・担当/済は_mergeUserInputで保持・reservation非依存の常設チョア
+  [["店舗清掃","fix-storeclean"],["送迎車清掃","fix-shuttleclean"]].forEach(fx=>{
+    tasks.push({_id:fx[1]+"-"+norm(date),type:fx[0],time:"",name:fx[0],people:0,place:"",vehicle:"",insurance:"",flight:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",memo:"",assignedVehicle:"",plateNo:"",insuranceChange:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date),manual:true,fixed:true});
+  });
+  const _rank=t=>t.fixed?2:(t.type==="洗車"?1:0); // 通常→洗車→固定清掃 の順で末尾へ
   return tasks.sort((a,b)=>{
-    // 洗車は最後にまとめる
-    if(a.type==="洗車"&&b.type!=="洗車")return 1;
-    if(a.type!=="洗車"&&b.type==="洗車")return -1;
+    const ra=_rank(a),rb=_rank(b);
+    if(ra!==rb)return ra-rb;
     return(a.time||"").localeCompare(b.time||"");
   });
 }
@@ -16640,6 +16645,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           fixed.push(g);
         }
       });
+      // ★ 固定デイリータスク(店舗清掃/送迎車清掃)を既存日にも補完（reservationId空なので上の補完対象外）2026-07-29
+      {const _fixIds=new Set(fixed.map(t=>t._id));
+       gen.forEach(g=>{ if(g.fixed&&!_fixIds.has(g._id)&&!_tomb.has(g._id))fixed.push(g); });}
       // ★ 洗車タスクの整合性管理（車両コード単位で重複排除 + 孤児削除 + 未配車分追加）
       const tomorrowDate=dOff(date,1);
       const tomorrowResMap=new Map(); // 翌日DEL: 車両コード→予約 / 未配車: "unassigned:"+resId→予約
@@ -22729,7 +22737,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.207-BT";
+const APP_VERSION="v1.0.208-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
