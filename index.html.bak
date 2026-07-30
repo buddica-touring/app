@@ -1395,8 +1395,8 @@ function AccountingPanel({staff,onSynced}){
       header=["日付","科目","支払先","内容","予約番号","金額","処理","URL","入力者"];
       lineOf=r=>[r.date||"",esc(r.category),esc(r.payee),esc(r.payContent),esc(r.resvNo),r.amount||0,(r.paid?"処理済":"未処理"),esc(r.url),esc(r.inputBy)];
     }else if(acctTab==="cash"){ // ★出納帳：区分/予約番号/ユーザー/回収 を出力
-      header=["日付","区分","科目","予約番号","ユーザー","摘要","金額","入力者","回収"];
-      lineOf=r=>[r.date||"",(r.type==="cash_in"?"入金":"出金"),esc(r.category),esc(r.resvNo),esc(r.userName),esc(r.description),r.amount||0,esc(r.inputBy),(r.paid?"済":"")];
+      header=["日付","区分","科目","支払先","予約番号","ユーザー","摘要","金額","入力者","回収"];
+      lineOf=r=>[r.date||"",(r.type==="cash_in"?"入金":"出金"),esc(r.category),esc(r.payee),esc(r.resvNo),esc(r.userName),esc(r.description),r.amount||0,esc(r.inputBy),(r.paid?"済":"")];
     }else{ // その他タブ（予約外/立替/個人立替）は汎用
       header=["日付","区分","科目","補助科目","摘要","決済方法","金額","入力者","備考"];
       lineOf=r=>{const type=r.type==="cash_in"?"入金":r.type==="cash_out"?"出金":r.type==="card_pay"?"カード":r.type==="advance"?"立替":"予約外売上";return [r.date||"",type,esc(r.category),esc(r.subCategory),esc(r.description),esc(r.payMethod),r.amount||0,esc(r.inputBy),esc(r.memo)];};
@@ -1790,8 +1790,8 @@ function AccountingPanel({staff,onSynced}){
           <option value="">選択</option>{staffNames.map(n=><option key={n} value={n}>{n}</option>)}
           {fStaffName&&!staffNames.includes(fStaffName)&&<option value={fStaffName}>{fStaffName}</option>}
         </select></div>}
-        {/* カード・個人立替: 支払い先・支払い内容 */}
-        {(fType==="card_pay"||fType==="personal_adv")&&<div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>支払い先</label><input value={fPayee} onChange={e=>setFPayee(e.target.value)} placeholder="支払い先" style={inp}/></div>}
+        {/* カード・個人立替・出納帳(出金): 支払い先 */}
+        {(fType==="card_pay"||fType==="personal_adv"||fType==="cash_out")&&<div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>支払い先</label><input value={fPayee} onChange={e=>setFPayee(e.target.value)} placeholder="支払い先" style={inp}/></div>}
         {(fType==="card_pay"||fType==="personal_adv")&&<div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>支払い内容</label><input value={fPayContent} onChange={e=>setFPayContent(e.target.value)} placeholder="支払い内容" style={inp}/></div>}
         {/* 予約外売上・立替金: URL */}
         {(fType==="extra_sales"||fType==="advance"||fType==="card_pay"||fType==="personal_adv")&&<div style={{gridColumn:"1/3"}}><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>{fType==="advance"?"発行URL":fType==="card_pay"?"明細URL":fType==="personal_adv"?"領収書URL":"請求URL"}</label><input value={fUrl} onChange={e=>setFUrl(e.target.value)} placeholder="https://..." style={inp}/></div>}
@@ -22745,7 +22745,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.213-BT";
+const APP_VERSION="v1.0.214-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
