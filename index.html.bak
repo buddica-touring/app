@@ -1391,9 +1391,9 @@ function AccountingPanel({staff,onSynced}){
     const BOM="\uFEFF";
     const esc=s=>'"'+String(s==null?"":s).replace(/"/g,'""')+'"';
     let header,lineOf;
-    if(acctTab==="card_pay"){ // ★カード：支払先/内容/予約番号/処理/URL を出力
-      header=["日付","科目","支払先","内容","予約番号","金額","処理","URL","入力者"];
-      lineOf=r=>[r.date||"",esc(r.category),esc(r.payee),esc(r.payContent),esc(r.resvNo),r.amount||0,(r.paid?"処理済":"未処理"),esc(r.url),esc(r.inputBy)];
+    if(acctTab==="card_pay"){ // ★カード：日付/科目/支払先/内容/金額/処理/入力者（予約番号・URLは除外）
+      header=["日付","科目","支払先","内容","金額","処理","入力者"];
+      lineOf=r=>[r.date||"",esc(r.category),esc(r.payee),esc(r.payContent),r.amount||0,(r.paid?"処理済":"未処理"),esc(r.inputBy)];
     }else if(acctTab==="cash"){ // ★出納帳：日付/区分/科目/支払先/摘要/金額/入力者（予約番号・ユーザー・回収は除外）
       header=["日付","区分","科目","支払先","摘要","金額","入力者"];
       lineOf=r=>[r.date||"",(r.type==="cash_in"?"入金":"出金"),esc(r.category),esc(r.payee),esc(r.description),r.amount||0,esc(r.inputBy)];
@@ -22745,7 +22745,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.215-BT";
+const APP_VERSION="v1.0.216-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
