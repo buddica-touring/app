@@ -4,20 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BUDDICA SNS動画ツール</title>
-<!-- ★動的転送：現在の公開URLはSupabase(sns_endpoint)から取得＝トンネルが変わっても自動追従。手直し不要 -->
+<!-- ★動的転送：現在の公開URLはSupabase(sns_endpoint)から取得＝トンネルが変わっても自動追従。
+     URL未設定(起動中)の間は自動で再確認し続けるので、手動リロード不要で開ける。 -->
 <script>
   var SB = "https://ckrxttbnawkclshczsia.supabase.co";
   var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8";
   var SNS_URL = "";
+  var tries = 0;
   function openTool(){ if(SNS_URL) location.href = SNS_URL + "?cb=" + Date.now(); }
-  fetch(SB + "/rest/v1/sns_endpoint?id=eq.1&select=url&t=" + Date.now(), { headers:{ apikey:ANON, Authorization:"Bearer "+ANON } })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      SNS_URL = (d && d[0] && d[0].url) ? d[0].url : "";
-      if(SNS_URL){ setTimeout(function(){ location.replace(SNS_URL + "?cb=" + Date.now()); }, 500); }
-      else { document.getElementById("msg").textContent = "公開URLが未設定です。オーナーのMacでツールを起動してください。"; document.getElementById("sp").style.display="none"; }
-    })
-    .catch(function(){ document.getElementById("msg").textContent = "接続に失敗しました。しばらくして再度お試しください。"; document.getElementById("sp").style.display="none"; });
+  function check(){
+    tries++;
+    fetch(SB + "/rest/v1/sns_endpoint?id=eq.1&select=url&t=" + Date.now(), { headers:{ apikey:ANON, Authorization:"Bearer "+ANON } })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        SNS_URL = (d && d[0] && d[0].url) ? d[0].url : "";
+        if(SNS_URL){ location.replace(SNS_URL + "?cb=" + Date.now()); return; }
+        // URL未設定＝ツール起動中。自動で再確認（4秒毎）
+        document.getElementById("msg").innerHTML = "ツールを起動しています…しばらくお待ちください。<br>自動でつながります（" + tries + "回確認）";
+        setTimeout(check, 4000);
+      })
+      .catch(function(){
+        document.getElementById("msg").textContent = "接続を再試行しています…";
+        setTimeout(check, 4000);
+      });
+  }
+  window.addEventListener("load", check);
 </script>
 <style>
   body{margin:0;background:#0b0d10;color:#f8f9fb;font-family:-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
@@ -35,9 +46,9 @@
     <div class="logo">BUDDICA TOURISM</div>
     <h1>🎬 SNS動画ツール</h1>
     <div class="sp" id="sp">⏳</div>
-    <p id="msg">ツールを開いています…<br>自動で切り替わらない場合は下のボタンを押してください。</p>
-    <a class="btn" href="#" onclick="openTool();return false;">▶ SNS動画ツールを開く</a>
-    <p style="margin-top:16px">※オーナーのMacが起動中のときに利用できます。<br>開けない場合はしばらくしてから再度お試しください。</p>
+    <p id="msg">ツールを開いています…</p>
+    <a class="btn" href="#" onclick="openTool();return false;">▶ 今すぐ開く</a>
+    <p style="margin-top:16px">※オーナーのMacが起動中のときに利用できます。<br>起動直後は自動でつながるまで少しかかります。</p>
   </div>
 </body>
 </html>
