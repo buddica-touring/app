@@ -804,6 +804,13 @@ async function boot(){
     if(!TOKEN){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">URLが正しくありません（予約トークンがありません）</div>';return;}
     d=await rpc('bt_mypage_lookup',{p_token:TOKEN});
     if(!d){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">ご予約が見つかりませんでした。<br>スタッフにお問い合わせください。</div>';return;}
+    // ★ キャンセル済み予約はご利用ガイドを閉じる（傷チェック・サイン・免許UP等を使わせない）
+    var _cst=String(d.status||'').toLowerCase();
+    if(_cst==='cancelled'||_cst==='cancel'||_cst==='canceled'||String(d.status||'').indexOf('キャンセル')>=0){
+      document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;line-height:1.9">このご予約はキャンセルされています。<br><span style="font-size:13px;color:#64748b;font-weight:600">This reservation has been cancelled.</span><br><span style="font-size:12.5px;color:#94a3b8;font-weight:600">ご不明な点はスタッフまでお問い合わせください。</span></div>';
+      document.title='キャンセル済み｜BUDDICA TOURISM';
+      return;
+    }
   }
   RES_NAME=d.name||'';
   document.getElementById('r_id').textContent=d.id||'';
