@@ -886,7 +886,7 @@ function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT
     window.addEventListener("scroll",function(){ var p=scp(); if(p>maxScroll)maxScroll=p; },{passive:true});
     /* セクション別 表示/滞在（.card.collapsible + #licCard を idでキー化） */
     var secTime={}, secOpen={}, seen={};
-    function secKey(el){ if(el.id)return el.id.replace(/Card$/,""); if(el.className&&el.className.indexOf("pickup")>=0)return "pickup"; return "card"; }
+    function secKey(el){ if(el.id)return el.id.replace(/Card$/,""); var cls=el.className||""; if(cls.indexOf("pickup")>=0)return "pickup"; var h=el.querySelector(".sec-h"); var tx=h?h.textContent:""; if(/LINE|友だち|ともだち/.test(tx))return "line"; return "card"; }
     var io=new IntersectionObserver(function(ents){ ents.forEach(function(en){ var k=secKey(en.target); if(en.isIntersecting){ if(!secOpen[k]){ secOpen[k]=Date.now(); if(!seen[k]){ seen[k]=1; trk("acc_"+k,"section_view"); } } } else if(secOpen[k]){ secTime[k]=(secTime[k]||0)+(Date.now()-secOpen[k])/1000; secOpen[k]=0; } }); },{threshold:0.5});
     function observeAll(){ try{ document.querySelectorAll(".card.collapsible, #licCard").forEach(function(el){ io.observe(el); }); }catch(e){} }
     if(document.readyState!=="loading")setTimeout(observeAll,400); else document.addEventListener("DOMContentLoaded",function(){ setTimeout(observeAll,400); });
