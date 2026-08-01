@@ -867,5 +867,44 @@ if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_
 (function(){var sel=document.getElementById("puSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,30].forEach(function(m){if(h===18&&m===30)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
 async function savePickup(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;if(r&&r.ok){showPuCur(t);btn.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');if(RES)RES.pickup_time=t;updatePuAlert();}else{btn.textContent=I18N["pu_save"][LANG];alert("保存に失敗しました");}}
 function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT=function(k,dv){return (I18N[k]&&I18N[k][LANG])||dv;};c.style.display="block";c.innerHTML='<div class="pu-done"><div class="pu-done-ic">✅</div><div><div class="pu-done-t">'+TT("pu_done_t","お迎え時間をリクエストしました")+'</div><div class="pu-done-time">'+t+'</div><div class="pu-done-sub">'+TT("pu_done_sub","スタッフが確認いたします")+'</div></div></div>';}
+
+/* ★★ 総合計測テレメトリ BUDDICAガイド（store=bt・メインux-trackへ送信） __TELEMETRY_MARK__ */
+(function(){
+  try{
+    var STORE="bt", PAGE="guide";
+    var TK=(new URLSearchParams(location.search)).get("t")||"";
+    var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/ux-track";
+    var SESS=""; try{SESS=sessionStorage.getItem("hdm_ux_sess")||"";}catch(e){}
+    if(!SESS){ SESS="u"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36); try{sessionStorage.setItem("hdm_ux_sess",SESS);}catch(e){} }
+    function lang(){ try{return (typeof LANG!=="undefined")?LANG:"";}catch(e){return "";} }
+    function post(o){ try{fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,body:JSON.stringify(o)}).catch(function(){});}catch(e){} }
+    function trk(action,event,value,meta){ post({store:STORE,page:PAGE,action:action,event:event,value:(value==null?null:value),token:TK,session:SESS,lang:lang(),meta:meta||null}); }
+    window.__trk=trk;
+    trk("page","page_view");
+    var t0=Date.now(), maxScroll=0;
+    function scp(){ var h=document.documentElement.scrollHeight-window.innerHeight; if(h<=6)return 100; return Math.min(100,Math.round(window.scrollY/h*100)); }
+    window.addEventListener("scroll",function(){ var p=scp(); if(p>maxScroll)maxScroll=p; },{passive:true});
+    /* セクション別 表示/滞在（.card.collapsible + #licCard を idでキー化） */
+    var secTime={}, secOpen={}, seen={};
+    function secKey(el){ if(el.id)return el.id.replace(/Card$/,""); if(el.className&&el.className.indexOf("pickup")>=0)return "pickup"; return "card"; }
+    var io=new IntersectionObserver(function(ents){ ents.forEach(function(en){ var k=secKey(en.target); if(en.isIntersecting){ if(!secOpen[k]){ secOpen[k]=Date.now(); if(!seen[k]){ seen[k]=1; trk("acc_"+k,"section_view"); } } } else if(secOpen[k]){ secTime[k]=(secTime[k]||0)+(Date.now()-secOpen[k])/1000; secOpen[k]=0; } }); },{threshold:0.5});
+    function observeAll(){ try{ document.querySelectorAll(".card.collapsible, #licCard").forEach(function(el){ io.observe(el); }); }catch(e){} }
+    if(document.readyState!=="loading")setTimeout(observeAll,400); else document.addEventListener("DOMContentLoaded",function(){ setTimeout(observeAll,400); });
+    /* 主要ボタンを自動計測（関数ラップ） */
+    ["savePickup","licUpload","licAddRow","sign","clearPad","setLang","goTo"].forEach(function(n){ var o=window[n]; if(typeof o!=="function")return; window[n]=function(){ try{ var suf=(n==="goTo"||n==="sign")&&arguments.length?("_"+arguments[0]):""; trk("btn_"+n+suf,"click"); }catch(e){} return o.apply(this,arguments); }; });
+    /* 離脱時に滞在秒/スクロール/セクション滞在をsendBeaconで確実送信 */
+    function flush(){
+      var rows=[{store:STORE,page:PAGE,action:"page",event:"page_dwell",value:Math.round((Date.now()-t0)/1000),token:TK,session:SESS,lang:lang()},
+                {store:STORE,page:PAGE,action:"page",event:"scroll",value:maxScroll,token:TK,session:SESS,lang:lang()}];
+      for(var k in secOpen){ if(secOpen[k]){ secTime[k]=(secTime[k]||0)+(Date.now()-secOpen[k])/1000; secOpen[k]=0; } }
+      for(var k in secTime){ if(secTime[k]>=1)rows.push({store:STORE,page:PAGE,action:"acc_"+k,event:"section_dwell",value:Math.round(secTime[k]),token:TK,session:SESS,lang:lang()}); }
+      try{ navigator.sendBeacon(EF, new Blob([JSON.stringify({batch:rows})],{type:"application/json"})); }catch(e){ post({batch:rows}); }
+    }
+    var flushed=false;
+    window.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden"&&!flushed){ flushed=true; flush(); setTimeout(function(){flushed=false;},2000); } });
+    window.addEventListener("pagehide",flush);
+  }catch(e){}
+})();
+
 </script>
 </body></html>
