@@ -26,6 +26,9 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .card.done{opacity:.5}
 .r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .badge{font-weight:800;color:#fff;border-radius:6px;padding:3px 9px;font-size:14px;background:var(--slate)}
+.jpay{font-weight:800;font-size:11px;border-radius:6px;padding:2px 7px;margin-left:6px;text-decoration:none;display:inline-block}
+.jpay.ok{background:#f0fdf4;color:#059669;border:1px solid #bbf7d0}
+.jpay.no{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
 .badge.DEL,.badge.PU,.badge.PUB,.badge.来店{background:var(--blue)}
 .badge.COL,.badge.BD,.badge.BDB,.badge.返却{background:var(--red)}
 .badge.洗車{background:var(--teal)}
@@ -62,7 +65,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.2-bt";
+var VER="staff-v1.3-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 var app=document.getElementById("app");
 
@@ -85,12 +88,14 @@ function taskCard(x){
   var pl=x.place?('<a class="place" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.place)+'" target="_blank" rel="noopener">📍 '+esc(x.place)+'</a>'):'';
   var cust=x.customer?('<span class="cust">'+esc(x.customer)+'</span>'):'';
   var tid=esc(x._id||"");
+  var jpay='';
+  if(x.ota==='じゃらん'&&x.pay_url){ jpay = x.paid ? '<span class="jpay ok" title="じゃらん事前決済 入金済み">💳入金済</span>' : '<a class="jpay no" href="'+esc(x.pay_url)+'" target="_blank" rel="noopener" title="じゃらん事前決済 未決済（クリックで決済リンク）">💳未決済</a>'; }
   var btns='<div class="r3">';
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   btns+='</div>';
   return '<div class="card '+esc(t)+(x.done?' done':'')+'">'
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t))+'</span>'
-    +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+'</div>'
+    +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'+btns+'</div>';
 }
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
