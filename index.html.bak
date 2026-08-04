@@ -22761,7 +22761,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.221-BT";
+const APP_VERSION="v1.0.222-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24158,7 +24158,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       const rev=revOf(r);
       if(rd===sel){day[code].bookings++;day[code].sales+=rev;}                 // 本日 売上/予約＝返却日ベース(売上計上=返却月)
       if(ld<=sel&&sel<=rd){day[code].dayActive=1;}                            // 本日 稼働中(在庫占有=期間ベース)
-      if(rd>=monStart&&rd<=sel){month[code].bookings++;month[code].sales+=rev;} // 当月累計 売上/予約＝返却日ベース
+      if(rd.substring(0,7)===ym){month[code].bookings++;month[code].sales+=rev;} // 当月累計 売上/予約＝返却月ベース(経営タブ/サマリと同一・未来返却も当月なら計上)
       if(ld<=sel&&rd>=monStart){                                             // 当月 稼働台日
         const s=new Date((ld<monStart?monStart:ld)+"T00:00:00");
         const e=new Date((rd>sel?sel:rd)+"T00:00:00");
