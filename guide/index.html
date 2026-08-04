@@ -824,7 +824,16 @@ async function boot(){
   RES=d;renderRes();if(d.pickup_time){var _ps=document.getElementById("puSel");if(_ps)_ps.value=d.pickup_time;showPuCur(d.pickup_time);var _sv=document.getElementById("puSave");if(_sv)_sv.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";}
   // 🪪 免許証カード：license_uploads で登録済みか確認して描画（予約番号キー＝OP/タスクサマリからのアップとも共通）
   try{ var _lr=await fetch(BT_URL+'/rest/v1/license_uploads?reservation_id=eq.'+encodeURIComponent(d.id||'')+'&select=cnt',{headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON}}); var _lj=await _lr.json(); renderLicCard((_lj&&_lj[0]&&_lj[0].cnt)||0); }catch(e){ renderLicCard(0); }
-  document.getElementById('r_vehicle').innerHTML=(d.veh_name||d.veh_class||'—')+(d.veh_class?' <span class="pill">'+d.veh_class+'</span>':'');
+  // ★ OTA予約はクラス指定→クラス名を表示（社内割当の具体車種は出さない）／HP(ota空/オフィシャル)は車種指定→車種名
+  (function(){
+    var CLS_TKM={AA:'ハイエンド車両',A:'ラグジュアリーミニバン',B:'ラグジュアリーミニバン',C:'ミニバン',D:'SUV',E:'セダン',F:'コンパクトSUV',G:'コンパクト',H:'コンパクトハイトワゴン'};
+    var ota=String(d.ota||'').trim();
+    var isOTA=ota!==''&&ota!=='オフィシャル'&&ota!=='HP'&&ota!=='直予約'&&(!DEMO);
+    var label,pill;
+    if(isOTA){label=CLS_TKM[d.veh_class]||d.veh_class||'—';pill='';}
+    else{label=d.veh_name||CLS_TKM[d.veh_class]||d.veh_class||'—';pill=(d.veh_class?' <span class="pill">'+d.veh_class+'</span>':'');}
+    document.getElementById('r_vehicle').innerHTML=label+pill;
+  })();
   renderVehicleGuide(d);
   
   
