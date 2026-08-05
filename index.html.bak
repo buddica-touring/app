@@ -21729,7 +21729,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"board",ico:"📢",l:"お知らせ"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -21789,6 +21789,7 @@ function App(){
             const sections=[
               {title:"日常業務",color:"#2563eb",items:[
                 {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
+                {id:"board",ico:"📢",l:"お知らせ",desc:"店舗ルールやNotionのやり方を全員へ周知。新着バッジ＋既読チェック(誰が確認したか)"},
                 {id:"cust_flow",ico:"🧑‍🤝‍🧑",l:"お客様対応",desc:"空港ピックアップ〜出発の手順（免許/約款 完了済み・未完了の2フロー）スタッフマニュアル",external:true,url:"customer-flow-staff.html"},
                 {id:"houserules",ico:"🏪",l:"店舗ルール",desc:"日常業務・衛生・車両管理（開店/閉店/清掃/点検の共通ルール）",external:true,url:"houserules.html"},
                 {id:"notif_list",ico:"📣",l:"自動通知一覧",desc:"お客様へ自動送信するメール全7通（予約確定〜御礼）のタイミング・対象・内容を一覧で確認",external:true,url:"bt-notifications.html"},
@@ -22470,6 +22471,7 @@ function App(){
           {tab==="todo"&&window.TodoTab&&React.createElement(window.TodoTab,{store:"bt",sb:sb,label:"高松店",hostStaff:staff,hostShifts:shifts})}
           {tab==="daily_report"&&<DailyReportTab data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance}/>}
           {tab==="inventory"&&<BtInventoryTab data={data} sb={sb} store="bt" onCancel={cancelReservation}/>}
+          {tab==="board"&&<BtAnnouncementBoard sb={sb}/>}
           {tab==="lic_send"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>🪪 免許証チェックリスト</h2><LicenseSendListBT sb={sb}/></div>}
           {tab==="kpi"&&<KpiTab store="tkm" data={data} vehicles={vehicles} fleet={fleet}/>}
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
@@ -22822,7 +22824,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.225-BT";
+const APP_VERSION="v1.0.226-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24158,6 +24160,117 @@ class ErrBoundary extends React.Component{
   }
 }
 /* ===== 📋 日報レポート（DailyReportTab）— クラス別 目標/実績 + PDF出力 ===== */
+/* ==========================================
+   BtAnnouncementBoard 📢 お知らせ掲示板（全員周知）
+   決めたルール/Notionのやり方を全スタッフ(バイト含む)へ一斉周知。
+   管理者(oshita/takeyama)が投稿→全員が閲覧→新着バッジ＋既読チェック(誰が確認したか)。
+   DB: bt_announcements / bt_announcement_reads (BT DB・RLS authenticated・Realtime)
+   ========================================== */
+function BtAnnouncementBoard({sb}){
+  const meEmail=(typeof sbCurrentUser!=="undefined"&&sbCurrentUser&&sbCurrentUser.email)||"";
+  const meUser=((meEmail.split("@")[0])||"").toLowerCase();
+  const ADMIN=["oshita","takeyama"];
+  const isAdmin=ADMIN.indexOf(meUser)>=0;
+  const NAME_JP={oshita:"大下",takeyama:"竹山","saito-y":"斎藤(BT)","saito-s":"斎藤(GL)",toshima:"戸島",hashisaka:"橋坂",takano:"高野",higashitani:"東谷",member:"共用"};
+  const dispName=(u)=>NAME_JP[(u||"").toLowerCase()]||u||"?";
+  const [anns,setAnns]=React.useState([]);
+  const [reads,setReads]=React.useState([]);
+  const [form,setForm]=React.useState(null);      // null | {id?,title,body,link_url,pinned}
+  const [openR,setOpenR]=React.useState({});       // announcement_id -> 既読者リスト展開
+  const [busy,setBusy]=React.useState(false);
+  const loadAll=React.useCallback(async()=>{
+    if(!sb)return;
+    try{const{data:a}=await sb.from("bt_announcements").select("*").eq("deleted",false);if(a)setAnns(a);}catch(e){}
+    try{const{data:rr}=await sb.from("bt_announcement_reads").select("*");if(rr)setReads(rr);}catch(e){}
+  },[sb]);
+  React.useEffect(()=>{
+    if(!sb)return;let on=true;loadAll();
+    const ch=sb.channel("bt_ann_board")
+      .on("postgres_changes",{event:"*",schema:"public",table:"bt_announcements"},()=>{if(on)loadAll();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"bt_announcement_reads"},()=>{if(on)loadAll();})
+      .subscribe();
+    return()=>{on=false;try{sb.removeChannel(ch);}catch(e){}};
+  },[sb,loadAll]);
+  const sorted=React.useMemo(()=>[...anns].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(b.created_at||"").localeCompare(String(a.created_at||""))),[anns]);
+  const readersOf=(id)=>reads.filter(r=>r.announcement_id===id).sort((a,b)=>String(a.read_at||"").localeCompare(String(b.read_at||"")));
+  const isReadByMe=(id)=>!!meUser&&reads.some(r=>r.announcement_id===id&&(r.user_key||"").toLowerCase()===meUser);
+  const unreadCnt=sorted.filter(a=>!isReadByMe(a.id)).length;
+  const fmtDt=(s)=>{if(!s)return"";const d=new Date(s);if(isNaN(d))return String(s).slice(0,16).replace("T"," ");return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");};
+  const markRead=async(a)=>{
+    if(!sb||!meUser)return;
+    const row={id:a.id+":"+meUser,announcement_id:a.id,user_key:meUser,user_name:dispName(meUser),read_at:new Date().toISOString()};
+    setReads(rs=>rs.some(r=>r.id===row.id)?rs:[...rs,row]);
+    try{await sb.from("bt_announcement_reads").upsert(row,{onConflict:"id"});}catch(e){}
+  };
+  const savePost=async()=>{
+    if(!form)return;const t=(form.title||"").trim();if(!t){alert("タイトルを入力してください");return;}
+    setBusy(true);
+    const link=(form.link_url||"").trim();
+    const payload={title:t,body:(form.body||"").trim(),link_url:link||null,pinned:!!form.pinned,updated_at:new Date().toISOString()};
+    try{
+      if(form.id){await sb.from("bt_announcements").update(payload).eq("id",form.id);}
+      else{await sb.from("bt_announcements").insert({...payload,author:meUser});}
+      setForm(null);await loadAll();
+    }catch(e){alert("保存に失敗しました: "+(e.message||e));}
+    setBusy(false);
+  };
+  const delPost=async(a)=>{
+    if(!window.confirm("このお知らせを削除します。よろしいですか？\n\n「"+(a.title||"")+"」"))return;
+    try{await sb.from("bt_announcements").update({deleted:true,updated_at:new Date().toISOString()}).eq("id",a.id);await loadAll();}catch(e){alert("削除に失敗しました");}
+  };
+  const linkify=(url)=>url&&/^https?:\/\//i.test(url);
+  const btn=(bg,color)=>({fontSize:12,fontWeight:700,padding:"7px 14px",borderRadius:8,border:"none",cursor:"pointer",background:bg,color:color||"#fff"});
+  const inp={width:"100%",boxSizing:"border-box",padding:"10px 12px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:14};
+  return(<div style={{maxWidth:760,margin:"0 auto",padding:"4px 2px"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,margin:"6px 4px 4px"}}>
+      <h2 style={{fontSize:18,margin:0}}>📢 お知らせ掲示板 {unreadCnt>0&&<span style={{fontSize:12,fontWeight:800,color:"#fff",background:"#dc2626",borderRadius:999,padding:"2px 9px",marginLeft:4}}>未読 {unreadCnt}</span>}</h2>
+      {isAdmin&&!form&&<button onClick={()=>setForm({title:"",body:"",link_url:"",pinned:false})} style={btn("#1e40af")}>＋ 新規投稿</button>}
+    </div>
+    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>店舗ルールやNotionのやり方など、<b>全員へ周知したい内容</b>を掲示します。読んだら<b>「✓ 確認しました」</b>を押してください（誰が確認済みか一覧に残ります）。{!isAdmin&&<span style={{color:"#94a3b8"}}> 投稿は管理者のみ。</span>}</p>
+    {isAdmin&&form&&<div style={{background:"#f8fafc",border:"1px solid #dbe3ec",borderRadius:12,padding:14,marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:800,marginBottom:8}}>{form.id?"お知らせを編集":"新しいお知らせ"}</div>
+      <input style={{...inp,marginBottom:8}} placeholder="タイトル（例：清掃手順を更新しました）" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/>
+      <textarea style={{...inp,minHeight:96,marginBottom:8,resize:"vertical",fontFamily:"inherit"}} placeholder="本文（ルールややり方の説明）" value={form.body} onChange={e=>setForm(f=>({...f,body:e.target.value}))}/>
+      <input style={{...inp,marginBottom:8}} placeholder="リンクURL（任意・NotionやマニュアルのURL）" value={form.link_url} onChange={e=>setForm(f=>({...f,link_url:e.target.value}))}/>
+      <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={!!form.pinned} onChange={e=>setForm(f=>({...f,pinned:e.target.checked}))}/> 📌 上部に固定表示</label>
+      <div style={{display:"flex",gap:8}}>
+        <button disabled={busy} onClick={savePost} style={btn(busy?"#94a3b8":"#059669")}>{busy?"保存中…":(form.id?"更新する":"投稿する")}</button>
+        <button onClick={()=>setForm(null)} style={btn("#e2e8f0","#334155")}>キャンセル</button>
+      </div>
+    </div>}
+    {sorted.length===0&&<div style={{padding:28,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:12,border:"1px solid #eef2f7"}}>お知らせはまだありません</div>}
+    {sorted.map(a=>{
+      const readMe=isReadByMe(a.id);const rdrs=readersOf(a.id);const open=!!openR[a.id];
+      return(<div key={a.id} style={{background:"#fff",border:"1px solid "+(readMe?"#e5e9f0":"#fca5a5"),borderRadius:12,padding:"14px 16px",marginBottom:12,boxShadow:readMe?"0 1px 2px rgba(0,0,0,.04)":"0 2px 8px rgba(220,38,38,.10)"}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              {a.pinned&&<span style={{fontSize:14}}>📌</span>}
+              {!readMe&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#dc2626",borderRadius:4,padding:"1px 6px"}}>NEW</span>}
+              <span style={{fontSize:16,fontWeight:800,color:"#0f172a"}}>{a.title}</span>
+            </div>
+            <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{fmtDt(a.created_at)}{a.author?" ・ "+dispName(a.author):""}</div>
+          </div>
+          {isAdmin&&<div style={{display:"flex",gap:6}}>
+            <button onClick={()=>setForm({id:a.id,title:a.title||"",body:a.body||"",link_url:a.link_url||"",pinned:!!a.pinned})} style={{fontSize:11,padding:"4px 8px",borderRadius:6,border:"1px solid #cbd5e1",background:"#fff",cursor:"pointer"}}>✏️編集</button>
+            <button onClick={()=>delPost(a)} style={{fontSize:11,padding:"4px 8px",borderRadius:6,border:"1px solid #fecaca",background:"#fff",color:"#dc2626",cursor:"pointer"}}>🗑削除</button>
+          </div>}
+        </div>
+        {a.body&&<div style={{fontSize:14,color:"#334155",lineHeight:1.7,marginTop:8,whiteSpace:"pre-wrap"}}>{a.body}</div>}
+        {a.link_url&&<div style={{marginTop:8}}>{linkify(a.link_url)?<a href={a.link_url} target="_blank" rel="noopener noreferrer" style={{fontSize:13,color:"#2563eb",fontWeight:600,wordBreak:"break-all"}}>🔗 {a.link_url}</a>:<span style={{fontSize:13,color:"#64748b",wordBreak:"break-all"}}>🔗 {a.link_url}</span>}</div>}
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginTop:12,paddingTop:10,borderTop:"1px dashed #eef2f7"}}>
+          {readMe?<span style={{fontSize:12,fontWeight:700,color:"#059669"}}>✓ 確認済み</span>:<button onClick={()=>markRead(a)} style={btn("#059669")}>✓ 確認しました</button>}
+          <span onClick={()=>setOpenR(o=>({...o,[a.id]:!open}))} style={{fontSize:12,color:"#64748b",cursor:"pointer",userSelect:"none"}}>👁 確認済み {rdrs.length}人 {open?"▲":"▼"}</span>
+        </div>
+        {open&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:6}}>
+          {rdrs.length===0&&<span style={{fontSize:11,color:"#94a3b8"}}>まだ誰も確認していません</span>}
+          {rdrs.map(r=><span key={r.id} style={{fontSize:11,background:"#ecfdf5",color:"#065f46",border:"1px solid #a7f3d0",borderRadius:999,padding:"2px 9px"}}>{r.user_name||dispName(r.user_key)}<span style={{color:"#94a3b8",marginLeft:4}}>{fmtDt(r.read_at)}</span></span>)}
+        </div>}
+      </div>);
+    })}
+  </div>);
+}
+
 /* ==========================================
    BtInventoryTab 在庫調整（高松・OTA別 個別在庫調整）
    高松は使用OTA（エアトリ/オフィシャル/レンタカードットコム）で一括連動できない為、
