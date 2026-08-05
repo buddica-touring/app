@@ -562,6 +562,9 @@ const DB = {
   async fetchVehicles(){if(!sb)return DB._vehLsLoad();const{data,error}=await sb.from("bt_vehicles").select("*");if(error){dbLog("fetchVehicles",false,error.message);return DB._vehLsLoad();}dbLog("fetchVehicles",true,data.length+"件");const _vm=(data||[]).map(v=>({id:v.code,code:v.code,name:v.name,no:v.plate_no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insuranceVeh:!!v.insurance_veh,year:v.year||"",color:v.color||"",equip:v.equip||"",insPrice:v.ins_price||"",memo:v.memo||"",insuranceAnnual:Number(v.insurance_annual)||0,leaseMonthly:Number(v.lease_monthly)||0,shakenCost:Number(v.shaken_cost)||0,tenkenCost:Number(v.tenken_cost)||0,carTax:Number(v.car_tax)||0,oilIntervalKm:Number(v.oil_interval_km)||5000,inspectionDueDate:v.inspection_due_date||"",inspectionNextDate:v.inspection_next_date||"",tenkenDueDate:v.tenken_due_date||"",tenkenNextDate:v.tenken_next_date||"",active:v.active!==false,specs:(v.specs&&typeof v.specs==="object")?v.specs:{}}));const _vs=sortVehicles(_vm);DB._vehLsSave(_vs);return _vs;},
   async saveVehicles(arr){if(!sb)return;const rows=arr.map(v=>({code:v.code,name:v.name,plate_no:v.no,type:v.type,grade:v.grade||"",brand:v.brand||"",seats:v.seats,insurance_veh:!!v.insuranceVeh,year:v.year||"",color:v.color||"",equip:v.equip||"",ins_price:v.insPrice||"",memo:v.memo||"",insurance_annual:Number(v.insuranceAnnual)||0,lease_monthly:Number(v.leaseMonthly)||0,shaken_cost:Number(v.shakenCost)||0,tenken_cost:Number(v.tenkenCost)||0,car_tax:Number(v.carTax)||0,oil_interval_km:Number(v.oilIntervalKm)||5000,inspection_due_date:v.inspectionDueDate||null,inspection_next_date:v.inspectionNextDate||null,tenken_due_date:v.tenkenDueDate||null,tenken_next_date:v.tenkenNextDate||null,active:v.active!==false,specs:(v.specs&&typeof v.specs==="object")?v.specs:{}}));const{error}=await sb.from("bt_vehicles").upsert(rows,{onConflict:"code"});if(error)dbLog("saveVehicles",false,error.message);else dbLog("saveVehicles",true,arr.length+"件保存");},
   async deleteVehicle(code){if(!sb)return;const{error}=await sb.from("bt_vehicles").delete().eq("code",code);if(error)dbLog("deleteVehicle",false,error.message);else dbLog("deleteVehicle",true,code);},
+  // ★2026-08-05 5日無稼働 洗車リマインド: 車両ごと「最終洗車日」を記録(bt_vehicle_wash)。判定基準日=最後の返却日 or 最後の洗車日。
+  async fetchVehicleWash(){if(!sb)return{};try{const{data,error}=await sb.from("bt_vehicle_wash").select("vehicle_code,last_washed_date");if(error){dbLog("fetchVehicleWash",false,error.message);return{};}const m={};(data||[]).forEach(r=>{if(r.vehicle_code&&r.last_washed_date)m[r.vehicle_code]=norm(r.last_washed_date);});return m;}catch(e){return{};}},
+  async recordVehicleWash(code,dateStr){if(!sb||!code)return;const d=norm(dateStr)||new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});try{const{error}=await sb.from("bt_vehicle_wash").upsert({vehicle_code:code,last_washed_date:d,updated_at:new Date().toISOString()},{onConflict:"vehicle_code"});if(error)dbLog("recordVehicleWash",false,error.message);else dbLog("recordVehicleWash",true,code+" "+d);}catch(e){}},
   // --- シフト ---
   _shiftsLsKey:"bt_shifts_backup",
   _shiftsLsSave(obj){try{localStorage.setItem(DB._shiftsLsKey,JSON.stringify(obj));}catch(e){}},
@@ -4053,6 +4056,50 @@ function generateTasks(reservations,date,fleet,vehicles){
     if(ra!==rb)return ra-rb;
     return(a.time||"").localeCompare(b.time||"");
   });
+}
+
+// ★2026-08-05 「5日間無稼働で洗車タスク自動作成」(BT高松)
+// 配車(bt_fleet/bt_reservations)で直近5日 貸出が無い車両を判定し、洗車タスク(type=洗車・担当空)を生成。
+// 判定基準日=最後の返却日 or 最後の洗車日(bt_vehicle_wash)の新しい方。基準から5日以上経過で生成。
+// 貸出中/翌日出発(洗車予定)/当日既に洗車タスク有りは除外(通常洗車が入ればリセット扱い)。
+// today指定日のみ生成(過去/未来日には出さない)。iw-<code>-<日付> = 日付ごと固定ID(墓標ガード対応・多重生成なし)。
+const IDLE_WASH_DAYS=5;
+function genIdleWash(date,reservations,fleet,vehicles,washMap,tomb,existing){
+  const out=[];
+  const todayJst=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+  if(norm(date)!==todayJst)return out; // 洗車推奨は当日のみ
+  const today=todayJst;
+  const tomorrow=dOff(today,1);
+  const activeVeh=new Set();   // 本日レンタル中(貸出日<=今日<=返却日)
+  const tomorrowVeh=new Set(); // 翌日出発(既存の翌日洗車が担当)
+  const lastReturn={};         // code -> 最後の返却日(<今日)
+  (reservations||[]).forEach(r=>{
+    if(!r||r.status==="cancelled")return;
+    const vc=(fleet||{})[r.id];if(!vc||typeof vc!=="string")return;
+    const ld=norm(r.lendDate),rd=norm(r.returnDate);
+    if(ld&&rd&&ld<=today&&today<=rd)activeVeh.add(vc);
+    if(ld===tomorrow)tomorrowVeh.add(vc);
+    if(rd&&rd<today){if(!lastReturn[vc]||rd>lastReturn[vc])lastReturn[vc]=rd;}
+  });
+  const existIds=new Set((existing||[]).map(t=>t._id));
+  // 当日すでに洗車タスクがある車両(w-翌日洗車/手動洗車/iw-)は除外=二重生成防止・通常洗車が入ればリセット
+  const washedVeh=new Set((existing||[]).filter(t=>t.type==="洗車"&&t.assignedVehicle).map(t=>t.assignedVehicle));
+  const dDiff=(a,b)=>Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000);
+  (vehicles||[]).forEach(v=>{
+    if(!v||v.active===false||v.insuranceVeh)return; // 稼働車のみ(保険車除外)
+    const code=v.code;if(!code)return;
+    if(activeVeh.has(code)||tomorrowVeh.has(code)||washedVeh.has(code))return;
+    const lw=washMap[code]||"";
+    const lr=lastReturn[code]||"";
+    const base=(lw>lr?lw:lr)||""; // YYYY-MM-DDは文字列比較で日付順=OK
+    if(!base)return;              // 基準日なし(未貸出&未登録)は判定不能→出さない
+    const idle=dDiff(base,today);
+    if(idle<IDLE_WASH_DAYS)return;
+    const id="iw-"+code+"-"+today.replace(/-/g,"");
+    if(existIds.has(id)||(tomb&&tomb.has(id)))return;
+    out.push({_id:id,type:"洗車",time:"",name:"🧽"+idle+"日無稼働 洗車",people:0,place:"",vehicle:v.type||"",insurance:"",flight:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",memo:"最終稼働 "+base+"（"+idle+"日経過）＝洗車推奨",assignedVehicle:code,plateNo:v.no||"",insuranceChange:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",manual:true,_taskDate:today});
+  });
+  return out;
 }
 
 /* ===== 自動配車ロジック ===== */
@@ -16644,6 +16691,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       // ★2026-07-16 クラス③墓標ガード(SPK/NHA移植・根絶): 削除タスクを生成補完が復活させない。失敗時は空Set=現状維持(fail-safe)。
       let _tomb=new Set();
       try{if(sb){const{data:_dd}=await sb.from("bt_tasks").select("_id").eq("date",date).eq("deleted",true);(_dd||[]).forEach(x=>_tomb.add(x._id));}}catch(_e){}
+      // ★2026-08-05 5日無稼働 洗車リマインド: 当日のみ最終洗車日マップを取得(他日はスキップ=無駄クエリ回避)
+      const _todayJst=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+      const washMap=(norm(date)===_todayJst)?await DB.fetchVehicleWash():{};
       // 不足予約を追加
       const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
       const _sd=(ty)=>["BD","BDB","COL","返却"].includes(ty)?"R":(ty==="洗車"?"W":"L");const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));
@@ -16697,6 +16747,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         fixed.push({_id:"w-"+tRes.id,type:"洗車",time:"",name:`翌日出発: ${tRes.name||""}`,people:0,place:"",vehicle:veh?veh.type:tRes.vehicle,insurance:"",flight:"",reservationId:tRes.id,ota:tRes.ota,tel:"",mail:"",done:false,assignee:"",memo:`${fmtD(tomorrowDate)} DEL ${tRes.lendTime||""} ${tRes.name||""}`,assignedVehicle:vc,plateNo:veh?veh.no:"",insuranceChange:"",opts:{b:+(tRes.optB||0),c:+(tRes.optC||0),j:+(tRes.optJ||0),usb:+(tRes.optUSB||0)},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:""});
         washByVehicle.set(key,true);
       });
+      // ★2026-08-05 5日無稼働 洗車リマインドを追加(当日のみ・独立タスクmanual=孤児/重複判定の対象外)
+      genIdleWash(date,reservations,fleetRef.current,vehicles,washMap,_tomb,fixed).forEach(iw=>fixed.push(iw));
       // ★ STEP0: 重複排除（同じ予約ID+同系統タイプの重複を除去）
       const seenResType=new Set();
       const dupIds=[];
@@ -16775,7 +16827,10 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     // 2. DBにタスクなし→自動生成
     let gen=generateTasks(reservations,date,fleetRef.current,vehicles);
     // ★2026-07-16 クラス③墓標ガード(根絶): DB空(全タスク削除含む)でも削除済みは再生成しない。失敗時は現状維持(fail-safe)。
-    try{if(sb){const{data:_dd}=await sb.from("bt_tasks").select("_id").eq("date",date).eq("deleted",true);if(_dd&&_dd.length){const _tb=new Set(_dd.map(x=>x._id));gen=gen.filter(g=>!_tb.has(g._id));}}}catch(_e){}
+    let _tomb2=new Set();
+    try{if(sb){const{data:_dd}=await sb.from("bt_tasks").select("_id").eq("date",date).eq("deleted",true);if(_dd&&_dd.length){_tomb2=new Set(_dd.map(x=>x._id));gen=gen.filter(g=>!_tomb2.has(g._id));}}}catch(_e){}
+    // ★2026-08-05 5日無稼働 洗車リマインド(当日のみ)
+    {const _tj=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});const _wm=(norm(date)===_tj)?await DB.fetchVehicleWash():{};genIdleWash(date,reservations,fleetRef.current,vehicles,_wm,_tomb2,gen).forEach(iw=>gen.push(iw));}
     // ★ sheetPlacesから場所情報を補完
     gen.forEach(g=>{
       if(!g.reservationId)return;
@@ -16863,7 +16918,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           if(t[k]!==prev[k])changedFields[k]=t[k];
         });
       }else{changedFields=t;}
-      if(prev&&t.done&&!prev.done){setTimeout(function(){celebrateDone();},0);}
+      if(prev&&t.done&&!prev.done){setTimeout(function(){celebrateDone();},0);
+        // ★2026-08-05 洗車タスク完了→車両の最終洗車日を記録=無稼働カウンタをリセット(通常洗車/5日洗車 共通)
+        if(t.type==="洗車"&&t.assignedVehicle){DB.recordVehicleWash(t.assignedVehicle,selDate);}}
       if(prev&&t.assignee&&t.assignee!==prev.assignee){setTimeout(function(){celebrateAssign(t.assignee);},0);}
       const next=ts.map(x=>x._id===id?t:x);DB._lsSave(next,selDate);return next;
     });
@@ -22765,7 +22822,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.224-BT";
+const APP_VERSION="v1.0.225-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
