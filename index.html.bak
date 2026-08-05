@@ -7969,7 +7969,7 @@ function openPdfReport_(dbStore,dashPeriod,dashYm,kpi,yr,resvs){
 
   // OTA別集計: dashKpi.byChBreak を使用（アプリと同じ計算値で金額一致を保証）
   // + dbResvs から件数・泊数の補足データを取得
-  var OTA_LABELS={J:"じゃらん",R:"楽天",S:"スカイチケット",O:"エアトリ",HP:"HP直販",G:"GoGoOut",RC:"レンタカードットコム",SP:"スタッフ予約",direct:"直接"};
+  var OTA_LABELS={J:"じゃらん",R:"楽天",S:"スカイチケット",O:"エアトリ",HP:"HP直販",G:"GoGoOut",RC:"レンタカードットコム",SP:"スタッフ予約",direct:"直接","じゃらん":"じゃらん","楽天":"楽天","スカイチケット":"スカイチケット","エアトリ":"エアトリ","レンタカードットコム":"レンタカードットコム","オフィシャル":"オフィシャル","たびらい":"たびらい"};
   var rdKey=isSpk?"return_date":"end_date";
   var ldKey=isSpk?"lend_date":"start_date";
   var year=dashYm.slice(0,4);
@@ -8424,7 +8424,8 @@ function ManagementTab({store}){
 
   // 経営DB: メトリクス計算
   const DB_CHANNELS=["オフィシャル","じゃらん","楽天","エアトリ","レンタカードットコム","スカイチケット","その他売上"];
-  const DB_OTA_MAP={"HP":"オフィシャル","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上"};
+  // ★2026-08-05 フルネームota(GAS取込)も正しいチャネルに集計。追加しないとエアトリ/レンタカードットコム等が「その他売上」に誤集計される。
+  const DB_OTA_MAP={"HP":"オフィシャル","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上","じゃらん":"じゃらん","楽天":"楽天","エアトリ":"エアトリ","スカイチケット":"スカイチケット","レンタカードットコム":"レンタカードットコム","オフィシャル":"オフィシャル","たびらい":"その他売上","TBR":"その他売上"};
   const DB_VEH_TYPES=["A","B","C","D","E","H","S","F"];
 
   const dbMetrics=useMemo(()=>{
@@ -10176,7 +10177,7 @@ function ManagementTab({store}){
       // 売上入力（Excel再現）— reservationsから自動表示
       const isSpkS=dbStore==="spk";
       const rdKeyS=isSpkS?"return_date":"end_date";
-      const otaMapS={"HP":"オフィシャル","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上"};
+      const otaMapS={"HP":"オフィシャル","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上","じゃらん":"じゃらん","楽天":"楽天","エアトリ":"エアトリ","スカイチケット":"スカイチケット","レンタカードットコム":"レンタカードットコム","オフィシャル":"オフィシャル","たびらい":"その他売上","TBR":"その他売上"};
       const cycleMap={};(mgSettings.channels||[]).forEach(c=>{cycleMap[c.name]=c.cycle||0;});
       const isCx=st=>st==="cancelled"||st==="キャンセル"||st==="cancel";
       const salesList=dbResvs.filter(r=>salesResvF?true:!isCx(r.status)).map(r=>{
@@ -22824,7 +22825,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.226-BT";
+const APP_VERSION="v1.0.227-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24278,12 +24279,14 @@ function BtAnnouncementBoard({sb}){
    ========================================== */
 function BtInventoryTab({data,sb,store,onCancel}){
   const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
-  const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR"};
-  const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b"};
+  const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR","じゃらん":"JLN","楽天":"RKT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
+  const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b","じゃらん":"#16a34a","楽天":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
   // 高松の在庫調整対象3チャネル
   const CH=[{key:"adj_airtrip",l:"エアトリ",origin:"O"},{key:"adj_official",l:"オフィシャル",origin:"HP"},{key:"adj_rentacom",l:"レンカ",origin:"RC"}];
   // 発生元OTA→自媒体キー（空欄/その他は「オフィシャル」扱い・オーナー確定）
-  const originKey=(r)=>{const o=r.ota;if(o==="O"||o==="A")return"adj_airtrip";if(o==="RC")return"adj_rentacom";return"adj_official";};
+  // ★2026-08-05 発生元OTAは「コード(O/A/RC)」と「フルネーム(エアトリ/レンタカードットコム)」の両方に対応。
+  //  GAS取込はota=フルネーム・CSV取込はota=コードで保存されるため、片方だけ見ると全OTA予約がオフィシャル誤判定(オフィシャル済み)になっていた。
+  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";return"adj_official";};
   const [stat,setStat]=React.useState({});
   const [filt,setFilt]=React.useState("all");
   const isCxl=(r)=>r.status==="cancelled";
