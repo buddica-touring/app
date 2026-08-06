@@ -21084,6 +21084,7 @@ function App(){
     return {};
   });
   const[showOP,setShowOP]=useState(false);const[showFloatFleet,setShowFloatFleet]=useState(false);const[floatFleetSize,setFloatFleetSize]=useState("half");const[jalanPay,setJalanPay]=useState({});
+  const[invStatus,setInvStatus]=useState({}); // ★ bt_inventory_status（TOP在庫調整タイルの未対応バッジ用）
   const[opOpenIntent,setOpOpenIntent]=useState(null); // ★ データタブ等から「この予約を開いて」の指示
   const[opInitialView,setOpInitialView]=useState(null); // ★ 特定タブで開く
   const[showSqFailed,setShowSqFailed]=useState(false); // ★ Square自動取込失敗リスト
@@ -21250,6 +21251,8 @@ function App(){
         (async()=>{
           try{const attDB=await DB.fetchAttendance();if(attDB&&Object.keys(attDB).length)setAttendance(attDB);}catch(e){}
           try{const jpDB=await DB.fetchJalanPayment();if(jpDB)setJalanPay(jpDB);}catch(e){}
+          // ★ 在庫調整の未対応バッジ用に bt_inventory_status を取得（TOPタイルのバッジ算出のみ・タブ側は別途購読）
+          try{if(sb){const{data:invRows}=await sb.from("bt_inventory_status").select("*");if(invRows){const m={};invRows.forEach(r=>{m[r.id]={adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,stock_released:!!r.stock_released};});setInvStatus(m);}}}catch(e){}
           // ★ 2026-05-02 v3.4.30 DB の bt_places を唯一の真実とする（merge ではなく置換）
           // 旧バグ: localStorage に古い del_place/col_place が永久キャッシュされ、
           // GAS や直接DB編集で削除/更新した場所情報が APP 側で消えなかった。
@@ -21815,6 +21818,7 @@ function App(){
         <div className="fade-in" style={{flex:1,minHeight:0,display:(tab==="fleet")?"flex":"block",flexDirection:"column"}}>
           {tab==="top"&&(()=>{
             const ltWaiting=(()=>{const td=new Date();td.setHours(0,0,0,0);let w=0;(data||[]).forEach(r=>{if(r.status==="cancelled")return;const ld=new Date((r.lendDate||"")+"T00:00:00");if(isNaN(ld.getTime())||ld<td)return;if(!fleet||!fleet[r.id])w++;});return w;})();
+            const invTodo=btInvTodoCount(data,invStatus); // ★ 在庫調整 未対応(status未対応)件数
             const sections=[
               {title:"日常業務",color:"#2563eb",items:[
                 {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
@@ -21826,7 +21830,7 @@ function App(){
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
-                {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ)の在庫を手動で絞る対応管理"},
+                {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ)の在庫を手動で絞る対応管理",badge:invTodo>0?invTodo+"件":null,alert:invTodo>0},
                 {id:"import",ico:"📁",l:"CSV取込",desc:"OTA予約CSVインポート"},
               ]},
               {title:"スタッフ管理",color:"#059669",items:[
@@ -22853,7 +22857,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.228-BT";
+const APP_VERSION="v1.0.229-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24298,6 +24302,23 @@ function BtAnnouncementBoard({sb}){
       </div>);
     })}
   </div>);
+}
+
+/* ★ 2026-08-06 TOP「在庫調整」タイル バッジ用：未対応(status未対応)の在庫調整件数を算出。
+   BtInventoryTab の cntTodo と同一ロジック（発生元以外のチャネル未チェック／キャンセルは在庫未開放）。
+   stat=bt_inventory_status を mk({adj_airtrip,adj_official,adj_rentacom,stock_released}) 形にした map。 */
+function btInvTodoCount(data,stat){
+  stat=stat||{};
+  const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+  const CH=[{key:"adj_airtrip"},{key:"adj_official"},{key:"adj_rentacom"}];
+  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";return"adj_official";};
+  const isCxl=(r)=>r.status==="cancelled";
+  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",stock_released:false};};
+  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;const ok=originKey(r);return{...s,[ok]:true};};
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?!s.stock_released:CH.some(c=>c.key!==ok&&!s[c.key]);};
+  const cxNeedRel=(r)=>isCxl(r)&&!!stat[r.id]&&!sOf(r).stock_released;
+  const rows=(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);});
+  return rows.filter(isTodo).length;
 }
 
 /* ==========================================
