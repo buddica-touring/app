@@ -806,6 +806,12 @@ function reservationExists_(reservationId) {
 
 // GAS内部フィールド → bt_reservationsカラム名変換
 function toDbRow_(reservation) {
+  // ★ 2026-08-06 OTA予約=免責 恒久（正本トリガー trg_bt_ota_force_insurance と同型の二重防御）
+  var _otaId = String(reservation.ota || '');
+  if (_otaId && !/^(HP|official|オフィシャル|公式|自社)$/i.test(_otaId)) {
+    var _ins = String(reservation.insurance || '');
+    if (!_ins || /^(なし|無し|未加入|無|no|none)$/i.test(_ins)) reservation.insurance = '免責';
+  }
   var row = {
     id: reservation.id,
     name: reservation.name || '',
