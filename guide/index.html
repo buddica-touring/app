@@ -886,7 +886,7 @@ if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_
 async function savePickup(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("puSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}var btn=document.getElementById("puSave");btn.disabled=true;var r=await rpc("bt_mypage_set_pickup",{p_token:TOKEN,p_time:t});btn.disabled=false;if(r&&r.ok){showPuCur(t);btn.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";var _pp=document.querySelector('.pu-pick');if(_pp)_pp.classList.remove('blink');if(RES)RES.pickup_time=t;updatePuAlert();}else{btn.textContent=I18N["pu_save"][LANG];alert("保存に失敗しました");}}
 function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT=function(k,dv){return (I18N[k]&&I18N[k][LANG])||dv;};c.style.display="block";c.innerHTML='<div class="pu-done"><div class="pu-done-ic">✅</div><div><div class="pu-done-t">'+TT("pu_done_t","お迎え時間をリクエストしました")+'</div><div class="pu-done-time">'+t+'</div><div class="pu-done-sub">'+TT("pu_done_sub","スタッフが確認いたします")+'</div></div></div>';}
 
-/* ★★ 総合計測テレメトリ BUDDICAガイド（store=bt・メインux-trackへ送信） __TELEMETRY_MARK__ */
+/* ★★ 総合計測テレメトリ BUDDICAガイド（store=bt・メインux-trackへ送信） __TELEMETRY_MARK__ tel-v2-ro-tag-20260807 */
 (function(){
   try{
     var STORE="bt", PAGE="guide";
@@ -895,8 +895,10 @@ function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT
     var SESS=""; try{SESS=sessionStorage.getItem("hdm_ux_sess")||"";}catch(e){}
     if(!SESS){ SESS="u"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36); try{sessionStorage.setItem("hdm_ux_sess",SESS);}catch(e){} }
     function lang(){ try{return (typeof LANG!=="undefined")?LANG:"";}catch(e){return "";} }
+    /* ★スタッフ/閲覧専用プレビュー(ro=1 or staff=1)は meta.ro=1 を刻む＝利用状況の「開封」計測から除外できるようにする */
+    var IS_PREVIEW=false; try{ var _qp=new URLSearchParams(location.search); IS_PREVIEW=(_qp.get("ro")==="1"||_qp.get("staff")==="1"); }catch(e){}
     function post(o){ try{fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,body:JSON.stringify(o)}).catch(function(){});}catch(e){} }
-    function trk(action,event,value,meta){ post({store:STORE,page:PAGE,action:action,event:event,value:(value==null?null:value),token:TK,session:SESS,lang:lang(),meta:meta||null}); }
+    function trk(action,event,value,meta){ var m=meta||null; if(IS_PREVIEW){m=Object.assign({ro:1},m||{});} post({store:STORE,page:PAGE,action:action,event:event,value:(value==null?null:value),token:TK,session:SESS,lang:lang(),meta:m}); }
     window.__trk=trk;
     trk("page","page_view");
     var t0=Date.now(), maxScroll=0;
@@ -916,6 +918,7 @@ function showPuCur(t){var c=document.getElementById("puCur");if(!c)return;var TT
                 {store:STORE,page:PAGE,action:"page",event:"scroll",value:maxScroll,token:TK,session:SESS,lang:lang()}];
       for(var k in secOpen){ if(secOpen[k]){ secTime[k]=(secTime[k]||0)+(Date.now()-secOpen[k])/1000; secOpen[k]=0; } }
       for(var k in secTime){ if(secTime[k]>=1)rows.push({store:STORE,page:PAGE,action:"acc_"+k,event:"section_dwell",value:Math.round(secTime[k]),token:TK,session:SESS,lang:lang()}); }
+      if(IS_PREVIEW){ rows.forEach(function(rw){ rw.meta={ro:1}; }); }
       try{ navigator.sendBeacon(EF, new Blob([JSON.stringify({batch:rows})],{type:"application/json"})); }catch(e){ post({batch:rows}); }
     }
     var flushed=false;

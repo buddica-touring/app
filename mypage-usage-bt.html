@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
 <title>ご利用ガイド 利用状況（高松）</title>
+<!-- mypage-usage-bt v2 (2026-08-07): 開封=送信時刻以降の実開封のみ／ro=1スタッフプレビュー除外 -->
+<meta name="app-ver" content="mypage-usage-bt-v2-20260807">
+
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN',sans-serif;background:#f3f4f6;color:#1e293b;padding:12px;max-width:760px;margin:0 auto}
@@ -48,7 +51,8 @@ let RES=[],SENDS={},SIGN={},OPEN={},UF="all";
 // ★実開封トラッキング：ガイドページ(guide/index.html)が開いた瞬間に mypage_events(メインDB・store=bt)へ token付きで記録している。それを読み「本当の開封」を出す。
 const MAIN_SB="https://ckrxttbnawkclshczsia.supabase.co";
 const MAIN_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8";
-async function fetchOpens(){ const out={}; let from=0; try{ while(true){ const r=await fetch(MAIN_SB+"/rest/v1/mypage_events?store=eq.bt&token=not.is.null&select=token,created_at&order=created_at.asc",{headers:{apikey:MAIN_ANON,Authorization:"Bearer "+MAIN_ANON,Range:from+"-"+(from+999),"Range-Unit":"items"}}); if(!r.ok)break; const rows=await r.json(); if(!Array.isArray(rows))break; rows.forEach(e=>{if(e.token&&!out[e.token])out[e.token]=e.created_at;}); if(rows.length<1000)break; from+=1000; } }catch(e){} return out; }
+// token→[開封時刻(昇順)]。★ro=1(スタッフ閲覧プレビュー)は除外し「本当のお客様開封」だけ。page_view=ページを開いた瞬間。送信時刻との突合はload()側で行う。
+async function fetchOpens(){ const out={}; let from=0; try{ while(true){ const r=await fetch(MAIN_SB+"/rest/v1/mypage_events?store=eq.bt&event=eq.page_view&token=not.is.null&select=token,created_at,meta&order=created_at.asc",{headers:{apikey:MAIN_ANON,Authorization:"Bearer "+MAIN_ANON,Range:from+"-"+(from+999),"Range-Unit":"items"}}); if(!r.ok)break; const rows=await r.json(); if(!Array.isArray(rows))break; rows.forEach(e=>{ if(!e.token)return; const m=e.meta; if(m&&(m.ro===1||m.ro===true||m.ro==="1"))return; /*★ro=スタッフプレビュー除外*/ (out[e.token]=out[e.token]||[]).push(e.created_at); }); if(rows.length<1000)break; from+=1000; } }catch(e){} return out; }
 // 有効メール判定（noreply / 空 / ダミー を除外）＝ガイドをメール送信できる相手
 function validMail(r){const m=(r&&r.mail||"").trim();return !!(m && m.indexOf("@")>0 && !/^noreply/i.test(m) && !/^ota.*@/i.test(m));}
 // ★実開封（mypage_events）を主指標に。締結(傷サイン)＞開封＞お迎え/約款(代理)＞送信済(未開封)＞スルー＞未送信
@@ -107,9 +111,11 @@ async function load(){
     fetchOpens()
   ]);
   RES=(res||[]);
-  OPEN=opens||{};
   SENDS={};(sends||[]).forEach(s=>{if(s.reservation_id&&!SENDS[s.reservation_id])SENDS[s.reservation_id]={at:s.sent_at,status:s.status};});
   SIGN={};(signs||[]).forEach(s=>{if(!s.reservation_id)return;const o=SIGN[s.reservation_id]=SIGN[s.reservation_id]||{};if(s.sign_type==="damage_approval")o.dmg=true;if(s.sign_type==="terms_agree")o.terms=true;});
+  // ★開封＝送信(bt_mail_log guide)以降の最初の実開封のみ採用。送信より前(スタッフ事前プレビュー等)は開封として表示しない。
+  const openArr=opens||{}; OPEN={};
+  RES.forEach(r=>{ const tok=r.mypage_token; if(!tok)return; let arr=openArr[tok]; if(!arr||!arr.length)return; const sent=SENDS[r.id]; if(sent&&sent.at){ const st=new Date(sent.at).getTime(); arr=arr.filter(ts=>new Date(ts).getTime()>=st); } if(arr.length)OPEN[tok]=arr[0]; });
   if(!RES.length){document.getElementById("app").innerHTML='<div class="empty">対象予約がありません（またはログインが必要です。本体APPにログインしてから開いてください）。</div>';return;}
   render();
 }
