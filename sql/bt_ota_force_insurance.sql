@@ -19,6 +19,16 @@
 CREATE OR REPLACE FUNCTION public._bt_ota_force_insurance()
 RETURNS trigger LANGUAGE plpgsql AS $fn$
 BEGIN
+  -- ★2026-08-07 媒体をまたいで補償値を BT正準3値(なし/免責/NOC)へ正規化してから媒体別ルールを適用。
+  --   HP直販(site)が最上位を'安心ワイドパック'で保存する等の表記ゆれを吸収（app.js/guideの正準は'NOC'）。
+  --   NOC を先に判定（'免責＋NOC'バンドル＝安心パックは NOC ティア）。
+  IF NEW.insurance ~* '(NOC|ＮＯＣ|ノンオペ|安心パック|安心ワイド|フルカバー|フル補償)' THEN
+    NEW.insurance := 'NOC';
+  ELSIF NEW.insurance ~* '(免責|CDW)' THEN
+    NEW.insurance := '免責';
+  ELSIF NEW.insurance IS NULL OR NEW.insurance IN ('','なし','無し','未加入','無','no','none','0') THEN
+    NEW.insurance := 'なし';
+  END IF;
   IF COALESCE(NEW.ota,'') IN ('エアトリ','たびらい','レンタカードットコム','O') THEN
     IF TG_OP = 'INSERT' THEN
       -- 取込は必ず免責（誤取込のNOC/フルを上書き）
@@ -55,6 +65,12 @@ BEGIN
   IF COALESCE(NEW."内容",'') NOT IN ('DEL','PU','PUB','来店','PUB来店','BD','BDB','COL','返却') THEN
     RETURN NEW;
   END IF;
+  -- ★2026-08-07 legタスクの補償(確定)も正準3値へ正規化（'安心ワイドパック'等の表記ゆれ吸収）。
+  IF NEW."確定" ~* '(NOC|ＮＯＣ|ノンオペ|安心パック|安心ワイド|フルカバー|フル補償)' THEN
+    NEW."確定" := 'NOC';
+  ELSIF NEW."確定" ~* '(免責|CDW)' THEN
+    NEW."確定" := '免責';
+  END IF;
   SELECT r.ota, r.source INTO v_ota, v_src
     FROM public.bt_reservations r WHERE r.id = NEW."予約番号";
   IF (v_src = 'ota')
@@ -72,7 +88,13 @@ CREATE TRIGGER trg_bt_task_ota_force_insurance
   BEFORE INSERT OR UPDATE ON public.bt_tasks
   FOR EACH ROW EXECUTE FUNCTION public._bt_task_ota_force_insurance();
 
--- ---- 既存データ一括是正（誤取込のNOC→免責。人手動編集は audit_log で保護済み確認） ----
+-- ---- 既存データ一括是正 ----
+-- ① HP直販等の最上位補償の表記ゆれ('安心ワイドパック'/'安心パック'/'フル系')を正準'NOC'へ統一
+UPDATE public.bt_reservations SET insurance='NOC'
+ WHERE insurance ~* '(安心パック|安心ワイド|フルカバー|フル補償)';
+UPDATE public.bt_tasks SET "確定"='NOC'
+ WHERE "確定" ~* '(安心パック|安心ワイド|フルカバー|フル補償)';
+-- ② 誤取込のNOC→免責（エアトリ/たびらい/RCは免責確定。人手動編集は audit_log で保護済み確認）
 UPDATE public.bt_reservations SET insurance='免責'
  WHERE ota IN ('エアトリ','たびらい','レンタカードットコム') AND insurance='NOC';
 UPDATE public.bt_tasks SET "確定"='免責'
