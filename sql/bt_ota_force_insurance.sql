@@ -1,18 +1,19 @@
 -- ============================================================
 -- BT (高松) OTA予約の補償=免責 恒久ルール（正本トリガー / class根治）
 -- 対象OTA: エアトリ / たびらい / レンタカードットコム（+ GAS内部コード 'O'=エアトリ）
--- これら3社は「補償=免責」が確定（NOC/フル等の販売ティアなし）。
+-- これら3社は「補償=免責」が既定だが、予約時に『フル補償(NOC)』を任意選択できる。
+--   → 予約で NOC が選ばれていれば NOC、無ければ免責（免責は必ず含まれる）。
 --
 -- 方針（LEDGER-ONE ドメイン制約トリガー＝出所非依存の class根治）:
---   * 取込(INSERT) → 必ず insurance='免責'（NOC等の誤取込アーティファクトを上書き）
---   * 人手動編集(UPDATE) → 尊重。ただし免責を内包しない値(空/なし系)だけ免責へ引き上げ
---     → これにより「NOCは任意で選択可能（マイページ/OP編集で後付け）」を維持
+--   * 3社(エアトリ/たびらい/RC) → INSERT/UPDATE 共通で「NOC以外は免責」。
+--     NOC(パーサーが予約の補償選択を正しく検出)は維持し、なし/空/免責は 免責 へ floor。
 --   * その他OTA(楽天/じゃらん/スカイ, source='ota') → 正規ティアを維持し、空/なしのみ免責へ（floor）
 --   * タスク(bt_tasks."確定") → legタスク(お届け/回収)のみ floor（値は予約=正本からコピーされる）
 --
 -- 履歴:
 --   2026-08-06 初版（floor: 空/なし→免責）
---   2026-08-07 3社は INSERT で NOC/フルも免責へ上書き（オーナー確定・恒久化）
+--   2026-08-07 3社は INSERT で NOC/フルも免責へ上書き（誤り・下記で訂正）
+--   2026-08-07(訂正) 3社は NOC を任意選択可＝「NOC以外は免責」に統一（INSERTでもNOCを維持）
 -- ============================================================
 
 -- ---- 予約(正本)トリガー ---------------------------------------
@@ -30,16 +31,11 @@ BEGIN
     NEW.insurance := 'なし';
   END IF;
   IF COALESCE(NEW.ota,'') IN ('エアトリ','たびらい','レンタカードットコム','O') THEN
-    IF TG_OP = 'INSERT' THEN
-      -- 取込は必ず免責（誤取込のNOC/フルを上書き）
-      IF COALESCE(NEW.insurance,'') <> '免責' THEN
-        NEW.insurance := '免責';
-      END IF;
-    ELSE
-      -- 人手動編集(UPDATE)は尊重。空/なし系だけ免責へ引き上げ（NOC任意選択を維持）
-      IF NEW.insurance IS NULL OR NEW.insurance IN ('','なし','無し','未加入','無','no','none') THEN
-        NEW.insurance := '免責';
-      END IF;
+    -- ★2026-08-07(訂正) これら3社は『フル補償(NOC)』を任意選択できる。
+    --   NOC が選ばれていれば維持し、それ以外(なし/空/免責)は 免責 へ。INSERT/UPDATE 共通＝出所非依存。
+    --   旧版は INSERT で NOC も免責へ潰していた（誤り）→ 予約時のNOC選択を反映できるよう訂正。
+    IF COALESCE(NEW.insurance,'') <> 'NOC' THEN
+      NEW.insurance := '免責';
     END IF;
   ELSIF NEW.source = 'ota' THEN
     -- その他OTAは正規ティア維持。空/なしのみ免責へ
@@ -94,9 +90,12 @@ UPDATE public.bt_reservations SET insurance='NOC'
  WHERE insurance ~* '(安心パック|安心ワイド|フルカバー|フル補償)';
 UPDATE public.bt_tasks SET "確定"='NOC'
  WHERE "確定" ~* '(安心パック|安心ワイド|フルカバー|フル補償)';
--- ② 誤取込のNOC→免責（エアトリ/たびらい/RCは免責確定。人手動編集は audit_log で保護済み確認）
+-- ② 3社(エアトリ/たびらい/RC)の空/なし系のみ免責へ floor（NOCは任意選択＝維持する。潰さない）
+--    ※旧版はここで NOC→免責 に一括上書きしていた（誤り・削除）。予約時のNOC選択を尊重する。
 UPDATE public.bt_reservations SET insurance='免責'
- WHERE ota IN ('エアトリ','たびらい','レンタカードットコム') AND insurance='NOC';
+ WHERE ota IN ('エアトリ','たびらい','レンタカードットコム')
+   AND (insurance IS NULL OR insurance IN ('','なし','無し','未加入','無','no','none'));
 UPDATE public.bt_tasks SET "確定"='免責'
- WHERE "OTA" IN ('エアトリ','たびらい','レンタカードットコム') AND "確定"='NOC'
+ WHERE "OTA" IN ('エアトリ','たびらい','レンタカードットコム')
+   AND ("確定" IS NULL OR "確定" IN ('','なし','無し','未加入','無'))
    AND COALESCE("内容",'') IN ('DEL','PU','PUB','来店','PUB来店','BD','BDB','COL','返却');
