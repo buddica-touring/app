@@ -21255,7 +21255,7 @@ function App(){
           try{const attDB=await DB.fetchAttendance();if(attDB&&Object.keys(attDB).length)setAttendance(attDB);}catch(e){}
           try{const jpDB=await DB.fetchJalanPayment();if(jpDB)setJalanPay(jpDB);}catch(e){}
           // ★ 在庫調整の未対応バッジ用に bt_inventory_status を取得（TOPタイルのバッジ算出のみ・タブ側は別途購読）
-          try{if(sb){const{data:invRows}=await sb.from("bt_inventory_status").select("*");if(invRows){const m={};invRows.forEach(r=>{m[r.id]={adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,stock_released:!!r.stock_released};});setInvStatus(m);}}}catch(e){}
+          try{if(sb){const{data:invRows}=await sb.from("bt_inventory_status").select("*");if(invRows){const m={};invRows.forEach(r=>{m[r.id]={adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,stock_released:!!r.stock_released};});setInvStatus(m);}}}catch(e){}
           // ★ 2026-05-02 v3.4.30 DB の bt_places を唯一の真実とする（merge ではなく置換）
           // 旧バグ: localStorage に古い del_place/col_place が永久キャッシュされ、
           // GAS や直接DB編集で削除/更新した場所情報が APP 側で消えなかった。
@@ -21833,7 +21833,7 @@ function App(){
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
-                {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ)の在庫を手動で絞る対応管理",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
+                {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ/じゃらん)の在庫を手動で絞る対応管理",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
                 {id:"import",ico:"📁",l:"CSV取込",desc:"OTA予約CSVインポート"},
               ]},
               {title:"スタッフ管理",color:"#059669",items:[
@@ -22860,7 +22860,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.234-BT";
+const APP_VERSION="v1.0.235-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24309,14 +24309,14 @@ function BtAnnouncementBoard({sb}){
 
 /* ★ 2026-08-06 TOP「在庫調整」タイル バッジ用：未対応(status未対応)の在庫調整件数を算出。
    BtInventoryTab の cntTodo と同一ロジック（発生元以外のチャネル未チェック／キャンセルは在庫未開放）。
-   stat=bt_inventory_status を mk({adj_airtrip,adj_official,adj_rentacom,stock_released}) 形にした map。 */
+   stat=bt_inventory_status を mk({adj_airtrip,adj_official,adj_rentacom,adj_jalan,stock_released}) 形にした map。 */
 function btInvTodoCount(data,stat){
   stat=stat||{};
   const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
-  const CH=[{key:"adj_airtrip"},{key:"adj_official"},{key:"adj_rentacom"}];
-  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";return"adj_official";};
+  const CH=[{key:"adj_airtrip"},{key:"adj_official"},{key:"adj_rentacom"},{key:"adj_jalan"}];
+  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="J"||o==="じゃらん")return"adj_jalan";return"adj_official";};
   const isCxl=(r)=>r.status==="cancelled";
-  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",stock_released:false};};
+  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",stock_released:false};};
   const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;const ok=originKey(r);return{...s,[ok]:true};};
   const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?!s.stock_released:CH.some(c=>c.key!==ok&&!s[c.key]);};
   const cxNeedRel=(r)=>isCxl(r)&&!!stat[r.id]&&!sOf(r).stock_released;
@@ -24334,37 +24334,38 @@ function BtInventoryTab({data,sb,store,onCancel}){
   const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR","じゃらん":"JLN","楽天":"RKT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
   const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b","じゃらん":"#16a34a","楽天":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
   // 高松の在庫調整対象3チャネル
-  const CH=[{key:"adj_airtrip",l:"エアトリ",origin:"O"},{key:"adj_official",l:"オフィシャル",origin:"HP"},{key:"adj_rentacom",l:"レンカ",origin:"RC"}];
+  const CH=[{key:"adj_airtrip",l:"エアトリ",origin:"O"},{key:"adj_official",l:"オフィシャル",origin:"HP"},{key:"adj_rentacom",l:"レンカ",origin:"RC"},{key:"adj_jalan",l:"じゃらん",origin:"J"}];
   // 発生元OTA→自媒体キー（空欄/その他は「オフィシャル」扱い・オーナー確定）
   // ★2026-08-05 発生元OTAは「コード(O/A/RC)」と「フルネーム(エアトリ/レンタカードットコム)」の両方に対応。
   //  GAS取込はota=フルネーム・CSV取込はota=コードで保存されるため、片方だけ見ると全OTA予約がオフィシャル誤判定(オフィシャル済み)になっていた。
-  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";return"adj_official";};
+  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="J"||o==="じゃらん")return"adj_jalan";return"adj_official";};
   const [stat,setStat]=React.useState({});
   const [filt,setFilt]=React.useState("all");
   const isCxl=(r)=>r.status==="cancelled";
   React.useEffect(()=>{
     if(!sb)return;let on=true;
-    const mk=(r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,stock_released:!!r.stock_released});
+    const mk=(r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,stock_released:!!r.stock_released});
     const load=async()=>{try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!on||!rows)return;const m={};rows.forEach(r=>{m[r.id]=mk(r);});setStat(m);}catch(e){}};
     load();
     const ch=sb.channel("bt_inv_status").on("postgres_changes",{event:"*",schema:"public",table:"bt_inventory_status"},p=>{const r=p.new;if(!r||!r.id)return;setStat(s=>({...s,[r.id]:mk(r)}));}).subscribe();
     return()=>{on=false;try{sb.removeChannel(ch);}catch(e){}};
   },[sb]);
   // 既定：発生元だけ自動で済（true）、残り2チャネルは未（要）
-  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",stock_released:false};};
+  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",stock_released:false};};
   const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元は常に済扱いにマージ */const ok=originKey(r);return{...s,[ok]:true};};
   // 未対応＝発生元以外のチャネルに未チェックが残っている
   const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?!s.stock_released:CH.some(c=>c.key!==ok&&!s[c.key]);};
   const cxNeedRel=(r)=>isCxl(r)&&!!stat[r.id]&&!sOf(r).stock_released;
   const rows=React.useMemo(()=>(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);}).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")),[data,today,stat]);
   const isNew=(r)=>!stat[r.id]&&!isCxl(r);
-  const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):r.ota===filt);
+  const FILT_CH={O:"adj_airtrip",HP:"adj_official",RC:"adj_rentacom",J:"adj_jalan"};/* ★媒体絞り込みはコード/フルネーム両対応(GAS取込はota=フルネーム)→発生元キーで判定 */
+  const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):FILT_CH[filt]?originKey(r)===FILT_CH[filt]:r.ota===filt);
   const cntTodo=rows.filter(isTodo).length, cntNew=rows.filter(r=>isNew(r)&&isTodo(r)).length, cntCxl=rows.filter(cxNeedRel).length, cntDone=rows.length-cntTodo;
   const toggle=async(r,key)=>{
     const ok=originKey(r);if(key===ok)return;/* 発生元は操作不可 */
     const cur=sOf(r);const next={...cur,[key]:!cur[key],[ok]:true};
     setStat(s=>({...s,[r.id]:next}));
-    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
+    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
       try{const res=await sb.from("bt_inventory_status").upsert({...base,stock_released:next.stock_released},{onConflict:"id"});
         if(res&&res.error){await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}
       }catch(e){try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e2){}}}
@@ -24372,7 +24373,7 @@ function BtInventoryTab({data,sb,store,onCancel}){
   const toggleRel=async(r)=>{
     const cur=sOf(r);const next={...cur,stock_released:!cur.stock_released,[originKey(r)]:true};
     setStat(s=>({...s,[r.id]:next}));
-    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,stock_released:next.stock_released,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
+    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,stock_released:next.stock_released,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
       try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e){}}
   };
   const fmtDt=(s)=>{if(!s)return"-";const d=new Date(s);if(isNaN(d))return s.slice(0,16).replace("T"," ");return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");};
@@ -24397,15 +24398,15 @@ function BtInventoryTab({data,sb,store,onCancel}){
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#059669"}}>{cntDone}</div><div style={{fontSize:11,color:"#64748b"}}>対応済み</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700}}>{rows.length}</div><div style={{fontSize:11,color:"#64748b"}}>表示中</div></div>
     </div>
-    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}{chip("O","エアトリ")}{chip("HP","オフィシャル")}{chip("RC","レンカ")}</div>
+    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}{chip("O","エアトリ")}{chip("HP","オフィシャル")}{chip("RC","レンカ")}{chip("J","じゃらん")}</div>
     <div style={{overflowX:"auto"}}>
-    <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 6px",minWidth:820}}>
+    <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 6px",minWidth:900}}>
       <thead><tr style={{fontSize:11,color:"#64748b",textAlign:"left"}}>
         <th style={{padding:"0 8px 4px"}}>予約日時</th><th style={{padding:"0 8px 4px"}}>媒体</th><th style={{padding:"0 8px 4px"}}>予約者名</th><th style={{padding:"0 8px 4px"}}>予約番号</th><th style={{padding:"0 8px 4px"}}>貸出</th><th style={{padding:"0 8px 4px"}}>返却</th><th style={{padding:"0 8px 4px"}}>クラス</th>
-        <th style={{padding:"0 8px 4px",textAlign:"center"}}>エアトリ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>オフィシャル</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>レンカ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>在庫開放</th>
+        <th style={{padding:"0 8px 4px",textAlign:"center"}}>エアトリ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>オフィシャル</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>レンカ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>じゃらん</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>在庫開放</th>
       </tr></thead>
       <tbody>
-      {shown.length===0&&<tr><td colSpan={11} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
+      {shown.length===0&&<tr><td colSpan={12} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
       {shown.map(r=>{const s=sOf(r);const todo=isTodo(r);const nw=isNew(r)&&todo;const cx=isCxl(r);const cxTodo=cx&&!s.stock_released;
         const bg=cxTodo?"#faf5ff":cx?"#f8fafc":nw?"#fef2f2":todo?"#fff7ed":"#fff";
         const td={background:bg,padding:"10px 8px",fontSize:13,verticalAlign:"middle"};
@@ -24421,6 +24422,7 @@ function BtInventoryTab({data,sb,store,onCancel}){
           <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[0])}</td>
           <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[1])}</td>
           <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[2])}</td>
+          <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[3])}</td>
           <td style={{...td,borderRadius:"0 10px 10px 0"}}>{cx?<div onClick={()=>toggleRel(r)} style={{textAlign:"center",cursor:"pointer",userSelect:"none"}}><div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid "+(s.stock_released?"#7c3aed":"#dc2626"),background:s.stock_released?"#7c3aed":"#fff",color:"#fff",fontWeight:900,lineHeight:"20px",fontSize:15}}>{s.stock_released?"✓":""}</div>{!s.stock_released&&<div style={{fontSize:9,color:"#dc2626",fontWeight:700,marginTop:1}}>要開放</div>}</div>:<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>}</td>
         </tr>);})}
       </tbody>
