@@ -20396,6 +20396,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     {h:"状態",w:64,k:"status"},
     {h:"確認",w:30,k:null},
     {h:"予約者",w:100,k:"name"},
+    {h:"予約日",w:76,k:"bookedAt"},
     {h:"貸出日",w:70,k:"lendDate"},
     {h:"時間",w:45,k:"lendTime"},
     {h:"種別",w:40,k:"visitType"},
@@ -20418,7 +20419,6 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     {h:"予約番号",w:120,k:"id"},
     {h:"OTA",w:44,k:"ota"},
     {h:"TEL",w:84,k:"tel"},
-    {h:"予約日",w:74,k:"bookedAt"},
   ];
 
   return <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
@@ -20498,6 +20498,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
               </div></td>
               <td style={{...cellR(1),textAlign:"center"}}><input type="checkbox" checked={!!checks[r.id]} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();toggleCheck(r);}} title="予約内容の確認が完了したらチェック" style={{width:16,height:16,cursor:"pointer",accentColor:"#059669"}}/></td>
               <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(2),fontWeight:600,color:isCxl?"#9ca3af":"#0f172a",textDecoration:isCxl?"line-through":"none"}}>{r.name||"-"}</td>
+              <td style={{...cellR(3),whiteSpace:"nowrap",fontWeight:700,color:"#7c3aed"}}>{r.bookedAt?fmtD(r.bookedAt):"-"}</td>
               <td style={{...cellR(3),fontWeight:700,color:r.lendDate===today?"#dc2626":"#1e293b"}}>{r.lendDate||"-"}</td>
               <td style={cellR(4)}>{r.lendTime||"-"}</td>
               <td style={{...cellR(5),fontWeight:600}}>{(()=>{const ov=vtOverrides[r.id]||{};const vt=ov.visitType||r.visitType;return vt?<span style={{background:(TASK_META[vt]||{bg:"#f1f5f9"}).bg,color:(TASK_META[vt]||{c:"#64748b"}).c,padding:"1px 4px",borderRadius:3,fontSize:8,fontWeight:700}}>{vt}</span>:<button onClick={e=>{e.stopPropagation();promptVisitReturnType(r,"visit");}} title="クリックで種別を入力" style={{background:"#fee2e2",color:"#b91c1c",border:"1px solid #fca5a5",borderRadius:4,fontSize:9,fontWeight:800,padding:"2px 6px",cursor:"pointer",lineHeight:1.2}}>⚠️ 入力</button>;})()}</td>
@@ -20549,7 +20550,6 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
               <td onClick={e=>copyResvId(r.id,e)} title="クリックで予約番号をコピー" style={{...cellR(25),fontFamily:"monospace",fontSize:7,cursor:r.id?"copy":"default",color:copiedId===r.id?"#059669":"#1d4ed8",textDecoration:r.id?"underline":"none",fontWeight:copiedId===r.id?800:400,userSelect:"all"}}>{copiedId===r.id?"✓ "+r.id:(r.id||"")}</td>
               <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(26),textAlign:"center"}}>{r.ota?<OBadge ota={r.ota}/>:""}</td>
               <td style={cellR(27)}>{r.tel||""}</td>
-              <td style={cellR(28)}>{r.bookedAt?fmtD(r.bookedAt):"-"}</td>
             </tr>;
           })}
           {list.length===0&&<tr><td colSpan={cols.length} style={{textAlign:"center",padding:20,color:"#94a3b8",fontSize:11}}>該当する予約がありません</td></tr>}
@@ -22875,7 +22875,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.243-BT";
+const APP_VERSION="v1.0.244-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
