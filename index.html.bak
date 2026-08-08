@@ -277,7 +277,7 @@ function dedupReservations(arr){
 }
 const DB = {
   // --- 予約 ---
-  async fetchReservations(){if(!sb)return DB._resLsLoad();let data;try{data=await fetchAllRows("bt_reservations");}catch(e){dbLog("fetchRes",false,e.message);return DB._resLsLoad();}if(!data||!data.length){const c=DB._resLsLoad();if(c.length){dbLog("fetchRes","cache","DB空→キャッシュ"+c.length+"件");return c;}return[];}dbLog("fetchRes",true,data.length+"件");const mapped=data.map(DB._fromDbRes);DB._resIdx={};mapped.forEach(r=>{if(r&&r.id)DB._resIdx[r.id]=r;});DB._resLsSave(mapped);return mapped;},
+  async fetchReservations(){if(!sb)return DB._resLsLoad();let data;try{data=await fetchAllRows("bt_reservations");}catch(e){dbLog("fetchRes",false,e.message);return DB._resLsLoad();}if(!data||!data.length){const c=DB._resLsLoad();if(c.length){dbLog("fetchRes","cache","DB空→キャッシュ"+c.length+"件");return c;}return[];}dbLog("fetchRes",true,data.length+"件");const mapped=data.map(DB._fromDbRes);DB._resIdx={};window._resOtaMap={};mapped.forEach(r=>{if(r&&r.id){DB._resIdx[r.id]=r;window._resOtaMap[r.id]=r.ota;}});DB._resLsSave(mapped);return mapped;},
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");/* ★2026-07-26 予約削除時は紐づくタスク(d-/c-/w-等)も墓標化=孤児タスク残存を防ぐ */try{await sb.from("bt_tasks").update({deleted:true}).in("予約番号",ids);}catch(e){dbLog("deleteRes_tasks",false,String(e));}},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||""};},
@@ -4232,6 +4232,10 @@ function autoAssign(reservations,vehicles,existingFleet,maintenance){
 const OTA_ABBR={S:"SKT",J:"JLN",R:"RKT",O:"ART",A:"ART",RC:"RDC",G:"GOO",HP:"BDC",KEYDROP:"KEY",SP:"SP",direct:"直接",DIRECT:"直接",TBR:"TBR","たびらい":"TBR","じゃらん":"JLN","エアトリ":"ART","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","楽天":"RKT","スカイチケット":"SKT","スタッフ予約":"SP"};
 const OTA_NORM={"じゃらん":"J","エアトリ":"O","レンタカードットコム":"RC","レンタカー.com":"RC","オフィシャル":"HP","楽天":"R","スカイチケット":"S","A":"O"};
 function otaAbbr(o){if(o==null||o==="")return "-";const k=String(o).trim();return OTA_ABBR[k]||OTA_ABBR[k.toUpperCase()]||k;}
+/* ★2026-08-08 お客様ページURL：じゃらん(HDM)はHANDYMANマイページ(my-tkm)/それ以外はBUDDICAご利用ガイド。
+   ota不明時はwindow._resOtaMap[resvNo]で解決(バッジ用)。suffix例 "&ro=1"(スタッフ閲覧)/"&staff=1"。 */
+function custPageUrl(token,ota,suffix){ if(!token)return""; const jl=String(ota||"").indexOf("じゃらん")>=0; const base=jl?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
+function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{})[resvNo]; return custPageUrl(token,ota,suffix); }
 function OBadge({ota}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);const o=OTA[k];const lbl=otaAbbr(ota);if(!o&&(!lbl||lbl==="-"))return null;const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 
 /* Google Maps リンク生成 */
@@ -17512,7 +17516,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontWeight:700,fontSize:isMob?14:13,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
-                      {t.reservationId?(()=>{const _r=(reservations||[]).find(x=>x.id===t.reservationId);const _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={"https://buddica-touring.github.io/app/guide/?t="+_tok+"&ro=1"} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{fontSize:14,textDecoration:"none",flexShrink:0}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
+                      {t.reservationId?(()=>{const _r=(reservations||[]).find(x=>x.id===t.reservationId);const _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{fontSize:14,textDecoration:"none",flexShrink:0}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
                       {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600}}>{t.memo}</span>}
                       {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>👥{ppl}</span>}
                       {t.done&&<span style={{flexShrink:0}}>✅</span>}
@@ -18637,7 +18641,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <td style={{...cellR(2),fontWeight:700,color:resolvedT?"#1e293b":"#dc2626",background:missingTime?"#fef2f2":(resolvedT&&resolvedT!==t.time)?"#f5f3ff":cellR(2).background,padding:(isWash||isOther)?0:cellR(2).padding}} onClick={e=>{if(isWash||isOther)e.stopPropagation();}}>{(isWash||isOther)?<select value={t.time||""} onChange={e=>{e.stopPropagation();const v=e.target.value;if(!window.confirm((isWash?"洗車時間":"時間")+"を「"+(v||"クリア")+"」に変更しますか？")){return;}const u=mark({...t,time:v},"time");upd(t._id,u);}} style={{width:"100%",border:"none",background:"transparent",fontSize:9,fontWeight:700,color:t.time?"#1e293b":"#ccc",padding:"2px",cursor:"pointer",appearance:"none",WebkitAppearance:"none",textAlign:"center"}}><option value="">-</option>{TIME_OPTS.filter(o=>o).map(o=><option key={o} value={o}>{o}</option>)}</select>:missingTime?<span style={{color:"#dc2626",fontSize:8}}>⚠未</span>:<React.Fragment>{resolvedT||"-"}{resolvedT&&resolvedT!==t.time&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>←{t.time||"空"}</div>}</React.Fragment>}</td>
               <td style={{...cellR(3),textAlign:"center",fontWeight:800,fontSize:9,whiteSpace:"nowrap",color:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#fff":"#cbd5e1",background:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#ee6a1c":cellR(3).background}}>{srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店")?"🚐"+srcRes.pickupTime:"-"}</td>
               <td style={{...cellR(3),fontWeight:700,color:tm.c,background:t.typeChange?"#f5f3ff":cellR(3).background}}>{t.type||"-"}{t.typeChange&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>{t.typeChange}</div>}</td>
-              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{t.name||"-"}{srcRes&&srcRes.mypageToken&&<a href={"https://buddica-touring.github.io/app/guide/?t="+srcRes.mypageToken+"&ro=1"} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9}/>:null}</td>
+              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{t.name||"-"}{srcRes&&srcRes.mypageToken&&<a href={custPageUrl(srcRes.mypageToken,srcRes.ota,"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9}/>:null}</td>
               <td onClick={e=>{
                 e.stopPropagation();
                 if(!t.reservationId)return;
@@ -21026,7 +21030,7 @@ function LicenseBadge({resvNo,size,token}){
   const [n,setN]=React.useState(0);
   React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  const gurl="https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1";
+  const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚）",style:okst}, "🪪免許OK");}
   if(!token)return null;
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"免許証 未アップロード → クリックでガイドを開き撮影",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🪪免許必要");
@@ -21045,7 +21049,7 @@ function SignBadge({resvNo,kind,size,token,ttype}){
   const [ok,setOk]=React.useState(false);
   React.useEffect(()=>{ const update=()=>{ const m=window._signMap||{}; const s=resvNo&&m[resvNo]; setOk(!!(s&&s[kind])); }; update(); window.addEventListener("signUpdate",update); return ()=>window.removeEventListener("signUpdate",update); },[resvNo,kind]);
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  const gurl="https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1";
+  const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   // 🔍傷チェックは出発(貸出)系タスクのみ表示（洗車・返却等は対象外）
   if(kind==="damage"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
   if(ok){const label=kind==="terms"?"📝約款OK":"🔍傷OK";const okst={...st,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"};const ti=(kind==="terms"?"貸渡約款に同意（署名）済み":"傷確認 承認済み")+"・クリックでガイドを開く";return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:ti,style:{...okst,textDecoration:"none",cursor:"pointer"}}, label):React.createElement("span",{title:ti,style:okst}, label);}
@@ -21059,7 +21063,7 @@ function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   if(!token)return null;
   if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  const gurl="https://buddica-touring.github.io/app/guide/?t="+token+"&staff=1";
+  const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
 }
 function App(){
@@ -22049,7 +22053,7 @@ function App(){
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
                     {t.plateNo?<span style={{display:"inline-flex",alignItems:"center",gap:2,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>:null}
-                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={"https://buddica-touring.github.io/app/guide/?t="+_tok+"&ro=1"} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
+                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {cleanPlace(t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{cleanPlace(t.place)}</a>}
@@ -22191,7 +22195,7 @@ function App(){
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
                     {t.plateNo?<span style={{display:"inline-flex",alignItems:"center",gap:2,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>:null}
-                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={"https://buddica-touring.github.io/app/guide/?t="+_tok+"&ro=1"} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
+                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {cleanPlace(t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{cleanPlace(t.place)}</a>}
@@ -22867,7 +22871,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.237-BT";
+const APP_VERSION="v1.0.238-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -23972,12 +23976,12 @@ function LicenseSendListBT({sb}){
   const [open,setOpen]=React.useState(true);
   const [ver,setVer]=React.useState(0);
   const days=React.useMemo(()=>{const a=[];for(let i=0;i<=3;i++){const d=new Date();d.setDate(d.getDate()+i);a.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return a;},[ver]);
-  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url=r.mytoken?("https://buddica-touring.github.io/app/guide/?t="+encodeURIComponent(r.mytoken)):"https://buddica-touring.github.io/app/guide/";return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ご利用ガイドからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
+  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url=r.mytoken?custPageUrl(r.mytoken,r.ota,""):"https://buddica-touring.github.io/app/guide/";return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ご利用ガイドからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
   const load=React.useCallback(async()=>{
     if(!sb)return;
     try{
       // 予約全体ベース＝その期間に出発する予約を種類問わず全部（免許証は運転者全員必要）
-      const{data}=await sb.from("bt_reservations").select("id,name,status,start_date,start_time,mypage_token").in("start_date",days);
+      const{data}=await sb.from("bt_reservations").select("id,name,status,start_date,start_time,mypage_token,ota").in("start_date",days);
       const alive=(data||[]).filter(r=>{const st=String(r.status||"").toLowerCase();return r.id&&!st.includes("cancel")&&!st.includes("キャンセル");});
       const resvs=alive.map(r=>r.id);
       const doneM={},ackSet=new Set();
@@ -23987,7 +23991,7 @@ function LicenseSendListBT({sb}){
         const{data:sd}=await sb.from("bt_line_sends").select("resv_no,status,action").eq("action","license_ack").in("resv_no",resvs);
         (sd||[]).forEach(s=>{if(s.status==="manual_done")ackSet.add(s.resv_no);});
       }
-      const all=alive.map(r=>({resv:r.id,name:r.name||"",date:r.start_date,time:r.start_time||"",mytoken:r.mypage_token||"",done:!!doneM[r.id],ack:ackSet.has(r.id)}));
+      const all=alive.map(r=>({resv:r.id,name:r.name||"",date:r.start_date,time:r.start_time||"",mytoken:r.mypage_token||"",ota:r.ota||"",done:!!doneM[r.id],ack:ackSet.has(r.id)}));
       setSubCnt(all.filter(r=>r.done).length);
       const unsub=all.filter(r=>!r.done).sort((a,b)=>{ if(a.ack!==b.ack)return a.ack?1:-1; return (a.date+" "+(a.time||"99")).localeCompare(b.date+" "+(b.time||"99")); });
       setRows(unsub);
