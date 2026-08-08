@@ -21841,6 +21841,7 @@ function App(){
                 {id:"houserules",ico:"🏪",l:"店舗ルール",desc:"日常業務・衛生・車両管理（開店/閉店/清掃/点検の共通ルール）",external:true,url:"houserules.html"},
                 {id:"notif_list",ico:"📣",l:"自動通知一覧",desc:"お客様へ自動送信するメール全7通（予約確定〜御礼）のタイミング・対象・内容を一覧で確認",external:true,url:"bt-notifications.html"},
                 {id:"lic_send",ico:"🪪",l:"免許証チェック",desc:"当日〜3日先の出発で免許証未提出のリスト・案内コピー"},
+                {id:"jalan_tmpl",ico:"📧",l:"じゃらん送信テンプレ",desc:"じゃらん(HDM)予約ごとに全テンプレを📋コピー→手動メール→☑消し込み(チェック式)"},
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
@@ -22520,6 +22521,7 @@ function App(){
           {tab==="inventory"&&<BtInventoryTab data={data} sb={sb} store="bt" onCancel={cancelReservation}/>}
           {tab==="board"&&<BtAnnouncementBoard sb={sb}/>}
           {tab==="lic_send"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>🪪 免許証チェックリスト</h2><LicenseSendListBT sb={sb}/></div>}
+          {tab==="jalan_tmpl"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>📧 じゃらん送信テンプレ</h2><JalanTemplateList sb={sb}/></div>}
           {tab==="kpi"&&<KpiTab store="tkm" data={data} vehicles={vehicles} fleet={fleet}/>}
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
           {tab==="foreign"&&<ForeignVisitorAnalysis data={data}/>}
@@ -22871,7 +22873,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.238-BT";
+const APP_VERSION="v1.0.239-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -23967,6 +23969,71 @@ function TaskEditor({task,initial,tasks,onSave,onClose,onDelete,me}){
 /* ===== 本体統合ルート：TodoTab（per-entity + Realtime + 認証sb） ===== */
 function _todoTaskToRow(t){return {id:t.id,area:t.area||null,title:t.title||"",assignee:t.assignee||"全員",parent_id:t.parentId||null,priority:t.priority||"中",status:t.status||"未着手",progress:t.progress||0,start_date:t.start||null,due_date:t.due||null,description:t.description||"",logs:t.logs||[],attachments:t.attachments||[],admin_confirmed:!!t.adminConfirmed,completed_at:t.completedAt||null,created_at:t.createdAt||TODAY,deleted:false,updated_at:new Date().toISOString()};}
 function _todoRowToTask(r){return {id:r.id,area:r.area,title:r.title,assignee:r.assignee,parentId:r.parent_id,priority:r.priority,status:r.status,progress:r.progress||0,start:r.start_date,due:r.due_date,description:r.description||"",logs:r.logs||[],attachments:r.attachments||[],adminConfirmed:!!r.admin_confirmed,completedAt:r.completed_at,createdAt:r.created_at};}
+
+/* ★2026-08-08 JalanTemplateList — じゃらん(HDM)専用 送信テンプレ リスト（チェック式）。
+   各予約に全7テンプレを表示→📋コピーして手動メール→送信したら☑チェック(消し込み)。HANDYMANブランド＋HDMマイページ(my-tkm)。
+   消し込み=bt_line_sends(action='tmpl:<key>' status='manual_done'・可逆)。状態(免許/約款/入金)はDB判定で赤バッジ。 */
+function JalanTemplateList({sb}){
+  const [rows,setRows]=React.useState(null);
+  const [busy,setBusy]=React.useState(false);
+  const MYURL=(tok)=>"https://nosh2318.github.io/spk-task/my-tkm.html?t="+encodeURIComponent(tok||"");
+  const HDM="HANDYMAN 高松空港店";
+  const FOOT="\n\n──────────────\n"+HDM+"\nお問い合わせ：reserve@rent-handyman.jp（9:00〜19:00）";
+  const yen=(n)=>"¥"+Number(n||0).toLocaleString();
+  const TMPL=[
+    {key:"mypage",ico:"🪪",l:"マイページ初回案内",sub:"生成連絡＋免許登録＋約款サイン促し",build:(r)=>r.name+" 様\n\nこの度は "+HDM+" をご予約いただき誠にありがとうございます。\nご出発前に、下記マイページより次のお手続き・ご確認をお願いいたします。\n　① 運転免許証のご登録（運転される方 全員分）\n　② 貸渡約款のご確認・ご署名\n　③ お迎え時間・お受け取り方法のご確認\n\n▼ マイページ（お客様専用）\n"+MYURL(r.tok)+"\n\n※ 免許証のご登録と約款へのご署名は、当日スムーズなご出発のため特にお願いしております。"+FOOT},
+    {key:"pay",ico:"💳",l:"事前決済のお願い",sub:"pay_url有＆未入金",build:(r)=>r.name+" 様\n\n"+HDM+" です。ご出発までのお待ち時間解消のため、事前決済をお願いしております。\nお支払い金額："+yen(r.price)+"\n\n▼ お支払い（クレジット）\n"+(r.payUrl||"（決済リンク未発行）")+"\n\n※ ご出発3日前の19:00までにお願いいたします。\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
+    {key:"terms",ico:"📄",l:"約款サイン促し",sub:"未サインのとき",build:(r)=>r.name+" 様\n\n"+HDM+" です。貸渡約款へのご同意・ご署名がまだお済みでないようです。\n当日スムーズにご出発いただくため、下記マイページの「貸渡約款」より ✍️同意して署名 をお願いいたします。\n\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
+    {key:"license",ico:"🪪",l:"免許証登録促し",sub:"未登録のとき",build:(r)=>r.name+" 様\n\n"+HDM+" です。運転免許証のご登録がまだお済みでないようです。\n運転される方 全員分の運転免許証を、下記マイページよりご登録ください（スマホで撮影→送信）。\n\n▼ マイページ\n"+MYURL(r.tok)+"\n\n※ ご登録が確認できない場合、当日の貸渡ができないことがございます。"+FOOT},
+    {key:"remind",ico:"⏰",l:"出発前リマインド",sub:"出発が近い＆未完了",build:(r)=>r.name+" 様\n\nご出発が近づいてまいりました（"+(r.start||"")+"）。"+HDM+" です。\n当日スムーズなお受け取りのため、下記マイページより 免許証のご登録・約款のご署名・お迎え時間のご確認 が未了でないかご確認をお願いいたします。\n\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
+    {key:"damage",ico:"📸",l:"傷チェック",sub:"出発日",build:(r)=>r.name+" 様\n\n本日はご出発日です。"+HDM+" です。\nお受け取り前に、下記マイページの「車両の傷チェック」にて車両の状態をご確認ください（ご出発日当日に公開されます）。\n\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
+    {key:"thanks",ico:"🙏",l:"返却後サンクス",sub:"返却翌日",build:(r)=>r.name+" 様\n\nこの度は "+HDM+" をご利用いただき、誠にありがとうございました。\nお車のご返却を確認いたしました。道中お疲れ様でございました。\nまた高松にお越しの際は、ぜひ "+HDM+" をご利用いただけますと幸いです。心よりお待ちしております。"+FOOT}
+  ];
+  const load=React.useCallback(async()=>{
+    if(!sb)return;
+    const today=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+    const from=new Date(Date.now()+9*3600*1000-14*86400*1000).toISOString().slice(0,10);
+    const to=new Date(Date.now()+9*3600*1000+60*86400*1000).toISOString().slice(0,10);
+    const{data}=await sb.from("bt_reservations").select("id,name,mail,tel,ota,status,start_date,end_date,price,pay_url,paid,mypage_token").eq("ota","じゃらん").gte("start_date",from).lte("start_date",to).order("start_date");
+    const alive=(data||[]).filter(r=>!/cancel|キャンセル/i.test(r.status||""));
+    const ids=alive.map(r=>r.id);
+    let licM={},termM={},payM={},doneSet=new Set();
+    if(ids.length){
+      const q=(a)=>a.reduce((o,x)=>{o[x]=1;return o;},{});
+      const lu=await sb.from("license_uploads").select("reservation_id,cnt").in("reservation_id",ids); (lu.data||[]).forEach(x=>{if(x.reservation_id)licM[x.reservation_id]=x.cnt||1;});
+      const tk=await sb.from("bt_tasks").select("予約番号,約款,deleted").in("予約番号",ids); (tk.data||[]).forEach(x=>{if(!x.deleted&&x["予約番号"]&&String(x["約款"]||"").indexOf("同意")>=0)termM[x["予約番号"]]=1;});
+      const jp=await sb.from("bt_jalan_payments").select("reservation_id,status").in("reservation_id",ids); (jp.data||[]).forEach(x=>{payM[x.reservation_id]=x.status;});
+      const sd=await sb.from("bt_line_sends").select("resv_no,action,status").in("resv_no",ids).like("action","tmpl:%"); (sd.data||[]).forEach(x=>{if(x.status==="manual_done")doneSet.add(x.resv_no+"|"+String(x.action).slice(5));});
+    }
+    setRows(alive.map(r=>({resv:r.id,name:r.name||"",tok:r.mypage_token||"",mail:r.mail||"",start:r.start_date,end:r.end_date,price:r.price,payUrl:r.pay_url,paid:!!r.paid||payM[r.id]==="paid",
+      hasLic:!!licM[r.id],hasTerms:!!termM[r.id],today:r.start_date===today,done:doneSet})));
+  },[sb]);
+  React.useEffect(()=>{load();},[load]);
+  const copy=async(r,tp)=>{const txt=tp.build(r);try{await navigator.clipboard.writeText(txt);alert("📋 「"+tp.l+"」をコピーしました。\nメールに貼り付けて "+(r.mail||"お客様")+" 宛に送信してください。\n送信したら ☑ を押して消し込みできます。");}catch(e){alert("コピーに失敗しました");}};
+  const check=async(r,tp,on)=>{if(busy)return;setBusy(true);try{if(on){await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"送信済(手動)"});}else{await sb.from("bt_line_sends").delete().eq("resv_no",r.resv).eq("action","tmpl:"+tp.key);}await load();}catch(e){alert("記録に失敗:"+e.message);}setBusy(false);};
+  if(rows===null)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"読み込み中…");
+  if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象のじゃらん予約がありません（出発 -14〜+60日）。");
+  return <div>
+    <div style={{padding:"7px 12px",fontSize:11,color:"#475569",background:"#f8fafc",borderBottom:"1px solid #f1f5f9",lineHeight:1.65}}>じゃらん(HDM)予約ごとに<b>全テンプレ</b>を表示。<b style={{color:"#2563eb"}}>📋コピー</b>してメールで手動送信→送ったら<b style={{color:"#16a34a"}}>☑</b>で消し込み。<b style={{color:"#b91c1c"}}>赤バッジ</b>＝未対応（免許未登録/約款未サイン/未入金）。</div>
+    {rows.map(r=>{const cnt=TMPL.filter(tp=>r.done.has(r.resv+"|"+tp.key)).length;return <div key={r.resv} style={{border:"1px solid #e5e7eb",borderRadius:10,margin:"10px 12px",overflow:"hidden"}}>
+      <div style={{padding:"9px 12px",background:"#0F1F45",color:"#fff",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <b style={{fontSize:14}}>{r.name} 様</b>
+        <span style={{fontSize:10,background:"#FABE00",color:"#0F1F45",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>JLN {r.resv}</span>
+        <span style={{fontSize:11,opacity:.9}}>{r.start}〜{r.end}</span>
+        {!r.hasLic&&<span style={{fontSize:10,background:"#fee2e2",color:"#b91c1c",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>免許未登録</span>}
+        {!r.hasTerms&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>約款未サイン</span>}
+        {!r.paid&&r.payUrl&&<span style={{fontSize:10,background:"#fee2e2",color:"#b91c1c",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>未入金</span>}
+        <span style={{marginLeft:"auto",fontSize:10,opacity:.85}}>送信 {cnt}/7</span>
+      </div>
+      {TMPL.map(tp=>{const done=r.done.has(r.resv+"|"+tp.key);return <div key={tp.key} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderTop:"1px solid #f1f5f9",background:done?"#f0fdf4":"#fff"}}>
+        <span style={{fontSize:16,flexShrink:0}}>{tp.ico}</span>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{tp.l}</div><div style={{fontSize:10,color:"#94a3b8"}}>{tp.sub}</div></div>
+        <button onClick={()=>copy(r,tp)} style={{fontSize:11,fontWeight:800,padding:"6px 11px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",flexShrink:0}}>📋コピー</button>
+        <button onClick={()=>check(r,tp,!done)} title={done?"送信済（取消）":"送信したら押す"} style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:6,background:done?"#16a34a":"#e5e7eb",color:done?"#fff":"#475569",border:"none",cursor:"pointer",flexShrink:0}}>{done?"✅済":"☑"}</button>
+      </div>;})}
+    </div>;})}
+  </div>;
+}
 
 /* LicenseSendListBT — 2026-07-21 改: 免許証「未提出」の予約を表示して対応。予約全体ベース(受け渡し種類問わず=全店同一運用)。
    ★紐づけキー=予約番号。完了=license_uploads(cnt>0)。BTはLINE無し＝ご利用ガイドURLを📋コピーして案内。対応済=bt_line_sends(license_ack・可逆)。 */
