@@ -2094,7 +2094,7 @@ function TopRecentWidget(){
   const[rd,setRd]=useState(null);
   const[loading,setLoading]=useState(false);
   const[open,setOpen]=useState(true);
-  const OTA_LABEL={"HP":"BDC","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","G":"GOO","TBR":"TBR","たびらい":"TBR","direct":"直接"};
+  const OTA_LABEL={"HP":"BDC","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","G":"GOO","TBR":"TBR","たびらい":"TBR","direct":"直接","じゃらん":"JLN","エアトリ":"ART","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","楽天":"RKT","スカイチケット":"SKT"};
   const OTA_COLOR={"HP":"#1e40af","J":"#dc2626","R":"#b91c1c","O":"#0891b2","A":"#0891b2","S":"#7c3aed","RC":"#059669","G":"#92400e"};
   const fmt=n=>Number(n).toLocaleString();
   const load=useCallback(async()=>{
@@ -2189,7 +2189,7 @@ function CancelListWidget({onClose}){
   const[rateRows,setRateRows]=useState(null);// 率算出用 全予約(active+cxl)
   const[rateMode,setRateMode]=useState("year");// year / month（既定=年度別）
   const RATE_START="2026-05";// 計測起点（BT開店月）
-  const OTA_LABEL={"HP":"BDC","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","G":"GOO","TBR":"TBR","たびらい":"TBR","direct":"直接","DIRECT":"直接"};
+  const OTA_LABEL={"HP":"BDC","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","G":"GOO","TBR":"TBR","たびらい":"TBR","direct":"直接","DIRECT":"直接","じゃらん":"JLN","エアトリ":"ART","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","楽天":"RKT","スカイチケット":"SKT"};
   const OTA_COLOR={"HP":"#1e40af","J":"#dc2626","R":"#b91c1c","O":"#0891b2","A":"#0891b2","S":"#7c3aed","RC":"#059669","G":"#92400e"};
   const fmt=n=>Number(n).toLocaleString();
   const rev=(r)=>{const bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;return(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
@@ -3655,7 +3655,7 @@ function ForeignVisitorAnalysis({data}){
       <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
         <thead><tr style={{background:"#f1f5f9"}}>{["OTA","全体","外国人","利用率",""].map((h,i)=><th key={i} style={{padding:"6px 8px",textAlign:i>=1&&i<=3?"right":"left",fontWeight:600,fontSize:10,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>
         <tbody>{Object.entries(analysis.otaStats).sort((a,b)=>b[1].total-a[1].total).map(([ota,d])=>{const p=pct(d.foreign,d.total);const o=typeof OTA!=="undefined"?OTA[ota]:null;return <tr key={ota} style={{borderBottom:"1px solid #f1f5f9"}}>
-          <td style={{padding:"6px 8px",fontWeight:700}}>{o?<span style={{background:o.bg,color:o.c,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,border:"1px solid "+o.c+"33"}}>{o.name}</span>:ota}</td>
+          <td style={{padding:"6px 8px",fontWeight:700}}>{o?<span style={{background:o.bg,color:o.c,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,border:"1px solid "+o.c+"33"}}>{otaAbbr(ota)}</span>:otaAbbr(ota)}</td>
           <td style={{padding:"6px 8px",textAlign:"right"}}>{d.total}件</td>
           <td style={{padding:"6px 8px",textAlign:"right",color:"#ef4444",fontWeight:600}}>{d.foreign}件</td>
           <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:p>=20?"#ef4444":p>=10?"#f59e0b":"#059669"}}>{p}%</td>
@@ -4229,9 +4229,10 @@ function autoAssign(reservations,vehicles,existingFleet,maintenance){
   return fleet;
 }
 
-const OTA_ABBR={S:"SKT",J:"JLN",R:"RKT",O:"ART",A:"ART",RC:"RDC",G:"GOO",HP:"BDC",KEYDROP:"KEY",SP:"SP",direct:"直接",DIRECT:"直接",TBR:"TBR","たびらい":"TBR"};
+const OTA_ABBR={S:"SKT",J:"JLN",R:"RKT",O:"ART",A:"ART",RC:"RDC",G:"GOO",HP:"BDC",KEYDROP:"KEY",SP:"SP",direct:"直接",DIRECT:"直接",TBR:"TBR","たびらい":"TBR","じゃらん":"JLN","エアトリ":"ART","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","楽天":"RKT","スカイチケット":"SKT","スタッフ予約":"SP"};
+const OTA_NORM={"じゃらん":"J","エアトリ":"O","レンタカードットコム":"RC","レンタカー.com":"RC","オフィシャル":"HP","楽天":"R","スカイチケット":"S","A":"O"};
 function otaAbbr(o){if(o==null||o==="")return "-";const k=String(o).trim();return OTA_ABBR[k]||OTA_ABBR[k.toUpperCase()]||k;}
-function OBadge({ota}){const k=ota==="A"?"O":ota;const o=OTA[k];const lbl=otaAbbr(ota);if(!o&&(!lbl||lbl==="-"))return null;const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
+function OBadge({ota}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);const o=OTA[k];const lbl=otaAbbr(ota);if(!o&&(!lbl||lbl==="-"))return null;const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 
 /* Google Maps リンク生成 */
 function mapsUrl(place){if(!place)return "";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(place+" 高松");}
@@ -4275,7 +4276,7 @@ function CSVPanel({onImport,onUpdatePlaces,dataCount,pendingPlaces,onSetPendingP
     // 月別内訳を生成
     const monthBreak={};let totalPrice=0;res.data.forEach(r=>{const ym=r.returnDate?r.returnDate.substring(0,7):"不明";monthBreak[ym]=(monthBreak[ym]||0)+1;totalPrice+=(r.price||0);});
     const monthStr=Object.entries(monthBreak).sort(([a],[b])=>a.localeCompare(b)).map(([ym,cnt])=>`${ym.replace("-","/")}:${cnt}件`).join(" / ");
-    setLogs(p=>[...p,{t:"ok",m:`[${ts}] ${f.name} → ${OTA[res.ota].name} ${countLabel} ¥${totalPrice.toLocaleString()} 【全期間】${monthStr}`}]);});};
+    setLogs(p=>[...p,{t:"ok",m:`[${ts}] ${f.name} → ${otaAbbr(res.ota)} ${countLabel} ¥${totalPrice.toLocaleString()} 【全期間】${monthStr}`}]);});};
   const total=Object.values(files).reduce((s,f)=>s+f.data.length,0);
   return <div style={{maxWidth:960,margin:"0 auto"}}>
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
@@ -15903,7 +15904,7 @@ function ReservationForm({onAdd,onBulkAdd,vehicles,vehicleClasses,onClose,prefil
       const res=detectParse(rows);
       if(!res){setCsvLogs([{t:"err",m:"CSV形式を検出できません"}]);return;}
       const skipMsg=res.skippedOther>0?` (他店舗${res.skippedOther}件除外)`:"";
-      setCsvLogs([{t:"ok",m:`${OTA[res.ota].name} 高松${res.data.length}件${skipMsg}`}]);
+      setCsvLogs([{t:"ok",m:`${otaAbbr(res.ota)} 高松${res.data.length}件${skipMsg}`}]);
       setCsvResult({data:res.data,fleet:{},ota:res.ota});
     });
   };
@@ -22860,7 +22861,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.235-BT";
+const APP_VERSION="v1.0.236-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
