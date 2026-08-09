@@ -17362,7 +17362,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         {k:"hia",l:"🚐ハイエース送迎",cnt:sortedTasks.filter(t=>t.type==="PU"||t.type==="BD").length,ac:"#546e7a"},
         {k:"tasks",l:"🚗DEL/COL",cnt:sortedTasks.filter(t=>t.type==="DEL"||t.type==="COL").length,ac:"#2563eb"},
         {k:"wash",l:"🧽洗車",cnt:sortedTasks.filter(t=>t.type==="洗車").length,ac:"#64748b"},
-        {k:"raiten",l:"🏪来店",cnt:sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="BD"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&/^(来店|店舗|店頭|ヤード|営業所)$/.test((t.place||"").trim()))).length,ac:"#6d4c41"},
+        {k:"raiten",l:"🏪来店",cnt:sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="BD"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.type!=="その他"&&!t.manual&&!String(t._id||"").startsWith("other_")&&/^(来店|店舗|店頭|ヤード|営業所)$/.test((t.place||"").trim()))).length,ac:"#6d4c41"},
         {k:"other",l:"📌その他",cnt:sortedTasks.filter(t=>(OTHER_TASK_TYPES.includes(t.type)||OTHER_TASK_TYPES_LEGACY.includes(t.type))&&(t.manual===true||String(t._id||"").startsWith("other_"))).length,ac:"#4338ca"},
         {k:"master",l:"📋マスター",cnt:0,ac:"#7c3aed"},
         {k:"edit",l:"✏️編集",cnt:0,ac:"#dc2626"},
@@ -17456,7 +17456,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const delTasks=sortedTasks.filter(t=>t.type==="DEL");
         const colTasks=sortedTasks.filter(t=>t.type==="COL");
         const washTasks=sortedTasks.filter(t=>t.type==="洗車");
-        const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
+        const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.type!=="その他"&&!t.manual&&!String(t._id||"").startsWith("other_")&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
         const pplSum=(arr)=>arr.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         const doneSum=(arr)=>arr.filter(t=>t.done).length;
         // ★ バス便別集計は廃止
@@ -23004,7 +23004,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.256-BT";
+const APP_VERSION="v1.0.257-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
