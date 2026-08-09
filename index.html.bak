@@ -15361,17 +15361,37 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   const regularStaff=staff.filter(s=>s.type==="正社員");const partTimeStaff=staff.filter(s=>s.type==="アルバイト");
   const[cellEdit,setCellEdit]=useState(null); // {dateStr,name,type,symbol,start,end,isNew}
 
-  // 日本の祝日判定（簡易版）
+  // 日本の祝日判定（年ごとに正しく計算：第N月曜・春分秋分・振替・国民の休日）
   const jpHolidays=useMemo(()=>{
-    const hSet=new Set();
-    const addH=(m,d)=>hSet.add(`${viewYM.split("-")[0]}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
     const yr=Number(viewYM.split("-")[0]);
-    addH(1,1);addH(1,13);addH(2,11);addH(2,23);addH(3,20);addH(4,29);addH(5,3);addH(5,4);addH(5,5);addH(5,6);
-    addH(7,21);addH(8,11);addH(9,15);addH(9,23);addH(10,13);addH(11,3);addH(11,23);
-    // 振替休日: 祝日が日曜なら翌月曜
-    const all=[...hSet];all.forEach(ds=>{if(new Date(ds).getDay()===0){
-      const nd=new Date(ds);nd.setDate(nd.getDate()+1);hSet.add(nd.toISOString().slice(0,10));
-    }});
+    const ymd=(m,d)=>`${yr}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    // n番目の指定曜日(ハッピーマンデー)。dow:0=日,1=月
+    const nthDow=(m,dow,n)=>{const first=new Date(Date.UTC(yr,m-1,1)).getUTCDay();return 1+((dow-first+7)%7)+(n-1)*7;};
+    // 春分・秋分（1980-2099）
+    const shunbun=Math.floor(20.8431+0.242194*(yr-1980)-Math.floor((yr-1980)/4));
+    const shubun=Math.floor(23.2488+0.242194*(yr-1980)-Math.floor((yr-1980)/4));
+    const base=new Set();const add=(m,d)=>base.add(ymd(m,d));
+    add(1,1);                 // 元日
+    add(1,nthDow(1,1,2));     // 成人の日=1月第2月曜
+    add(2,11);                // 建国記念の日
+    add(2,23);                // 天皇誕生日
+    add(3,shunbun);           // 春分の日
+    add(4,29);                // 昭和の日
+    add(5,3);add(5,4);add(5,5); // 憲法/みどり/こども
+    add(7,nthDow(7,1,3));     // 海の日=7月第3月曜
+    add(8,11);                // 山の日
+    add(9,nthDow(9,1,3));     // 敬老の日=9月第3月曜
+    add(9,shubun);            // 秋分の日
+    add(10,nthDow(10,1,2));   // スポーツの日=10月第2月曜
+    add(11,3);                // 文化の日
+    add(11,23);               // 勤労感謝の日
+    const hSet=new Set(base);
+    const dOf=ds=>new Date(ds+"T00:00:00+09:00").getDay();
+    const addDays=(ds,n)=>{const t=new Date(ds+"T00:00:00+09:00");t.setDate(t.getDate()+n);return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;};
+    // 振替休日: 祝日が日曜→次の非祝日を休日に
+    [...base].forEach(ds=>{if(dOf(ds)===0){let nd=addDays(ds,1);while(hSet.has(nd))nd=addDays(nd,1);hSet.add(nd);}});
+    // 国民の休日: 前後を祝日に挟まれた平日(例2026-09-22)
+    [...base].forEach(ds=>{const nx=addDays(ds,2);if(base.has(nx)){const mid=addDays(ds,1);if(!hSet.has(mid)&&dOf(mid)!==0)hSet.add(mid);}});
     return hSet;
   },[viewYM]);
   const isHoliday=(ds)=>jpHolidays.has(ds);
@@ -22976,7 +22996,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.249-BT";
+const APP_VERSION="v1.0.250-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
