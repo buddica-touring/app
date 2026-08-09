@@ -21155,8 +21155,8 @@ function ReceivedInvoicesTab({sb,store,vehicles}){
 function LicenseBadge({resvNo,size,token,ttype}){
   const [n,setN]=React.useState(0);
   React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
-  // 🪪免許証は貸出前の確認事項＝洗車/返却後洗車タスクには出さない
-  if(ttype==="洗車"||ttype==="返却後洗車")return null;
+  // 🪪免許証は貸出前の確認事項＝貸出系タスク(PU/PUB/DEL/来店)のみ表示。返却/洗車等には出さない
+  if(ttype&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚）",style:okst}, "🪪免許OK");}
@@ -21180,8 +21180,8 @@ function SignBadge({resvNo,kind,size,token,ttype}){
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   // 🔍傷チェックは出発(貸出)系タスクのみ表示（洗車・返却等は対象外）
   if(kind==="damage"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
-  // 📝約款は貸出前の確認事項＝洗車/返却後洗車タスクには出さない
-  if(kind==="terms"&&(ttype==="洗車"||ttype==="返却後洗車"))return null;
+  // 📝約款は貸出前の確認事項＝貸出系タスク(PU/PUB/DEL/来店)のみ表示。返却/洗車等には出さない
+  if(kind==="terms"&&ttype&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
   if(ok){const label=kind==="terms"?"📝約款OK":"🔍傷OK";const okst={...st,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"};const ti=(kind==="terms"?"貸渡約款に同意（署名）済み":"傷確認 承認済み")+"・クリックでガイドを開く";return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:ti,style:{...okst,textDecoration:"none",cursor:"pointer"}}, label):React.createElement("span",{title:ti,style:okst}, label);}
   if(kind==="damage"){ if(!token)return null; return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"傷チェック 未確認 → クリックでガイドを開く",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🔍傷未確認"); }
   if(kind!=="terms"||!token)return null;
