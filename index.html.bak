@@ -20239,6 +20239,9 @@ function JalanTemplateList({sb}){
   const [busy,setBusy]=React.useState(false);
   const [open,setOpen]=React.useState(null);
   const [tmpls,setTmpls]=React.useState(null);  // ★DB単一ソース hdm_tkm_templates（key→body）。無ければ下のbuildにフォールバック
+  const [preview,setPreview]=React.useState(null);  // 送信内容プレビュー {r,tp,subject,text,to}
+  const [openMap,setOpenMap]=React.useState({});    // resv -> [{kind,opened,delivered,sent_at}]
+  const EF="https://ggqugvyskyiblxiycpci.supabase.co/functions/v1/hdm-tkm-send-one";  // 直接送信EF(rent-handyman.com)
   const MYURL=(tok)=>"https://nosh2318.github.io/spk-task/my-tkm.html?t="+encodeURIComponent(tok||"");
   const HDM="HANDYMAN 高松空港店";
   const FOOT="\n\n──────────────\n"+HDM+"\nお問い合わせ：reserve@rent-handyman.com（9:00〜19:00）";
@@ -20287,6 +20290,11 @@ function JalanTemplateList({sb}){
   React.useEffect(()=>{if(!sb)return;(async()=>{try{const{data}=await sb.from("hdm_tkm_templates").select("key,body");const m={};(data||[]).forEach(t=>{m[t.key]=t.body;});setTmpls(m);}catch(e){}})();},[sb]);
   const copy=async(r,tp)=>{const txt=(tmpls&&tmpls[tp.key])?fill(tmpls[tp.key],r):tp.build(r);try{await navigator.clipboard.writeText(txt);alert("📋 「"+tp.l+"」をコピーしました。\nメールに貼り付けて "+(r.mail||"お客様")+" 宛に送信→送信したら ☑ で消し込みしてください。");}catch(e){alert("コピー失敗");}};
   const check=async(r,tp,on)=>{if(busy)return;setBusy(true);try{if(on){await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"送信済(手動)"});}else{await sb.from("bt_line_sends").delete().eq("resv_no",r.resv).eq("action","tmpl:"+tp.key);}await load();}catch(e){alert("記録失敗:"+e.message);}setBusy(false);};
+  // ★rent-handyman.com 直接送信（EF・staffトークン認証）
+  const callEF=async(payload)=>{let tok="";try{const s=await sb.auth.getSession();tok=(s&&s.data&&s.data.session&&s.data.session.access_token)||"";}catch(e){}const rr=await fetch(EF,{method:"POST",headers:{"Authorization":"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify(payload)});return await rr.json().catch(()=>({error:"応答が不正です"}));};
+  const doPreview=async(r,tp)=>{const j=await callEF({action:"preview",reservation_id:r.resv,kind:tp.key});if(!j.ok){alert("プレビュー取得失敗："+(j.error||""));return;}setPreview({r:r,tp:tp,subject:j.subject,text:j.text,to:j.to});};
+  const doSend=async(r,tp)=>{if(busy)return;if(!r.mail){alert("この予約には顧客のメールアドレスが登録されていません。");return;}if(!window.confirm("📤 直接送信\n\n宛先："+r.name+" 様 <"+r.mail+">\n内容：「"+tp.l+"」\n送信元：reserve@rent-handyman.com\n\n実際に顧客へメールを送信します。よろしいですか？"))return;setBusy(true);try{const j=await callEF({action:"send",reservation_id:r.resv,kind:tp.key});if(!j.ok){alert("送信失敗："+(j.error||""));setBusy(false);return;}try{await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"直接送信 rent-handyman.com"});}catch(e){}alert("✅ 送信しました → "+(j.to||r.mail));await load();}catch(e){alert("送信エラー："+e.message);}setBusy(false);};
+  const doStatus=async(r)=>{const j=await callEF({action:"status",reservation_id:r.resv});if(j&&j.ok){setOpenMap(m=>Object.assign({},m,{[r.resv]:j.items}));}else{alert("開封状況の取得に失敗："+((j&&j.error)||""));}};
   if(rows===null)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"読み込み中…");
   if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象のじゃらん予約がありません（出発 -14〜+60日）。");
   const isSent=(r,tp)=>r.sent.has(r.resv+"|"+tp.key);
@@ -20294,11 +20302,15 @@ function JalanTemplateList({sb}){
   const sorted=rows.slice().sort((a,b)=>{const da=dueOf(a).length>0?0:1,db=dueOf(b).length>0?0:1;if(da!==db)return da-db;return String(a.start||"").localeCompare(String(b.start||""));});
   const totalDue=rows.reduce((n,r)=>n+(dueOf(r).length>0?1:0),0);
   const chip=(t,bg,c)=><span style={{fontSize:10,background:bg,color:c,fontWeight:800,borderRadius:5,padding:"1px 6px"}}>{t}</span>;
-  const line=(r,tp,hot)=><div key={tp.key} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderTop:"1px solid #f1f5f9",background:isSent(r,tp)?"#f0fdf4":(hot?"#fff7ed":"#fff")}}>
+  const badge=(t,ok)=><span style={{fontSize:10,fontWeight:800,borderRadius:5,padding:"2px 7px",background:ok?"#dcfce7":"#fee2e2",color:ok?"#166534":"#b91c1c"}}>{ok?"✅":"⚠️"} {t}</span>;
+  const MYURL2=(tok)=>MYURL(tok);
+  const line=(r,tp,hot)=><div key={tp.key} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",borderTop:"1px solid #f1f5f9",background:isSent(r,tp)?"#f0fdf4":(hot?"#fff7ed":"#fff"),flexWrap:"wrap"}}>
     <span style={{fontSize:16,flexShrink:0}}>{tp.ico}</span>
-    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{hot?"🔴 ":""}{tp.l}</div><div style={{fontSize:10,color:"#94a3b8"}}>{tp.trig}</div></div>
-    <button onClick={()=>copy(r,tp)} style={{fontSize:11,fontWeight:800,padding:"6px 11px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",flexShrink:0}}>📋コピー</button>
-    <button onClick={()=>check(r,tp,!isSent(r,tp))} style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:6,background:isSent(r,tp)?"#16a34a":"#e5e7eb",color:isSent(r,tp)?"#fff":"#475569",border:"none",cursor:"pointer",flexShrink:0}}>{isSent(r,tp)?"✅済":"☑"}</button>
+    <div style={{flex:1,minWidth:120}}><div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{hot?"🔴 ":""}{tp.l}</div><div style={{fontSize:10,color:"#94a3b8"}}>{tp.trig}</div></div>
+    <button onClick={()=>doPreview(r,tp)} title="送信内容を確認" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:"#f1f5f9",color:"#334155",border:"1px solid #cbd5e1",cursor:"pointer",flexShrink:0}}>👁</button>
+    <button onClick={()=>doSend(r,tp)} disabled={busy||!r.mail} title={r.mail?("rent-handyman.comから "+r.mail+" へ直接送信"):"顧客メール未登録"} style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:6,background:r.mail?"#dc2626":"#e5e7eb",color:r.mail?"#fff":"#94a3b8",border:"none",cursor:r.mail?"pointer":"not-allowed",flexShrink:0}}>📤送信</button>
+    <button onClick={()=>copy(r,tp)} title="テキストをコピー" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",flexShrink:0}}>📋</button>
+    <button onClick={()=>check(r,tp,!isSent(r,tp))} title="送信済みチェック(消し込み)" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:isSent(r,tp)?"#16a34a":"#e5e7eb",color:isSent(r,tp)?"#fff":"#475569",border:"none",cursor:"pointer",flexShrink:0}}>{isSent(r,tp)?"✅":"☑"}</button>
   </div>;
   const rowCard=(r)=>{const due=dueOf(r);const isOpen=open===r.resv;const others=TMPL.filter(tp=>due.indexOf(tp)<0);
     return <div key={r.resv} style={{border:"1px solid #e5e7eb",borderRadius:10,margin:"10px 12px",overflow:"hidden"}}>
@@ -20310,6 +20322,18 @@ function JalanTemplateList({sb}){
         <span style={{marginLeft:"auto",fontSize:14}}>{isOpen?"▲":"▼"}</span>
       </div>
       {isOpen&&<div>
+        <div style={{padding:"8px 12px",background:"#f8fafc",borderTop:"1px solid #f1f5f9"}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7}}>
+            {badge("🪪免許",r.licensed)}{badge("📄約款",r.termsSigned)}{r.hasPickup?badge("🚐送迎",r.pickupSet):null}{r.payUrl?badge("💳決済",r.paid):null}
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+            <a href={MYURL(r.tok)} target="_blank" rel="noopener" style={{fontSize:11,fontWeight:700,color:"#2563eb",textDecoration:"none",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 9px"}}>👤 マイページを確認</a>
+            {r.payUrl?<a href={r.payUrl} target="_blank" rel="noopener" style={{fontSize:11,fontWeight:700,color:"#166534",textDecoration:"none",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"4px 9px"}}>💳 Square決済リンク</a>:<span style={{fontSize:11,color:"#94a3b8"}}>💳 決済リンク未発行</span>}
+            <button onClick={()=>doStatus(r)} style={{fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:6,background:"#fff",color:"#475569",border:"1px solid #cbd5e1",cursor:"pointer"}}>📬 開封状況</button>
+          </div>
+          <div style={{fontSize:11,color:"#64748b",marginTop:5}}>✉️ 送信先：{r.mail||<span style={{color:"#b91c1c"}}>メール未登録（送信不可）</span>}</div>
+          {openMap[r.resv]&&<div style={{marginTop:6,fontSize:10,color:"#475569",background:"#fff",border:"1px solid #e5e7eb",borderRadius:6,padding:"6px 8px"}}>{openMap[r.resv].length===0?"（この予約からの送信履歴はありません）":openMap[r.resv].map((it,i)=><div key={i}>・{it.kind}：{it.opened?"👁 開封済":it.delivered?"✅ 到達":"📤 送信"}{it.sent_at?(" ("+String(it.sent_at).slice(5,16).replace("T"," ")+")"):""}</div>)}</div>}
+        </div>
         {due.length>0&&<div style={{padding:"5px 12px",fontSize:10,fontWeight:800,color:"#b91c1c",background:"#fff7ed"}}>▼ 今すぐ送るべきアクション</div>}
         {due.map(tp=>line(r,tp,true))}
         <div style={{padding:"5px 12px",fontSize:10,fontWeight:700,color:"#94a3b8",background:"#f8fafc"}}>その他のテンプレ（必要時にコピー可）</div>
@@ -20317,9 +20341,18 @@ function JalanTemplateList({sb}){
       </div>}
     </div>;};
   return <div>
-    <div style={{padding:"7px 12px",fontSize:11,color:"#475569",background:"#f8fafc",borderBottom:"1px solid #f1f5f9",lineHeight:1.6}}>じゃらん(HDM)予約ごとに<b>今必要な通知</b>を判定。予約を開く→<b style={{color:"#b91c1c"}}>🔴今すぐ送るべき</b>を<b style={{color:"#2563eb"}}>📋コピー</b>→HANDYMANのメールから手動送信→<b style={{color:"#16a34a"}}>☑</b>で消し込み。<b>🎫初回案内＝マイページURL＋Square決済URLをセットで1通</b>。</div>
+    <div style={{padding:"7px 12px",fontSize:11,color:"#475569",background:"#f8fafc",borderBottom:"1px solid #f1f5f9",lineHeight:1.6}}>じゃらん(HDM)予約ごとに<b>今必要な通知</b>を判定。予約を開く→<b style={{color:"#334155"}}>👁で内容確認</b>→<b style={{color:"#dc2626"}}>📤送信</b>で <b>reserve@rent-handyman.com</b> から顧客へ直接メール送信。各予約で<b>マイページ・Square決済リンク・免許/約款/送迎/決済の状況・📬開封状況</b>を確認できます。<b style={{color:"#2563eb"}}>📋</b>はコピー（手動送信用）・<b style={{color:"#16a34a"}}>☑</b>は消し込み。</div>
     <div style={{padding:"8px 12px",fontSize:13,fontWeight:800,color:totalDue?"#b91c1c":"#166534"}}>{totalDue?("🔴 要対応 "+totalDue+" 件"):"✅ 要対応なし"}<span style={{fontWeight:600,color:"#94a3b8",fontSize:11,marginLeft:8}}>（じゃらん {rows.length}件・出発-14〜+60日）</span></div>
     {sorted.map(rowCard)}
+    {preview&&<div onClick={()=>setPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:"14px 14px 0 0",width:"100%",maxWidth:640,maxHeight:"88vh",overflow:"auto",padding:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><b style={{fontSize:14}}>{preview.tp.ico} {preview.tp.l}</b><button onClick={()=>setPreview(null)} style={{marginLeft:"auto",fontSize:12,padding:"4px 10px",borderRadius:6,border:"1px solid #cbd5e1",background:"#fff",cursor:"pointer"}}>閉じる</button></div>
+        <div style={{fontSize:11,color:"#475569",marginBottom:4}}>宛先：<b>{preview.r.name} 様</b> &lt;{preview.to||"メール未登録"}&gt;　／　送信元：reserve@rent-handyman.com</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#0f172a",background:"#f8fafc",borderRadius:6,padding:"6px 8px",marginBottom:6}}>件名：{preview.subject}</div>
+        <pre style={{fontSize:12,color:"#0f172a",whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:10,margin:0,fontFamily:"inherit"}}>{preview.text}</pre>
+        <button onClick={()=>{const p=preview;setPreview(null);doSend(p.r,p.tp);}} disabled={!preview.to} style={{width:"100%",marginTop:10,fontSize:13,fontWeight:800,padding:"11px",borderRadius:8,background:preview.to?"#dc2626":"#e5e7eb",color:preview.to?"#fff":"#94a3b8",border:"none",cursor:preview.to?"pointer":"not-allowed"}}>📤 この内容で {preview.r.name} 様へ送信</button>
+      </div>
+    </div>}
   </div>;
 }
 
@@ -23004,7 +23037,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.258-BT";
+const APP_VERSION="v1.0.259-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
