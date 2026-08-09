@@ -1,8 +1,8 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>BUDDICA TOURISM ご利用ガイド｜高松空港店</title>
-<!-- guide-v: 2026-08-09 免許証アップロードのファイル入力からcapture属性を削除（カメラ強制→ライブラリ/ファイルも選択可に） -->
-<meta name="guide-ver" content="2026-08-09-lic-nofcapture">
+<!-- guide-v: 2026-08-09b 運転者追加で選択済ファイルが消えない（行だけ追記・全体再描画しない）/免許証capture削除 -->
+<meta name="guide-ver" content="2026-08-09b-lic-add-nowipe">
 
 <style>
 :root{--navy:#0f1b3d;--gold:#9a7b2e;--ink:#1a1f2b;--line:#d9dee7;--ok:#15803d;--sub:#5b6b7b;--bg:#0e0e12;--or:#ee6a1c;--or-d:#c85a12;}
@@ -702,25 +702,35 @@ function renderLicCard(cnt){
   if(la){ if(done||RO||!LIC_READY){ la.style.display='none'; } else { la.innerHTML='<div class="la-ic">🪪</div><div class="la-tx"><b>⚠️ '+T.a_title+'</b><span>'+T.a_body+'</span></div><div class="la-go">'+T.a_btn+'</div>'; la.style.display='flex'; } }
   var body=document.getElementById('licBody');
   var rows='';
-  var backLabel={ja:'（免許証 裏面）',en:'(License — Back)',zh:'（駕照 背面）',ko:'（면허증 뒷면）'}[LANG]||'（免許証 裏面）';
-  for(var i=0;i<LIC_ROWS;i++){
-    rows+='<div style="margin-bottom:14px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px">'
-      +'<div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+T.driver+(i+1)+'</div>'
-      +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+T.front+'</div>'
-      +'<input type="file" accept="image/*" id="licf'+i+'" style="width:100%;font-size:14px;margin-bottom:9px">'
-      +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+backLabel+'</div>'
-      +'<input type="file" accept="image/*" id="licb'+i+'" style="width:100%;font-size:14px"></div>';
-  }
+  for(var i=0;i<LIC_ROWS;i++){ rows+=_licRowHTML(i); }
   body.innerHTML=(done
       ?'<div style="background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;padding:11px 13px;margin-bottom:10px;color:#15803d;font-weight:800;font-size:14px">'+T.done+'<div style="font-weight:600;font-size:12px;margin-top:3px">'+T.done2+'</div></div>'
       :'<div style="font-size:13px;color:#444;margin-bottom:10px;line-height:1.6">'+T.desc+'</div>')
-    +rows
-    +'<button type="button" onclick="licAddRow()" style="background:none;border:none;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer;padding:4px 0">'+T.add+'</button>'
+    +'<div id="licRows">'+rows+'</div>'
+    +'<button type="button" id="licAddBtn" onclick="licAddRow()" style="background:none;border:none;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer;padding:4px 0">'+T.add+'</button>'
     +'<button type="button" id="licUpBtn" onclick="licUpload()" style="display:block;width:100%;margin-top:10px;background:#0F1F45;color:#fff;font-weight:800;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer">'+T.upbtn+'</button>'
     +'<div id="licMsg" style="font-size:12px;margin-top:8px;text-align:center"></div>'
     +'<div style="font-size:11px;color:#8a94a0;margin-top:8px">'+T.note+'</div>';
 }
-function licAddRow(){ LIC_ROWS++; renderLicCard(); }
+function _licRowHTML(i){
+  var T=_lict();
+  var backLabel={ja:'（免許証 裏面）',en:'(License — Back)',zh:'（駕照 背面）',ko:'（면허증 뒷면）'}[LANG]||'（免許証 裏面）';
+  return '<div style="margin-bottom:14px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px">'
+    +'<div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+T.driver+(i+1)+'</div>'
+    +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+T.front+'</div>'
+    +'<input type="file" accept="image/*" id="licf'+i+'" style="width:100%;font-size:14px;margin-bottom:9px">'
+    +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+backLabel+'</div>'
+    +'<input type="file" accept="image/*" id="licb'+i+'" style="width:100%;font-size:14px"></div>';
+}
+// 選択済みファイルを消さずに運転者行だけ追記（全体再描画しない）
+function licAddRow(){
+  var wrap=document.getElementById('licRows');
+  if(!wrap){ LIC_ROWS++; renderLicCard(); return; }
+  var i=LIC_ROWS; LIC_ROWS++;
+  var div=document.createElement('div');
+  div.innerHTML=_licRowHTML(i);
+  wrap.appendChild(div.firstChild);
+}
 async function licUpload(){
   var T=_lict();
   if(RO){ alert(T.ro); return; }
