@@ -20238,9 +20238,11 @@ function JalanTemplateList({sb}){
   const [rows,setRows]=React.useState(null);
   const [busy,setBusy]=React.useState(false);
   const [open,setOpen]=React.useState(null);
+  const [tmpls,setTmpls]=React.useState(null);  // ★DB単一ソース hdm_tkm_templates（key→body）。無ければ下のbuildにフォールバック
   const MYURL=(tok)=>"https://nosh2318.github.io/spk-task/my-tkm.html?t="+encodeURIComponent(tok||"");
   const HDM="HANDYMAN 高松空港店";
-  const FOOT="\n\n──────────────\n"+HDM+"\nお問い合わせ：reserve@rent-handyman.jp（9:00〜19:00）";
+  const FOOT="\n\n──────────────\n"+HDM+"\nお問い合わせ：reserve@rent-handyman.com（9:00〜19:00）";
+  const fill=(body,r)=>{const pb=(tmpls&&tmpls._payblock&&r.payUrl)?tmpls._payblock.replace(/\{amount\}/g,yen(r.price)).replace(/\{pay_url\}/g,r.payUrl):"";const ft=(tmpls&&tmpls._footer)?("\n\n"+tmpls._footer):FOOT;return String(body).replace(/\{name\}/g,r.name||"お客様").replace(/\{mypage\}/g,MYURL(r.tok)).replace(/\{amount\}/g,yen(r.price)).replace(/\{pay_url\}/g,r.payUrl||"").replace(/\{start\}/g,r.start||"").replace(/\{payblock\}/g,pb).replace(/\{footer\}/g,ft);};
   const yen=(n)=>"¥"+Number(n||0).toLocaleString();
   const PAYBLK=(r)=>r.payUrl?("【事前決済のお願い】\n当店ではお待ち時間・待機時間の解消のため事前決済をお願いしております。\nお支払い金額："+yen(r.price)+"\n▼ お支払い（クレジットカード）\n"+r.payUrl+"\n※ ご出発3日前の19:00までにお願いいたします。\n\n"):"";
   const TMPL=[
@@ -20282,7 +20284,8 @@ function JalanTemplateList({sb}){
       return {resv:r.id,name:r.name||"",tok:r.mypage_token||"",mail:r.mail||"",start:r.start_date,end:r.end_date,price:r.price,payUrl:r.pay_url,paid:!!r.paid||payM[r.id]==="paid",licensed:!!licM[r.id],termsSigned:!!termM[r.id],hasPickup:hasPickup,pickupSet:!!r.pickup_time,d2s:(d2s==null?999:d2s),d2e:(de==null?-999:-de),sent:doneSet};}));
   },[sb]);
   React.useEffect(()=>{load();},[load]);
-  const copy=async(r,tp)=>{const txt=tp.build(r);try{await navigator.clipboard.writeText(txt);alert("📋 「"+tp.l+"」をコピーしました。\nメールに貼り付けて "+(r.mail||"お客様")+" 宛に送信→送信したら ☑ で消し込みしてください。");}catch(e){alert("コピー失敗");}};
+  React.useEffect(()=>{if(!sb)return;(async()=>{try{const{data}=await sb.from("hdm_tkm_templates").select("key,body");const m={};(data||[]).forEach(t=>{m[t.key]=t.body;});setTmpls(m);}catch(e){}})();},[sb]);
+  const copy=async(r,tp)=>{const txt=(tmpls&&tmpls[tp.key])?fill(tmpls[tp.key],r):tp.build(r);try{await navigator.clipboard.writeText(txt);alert("📋 「"+tp.l+"」をコピーしました。\nメールに貼り付けて "+(r.mail||"お客様")+" 宛に送信→送信したら ☑ で消し込みしてください。");}catch(e){alert("コピー失敗");}};
   const check=async(r,tp,on)=>{if(busy)return;setBusy(true);try{if(on){await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"送信済(手動)"});}else{await sb.from("bt_line_sends").delete().eq("resv_no",r.resv).eq("action","tmpl:"+tp.key);}await load();}catch(e){alert("記録失敗:"+e.message);}setBusy(false);};
   if(rows===null)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"読み込み中…");
   if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象のじゃらん予約がありません（出発 -14〜+60日）。");
@@ -22996,7 +22999,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.251-BT";
+const APP_VERSION="v1.0.252-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
