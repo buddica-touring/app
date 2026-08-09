@@ -21166,11 +21166,10 @@ function LicenseBadge({resvNo,size,token,ttype}){
 function JalanPayBadge({resvNo,ota,size}){
   const [st,setSt]=React.useState(null);
   React.useEffect(()=>{ const update=()=>{ const m=window._btPayMap||{}; setSt(resvNo&&m[resvNo]?m[resvNo]:null); }; update(); window.addEventListener("btPayUpdate",update); return ()=>window.removeEventListener("btPayUpdate",update); },[resvNo]);
-  if(ota!=="じゃらん")return null;               // じゃらん(HDM事前決済)のみ
-  if(!st)return null;                            // 決済リンク未発行＝表示しない
+  if(!st)return null;                            // 決済リンク未発行＝表示しない（発行済の予約のみ表示）
   const s={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
-  if(st.paid)return React.createElement("span",{title:"じゃらん事前決済 入金済み",style:{...s,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"}},"💳入金済");
-  if(st.payUrl)return React.createElement("a",{href:st.payUrl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"じゃらん事前決済 未決済（クリックで決済リンクを開く）",style:{...s,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171",textDecoration:"none"}},"💳未決済");
+  if(st.paid)return React.createElement("span",{title:"事前決済 入金済み",style:{...s,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"}},"💳入金済");
+  if(st.payUrl)return React.createElement("a",{href:st.payUrl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"事前決済 未決済（クリックで決済リンクを開く）",style:{...s,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171",textDecoration:"none"}},"💳未決済");
   return null;
 }
 function SignBadge({resvNo,kind,size,token,ttype}){
@@ -21248,7 +21247,7 @@ function App(){
   useEffect(()=>{if(!SB_ENABLED)hmReload().catch(e=>console.warn("[HM local]",e));},[]);
   useEffect(()=>{ if(!sb)return; const fetchLic=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("license_uploads").select("reservation_id,cnt").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.reservation_id]=r.cnt||1; }); window._licenseMap=m; window.dispatchEvent(new Event("licenseUpdate")); }catch(e){} }; fetchLic(); const t=setInterval(()=>{ if(document.visibilityState==="visible")fetchLic(); }, 3*60*1000); return ()=>clearInterval(t); },[]);
   // ★じゃらん決済状況(bt_reservations: ota=じゃらん の paid/pay_url) → window._btPayMap（決済バッジ用・3分毎）
-  useEffect(()=>{ if(!sb)return; const fetchPay=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("bt_reservations").select("id,paid,pay_url").eq("ota","じゃらん").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.id]={paid:!!r.paid,payUrl:r.pay_url||""}; }); window._btPayMap=m; window.dispatchEvent(new Event("btPayUpdate")); }catch(e){} }; fetchPay(); const tp=setInterval(()=>{ if(document.visibilityState==="visible")fetchPay(); }, 3*60*1000); return ()=>clearInterval(tp); },[]);
+  useEffect(()=>{ if(!sb)return; const fetchPay=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("bt_reservations").select("id,paid,pay_url,ota").not("pay_url","is",null).range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.id]={paid:!!r.paid,payUrl:r.pay_url||""}; }); window._btPayMap=m; window.dispatchEvent(new Event("btPayUpdate")); }catch(e){} }; fetchPay(); const tp=setInterval(()=>{ if(document.visibilityState==="visible")fetchPay(); }, 3*60*1000); return ()=>clearInterval(tp); },[]);
   useEffect(()=>{ if(!sb)return; const fetchSign=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("handover_signatures").select("reservation_id,sign_type").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ if(!m[r.reservation_id])m[r.reservation_id]={}; if(r.sign_type==="terms_agree")m[r.reservation_id].terms=true; if(r.sign_type==="damage_approval")m[r.reservation_id].damage=true; }); window._signMap=m; window.dispatchEvent(new Event("signUpdate")); }catch(e){} }; fetchSign(); const t2=setInterval(()=>{ if(document.visibilityState==="visible")fetchSign(); }, 3*60*1000); return ()=>clearInterval(t2); },[]);
   // ★ チームカレンダーイベントをタスクサマリーに表示するため定期取得
   useEffect(()=>{
@@ -23003,7 +23002,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.254-BT";
+const APP_VERSION="v1.0.255-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
