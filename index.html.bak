@@ -20556,7 +20556,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     const fl=fleet||{};const codes=new Set((vehicles||[]).filter(v=>v&&v.type).map(v=>v.code));
     const revOf=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
-    const seen=new Set();let totalCount=0,totalSales=0;const byMonth={},byCh={};
+    const seen=new Set();let totalCount=0,totalSales=0;const byMonth={},byCh={},curCh={};const curYM=today.slice(0,7);
     for(const r of data){
       if(!r||!r.id||seen.has(r.id))continue;seen.add(r.id);
       if(r.status==="cancelled"||(r.status&&String(r.status).includes("キャンセル")))continue;
@@ -20568,10 +20568,11 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
       totalCount++;totalSales+=rev;
       if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].count++;byMonth[ym].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;
+      if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;} // 当月返却のチャネル別(予約単価用)
     }
     // 予約外売上を加算（フィルタ無しの時のみ・月別/合計/その他チャネル・件数は増やさない）
     if(otaF==="all"&&!s){Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].sales+=a;});if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;totalSales+=extraSales.total;}}
-    return {totalCount,totalSales,months:Object.keys(byMonth).sort(),byMonth,byCh};
+    return {totalCount,totalSales,months:Object.keys(byMonth).sort(),byMonth,byCh,curYM,curCh};
   },[data,fleet,vehicles,otaF,s,extraSales]);
   // ★ カラム定義（マスターに準拠）
   const cols=[
@@ -20656,6 +20657,10 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
       <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",width:"100%"}}>
         <span style={{fontSize:10,color:"#94a3b8",fontWeight:700}}>CVチャネル(グロス)：</span>
         {["OTA","HP","その他"].map(ch=>{const c=summary.byCh&&summary.byCh[ch]||{count:0,sales:0};const pct=summary.totalSales>0?Math.round(c.sales/summary.totalSales*100):0;return <span key={ch} style={{fontSize:10,background:"#fef9c3",border:"1px solid #fde68a",borderRadius:6,padding:"2px 7px",color:"#92400e",whiteSpace:"nowrap"}}><b>{ch} {pct}%</b>　{c.count}件/¥{c.sales.toLocaleString()}</span>;})}
+      </div>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",width:"100%"}}>
+        <span style={{fontSize:10,color:"#94a3b8",fontWeight:700}}>当月返却({summary.curYM})予約単価：</span>
+        {["HP","OTA"].map(ch=>{const c=summary.curCh&&summary.curCh[ch]||{count:0,sales:0};const unit=c.count?Math.round(c.sales/c.count):0;return <span key={ch} style={{fontSize:10,background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:6,padding:"2px 7px",color:"#3730a3",whiteSpace:"nowrap"}}><b>{ch} ¥{unit.toLocaleString()}</b>　{c.count}件/¥{c.sales.toLocaleString()}</span>;})}
       </div>
     </div>
     {/* ★ テーブル（マスター準拠） */}
@@ -23077,7 +23082,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.265-BT";
+const APP_VERSION="v1.0.266-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24834,7 +24839,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
       const rowsN=units.length+5;
-      let estH=(120+135+70+40+ (30) + 170 + 200 + (50+rowsN*30+40) + 200 + 220)*SCALE;
+      let estH=(120+170+70+40+ (30) + 170 + 200 + (50+rowsN*30+40) + 200 + 220)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24874,6 +24879,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         ctx.font="bold "+S(12)+"px sans-serif";ctx.fillStyle="#334155";xx=M;ctx.fillText("CVチャネル",xx,y);xx+=S(64);
         ctx.font=S(12)+"px sans-serif";
         ["OTA","HP","その他"].forEach(ch=>{const c=(repSum.byCh&&repSum.byCh[ch])||{count:0,sales:0};const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;const s=ch+" "+pct+"%（"+c.count+"件/¥"+c.sales.toLocaleString()+"）";ctx.fillStyle="#92400e";ctx.fillText(s,xx,y);xx+=ctx.measureText(s).width+S(24);});
+        y+=S(20);
+        // 当月返却 予約単価（HP/OTA・予約売上÷件数）
+        ctx.font="bold "+S(12)+"px sans-serif";ctx.fillStyle="#334155";xx=M;ctx.fillText("当月("+repSum.curYM+")予約単価",xx,y);xx+=S(150);
+        ctx.font=S(12)+"px sans-serif";
+        ["HP","OTA"].forEach(ch=>{const c=(repSum.curCh&&repSum.curCh[ch])||{count:0,sales:0};const u=c.count?Math.round(c.sales/c.count):0;const s=ch+" ¥"+u.toLocaleString()+"（"+c.count+"件/¥"+c.sales.toLocaleString()+"）";ctx.fillStyle="#3730a3";ctx.fillText(s,xx,y);xx+=ctx.measureText(s).width+S(24);});
         y+=S(30);
       }
       // --- 🎯 月間目標（テーマ）: グループ目標 vs KPI積み上げ ---
@@ -25150,7 +25160,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
   const repSum=useMemo(()=>{
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
-    const byM={},byY={},byCh={};let total=0;
+    const curYM=(norm(date)||"").slice(0,7); // 当月＝レポート月（返却月ベース）
+    const byM={},byY={},byCh={},curCh={};let total=0;
     (data||[]).forEach(r=>{
       if(isCancel(r.status))return;
       const code=fl[r.id];if(!code||!codes.has(code))return;
@@ -25159,13 +25170,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].count++;byM[ym].sales+=rev;
       if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;total+=rev;
+      if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;} // 当月返却のチャネル別(予約単価=予約売上÷件数用)
     });
     // 予約外売上を加算（月別/年間/合計/その他チャネル。件数は予約件数のまま増やさない）
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
     if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total};
-  },[data,fleet,units,extraSales]);
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh};
+  },[data,fleet,units,extraSales,date]);
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
       <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
@@ -25192,6 +25204,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
           <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:4}}>CVチャネル構成比（グロス）</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {["OTA","HP","その他"].map(ch=>{const c=repSum.byCh&&repSum.byCh[ch]||{count:0,sales:0};const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;return <span key={ch} style={{fontSize:10,background:"#fef9c3",border:"1px solid #fde68a",borderRadius:6,padding:"2px 8px",color:"#92400e",whiteSpace:"nowrap"}}><b>{ch} {pct}%</b>　{c.count}件 / ¥{c.sales.toLocaleString()}</span>;})}
+          </div>
+          <div style={{fontSize:11,fontWeight:700,color:"#64748b",margin:"8px 0 4px"}}>当月返却（{repSum.curYM}）予約単価＝予約売上÷件数</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {["HP","OTA"].map(ch=>{const c=repSum.curCh&&repSum.curCh[ch]||{count:0,sales:0};const unit=c.count?Math.round(c.sales/c.count):0;return <span key={ch} style={{fontSize:10,background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:6,padding:"2px 8px",color:"#3730a3",whiteSpace:"nowrap"}}><b>{ch} 予約単価 ¥{unit.toLocaleString()}</b>　{c.count}件 / ¥{c.sales.toLocaleString()}</span>;})}
           </div>
         </div>
       </div>
