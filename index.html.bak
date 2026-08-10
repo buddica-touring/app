@@ -20548,7 +20548,10 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
   };
 
   const cxlCount=useMemo(()=>data.filter(r=>r.status==="cancelled").length,[data]);
-  // ★ 2026-08-10 集計サマリー：合計/月別 件数・売上。★日報の実績と完全一致＝revOf(基本+付帯-割引/なければprice)×返却月×配車済(既知車両)×非キャンセル（経営タブ同一）。OTA/検索で絞込可。
+  // ★ 予約外売上（bt_accounting type=extra_sales）月別＝TOP Summary/経営タブの合計売上に一致させる
+  const [extraSales,setExtraSales]=React.useState({byM:{},total:0});
+  React.useEffect(()=>{if(!sb)return;let alive=true;(async()=>{try{const{data:ex}=await sb.from("bt_accounting").select("date,amount,type").eq("type","extra_sales");if(alive&&ex){const byM={};let total=0;ex.forEach(r=>{const d=String(r.date||"").slice(0,10);if(!d)return;const a=Number(r.amount)||0;byM[d.slice(0,7)]=(byM[d.slice(0,7)]||0)+a;total+=a;});setExtraSales({byM,total});}}catch(e){}})();return()=>{alive=false;};},[]);
+  // ★ 2026-08-10 集計サマリー：合計/月別 件数・売上 ＝ 予約(revOf×返却月×配車済×非キャンセル) ＋ 予約外売上（OTA/検索無しの時）。経営タブ・日報と一致。
   const summary=useMemo(()=>{
     const fl=fleet||{};const codes=new Set((vehicles||[]).filter(v=>v&&v.type).map(v=>v.code));
     const revOf=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
@@ -20566,8 +20569,10 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
       if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].count++;byMonth[ym].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;
     }
+    // 予約外売上を加算（フィルタ無しの時のみ・月別/合計/その他チャネル・件数は増やさない）
+    if(otaF==="all"&&!s){Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].sales+=a;});if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;totalSales+=extraSales.total;}}
     return {totalCount,totalSales,months:Object.keys(byMonth).sort(),byMonth,byCh};
-  },[data,fleet,vehicles,otaF,s]);
+  },[data,fleet,vehicles,otaF,s,extraSales]);
   // ★ カラム定義（マスターに準拠）
   const cols=[
     {h:"状態",w:64,k:"status"},
@@ -23070,7 +23075,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.263-BT";
+const APP_VERSION="v1.0.264-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25136,7 +25141,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       {(()=>{const df=(m.sales||0)-tgtSalesOf(c);return<td style={{...td,...gsep,fontWeight:800,color:df>=0?"#059669":"#dc2626"}}>{(df>=0?"+¥":"−¥")+Math.abs(df).toLocaleString()}</td>;})()}
     </tr>);};
 
-  // ★ 2026-08-10 上段サマリー：年間/月別 件数・売上。★日報の実績と完全一致させる＝revOf(基本+付帯-割引/なければprice)×返却月×配車済(units)×非キャンセル（経営タブと同一）
+  // ★ 予約外売上（bt_accounting type=extra_sales）を月別/年間で取得＝TOP Summary/経営タブの合計売上に一致させる
+  const [extraSales,setExtraSales]=React.useState({byM:{},byY:{},total:0});
+  React.useEffect(()=>{if(!sb)return;let alive=true;(async()=>{try{const{data:ex}=await sb.from("bt_accounting").select("date,amount,type").eq("type","extra_sales");if(alive&&ex){const byM={},byY={};let total=0;ex.forEach(r=>{const d=String(r.date||"").slice(0,10);if(!d)return;const a=Number(r.amount)||0;byM[d.slice(0,7)]=(byM[d.slice(0,7)]||0)+a;byY[d.slice(0,4)]=(byY[d.slice(0,4)]||0)+a;total+=a;});setExtraSales({byM,byY,total});}}catch(e){}})();return()=>{alive=false;};},[]);
+  // ★ 2026-08-10 上段サマリー：年間/月別 件数・売上 ＝ 予約(revOf×返却月×配車済×非キャンセル) ＋ 予約外売上（TOP Summary/経営タブと一致）
   const repSum=useMemo(()=>{
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
@@ -25150,8 +25158,12 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;total+=rev;
     });
+    // 予約外売上を加算（月別/年間/合計/その他チャネル。件数は予約件数のまま増やさない）
+    Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
+    Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
+    if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
     return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total};
-  },[data,fleet,units]);
+  },[data,fleet,units,extraSales]);
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
       <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
