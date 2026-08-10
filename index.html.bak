@@ -23127,7 +23127,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.276-BT";
+const APP_VERSION="v1.0.277-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25175,7 +25175,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;} // 当月返却のチャネル別(予約単価=予約売上÷件数用)
       if(rd===curDay){dToday.count++;dToday.sales+=rev;}else if(rd===prevDay){dPrev.count++;dPrev.sales+=rev;}
     });
-    const dayCmp={today:dToday,prev:dPrev,dCount:dToday.count-dPrev.count,dSales:dToday.sales-dPrev.sales,prevDay};
+    // 前日比＝当月累計が前日から増えた分＝選択日に返却された分（returnDate==当日）＝累計(≤当日)−累計(≤前日)
+    const dayCmp={today:dToday,prev:dPrev,dCount:dToday.count,dSales:dToday.sales,prevDay};
     // 予約外売上を加算（月別/年間/合計/その他チャネル。件数は予約件数のまま増やさない）
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
