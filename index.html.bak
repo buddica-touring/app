@@ -4278,6 +4278,9 @@ function otaAbbr(o){if(o==null||o==="")return "-";const k=String(o).trim();retur
 function custPageUrl(token,ota,suffix){ if(!token)return""; const jl=String(ota||"").indexOf("じゃらん")>=0; const base=jl?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
 function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{})[resvNo]; return custPageUrl(token,ota,suffix); }
 function OBadge({ota}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);const o=OTA[k];const lbl=otaAbbr(ota);if(!o&&(!lbl||lbl==="-"))return null;const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
+/* ★2026-08-10 HANDYMAN(じゃらん)予約の識別：送迎プラカード・問合せ・決済ツールが異なるため要注意。紺バッジ＋薄紺背景で警告。BUDDICAは無印。 */
+function isHdmOta(o){const k=String(o||"").trim();return k==="J"||k==="じゃらん"||k.indexOf("じゃらん")>=0;}
+function HdmBadge({ota,size}){if(!isHdmOta(ota))return null;return <span title="HANDYMAN予約（じゃらん）— 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意" style={{background:"#1e3a8a",color:"#fff",padding:"1px 6px",borderRadius:4,fontSize:size||10,fontWeight:800,border:"1px solid #1e3a8a",letterSpacing:.3}}>HDM</span>;}
 
 /* Google Maps リンク生成 */
 function mapsUrl(place){if(!place)return "";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(place+" 高松");}
@@ -17578,16 +17581,17 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                   const ts=typeStyle(t.type);
                   const vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;
                   const _no=vn?vn.no:t.plateNo;const _vnm=vn?vn.name:"";
-                  return <div key={t._id} onClick={()=>{if(t.reservationId){setEditResId(t.reservationId);setEditBlock(null);setOpView("edit");}else{setResDetailPopup(t);}}} style={{border:"1px solid #e2e8f0",borderLeft:"4px solid "+ts.c,borderRadius:8,marginBottom:6,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:"pointer",opacity:t.done?.5:1,background:t.done?"#fafafa":"#fff",padding:isMob?"7px 10px":"6px 12px"}}>
+                  return <div key={t._id} onClick={()=>{if(t.reservationId){setEditResId(t.reservationId);setEditBlock(null);setOpView("edit");}else{setResDetailPopup(t);}}} style={{border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderLeft:"4px solid "+ts.c,borderRadius:8,marginBottom:6,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:"pointer",opacity:t.done?.5:1,background:t.done?"#fafafa":(isHdmOta(t.ota)?"#eef2ff":"#fff"),padding:isMob?"7px 10px":"6px 12px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span style={{flexShrink:0,fontSize:isMob?15:14,fontWeight:900,color:"#fff",background:ts.c,borderRadius:6,padding:isMob?"3px 0":"2px 0",width:isMob?58:54,textAlign:"center",letterSpacing:.5}}>{t.type}</span>
                       <span style={{flexShrink:0,fontSize:isMob?17:15,fontWeight:800,color:"#0f172a",fontFamily:"monospace"}} title="予約時間">{resolvedT}</span>
                       {(()=>{const _r=t.reservationId?(reservations||[]).find(x=>x.id===t.reservationId):null;const pt=_r&&_r.pickupTime;return (pt&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?<span title="お客様が選択したお迎え希望時間（送迎）" style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:2,fontSize:isMob?12:11,fontWeight:900,color:"#fff",background:"#ee6a1c",borderRadius:6,padding:isMob?"3px 8px":"2px 7px"}}>🚐<span style={{fontFamily:"monospace"}}>{pt}</span></span>:null;})()}
                       <div style={{flex:1}}/>
-                      {_no?<span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:6,padding:isMob?"3px 9px":"2px 8px"}}>🚗<span style={{fontFamily:"monospace",fontSize:isMob?17:15,fontWeight:900,color:"#065f46"}}>{_no}</span>{_vnm&&<span style={{fontSize:isMob?10:9,fontWeight:700,color:"#047857"}}>{_vnm}</span>}</span>:(t.type!=="来店"&&t.type!=="返却"&&t.type!=="洗車"?<span style={{flexShrink:0,fontSize:isMob?11:10,fontWeight:800,color:"#fff",background:"#dc2626",borderRadius:5,padding:"2px 8px"}}>未配車</span>:null)}
+                      {_no?<span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:6,padding:isMob?"3px 9px":"2px 8px"}}>🚗{_vnm&&<span style={{fontSize:isMob?12:11,fontWeight:800,color:"#047857"}}>{_vnm}</span>}<span style={{fontFamily:"monospace",fontSize:isMob?17:15,fontWeight:900,color:"#065f46"}}>{_no}</span></span>:(t.type!=="来店"&&t.type!=="返却"&&t.type!=="洗車"?<span style={{flexShrink:0,fontSize:isMob?11:10,fontWeight:800,color:"#fff",background:"#dc2626",borderRadius:5,padding:"2px 8px"}}>未配車</span>:null)}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontWeight:700,fontSize:isMob?14:13,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
+                      {t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
                       {t.reservationId?(()=>{const _r=(reservations||[]).find(x=>x.id===t.reservationId);const _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{fontSize:14,textDecoration:"none",flexShrink:0}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                       {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600}}>{t.memo}</span>}
                       {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>👥{ppl}</span>}
@@ -22292,7 +22296,7 @@ function App(){
                       try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
                     }
                   };
-                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid #e2e8f0",borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":"#fff",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
+                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
                     <span
                       style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
                       onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone(t);}}
@@ -22300,7 +22304,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?<span style={{display:"inline-flex",alignItems:"center",gap:2,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>:null}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -22434,7 +22438,7 @@ function App(){
                       try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
                     }
                   };
-                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid #e2e8f0",borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":"#fff",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
+                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
                     <span
                       style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
                       onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone2(t);}}
@@ -22442,7 +22446,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?<span style={{display:"inline-flex",alignItems:"center",gap:2,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>:null}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -23154,7 +23158,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.282-BT";
+const APP_VERSION="v1.0.284-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24740,6 +24744,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
   const previewCvsRef=React.useRef(null);                  // プレビュー用に保持したcanvas
   // ★ 全車両ランキング用KPI（bt_vehicle_monthly_kpi）＝車両ランキングタブと同一計算をPDF下段に反映
   const [rankKpi,setRankKpi]=React.useState([]);
+  const [txtOut,setTxtOut]=React.useState(null);   // テキスト日報（コピー用）
   React.useEffect(()=>{
     if(!sb)return;let alive=true;
     (async()=>{try{const{data:k}=await sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,year_month,active");if(alive)setRankKpi(k||[]);}catch(e){console.warn("[日報ランキングKPI]",e);}})();
@@ -25206,6 +25211,72 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
     return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,dayCmp};
   },[data,fleet,units,extraSales,date]);
+  // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
+  const buildDailyText=()=>{
+    const dObj=new Date(norm(date)+"T00:00:00");
+    const wd=["日","月","火","水","木","金","土"][isNaN(dObj)?0:dObj.getDay()];
+    const isW=(ch)=>/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦　-ヿ㐀-䶿一-鿿]/.test(ch);
+    const dw=(s)=>{let w=0;for(const c of String(s))w+=isW(c)?2:1;return w;};
+    const pR=(s,w)=>{s=String(s);return s+" ".repeat(Math.max(0,w-dw(s)));};
+    const pL=(s,w)=>{s=String(s);return " ".repeat(Math.max(0,w-dw(s)))+s;};
+    const yen=(n)=>"¥"+Number(n||0).toLocaleString();
+    const fmtD=(n,y)=>(n>0?"+":(n<0?"−":"±"))+(y?yen(Math.abs(n)):(Math.abs(n)+"件"));
+    const L=[],bar="─".repeat(56);
+    L.push("BUDDICA TOURISM 日報   "+norm(date)+" ("+wd+")");
+    L.push("━".repeat(56));L.push("");
+    // 件数・売上サマリー
+    const curYr=repSum.curYM.slice(0,4);
+    const yrD=repSum.byY[curYr]||{count:0,sales:0};
+    const curM=repSum.byM[repSum.curYM]||{count:0,sales:0};
+    const hp=(repSum.curCh&&repSum.curCh["HP"])||{count:0,sales:0};
+    const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
+    const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0;
+    const dc=repSum.dayCmp||{dCount:0,dSales:0};
+    L.push("■ 件数・売上サマリー（返却月ベース・実績）");
+    const lw=13,vw=14;
+    L.push(pR("  項目",lw)+pL(curYr+"累計",vw)+pL("当月"+repSum.curYM.slice(5)+"月",vw)+pL("HP単価",vw)+pL("OTA単価",vw));
+    L.push(pR("  件数/単価",lw)+pL(yrD.count+"件",vw)+pL(curM.count+"件",vw)+pL(yen(hpU),vw)+pL(yen(otaU),vw));
+    L.push(pR("  売上/内訳",lw)+pL(yen(yrD.sales),vw)+pL(yen(curM.sales),vw)+pL(hp.count+"件/"+yen(hp.sales),vw)+pL(ota.count+"件/"+yen(ota.sales),vw));
+    L.push(pR("  前日比(当月)",lw)+pL("",vw)+pL(fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true),vw));
+    L.push("");
+    // 月別
+    L.push("■ 月別 推移");
+    const mos=repSum.months;
+    if(mos.length){
+      L.push(pR("  月",8)+mos.map(ym=>pL(ym.slice(5)+"月",13)).join(""));
+      L.push(pR("  件数",8)+mos.map(ym=>pL(repSum.byM[ym].count+"件",13)).join(""));
+      L.push(pR("  売上",8)+mos.map(ym=>pL(yen(repSum.byM[ym].sales),13)).join(""));
+    }else L.push("  データなし");
+    L.push("");
+    // CVチャネル
+    L.push("■ CVチャネル構成比（グロス）");
+    ["OTA","HP","その他"].forEach(ch=>{const c=repSum.byCh[ch];if(!c||(!c.sales&&!c.count))return;const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;L.push("  "+pR(ch,8)+pL(pct+"%",5)+"   "+c.count+"件 / "+yen(c.sales));});
+    L.push("");
+    // 月間目標
+    L.push("■ 月間目標（テーマ）");
+    const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
+    const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt;
+    L.push(pR("  クラス",13)+pL("達成率",8)+pL("目標",15)+pL("実績",15));
+    [["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].forEach(([nm,g,a])=>{const r=g>0?Math.round(a/g*100):0;L.push(pR("  "+nm,13)+pL(r+"%",8)+pL(yen(g),15)+pL(yen(a),15));});
+    L.push("");
+    // ランキング
+    const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
+    L.push("■ 全車両ランキング（5項目評価・稼働率=配車表ルール）");
+    if(vr.rows&&vr.rows.length){
+      L.push(pR("  順",4)+pR("評",4)+pR("ｸﾗｽ",5)+pR("車両",14)+pL("予約",6)+pL("合計売上",12)+pL("稼働%",7)+pL("予想粗利",13));
+      vr.rows.slice(0,15).forEach((r,i)=>{
+        const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";
+        L.push("  "+pL(i+1,2)+pR(" "+r.rank,4)+pR(r.type||"-",5)+pR(veh,14)+pL((r.cnt||0)+"件",6)+pL(yen(Math.round(r.revTotal)),12)+pL(Math.round(r.utilPct)+"%",7)+pL((r.profit<0?"▲":"+")+yen(Math.abs(Math.round(r.profit))),13));
+      });
+      L.push("  ("+(vr.period||"-")+" / "+vr.months+"ヶ月)");
+    }else L.push("  データなし");
+    L.push("━".repeat(56));
+    return L.join("\n");
+  };
+  const copyDailyText=async()=>{
+    const t=buildDailyText();setTxtOut(t);
+    try{await navigator.clipboard.writeText(t);setSavedMsg("✅ コピーしました");setTimeout(()=>setSavedMsg(""),2500);}catch(e){}
+  };
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
       <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
@@ -25215,8 +25286,20 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         <button onClick={save} disabled={saving} style={{padding:"7px 16px",background:"#0F1F45",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"💾 保存"}</button>
         <button onClick={openPreview} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"👁 プレビュー"}</button>
         <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
+        <button onClick={copyDailyText} style={{padding:"7px 16px",background:"#0f766e",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📋 テキストコピー</button>
         {savedMsg&&<span style={{fontSize:12,fontWeight:700,color:savedMsg[0]==="✅"?"#059669":"#dc2626"}}>{savedMsg}</span>}
       </div>
+      {txtOut!=null&&<div onClick={()=>setTxtOut(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,padding:16,width:"min(760px,96vw)",maxHeight:"88vh",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <b style={{fontSize:15,color:"#0F1F45"}}>📋 テキスト日報</b>
+            <span style={{fontSize:11,color:"#64748b"}}>等幅フォントで桁が揃います（Slackはコードブロック推奨）</span>
+            <button onClick={async()=>{try{await navigator.clipboard.writeText(txtOut);setSavedMsg("✅ コピーしました");setTimeout(()=>setSavedMsg(""),2000);}catch(e){}}} style={{marginLeft:"auto",padding:"5px 12px",background:"#0f766e",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📋 再コピー</button>
+            <button onClick={()=>setTxtOut(null)} style={{padding:"5px 12px",background:"#e2e8f0",color:"#334155",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>✕ 閉じる</button>
+          </div>
+          <textarea readOnly value={txtOut} onFocus={e=>e.target.select()} style={{width:"100%",flex:1,minHeight:360,fontFamily:"ui-monospace,Menlo,Consolas,monospace",fontSize:12,lineHeight:1.5,border:"1px solid #cbd5e1",borderRadius:8,padding:12,whiteSpace:"pre",overflow:"auto",color:"#0f172a",background:"#f8fafc"}}/>
+        </div>
+      </div>}
       {/* ★ 2026-08-10 上段サマリー：年間・月別 件数/売上（日報実績と一致＝返却月×配車済×revOf） */}
       <div style={{marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
         <div style={{padding:"6px 10px",background:"#0F1F45",color:"#fff",fontSize:12,fontWeight:800}}>📊 件数・売上サマリー（返却月ベース・実績）</div>
