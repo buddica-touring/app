@@ -23127,7 +23127,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.275-BT";
+const APP_VERSION="v1.0.276-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24924,13 +24924,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const hp=(repSum.curCh&&repSum.curCh["HP"])||{count:0,sales:0};
         const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
         const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0;
+        const dcmp=repSum.dayCmp||{dCount:0,dSales:0};
         const cards=[
           {t:curYr+"年 累計",big:yrD.count+"件",sub:"¥"+yrD.sales.toLocaleString(),ac:"#0F1F45"},
-          {t:"当月 "+repSum.curYM,big:curM.count+"件",sub:"¥"+curM.sales.toLocaleString(),ac:"#059669"},
+          {t:"当月 "+repSum.curYM,big:curM.count+"件",sub:"¥"+curM.sales.toLocaleString(),ac:"#059669",delta:{dc:dcmp.dCount,ds:dcmp.dSales}},
           {t:"HP予約単価(当月)",big:"¥"+hpU.toLocaleString(),sub:hp.count+"件 / ¥"+hp.sales.toLocaleString(),ac:"#0284c7"},
           {t:"OTA予約単価(当月)",big:"¥"+otaU.toLocaleString(),sub:ota.count+"件 / ¥"+ota.sales.toLocaleString(),ac:"#d97706"}
         ];
-        const cw2=(innerW-S(36))/4,chH=S(92);
+        const fmtD=(n,yen)=>(n>0?"+":(n<0?"−":"±"))+(yen?("¥"+Math.abs(n).toLocaleString()):(Math.abs(n)+"件"));
+        const cw2=(innerW-S(36))/4,chH=S(110);
         cards.forEach((c,i)=>{
           const cx=M+(cw2+S(12))*i;
           ctx.fillStyle="#ffffff";ctx.fillRect(cx,y,cw2,chH);
@@ -24938,8 +24940,18 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
           ctx.fillStyle=c.ac;ctx.fillRect(cx,y,S(5),chH);
           ctx.textAlign="left";
           ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText(c.t,cx+S(14),y+S(22));
-          ctx.fillStyle=c.ac;ctx.font="bold "+S(26)+"px sans-serif";ctx.fillText(c.big,cx+S(14),y+S(56));
-          ctx.fillStyle="#475569";ctx.font=S(12)+"px sans-serif";ctx.fillText(c.sub,cx+S(14),y+S(80));
+          ctx.fillStyle=c.ac;ctx.font="bold "+S(26)+"px sans-serif";ctx.fillText(c.big,cx+S(14),y+S(54));
+          ctx.fillStyle="#475569";ctx.font=S(12)+"px sans-serif";ctx.fillText(c.sub,cx+S(14),y+S(76));
+          if(c.delta){
+            ctx.fillStyle="#94a3b8";ctx.font="bold "+S(10)+"px sans-serif";ctx.fillText("前日比",cx+S(14),y+S(97));
+            let dx=cx+S(54);
+            const dcC=c.delta.dc>0?"#059669":(c.delta.dc<0?"#dc2626":"#94a3b8");
+            const dsC=c.delta.ds>0?"#059669":(c.delta.ds<0?"#dc2626":"#94a3b8");
+            ctx.font="bold "+S(11)+"px sans-serif";
+            const t1=fmtD(c.delta.dc,false);ctx.fillStyle=dcC;ctx.fillText(t1,dx,y+S(97));dx+=ctx.measureText(t1).width+S(7);
+            ctx.fillStyle="#cbd5e1";ctx.fillText("/",dx,y+S(97));dx+=S(11);
+            const t2=fmtD(c.delta.ds,true);ctx.fillStyle=dsC;ctx.fillText(t2,dx,y+S(97));
+          }
         });
         y+=chH+S(30);
         // 月別 推移（数字カード＝件数・売上）
@@ -25147,7 +25159,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
     const curYM=(norm(date)||"").slice(0,7); // 当月＝レポート月（返却月ベース）
+    // 前日比用：選択日(当日)と前日の返却実績（返却日ベース）
+    const curDay=norm(date)||"";
+    const prevDay=(()=>{const d=new Date(curDay+"T00:00:00");if(isNaN(d))return"";d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");})();
     const byM={},byY={},byCh={},curCh={};let total=0;
+    let dToday={count:0,sales:0},dPrev={count:0,sales:0};
     (data||[]).forEach(r=>{
       if(isCancel(r.status))return;
       const code=fl[r.id];if(!code||!codes.has(code))return;
@@ -25157,12 +25173,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;total+=rev;
       if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;} // 当月返却のチャネル別(予約単価=予約売上÷件数用)
+      if(rd===curDay){dToday.count++;dToday.sales+=rev;}else if(rd===prevDay){dPrev.count++;dPrev.sales+=rev;}
     });
+    const dayCmp={today:dToday,prev:dPrev,dCount:dToday.count-dPrev.count,dSales:dToday.sales-dPrev.sales,prevDay};
     // 予約外売上を加算（月別/年間/合計/その他チャネル。件数は予約件数のまま増やさない）
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
     if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,dayCmp};
   },[data,fleet,units,extraSales,date]);
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
