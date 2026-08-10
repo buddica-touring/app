@@ -23158,7 +23158,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.284-BT";
+const APP_VERSION="v1.0.285-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25221,9 +25221,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const pL=(s,w)=>{s=String(s);return " ".repeat(Math.max(0,w-dw(s)))+s;};
     const yen=(n)=>"¥"+Number(n||0).toLocaleString();
     const fmtD=(n,y)=>(n>0?"+":(n<0?"−":"±"))+(y?yen(Math.abs(n)):(Math.abs(n)+"件"));
-    const L=[],bar="─".repeat(56);
-    L.push("BUDDICA TOURISM 日報   "+norm(date)+" ("+wd+")");
-    L.push("━".repeat(56));L.push("");
+    const L=[];
+    L.push("BUDDICA TOURISM 日報");
+    L.push(norm(date)+" ("+wd+")");
+    L.push("━━━━━━━━━━");L.push("");
     // 件数・売上サマリー
     const curYr=repSum.curYM.slice(0,4);
     const yrD=repSum.byY[curYr]||{count:0,sales:0};
@@ -25232,45 +25233,42 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
     const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0;
     const dc=repSum.dayCmp||{dCount:0,dSales:0};
-    L.push("■ 件数・売上サマリー（返却月ベース・実績）");
-    const lw=13,vw=14;
-    L.push(pR("  項目",lw)+pL(curYr+"累計",vw)+pL("当月"+repSum.curYM.slice(5)+"月",vw)+pL("HP単価",vw)+pL("OTA単価",vw));
-    L.push(pR("  件数/単価",lw)+pL(yrD.count+"件",vw)+pL(curM.count+"件",vw)+pL(yen(hpU),vw)+pL(yen(otaU),vw));
-    L.push(pR("  売上/内訳",lw)+pL(yen(yrD.sales),vw)+pL(yen(curM.sales),vw)+pL(hp.count+"件/"+yen(hp.sales),vw)+pL(ota.count+"件/"+yen(ota.sales),vw));
-    L.push(pR("  前日比(当月)",lw)+pL("",vw)+pL(fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true),vw));
+    const mm=repSum.curYM.slice(5)+"月";
+    L.push("■ 件数・売上（返却月ベース・実績）");
+    L.push("・"+curYr+"累計："+yrD.count+"件 / "+yen(yrD.sales));
+    L.push("・当月("+mm+")："+curM.count+"件 / "+yen(curM.sales));
+    L.push("・前日比(当月)："+fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true));
+    L.push("・HP："+hp.count+"件 / "+yen(hp.sales)+"（単価"+yen(hpU)+"）");
+    L.push("・OTA："+ota.count+"件 / "+yen(ota.sales)+"（単価"+yen(otaU)+"）");
     L.push("");
     // 月別
     L.push("■ 月別 推移");
     const mos=repSum.months;
-    if(mos.length){
-      L.push(pR("  月",8)+mos.map(ym=>pL(ym.slice(5)+"月",13)).join(""));
-      L.push(pR("  件数",8)+mos.map(ym=>pL(repSum.byM[ym].count+"件",13)).join(""));
-      L.push(pR("  売上",8)+mos.map(ym=>pL(yen(repSum.byM[ym].sales),13)).join(""));
-    }else L.push("  データなし");
+    if(mos.length){ mos.forEach(ym=>{const m=repSum.byM[ym]||{count:0,sales:0};L.push("・"+ym.slice(5)+"月："+m.count+"件 / "+yen(m.sales));}); }
+    else L.push("・データなし");
     L.push("");
     // CVチャネル
     L.push("■ CVチャネル構成比（グロス）");
-    ["OTA","HP","その他"].forEach(ch=>{const c=repSum.byCh[ch];if(!c||(!c.sales&&!c.count))return;const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;L.push("  "+pR(ch,8)+pL(pct+"%",5)+"   "+c.count+"件 / "+yen(c.sales));});
+    ["OTA","HP","その他"].forEach(ch=>{const c=repSum.byCh[ch];if(!c||(!c.sales&&!c.count))return;const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;L.push("・"+ch+"："+pct+"% ｜ "+c.count+"件 / "+yen(c.sales));});
     L.push("");
     // 月間目標
     L.push("■ 月間目標（テーマ）");
     const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
     const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt;
-    L.push(pR("  クラス",13)+pL("達成率",8)+pL("目標",15)+pL("実績",15));
-    [["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].forEach(([nm,g,a])=>{const r=g>0?Math.round(a/g*100):0;L.push(pR("  "+nm,13)+pL(r+"%",8)+pL(yen(g),15)+pL(yen(a),15));});
+    [["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].forEach(([nm,g,a])=>{const r=g>0?Math.round(a/g*100):0;L.push("・"+nm+"：達成"+r+"% ｜ 目標"+yen(g)+" / 実績"+yen(a));});
     L.push("");
     // ランキング
     const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
-    L.push("■ 全車両ランキング（5項目評価・稼働率=配車表ルール）");
+    L.push("■ 全車両ランキング（上位15・稼働率=配車表ルール）");
     if(vr.rows&&vr.rows.length){
-      L.push(pR("  順",4)+pR("評",4)+pR("ｸﾗｽ",5)+pR("車両",14)+pL("予約",6)+pL("合計売上",12)+pL("稼働%",7)+pL("予想粗利",13));
       vr.rows.slice(0,15).forEach((r,i)=>{
         const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";
-        L.push("  "+pL(i+1,2)+pR(" "+r.rank,4)+pR(r.type||"-",5)+pR(veh,14)+pL((r.cnt||0)+"件",6)+pL(yen(Math.round(r.revTotal)),12)+pL(Math.round(r.utilPct)+"%",7)+pL((r.profit<0?"▲":"+")+yen(Math.abs(Math.round(r.profit))),13));
+        L.push((i+1)+". ["+(r.rank||"-")+"] "+(r.type||"-")+" "+veh);
+        L.push("　予約"+(r.cnt||0)+"件 ｜ 売上"+yen(Math.round(r.revTotal))+" ｜ 稼働"+Math.round(r.utilPct)+"% ｜ 粗利"+(r.profit<0?"▲":"+")+yen(Math.abs(Math.round(r.profit))));
       });
-      L.push("  ("+(vr.period||"-")+" / "+vr.months+"ヶ月)");
-    }else L.push("  データなし");
-    L.push("━".repeat(56));
+      L.push("("+(vr.period||"-")+" / "+vr.months+"ヶ月)");
+    }else L.push("・データなし");
+    L.push("━━━━━━━━━━");
     return L.join("\n");
   };
   const copyDailyText=async()=>{
