@@ -23064,7 +23064,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.261-BT";
+const APP_VERSION="v1.0.262-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24821,7 +24821,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       const ctx0=cvs.getContext("2d");
       // 事前に必要高さを見積り
       const rowsN=units.length+5;
-      let estH=(120+70+40+ (30) + 170 + 200 + (50+rowsN*30+40) + 200 + 220)*SCALE;
+      let estH=(120+95+70+40+ (30) + 170 + 200 + (50+rowsN*30+40) + 200 + 220)*SCALE;
       cvs.height=Math.max(Hbase,estH);
       const ctx=cvs.getContext("2d");
       const H=cvs.height;
@@ -24839,8 +24839,25 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       ctx.fillText("BUDDICA TOURISM 日報",M,S(40));
       ctx.font="bold "+S(20)+"px sans-serif";ctx.fillStyle=GOLD;
       ctx.fillText(norm(date)+" ("+wd+")",M,S(74));
-      y=S(150);
-      ctx.textBaseline="alphabetic";
+      y=S(122);
+      ctx.textBaseline="alphabetic";ctx.textAlign="left";
+      // --- 📊 年間/月別 件数・売上サマリー（返却月ベース・実績） ---
+      {
+        ctx.fillStyle=NAVY;ctx.font="bold "+S(15)+"px sans-serif";
+        ctx.fillText("📊 件数・売上サマリー（返却月ベース・実績）",M,y);y+=S(23);
+        // 年間
+        ctx.font="bold "+S(12)+"px sans-serif";ctx.fillStyle="#334155";
+        let xx=M;ctx.fillText("年間",xx,y);xx+=S(48);
+        ctx.font=S(12)+"px sans-serif";
+        if(repSum.years.length){repSum.years.forEach(yr=>{const s=yr+"年　"+repSum.byY[yr].count+"件 / ¥"+repSum.byY[yr].sales.toLocaleString();ctx.fillStyle="#0F1F45";ctx.fillText(s,xx,y);xx+=ctx.measureText(s).width+S(26);});}else{ctx.fillStyle="#94a3b8";ctx.fillText("データなし",xx,y);}
+        y+=S(20);
+        // 月別
+        ctx.font="bold "+S(12)+"px sans-serif";ctx.fillStyle="#334155";
+        xx=M;ctx.fillText("月別",xx,y);xx+=S(48);
+        ctx.font=S(11)+"px sans-serif";
+        if(repSum.months.length){repSum.months.forEach(ym=>{const s=ym.slice(5)+"月 "+repSum.byM[ym].count+"件/¥"+repSum.byM[ym].sales.toLocaleString();if(xx+ctx.measureText(s).width>M+innerW){xx=M+S(48);y+=S(16);}ctx.fillStyle="#166534";ctx.fillText(s,xx,y);xx+=ctx.measureText(s).width+S(22);});}else{ctx.fillStyle="#94a3b8";ctx.fillText("データなし",xx,y);}
+        y+=S(30);
+      }
       // --- 🎯 月間目標（テーマ）: グループ目標 vs KPI積み上げ ---
       {
         const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
