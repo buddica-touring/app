@@ -23154,7 +23154,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.281-BT";
+const APP_VERSION="v1.0.282-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24953,8 +24953,35 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       const vdiv=(vx,y1,y2)=>{ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.beginPath();ctx.moveTo(vx,y1);ctx.lineTo(vx,y2);ctx.stroke();};
       // モノクロ表ヘルパー（全セクション共通＝細罫線＋ネイビー文字・箱なし）
       const rule=(yy)=>{ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.beginPath();ctx.moveTo(M,yy);ctx.lineTo(M+innerW,yy);ctx.stroke();};
-      const tHead=(labelW,n,heads)=>{const cW=(innerW-labelW)/n;ctx.textBaseline="alphabetic";ctx.textAlign="right";ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";heads.forEach((h,i)=>ctx.fillText(h,M+labelW+cW*(i+1)-S(14),y+S(15)));y+=S(23);};
-      const tRow=(labelW,n,rowLabel,vals,opts)=>{opts=opts||{};const cW=(innerW-labelW)/n;const fs=opts.big?S(19):S(12);ctx.textAlign="left";ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText(rowLabel,M+S(4),y+S(opts.big?17:14));ctx.textAlign="right";vals.forEach((v,i)=>{ctx.fillStyle=opts.color?opts.color(v,i):(opts.big||opts.bold?NAVY:"#334155");ctx.font=(opts.big||opts.bold?"bold ":"")+fs+"px sans-serif";ctx.fillText(String(v),M+labelW+cW*(i+1)-S(14),y+S(opts.big?18:14));});y+=S(opts.big?30:24);};
+      // ===== Excel風 表ブロック（均一行高・ヘッダー行網掛け・全セル枠線・ゼブラ・数値右寄せ）=====
+      //   corner=左上見出し / heads=列見出し / rows=[{label,vals,bold,color}] / highlight=強調列index
+      const tableBlock=(corner,labelW,heads,rows,highlight)=>{
+        const n=heads.length,cW=(innerW-labelW)/n;
+        const headH=S(26),rh=S(28),topY=y,bodyH=rows.length*rh,botY=topY+headH+bodyH;
+        // 背景：ヘッダー網掛け＋強調列＋ゼブラ
+        ctx.fillStyle="#eef2f7";ctx.fillRect(M,topY,innerW,headH);
+        if(highlight!=null&&highlight>=0){ctx.fillStyle="#e8f0ff";ctx.fillRect(M+labelW+cW*highlight,topY+headH,cW,bodyH);}
+        rows.forEach((r,ri)=>{if(ri%2===1){ctx.fillStyle="rgba(148,163,184,0.06)";ctx.fillRect(M,topY+headH+ri*rh,innerW,rh);}});
+        ctx.textBaseline="middle";
+        // 見出しテキスト（左上＝corner／各列＝右寄せ）
+        ctx.fillStyle="#475569";ctx.font="bold "+S(11)+"px sans-serif";
+        ctx.textAlign="left";ctx.fillText(corner||"",M+S(8),topY+headH/2);
+        ctx.textAlign="right";heads.forEach((h,i)=>ctx.fillText(h,M+labelW+cW*(i+1)-S(10),topY+headH/2));
+        // 本体
+        rows.forEach((r,ri)=>{
+          const cy=topY+headH+ri*rh+rh/2;
+          ctx.textAlign="left";ctx.fillStyle="#334155";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText(r.label,M+S(8),cy);
+          ctx.textAlign="right";
+          r.vals.forEach((v,i)=>{if(v===""||v==null)return;ctx.fillStyle=r.color?r.color(v,i):(r.bold?NAVY:"#334155");ctx.font=(r.bold?"bold "+S(13):S(12))+"px sans-serif";ctx.fillText(String(v),M+labelW+cW*(i+1)-S(10),cy);});
+        });
+        // グリッド線（全セル）
+        ctx.strokeStyle="#cbd5e1";ctx.lineWidth=S(1);
+        ctx.strokeRect(M,topY,innerW,headH+bodyH);
+        for(let r=0;r<=rows.length;r++){const yy=topY+headH+r*rh;ctx.beginPath();ctx.moveTo(M,yy);ctx.lineTo(M+innerW,yy);ctx.stroke();}
+        ctx.beginPath();ctx.moveTo(M+labelW,topY);ctx.lineTo(M+labelW,botY);ctx.stroke();
+        for(let i=1;i<n;i++){const vx=M+labelW+cW*i;ctx.beginPath();ctx.moveTo(vx,topY);ctx.lineTo(vx,botY);ctx.stroke();}
+        ctx.textBaseline="alphabetic";y=botY+S(18);
+      };
       // --- ヘッダー ---
       const dObj=new Date(norm(date)+"T00:00:00");
       const wd=["日","月","火","水","木","金","土"][isNaN(dObj)?0:dObj.getDay()];
@@ -24978,34 +25005,30 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0;
         const dcmp=repSum.dayCmp||{dCount:0,dSales:0};
         const fmtD=(n,yen)=>(n>0?"+":(n<0?"−":"±"))+(yen?("¥"+Math.abs(n).toLocaleString()):(Math.abs(n)+"件"));
-        // 件数・売上（4列表）
-        rule(y-S(2));
-        tHead(S(96),4,[curYr+"年累計","当月 "+repSum.curYM,"HP単価(当月)","OTA単価(当月)"]);
-        rule(y-S(6));
-        tRow(S(96),4,"件数/単価",[yrD.count+"件",curM.count+"件","¥"+hpU.toLocaleString(),"¥"+otaU.toLocaleString()],{big:true});
-        tRow(S(96),4,"売上/内訳",["¥"+yrD.sales.toLocaleString(),"¥"+curM.sales.toLocaleString(),hp.count+"件・¥"+hp.sales.toLocaleString(),ota.count+"件・¥"+ota.sales.toLocaleString()]);
-        {const cW=(innerW-S(96))/4;ctx.textAlign="left";ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText("前日比(当月)",M+S(4),y+S(13));
-         const up=dcmp.dCount>0||dcmp.dSales>0,dn=dcmp.dCount<0||dcmp.dSales<0;
-         ctx.textAlign="right";ctx.font="bold "+S(12)+"px sans-serif";ctx.fillStyle=up?"#059669":(dn?"#dc2626":"#94a3b8");
-         ctx.fillText(fmtD(dcmp.dCount,false)+" / "+fmtD(dcmp.dSales,true),M+S(96)+cW*2-S(14),y+S(13));y+=S(22);}
-        rule(y-S(6));y+=S(14);
-        // 月別 推移（表）
+        const up=dcmp.dCount>0||dcmp.dSales>0,dn=dcmp.dCount<0||dcmp.dSales<0;
+        // 件数・売上（4列表・当月列ハイライト）
+        tableBlock("項目",S(96),[curYr+"年累計","当月 "+repSum.curYM,"HP単価(当月)","OTA単価(当月)"],[
+          {label:"件数/単価",bold:true,vals:[yrD.count+"件",curM.count+"件","¥"+hpU.toLocaleString(),"¥"+otaU.toLocaleString()]},
+          {label:"売上/内訳",vals:["¥"+yrD.sales.toLocaleString(),"¥"+curM.sales.toLocaleString(),hp.count+"件・¥"+hp.sales.toLocaleString(),ota.count+"件・¥"+ota.sales.toLocaleString()]},
+          {label:"前日比",vals:["",fmtD(dcmp.dCount,false)+" / "+fmtD(dcmp.dSales,true),"",""],color:(v,i)=>up?"#059669":(dn?"#dc2626":"#94a3b8")}
+        ],1);
+        // 月別 推移（表・当月列ハイライト）
         subHead("月別 推移（件数・売上）");
         const mos=repSum.months;
         if(mos.length){
-          rule(y-S(2));tHead(S(70),mos.length,mos.map(ym=>ym.slice(5)+"月"));rule(y-S(6));
-          tRow(S(70),mos.length,"件数",mos.map(ym=>repSum.byM[ym].count+"件"),{bold:true});
-          tRow(S(70),mos.length,"売上",mos.map(ym=>"¥"+repSum.byM[ym].sales.toLocaleString()));
-          rule(y-S(6));y+=S(14);
+          tableBlock("月",S(70),mos.map(ym=>ym.slice(5)+"月"),[
+            {label:"件数",bold:true,vals:mos.map(ym=>repSum.byM[ym].count+"件")},
+            {label:"売上",vals:mos.map(ym=>"¥"+repSum.byM[ym].sales.toLocaleString())}
+          ],mos.indexOf(repSum.curYM));
         }else{ctx.textAlign="left";ctx.fillStyle="#94a3b8";ctx.font=S(12)+"px sans-serif";ctx.fillText("データなし",M+S(4),y);y+=S(28);}
         // CVチャネル構成比（表）
         subHead("CVチャネル構成比（グロス）");
         const chO=["OTA","HP","その他"].filter(ch=>repSum.byCh&&repSum.byCh[ch]&&(repSum.byCh[ch].sales>0||repSum.byCh[ch].count>0));
         if(repSum.total>0&&chO.length){
-          rule(y-S(2));tHead(S(96),chO.length,chO);rule(y-S(6));
-          tRow(S(96),chO.length,"構成比",chO.map(ch=>Math.round(repSum.byCh[ch].sales/repSum.total*100)+"%"),{big:true});
-          tRow(S(96),chO.length,"件数/売上",chO.map(ch=>repSum.byCh[ch].count+"件・¥"+repSum.byCh[ch].sales.toLocaleString()));
-          rule(y-S(6));y+=S(6);
+          tableBlock("チャネル",S(96),chO,[
+            {label:"構成比",bold:true,vals:chO.map(ch=>Math.round(repSum.byCh[ch].sales/repSum.total*100)+"%")},
+            {label:"件数/売上",vals:chO.map(ch=>repSum.byCh[ch].count+"件・¥"+repSum.byCh[ch].sales.toLocaleString())}
+          ],-1);
         }else{ctx.textAlign="left";ctx.fillStyle="#94a3b8";ctx.font=S(12)+"px sans-serif";ctx.fillText("データなし",M+S(4),y);y+=S(26);}
       }
       // --- 🎯 月間目標（テーマ）: グループ目標 vs KPI積み上げ ---
@@ -25013,18 +25036,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
         const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt; // 実績(当月売上)
         secHead("🎯 月間目標（テーマ）");
-        rule(y-S(2));tHead(S(110),3,["達成率","目標","実績"]);rule(y-S(6));
-        const gcW=(innerW-S(110))/3;
-        [["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].forEach(([nm,goal,act])=>{
-          const rate=goal>0?Math.round(act/goal*100):0;const rc=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");
-          ctx.textAlign="left";ctx.fillStyle="#0F1F45";ctx.font="bold "+S(12)+"px sans-serif";ctx.fillText(nm,M+S(4),y+S(17));
-          ctx.textAlign="right";ctx.fillStyle=rc;ctx.font="bold "+S(17)+"px sans-serif";ctx.fillText(rate+"%",M+S(110)+gcW*1-S(14),y+S(18));
-          ctx.fillStyle="#334155";ctx.font=S(12)+"px sans-serif";
-          ctx.fillText("¥"+goal.toLocaleString(),M+S(110)+gcW*2-S(14),y+S(18));
-          ctx.fillText("¥"+act.toLocaleString(),M+S(110)+gcW*3-S(14),y+S(18));
-          y+=S(30);
-        });
-        rule(y-S(6));y+=S(10);
+        tableBlock("クラス",S(110),["達成率","目標","実績"],
+          [["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].map(([nm,goal,act])=>{
+            const rate=goal>0?Math.round(act/goal*100):0;const rc=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");
+            return {label:nm,bold:true,vals:[rate+"%","¥"+goal.toLocaleString(),"¥"+act.toLocaleString()],color:(v,i)=>i===0?rc:"#334155"};
+          }),-1);
         ctx.textAlign="left";
       }
       // --- 🏆 全車両ランキング（車両ランキングタブと同一計算をそのまま反映）---
