@@ -8925,6 +8925,7 @@ function ManagementTab({store}){
         byCh[ch]=(byCh[ch]||0)+rev;
         if(!yearByCh[ch])yearByCh[ch]={total:0,base:0,opt:0,disc:0,cnt:0};
         yearByCh[ch][m]=(yearByCh[ch][m]||0)+rev;
+        yearByCh[ch]["c"+m]=(yearByCh[ch]["c"+m]||0)+1;
         yearByCh[ch].total+=rev;
         yearByCh[ch].base+=bpAdj;yearByCh[ch].opt+=opAdj;yearByCh[ch].disc+=dcAdj;yearByCh[ch].cnt+=1;
         const ld=r[ldKey];
@@ -10191,6 +10192,7 @@ function ManagementTab({store}){
           const chEntries=Object.entries(dashYearly.yearByCh).sort((a,b)=>b[1].total-a[1].total);
           const yearTotal=chEntries.reduce((s,[,d])=>s+d.total,0);
           const monthTotals=Array.from({length:12},(_,i)=>chEntries.reduce((s,[,d])=>s+(d[i+1]||0),0));
+          const monthCnts=Array.from({length:12},(_,i)=>chEntries.reduce((s,[,d])=>s+(d["c"+(i+1)]||0),0));
           if(chEntries.length===0)return <div style={{fontSize:11,color:"#94a3b8"}}>データなし</div>;
           return <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:760}}>
@@ -10213,8 +10215,9 @@ function ManagementTab({store}){
                     <td style={{...td,fontWeight:700,position:"sticky",left:0,background:"#fff",zIndex:1}}>{ch}</td>
                     {Array.from({length:12},(_,i)=>{
                       const v=d[i+1]||0;
+                      const c=d["c"+(i+1)]||0;
                       const isCur=(i+1)===Number(dashYm.slice(5,7))&&dashYearly.year===dashYm.slice(0,4);
-                      return <td key={i} style={{...td,textAlign:"right",color:v>0?"#1e40af":"#cbd5e1",background:isCur?"#eff6ff":"transparent",fontWeight:isCur?700:400}}>{v>0?fmtM(v):"-"}</td>;
+                      return <td key={i} style={{...td,textAlign:"right",color:v>0?"#1e40af":"#cbd5e1",background:isCur?"#eff6ff":"transparent",fontWeight:isCur?700:400}}>{v>0?<span>{fmtM(v)}<br/><span style={{fontSize:8,color:"#94a3b8",fontWeight:600}}>{c}件</span></span>:"-"}</td>;
                     })}
                     <td style={{...td,textAlign:"right",color:"#1e40af"}}>{(d.base||0)>0?fmtM(d.base):"-"}</td>
                     <td style={{...td,textAlign:"right",color:"#047857"}}>{(d.opt||0)>0?fmtM(d.opt):"-"}</td>
@@ -10233,7 +10236,7 @@ function ManagementTab({store}){
                 })}
                 <tr style={{background:"#1e293b",color:"#fff",fontWeight:800}}>
                   <td style={{padding:"8px",fontSize:11,position:"sticky",left:0,background:"#1e293b",zIndex:1}}>合計</td>
-                  {monthTotals.map((v,i)=>{const isCur=(i+1)===Number(dashYm.slice(5,7))&&dashYearly.year===dashYm.slice(0,4);return <td key={i} style={{padding:"8px",fontSize:10,textAlign:"right",background:isCur?"#1e3a8a":"transparent"}}>{v>0?fmtM(v):"-"}</td>;})}
+                  {monthTotals.map((v,i)=>{const isCur=(i+1)===Number(dashYm.slice(5,7))&&dashYearly.year===dashYm.slice(0,4);return <td key={i} style={{padding:"8px",fontSize:10,textAlign:"right",background:isCur?"#1e3a8a":"transparent"}}>{v>0?<span>{fmtM(v)}<br/><span style={{fontSize:8,color:"#cbd5e1",fontWeight:600}}>{monthCnts[i]}件</span></span>:"-"}</td>;})}
                   <td style={{padding:"8px",fontSize:10,textAlign:"right",color:"#93c5fd"}}>{fmtM(dashYearly.total.plBase)}</td>
                   <td style={{padding:"8px",fontSize:10,textAlign:"right",color:"#6ee7b7"}}>{fmtM(dashYearly.total.plOpt)}</td>
                   <td style={{padding:"8px",fontSize:10,textAlign:"right",color:"#fca5a5"}}>{dashYearly.total.plDisc>0?"-"+fmtM(dashYearly.total.plDisc):"-"}</td>
@@ -23119,7 +23122,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.271-BT";
+const APP_VERSION="v1.0.272-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
