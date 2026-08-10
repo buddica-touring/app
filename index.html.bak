@@ -20548,27 +20548,24 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
   };
 
   const cxlCount=useMemo(()=>data.filter(r=>r.status==="cancelled").length,[data]);
-  // ★ 2026-08-10 集計サマリー：合計件数・合計売上・月別件数・月別売上（現在のフィルタ=有効/期間/OTA/検索 に連動）
+  // ★ 2026-08-10 集計サマリー：合計/月別 件数・売上。★日報の実績と完全一致＝revOf(基本+付帯-割引/なければprice)×返却月×配車済(既知車両)×非キャンセル（経営タブ同一）。OTA/検索で絞込可。
   const summary=useMemo(()=>{
-    const seen=new Set(),objs=[];
-    for(const r of data){if(r&&r.id&&!seen.has(r.id)){seen.add(r.id);objs.push(r);}}
-    const filtered=objs.filter(r=>{
-      if(statusF==="active"&&r.status==="cancelled")return false;
-      if(statusF==="cancelled"&&r.status!=="cancelled")return false;
-      if(otaF!=="all"&&r.ota!==otaF)return false;
-      if(s&&!(r.name||"").includes(s)&&!(r.id||"").includes(s))return false;
-      if(periodMode==="future")return r.lendDate>=today||r.returnDate>=today;
-      if(periodMode==="month")return r.lendDate&&r.lendDate.startsWith(selMonth);
-      if(periodMode==="year")return r.lendDate&&r.lendDate.startsWith(selYear);
-      if(periodMode==="range"){const dv=rangeDateKey==="returnDate"?(r.returnDate||""):(r.lendDate||"");if(!dv)return false;if(rangeFrom&&dv<rangeFrom)return false;if(rangeTo&&dv>rangeTo)return false;return true;}
-      return true;
-    });
-    const totalCount=filtered.length;
-    const totalSales=filtered.reduce((a,r)=>a+(Number(r.price)||0),0);
-    const byMonth={};
-    filtered.forEach(r=>{const ym=(r.lendDate||"").slice(0,7)||"不明";if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].count++;byMonth[ym].sales+=(Number(r.price)||0);});
+    const fl=fleet||{};const codes=new Set((vehicles||[]).filter(v=>v&&v.type).map(v=>v.code));
+    const revOf=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
+    const seen=new Set();let totalCount=0,totalSales=0;const byMonth={};
+    for(const r of data){
+      if(!r||!r.id||seen.has(r.id))continue;seen.add(r.id);
+      if(r.status==="cancelled"||(r.status&&String(r.status).includes("キャンセル")))continue;
+      const code=fl[r.id];if(!code||!codes.has(code))continue; // 配車済(既知車両)のみ＝日報実績と一致
+      if(otaF!=="all"&&r.ota!==otaF)continue;
+      if(s&&!(r.name||"").includes(s)&&!(r.id||"").includes(s))continue;
+      const rd=(r.returnDate||r.lendDate||"");if(!rd)continue;
+      const rev=revOf(r),ym=rd.slice(0,7);
+      totalCount++;totalSales+=rev;
+      if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].count++;byMonth[ym].sales+=rev;
+    }
     return {totalCount,totalSales,months:Object.keys(byMonth).sort(),byMonth};
-  },[data,statusF,otaF,s,periodMode,selMonth,selYear,rangeDateKey,rangeFrom,rangeTo,today]);
+  },[data,fleet,vehicles,otaF,s]);
   // ★ カラム定義（マスターに準拠）
   const cols=[
     {h:"状態",w:64,k:"status"},
@@ -23067,7 +23064,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.260-BT";
+const APP_VERSION="v1.0.261-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25111,6 +25108,20 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       {(()=>{const df=(m.sales||0)-tgtSalesOf(c);return<td style={{...td,...gsep,fontWeight:800,color:df>=0?"#059669":"#dc2626"}}>{(df>=0?"+¥":"−¥")+Math.abs(df).toLocaleString()}</td>;})()}
     </tr>);};
 
+  // ★ 2026-08-10 上段サマリー：年間/月別 件数・売上。★日報の実績と完全一致させる＝revOf(基本+付帯-割引/なければprice)×返却月×配車済(units)×非キャンセル（経営タブと同一）
+  const repSum=useMemo(()=>{
+    const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
+    const byM={},byY={};
+    (data||[]).forEach(r=>{
+      if(isCancel(r.status))return;
+      const code=fl[r.id];if(!code||!codes.has(code))return;
+      const rd=norm(r.returnDate)||norm(r.lendDate);if(!rd)return;
+      const rev=revOf(r),ym=rd.slice(0,7),y=rd.slice(0,4);
+      if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].count++;byM[ym].sales+=rev;
+      if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
+    });
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY};
+  },[data,fleet,units]);
   return(
     <div style={{padding:12,maxWidth:1080,margin:"0 auto"}}>
       <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
@@ -25121,6 +25132,20 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         <button onClick={openPreview} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"👁 プレビュー"}</button>
         <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
         {savedMsg&&<span style={{fontSize:12,fontWeight:700,color:savedMsg[0]==="✅"?"#059669":"#dc2626"}}>{savedMsg}</span>}
+      </div>
+      {/* ★ 2026-08-10 上段サマリー：年間・月別 件数/売上（日報実績と一致＝返却月×配車済×revOf） */}
+      <div style={{marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"6px 10px",background:"#0F1F45",color:"#fff",fontSize:12,fontWeight:800}}>📊 件数・売上サマリー（返却月ベース・実績）</div>
+        <div style={{padding:"8px 10px",background:"#f8fafc"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:4}}>年間</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+            {repSum.years.length?repSum.years.map(y=><span key={y} style={{fontSize:11,background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:6,padding:"3px 9px",color:"#0F1F45",whiteSpace:"nowrap"}}><b>{y}年</b>　{repSum.byY[y].count}件 / ¥{repSum.byY[y].sales.toLocaleString()}</span>):<span style={{fontSize:11,color:"#94a3b8"}}>データなし</span>}
+          </div>
+          <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:4}}>月別</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {repSum.months.length?repSum.months.map(ym=><span key={ym} style={{fontSize:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:6,padding:"2px 8px",color:"#166534",whiteSpace:"nowrap"}}><b>{ym}</b>　{repSum.byM[ym].count}件 / ¥{repSum.byM[ym].sales.toLocaleString()}</span>):<span style={{fontSize:11,color:"#94a3b8"}}>データなし</span>}
+          </div>
+        </div>
       </div>
       {previewUrl&&previewUrl.length&&<div onClick={()=>setPreviewUrl(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,maxWidth:1000,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)"}}>
