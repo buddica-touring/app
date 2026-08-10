@@ -23154,7 +23154,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.278-BT";
+const APP_VERSION="v1.0.279-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24929,6 +24929,23 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       let y=S(50);
       const M=S(48);                 // 左右余白
       const innerW=W-M*2;
+      // ===== 統一デザイン・ヘルパー（全セクション共通＝見出し/カード枠を1様式に） =====
+      const secHead=(title)=>{
+        ctx.textBaseline="alphabetic";ctx.textAlign="left";
+        ctx.fillStyle=GOLD;ctx.fillRect(M,y-S(13),S(4),S(18));           // ゴールドの左ティック
+        ctx.fillStyle=NAVY;ctx.font="bold "+S(16)+"px sans-serif";
+        ctx.fillText(title,M+S(12),y);y+=S(28);
+      };
+      const subHead=(title)=>{
+        ctx.textBaseline="alphabetic";ctx.textAlign="left";
+        ctx.fillStyle="#334155";ctx.font="bold "+S(13)+"px sans-serif";
+        ctx.fillText(title,M+S(2),y);y+=S(22);
+      };
+      const cardFrame=(cx,cy,cw,ch,accent)=>{                            // 白地＋細枠＋左アクセント（全カード共通）
+        ctx.fillStyle="#ffffff";ctx.fillRect(cx,cy,cw,ch);
+        ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.strokeRect(cx,cy,cw,ch);
+        ctx.fillStyle=accent;ctx.fillRect(cx,cy,S(5),ch);
+      };
       // --- ヘッダー ---
       const dObj=new Date(norm(date)+"T00:00:00");
       const wd=["日","月","火","水","木","金","土"][isNaN(dObj)?0:dObj.getDay()];
@@ -24942,8 +24959,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       ctx.textBaseline="alphabetic";ctx.textAlign="left";
       // --- 📊 件数・売上サマリー（返却月ベース・実績）VISUAL ---
       {
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
-        ctx.fillText("📊 件数・売上サマリー（返却月ベース・実績）",M,y);y+=S(30);
+        secHead("📊 件数・売上サマリー（返却月ベース・実績）");
         // KPIカード（4枚）: 年累計 / 当月 / HP予約単価 / OTA予約単価
         const curYr=repSum.curYM.slice(0,4);
         const yrD=repSum.byY[curYr]||{count:0,sales:0};
@@ -24962,9 +24978,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const cw2=(innerW-S(36))/4,chH=S(110);
         cards.forEach((c,i)=>{
           const cx=M+(cw2+S(12))*i;
-          ctx.fillStyle="#ffffff";ctx.fillRect(cx,y,cw2,chH);
-          ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.strokeRect(cx,y,cw2,chH);
-          ctx.fillStyle=c.ac;ctx.fillRect(cx,y,S(5),chH);
+          cardFrame(cx,y,cw2,chH,c.ac);
           ctx.textAlign="left";
           ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText(c.t,cx+S(14),y+S(22));
           ctx.fillStyle=c.ac;ctx.font="bold "+S(26)+"px sans-serif";ctx.fillText(c.big,cx+S(14),y+S(54));
@@ -24982,7 +24996,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         });
         y+=chH+S(30);
         // 月別 推移（数字カード＝件数・売上）
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(15)+"px sans-serif";ctx.fillText("月別 推移（件数・売上）",M,y);y+=S(24);
+        subHead("月別 推移（件数・売上）");
         const mos=repSum.months;
         if(mos.length){
           const per=Math.min(mos.length,6),rowsM=Math.ceil(mos.length/per);
@@ -24991,8 +25005,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             const col=i%per,rw=Math.floor(i/per);
             const cx=M+(cwM+S(10))*col,cy=y+(chM+S(10))*rw;
             const d=repSum.byM[ym],cur=ym===repSum.curYM;
-            ctx.fillStyle=cur?"#fffbeb":"#f8fafc";ctx.fillRect(cx,cy,cwM,chM);
-            ctx.strokeStyle=cur?GOLD:"#e2e8f0";ctx.lineWidth=S(cur?2:1);ctx.strokeRect(cx,cy,cwM,chM);
+            cardFrame(cx,cy,cwM,chM,cur?GOLD:"#0f766e");
             ctx.textAlign="center";
             ctx.fillStyle=cur?"#92400e":"#334155";ctx.font="bold "+S(14)+"px sans-serif";ctx.fillText(ym.slice(5)+"月",cx+cwM/2,cy+S(24));
             ctx.fillStyle="#0f766e";ctx.font="bold "+S(22)+"px sans-serif";ctx.fillText(d.count+"件",cx+cwM/2,cy+S(52));
@@ -25001,7 +25014,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
           ctx.textAlign="left";y+=chM*rowsM+S(10)*(rowsM-1)+S(28);
         }else{ctx.fillStyle="#94a3b8";ctx.font=S(12)+"px sans-serif";ctx.fillText("データなし",M+S(4),y);y+=S(28);}
         // CVチャネル構成比 stacked bar（グロス）
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(15)+"px sans-serif";ctx.fillText("CVチャネル構成比（グロス）",M,y);y+=S(24);
+        subHead("CVチャネル構成比（グロス）");
         const chC={"OTA":"#d97706","HP":"#0284c7","その他":"#7c3aed"};
         const chO=["OTA","HP","その他"].filter(ch=>repSum.byCh&&repSum.byCh[ch]&&(repSum.byCh[ch].sales>0||repSum.byCh[ch].count>0));
         if(repSum.total>0&&chO.length){
@@ -25021,25 +25034,18 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       {
         const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
         const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt; // 実績(当月売上)
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
-        ctx.fillText("🎯 月間目標（テーマ）",M,y);y+=S(28);
+        secHead("🎯 月間目標（テーマ）");
         const bw=(innerW-S(24))/3;
         const drawCard=(cx,title,goal,act,accent)=>{
           const rate=goal>0?Math.round(act/goal*100):0;const barC=rate>=100?"#059669":(rate>=70?"#b45309":"#dc2626");const ch=S(112);
-          // カード枠＋見出し帯
-          ctx.fillStyle="#ffffff";ctx.fillRect(cx,y,bw,ch);
-          ctx.strokeStyle="#e2e8f0";ctx.lineWidth=S(1);ctx.strokeRect(cx,y,bw,ch);
-          ctx.fillStyle=accent;ctx.fillRect(cx,y,bw,S(26));
-          ctx.textAlign="left";ctx.fillStyle="#ffffff";ctx.font="bold "+S(13)+"px sans-serif";ctx.fillText(title,cx+S(10),y+S(18));
-          // 達成率(大)
-          ctx.fillStyle="#94a3b8";ctx.font="bold "+S(10)+"px sans-serif";ctx.fillText("達成率（実績÷目標）",cx+S(10),y+S(44));
-          ctx.fillStyle=barC;ctx.font="bold "+S(30)+"px sans-serif";ctx.fillText(rate+"%",cx+S(10),y+S(76));
-          // 目標/実績(右)
-          ctx.textAlign="right";ctx.fillStyle="#0F1F45";ctx.font="bold "+S(15)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+bw-S(10),y+S(52));
-          ctx.fillStyle="#0f766e";ctx.font=S(12)+"px sans-serif";ctx.fillText("実績 ¥"+act.toLocaleString(),cx+bw-S(10),y+S(72));
-          // 進捗バー
-          ctx.textAlign="left";ctx.fillStyle="#eef2f7";ctx.fillRect(cx+S(10),y+S(92),bw-S(20),S(9));
-          ctx.fillStyle=barC;ctx.fillRect(cx+S(10),y+S(92),(bw-S(20))*Math.min(100,rate)/100,S(9));
+          cardFrame(cx,y,bw,ch,accent);
+          ctx.textAlign="left";ctx.fillStyle="#64748b";ctx.font="bold "+S(11)+"px sans-serif";ctx.fillText(title,cx+S(14),y+S(20));
+          ctx.fillStyle="#94a3b8";ctx.font="bold "+S(10)+"px sans-serif";ctx.fillText("達成率（実績÷目標）",cx+S(14),y+S(42));
+          ctx.fillStyle=barC;ctx.font="bold "+S(30)+"px sans-serif";ctx.fillText(rate+"%",cx+S(14),y+S(76));
+          ctx.textAlign="right";ctx.fillStyle="#0F1F45";ctx.font="bold "+S(14)+"px sans-serif";ctx.fillText("目標 ¥"+goal.toLocaleString(),cx+bw-S(12),y+S(50));
+          ctx.fillStyle="#0f766e";ctx.font=S(12)+"px sans-serif";ctx.fillText("実績 ¥"+act.toLocaleString(),cx+bw-S(12),y+S(70));
+          ctx.textAlign="left";ctx.fillStyle="#eef2f7";ctx.fillRect(cx+S(14),y+S(92),bw-S(28),S(9));
+          ctx.fillStyle=barC;ctx.fillRect(cx+S(14),y+S(92),(bw-S(28))*Math.min(100,rate)/100,S(9));
         };
         drawCard(M,"AAクラス",gAA,aAA,"#3730a3");
         drawCard(M+bw+S(12),"AA以外",gOt,aOt,"#0369a1");
@@ -25049,8 +25055,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       // --- 🏆 全車両ランキング（車両ランキングタブと同一計算をそのまま反映）---
       {
         const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
-        ctx.fillText("🏆 全車両ランキング（5項目評価）",M,y);y+=S(24);
+        secHead("🏆 全車両ランキング（5項目評価）");
         ctx.fillStyle="#64748b";ctx.font=S(11)+"px sans-serif";
         ctx.fillText("期間: "+(vr.period||"-")+"（"+vr.months+"ヶ月）　①売上25+②月平均15+③稼働25+⑤粗利35=100点",M,y);y+=S(22);
         if(vr.rows&&vr.rows.length){
@@ -25093,7 +25098,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       }
       // --- テキスト2欄 ---
       const wrapText=(label,txt)=>{
-        ctx.fillStyle=NAVY;ctx.font="bold "+S(16)+"px sans-serif";ctx.fillText(label,M,y);y+=S(22);
+        secHead(label);
         ctx.fillStyle="#334155";ctx.font=S(13)+"px sans-serif";
         const maxW=innerW-S(8);const lh=S(20);
         const src=(txt||"（記載なし）").split("\n");
