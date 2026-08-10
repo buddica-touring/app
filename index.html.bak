@@ -2854,7 +2854,11 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     let hpN=0,hpR=0,otaN=0,otaR=0;
     tmRet.forEach(r=>{const o=String(r.ota||"").trim();if(o===""){hpN++;hpR+=revOfR(r);}else if(o!=="SP"){otaN++;otaR+=revOfR(r);}});
     const hpUnit=hpN>0?Math.round(hpR/hpN):0,otaUnit=otaN>0?Math.round(otaR/otaN):0;
-    return{tmTotal,tmSameCount,tmSamePct,tmSameRev,tmDelCnt,tmDelPct,byOta,last10,nowYM,hpN,hpR,hpUnit,otaN,otaR,otaUnit};
+    // ★ 当月 新規獲得（発生月ベース＝当月created・返却月は問わない）／直販系 HP+SP（ota空 or SP）
+    let acqN=0,acqR=0;
+    active.forEach(r=>{if(!r.createdAt||r.createdAt.slice(0,7)!==nowYM)return;const o=String(r.ota||"").trim();if(o===""||o==="SP"){acqN++;acqR+=revOfR(r);}});
+    const acqUnit=acqN>0?Math.round(acqR/acqN):0;
+    return{tmTotal,tmSameCount,tmSamePct,tmSameRev,tmDelCnt,tmDelPct,byOta,last10,nowYM,hpN,hpR,hpUnit,otaN,otaR,otaUnit,acqN,acqR,acqUnit};
   },[data,delResIdSet,viewYM]);
   // ★ 月次スナップショット自動保存（前月分を自動記録）
   useEffect(()=>{
@@ -2976,6 +2980,18 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
             <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>OTA予約単価</span>
             <span style={{fontSize:16,fontWeight:900,color:"#d97706",lineHeight:1}}>¥{stats.otaUnit.toLocaleString()}</span>
             <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>当月返却{stats.otaN}件</span>
+          </div>
+          <div style={{display:"flex",alignItems:"baseline",gap:6,paddingTop:4,borderTop:"1px dashed #fde68a"}}>
+            <span style={{fontSize:12,width:18}}>🎯</span>
+            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月獲得<span style={{fontSize:8,color:"#94a3b8",fontWeight:600}}> HP+SP</span></span>
+            <span style={{fontSize:20,fontWeight:900,color:"#7c3aed",lineHeight:1}}>{stats.acqN}<span style={{fontSize:11,fontWeight:600}}>件</span></span>
+            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>発生月・返却問わず</span>
+          </div>
+          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+            <span style={{fontSize:12,width:18}}>💴</span>
+            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>獲得流通額</span>
+            <span style={{fontSize:16,fontWeight:900,color:"#059669",lineHeight:1}}>¥{(stats.acqR/10000).toFixed(1)}<span style={{fontSize:11,fontWeight:600}}>万</span></span>
+            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>単価 ¥{stats.acqUnit.toLocaleString()}</span>
           </div>
           {utilStats&&<div style={{display:"flex",alignItems:"baseline",gap:6}}>
             <span style={{fontSize:12,width:18}}>⚙️</span>
@@ -23100,7 +23116,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.267-BT";
+const APP_VERSION="v1.0.268-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
