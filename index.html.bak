@@ -20548,6 +20548,27 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
   };
 
   const cxlCount=useMemo(()=>data.filter(r=>r.status==="cancelled").length,[data]);
+  // ★ 2026-08-10 集計サマリー：合計件数・合計売上・月別件数・月別売上（現在のフィルタ=有効/期間/OTA/検索 に連動）
+  const summary=useMemo(()=>{
+    const seen=new Set(),objs=[];
+    for(const r of data){if(r&&r.id&&!seen.has(r.id)){seen.add(r.id);objs.push(r);}}
+    const filtered=objs.filter(r=>{
+      if(statusF==="active"&&r.status==="cancelled")return false;
+      if(statusF==="cancelled"&&r.status!=="cancelled")return false;
+      if(otaF!=="all"&&r.ota!==otaF)return false;
+      if(s&&!(r.name||"").includes(s)&&!(r.id||"").includes(s))return false;
+      if(periodMode==="future")return r.lendDate>=today||r.returnDate>=today;
+      if(periodMode==="month")return r.lendDate&&r.lendDate.startsWith(selMonth);
+      if(periodMode==="year")return r.lendDate&&r.lendDate.startsWith(selYear);
+      if(periodMode==="range"){const dv=rangeDateKey==="returnDate"?(r.returnDate||""):(r.lendDate||"");if(!dv)return false;if(rangeFrom&&dv<rangeFrom)return false;if(rangeTo&&dv>rangeTo)return false;return true;}
+      return true;
+    });
+    const totalCount=filtered.length;
+    const totalSales=filtered.reduce((a,r)=>a+(Number(r.price)||0),0);
+    const byMonth={};
+    filtered.forEach(r=>{const ym=(r.lendDate||"").slice(0,7)||"不明";if(!byMonth[ym])byMonth[ym]={count:0,sales:0};byMonth[ym].count++;byMonth[ym].sales+=(Number(r.price)||0);});
+    return {totalCount,totalSales,months:Object.keys(byMonth).sort(),byMonth};
+  },[data,statusF,otaF,s,periodMode,selMonth,selYear,rangeDateKey,rangeFrom,rangeTo,today]);
   // ★ カラム定義（マスターに準拠）
   const cols=[
     {h:"状態",w:64,k:"status"},
@@ -20620,6 +20641,15 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
       </div>
     </div>
 
+    {/* ★ 2026-08-10 集計サマリー：合計件数・合計売上・月別件数・月別売上 */}
+    <div style={{padding:"8px 10px",borderBottom:"1px solid #e2e8f0",background:"#f8fafc",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+      <span style={{fontSize:13,fontWeight:800,color:"#0f172a"}}>合計 {summary.totalCount.toLocaleString()}件</span>
+      <span style={{fontSize:13,fontWeight:800,color:"#166534"}}>売上 ¥{summary.totalSales.toLocaleString()}</span>
+      {summary.months.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center",marginLeft:"auto"}}>
+        <span style={{fontSize:10,color:"#94a3b8",fontWeight:700}}>月別：</span>
+        {summary.months.map(ym=><span key={ym} style={{fontSize:10,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,padding:"2px 7px",color:"#1e40af",whiteSpace:"nowrap"}}><b>{ym}</b>　{summary.byMonth[ym].count}件 / ¥{summary.byMonth[ym].sales.toLocaleString()}</span>)}
+      </div>}
+    </div>
     {/* ★ テーブル（マスター準拠） */}
     <div style={{overflowX:"auto",maxHeight:"75vh"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,whiteSpace:"nowrap"}}>
@@ -23037,7 +23067,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.259-BT";
+const APP_VERSION="v1.0.260-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
