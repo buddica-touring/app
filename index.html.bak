@@ -22782,7 +22782,7 @@ function App(){
           {tab==="fleet"&&<FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>}
           {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
-          {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt"/>}
+          {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
           {tab==="intake"&&<div style={{padding:"0 0 16px"}}>
             <iframe src={`./intake.html?v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}}/>
           </div>}
@@ -22819,7 +22819,7 @@ function App(){
 const KPI_PERIOD_START={spk:"2026-02",nha:"2026-04",bt:"2026-05"};
 const KPI_TABLE_MAP={spk:"vehicle_monthly_kpi",nha:"nha_vehicle_monthly_kpi",bt:"bt_vehicle_monthly_kpi"};
 // 全車両ランキング 計算（VehicleRankingTab と 日報PDF で共用＝そのまま反映）
-function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter){
+function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance){
   const PERIOD_START=KPI_PERIOD_START[st]||"2026-02";
   otaFilter=otaFilter||"ALL";
     if(!vehicles||!vehicles.length)return{rows:[],classRows:[],period:"",months:0,empty:false};
@@ -22861,17 +22861,43 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter){
       if(!kpiByMonth[k.year_month])kpiByMonth[k.year_month]={};
       kpiByMonth[k.year_month][k.vehicle_code]=k.active;
     });
-    const activeDaysByVeh={};
+    // ★ 稼働率＝配車表(経営ダッシュボード)と同一ルール（実稼働ベース・2026-07-02）
+    //   分母 capByVeh = Σ月( 稼働可能日 = 月日数 − その月のメンテ日 )  ※メンテで丸ごと埋まる月(availV<=0)は除外
+    //   分子 usedByVeh = Σ月( 予約で埋まった日Set・月内[ms,me]クランプ − メンテ日 )
+    //   メンテ = block_type/blockType==='maintenance' のみ（partner_reserved等は除外＝配車表と一致）
+    const maintDaysByVeh={};
+    (maintenance||[]).forEach(mm=>{
+      const bt=mm.blockType||mm.block_type;if(bt&&bt!=="maintenance")return;
+      const sD=mm.startDate||mm.start_date,eD=mm.endDate||mm.end_date;if(!sD||!eD)return;
+      const vc=mm.vehicleCode||mm.vehicle_code;if(!vc)return;
+      const set=maintDaysByVeh[vc]||(maintDaysByVeh[vc]=new Set());
+      for(let d=new Date(sD.slice(0,10)+"T00:00:00"),e=new Date(eD.slice(0,10)+"T00:00:00");d<=e;d.setDate(d.getDate()+1))set.add(d.toISOString().slice(0,10));
+    });
+    const capByVeh={},usedByVeh={};
     monthList.forEach(ym=>{
       const [yy,mm]=ym.split("-").map(Number);
-      let daysInM;
-      if(yy===today.getFullYear()&&mm===today.getMonth()+1){daysInM=today.getDate();}
-      else{daysInM=new Date(yy,mm,0).getDate();}
+      const dim=new Date(yy,mm,0).getDate();
+      const ms=new Date(yy,mm-1,1),me=new Date(yy,mm-1,dim);
       const monthKpi=kpiByMonth[ym]||{};
       (vehicles||[]).forEach(v=>{
         if(!v.active)return;
         const isActive=v.code in monthKpi?monthKpi[v.code]:true;
-        if(isActive){activeDaysByVeh[v.code]=(activeDaysByVeh[v.code]||0)+daysInM;}
+        if(!isActive)return;
+        const allM=maintDaysByVeh[v.code]||null;
+        const mSet=new Set();
+        if(allM)allM.forEach(dd=>{const dt=new Date(dd+"T00:00:00");if(dt>=ms&&dt<=me)mSet.add(dd);});
+        const availV=dim-mSet.size;if(availV<=0)return;
+        capByVeh[v.code]=(capByVeh[v.code]||0)+availV;
+        const days=new Set();
+        activeResv.forEach(r=>{
+          if((fleet||{})[r.id]!==v.code)return;
+          const ld=r.lendDate,rd=r.returnDate;if(!ld||!rd)return;
+          const lDate=new Date(ld.slice(0,10)+"T00:00:00"),rDate=new Date(rd.slice(0,10)+"T00:00:00");
+          const s=lDate>ms?lDate:ms,e=rDate<me?rDate:me;
+          for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))days.add(d.toISOString().slice(0,10));
+        });
+        mSet.forEach(dd=>days.delete(dd));
+        usedByVeh[v.code]=(usedByVeh[v.code]||0)+days.size;
       });
     });
     const rows=(vehicles||[]).filter(v=>v.active).map(v=>{
@@ -22883,8 +22909,9 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter){
       const fixedMonthly=lease+ins+shaken+tenken;
       const revTotal=s.rev;
       const monthlyAvg=revTotal/n_months;
-      const capDays=activeDaysByVeh[v.code]||0;
-      const utilPct=capDays?(s.days/capDays*100):0;
+      const capDays=capByVeh[v.code]||0;
+      const usedDaysReal=usedByVeh[v.code]||0;
+      const utilPct=capDays?(usedDaysReal/capDays*100):0;
       const fixedTotal=fixedMonthly*n_months;
       const profit=revTotal-fixedTotal;
       const monthlyProfit=profit/n_months;
@@ -22893,7 +22920,7 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter){
         return v.code in monthKpi?monthKpi[v.code]:true;
       })();
       return{...v,plate:v.no||v.plate_no||"",
-        cnt:s.cnt,usedDays:s.days,capDays,
+        cnt:s.cnt,usedDays:usedDaysReal,capDays,
         revTotal,monthlyAvg,utilPct,fixedMonthly,fixedTotal,profit,monthlyProfit,
         isActiveNow,fixedBreak:{lease,ins,shaken,tenken}};
     });
@@ -22934,7 +22961,7 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter){
     return{rows,classRows,period:`${effectiveStart} 〜 ${todayYM}`,months:n_months,empty:false};
 }
 
-function VehicleRankingTab({vehicles,data,fleet,store}){
+function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   const st=store||"spk";
   let PERIOD_START=KPI_PERIOD_START[st]||"2026-02";
   const KPI_TABLE=KPI_TABLE_MAP[st]||"vehicle_monthly_kpi";
@@ -22957,7 +22984,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
     const iv=setInterval(load,5*60*1000);
     return()=>{alive=false;clearInterval(iv);};
   },[KPI_TABLE]);
-  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter]);
+  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter,maintenance]);
   const rankColors={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
   const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
   if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
@@ -23127,7 +23154,7 @@ function VehicleRankingTab({vehicles,data,fleet,store}){
   </div>;
 }
 
-const APP_VERSION="v1.0.277-BT";
+const APP_VERSION="v1.0.278-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25021,7 +25048,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       }
       // --- 🏆 全車両ランキング（車両ランキングタブと同一計算をそのまま反映）---
       {
-        const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL");
+        const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
         ctx.fillStyle=NAVY;ctx.font="bold "+S(19)+"px sans-serif";
         ctx.fillText("🏆 全車両ランキング（5項目評価）",M,y);y+=S(24);
         ctx.fillStyle="#64748b";ctx.font=S(11)+"px sans-serif";
