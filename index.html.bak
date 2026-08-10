@@ -23158,7 +23158,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.286-BT";
+const APP_VERSION="v1.0.287-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25265,7 +25265,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       vrows.forEach((r,i)=>{
         const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";
         L.push((i+1)+". "+veh+"（"+(r.type||"-")+"クラス／評価"+(r.rank||"-")+"）");
-        L.push("　売上"+yen(Math.round(r.revTotal))+" / 粗利"+(r.profit<0?"▲":"+")+yen(Math.abs(Math.round(r.profit)))+" / 予約"+(r.cnt||0)+"件 / 稼働"+Math.round(r.utilPct)+"%");
+        L.push("　売上 "+yen(Math.round(r.revTotal))+"　粗利 "+(r.profit<0?"▲":"+")+yen(Math.abs(Math.round(r.profit))));
+        L.push("　予約 "+(r.cnt||0)+"件　稼働 "+Math.round(r.utilPct)+"%");
+        L.push("");
       });
       const hid=(vr.rows||[]).length-vrows.length;
       if(hid>0)L.push("※予約・売上なし "+hid+"台は非表示");
