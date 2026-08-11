@@ -17591,7 +17591,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontWeight:700,fontSize:isMob?14:13,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
-                      {t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
+                      {t.type!=="洗車"&&t.type!=="返却後洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}
                       {t.reservationId?(()=>{const _r=(reservations||[]).find(x=>x.id===t.reservationId);const _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{fontSize:14,textDecoration:"none",flexShrink:0}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                       {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600}}>{t.memo}</span>}
                       {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>👥{ppl}</span>}
@@ -22304,7 +22304,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -22446,7 +22446,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{t.type}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&<HdmBadge ota={t.ota}/>}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&t.ota&&<OBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -23158,7 +23158,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.288-BT";
+const APP_VERSION="v1.0.290-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25252,7 +25252,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const curM=repSum.byM[repSum.curYM]||{count:0,sales:0};
     const hp=(repSum.curCh&&repSum.curCh["HP"])||{count:0,sales:0};
     const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
-    const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0;
+    const oth=(repSum.curCh&&repSum.curCh["その他"])||{count:0,sales:0};   // ★2026-08-11 SP等その他チャネル（内訳がHP+OTAだけで当月合計と合わない不具合の修正）
+    const hpU=hp.count?Math.round(hp.sales/hp.count):0,otaU=ota.count?Math.round(ota.sales/ota.count):0,othU=oth.count?Math.round(oth.sales/oth.count):0;
+    const yogai=Math.max(0,(curM.sales||0)-hp.sales-ota.sales-oth.sales);   // ★予約外売上(件数外)＝当月合計−予約チャネル合計。HP+OTA+その他+予約外=当月合計 に一致させる
     const dc=repSum.dayCmp||{dCount:0,dSales:0};
     const mm=repSum.curYM.slice(5)+"月";
     L.push("■ 件数・売上（返却月ベース・実績）");
@@ -25261,6 +25263,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("・前日比(当月)："+fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true));
     L.push("・HP："+hp.count+"件 / "+yen(hp.sales)+"（単価"+yen(hpU)+"）");
     L.push("・OTA："+ota.count+"件 / "+yen(ota.sales)+"（単価"+yen(otaU)+"）");
+    if(oth.count||oth.sales)L.push("・その他："+oth.count+"件 / "+yen(oth.sales)+(oth.count?"（単価"+yen(othU)+"）":""));
+    if(yogai>0)L.push("・予約外売上："+fmtD(yogai,true)+"（件数外）");
     L.push("");
     // 月別
     L.push("■ 月別 推移");
@@ -25280,7 +25284,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("");
     // ランキング
     const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
-    L.push("■ 車両ランキング（予約実績あり・稼働率=配車表ルール）");
+    L.push("■ 車両ランキング（累計・予約実績あり・稼働率=配車表ルール）");
     const vrows=(vr.rows||[]).filter(r=>(r.cnt||0)>0||(r.revTotal||0)>0);
     if(vrows.length){
       vrows.forEach((r,i)=>{
@@ -25292,7 +25296,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       });
       const hid=(vr.rows||[]).length-vrows.length;
       if(hid>0)L.push("※予約・売上なし "+hid+"台は非表示");
-      L.push("("+(vr.period||"-")+" / "+vr.months+"ヶ月)");
+      L.push("(累計・全期間)");   // ★2026-08-11 データは累計(全月の予約=ALL)。旧ラベルの当月範囲(2026-08〜2026-08)はデータと不一致だったため累計表記に統一
     }else L.push("・予約実績のある車両なし");
     L.push("━━━━━━━━━━");
     return L.join("\n");
