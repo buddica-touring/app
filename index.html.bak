@@ -23158,7 +23158,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.287-BT";
+const APP_VERSION="v1.0.288-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24607,7 +24607,10 @@ function BtAnnouncementBoard({sb}){
 
 /* ★ 2026-08-06 TOP「在庫調整」タイル バッジ用：未対応(status未対応)の在庫調整件数を算出。
    BtInventoryTab の cntTodo と同一ロジック（発生元以外のチャネル未チェック／キャンセルは在庫未開放）。
-   stat=bt_inventory_status を mk({adj_airtrip,adj_official,adj_rentacom,adj_jalan,stock_released}) 形にした map。 */
+   stat=bt_inventory_status を mk({adj_airtrip,adj_official,adj_rentacom,adj_jalan,stock_released}) 形にした map。
+   ★2026-08-11 キャンセル解放を「相殺 or 媒体別解放」に修正：
+     調整済み(発生元以外を実際に減らした)予約のみ在庫解放待ち。未調整予約はキャンセル時=相殺(表示しない)。
+     解放は減らした媒体だけを個別に戻す(adj=false)＝一律1マークで水増し解放しない。 */
 function btInvTodoCount(data,stat){
   stat=stat||{};
   const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
@@ -24616,8 +24619,11 @@ function btInvTodoCount(data,stat){
   const isCxl=(r)=>r.status==="cancelled";
   const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",stock_released:false};};
   const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;const ok=originKey(r);return{...s,[ok]:true};};
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?!s.stock_released:CH.some(c=>c.key!==ok&&!s[c.key]);};
-  const cxNeedRel=(r)=>isCxl(r)&&!!stat[r.id]&&!sOf(r).stock_released;
+  // 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return CH.some(c=>c.key!==ok&&s[c.key]);};
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):CH.some(c=>c.key!==ok&&!s[c.key]);};
+  // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放(旧stock_released済みは除外)
+  const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);});
   return rows.filter(isTodo).length;
 }
@@ -24651,9 +24657,12 @@ function BtInventoryTab({data,sb,store,onCancel}){
   // 既定：発生元だけ自動で済（true）、残り2チャネルは未（要）
   const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",stock_released:false};};
   const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元は常に済扱いにマージ */const ok=originKey(r);return{...s,[ok]:true};};
-  // 未対応＝発生元以外のチャネルに未チェックが残っている
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?!s.stock_released:CH.some(c=>c.key!==ok&&!s[c.key]);};
-  const cxNeedRel=(r)=>isCxl(r)&&!!stat[r.id]&&!sOf(r).stock_released;
+  // ★2026-08-11 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return CH.some(c=>c.key!==ok&&s[c.key]);};
+  // 未対応＝発生元以外のチャネルに未チェックが残っている（キャンセルは「減らした媒体の解放が残る」）
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):CH.some(c=>c.key!==ok&&!s[c.key]);};
+  // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放。未調整キャンセルは相殺で表示しない。旧stock_released済みは除外。
+  const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=React.useMemo(()=>(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);}).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")),[data,today,stat]);
   const isNew=(r)=>!stat[r.id]&&!isCxl(r);
   const FILT_CH={O:"adj_airtrip",HP:"adj_official",RC:"adj_rentacom",J:"adj_jalan"};/* ★媒体絞り込みはコード/フルネーム両対応(GAS取込はota=フルネーム)→発生元キーで判定 */
@@ -24668,8 +24677,12 @@ function BtInventoryTab({data,sb,store,onCancel}){
         if(res&&res.error){await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}
       }catch(e){try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e2){}}}
   };
-  const toggleRel=async(r)=>{
-    const cur=sOf(r);const next={...cur,stock_released:!cur.stock_released,[originKey(r)]:true};
+  // ★2026-08-11 キャンセル在庫解放：発生元以外で「減らした媒体」を1つずつ戻す(adj=false)。
+  //  減らした媒体が全て戻ったら stock_released=true（=完了で一覧から消える）。予約時と同じく自媒体以外だけを解放。
+  const releaseCh=async(r,key)=>{
+    const ok=originKey(r);if(key===ok)return;/* 自媒体は減らしていないので解放不可 */
+    const cur=sOf(r);const next={...cur,[key]:false,[ok]:true};
+    const anyLeft=CH.some(c=>c.key!==ok&&next[c.key]);next.stock_released=!anyLeft;
     setStat(s=>({...s,[r.id]:next}));
     if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,stock_released:next.stock_released,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
       try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e){}}
@@ -24687,12 +24700,21 @@ function BtInventoryTab({data,sb,store,onCancel}){
       {!on&&<div style={{fontSize:9,color:"#dc2626",fontWeight:700,marginTop:1}}>要</div>}
     </div>);
   };
+  // ★2026-08-11 キャンセル行の媒体別「解放」セル：発生元=自媒体(操作不可)／減らした媒体=🟣要開放(押すと戻す)／減らしていない媒体=—
+  const RelCell=(r,c)=>{const s=sOf(r);const ok=originKey(r);const isOrigin=(c.key===ok);const reduced=s[c.key];
+    if(isOrigin)return(<div style={{textAlign:"center",userSelect:"none"}}><div style={{fontSize:11,color:"#94a3b8",lineHeight:"24px"}}>自媒体</div></div>);
+    if(!reduced)return(<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>);
+    return(<div onClick={()=>releaseCh(r,c.key)} style={{textAlign:"center",cursor:"pointer",userSelect:"none"}}>
+      <div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid #7c3aed",background:"#fff",color:"#7c3aed",fontWeight:900,lineHeight:"20px",fontSize:13}}>戻</div>
+      <div style={{fontSize:9,color:"#7c3aed",fontWeight:700,marginTop:1}}>要開放</div>
+    </div>);
+  };
   return(<div style={{maxWidth:1100,margin:"0 auto",padding:"4px 2px"}}>
     <h2 style={{fontSize:18,margin:"6px 4px 4px"}}>📦 在庫調整 <span style={{fontSize:12,color:"#64748b",fontWeight:400}}>これからの貸出のみ</span></h2>
-    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。</p>
+    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。<br/><b style={{color:"#7c3aed"}}>キャンセル時</b>＝在庫を絞った予約だけ<b>絞った媒体を1つずつ「戻」（解放）</b>。<span style={{color:"#94a3b8"}}>まだ絞っていない予約は相殺で消えるだけ＝解放不要（水増し解放を防止）。</span></p>
     <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{cntTodo}</div><div style={{fontSize:11,color:"#64748b"}}>🔴 未対応{cntNew>0?"（新規"+cntNew+"）":""}</div></div>
-      <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#7c3aed"}}>{cntCxl}</div><div style={{fontSize:11,color:"#64748b"}}>🟣 在庫開放待ち</div></div>
+      <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#7c3aed"}}>{cntCxl}</div><div style={{fontSize:11,color:"#64748b"}}>🟣 在庫解放待ち(キャンセル)</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#059669"}}>{cntDone}</div><div style={{fontSize:11,color:"#64748b"}}>対応済み</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700}}>{rows.length}</div><div style={{fontSize:11,color:"#64748b"}}>表示中</div></div>
     </div>
@@ -24701,10 +24723,10 @@ function BtInventoryTab({data,sb,store,onCancel}){
     <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 6px",minWidth:900}}>
       <thead><tr style={{fontSize:11,color:"#64748b",textAlign:"left"}}>
         <th style={{padding:"0 8px 4px"}}>予約日時</th><th style={{padding:"0 8px 4px"}}>媒体</th><th style={{padding:"0 8px 4px"}}>予約者名</th><th style={{padding:"0 8px 4px"}}>予約番号</th><th style={{padding:"0 8px 4px"}}>貸出</th><th style={{padding:"0 8px 4px"}}>返却</th><th style={{padding:"0 8px 4px"}}>クラス</th>
-        <th style={{padding:"0 8px 4px",textAlign:"center"}}>エアトリ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>オフィシャル</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>レンカ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>じゃらん</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>在庫開放</th>
+        <th style={{padding:"0 8px 4px",textAlign:"center"}}>エアトリ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>オフィシャル</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>レンカ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>じゃらん</th>
       </tr></thead>
       <tbody>
-      {shown.length===0&&<tr><td colSpan={12} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
+      {shown.length===0&&<tr><td colSpan={11} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
       {shown.map(r=>{const s=sOf(r);const todo=isTodo(r);const nw=isNew(r)&&todo;const cx=isCxl(r);const cxTodo=cx&&!s.stock_released;
         const bg=cxTodo?"#faf5ff":cx?"#f8fafc":nw?"#fef2f2":todo?"#fff7ed":"#fff";
         const td={background:bg,padding:"10px 8px",fontSize:13,verticalAlign:"middle"};
@@ -24717,16 +24739,15 @@ function BtInventoryTab({data,sb,store,onCancel}){
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.lendDate)}</td>
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.returnDate)}</td>
           <td style={{...td,fontWeight:700}}>{r.vehicle||"-"}</td>
-          <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[0])}</td>
-          <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[1])}</td>
-          <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[2])}</td>
-          <td style={td}>{cx?<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>:AdjCell(r,CH[3])}</td>
-          <td style={{...td,borderRadius:"0 10px 10px 0"}}>{cx?<div onClick={()=>toggleRel(r)} style={{textAlign:"center",cursor:"pointer",userSelect:"none"}}><div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid "+(s.stock_released?"#7c3aed":"#dc2626"),background:s.stock_released?"#7c3aed":"#fff",color:"#fff",fontWeight:900,lineHeight:"20px",fontSize:15}}>{s.stock_released?"✓":""}</div>{!s.stock_released&&<div style={{fontSize:9,color:"#dc2626",fontWeight:700,marginTop:1}}>要開放</div>}</div>:<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>}</td>
+          <td style={td}>{cx?RelCell(r,CH[0]):AdjCell(r,CH[0])}</td>
+          <td style={td}>{cx?RelCell(r,CH[1]):AdjCell(r,CH[1])}</td>
+          <td style={td}>{cx?RelCell(r,CH[2]):AdjCell(r,CH[2])}</td>
+          <td style={{...td,borderRadius:"0 10px 10px 0"}}>{cx?RelCell(r,CH[3]):AdjCell(r,CH[3])}</td>
         </tr>);})}
       </tbody>
     </table>
     </div>
-    <p style={{fontSize:11,color:"#94a3b8",marginTop:14,lineHeight:1.7}}>🔴赤=新規/未対応 ／ 🟣紫=キャンセル（在庫の開放が必要）／ 白=対応済み。<br/>各予約は<b>発生元OTA以外の2チャネル</b>で在庫を絞ればOK（発生元は自動で「済」）。キャンセルは消えず「在庫開放」待ちで残り、配車を空けてチェックすると消えます。</p>
+    <p style={{fontSize:11,color:"#94a3b8",marginTop:14,lineHeight:1.7}}>🔴赤=新規/未対応 ／ 🟣紫=キャンセル（絞った在庫の解放が必要）／ 白=対応済み。<br/>各予約は<b>発生元OTA以外</b>で在庫を絞ればOK（発生元は自動で「済」）。<b style={{color:"#7c3aed"}}>キャンセル時</b>は、<b>実際に在庫を絞った媒体だけ「戻」を押して解放</b>（自媒体は絞っていないので対象外）。<b>まだ絞っていない予約はキャンセルされても相殺で消えるだけ</b>＝解放不要（一律解放による在庫の水増しを防止）。絞った媒体を全て戻すと一覧から消えます。</p>
   </div>);
 }
 
