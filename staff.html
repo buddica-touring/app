@@ -29,6 +29,7 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .jpay{font-weight:800;font-size:11px;border-radius:6px;padding:2px 7px;margin-left:6px;text-decoration:none;display:inline-block}
 .jpay.ok{background:#f0fdf4;color:#059669;border:1px solid #bbf7d0}
 .jpay.no{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.jpay.jtap{cursor:pointer}
 .badge.DEL,.badge.PU,.badge.PUB,.badge.来店{background:var(--blue)}
 .badge.COL,.badge.BD,.badge.BDB,.badge.返却{background:var(--red)}
 .badge.洗車{background:var(--teal)}
@@ -71,7 +72,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.5-bt";
+var VER="staff-v1.6-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 var app=document.getElementById("app");
 
@@ -102,7 +103,7 @@ function taskCard(x){
   var _pamt=Number(x.price)||0; var _pas=_pamt>0?(' ¥'+_pamt.toLocaleString()):'';
   var _isJ=(x.ota==='じゃらん'); var _isSP=(x.ota==='SP'||x.payment==='現地決済');
   if(_isJ&&x.pay_url){ jpay = x.paid ? '<span class="jpay ok" title="じゃらん事前決済 入金済み">💳入金済</span>' : '<a class="jpay no" href="'+esc(x.pay_url)+'" target="_blank" rel="noopener" title="じゃらん事前決済 未決済（クリックで決済リンク）">💳未決済'+_pas+'</a>'; }
-  else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no" title="現地決済 未入金 — 貸出/返却時に受領">💳未決済'+_pas+'</span>'; }
+  else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no jtap" title="タップで現地決済を完了にする" onclick="saPay(\''+esc(x.resv||'')+'\','+_pamt+',\''+esc((x.customer||'').replace(/\x27/g,''))+'\')">💳未決済'+_pas+'</span>'; }
   var chk='';
   if(x.resv&&(t==='DEL'||t==='PU'||t==='PUB'||t==='来店'||t==='PUB来店')){
     chk='<span class="chk '+(x.lic?'ok':'no')+'" title="免許証">🪪'+(x.lic?'':'未')+'</span>'
@@ -293,6 +294,54 @@ function load(){
     render(d);})
   .catch(function(e){clearTimeout(to);showErr("通信エラー。電波を確認して再読み込みしてください");});
 }
+window.saPay=function(resv,amount,cust){
+  if(!resv){alert("予約情報が取得できませんでした");return;}
+  var amt=Number(amount)||0;
+  var method="カード", step=1, busy=false;
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px";
+  function close(){if(busy)return;document.body.removeChild(ov);}
+  function esc2(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function draw(){
+    var mbtn=function(m){return '<button data-m="'+m+'" style="flex:1;padding:9px 0;border-radius:9px;border:'+(method===m?'2px solid #2563eb':'1px solid #cbd5e1')+';background:'+(method===m?'#eff6ff':'#fff')+';font-weight:800;font-size:14px;color:'+(method===m?'#1d4ed8':'#475569')+'">'+(m==="カード"?"💳 カード":"💵 現金")+'</button>';};
+    var body= step===1
+      ? '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">支払方法</div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:12px" id="pm">'+mbtn("カード")+mbtn("現金")+'</div>'
+        +'<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Squareレシート番号 <span style="font-weight:500;color:#94a3b8">（任意・空でOK）</span></div>'
+        +'<input id="prc" placeholder="例）tU7a" style="width:100%;padding:9px 10px;border-radius:9px;border:1px solid #cbd5e1;font-size:14px;margin-bottom:14px;box-sizing:border-box">'
+        +'<div style="display:flex;gap:8px"><button id="pcancel" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid #cbd5e1;background:#fff;font-weight:800;font-size:14px;color:#475569">キャンセル</button>'
+        +'<button id="pnext" style="flex:1.4;padding:11px 0;border-radius:10px;border:none;background:#2563eb;font-weight:800;font-size:14px;color:#fff">次へ</button></div>'
+      : '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:center"><div style="font-size:15px;font-weight:900;color:#92400e;margin-bottom:4px">決済は完了しましたか？</div><div style="font-size:12px;color:#78716c">'+esc2(method)+'で ¥'+amt.toLocaleString()+' を受領済み<br>入金済みにして会計（予約外売上）に計上します</div></div>'
+        +'<div style="display:flex;gap:8px"><button id="pback" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid #cbd5e1;background:#fff;font-weight:800;font-size:14px;color:#475569">戻る</button>'
+        +'<button id="pdo" style="flex:1.4;padding:11px 0;border-radius:10px;border:none;background:'+(busy?'#94a3b8':'#059669')+';font-weight:800;font-size:14px;color:#fff">'+(busy?"処理中…":"✅ はい、完了")+'</button></div>';
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden">'
+      +'<div style="background:linear-gradient(135deg,#0f172a,#7c2d12);color:#fff;padding:14px 16px"><div style="font-size:15px;font-weight:900">💳 現地決済の完了</div><div style="font-size:12px;opacity:.85;margin-top:2px">'+esc2(cust||"")+' ・ '+esc2(resv)+'</div></div>'
+      +'<div style="padding:16px"><div style="text-align:center;font-size:13px;color:#64748b">受領金額</div><div style="text-align:center;font-size:30px;font-weight:900;color:#991b1b;margin:2px 0 12px">¥'+amt.toLocaleString()+'</div>'+body+'</div></div>';
+    wire();
+  }
+  function wire(){
+    ov.onclick=function(e){if(e.target===ov)close();};
+    var pm=ov.querySelector("#pm"); if(pm){pm.querySelectorAll("button").forEach(function(b){b.onclick=function(){method=b.getAttribute("data-m");draw();};});}
+    var c=ov.querySelector("#pcancel"); if(c)c.onclick=close;
+    var n=ov.querySelector("#pnext"); if(n)n.onclick=function(){window._prcv=(ov.querySelector("#prc")||{}).value||"";step=2;draw();};
+    var bk=ov.querySelector("#pback"); if(bk)bk.onclick=function(){step=1;draw();};
+    var d=ov.querySelector("#pdo"); if(d)d.onclick=run;
+  }
+  function run(){
+    if(busy)return; busy=true; draw();
+    fetch(SB+"/rest/v1/rpc/bt_complete_onsite_payment",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},
+      body:JSON.stringify({p_resv:resv,p_receipt:window._prcv||null,p_method:method,p_token:TOKEN})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d||d.ok===false){busy=false;alert("完了できませんでした（"+((d&&d.error)||"エラー")+"）");draw();return;}
+        try{document.body.removeChild(ov);}catch(e){}
+        if(window.saCelebrate)saCelebrate();
+        setTimeout(load,700);
+      })
+      .catch(function(){busy=false;alert("通信エラー。電波を確認してください");draw();});
+  }
+  document.body.appendChild(ov); draw();
+};
 load();
 setInterval(function(){if(!document.hidden&&TOKEN&&MODE==="tasks")load();},30000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&MODE==="tasks")load();});
