@@ -13700,7 +13700,7 @@ function PaymentSection({sqfRefreshKey,onOpenSqFailed,setTab}){
   const toggle=(k)=>setExpanded(e=>e===k?null:k);
   return <div style={{marginBottom:8}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
-      <TopIcon icon="⚠️" label="Square起票仕訳" badge={counts.sqfCount} amount={counts.sqfTotal} color="#dc2626" alert={counts.sqfCount>0} subText={counts.sqfCount===0?"OK":""} onClick={onOpenSqFailed}/>
+      <TopIcon icon="💳" label="じゃらん決済" color="#8b5cf6" subText="決済確認" onClick={()=>setTab("jalanpay")}/>
       <TopIcon icon="📝" label="予約外未収" badge={counts.extCount} amount={counts.extTotal} color="#f97316" alert={counts.extCount>0} subText={counts.extCount===0?"OK":""} active={expanded==="extra"} onClick={()=>toggle("extra")}/>
       <TopIcon icon="💳" label="Square請求" badge={counts.sqiUnpaid} amount={counts.sqiUnpaidAmt} color="#3b82f6" alert={counts.sqiUnpaid>0} subText={counts.sqiUnpaid===0?"全入金":""} active={expanded==="square"} onClick={()=>toggle("square")}/>
       <TopIcon icon="🟡" label="じゃらん事前" badge={counts.jalCount} amount={counts.jalUnpaid} color="#8b5cf6" alert={counts.jalCount>0} subText={counts.jalCount===0?"OK":""} active={expanded==="jalan"} onClick={()=>toggle("jalan")}/>
@@ -13782,7 +13782,6 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
   return <div style={{marginBottom:8}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
       <TopIcon icon="📡" label="直近24h" badge={recCount.n} subText={"CXL "+recCount.c} color="#0891b2" active={expanded==="rec"} onClick={()=>toggle("rec")}/>
-      <TopIcon icon="❌" label="キャンセル一覧" badge={cxlCount} subText="一覧/復元" color="#dc2626" active={expanded==="cxl"} onClick={()=>toggle("cxl")}/>
       <a href="inquiry.html" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
         <TopIcon icon="📬" label="問い合わせ" subText="↗ 開く" color="#0ea5e9" onClick={()=>{}}/>
       </a>
@@ -22157,9 +22156,7 @@ function App(){
                 {id:"jalan_tmpl",ico:"📧",l:"じゃらん送信テンプレ",desc:"じゃらん(HDM)予約ごとに全テンプレを📋コピー→手動メール→☑消し込み(チェック式)"},
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
-                {id:"jalanpay",ico:"💳",l:"じゃらん決済",desc:"じゃらん予約の決済確認",badge:(()=>{const j=data.filter(r=>r.ota==="J");const undone=j.filter(r=>!jalanPay[r.id]||jalanPay[r.id].payStatus!=="完了").length;return undone>0?undone+"件未完了":null;})()},
                 {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ/じゃらん)の在庫を手動で絞る対応管理",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
-                {id:"import",ico:"📁",l:"CSV取込",desc:"OTA予約CSVインポート"},
               ]},
               {title:"管理メニュー",color:"#4c1d95",items:[
                 {id:"ops",ico:"🏛",l:"運営",desc:"経営 / 予算実績 / 運用戦略 / 車両ランキング / 価格戦略マスター / 売上予測 / 外国人 / 日報",menu:[
@@ -23243,7 +23240,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.308-BT";
+const APP_VERSION="v1.0.309-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
