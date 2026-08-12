@@ -50,6 +50,7 @@
   .vtabs button.on{background:#7c3aed;color:#fff;border-color:#7c3aed}
   .fee{color:#dc2626;font-weight:700}
   .net{color:#0e7a3b;font-weight:800}
+  .stay{color:#7c3aed;font-weight:800}
 </style>
 </head>
 <body>
@@ -105,9 +106,9 @@ const MAIN_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const CFG={
-  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店',hpMode:'ota'},
-  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店',hpMode:'ota'},
-  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source'},
+  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', ret:'return_date',occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店',hpMode:'ota'},
+  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店',hpMode:'ota'},
+  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source'},
 };
 // hpMode: 'ota'＝ota in(HP,SP)で公式判定（札幌/那覇）／'source'＝OTA以外(source≠ota)を公式扱い（高松＝公式siteはota空・SPも含む）
 const STORE=(new URLSearchParams(location.search).get('store')||'spk').toLowerCase();
@@ -123,6 +124,7 @@ const ym=s=>s?String(s).slice(0,7):'';
 function months(a,b){const out=[];let[y,m]=a.split('-').map(Number);const[Y,M]=b.split('-').map(Number);while(y<Y||(y===Y&&m<=M)){out.push(y+'-'+String(m).padStart(2,'0'));m++;if(m>12){m=1;y++;}}return out;}
 function revOf(r){const bp=+r.base_price||0,op=+r.option_price||0,d=+r.discount||0;return (bp>0||op>0)?Math.max(0,bp+op-d):(+r.price||0);}
 function occYM(r){for(const col of C.occ){const v=r[col];if(v&&String(v).length>=7)return ym(v);}return '';}
+function nights(r){const a=r[C.lend],b=r[C.ret];if(!a||!b)return null;const d=Math.round((new Date(String(b).slice(0,10)+'T00:00:00')-new Date(String(a).slice(0,10)+'T00:00:00'))/86400000);return d>=0?d:null;} // 泊数(=稼働日数)
 const FEE=0.18; // OTA手数料
 const OTA_CODES=['J','R','S','O','RC','G'];
 const OTANAME={J:'じゃらん',R:'楽天トラベル',S:'skyticket',O:'エアトリ',RC:'レンタカードットコム',G:'GoGoOut'};
@@ -134,7 +136,7 @@ let AD={}, ROWS=[], BUILT=null;
 
 async function fetchAll(){
   let out=[],off=0;
-  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+',status'+(C.hpMode==='source'?',source':'');
+  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+','+C.ret+',status'+(C.hpMode==='source'?',source':'');
   // 全件取得→クライアントでHP(自社)/OTAを分類。取消は英/日ともクライアント除外
   let q='select='+cols+'&order=id';
   while(true){
@@ -161,22 +163,22 @@ async function saveAd(){
 function build(resv){
   const now=new Date();const curYM=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const occMonths=months(START,curYM);
-  const M={},MO={};occMonths.forEach(m=>{M[m]={count:0,rev:0,dep:{}};MO[m]={count:0,rev:0,dep:{}};});
+  const M={},MO={};occMonths.forEach(m=>{M[m]={count:0,rev:0,dep:{},nSum:0,nCnt:0};MO[m]={count:0,rev:0,dep:{},nSum:0,nCnt:0};});
   const OTAby={};
   let depMin=curYM,depMax=START;
   resv.forEach(r=>{
     if(/cancel|キャンセル/i.test(r.status||''))return;               // 取消(英/日)は除外
     if(!r.booked_at && String(r.created_at||'').slice(0,10)==='2026-03-29')return; // 一括取込(発生月不明)除外
     const o=occYM(r);if(!o||o<START)return;
-    const rev=revOf(r),dm=ym(r[C.lend])||'—';
+    const rev=revOf(r),dm=ym(r[C.lend])||'—',nt=nights(r);
     if(dm!=='—'){if(dm<depMin)depMin=dm;if(dm>depMax)depMax=dm;}
     if(isHP(r)&&M[o]){                                               // 🌐 自社獲得(HP)
-      M[o].count++;M[o].rev+=rev;
+      M[o].count++;M[o].rev+=rev;if(nt!=null){M[o].nSum+=nt;M[o].nCnt++;}
       if(!M[o].dep[dm])M[o].dep[dm]={count:0,rev:0};M[o].dep[dm].count++;M[o].dep[dm].rev+=rev;
     }else if(isOTA(r)&&MO[o]){                                       // 🏨 OTA
-      MO[o].count++;MO[o].rev+=rev;
+      MO[o].count++;MO[o].rev+=rev;if(nt!=null){MO[o].nSum+=nt;MO[o].nCnt++;}
       if(!MO[o].dep[dm])MO[o].dep[dm]={count:0,rev:0};MO[o].dep[dm].count++;MO[o].dep[dm].rev+=rev;
-      const ch=chOf(r);if(!OTAby[ch])OTAby[ch]={count:0,rev:0};OTAby[ch].count++;OTAby[ch].rev+=rev;
+      const ch=chOf(r);if(!OTAby[ch])OTAby[ch]={count:0,rev:0,nSum:0,nCnt:0};OTAby[ch].count++;OTAby[ch].rev+=rev;if(nt!=null){OTAby[ch].nSum+=nt;OTAby[ch].nCnt++;}
     }
   });
   return {occMonths,M,MO,OTAby,depMonths:months(depMin<START?START:depMin, depMax<curYM?curYM:depMax)};
@@ -188,47 +190,48 @@ function render(){
   const colP=v=>v===null?'#94a3b8':(v>=0?'#0e7a3b':'#dc2626');
   const judge=(pv,ad)=>ad>0?(pv<0?['🛑','#dc2626','#fef2f2']:['✅','#0e7a3b','#f0fdf4']):['—','#94a3b8','transparent'];
   // 累計
-  let hC=0,hR=0,hAd=0;occMonths.forEach(m=>{hC+=M[m].count;hR+=M[m].rev;hAd+=(+AD[m]||0);});
-  let oC=0,oR=0;occMonths.forEach(m=>{oC+=MO[m].count;oR+=MO[m].rev;});
+  let hC=0,hR=0,hAd=0,hNS=0,hNC=0;occMonths.forEach(m=>{hC+=M[m].count;hR+=M[m].rev;hAd+=(+AD[m]||0);hNS+=M[m].nSum;hNC+=M[m].nCnt;});
+  let oC=0,oR=0,oNS=0,oNC=0;occMonths.forEach(m=>{oC+=MO[m].count;oR+=MO[m].rev;oNS+=MO[m].nSum;oNC+=MO[m].nCnt;});
   const oFee=oR*FEE,oNet=oR-oFee,hEff=hAd>0?(hR-hAd):null;
-  // ⚖️ 累計比較
-  let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
-  ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件</td><td class="yen">'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果</div></td></tr>';
-  ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件</td><td class="yen">'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18%</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82%</div></td></tr>';
+  const avgN=(s,c)=>c?(s/c).toFixed(1)+'泊':'—';
+  // ⚖️ 累計比較（平均泊数＝1予約の稼働日数）
+  let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>平均泊数</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
+  ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件</td><td class="yen">'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果</div></td></tr>';
+  ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件</td><td class="yen">'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18%</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82%</div></td></tr>';
   const aC=hC+oC,aR=hR+oR,aCost=hAd+oFee,aNet=(hEff!=null?hEff:0)+oNet;
-  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件</td><td>'+yen(aR)+'</td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="fee">'+yen(aCost)+'</td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'</td></tr></tfoot>';
+  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件</td><td>'+yen(aR)+'</td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="stay">'+avgN(hNS+oNS,hNC+oNC)+'</td><td class="fee">'+yen(aCost)+'</td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'</td></tr></tfoot>';
   document.getElementById('cmpTot').innerHTML=ct;
   // 空の過去月は隠す（データのある最初の月〜／例:高松=8月開始）
   let fi=occMonths.findIndex(m=>M[m].count>0||MO[m].count>0);if(fi<0)fi=occMonths.length-1;
   const vis=occMonths.slice(fi);
   // 📊 月次比較（HP | OTA | 合算 を横並び）
-  let mh='<thead><tr><th class="l" rowspan="2">発生月</th><th colspan="6" style="text-align:center;background:#f5f3ff;color:#4c1d95;border-left:2px solid #ddd6fe">🌐 HP（自社）</th><th colspan="5" style="text-align:center;background:#eff6ff;color:#1e3a8a;border-left:2px solid #bfdbfe">🏨 OTA（手数料18%）</th><th colspan="3" style="text-align:center;background:#fef9c3;color:#92400e;border-left:2px solid #fde68a">🧮 合算</th></tr>'
-    +'<tr><th style="border-left:2px solid #ddd6fe">件数</th><th>売上</th><th>広告費(入力)</th><th>CPA</th><th>効果</th><th>判定</th>'
-    +'<th style="border-left:2px solid #bfdbfe">件数</th><th>売上</th><th>手数料</th><th>CPA</th><th>手取り</th>'
+  let mh='<thead><tr><th class="l" rowspan="2">発生月</th><th colspan="7" style="text-align:center;background:#f5f3ff;color:#4c1d95;border-left:2px solid #ddd6fe">🌐 HP（自社）</th><th colspan="6" style="text-align:center;background:#eff6ff;color:#1e3a8a;border-left:2px solid #bfdbfe">🏨 OTA（手数料18%）</th><th colspan="3" style="text-align:center;background:#fef9c3;color:#92400e;border-left:2px solid #fde68a">🧮 合算</th></tr>'
+    +'<tr><th style="border-left:2px solid #ddd6fe">件数</th><th>売上</th><th>平均泊</th><th>広告費(入力)</th><th>CPA</th><th>効果</th><th>判定</th>'
+    +'<th style="border-left:2px solid #bfdbfe">件数</th><th>売上</th><th>平均泊</th><th>手数料</th><th>CPA</th><th>手取り</th>'
     +'<th style="border-left:2px solid #fde68a">件数</th><th>売上</th><th>純額</th></tr></thead><tbody>';
   vis.forEach(m=>{
     const h=M[m],ad=+AD[m]||0;const hcpa=h.count?ad/h.count:0;const hpv=ad>0?(h.rev-ad):null;const jd=judge(hpv,ad);
     const o=MO[m];const of=o.rev*FEE,onet=o.rev-of,ocpa=o.count?of/o.count:0;
     const aCnt=h.count+o.count,aRev=h.rev+o.rev,aNetM=aRev-(ad+of);
     mh+='<tr><td class="l num">'+m+'</td>'
-      +'<td class="num" style="border-left:2px solid #ddd6fe">'+h.count+'件</td><td class="yen">'+yen(h.rev)+'</td>'
+      +'<td class="num" style="border-left:2px solid #ddd6fe">'+h.count+'件</td><td class="yen">'+yen(h.rev)+'</td><td class="stay">'+avgN(h.nSum,h.nCnt)+'</td>'
       +'<td><input class="ad" type="number" min="0" step="1000" data-ym="'+m+'" value="'+(ad||'')+'" placeholder="0"></td>'
       +'<td class="cpa">'+(ad&&h.count?yen(hcpa):'—')+'</td><td class="eff" style="color:'+colP(hpv)+'">'+fmtP(hpv)+'</td><td class="jd" style="color:'+jd[1]+';background:'+jd[2]+'">'+jd[0]+'</td>'
-      +'<td class="num" style="border-left:2px solid #bfdbfe">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td class="fee">'+(o.rev?yen(of):'—')+'</td><td class="cpa">'+(o.count?yen(ocpa):'—')+'</td><td class="net">'+(o.rev?yen(onet):'—')+'</td>'
+      +'<td class="num" style="border-left:2px solid #bfdbfe">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td class="stay">'+avgN(o.nSum,o.nCnt)+'</td><td class="fee">'+(o.rev?yen(of):'—')+'</td><td class="cpa">'+(o.count?yen(ocpa):'—')+'</td><td class="net">'+(o.rev?yen(onet):'—')+'</td>'
       +'<td class="num" style="border-left:2px solid #fde68a">'+aCnt+'件</td><td class="yen">'+yen(aRev)+'</td><td class="net" style="color:'+colP(aNetM)+'">'+fmtP(aNetM)+'</td></tr>';
   });
   const tHpv=hAd>0?(hR-hAd):null;const tJ=judge(tHpv,hAd);const gaNet=(hR+oR)-(hAd+oFee);
   mh+='</tbody><tfoot><tr><td class="l">合計</td>'
-    +'<td style="border-left:2px solid #ddd6fe">'+hC+'件</td><td>'+yen(hR)+'</td><td>'+yen(hAd)+'</td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="eff" style="color:'+colP(tHpv)+'">'+fmtP(tHpv)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td>'
-    +'<td style="border-left:2px solid #bfdbfe">'+oC+'件</td><td>'+yen(oR)+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td>'
+    +'<td style="border-left:2px solid #ddd6fe">'+hC+'件</td><td>'+yen(hR)+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td>'+yen(hAd)+'</td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="eff" style="color:'+colP(tHpv)+'">'+fmtP(tHpv)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td>'
+    +'<td style="border-left:2px solid #bfdbfe">'+oC+'件</td><td>'+yen(oR)+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td>'
     +'<td style="border-left:2px solid #fde68a">'+(hC+oC)+'件</td><td>'+yen(hR+oR)+'</td><td class="net" style="color:'+colP(gaNet)+'">'+fmtP(gaNet)+'</td></tr></tfoot>';
   document.getElementById('cmpMonth').innerHTML=mh;
   // 🏨 OTA別内訳
   const chs=Object.keys(OTAby).sort((a,b)=>OTAby[b].rev-OTAby[a].rev);
-  let b='<thead><tr><th class="l">OTA</th><th>本数</th><th>売上(グロス)</th><th>客単価</th><th>手数料(18%)</th><th>CPA(手数料/件)</th><th>手取り(82%)</th><th>構成比</th></tr></thead><tbody>';
+  let b='<thead><tr><th class="l">OTA</th><th>本数</th><th>売上(グロス)</th><th>客単価</th><th>平均泊数</th><th>手数料(18%)</th><th>CPA(手数料/件)</th><th>手取り(82%)</th><th>構成比</th></tr></thead><tbody>';
   chs.forEach(ch=>{const o=OTAby[ch];const fee=o.rev*FEE,net=o.rev-fee,adr=o.count?o.rev/o.count:0,cpa=o.count?fee/o.count:0,pct=oR?Math.round(o.rev/oR*100):0;
-    b+='<tr><td class="l num">'+ch+'</td><td class="num">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td>'+yen(adr)+'</td><td class="fee">'+yen(fee)+'</td><td class="cpa">'+yen(cpa)+'</td><td class="net">'+yen(net)+'</td><td>'+pct+'%</td></tr>';});
-  b+='</tbody><tfoot><tr><td class="l">合計</td><td>'+oC+'件</td><td>'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td><td>100%</td></tr></tfoot>';
+    b+='<tr><td class="l num">'+ch+'</td><td class="num">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td>'+yen(adr)+'</td><td class="stay">'+avgN(o.nSum,o.nCnt)+'</td><td class="fee">'+yen(fee)+'</td><td class="cpa">'+yen(cpa)+'</td><td class="net">'+yen(net)+'</td><td>'+pct+'%</td></tr>';});
+  b+='</tbody><tfoot><tr><td class="l">合計</td><td>'+oC+'件</td><td>'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td><td>100%</td></tr></tfoot>';
   document.getElementById('brkO').innerHTML=b;
   renderLT('lt',M,vis);
   renderLT('ltO',MO,vis);
