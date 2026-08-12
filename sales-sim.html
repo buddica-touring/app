@@ -96,8 +96,10 @@
 const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const KEY='bt_salesim_v1';
-const DEFP={A:14500,B:11000,C:5500,D:6500,E:8000,F:4500};
-const CLSCOL={A:'#7c3aed',B:'#0284c7',C:'#059669',D:'#db2777',E:'#d97706',F:'#64748b'};
+const CLASS_ORDER=['AA','A','B','C','D','E','F','G','H'];
+const CO=t=>{const i=CLASS_ORDER.indexOf(t||'');return i<0?99:i;};
+const DEFP={AA:30000,A:14500,B:11000,C:11000,D:8000,E:6500,F:5500,G:4500,H:4500};
+const CLSCOL={AA:'#b45309',A:'#7c3aed',B:'#0284c7',C:'#0284c7',D:'#d97706',E:'#0d9488',F:'#059669',G:'#475569',H:'#64748b'};
 const yen=n=>'¥'+Math.round(+n||0).toLocaleString();
 const g=id=>document.getElementById(id);
 const numv=id=>{const e=g(id);return e?(parseFloat(e.value)||0):0;};
@@ -197,6 +199,7 @@ function reset_(){const s=loadStore();['iDays','iHP','iOTA'].forEach(k=>delete s
   const s=loadStore();['iDays','iHP','iOTA'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
   try{
     VEH=await fetchVeh();
+    VEH.sort((a,b)=>CO(a.type)-CO(b.type)||String(a.name||a.code).localeCompare(String(b.name||b.code),'ja'));
     if(!VEH.length){st.style.display='block';st.textContent='車両マスターに有効な車両がありません。';return;}
     buildRows();
     await fetchActual();calc();
