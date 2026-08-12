@@ -21376,7 +21376,7 @@ function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
 }
 function App(){
-  const[data,setData]=useState([]);const[payTarget,setPayTarget]=useState(null);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);
+  const[data,setData]=useState([]);const[payTarget,setPayTarget]=useState(null);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);const[opsOpen,setOpsOpen]=useState(false);
   React.useEffect(function(){window.__btPayOpen=function(r){setPayTarget(r);};return function(){window.__btPayOpen=null;};},[]);
   // ★ 2026-05-02 v3.4.34 自己治癒: data state に id 重複が混入したら自動除去
   React.useEffect(()=>{
@@ -22176,26 +22176,22 @@ function App(){
                 {id:"hdm_pricemaster",ico:"💴",l:"現価格マスター",desc:"シーズナル×クラス×泊数の自社販売価格を保持（売価実績→需要曲線の土台）",external:true,url:"price-master.html"},
                 {id:"price_optimizer",ico:"💹",l:"価格最適化",desc:"空き台数カレンダー・需要曲線・市場調査・価格ギャップ（実績蓄積後に自動表示）",external:true,url:"price-optimizer.html?store=bt"},
               ]},
+              {title:"運営",color:"#4c1d95",items:[
+                {id:"ops",ico:"🏛",l:"運営",ops:true,desc:"経営 / 運用戦略 / 車両ランキング / 価格戦略マスター / 売上予測 / 外国人 / 日報 をここから選択"},
+              ]},
               {title:"データ・分析",color:"#7c3aed",items:[
                 {id:"mypage_dash",ico:"📊",l:"マイページ解析/通知管理",desc:"お客様のご利用ガイド利用動向＋自動通知トリガー一覧（BUDDICA）を1画面で",external:true,url:"https://nosh2318.github.io/spk-task/dashboard.html?scope=bt"},
                 {id:"sns_video",ico:"🎬",l:"SNS動画",desc:"実写のみのSNS動画を自動生成（Ver1シネマ/Ver2タイポ/Ver3車主役・通常/高級）。写真→20秒動画→投稿文・タグまで。どの端末からでも",external:true,url:"sns.html"},
-                {id:"daily_report",ico:"📋",l:"日報",desc:"月間目標(テーマ)＋車両KPIで達成設計。運用準備中/運用中施策も記録。ボタン一発でPDF出力"},
                 {id:"mypage_usage",ico:"📲",l:"ご利用ガイド状況",desc:"予約→ガイドメール送信→開封(お迎え設定/サイン)→締結 のファネル。未送信・スルー・締結済を可視化",external:true,url:"mypage-usage-bt.html"},
                 {id:"gatekeeper",ico:"📒",l:"台帳",desc:"誰が・いつ・何を書いたか＋勝手な編集の足跡＋🛡️3号の正常化（改ざん不能台帳）",external:true,url:"gatekeeper.html?store=bt"},
-                {id:"dashboard",ico:"🔒",l:"経営",desc:"売上・稼働率（オーナー専用）"},
-                {id:"forecast",ico:"🔮",l:"売上予測",desc:"5KPI×12ヶ月・株価チャート風 アンサンブル予測 v3.0",external:true,url:"forecast.html?store=bt"},
-                {id:"strategy",ico:"📈",l:"運用戦略",desc:"🔮売上予測 / 🌐HP新規獲得（流通・広告費対効果・出発月分解）",external:true,url:"strategy.html"},
                 {id:"pricing",ico:"🗓️",l:"価格表",desc:"シーズナル&価格カレンダー（ミラー表示）"},
-                {id:"price_master",ico:"💹",l:"価格戦略マスター",desc:"プライシングシステム（①〜⑤統合）",external:true,url:"import-prices.html?area=tkm"},
                 {id:"customer",ico:"👑",l:"顧客",desc:"リピーター分析"},
-                {id:"foreign",ico:"🌍",l:"外国人利用率",desc:"外国人利用率の分析・推移"},
                 {id:"license",ico:"🪪",l:"免許証",desc:"免許証画像アップロード",external:true},
                 {id:"data",ico:"📋",l:"データ",desc:"予約マスター・未来予約確認"},
                 {id:"history",ico:"📜",l:"過去タスク",desc:"過去のタスク履歴"},
               ]},
               {title:"設定",color:"#64748b",items:[
                 {id:"vehicle",ico:"🔧",l:"車両",desc:"車両マスタ・クラス管理"},
-                {id:"vehicle_rank",ico:"🏆",l:"車両ランキング",desc:"全車両の月粗利・稼働率を点数化"},
               ]},
             ];
             return <div style={{maxWidth:700,margin:"0 auto",paddingBottom:20}}>
@@ -22749,7 +22745,7 @@ function App(){
               <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")}/>
               {/* ===== 🛠 日常業務以下 アイコングリッド統一 ===== */}
               {sections.map(function(sec){
-                const sectionIco={"日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
+                const sectionIco={"運営":"🏛","日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
                 return <div key={sec.title}>
                   <TopSectionTitle icon={sectionIco} title={sec.title}/>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
@@ -22766,12 +22762,39 @@ function App(){
                         badge={badgeN}
                         color={isAlert?"#dc2626":sec.color}
                         alert={isAlert&&badgeN>0}
-                        onClick={function(){if(item.external){var _u=item.url||"license.html";window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(item.id);}}}
+                        onClick={function(){if(item.ops){setOpsOpen(true);}else if(item.external){var _u=item.url||"license.html";window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(item.id);}}}
                       />;
                     })}
                   </div>
                 </div>;
               })}
+              {/* 🏛 運営 サブメニュー（経営/運用戦略/車両ランキング/価格戦略マスター/売上予測/外国人/日報） */}
+              {opsOpen&&(()=>{
+                const opsItems=[
+                  {id:"dashboard",ico:"🔒",l:"経営",desc:"売上・稼働率（オーナー専用）"},
+                  {id:"strategy",ico:"📈",l:"運用戦略",desc:"売上予測 / HP新規獲得（HP vs OTA 比較）",external:true,url:"strategy.html"},
+                  {id:"vehicle_rank",ico:"🏆",l:"車両ランキング",desc:"全車両の月粗利・稼働率を点数化"},
+                  {id:"price_master",ico:"💹",l:"価格戦略マスター",desc:"プライシングシステム（①〜⑤統合）",external:true,url:"import-prices.html?area=tkm"},
+                  {id:"forecast",ico:"🔮",l:"売上予測",desc:"5KPI×12ヶ月 アンサンブル予測",external:true,url:"forecast.html?store=bt"},
+                  {id:"foreign",ico:"🌍",l:"外国人利用率",desc:"外国人利用率の分析・推移"},
+                  {id:"daily_report",ico:"📋",l:"日報",desc:"月間目標＋車両KPI・PDF出力"},
+                ];
+                const goItem=(it)=>{setOpsOpen(false);if(it.external){var _u=it.url;window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(it.id);}};
+                return <div onClick={e=>{if(e.target===e.currentTarget)setOpsOpen(false);}} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+                  <div style={{background:"#fff",borderRadius:"18px 18px 0 0",width:"100%",maxWidth:640,maxHeight:"82vh",overflowY:"auto",padding:"16px 16px 24px"}}>
+                    <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
+                      <div style={{fontSize:17,fontWeight:900,color:"#4c1d95"}}>🏛 運営</div>
+                      <button onClick={()=>setOpsOpen(false)} style={{marginLeft:"auto",background:"#f1f5f9",border:"none",borderRadius:"50%",width:32,height:32,fontSize:16,cursor:"pointer",color:"#64748b"}}>✕</button>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      {opsItems.map(it=><button key={it.id} onClick={()=>goItem(it)} style={{textAlign:"left",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"12px 12px",background:"#fff",cursor:"pointer",display:"flex",flexDirection:"column",gap:3}}>
+                        <div style={{fontSize:15,fontWeight:800,color:"#1e293b"}}><span style={{fontSize:18,marginRight:6}}>{it.ico}</span>{it.l}</div>
+                        <div style={{fontSize:10,color:"#94a3b8",lineHeight:1.4}}>{it.desc}</div>
+                      </button>)}
+                    </div>
+                  </div>
+                </div>;
+              })()}
               {/* 同期ステータスパネル（最下部） */}
               {SB_ENABLED&&(()=>{
                 const now=Date.now();
@@ -23219,7 +23242,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.305-BT";
+const APP_VERSION="v1.0.306-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
