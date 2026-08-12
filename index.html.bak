@@ -21412,6 +21412,7 @@ function App(){
   const[opOpenIntent,setOpOpenIntent]=useState(null); // ★ データタブ等から「この予約を開いて」の指示
   const[opInitialView,setOpInitialView]=useState(null); // ★ 特定タブで開く
   const[showSqFailed,setShowSqFailed]=useState(false); // ★ Square自動取込失敗リスト
+  const[showCancelList,setShowCancelList]=useState(false); // ★ キャンセル一覧（データ箱から）
   const[sqFailedRefreshKey,setSqFailedRefreshKey]=useState(0); // ★ ウィジェット再読込トリガー
   const[staff,setStaff]=useState(()=>{
     const ls=DB._staffLsLoad();
@@ -22096,6 +22097,7 @@ function App(){
     <BgLoadingBar/>
     {SB_ENABLED&&<div className="sync-desktop"><SyncBadge connected={sbConnected}/></div>}
     {showSqFailed&&<SqFailedModal onClose={()=>setShowSqFailed(false)} onResolved={()=>setSqFailedRefreshKey(k=>k+1)}/>}
+    {showCancelList&&<div onClick={e=>{if(e.target===e.currentTarget)setShowCancelList(false);}} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9100,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}><div style={{width:"100%",maxWidth:640}}><CancelListWidget onClose={()=>setShowCancelList(false)}/></div></div>}
     {payTarget&&<PayCompleteModal r={payTarget} onClose={function(){setPayTarget(null);}} onDone={function(){setPayTarget(null);DB.fetchReservations().then(function(rs){if(rs&&rs.length)setData(dedupReservations(rs));}).catch(function(){});}}/>}
     {showOP&&<OPScreen reservations={data} today={today} shifts={shifts} fleet={fleet} onFleetChange={setFleetSync} onClose={()=>{setShowOP(false);setOpInitialView(null);}} onGoFleet={()=>{setShowFloatFleet(f=>!f);}} vehicles={vehicles} staff={staff} resOpts={resOpts} sheetPlaces={sheetPlaces} onUpdateSheetPlaces={saveSheetPlaces} repeaterMap={repeaterInfo.isRepeater} jalanPay={jalanPay} maintenance={maintenance} openIntent={opOpenIntent} onOpenIntentConsumed={()=>setOpOpenIntent(null)} initialView={opInitialView} onReservationUpdate={(resId,fields)=>{setData(prev=>{const next=prev.map(r=>r.id===resId?{...r,...fields}:r);/* ★ OPシートタスクにも連動 */const updated=next.find(r=>r.id===resId);if(updated&&Object.keys(fields).some(k=>["delTime","delPlace","colTime","colPlace","insurance","vehicle","name","people","optB","optC","optJ","optUSB"].includes(k))){const syncF={};if(fields.name!==undefined)syncF.name=fields.name;if(fields.people!==undefined)syncF.people=fields.people;if(fields.insurance!==undefined)syncF.insurance=fields.insurance;if(fields.vehicle!==undefined)syncF.vehicle=fields.vehicle;const syncOpts=(fields.optB!==undefined||fields.optC!==undefined||fields.optJ!==undefined||fields.optUSB!==undefined)?{b:+(fields.optB??updated.optB??0),c:+(fields.optC??updated.optC??0),j:+(fields.optJ??updated.optJ??0),usb:+(fields.optUSB??updated.optUSB??0)}:null;const _syncT=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks||!tks.length)return;/* ★ FIX 2026-05-01 race condition: 該当予約のタスクのみ部分PATCH。旧コードは全タスクをupsertTasks(全件上書き)していたため、別タスクで進行中の DB write(担当変更等)が DB fetch のタイミング次第で空で上書きされ消失していた。今は updateTaskFields(部分PATCH)で該当予約タスクのみを更新する。*/const targetTasks=tks.filter(tk=>tk.reservationId===resId);if(!targetTasks.length)return;for(const tk of targetTasks){const fc={};if(syncF.name!==undefined)fc.name=syncF.name;if(syncF.people!==undefined)fc.people=syncF.people;if(syncF.insurance!==undefined)fc.insurance=syncF.insurance;if(syncF.vehicle!==undefined)fc.vehicle=syncF.vehicle;if(syncOpts)fc.opts=syncOpts;if((tk.type==="DEL"||tk.type==="PU")&&tk._timeChangeSource!=="manual"&&fields.delTime!==undefined)fc.time=fields.delTime;if((tk.type==="DEL"||tk.type==="PU")&&tk._placeSource!=="manual"&&fields.delPlace!==undefined)fc.place=fields.delPlace;if((tk.type==="COL"||tk.type==="BD")&&tk._timeChangeSource!=="manual"&&fields.colTime!==undefined)fc.time=fields.colTime;if((tk.type==="COL"||tk.type==="BD")&&tk._placeSource!=="manual"&&fields.colPlace!==undefined)fc.place=fields.colPlace;if(Object.keys(fc).length===0)continue;await DB.updateTaskFields(tk._id,d,fc);}};try{const ld=norm(updated.lendDate),rd=norm(updated.returnDate);_syncT(ld);if(rd!==ld)_syncT(rd);}catch(e){console.error("[resUpdate→tasks sync]",e);}}return next;});}}/>}
     {/* ★ フローティング配車表パネル（PC専用） */}
@@ -22159,27 +22161,7 @@ function App(){
                 {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(エアトリ/オフィシャル/レンカ/じゃらん)の在庫を手動で絞る対応管理",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
                 {id:"import",ico:"📁",l:"CSV取込",desc:"OTA予約CSVインポート"},
               ]},
-              {title:"営業管理",color:"#059669",items:[
-                {id:"labor",ico:"👥",l:"営業管理",desc:"出勤簿 / 給与 / スタッフ / 勤怠管理 / シフト試算 / バイトURL",menu:[
-                  {id:"shift",ico:"📅",l:"出勤簿",desc:"シフト表の作成・編集"},
-                  {id:"attendance",ico:"⏰",l:"給与",desc:"予算・実績・給与明細"},
-                  {id:"staff",ico:"👥",l:"スタッフ",desc:"スタッフ情報・時給設定"},
-                  {id:"kintai",ico:"📋",l:"勤怠管理",desc:"有給・希望休・残業集計",external:true,url:"kintai.html"},
-                  {id:"shiftsim",ico:"🧮",l:"シフト試算",desc:"バイト予算・シフトカレンダー人件費試算（条件入力）",external:true,url:"shift-sim.html"},
-                  {id:"staff_url",ico:"🔗",l:"バイトURL",desc:"各スタッフの個別URL(ログイン不要)を一覧・コピー配布。担当タスク＋対応履歴を本人が閲覧",external:true,url:"staff-admin.html"},
-                ]},
-              ]},
-              {title:"会計",color:"#d97706",items:[
-                {id:"accounting",ico:"🧾",l:"会計管理",desc:"現金出納帳・予約外売上"},
-                {id:"recv_invoice",ico:"📥",l:"受領請求書",desc:"受領した請求書(PDF/画像)の保管・支払管理"},
-              ]},
-              {title:"価格",color:"#16a34a",items:[
-                {id:"pricebox",ico:"💰",l:"価格",desc:"現価格マスター / 価格最適化",menu:[
-                  {id:"hdm_pricemaster",ico:"💴",l:"現価格マスター",desc:"シーズナル×クラス×泊数の自社販売価格を保持（売価実績→需要曲線の土台）",external:true,url:"price-master.html"},
-                  {id:"price_optimizer",ico:"💹",l:"価格最適化",desc:"空き台数カレンダー・需要曲線・市場調査・価格ギャップ（実績蓄積後に自動表示）",external:true,url:"price-optimizer.html?store=bt"},
-                ]},
-              ]},
-              {title:"運営",color:"#4c1d95",items:[
+              {title:"管理メニュー",color:"#4c1d95",items:[
                 {id:"ops",ico:"🏛",l:"運営",desc:"経営 / 予算実績 / 運用戦略 / 車両ランキング / 価格戦略マスター / 売上予測 / 外国人 / 日報",menu:[
                   {id:"dashboard",ico:"🔒",l:"経営",desc:"売上・稼働率（オーナー専用）"},
                   {id:"monthly",ico:"📊",l:"予算実績",desc:"予算・実績・予実比較"},
@@ -22190,8 +22172,18 @@ function App(){
                   {id:"foreign",ico:"🌍",l:"外国人利用率",desc:"外国人利用率の分析・推移"},
                   {id:"daily_report",ico:"📋",l:"日報",desc:"月間目標＋車両KPI・PDF出力"},
                 ]},
-              ]},
-              {title:"データ",color:"#7c3aed",items:[
+                {id:"labor",ico:"👥",l:"営業管理",desc:"出勤簿 / 給与 / スタッフ / 勤怠管理 / シフト試算 / バイトURL",menu:[
+                  {id:"shift",ico:"📅",l:"出勤簿",desc:"シフト表の作成・編集"},
+                  {id:"attendance",ico:"⏰",l:"給与",desc:"予算・実績・給与明細"},
+                  {id:"staff",ico:"👥",l:"スタッフ",desc:"スタッフ情報・時給設定"},
+                  {id:"kintai",ico:"📋",l:"勤怠管理",desc:"有給・希望休・残業集計",external:true,url:"kintai.html"},
+                  {id:"shiftsim",ico:"🧮",l:"シフト試算",desc:"バイト予算・シフトカレンダー人件費試算（条件入力）",external:true,url:"shift-sim.html"},
+                  {id:"staff_url",ico:"🔗",l:"バイトURL",desc:"各スタッフの個別URL(ログイン不要)を一覧・コピー配布。担当タスク＋対応履歴を本人が閲覧",external:true,url:"staff-admin.html"},
+                ]},
+                {id:"pricebox",ico:"💰",l:"価格",desc:"現価格マスター / 価格最適化",menu:[
+                  {id:"hdm_pricemaster",ico:"💴",l:"現価格マスター",desc:"シーズナル×クラス×泊数の自社販売価格を保持（売価実績→需要曲線の土台）",external:true,url:"price-master.html"},
+                  {id:"price_optimizer",ico:"💹",l:"価格最適化",desc:"空き台数カレンダー・需要曲線・市場調査・価格ギャップ（実績蓄積後に自動表示）",external:true,url:"price-optimizer.html?store=bt"},
+                ]},
                 {id:"databox",ico:"📈",l:"データ",desc:"マイページ解析 / SNS動画 / ご利用ガイド状況 / 台帳 / 価格表 / 顧客 / 免許証 / データ / 過去タスク",menu:[
                   {id:"mypage_dash",ico:"📊",l:"マイページ解析/通知管理",desc:"お客様のご利用ガイド利用動向＋自動通知トリガー一覧（BUDDICA）を1画面で",external:true,url:"https://nosh2318.github.io/spk-task/dashboard.html?scope=bt"},
                   {id:"sns_video",ico:"🎬",l:"SNS動画",desc:"実写のみのSNS動画を自動生成。写真→20秒動画→投稿文・タグまで",external:true,url:"sns.html"},
@@ -22202,9 +22194,13 @@ function App(){
                   {id:"license",ico:"🪪",l:"免許証",desc:"免許証画像アップロード",external:true},
                   {id:"data",ico:"📋",l:"データ",desc:"予約マスター・未来予約確認"},
                   {id:"history",ico:"📜",l:"過去タスク",desc:"過去のタスク履歴"},
+                  {id:"cancel",ico:"❌",l:"キャンセル一覧",desc:"キャンセル予約の一覧・復元",action:"cancel"},
                 ]},
-              ]},
-              {title:"設定",color:"#64748b",items:[
+                {id:"acctbox",ico:"💰",l:"会計",desc:"会計管理 / 受領請求書 / Square起票仕訳",menu:[
+                  {id:"accounting",ico:"🧾",l:"会計管理",desc:"現金出納帳・予約外売上"},
+                  {id:"recv_invoice",ico:"📥",l:"受領請求書",desc:"受領した請求書(PDF/画像)の保管・支払管理"},
+                  {id:"sqfailed",ico:"⚠️",l:"Square起票仕訳",desc:"会計未起票のSquare端末決済を1件ずつ店舗・科目指定で起票",action:"sqfailed"},
+                ]},
                 {id:"vehicle",ico:"🔧",l:"車両",desc:"車両マスタ・クラス管理"},
               ]},
             ];
@@ -22784,7 +22780,7 @@ function App(){
               })}
               {/* 📦 ボックス共通サブメニュー（運営 / 営業管理 / 価格） */}
               {opsMenu&&(()=>{
-                const goItem=(it)=>{setOpsMenu(null);if(it.external){var _u=it.url||"license.html";window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(it.id);}};
+                const goItem=(it)=>{setOpsMenu(null);if(it.action==="sqfailed"){setShowSqFailed(true);return;}if(it.action==="cancel"){setShowCancelList(true);return;}if(it.external){var _u=it.url||"license.html";window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(it.id);}};
                 return <div onClick={e=>{if(e.target===e.currentTarget)setOpsMenu(null);}} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
                   <div style={{background:"#fff",borderRadius:"18px 18px 0 0",width:"100%",maxWidth:640,maxHeight:"82vh",overflowY:"auto",padding:"16px 16px 24px"}}>
                     <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
@@ -23247,7 +23243,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.307-BT";
+const APP_VERSION="v1.0.308-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
