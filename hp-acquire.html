@@ -53,6 +53,7 @@
     <b>流通（発生月）ベース</b>＝予約が<b>入った月</b>で集計。「HP」＝公式サイト/直販（ota: HP・SP）・キャンセル除外。<br>
     ・獲得数/売上＝その月に発生したHP予約。CPA＝広告費÷獲得数／ROAS＝売上÷広告費。<br>
     ・<b>効果</b>＝投資額（広告費）に対していくらプラスか＝<b>売上−広告費</b>（＋緑／−赤）。<br>
+    ・<b>客単価−CPA</b>＝1件あたりの効果。<b>マイナス（赤）＝CPAが客単価を上回る＝1件ごと赤字ライン</b>。<br>
     ・<b>出発月分解</b>＝発生した予約が実際に<b>どの月に出発（貸出）</b>するかを分解（売上も）。<br>
     ・広告費は<b>手動入力</b>（保存で全端末共有）。※2026-02〜。
   </div>
@@ -153,15 +154,17 @@ function render(){
   const tP=plus(tR,tAd);
   const kpis=[['HP獲得(累計)',tC+'件'],['HP売上(累計)',yen(tR)],['広告費(累計)',yen(tAd)],['平均CPA',tC?yen(tAd/tC):'—'],['ROAS',tAd?totRoas.toFixed(2)+'x':'—'],['効果(売上−広告費)',fmtP(tP)]];
   document.getElementById('kpis').innerHTML=kpis.map(k=>'<div class="kpi"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div></div>').join('');
-  let h='<thead><tr><th class="l">発生月</th><th>獲得数</th><th>売上</th><th>客単価</th><th>広告費(入力)</th><th>CPA</th><th>ROAS</th><th>効果(売上−広告費)</th></tr></thead><tbody>';
+  const perU=(rev,ad,cnt)=>(ad>0&&cnt>0)?((rev-ad)/cnt):null;   // 1件あたり効果＝客単価−CPA＝(売上−広告費)÷件数
+  let h='<thead><tr><th class="l">発生月</th><th>獲得数</th><th>売上</th><th>客単価</th><th>広告費(入力)</th><th>CPA</th><th>客単価−CPA</th><th>ROAS</th><th>効果(売上−広告費)</th></tr></thead><tbody>';
   occMonths.forEach(m=>{
-    const x=M[m],ad=+AD[m]||0;const cpa=x.count?ad/x.count:0,roas=ad?x.rev/ad:0;const adr=x.count?x.rev/x.count:0;const pv=plus(x.rev,ad);
+    const x=M[m],ad=+AD[m]||0;const cpa=x.count?ad/x.count:0,roas=ad?x.rev/ad:0;const adr=x.count?x.rev/x.count:0;const pv=plus(x.rev,ad);const pu=perU(x.rev,ad,x.count);
     h+='<tr><td class="l num">'+m+'</td><td class="num">'+x.count+'件</td><td class="yen">'+yen(x.rev)+'</td><td>'+yen(adr)+'</td>'
       +'<td><input class="ad" type="number" min="0" step="1000" data-ym="'+m+'" value="'+(ad||'')+'" placeholder="0"></td>'
-      +'<td class="cpa">'+(ad&&x.count?yen(cpa):'—')+'</td><td class="roas">'+(ad?roas.toFixed(2)+'x':'—')+'</td>'
+      +'<td class="cpa">'+(ad&&x.count?yen(cpa):'—')+'</td><td class="eff" style="color:'+colP(pu)+'">'+fmtP(pu)+'</td><td class="roas">'+(ad?roas.toFixed(2)+'x':'—')+'</td>'
       +'<td class="eff" style="color:'+colP(pv)+'">'+fmtP(pv)+'</td></tr>';
   });
-  h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td>'+yen(tAd)+'</td><td>'+(tAd&&tC?yen(tAd/tC):'—')+'</td><td>'+(tAd?totRoas.toFixed(2)+'x':'—')+'</td><td class="eff" style="color:'+colP(tP)+'">'+fmtP(tP)+'</td></tr></tfoot>';
+  const tPU=perU(tR,tAd,tC);
+  h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td>'+yen(tAd)+'</td><td>'+(tAd&&tC?yen(tAd/tC):'—')+'</td><td class="eff" style="color:'+colP(tPU)+'">'+fmtP(tPU)+'</td><td>'+(tAd?totRoas.toFixed(2)+'x':'—')+'</td><td class="eff" style="color:'+colP(tP)+'">'+fmtP(tP)+'</td></tr></tfoot>';
   document.getElementById('main').innerHTML=h;
   // ⏱ リードタイム分解（発生月→何ヶ月先の出発か・件数のみ＋平均LT）
   const LTN=5;const ltLbl=['0ヶ月先','1ヶ月先','2ヶ月先','3ヶ月先','4ヶ月+先'];
