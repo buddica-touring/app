@@ -16999,7 +16999,11 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;
               }
             });
-            setTasks(fresh);
+            // ★2026-08-12 返却後洗車 重複除外(loadTasks L16856と同一): Realtime純ミラーが除外済み返却後洗車を復活させないよう同じ整形を表示に適用。表示除外のみ=DB/LSのrw行は残す(8/13キャンセル時の自然復活を維持)。SPK 2026-07-11と同型クラス。
+            let fresh2=fresh;
+            {const _wv=new Set(fresh.filter(t=>t.type==="洗車"&&t.assignedVehicle).map(t=>t.assignedVehicle));
+             fresh2=fresh.filter(t=>!(t.type==="返却後洗車"&&t.assignedVehicle&&_wv.has(t.assignedVehicle)));}
+            setTasks(fresh2);
             DB._lsSave(fresh,selDate);
           }
         },500);
@@ -23159,7 +23163,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.298-BT";
+const APP_VERSION="v1.0.299-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
