@@ -70,7 +70,7 @@
   <!-- ⚖️ 累計比較（自社HP vs OTA） -->
   <div class="card">
     <h2>⚖️ 自社(HP) vs OTA 比較（累計・流通ベース）</h2>
-    <div class="sub" style="margin-bottom:6px">コスト＝HPは<b>広告費</b>／OTAは<b>手数料18%</b>。純額＝HPは<b>効果(売上−広告費)</b>／OTAは<b>手取り(82%)</b>。CPA＝コスト÷件数。</div>
+    <div class="sub" style="margin-bottom:6px">コスト＝HPは<b>広告費</b>／OTAは<b>手数料18%</b>。純額＝HPは<b>効果(売上−広告費)</b>／OTAは<b>手取り(82%)</b>。CPA＝コスト÷件数。<b>各セル下段＝合計を100%とした構成比</b>（件数/売上/コスト/純額）。</div>
     <div class="scroll"><table id="cmpTot"></table></div>
   </div>
 
@@ -194,12 +194,13 @@ function render(){
   let oC=0,oR=0,oNS=0,oNC=0;occMonths.forEach(m=>{oC+=MO[m].count;oR+=MO[m].rev;oNS+=MO[m].nSum;oNC+=MO[m].nCnt;});
   const oFee=oR*FEE,oNet=oR-oFee,hEff=hAd>0?(hR-hAd):null;
   const avgN=(s,c)=>c?(s/c).toFixed(1)+'泊':'—';
-  // ⚖️ 累計比較（平均泊数＝1予約の稼働日数）
-  let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>平均泊数</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
-  ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件</td><td class="yen">'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果</div></td></tr>';
-  ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件</td><td class="yen">'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18%</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82%</div></td></tr>';
   const aC=hC+oC,aR=hR+oR,aCost=hAd+oFee,aNet=(hEff!=null?hEff:0)+oNet;
-  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件</td><td>'+yen(aR)+'</td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="stay">'+avgN(hNS+oNS,hNC+oNC)+'</td><td class="fee">'+yen(aCost)+'</td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'</td></tr></tfoot>';
+  const pct=(p,w)=>w?(p/w*100).toFixed(1)+'%':'—';
+  // ⚖️ 累計比較（平均泊数＝1予約の稼働日数）／各セル下段＝合計に対する構成比
+  let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>平均泊数</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
+  ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件<div class="sub">'+pct(hC,aC)+'</div></td><td class="yen">'+yen(hR)+'<div class="sub">'+pct(hR,aR)+'</div></td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費 '+pct(hAd,aCost)+'</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果 '+pct(hEff!=null?hEff:0,aNet)+'</div></td></tr>';
+  ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件<div class="sub">'+pct(oC,aC)+'</div></td><td class="yen">'+yen(oR)+'<div class="sub">'+pct(oR,aR)+'</div></td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18% '+pct(oFee,aCost)+'</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82% '+pct(oNet,aNet)+'</div></td></tr>';
+  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件<div class="sub">100%</div></td><td>'+yen(aR)+'<div class="sub">100%</div></td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="stay">'+avgN(hNS+oNS,hNC+oNC)+'</td><td class="fee">'+yen(aCost)+'<div class="sub">100%</div></td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'<div class="sub">100%</div></td></tr></tfoot>';
   document.getElementById('cmpTot').innerHTML=ct;
   // 空の過去月は隠す（データのある最初の月〜／例:高松=8月開始）
   let fi=occMonths.findIndex(m=>M[m].count>0||MO[m].count>0);if(fi<0)fi=occMonths.length-1;

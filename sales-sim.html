@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>🎯 売上シミュレーション｜高松店</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+  .wrap{max-width:900px;margin:0 auto;padding:10px 10px 70px}
+  .card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px;overflow:hidden}
+  .card h2{margin:0;padding:10px 12px;font-size:14px;font-weight:900;background:linear-gradient(135deg,#4c1d95,#7c3aed);color:#fff;display:flex;align-items:center;gap:6px}
+  .card .bd{padding:8px 10px}
+  .legend{font-size:10.5px;color:#64748b;padding:2px 12px 8px}
+  .legend b{padding:1px 5px;border-radius:4px}
+  .yl{background:#fef9c3;border:1px solid #fde68a}.gy{background:#f1f5f9;border:1px solid #e2e8f0}.gr{background:#ecfdf5;border:1px solid #a7f3d0;color:#047857}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:5px 6px;text-align:right;border-bottom:1px solid #eef2f7;white-space:nowrap}
+  th{background:#f8fafc;color:#475569;font-weight:700;font-size:11px}
+  td.l,th.l{text-align:left}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  input.in{width:82px;text-align:right;border:1px solid #fde68a;background:#fef9c3;border-radius:6px;padding:5px 6px;font-size:13px;font-weight:700;color:#0f172a}
+  input.in:focus{outline:2px solid #7c3aed;background:#fffbeb}
+  input.sm{width:56px}
+  .calc{background:#f1f5f9;font-weight:700}
+  .rl{background:#ecfdf5;color:#047857;font-weight:700}
+  .big{font-size:16px;font-weight:900;color:#4c1d95}
+  .cls{display:inline-block;min-width:18px;text-align:center;font-weight:900;color:#fff;border-radius:5px;padding:0 5px;font-size:11px}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .kpi .b{border-radius:10px;padding:10px;text-align:center}
+  .kpi .b .k{font-size:11px;font-weight:700;opacity:.85}.kpi .b .v{font-size:18px;font-weight:900;margin-top:2px}
+  .hp{background:#f5f3ff;border:1px solid #ddd6fe;color:#4c1d95}.ota{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+  .rst{margin-left:auto;font-size:11px;color:#ddd6fe;text-decoration:none;font-weight:700}
+  .st{display:none;margin:10px;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:12.5px}
+  .warn{color:#dc2626;font-weight:700}.sub{font-size:10px;color:#94a3b8}
+  .ok{color:#16a34a;font-weight:700}.ng{color:#dc2626;font-weight:700}
+  .tag{font-size:10px;background:#ede9fe;color:#5b21b6;border-radius:5px;padding:1px 6px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2>🎯 売上シミュレーション — 🚐高松店 <span class="tag">仮説＋実績オンタイム</span> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
+    <div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数</b>。<b class="gr">実稼働率・実売上は配車表/予約から自動(オンタイム)</b>。合算が<b>売上目標(仮説)</b>→HP対OTA配分→<b>乖離</b>。<br>※原価・粗利のPLは別ページ（同じ車両データを使用）。</div>
+  </div>
+  <div id="status" class="st"></div>
+
+  <div class="card">
+    <h2>① 車両別 目標 × 実績（当月）</h2>
+    <div class="bd">
+      <table style="width:auto"><tr>
+        <td class="l">月の日数(目標)</td><td><input class="in sm" id="iDays" type="number" min="28" max="31" step="1" value="30"></td>
+        <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#7c3aed;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
+      </tr></table>
+      <div class="scroll" style="margin-top:6px">
+        <table id="tVeh">
+          <thead><tr><th class="l">車両（マスター）</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>目標売上<br>(月)</th><th class="rl">実稼働率%<br>(配車表)</th><th class="rl">当月<br>実売上</th></tr></thead>
+          <tbody id="tVehBody"><tr><td class="l" colspan="7">読み込み中…</td></tr></tbody>
+          <tfoot><tr><td class="l">合計 <span id="oCnt" class="sub"></span></td><td></td><td></td><td id="oAvgU" class="calc"></td><td id="oTgt" class="calc big"></td><td id="oAvgRU" class="rl"></td><td id="oReal" class="rl big"></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)。実稼働率＝当月の配車稼働日数÷当月日数。実売上＝当月(返却ベース)予約売上。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② HP 対 OTA 構成比 配分（目標）</h2>
+    <div class="bd">
+      <table style="width:auto">
+        <tr><td class="l">🌐 HP(自社) %</td><td><input class="in sm" id="iHP" type="number" min="0" max="100" step="5" value="40"></td>
+        <td class="l" style="padding-left:14px">🏨 OTA %</td><td><input class="in sm" id="iOTA" type="number" min="0" max="100" step="5" value="60"></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ 進捗 — 当月実績 vs 目標（乖離オンタイム） <a class="rst" href="#" onclick="refreshAct();return false">🔄 更新</a></h2>
+    <div class="bd">
+      <div class="sub" id="actNote">—</div>
+      <div class="scroll">
+      <table>
+        <thead><tr><th class="l">区分</th><th>目標(仮説)</th><th class="rl">当月実績</th><th>乖離</th><th>進捗率</th></tr></thead>
+        <tbody>
+          <tr><td class="l">🌐 HP(自社)</td><td id="tgHP" class="calc"></td><td id="acHP" class="rl"></td><td id="gpHP"></td><td id="rtHP"></td></tr>
+          <tr><td class="l">🏨 OTA</td><td id="tgOTA" class="calc"></td><td id="acOTA" class="rl"></td><td id="gpOTA"></td><td id="rtOTA"></td></tr>
+        </tbody>
+        <tfoot><tr><td class="l">合計</td><td id="tgAll" class="calc big"></td><td id="acAll" class="rl big"></td><td id="gpAll" class="big"></td><td id="rtAll" class="big"></td></tr></tfoot>
+      </table>
+      </div>
+      <div class="legend" style="padding:6px 0 0">実績＝当月(返却ベース)bt_reservations・キャンセル除外・自動集計。HP＝自社(source≠ota)/OTA＝OTA経由。乖離＝実績−目標。月途中は進行中。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
+const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const KEY='bt_salesim_v1';
+const DEFP={A:14500,B:11000,C:5500,D:6500,E:8000,F:4500};
+const CLSCOL={A:'#7c3aed',B:'#0284c7',C:'#059669',D:'#db2777',E:'#d97706',F:'#64748b'};
+const yen=n=>'¥'+Math.round(+n||0).toLocaleString();
+const g=id=>document.getElementById(id);
+const numv=id=>{const e=g(id);return e?(parseFloat(e.value)||0):0;};
+const qv=sel=>{const e=document.querySelector(sel);return e?(parseFloat(e.value)||0):0;};
+let VEH=[], ACT={hp:0,ota:0,hpN:0,otaN:0,ym:'',dim:30,byV:{},upd:''};
+
+function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
+function H(){const t=_sbToken();return {apikey:BT_ANON,Authorization:'Bearer '+(t||BT_ANON)};}
+function loadStore(){try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){return{};}}
+function saveStore(o){try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
+
+async function fetchVeh(){
+  const r=await fetch(BT_SB+'/rest/v1/bt_vehicles?select=code,name,plate_no,type&active=eq.true&order=type.asc,name.asc',{headers:H()});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function fetchActual(){
+  const now=new Date();const y=now.getFullYear(),m=now.getMonth()+1;const p2=n=>String(n).padStart(2,'0');
+  const dim=new Date(y,m,0).getDate();
+  const ms=y+'-'+p2(m)+'-01', me=y+'-'+p2(m)+'-'+p2(dim);
+  ACT.ym=y+'-'+p2(m);ACT.dim=dim;
+  const [fl,rs]=await Promise.all([
+    fetch(BT_SB+'/rest/v1/bt_fleet?select=reservation_id,vehicle_code',{headers:H()}).then(r=>r.json()),
+    fetch(BT_SB+'/rest/v1/bt_reservations?select=id,source,base_price,option_price,discount,price,start_date,end_date,status&end_date=gte.'+ms+'&end_date=lte.'+me,{headers:H()}).then(r=>r.json())
+  ]);
+  const CX=['cancelled','キャンセル','cancel'];
+  const byId={};let hp=0,ota=0,hpN=0,otaN=0;
+  (rs||[]).forEach(x=>{if(CX.indexOf(String(x.status||''))>=0)return;
+    const bp=+x.base_price||0,op=+x.option_price||0,d=+x.discount||0;const rev=(bp>0||op>0)?Math.max(0,bp+op-d):(+x.price||0);
+    x._rev=rev;byId[x.id]=x;
+    if(String(x.source||'')!=='ota'){hp+=rev;hpN++;}else{ota+=rev;otaN++;}});
+  const byV={};
+  (fl||[]).forEach(f=>{const r=byId[f.reservation_id];if(!r)return;const v=f.vehicle_code;if(!byV[v])byV[v]={rev:0,days:0};
+    byV[v].rev+=r._rev;
+    const s=new Date(r.start_date),e=new Date(r.end_date),a=new Date(ms),b=new Date(me);
+    const st=s>a?s:a,en=e<b?e:b;const dd=Math.floor((en-st)/86400000)+1;if(dd>0)byV[v].days+=dd;});
+  ACT.hp=hp;ACT.ota=ota;ACT.hpN=hpN;ACT.otaN=otaN;ACT.byV=byV;ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  g('actNote').textContent='当月 '+ACT.ym+'（返却ベース・'+(hpN+otaN)+'件）｜最終更新 '+ACT.upd+'｜🟢オンタイム';
+}
+function buildRows(){
+  const s=loadStore();
+  g('tVehBody').innerHTML=VEH.map(v=>{
+    const t=v.type||'';const dp=(s['p_'+v.code]!=null)?s['p_'+v.code]:(DEFP[t]||5000);const du=(s['u_'+v.code]!=null)?s['u_'+v.code]:50;
+    const col=CLSCOL[t]||'#64748b';
+    return '<tr><td class="l">'+(v.name||v.code)+' <span class="sub">'+(v.plate_no||'')+'</span></td>'
+      +'<td><span class="cls" style="background:'+col+'">'+t+'</span></td>'
+      +'<td><input class="in" data-k="p_'+v.code+'" type="number" min="0" step="500" value="'+dp+'"></td>'
+      +'<td><input class="in sm" data-k="u_'+v.code+'" type="number" min="0" max="100" step="1" value="'+du+'"></td>'
+      +'<td id="mt_'+v.code+'" class="calc"></td><td id="ru_'+v.code+'" class="rl"></td><td id="rr_'+v.code+'" class="rl"></td></tr>';
+  }).join('');
+  document.querySelectorAll('#tVehBody input.in, #iDays, #iHP, #iOTA').forEach(e=>e.addEventListener('input',onInput));
+  g('iHP').addEventListener('input',()=>{g('iOTA').value=Math.max(0,100-numv('iHP'));saveKV('iOTA',g('iOTA').value);});
+  g('iOTA').addEventListener('input',()=>{g('iHP').value=Math.max(0,100-numv('iOTA'));saveKV('iHP',g('iHP').value);});
+  calc();
+}
+function saveKV(k,val){const s=loadStore();s[k]=val;saveStore(s);}
+function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays','iHP','iOTA'].indexOf(t.id)>=0)saveKV(t.id,t.value);calc();}
+function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);calc();}
+
+function calc(){
+  const D=numv('iDays')||30;
+  let tgt=0,uSum=0,n=0,real=0,rdSum=0;
+  VEH.forEach(v=>{
+    const p=qv('[data-k="p_'+v.code+'"]'),u=qv('[data-k="u_'+v.code+'"]');
+    const mt=p*(u/100*D);
+    const a=ACT.byV[v.code]||{rev:0,days:0};
+    const ru=ACT.dim?a.days/ACT.dim*100:0;
+    if(g('mt_'+v.code))g('mt_'+v.code).textContent=yen(mt);
+    if(g('ru_'+v.code))g('ru_'+v.code).textContent=ru.toFixed(0)+'%';
+    if(g('rr_'+v.code))g('rr_'+v.code).textContent=a.rev?yen(a.rev):'—';
+    tgt+=mt;uSum+=u;n++;real+=a.rev;rdSum+=ru;
+  });
+  g('oCnt').textContent='('+n+'台)';
+  g('oAvgU').textContent=n?(uSum/n).toFixed(0)+'%':'—';
+  g('oTgt').textContent=yen(tgt);
+  g('oAvgRU').textContent=n?(rdSum/n).toFixed(0)+'%':'—';
+  g('oReal').textContent=yen(real);
+  // HP/OTA目標配分
+  let hp=numv('iHP'),ota=numv('iOTA');const tot=(hp+ota)||100;
+  const tgHP=tgt*hp/tot,tgOTA=tgt*ota/tot;
+  setProg('HP',tgHP,ACT.hp);setProg('OTA',tgOTA,ACT.ota);setProg('All',tgt,ACT.hp+ACT.ota);
+}
+function setProg(sfx,target,actual){
+  if(g('tg'+sfx))g('tg'+sfx).textContent=yen(target);
+  if(g('ac'+sfx))g('ac'+sfx).textContent=yen(actual);
+  const gap=actual-target;
+  if(g('gp'+sfx))g('gp'+sfx).innerHTML='<span class="'+(gap>=0?'ok':'ng')+'">'+(gap>=0?'+':'−')+yen(Math.abs(gap)).slice(1)+'</span>';
+  const rt=target?actual/target*100:0;
+  if(g('rt'+sfx))g('rt'+sfx).innerHTML='<span class="'+(rt>=100?'ok':'ng')+'">'+rt.toFixed(0)+'%</span>';
+}
+function refreshAct(){fetchActual().then(calc).catch(e=>{g('actNote').textContent='更新エラー: '+(e.message||e);});}
+function reset_(){const s=loadStore();['iDays','iHP','iOTA'].forEach(k=>delete s[k]);VEH.forEach(v=>{delete s['p_'+v.code];delete s['u_'+v.code];});saveStore(s);g('iDays').value=30;g('iHP').value=40;g('iOTA').value=60;buildRows();}
+
+(async function(){
+  const st=g('status');
+  if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（車両マスター・実績はログイン必須）。';return;}
+  const s=loadStore();['iDays','iHP','iOTA'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
+  try{
+    VEH=await fetchVeh();
+    if(!VEH.length){st.style.display='block';st.textContent='車両マスターに有効な車両がありません。';return;}
+    buildRows();
+    await fetchActual();calc();
+    setInterval(()=>fetchActual().then(calc).catch(()=>{}),300000);
+  }catch(e){st.style.display='block';st.textContent='⚠️ 読み込みエラー: '+(e.message||e)+'（ログインしてから再度お開きください）';}
+})();
+</script>
+</body>
+</html>
