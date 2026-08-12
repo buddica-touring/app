@@ -42,6 +42,7 @@
   .sub{font-size:9px;color:#94a3b8;font-weight:600}
   .mtx .yen2{color:#0f766e;font-weight:700;font-size:9.5px}
   .mtx td b{font-size:12px;color:#0f172a}
+  .mtx td.lt{color:#7c3aed;font-weight:800}
   .lg{font-size:10px;color:#64748b;margin-top:6px}
 </style>
 </head>
@@ -69,7 +70,7 @@
 
   <div class="card">
     <h2>⏱ リードタイム分解（広告費の月 → 何ヶ月先の予約を作ったか）</h2>
-    <div class="sub" style="margin-bottom:6px">行＝<b>発生月（＝広告費を使った月）</b>／列＝その予約が<b>何ヶ月先に出発</b>するか。<b>0ヶ月先＝同月出発（0リードタイム）</b>。各セル＝件数（売上）。</div>
+    <div class="sub" style="margin-bottom:6px">行＝<b>発生月（＝広告費を使った月）</b>／列＝その予約が<b>何ヶ月先に出発</b>するか（件数）。<b>0ヶ月先＝同月出発（0リードタイム）</b>。<b>平均LT</b>＝その月の予約の平均リードタイム。</div>
     <div class="scroll"><table id="lt" class="mtx"></table></div>
   </div>
 </div>
@@ -159,21 +160,22 @@ function render(){
   });
   h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td>'+yen(tAd)+'</td><td>'+(tAd&&tC?yen(tAd/tC):'—')+'</td><td>'+(tAd?totRoas.toFixed(2)+'x':'—')+'</td><td class="eff" style="color:'+totEff[1]+'">'+totEff[0]+'</td></tr></tfoot>';
   document.getElementById('main').innerHTML=h;
-  // ⏱ リードタイム分解（発生月→何ヶ月先の出発か）
+  // ⏱ リードタイム分解（発生月→何ヶ月先の出発か・件数のみ＋平均LT）
   const LTN=5;const ltLbl=['0ヶ月先','1ヶ月先','2ヶ月先','3ヶ月先','4ヶ月+先'];
   const mdiff=(occ,dep)=>{const[ya,ma]=occ.split('-').map(Number),[yb,mb]=dep.split('-').map(Number);return (yb-ya)*12+(mb-ma);};
-  let lh='<thead><tr><th class="l">発生月＼先</th>';ltLbl.forEach(l=>lh+='<th>'+l+'</th>');lh+='<th>計</th></tr></thead><tbody>';
-  const colT=Array.from({length:LTN},()=>({c:0,r:0}));
+  let lh='<thead><tr><th class="l">発生月＼先</th>';ltLbl.forEach(l=>lh+='<th>'+l+'</th>');lh+='<th>計</th><th>平均LT</th></tr></thead><tbody>';
+  const colT=Array.from({length:LTN},()=>0);let gLtSum=0,gCnt=0;
   occMonths.forEach(m=>{
-    const x=M[m];const buck=Array.from({length:LTN},()=>({c:0,r:0}));
-    Object.keys(x.dep).forEach(d=>{if(d==='—')return;let lt=mdiff(m,d);if(lt<0)lt=0;if(lt>=LTN)lt=LTN-1;buck[lt].c+=x.dep[d].count;buck[lt].r+=x.dep[d].rev;});
+    const x=M[m];const buck=Array.from({length:LTN},()=>0);let ltSum=0,cnt=0;
+    Object.keys(x.dep).forEach(d=>{if(d==='—')return;const n=x.dep[d].count;let lt=mdiff(m,d);if(lt<0)lt=0;ltSum+=lt*n;cnt+=n;let bi=lt>=LTN?LTN-1:lt;buck[bi]+=n;});
     lh+='<tr><td class="l num">'+m+'</td>';
-    buck.forEach((b,i)=>{colT[i].c+=b.c;colT[i].r+=b.r;if(b.c){lh+='<td class="dep'+(i===0?' diag':'')+'"><b>'+b.c+'件</b><div class="sub yen2">'+yen(b.r)+'</div></td>';}else{lh+='<td class="zero">·</td>';}});
-    lh+='<td class="num"><b>'+x.count+'件</b><div class="sub yen2">'+yen(x.rev)+'</div></td></tr>';
+    buck.forEach((c,i)=>{colT[i]+=c;lh+=c?('<td class="dep'+(i===0?' diag':'')+'"><b>'+c+'件</b></td>'):'<td class="zero">·</td>';});
+    const avg=cnt?(ltSum/cnt):0;gLtSum+=ltSum;gCnt+=cnt;
+    lh+='<td class="num"><b>'+x.count+'件</b></td><td class="lt">'+(cnt?avg.toFixed(1)+'ヶ月':'—')+'</td></tr>';
   });
   lh+='</tbody><tfoot><tr><td class="l">計</td>';
-  colT.forEach(t=>{lh+='<td>'+(t.c?'<b>'+t.c+'件</b><div class="sub yen2">'+yen(t.r)+'</div>':'·')+'</td>';});
-  lh+='<td></td></tr></tfoot>';
+  colT.forEach(c=>{lh+='<td>'+(c?'<b>'+c+'件</b>':'·')+'</td>';});
+  lh+='<td class="num"><b>'+colT.reduce((a,b)=>a+b,0)+'件</b></td><td class="lt">'+(gCnt?(gLtSum/gCnt).toFixed(1)+'ヶ月':'—')+'</td></tr></tfoot>';
   document.getElementById('lt').innerHTML=lh;
 }
 (async function(){
