@@ -66,41 +66,36 @@
   </div>
   <div id="status" class="warn" style="display:none"></div>
 
-  <div class="vtabs" id="vtabs"></div>
-
-  <!-- 🌐 HP（自社獲得） -->
-  <div id="hpview">
-  <div class="kpis" id="kpis"></div>
+  <!-- ⚖️ 累計比較（自社HP vs OTA） -->
   <div class="card">
-    <h2>📊 月次サマリ（流通＝発生月ベース）
+    <h2>⚖️ 自社(HP) vs OTA 比較（累計・流通ベース）</h2>
+    <div class="sub" style="margin-bottom:6px">コスト＝HPは<b>広告費</b>／OTAは<b>手数料18%</b>。純額＝HPは<b>効果(売上−広告費)</b>／OTAは<b>手取り(82%)</b>。CPA＝コスト÷件数。</div>
+    <div class="scroll"><table id="cmpTot"></table></div>
+  </div>
+
+  <!-- 📊 月次比較（1画面で HP と OTA を横並び） -->
+  <div class="card">
+    <h2>📊 月次比較（HP vs OTA・発生月ベース）
       <button class="btn g" style="margin-left:auto" onclick="saveAd()">💾 広告費を保存</button><span id="msg" class="msg"></span>
     </h2>
-    <div class="scroll"><table id="main"></table></div>
-  </div>
-  <div class="card">
-    <h2>⏱ リードタイム分解（広告費の月 → 何ヶ月先の予約を作ったか）</h2>
-    <div class="sub" style="margin-bottom:6px">行＝<b>発生月（＝広告費を使った月）</b>／列＝その予約が<b>何ヶ月先に出発</b>するか（件数）。<b>0ヶ月先＝同月出発（0リードタイム）</b>。<b>平均LT</b>＝その月の予約の平均リードタイム。</div>
-    <div class="scroll"><table id="lt" class="mtx"></table></div>
-  </div>
+    <div class="scroll"><table id="cmpMonth"></table></div>
+    <div class="lg">🌐HP＝広告費を入力→CPA/効果/判定が計算。🏨OTA＝手数料18%は自動。判定🛑＝コストが売上を上回る（赤字）。</div>
   </div>
 
-  <!-- 🏨 OTA別（手数料18%） -->
-  <div id="otaview" style="display:none">
-  <div class="kpis" id="kpisO"></div>
-  <div class="card">
-    <h2>🏨 OTA別 月次サマリ（流通＝発生月ベース・手数料18%）</h2>
-    <div class="sub" style="margin-bottom:6px">売上＝グロス／<b>手数料＝売上×18%</b>／<b>手取り＝売上−手数料（82%）</b>。CPAでなくOTA手数料が原価。</div>
-    <div class="scroll"><table id="mainO"></table></div>
-  </div>
+  <!-- 🏨 OTA別 内訳 -->
   <div class="card">
     <h2>🏨 OTA別 内訳（累計・手数料18%）</h2>
     <div class="scroll"><table id="brkO"></table></div>
   </div>
+
+  <!-- ⏱ リードタイム（HP / OTA） -->
   <div class="card">
-    <h2>⏱ OTA リードタイム分解（発生月 → 何ヶ月先の予約か）</h2>
-    <div class="sub" style="margin-bottom:6px">行＝発生月／列＝何ヶ月先に出発するか（件数）。<b>0ヶ月先＝0リードタイム</b>。<b>平均LT</b>＝平均リードタイム。</div>
+    <h2>⏱ リードタイム分解（発生月 → 何ヶ月先の予約か）</h2>
+    <div class="sub" style="margin-bottom:6px">🌐HP／🏨OTA それぞれ。0ヶ月先＝0リードタイム。平均LT＝平均リードタイム。</div>
+    <div class="sub" style="margin:8px 0 3px;font-weight:800;color:#4c1d95">🌐 HP（自社）</div>
+    <div class="scroll"><table id="lt" class="mtx"></table></div>
+    <div class="sub" style="margin:10px 0 3px;font-weight:800;color:#4c1d95">🏨 OTA</div>
     <div class="scroll"><table id="ltO" class="mtx"></table></div>
-  </div>
   </div>
 </div>
 <script>
@@ -188,32 +183,48 @@ function build(resv){
 }
 function render(){
   if(!ROWS.length&&!BUILT)return;
-  const {occMonths,M,depMonths}=BUILT;
-  let tC=0,tR=0,tAd=0;occMonths.forEach(m=>{tC+=M[m].count;tR+=M[m].rev;tAd+=(+AD[m]||0);});
-  const totRoas=tAd?tR/tAd:0;
-  const plus=(rev,ad)=>ad>0?(rev-ad):null;                       // 効果＝投資額(広告費)に対していくらプラスか＝売上−広告費
+  const {occMonths,M,MO,OTAby}=BUILT;
   const fmtP=v=>v===null?'—':(v>=0?'+':'−')+yen(Math.abs(v));
   const colP=v=>v===null?'#94a3b8':(v>=0?'#0e7a3b':'#dc2626');
-  const tP=plus(tR,tAd);
-  const kpis=[['HP獲得(累計)',tC+'件'],['HP売上(累計)',yen(tR)],['広告費(累計)',yen(tAd)],['平均CPA',tC?yen(tAd/tC):'—'],['ROAS',tAd?totRoas.toFixed(2)+'x':'—'],['効果(売上−広告費)',fmtP(tP)]];
-  document.getElementById('kpis').innerHTML=kpis.map(k=>'<div class="kpi"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div></div>').join('');
-  const perU=(rev,ad,cnt)=>(ad>0&&cnt>0)?((rev-ad)/cnt):null;   // 1件あたり効果＝客単価−CPA＝(売上−広告費)÷件数
-  const judge=(pv,ad)=>ad>0?(pv<0?['🛑 停止','#dc2626','#fef2f2']:['✅ 継続','#0e7a3b','#f0fdf4']):['—','#94a3b8','transparent']; // 効果マイナス(CPA>客単価)=広告意味なし=停止
-  let h='<thead><tr><th class="l">発生月</th><th>獲得数</th><th>売上</th><th>客単価</th><th>広告費(入力)</th><th>CPA</th><th>客単価−CPA</th><th>ROAS</th><th>効果(売上−広告費)</th><th>判定</th></tr></thead><tbody>';
+  const judge=(pv,ad)=>ad>0?(pv<0?['🛑','#dc2626','#fef2f2']:['✅','#0e7a3b','#f0fdf4']):['—','#94a3b8','transparent'];
+  // 累計
+  let hC=0,hR=0,hAd=0;occMonths.forEach(m=>{hC+=M[m].count;hR+=M[m].rev;hAd+=(+AD[m]||0);});
+  let oC=0,oR=0;occMonths.forEach(m=>{oC+=MO[m].count;oR+=MO[m].rev;});
+  const oFee=oR*FEE,oNet=oR-oFee,hEff=hAd>0?(hR-hAd):null;
+  // ⚖️ 累計比較
+  let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
+  ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件</td><td class="yen">'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果</div></td></tr>';
+  ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件</td><td class="yen">'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18%</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82%</div></td></tr>';
+  const aC=hC+oC,aR=hR+oR,aCost=hAd+oFee,aNet=(hEff!=null?hEff:0)+oNet;
+  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件</td><td>'+yen(aR)+'</td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="fee">'+yen(aCost)+'</td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'</td></tr></tfoot>';
+  document.getElementById('cmpTot').innerHTML=ct;
+  // 📊 月次比較（HP | OTA を横並び）
+  let mh='<thead><tr><th class="l" rowspan="2">発生月</th><th colspan="6" style="text-align:center;background:#f5f3ff;color:#4c1d95;border-left:2px solid #ddd6fe">🌐 HP（自社）</th><th colspan="5" style="text-align:center;background:#eff6ff;color:#1e3a8a;border-left:2px solid #bfdbfe">🏨 OTA（手数料18%）</th></tr>'
+    +'<tr><th style="border-left:2px solid #ddd6fe">件数</th><th>売上</th><th>広告費(入力)</th><th>CPA</th><th>効果</th><th>判定</th>'
+    +'<th style="border-left:2px solid #bfdbfe">件数</th><th>売上</th><th>手数料</th><th>CPA</th><th>手取り</th></tr></thead><tbody>';
   occMonths.forEach(m=>{
-    const x=M[m],ad=+AD[m]||0;const cpa=x.count?ad/x.count:0,roas=ad?x.rev/ad:0;const adr=x.count?x.rev/x.count:0;const pv=plus(x.rev,ad);const pu=perU(x.rev,ad,x.count);const jd=judge(pv,ad);
-    h+='<tr><td class="l num">'+m+'</td><td class="num">'+x.count+'件</td><td class="yen">'+yen(x.rev)+'</td><td>'+yen(adr)+'</td>'
+    const h=M[m],ad=+AD[m]||0;const hcpa=h.count?ad/h.count:0;const hpv=ad>0?(h.rev-ad):null;const jd=judge(hpv,ad);
+    const o=MO[m];const of=o.rev*FEE,onet=o.rev-of,ocpa=o.count?of/o.count:0;
+    mh+='<tr><td class="l num">'+m+'</td>'
+      +'<td class="num" style="border-left:2px solid #ddd6fe">'+h.count+'件</td><td class="yen">'+yen(h.rev)+'</td>'
       +'<td><input class="ad" type="number" min="0" step="1000" data-ym="'+m+'" value="'+(ad||'')+'" placeholder="0"></td>'
-      +'<td class="cpa">'+(ad&&x.count?yen(cpa):'—')+'</td><td class="eff" style="color:'+colP(pu)+'">'+fmtP(pu)+'</td><td class="roas">'+(ad?roas.toFixed(2)+'x':'—')+'</td>'
-      +'<td class="eff" style="color:'+colP(pv)+'">'+fmtP(pv)+'</td>'
-      +'<td class="jd" style="color:'+jd[1]+';background:'+jd[2]+'">'+jd[0]+'</td></tr>';
+      +'<td class="cpa">'+(ad&&h.count?yen(hcpa):'—')+'</td><td class="eff" style="color:'+colP(hpv)+'">'+fmtP(hpv)+'</td><td class="jd" style="color:'+jd[1]+';background:'+jd[2]+'">'+jd[0]+'</td>'
+      +'<td class="num" style="border-left:2px solid #bfdbfe">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td class="fee">'+(o.rev?yen(of):'—')+'</td><td class="cpa">'+(o.count?yen(ocpa):'—')+'</td><td class="net">'+(o.rev?yen(onet):'—')+'</td></tr>';
   });
-  const tPU=perU(tR,tAd,tC);const tJ=judge(tP,tAd);
-  h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td>'+yen(tAd)+'</td><td>'+(tAd&&tC?yen(tAd/tC):'—')+'</td><td class="eff" style="color:'+colP(tPU)+'">'+fmtP(tPU)+'</td><td>'+(tAd?totRoas.toFixed(2)+'x':'—')+'</td><td class="eff" style="color:'+colP(tP)+'">'+fmtP(tP)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td></tr></tfoot>';
-  document.getElementById('main').innerHTML=h;
+  const tHpv=hAd>0?(hR-hAd):null;const tJ=judge(tHpv,hAd);
+  mh+='</tbody><tfoot><tr><td class="l">合計</td>'
+    +'<td style="border-left:2px solid #ddd6fe">'+hC+'件</td><td>'+yen(hR)+'</td><td>'+yen(hAd)+'</td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="eff" style="color:'+colP(tHpv)+'">'+fmtP(tHpv)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td>'
+    +'<td style="border-left:2px solid #bfdbfe">'+oC+'件</td><td>'+yen(oR)+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td></tr></tfoot>';
+  document.getElementById('cmpMonth').innerHTML=mh;
+  // 🏨 OTA別内訳
+  const chs=Object.keys(OTAby).sort((a,b)=>OTAby[b].rev-OTAby[a].rev);
+  let b='<thead><tr><th class="l">OTA</th><th>本数</th><th>売上(グロス)</th><th>客単価</th><th>手数料(18%)</th><th>CPA(手数料/件)</th><th>手取り(82%)</th><th>構成比</th></tr></thead><tbody>';
+  chs.forEach(ch=>{const o=OTAby[ch];const fee=o.rev*FEE,net=o.rev-fee,adr=o.count?o.rev/o.count:0,cpa=o.count?fee/o.count:0,pct=oR?Math.round(o.rev/oR*100):0;
+    b+='<tr><td class="l num">'+ch+'</td><td class="num">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td>'+yen(adr)+'</td><td class="fee">'+yen(fee)+'</td><td class="cpa">'+yen(cpa)+'</td><td class="net">'+yen(net)+'</td><td>'+pct+'%</td></tr>';});
+  b+='</tbody><tfoot><tr><td class="l">合計</td><td>'+oC+'件</td><td>'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td><td>100%</td></tr></tfoot>';
+  document.getElementById('brkO').innerHTML=b;
   renderLT('lt',M,occMonths);
-  renderOTA();
-  renderVtabs();
+  renderLT('ltO',MO,occMonths);
 }
 // ⏱ リードタイム分解（共通：HP/OTAで再利用）
 function renderLT(elId,Md,occMonths){
@@ -234,38 +245,6 @@ function renderLT(elId,Md,occMonths){
   lh+='<td class="num"><b>'+colT.reduce((a,b)=>a+b,0)+'件</b></td><td class="lt">'+(gCnt?(gLtSum/gCnt).toFixed(1)+'ヶ月':'—')+'</td></tr></tfoot>';
   document.getElementById(elId).innerHTML=lh;
 }
-// 🏨 OTA別ビュー（手数料18%・OTA側から見た景色：本数/売上/手数料/CPA/手取り）
-function renderOTA(){
-  const {occMonths,MO,OTAby}=BUILT;
-  let tC=0,tR=0;occMonths.forEach(m=>{tC+=MO[m].count;tR+=MO[m].rev;});
-  const tFee=tR*FEE,tNet=tR-tFee,tCpa=tC?tFee/tC:0;
-  const kp=[['OTA獲得(累計)',tC+'件'],['OTA売上(グロス)',yen(tR)],['手数料18%(累計)',yen(tFee)],['手取り82%(累計)',yen(tNet)],['平均CPA(手数料/件)',tC?yen(tCpa):'—'],['客単価',tC?yen(tR/tC):'—']];
-  document.getElementById('kpisO').innerHTML=kp.map(k=>'<div class="kpi"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div></div>').join('');
-  // 月次サマリ
-  let h='<thead><tr><th class="l">発生月</th><th>本数</th><th>売上(グロス)</th><th>客単価</th><th>手数料(18%)</th><th>CPA(手数料/件)</th><th>手取り(82%)</th><th>手取り単価</th></tr></thead><tbody>';
-  occMonths.forEach(m=>{
-    const x=MO[m];const fee=x.rev*FEE,net=x.rev-fee,adr=x.count?x.rev/x.count:0,cpa=x.count?fee/x.count:0,nu=x.count?net/x.count:0;
-    h+='<tr><td class="l num">'+m+'</td><td class="num">'+x.count+'件</td><td class="yen">'+yen(x.rev)+'</td><td>'+(x.count?yen(adr):'—')+'</td>'
-      +'<td class="fee">'+(x.rev?yen(fee):'—')+'</td><td class="cpa">'+(x.count?yen(cpa):'—')+'</td><td class="net">'+(x.rev?yen(net):'—')+'</td><td>'+(x.count?yen(nu):'—')+'</td></tr>';
-  });
-  h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td class="fee">'+yen(tFee)+'</td><td class="cpa">'+(tC?yen(tCpa):'—')+'</td><td class="net">'+yen(tNet)+'</td><td>'+(tC?yen(tNet/tC):'—')+'</td></tr></tfoot>';
-  document.getElementById('mainO').innerHTML=h;
-  // OTA別内訳（全てOTA側から見た景色）
-  const chs=Object.keys(OTAby).sort((a,b)=>OTAby[b].rev-OTAby[a].rev);
-  let b='<thead><tr><th class="l">OTA</th><th>本数</th><th>売上(グロス)</th><th>客単価</th><th>手数料(18%)</th><th>CPA(手数料/件)</th><th>手取り(82%)</th><th>構成比</th></tr></thead><tbody>';
-  chs.forEach(ch=>{const o=OTAby[ch];const fee=o.rev*FEE,net=o.rev-fee,adr=o.count?o.rev/o.count:0,cpa=o.count?fee/o.count:0,pct=tR?Math.round(o.rev/tR*100):0;
-    b+='<tr><td class="l num">'+ch+'</td><td class="num">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td>'+yen(adr)+'</td><td class="fee">'+yen(fee)+'</td><td class="cpa">'+yen(cpa)+'</td><td class="net">'+yen(net)+'</td><td>'+pct+'%</td></tr>';});
-  b+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td class="fee">'+yen(tFee)+'</td><td class="cpa">'+(tC?yen(tCpa):'—')+'</td><td class="net">'+yen(tNet)+'</td><td>100%</td></tr></tfoot>';
-  document.getElementById('brkO').innerHTML=b;
-  renderLT('ltO',MO,occMonths);
-}
-function renderVtabs(){
-  const T=[['hp','🌐 HP（自社獲得）'],['ota','🏨 OTA別（手数料18%）']];
-  document.getElementById('vtabs').innerHTML=T.map(t=>'<button class="'+(VIEW===t[0]?'on':'')+'" onclick="setView(\''+t[0]+'\')">'+t[1]+'</button>').join('');
-  document.getElementById('hpview').style.display=VIEW==='hp'?'':'none';
-  document.getElementById('otaview').style.display=VIEW==='ota'?'':'none';
-}
-function setView(v){VIEW=v;try{localStorage.setItem('hp_view_'+STORE,v);}catch(e){}renderVtabs();}
 (async function(){
   const st=document.getElementById('status');
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（データはログイン必須）。';return;}
