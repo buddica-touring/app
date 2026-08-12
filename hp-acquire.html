@@ -40,6 +40,8 @@
   .kpi .v{font-size:17px;font-weight:900;margin-top:2px}
   .warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:8px 10px;border-radius:8px;font-size:11.5px;font-weight:700}
   .sub{font-size:9px;color:#94a3b8;font-weight:600}
+  .mtx .yen2{color:#0f766e;font-weight:700;font-size:9.5px}
+  .mtx td b{font-size:12px;color:#0f172a}
   .lg{font-size:10px;color:#64748b;margin-top:6px}
 </style>
 </head>
@@ -66,8 +68,14 @@
   </div>
 
   <div class="card">
-    <h2>🗓 出発月 分解（発生月 × 出発月）</h2>
-    <div class="sub" style="margin-bottom:6px">各セル＝件数（売上）。行＝予約が発生した月／列＝その予約が出発する月。緑＝発生月と同月出発。</div>
+    <h2>⏱ リードタイム分解（広告費の月 → 何ヶ月先の予約を作ったか）</h2>
+    <div class="sub" style="margin-bottom:6px">行＝<b>発生月（＝広告費を使った月）</b>／列＝その予約が<b>何ヶ月先に出発</b>するか。<b>0ヶ月先＝同月出発（0リードタイム）</b>。各セル＝件数（売上）。</div>
+    <div class="scroll"><table id="lt" class="mtx"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>🗓 出発月 分解（発生月 × 出発月・絶対月）</h2>
+    <div class="sub" style="margin-bottom:6px">行＝予約が発生した月（広告費の月）／列＝その予約が出発する<b>実際の月</b>。緑＝同月出発（0リードタイム）。各セル＝件数（売上）。</div>
     <div class="scroll"><table id="mtx" class="mtx"></table></div>
   </div>
 </div>
@@ -160,13 +168,29 @@ function render(){
   let mh='<thead><tr><th class="l">発生＼出発</th>';depMonths.forEach(d=>mh+='<th>'+d.slice(5)+'月</th>');mh+='<th>計</th></tr></thead><tbody>';
   occMonths.forEach(m=>{
     const x=M[m];mh+='<tr><td class="l num">'+m+'</td>';
-    depMonths.forEach(d=>{const c=x.dep[d];if(c){mh+='<td class="dep'+(d===m?' diag':'')+'">'+c.count+'<div class="sub">'+yen(c.rev)+'</div></td>';}else{mh+='<td class="zero">·</td>';}});
-    mh+='<td class="num">'+x.count+'<div class="sub">'+yen(x.rev)+'</div></td></tr>';
+    depMonths.forEach(d=>{const c=x.dep[d];if(c){mh+='<td class="dep'+(d===m?' diag':'')+'"><b>'+c.count+'件</b><div class="sub yen2">'+yen(c.rev)+'</div></td>';}else{mh+='<td class="zero">·</td>';}});
+    mh+='<td class="num"><b>'+x.count+'件</b><div class="sub yen2">'+yen(x.rev)+'</div></td></tr>';
   });
   mh+='</tbody><tfoot><tr><td class="l">計</td>';
-  depMonths.forEach(d=>{let c=0,rv=0;occMonths.forEach(m=>{const cc=M[m].dep[d];if(cc){c+=cc.count;rv+=cc.rev;}});mh+='<td>'+(c||'·')+(c?'<div class="sub">'+yen(rv)+'</div>':'')+'</td>';});
+  depMonths.forEach(d=>{let c=0,rv=0;occMonths.forEach(m=>{const cc=M[m].dep[d];if(cc){c+=cc.count;rv+=cc.rev;}});mh+='<td>'+(c?'<b>'+c+'件</b>':'·')+(c?'<div class="sub yen2">'+yen(rv)+'</div>':'')+'</td>';});
   mh+='<td></td></tr></tfoot>';
   document.getElementById('mtx').innerHTML=mh;
+  // ⏱ リードタイム分解（発生月→何ヶ月先の出発か）
+  const LTN=5;const ltLbl=['0ヶ月先','1ヶ月先','2ヶ月先','3ヶ月先','4ヶ月+先'];
+  const mdiff=(occ,dep)=>{const[ya,ma]=occ.split('-').map(Number),[yb,mb]=dep.split('-').map(Number);return (yb-ya)*12+(mb-ma);};
+  let lh='<thead><tr><th class="l">発生月＼先</th>';ltLbl.forEach(l=>lh+='<th>'+l+'</th>');lh+='<th>計</th></tr></thead><tbody>';
+  const colT=Array.from({length:LTN},()=>({c:0,r:0}));
+  occMonths.forEach(m=>{
+    const x=M[m];const buck=Array.from({length:LTN},()=>({c:0,r:0}));
+    Object.keys(x.dep).forEach(d=>{if(d==='—')return;let lt=mdiff(m,d);if(lt<0)lt=0;if(lt>=LTN)lt=LTN-1;buck[lt].c+=x.dep[d].count;buck[lt].r+=x.dep[d].rev;});
+    lh+='<tr><td class="l num">'+m+'</td>';
+    buck.forEach((b,i)=>{colT[i].c+=b.c;colT[i].r+=b.r;if(b.c){lh+='<td class="dep'+(i===0?' diag':'')+'"><b>'+b.c+'件</b><div class="sub yen2">'+yen(b.r)+'</div></td>';}else{lh+='<td class="zero">·</td>';}});
+    lh+='<td class="num"><b>'+x.count+'件</b><div class="sub yen2">'+yen(x.rev)+'</div></td></tr>';
+  });
+  lh+='</tbody><tfoot><tr><td class="l">計</td>';
+  colT.forEach(t=>{lh+='<td>'+(t.c?'<b>'+t.c+'件</b><div class="sub yen2">'+yen(t.r)+'</div>':'·')+'</td>';});
+  lh+='<td></td></tr></tfoot>';
+  document.getElementById('lt').innerHTML=lh;
 }
 (async function(){
   const st=document.getElementById('status');
