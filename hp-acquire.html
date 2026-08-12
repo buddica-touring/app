@@ -51,7 +51,7 @@
 <div class="wrap">
   <h1>🌐 HP新規獲得サマリ <span id="storelbl" style="font-size:11px;color:#64748b"></span> <a href="index.html">🏠 管理APP</a></h1>
   <div class="note">
-    <b>流通（発生月）ベース</b>＝予約が<b>入った月</b>で集計。「HP」＝公式サイト/直販（ota: HP・SP）・キャンセル除外。<br>
+    <b>流通（発生月）ベース</b>＝予約が<b>入った月</b>で集計。<b>「HP」＝自社獲得（公式サイト・直販＝OTA以外）</b>。札幌/那覇＝ota:HP・SP／高松＝公式site＋SP。キャンセル（英/日）除外。<br>
     ・獲得数/売上＝その月に発生したHP予約。CPA＝広告費÷獲得数／ROAS＝売上÷広告費。<br>
     ・<b>効果</b>＝投資額（広告費）に対していくらプラスか＝<b>売上−広告費</b>（＋緑／−赤）。<br>
     ・<b>客単価−CPA</b>＝1件あたりの効果。<b>マイナス（赤）＝CPAが客単価を上回る＝1件ごと赤字ライン</b>。<br>
@@ -83,10 +83,11 @@ const MAIN_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const CFG={
-  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店'},
-  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店'},
-  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店'},
+  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店',hpMode:'ota'},
+  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店',hpMode:'ota'},
+  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source'},
 };
+// hpMode: 'ota'＝ota in(HP,SP)で公式判定（札幌/那覇）／'source'＝OTA以外(source≠ota)を公式扱い（高松＝公式siteはota空・SPも含む）
 const STORE=(new URLSearchParams(location.search).get('store')||'spk').toLowerCase();
 const C=CFG[STORE]||CFG.spk;
 const START='2026-02';
@@ -105,8 +106,10 @@ let AD={}, ROWS=[], BUILT=null;
 
 async function fetchAll(){
   let out=[],off=0;
-  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+',status';
-  const q='select='+cols+'&ota=in.(HP,SP)&status=neq.cancelled&order=id';
+  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+',status'+(C.hpMode==='source'?',source':'');
+  // 公式判定: ota法(HP,SP)はサーバ側で絞る／source法(高松)は全件取得→クライアントでOTA以外を公式扱い。取消は英/日ともクライアント除外
+  let q='select='+cols+'&order=id';
+  if(C.hpMode==='ota') q+='&ota=in.(HP,SP)';
   while(true){
     const r=await fetch(C.sb+'/rest/v1/'+C.resv+'?'+q+'&limit=1000&offset='+off,{headers:H()});
     if(!r.ok)throw new Error('取得失敗 '+r.status);
@@ -134,6 +137,8 @@ function build(resv){
   const M={};occMonths.forEach(m=>M[m]={count:0,rev:0,dep:{}});
   let depMin=curYM,depMax=START;
   resv.forEach(r=>{
+    if(/cancel|キャンセル/i.test(r.status||''))return;               // 取消(英/日)は除外
+    if(C.hpMode==='source' && String(r.source||'')==='ota')return;   // 高松: OTA以外(公式site/SP/直販)=HP扱い
     // 2026-03-29 一括取込(発生月不明)は除外
     if(!r.booked_at && String(r.created_at||'').slice(0,10)==='2026-03-29')return;
     const o=occYM(r);if(!o||o<START||!M[o])return;
