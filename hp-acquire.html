@@ -72,12 +72,6 @@
     <div class="sub" style="margin-bottom:6px">行＝<b>発生月（＝広告費を使った月）</b>／列＝その予約が<b>何ヶ月先に出発</b>するか。<b>0ヶ月先＝同月出発（0リードタイム）</b>。各セル＝件数（売上）。</div>
     <div class="scroll"><table id="lt" class="mtx"></table></div>
   </div>
-
-  <div class="card">
-    <h2>🗓 出発月 分解（発生月 × 出発月・絶対月）</h2>
-    <div class="sub" style="margin-bottom:6px">行＝予約が発生した月（広告費の月）／列＝その予約が出発する<b>実際の月</b>。緑＝同月出発（0リードタイム）。各セル＝件数（売上）。</div>
-    <div class="scroll"><table id="mtx" class="mtx"></table></div>
-  </div>
 </div>
 <script>
 // ===== 店舗設定（?store=spk|nha|bt）=====
@@ -165,16 +159,6 @@ function render(){
   });
   h+='</tbody><tfoot><tr><td class="l">合計</td><td>'+tC+'件</td><td>'+yen(tR)+'</td><td>'+(tC?yen(tR/tC):'—')+'</td><td>'+yen(tAd)+'</td><td>'+(tAd&&tC?yen(tAd/tC):'—')+'</td><td>'+(tAd?totRoas.toFixed(2)+'x':'—')+'</td><td class="eff" style="color:'+totEff[1]+'">'+totEff[0]+'</td></tr></tfoot>';
   document.getElementById('main').innerHTML=h;
-  let mh='<thead><tr><th class="l">発生＼出発</th>';depMonths.forEach(d=>mh+='<th>'+d.slice(5)+'月</th>');mh+='<th>計</th></tr></thead><tbody>';
-  occMonths.forEach(m=>{
-    const x=M[m];mh+='<tr><td class="l num">'+m+'</td>';
-    depMonths.forEach(d=>{const c=x.dep[d];if(c){mh+='<td class="dep'+(d===m?' diag':'')+'"><b>'+c.count+'件</b><div class="sub yen2">'+yen(c.rev)+'</div></td>';}else{mh+='<td class="zero">·</td>';}});
-    mh+='<td class="num"><b>'+x.count+'件</b><div class="sub yen2">'+yen(x.rev)+'</div></td></tr>';
-  });
-  mh+='</tbody><tfoot><tr><td class="l">計</td>';
-  depMonths.forEach(d=>{let c=0,rv=0;occMonths.forEach(m=>{const cc=M[m].dep[d];if(cc){c+=cc.count;rv+=cc.rev;}});mh+='<td>'+(c?'<b>'+c+'件</b>':'·')+(c?'<div class="sub yen2">'+yen(rv)+'</div>':'')+'</td>';});
-  mh+='<td></td></tr></tfoot>';
-  document.getElementById('mtx').innerHTML=mh;
   // ⏱ リードタイム分解（発生月→何ヶ月先の出発か）
   const LTN=5;const ltLbl=['0ヶ月先','1ヶ月先','2ヶ月先','3ヶ月先','4ヶ月+先'];
   const mdiff=(occ,dep)=>{const[ya,ma]=occ.split('-').map(Number),[yb,mb]=dep.split('-').map(Number);return (yb-ya)*12+(mb-ma);};
