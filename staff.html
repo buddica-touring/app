@@ -72,7 +72,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.6-bt";
+var VER="staff-v1.7-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 var app=document.getElementById("app");
 
@@ -110,6 +110,15 @@ function taskCard(x){
       +'<span class="chk '+(x.terms?'ok':'no')+'" title="約款サイン">📄'+(x.terms?'':'未')+'</span>'
       +'<span class="chk '+(x.damage?'ok':'no')+'" title="傷サイン">🩹'+(x.damage?'':'未')+'</span>';
   }
+  var opStr='';
+  if(t!=='返却後洗車'){
+    var op=[];var os='display:inline-block;padding:1px 6px;border-radius:4px;font-weight:800;font-size:12px;margin-right:4px';
+    if(+(x.opt_b||0)>0)op.push('<span style="'+os+';background:#fef3c7;color:#92400e">👶B×'+(+x.opt_b)+'</span>');
+    if(+(x.opt_c||0)>0)op.push('<span style="'+os+';background:#dbeafe;color:#1e40af">🧒C×'+(+x.opt_c)+'</span>');
+    if(+(x.opt_j||0)>0)op.push('<span style="'+os+';background:#e0e7ff;color:#4338ca">J×'+(+x.opt_j)+'</span>');
+    if(+(x.opt_usb||0)>0)op.push('<span style="'+os+';background:#dcfce7;color:#166534">🔌×'+(+x.opt_usb)+'</span>');
+    if(op.length)opStr='<div class="r2" style="margin-top:5px">'+op.join('')+'</div>';
+  }
   var btns='<div class="r3">';
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   btns+='</div>';
@@ -117,6 +126,7 @@ function taskCard(x){
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'
+    +opStr
     +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
 }
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
