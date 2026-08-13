@@ -22951,7 +22951,7 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       const days=Math.max(1,Math.floor((d2-d1)/86400000)+1);
       if(!vehStat[vc])vehStat[vc]={cnt:0,rev:0,days:0};
       vehStat[vc].cnt+=1;
-      vehStat[vc].rev+=Number(r.price)||0;
+      {const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;vehStat[vc].rev+=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);}
       vehStat[vc].days+=days;
     });
     const kpiByMonth={};
@@ -23252,7 +23252,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.317-BT";
+const APP_VERSION="v1.0.318-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
