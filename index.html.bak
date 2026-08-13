@@ -17391,9 +17391,17 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     const LEND_TYPES=["PUB","DEL","PU","来店"];
     const RET_TYPES=["BDB","COL","BD","返却"];
     const PRIO={DEL:4,COL:4,PUB:3,BDB:3,PU:3,BD:3,来店:2,返却:2};
+    // ★2026-08-13 日付ガード(根絶): 表示は必ず「その日(selDate)のタスク」だけを導出する。
+    //   各タスクは _taskDate(=DBのdate列と常に一致・2026-07-04 _toDbTask で date:(t._taskDate||date))を持つ。
+    //   他日付の _taskDate を持つタスク(=stale state/LS/再取込ラグで紛れ込んだ幽霊)を表示から除外＝
+    //   「関係ない日に返却タスクが乱立」を構造的に不能化(SPK STEP2/3 と同型:悪い表示は正本を導出/防ぐ)。
+    //   _taskDate 未設定(手入力直後でまだ永続化前の manual タスク等)は selDate 所属として絶対に落とさない。
+    const _sd=norm(selDate);
+    const dayTasks=tasks.filter(t=>!t._taskDate||norm(t._taskDate)===_sd);
+    if(dayTasks.length!==tasks.length)console.log("[Tasks] 日付ガード: 他日付タスク除外",tasks.length-dayTasks.length,"件 (selDate="+_sd+")");
     const groups=new Map();
     const others=[];
-    tasks.forEach(t=>{
+    dayTasks.forEach(t=>{
       const cat=LEND_TYPES.indexOf(t.type)>=0?"L":RET_TYPES.indexOf(t.type)>=0?"R":null;
       if(!cat||!t.reservationId){others.push(t);return;}
       const key=t.reservationId+"|"+cat;
@@ -17424,7 +17432,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     const deduped=[...others,...dedupedFromGroups];
     if(!sortKey){const hasOrder=deduped.some(t=>+(t._sortOrder||0)>0);return hasOrder?deduped:doSort(deduped,"time",true);}
     return doSort(deduped,sortKey,sortAsc);
-  },[tasks,sortKey,sortAsc]);
+  },[tasks,sortKey,sortAsc,selDate]);
   const sortIcon=(key)=>sortKey===key?(sortAsc?"▲":"▼"):"";
   // 行移動
   const moveRow=(id,dir)=>{selfUpdatedIds.current.set(id,Date.now());const base=sortKey?sortedTasks:tasks;const idx=base.findIndex(t=>t._id===id);const ni=idx+dir;if(ni<0||ni>=base.length)return;const arr=[...base];[arr[idx],arr[ni]]=[arr[ni],arr[idx]];/* ★明示的並べ替え=順序確定 */const arr2=arr.map((t,i)=>({...t,_sortOrder:i}));setTasks(arr2);setSortKey(null);DB.upsertTasks(arr2,selDate);};
@@ -23252,7 +23260,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.318-BT";
+const APP_VERSION="v1.0.319-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
