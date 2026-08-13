@@ -59,7 +59,7 @@
         <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#7c3aed;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
       </tr></table>
       <div class="scroll" id="grpArea" style="margin-top:6px"><div style="padding:10px;color:#94a3b8">読み込み中…</div></div>
-      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)×台数。<b>台数＝そのクラス/車両を何台で回すかの想定</b>（既定1台。増やすと増車シミュ）。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・実車1台分)。<b>平均稼働率＝各車両の予約日数÷稼働月の日数</b>(累計実績から・月指定に依存しないオンタイム実力値)。</div>
+      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)×台数。<b>台数＝そのクラス/車両を何台で回すかの想定</b>（既定1台。増やすと増車シミュ）。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・実車1台分)。<b>平均稼働率(実績)＝今日までの実稼働日数÷(使い始めた月〜今日)の日数</b>(空いていた月も分母に含める／未来予約は実績に含めない＝これからの見込みは反映しない)。</div>
     </div>
   </div>
 
@@ -119,19 +119,26 @@ async function fetchActual(){
     x._rev=rev;x._ym=String(x.end_date).slice(0,7);byId[x.id]=x;monAll.add(x._ym);
     if(String(x.source||'')!=='ota'){hpT+=rev;hpN++;}else{otaT+=rev;otaN++;}});
   // 車両別：全期間の実績を集計→稼働月数で割って月平均
+  const pad2=n=>String(n).padStart(2,'0');
+  const todayMid=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const todYm=now.getFullYear()+'-'+pad2(now.getMonth()+1);
   const agg={};
-  (fl||[]).forEach(f=>{const r=byId[f.reservation_id];if(!r)return;const v=f.vehicle_code;if(!agg[v])agg[v]={rev:0,revMon:new Set(),monDays:{}};
+  (fl||[]).forEach(f=>{const r=byId[f.reservation_id];if(!r)return;const v=f.vehicle_code;if(!agg[v])agg[v]={rev:0,revMon:new Set(),pastDays:0,firstPastYm:null};
     agg[v].rev+=r._rev;agg[v].revMon.add(r._ym);
-    // ★ 予約日数を「実際に跨る各月」へ割り振る＝月平均稼働率を正しく出す（終了月だけに寄せない）
+    // ★ 実績稼働率＝「今日までに実際に稼働した日数」だけ数える（未来予約は実績に含めない）
     const sp=String(r.start_date).slice(0,10).split('-'),ep=String(r.end_date).slice(0,10).split('-');
     const s=new Date(+sp[0],+sp[1]-1,+sp[2]),e=new Date(+ep[0],+ep[1]-1,+ep[2]);
     if(!isNaN(s.getTime())&&!isNaN(e.getTime())&&e>=s&&(e-s)/86400000<400){
-      for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');agg[v].monDays[ym]=(agg[v].monDays[ym]||0)+1;}
+      for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){if(d>todayMid)break;const ym=d.getFullYear()+'-'+pad2(d.getMonth()+1);agg[v].pastDays++;if(!agg[v].firstPastYm||ym<agg[v].firstPastYm)agg[v].firstPastYm=ym;}
     }});
   const byV={};
   for(const v in agg){const a=agg[v];const mc=a.revMon.size||1;
-    const uMon=Object.keys(a.monDays);let ddU=0,bd=0;uMon.forEach(ym=>{ddU+=dim(ym);bd+=a.monDays[ym];});if(!ddU)ddU=30;
-    byV[v]={rev:a.rev/mc,util:bd/ddU*100,total:a.rev,months:mc,days:bd};}
+    // ★ 分母＝その車を使い始めた月(初回稼働)から今日までの日数（空いていた月も含める→実績の月平均稼働率）
+    let denom=0;
+    if(a.firstPastYm){let[yy,mm]=a.firstPastYm.split('-').map(Number);for(let guard=0;guard<120;guard++){const ym=yy+'-'+pad2(mm);if(ym===todYm){denom+=now.getDate();break;}denom+=dim(ym);mm++;if(mm>12){mm=1;yy++;}}}
+    if(denom<1)denom=now.getDate()||30;
+    const util=a.pastDays>0?Math.min(100,a.pastDays/denom*100):0;
+    byV[v]={rev:a.rev/mc,util:util,total:a.rev,months:mc,days:a.pastDays};}
   const M=monAll.size||1;
   ACT.hp=hpT/M;ACT.ota=otaT/M;ACT.hpN=hpN;ACT.otaN=otaN;ACT.byV=byV;ACT.months=M;
   ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
