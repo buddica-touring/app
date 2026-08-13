@@ -209,11 +209,11 @@ function fillSub(pfx,d){
   if(g(pfx+'_u'))g(pfx+'_u').textContent=d.n?(d.u/d.n).toFixed(0)+'%':'—';
   if(g(pfx+'_ru'))g(pfx+'_ru').textContent=d.n?(d.ru/d.n).toFixed(0)+'%':'—';
   if(g(pfx+'_tgt'))g(pfx+'_tgt').textContent=yen(d.tgt);
-  if(g(pfx+'_real'))g(pfx+'_real').textContent=yen(d.real);
+  if(g(pfx+'_real'))g(pfx+'_real').innerHTML=yen(d.real)+'<div class="sub">累計'+yen(d.tot||0)+'</div>';
 }
 function calc(){
   const D=numv('iDays')||30;
-  const G={AA:{tgt:0,u:0,n:0,real:0,ru:0},OTH:{tgt:0,u:0,n:0,real:0,ru:0}};
+  const G={AA:{tgt:0,u:0,n:0,real:0,ru:0,tot:0},OTH:{tgt:0,u:0,n:0,real:0,ru:0,tot:0}};
   VEH.forEach(v=>{
     const p=qv('[data-k="p_'+v.code+'"]'),u=qv('[data-k="u_'+v.code+'"]');
     const mt=p*(u/100*D);
@@ -223,15 +223,15 @@ function calc(){
     if(g('ru_'+v.code))g('ru_'+v.code).textContent=ru.toFixed(0)+'%';
     if(g('rr_'+v.code))g('rr_'+v.code).innerHTML=a.rev?(yen(a.rev)+'<div class="sub">累計'+yen(a.total)+'</div>'):'—';
     const d=G[(v.type==='AA')?'AA':'OTH'];
-    d.tgt+=mt;d.u+=u;d.n++;d.real+=a.rev;d.ru+=ru;
+    d.tgt+=mt;d.u+=u;d.n++;d.real+=a.rev;d.ru+=ru;d.tot+=(a.total||0);
   });
   fillSub('sAA',G.AA);fillSub('sOth',G.OTH);
-  const tgt=G.AA.tgt+G.OTH.tgt,real=G.AA.real+G.OTH.real,n=G.AA.n+G.OTH.n,uS=G.AA.u+G.OTH.u,ruS=G.AA.ru+G.OTH.ru;
+  const tgt=G.AA.tgt+G.OTH.tgt,real=G.AA.real+G.OTH.real,totCum=G.AA.tot+G.OTH.tot,n=G.AA.n+G.OTH.n,uS=G.AA.u+G.OTH.u,ruS=G.AA.ru+G.OTH.ru;
   if(g('oCnt'))g('oCnt').textContent='('+n+'台)';
   if(g('oAvgU'))g('oAvgU').textContent=n?(uS/n).toFixed(0)+'%':'—';
   if(g('oAvgRU'))g('oAvgRU').textContent=n?(ruS/n).toFixed(0)+'%':'—';
   if(g('oTgt'))g('oTgt').textContent=yen(tgt);
-  if(g('oReal'))g('oReal').textContent=yen(real);
+  if(g('oReal'))g('oReal').innerHTML=yen(real)+'<div class="sub">累計'+yen(totCum)+'</div>';
   let hp=numv('iHP'),ota=numv('iOTA');const tot=(hp+ota)||100;
   setProg('HP',tgt*hp/tot,ACT.hp);setProg('OTA',tgt*ota/tot,ACT.ota);setProg('All',tgt,ACT.hp+ACT.ota);
   // ④ 車両追加シミュレーション（台数＝変動値）
