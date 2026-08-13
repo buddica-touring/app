@@ -18,7 +18,8 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:text;user-select:text}
 details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}details[open]>summary span:first-child{transform:rotate(90deg);display:inline-block}
-html,body{height:100%;overflow:hidden}
+html,body{height:100vh;height:100dvh;overflow:hidden}
+.app-root{height:100vh;height:100dvh}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Kaku Gothic ProN',sans-serif;margin:0;background:#f3f4f6}
 ::-webkit-scrollbar{height:5px;width:5px}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
@@ -22099,7 +22100,7 @@ function App(){
   if(!dbLoaded)return <div onClick={()=>setDbLoaded(true)} style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f3f4f6",cursor:"pointer"}}><div style={{textAlign:"center"}}><div style={{width:48,height:48,border:"4px solid #e5e7eb",borderTopColor:"#2563eb",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}></div><p style={{color:"#64748b",fontSize:13}}>データ読込中...</p><p style={{color:"#94a3b8",fontSize:11,marginTop:8}}>タップでスキップ</p></div></div>;
   const BgLoadingBar=()=>bgLoading?<div style={{position:"fixed",top:0,left:0,right:0,height:3,zIndex:99999,background:"#e5e7eb"}}><div style={{height:"100%",background:"#2563eb",animation:"bgbar 1.5s ease-in-out infinite",width:"40%"}}></div><style>{`@keyframes bgbar{0%{margin-left:-40%}100%{margin-left:100%}}`}</style></div>:null;
 
-  return <div style={{height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+  return <div className="app-root" style={{display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <BgLoadingBar/>
     {SB_ENABLED&&<div className="sync-desktop"><SyncBadge connected={sbConnected}/></div>}
     {showSqFailed&&<SqFailedModal onClose={()=>setShowSqFailed(false)} onResolved={()=>setSqFailedRefreshKey(k=>k+1)}/>}
@@ -23248,7 +23249,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.312-BT";
+const APP_VERSION="v1.0.313-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
