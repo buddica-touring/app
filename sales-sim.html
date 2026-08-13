@@ -47,7 +47,7 @@
 <div class="wrap">
   <div class="card">
     <h2>🎯 売上シミュレーション — 🚐高松店 <span class="tag">仮説＋実績オンタイム</span> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
-    <div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">月平均実績・予約占有率(全期間)は予約から自動(オンタイム)</b>。合算が<b>売上目標(仮説)</b>→月平均実績と<b>乖離</b>。<b>台数を増やせば増車シミュレーション</b>（既存＝1台）。<br>※原価・粗利のPLは別ページ（同じ車両データを使用）。</div>
+    <div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">平均稼働率・月平均実績は累計実績から自動(オンタイム)</b>。合算が<b>売上目標(仮説)</b>→月平均実績と<b>乖離</b>。<b>台数を増やせば増車シミュレーション</b>（既存＝1台）。<br>※原価・粗利のPLは別ページ（同じ車両データを使用）。</div>
   </div>
   <div id="status" class="st"></div>
 
@@ -59,7 +59,7 @@
         <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#7c3aed;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
       </tr></table>
       <div class="scroll" id="grpArea" style="margin-top:6px"><div style="padding:10px;color:#94a3b8">読み込み中…</div></div>
-      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)×台数。<b>台数＝そのクラス/車両を何台で回すかの想定</b>（既定1台。増やすと増車シミュ）。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・実車1台分)。<b>予約占有率＝予約日数÷全期間(未来予約含む)</b>＝配車表の稼働率(実績・今日まで)とは別指標。</div>
+      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)×台数。<b>台数＝そのクラス/車両を何台で回すかの想定</b>（既定1台。増やすと増車シミュ）。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・実車1台分)。<b>平均稼働率＝各車両の予約日数÷稼働月の日数</b>(累計実績から・月指定に依存しないオンタイム実力値)。</div>
     </div>
   </div>
 
@@ -132,7 +132,7 @@ async function fetchActual(){
   if(g('actNote'))g('actNote').textContent='全期間累計 '+M+'ヶ月の月平均（返却ベース・実績'+(hpN+otaN)+'件）｜最終更新 '+ACT.upd+'｜🟢オンタイム';
 }
 const COLG='<colgroup><col style="width:150px"><col style="width:44px"><col style="width:84px"><col style="width:58px"><col style="width:52px"><col style="width:50px"><col style="width:64px"><col style="width:88px"><col style="width:72px"></colgroup>';
-const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>稼働<br>日数</th><th>台数</th><th class="rl">予約占有率%<br>(全期間)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
+const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>稼働<br>日数</th><th>台数</th><th class="rl">平均稼働率%<br>(実績)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
 function buildRows(){
   const s=loadStore();
   const rowHtml=v=>{const t=v.type||'';const dp=(s['p_'+v.code]!=null)?s['p_'+v.code]:(DEFP[t]||5000);const du=(s['u_'+v.code]!=null)?s['u_'+v.code]:50;const dn=(s['n_'+v.code]!=null)?s['n_'+v.code]:1;const col=CLSCOL[t]||'#64748b';
