@@ -9,16 +9,16 @@
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;background:#f1f5f9;color:#0f172a;font-size:13px}
   .wrap{max-width:1180px;margin:0 auto;padding:12px}
   h1{font-size:16px;font-weight:900;margin:2px 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  h1 a{margin-left:auto;font-size:11px;font-weight:700;color:#7c3aed;text-decoration:none}
+  h1 a{margin-left:auto;font-size:11px;font-weight:700;color:#475569;text-decoration:none}
   .note{font-size:10.5px;color:#64748b;line-height:1.5;margin-bottom:10px}
   .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-  .card h2{font-size:13px;font-weight:800;margin:0 0 8px;color:#4c1d95;display:flex;align-items:center;gap:6px}
+  .card h2{font-size:13px;font-weight:800;margin:0 0 8px;color:#1e293b;display:flex;align-items:center;gap:6px}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
   th,td{padding:6px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid #eef2f6}
   th{background:#f8fafc;font-size:10.5px;color:#64748b;font-weight:700;position:sticky;top:0}
   td.l,th.l{text-align:left}
   tr:last-child td{border-bottom:none}
-  tfoot td{font-weight:800;background:#faf5ff;border-top:2px solid #ddd6fe}
+  tfoot td{font-weight:800;background:#f8fafc;border-top:2px solid #cbd5e1}
   .num{font-weight:700}
   .yen{color:#0f766e;font-weight:700}
   .cpa{color:#b45309;font-weight:800}
@@ -26,8 +26,8 @@
   .eff{font-weight:900}
   .jd{font-weight:900;font-size:11px;border-radius:6px}
   input.ad{width:92px;text-align:right;border:1.5px solid #cbd5e1;border-radius:7px;padding:4px 6px;font-size:12px;font-variant-numeric:tabular-nums}
-  input.ad:focus{border-color:#7c3aed;outline:none;background:#faf5ff}
-  .btn{border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;background:#7c3aed;color:#fff}
+  input.ad:focus{border-color:#475569;outline:none;background:#f8fafc}
+  .btn{border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;background:#475569;color:#fff}
   .btn.g{background:#0f766e}
   .msg{font-size:11px;font-weight:700;margin-left:8px}
   .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -43,14 +43,14 @@
   .sub{font-size:9px;color:#94a3b8;font-weight:600}
   .mtx .yen2{color:#0f766e;font-weight:700;font-size:9.5px}
   .mtx td b{font-size:12px;color:#0f172a}
-  .mtx td.lt{color:#7c3aed;font-weight:800}
+  .mtx td.lt{color:#475569;font-weight:800}
   .lg{font-size:10px;color:#64748b;margin-top:6px}
   .vtabs{display:flex;gap:6px;margin-bottom:10px}
-  .vtabs button{flex:1;border:1.5px solid #ddd6fe;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:800;cursor:pointer;background:#fff;color:#7c3aed}
-  .vtabs button.on{background:#7c3aed;color:#fff;border-color:#7c3aed}
+  .vtabs button{flex:1;border:1.5px solid #cbd5e1;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:800;cursor:pointer;background:#fff;color:#475569}
+  .vtabs button.on{background:#475569;color:#fff;border-color:#475569}
   .fee{color:#dc2626;font-weight:700}
   .net{color:#0e7a3b;font-weight:800}
-  .stay{color:#7c3aed;font-weight:800}
+  .stay{color:#475569;font-weight:800}
 </style>
 </head>
 <body>
@@ -93,9 +93,9 @@
   <div class="card">
     <h2>⏱ リードタイム分解（発生月 → 何ヶ月先の予約か）</h2>
     <div class="sub" style="margin-bottom:6px">🌐HP／🏨OTA それぞれ。0ヶ月先＝0リードタイム。平均LT＝平均リードタイム。</div>
-    <div class="sub" style="margin:8px 0 3px;font-weight:800;color:#4c1d95">🌐 HP（自社）</div>
+    <div class="sub" style="margin:8px 0 3px;font-weight:800;color:#1e293b">🌐 HP（自社）</div>
     <div class="scroll"><table id="lt" class="mtx"></table></div>
-    <div class="sub" style="margin:10px 0 3px;font-weight:800;color:#4c1d95">🏨 OTA</div>
+    <div class="sub" style="margin:10px 0 3px;font-weight:800;color:#1e293b">🏨 OTA</div>
     <div class="scroll"><table id="ltO" class="mtx"></table></div>
   </div>
 </div>
@@ -206,8 +206,8 @@ function render(){
   let fi=occMonths.findIndex(m=>M[m].count>0||MO[m].count>0);if(fi<0)fi=occMonths.length-1;
   const vis=occMonths.slice(fi);
   // 📊 月次比較（HP | OTA | 合算 を横並び）
-  let mh='<thead><tr><th class="l" rowspan="2">発生月</th><th colspan="8" style="text-align:center;background:#f5f3ff;color:#4c1d95;border-left:2px solid #ddd6fe">🌐 HP（自社）</th><th colspan="7" style="text-align:center;background:#eff6ff;color:#1e3a8a;border-left:2px solid #bfdbfe">🏨 OTA（手数料18%）</th><th colspan="3" style="text-align:center;background:#fef9c3;color:#92400e;border-left:2px solid #fde68a">🧮 合算</th></tr>'
-    +'<tr><th style="border-left:2px solid #ddd6fe">件数</th><th>売上</th><th>予約単価</th><th>平均泊</th><th>広告費(入力)</th><th>CPA</th><th>効果</th><th>判定</th>'
+  let mh='<thead><tr><th class="l" rowspan="2">発生月</th><th colspan="8" style="text-align:center;background:#f5f3ff;color:#1e293b;border-left:2px solid #cbd5e1">🌐 HP（自社）</th><th colspan="7" style="text-align:center;background:#eff6ff;color:#1e3a8a;border-left:2px solid #bfdbfe">🏨 OTA（手数料18%）</th><th colspan="3" style="text-align:center;background:#fef9c3;color:#92400e;border-left:2px solid #fde68a">🧮 合算</th></tr>'
+    +'<tr><th style="border-left:2px solid #cbd5e1">件数</th><th>売上</th><th>予約単価</th><th>平均泊</th><th>広告費(入力)</th><th>CPA</th><th>効果</th><th>判定</th>'
     +'<th style="border-left:2px solid #bfdbfe">件数</th><th>売上</th><th>予約単価</th><th>平均泊</th><th>手数料</th><th>CPA</th><th>手取り</th>'
     +'<th style="border-left:2px solid #fde68a">件数</th><th>売上</th><th>純額</th></tr></thead><tbody>';
   vis.forEach(m=>{
@@ -215,7 +215,7 @@ function render(){
     const o=MO[m];const of=o.rev*FEE,onet=o.rev-of,ocpa=o.count?of/o.count:0;
     const aCnt=h.count+o.count,aRev=h.rev+o.rev,aNetM=aRev-(ad+of);
     mh+='<tr><td class="l num">'+m+'</td>'
-      +'<td class="num" style="border-left:2px solid #ddd6fe">'+h.count+'件</td><td class="yen">'+yen(h.rev)+'</td><td>'+(h.count?yen(h.rev/h.count):'—')+'</td><td class="stay">'+avgN(h.nSum,h.nCnt)+'</td>'
+      +'<td class="num" style="border-left:2px solid #cbd5e1">'+h.count+'件</td><td class="yen">'+yen(h.rev)+'</td><td>'+(h.count?yen(h.rev/h.count):'—')+'</td><td class="stay">'+avgN(h.nSum,h.nCnt)+'</td>'
       +'<td><input class="ad" type="number" min="0" step="1000" data-ym="'+m+'" value="'+(ad||'')+'" placeholder="0"></td>'
       +'<td class="cpa">'+(ad&&h.count?yen(hcpa):'—')+'</td><td class="eff" style="color:'+colP(hpv)+'">'+fmtP(hpv)+'</td><td class="jd" style="color:'+jd[1]+';background:'+jd[2]+'">'+jd[0]+'</td>'
       +'<td class="num" style="border-left:2px solid #bfdbfe">'+o.count+'件</td><td class="yen">'+yen(o.rev)+'</td><td>'+(o.count?yen(o.rev/o.count):'—')+'</td><td class="stay">'+avgN(o.nSum,o.nCnt)+'</td><td class="fee">'+(o.rev?yen(of):'—')+'</td><td class="cpa">'+(o.count?yen(ocpa):'—')+'</td><td class="net">'+(o.rev?yen(onet):'—')+'</td>'
@@ -223,7 +223,7 @@ function render(){
   });
   const tHpv=hAd>0?(hR-hAd):null;const tJ=judge(tHpv,hAd);const gaNet=(hR+oR)-(hAd+oFee);
   mh+='</tbody><tfoot><tr><td class="l">合計</td>'
-    +'<td style="border-left:2px solid #ddd6fe">'+hC+'件</td><td>'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td>'+yen(hAd)+'</td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="eff" style="color:'+colP(tHpv)+'">'+fmtP(tHpv)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td>'
+    +'<td style="border-left:2px solid #cbd5e1">'+hC+'件</td><td>'+yen(hR)+'</td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td>'+yen(hAd)+'</td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="eff" style="color:'+colP(tHpv)+'">'+fmtP(tHpv)+'</td><td class="jd" style="color:'+tJ[1]+';background:'+tJ[2]+'">'+tJ[0]+'</td>'
     +'<td style="border-left:2px solid #bfdbfe">'+oC+'件</td><td>'+yen(oR)+'</td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'</td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'</td>'
     +'<td style="border-left:2px solid #fde68a">'+(hC+oC)+'件</td><td>'+yen(hR+oR)+'</td><td class="net" style="color:'+colP(gaNet)+'">'+fmtP(gaNet)+'</td></tr></tfoot>';
   document.getElementById('cmpMonth').innerHTML=mh;
