@@ -1125,6 +1125,8 @@ const cleanPlace=(p)=>{
   if(/(デリバリー専門店|デリバリ専門店|★ホテルや自宅|LINE完結|即出発|BUDDICA TOURISM 高松)/.test(s))return"";
   return s;
 };
+// 2026-08-13 PU/BD＝全て高松空港なので場所表記を非表示（取込元により高松空港/空欄が混在するのを統一）
+const legPlace=(ty,p)=>{ if(ty==="PU"||ty==="BD")return""; return cleanPlace(p); };
 const OTA={
   S:{key:"S",name:"スカイチケット",c:"#0ea5e9",bg:"#f0f9ff",det:r=>r.join(",").includes("氏名カナ")&&r.join(",").includes("事業者名"),parse:(r,h)=>{const g=makeG(r,h);const ld=g("出発日"),rd=g("返却日"),cls=g("車両クラス"),opts=g("オプション項目"),seat=g("シート"),allOpts=[opts,seat].filter(Boolean).join(",");const ss=detectSeats(allOpts,r,h,g);const dc=detectDelCol(r,h,g);const _vc=normClass(cls);console.log("[S-CLASS]",g("予約番号"),"raw="+cls,"→"+_vc);return{ota:"S",id:g("予約番号"),name:g("氏名カナ"),lendDate:ld.split(" ")[0]?.replace(/\//g,"-"),lendTime:ld.split(" ")[1]?.substr(0,5),returnDate:rd.split(" ")[0]?.replace(/\//g,"-"),returnTime:rd.split(" ")[1]?.substr(0,5),people:clampPeople(+(g("ご利用人数(大人)")||0)+ +(g("ご利用人数(子供)")||0),"S",g("予約番号")),vehicle:_vc,insurance:allOpts.includes("NOC")?"フル":"免責",tel:g("電話番号"),mail:g("メールアドレス"),price:parsePrice(g)("合計金額"),status:isCancel(g("ステータス"),r)?"cancelled":"confirmed",visitType:dc.visitType,returnType:dc.returnType,flight:g("到着便名"),optB:ss.b,optC:ss.c,optJ:ss.j,optUSB:ss.usb};}},
   J:{key:"J",name:"じゃらん",c:"#ec4899",bg:"#fdf2f8",det:r=>r.join(",").includes("貸出日時")&&r.join(",").includes("料金プラン"),parse:(r,h)=>{const g=makeG(r,h);const ld=g("貸出日時"),rd=g("返却日時"),st=g("ステータス"),ins=g("免責補償"),opts=g("オプション")||"";const ss=detectSeats(opts,r,h,g);const dc=detectDelCol(r,h,g);return{ota:"J",id:g("予約番号")||g("御社管理番号"),name:g("予約者氏名（カナ）")||g("予約者氏名(カナ)")||g("予約者氏名"),lendDate:ld.split(" ")[0]?.replace(/\//g,"-"),lendTime:ld.split(" ")[1]?.substr(0,5),returnDate:rd.split(" ")[0]?.replace(/\//g,"-"),returnTime:rd.split(" ")[1]?.substr(0,5),people:clampPeople(g("乗車人数"),"J",g("予約番号")||g("御社管理番号")),vehicle:(()=>{const _raw=g("車両クラス"),_vc=normClass(_raw);console.log("[J-CLASS]",g("予約番号")||g("御社管理番号"),"raw="+_raw,"→"+_vc);return _vc;})(),insurance:ins.includes("ノンオペレーション")?"フル":"免責",tel:g("運転者電話番号"),mail:g("予約者メールアドレス"),price:parsePrice(g)("合計金額（予約時）","合計金額(予約時)"),finalPrice:parsePrice(g)("最終利用金額","最終利用料金","差引請求金額","利用者への請求額"),status:isCancel(st,r)?"cancelled":"confirmed",visitType:dc.visitType,returnType:dc.returnType,flight:g("到着便"),optB:ss.b,optC:ss.c,optJ:ss.j,optUSB:ss.usb};}},
@@ -17661,8 +17663,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                       {t.type!=="返却後洗車"&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:isMob?11:10}}>👶B×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:isMob?11:10}}>🧒C×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:isMob?11:10}}>J×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:isMob?11:10}}>🔌×{t.opts.usb}</span>}</span>}
                       {t.done&&<span style={{flexShrink:0}}>✅</span>}
                     </div>
-                    {(cleanPlace(resolvedP)||t.flight)&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
-                      {cleanPlace(resolvedP)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(resolvedP))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{fontSize:isMob?14:13,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📍{cleanPlace(resolvedP)}</a>}
+                    {(legPlace(t.type,resolvedP)||t.flight)&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                      {legPlace(t.type,resolvedP)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,resolvedP))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{fontSize:isMob?14:13,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📍{legPlace(t.type,resolvedP)}</a>}
                       {t.flight&&<span style={{fontSize:isMob?10:9,color:"#1565c0",fontWeight:600}}>✈{t.flight}</span>}
                     </div>}
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
@@ -18010,7 +18012,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <span style={{color:"#94a3b8",fontWeight:600}}>{t.reservationId||""}</span>
               {t.plateNo&&<span style={{background:"#eff6ff",color:"#1e40af",padding:"1px 4px",borderRadius:3,fontWeight:700}}>{t.plateNo}</span>}
               {t.vehicle&&<span style={{color:"#64748b"}}>{t.vehicle}</span>}
-              {cleanPlace(pl)&&<span style={{color:"#ea580c",fontWeight:600}}>📍{cleanPlace(pl)}</span>}
+              {legPlace(t.type,pl)&&<span style={{color:"#ea580c",fontWeight:600}}>📍{legPlace(t.type,pl)}</span>}
               {hasOpts&&<span style={{display:"inline-flex",gap:2}}>
                 {t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 3px",borderRadius:3,fontWeight:700}}>👶{t.opts.b}</span>}
                 {t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 3px",borderRadius:3,fontWeight:700}}>🧒{t.opts.c}</span>}
@@ -22380,7 +22382,7 @@ function App(){
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
-                    {cleanPlace(t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{cleanPlace(t.place)}</a>}
+                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                   </div>;
                   const doneCount=dbTasks.filter(t=>t.done).length;
                   const totalWork=dbTasks.length;
@@ -22522,7 +22524,7 @@ function App(){
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
-                    {cleanPlace(t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{cleanPlace(t.place)}</a>}
+                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                   </div>;
                   const totalWork=dbTasks.length;
                   const doneCount=dbTasks.filter(t=>t.done).length;
@@ -22653,7 +22655,7 @@ function App(){
                         <span style={{fontWeight:600}}>{t.name}</span>
                         <span style={{color:"#64748b",fontSize:9}}>{t.cls}クラス</span>
                         <span style={{color:"#94a3b8",fontSize:9}}>{t.plate}</span>
-                        {cleanPlace(t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(cleanPlace(t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:9,textDecoration:"underline"}}>📍{cleanPlace(t.place)}</a>}
+                        {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:9,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                       </div>)}
                     </div>
                   </details>;
@@ -23249,7 +23251,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.313-BT";
+const APP_VERSION="v1.0.314-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
