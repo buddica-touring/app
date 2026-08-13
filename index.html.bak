@@ -16861,7 +16861,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       const washMap=(norm(date)===_todayJst)?await DB.fetchVehicleWash():{};
       // 不足予約を追加
       const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
-      const _sd=(ty)=>["BD","BDB","COL","返却"].includes(ty)?"R":(ty==="洗車"?"W":(ty==="返却後洗車"?"RW":"L"));const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));
+      const _sd=(ty)=>["BD","BDB","COL","返却","返却待"].includes(ty)?"R":(ty==="洗車"?"W":(ty==="返却後洗車"?"RW":"L"));const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));/* ★2026-08-13 中立ラベル(返却待=返却レッグ/貸出=貸出レッグ default L)をレッグ判定に含める。含めないと生成した返却待がLに誤分類→保存済BD(R)と別レッグ扱い→同一予約COLが二重pushされる(ミサトサクラコ二重表示の根治)。 */
       // ★ 新規生成タスクにsheetPlacesの場所情報を補完
       gen.forEach(g=>{
         if(g.reservationId&&!existIds.has(g.reservationId+":"+_sd(g.type))&&!_tomb.has(g._id)){
@@ -17388,9 +17388,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   //   洗車・点検・送り・迎え等は対象外（独立タスク）
   //   予約番号なしの手動タスクも対象外
   const sortedTasks=useMemo(()=>{
-    const LEND_TYPES=["PUB","DEL","PU","来店"];
-    const RET_TYPES=["BDB","COL","BD","返却"];
-    const PRIO={DEL:4,COL:4,PUB:3,BDB:3,PU:3,BD:3,来店:2,返却:2};
+    const LEND_TYPES=["PUB","DEL","PU","来店","貸出"];
+    const RET_TYPES=["BDB","COL","BD","返却","返却待"];
+    const PRIO={DEL:4,COL:4,PUB:3,BDB:3,PU:3,BD:3,来店:2,返却:2,貸出:1,返却待:1};/* ★2026-08-13 中立ラベル(貸出/返却待)をレッグ分類に含める。含めないとcat=null→others行きで保存済BD/DELとdedupされず二重表示。PRIO最下位=保存済の具体ラベルが必ず残る。 */
     // ★2026-08-13 日付ガード(根絶): 表示は必ず「その日(selDate)のタスク」だけを導出する。
     //   各タスクは _taskDate(=DBのdate列と常に一致・2026-07-04 _toDbTask で date:(t._taskDate||date))を持つ。
     //   他日付の _taskDate を持つタスク(=stale state/LS/再取込ラグで紛れ込んだ幽霊)を表示から除外＝
@@ -23260,7 +23260,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.319-BT";
+const APP_VERSION="v1.0.320-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
