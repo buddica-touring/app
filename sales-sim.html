@@ -120,12 +120,18 @@ async function fetchActual(){
     if(String(x.source||'')!=='ota'){hpT+=rev;hpN++;}else{otaT+=rev;otaN++;}});
   // 車両別：全期間の実績を集計→稼働月数で割って月平均
   const agg={};
-  (fl||[]).forEach(f=>{const r=byId[f.reservation_id];if(!r)return;const v=f.vehicle_code;if(!agg[v])agg[v]={rev:0,days:0,mon:new Set()};
-    agg[v].rev+=r._rev;agg[v].mon.add(r._ym);
-    const s=new Date(r.start_date),e=new Date(r.end_date);const dd=Math.floor((e-s)/86400000)+1;if(dd>0)agg[v].days+=dd;});
+  (fl||[]).forEach(f=>{const r=byId[f.reservation_id];if(!r)return;const v=f.vehicle_code;if(!agg[v])agg[v]={rev:0,revMon:new Set(),monDays:{}};
+    agg[v].rev+=r._rev;agg[v].revMon.add(r._ym);
+    // ★ 予約日数を「実際に跨る各月」へ割り振る＝月平均稼働率を正しく出す（終了月だけに寄せない）
+    const sp=String(r.start_date).slice(0,10).split('-'),ep=String(r.end_date).slice(0,10).split('-');
+    const s=new Date(+sp[0],+sp[1]-1,+sp[2]),e=new Date(+ep[0],+ep[1]-1,+ep[2]);
+    if(!isNaN(s.getTime())&&!isNaN(e.getTime())&&e>=s&&(e-s)/86400000<400){
+      for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');agg[v].monDays[ym]=(agg[v].monDays[ym]||0)+1;}
+    }});
   const byV={};
-  for(const v in agg){const a=agg[v];const mc=a.mon.size||1;let dd=0;a.mon.forEach(ym=>dd+=dim(ym));if(!dd)dd=30;
-    byV[v]={rev:a.rev/mc,util:a.days/dd*100,total:a.rev,months:mc,days:a.days};}
+  for(const v in agg){const a=agg[v];const mc=a.revMon.size||1;
+    const uMon=Object.keys(a.monDays);let ddU=0,bd=0;uMon.forEach(ym=>{ddU+=dim(ym);bd+=a.monDays[ym];});if(!ddU)ddU=30;
+    byV[v]={rev:a.rev/mc,util:bd/ddU*100,total:a.rev,months:mc,days:bd};}
   const M=monAll.size||1;
   ACT.hp=hpT/M;ACT.ota=otaT/M;ACT.hpN=hpN;ACT.otaN=otaN;ACT.byV=byV;ACT.months=M;
   ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
