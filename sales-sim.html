@@ -22,6 +22,7 @@
   input.in{width:82px;text-align:right;border:1px solid #fde68a;background:#fef9c3;border-radius:6px;padding:5px 6px;font-size:13px;font-weight:700;color:#0f172a}
   input.in:focus{outline:2px solid #7c3aed;background:#fffbeb}
   input.sm{width:56px}
+  input.xs{width:44px}
   .calc{background:#f1f5f9;font-weight:700}
   .rl{background:#f3faf7;color:#0f766e;font-weight:700}
   .big{font-size:16px;font-weight:900;color:#4c1d95}
@@ -38,7 +39,7 @@
   .grp{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px}
   .gh{padding:7px 10px;font-size:12.5px;font-weight:800}
   .gtot{border-color:#c4b5fd}.gtot .gh{background:#4c1d95;color:#fff}
-  table.gt{min-width:568px;table-layout:fixed}
+  table.gt{min-width:612px;table-layout:fixed}
   table.gt td.l,table.gt th.l{white-space:normal;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
@@ -46,73 +47,36 @@
 <div class="wrap">
   <div class="card">
     <h2>🎯 売上シミュレーション — 🚐高松店 <span class="tag">仮説＋実績オンタイム</span> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
-    <div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数</b>。<b class="gr">月平均実績・予約占有率(全期間)は予約から自動(オンタイム)</b>。合算が<b>売上目標(仮説)</b>→HP対OTA配分→<b>乖離</b>→<b>不足を埋める車両追加(台数=変動値)</b>。<br>※原価・粗利のPLは別ページ（同じ車両データを使用）。</div>
+    <div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">月平均実績・予約占有率(全期間)は予約から自動(オンタイム)</b>。合算が<b>売上目標(仮説)</b>→月平均実績と<b>乖離</b>。<b>台数を増やせば増車シミュレーション</b>（既存＝1台）。<br>※原価・粗利のPLは別ページ（同じ車両データを使用）。</div>
   </div>
   <div id="status" class="st"></div>
 
   <div class="card">
-    <h2>① 車両別 目標 × 実績（月平均・累計から）</h2>
+    <h2>① 車両別 目標 × 実績（台数で増車シミュレート）</h2>
     <div class="bd">
       <table style="width:auto"><tr>
         <td class="l">月の日数(目標)</td><td><input class="in sm" id="iDays" type="number" min="28" max="31" step="1" value="30"></td>
         <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#7c3aed;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
       </tr></table>
       <div class="scroll" id="grpArea" style="margin-top:6px"><div style="padding:10px;color:#94a3b8">読み込み中…</div></div>
-      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・累計併記)。<b>予約占有率＝予約日数÷全期間(未来予約含む)</b>＝配車表の稼働率(実績・今日まで)とは別指標。</div>
+      <div class="legend" style="padding:6px 0 0">目標売上＝単価×(目標稼働率×日数)×台数。<b>台数＝そのクラス/車両を何台で回すかの想定</b>（既定1台。増やすと増車シミュ）。月平均実績＝各車両の<b>累計実績÷稼働月数</b>(月指定非依存・実車1台分)。<b>予約占有率＝予約日数÷全期間(未来予約含む)</b>＝配車表の稼働率(実績・今日まで)とは別指標。</div>
     </div>
   </div>
 
   <div class="card">
-    <h2>② HP 対 OTA 構成比 配分（目標）</h2>
-    <div class="bd">
-      <table style="width:auto">
-        <tr><td class="l">🌐 HP(自社) %</td><td><input class="in sm" id="iHP" type="number" min="0" max="100" step="5" value="40"></td>
-        <td class="l" style="padding-left:14px">🏨 OTA %</td><td><input class="in sm" id="iOTA" type="number" min="0" max="100" step="5" value="60"></td></tr>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>③ 進捗 — 月平均実績 vs 月間目標（乖離オンタイム） <a class="rst" href="#" onclick="refreshAct();return false">🔄 更新</a></h2>
+    <h2>② 進捗 — 月間目標（①合計） vs 月平均実績 <a class="rst" href="#" onclick="refreshAct();return false">🔄 更新</a></h2>
     <div class="bd">
       <div class="sub" id="actNote">—</div>
       <div class="scroll">
       <table>
         <thead><tr><th class="l">区分</th><th>目標(仮説)</th><th class="rl">月平均実績</th><th>乖離</th><th>進捗率</th></tr></thead>
         <tbody>
-          <tr><td class="l">🌐 HP(自社)</td><td id="tgHP" class="calc"></td><td id="acHP" class="rl"></td><td id="gpHP"></td><td id="rtHP"></td></tr>
-          <tr><td class="l">🏨 OTA</td><td id="tgOTA" class="calc"></td><td id="acOTA" class="rl"></td><td id="gpOTA"></td><td id="rtOTA"></td></tr>
+          <tr><td class="l">合計</td><td id="tgAll" class="calc big"></td><td id="acAll" class="rl big"></td><td id="gpAll" class="big"></td><td id="rtAll" class="big"></td></tr>
         </tbody>
-        <tfoot><tr><td class="l">合計</td><td id="tgAll" class="calc big"></td><td id="acAll" class="rl big"></td><td id="gpAll" class="big"></td><td id="rtAll" class="big"></td></tr></tfoot>
       </table>
       </div>
-      <div class="legend" style="padding:6px 0 0">実績＝<b>全期間の月平均</b>(返却ベース・キャンセル除外・累計÷稼働月数)＝月指定に依存しない実力値。HP＝自社(source≠ota)/OTA。乖離＝実績−目標。</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>④ 車両追加シミュレーション（目標達成まで）</h2>
-    <div class="bd">
-      <table style="width:auto">
-        <tr><td class="l">目標売上（月・円）</td><td><input class="in" id="iGoal" type="number" min="0" step="100000" value="5000000" style="width:112px"></td>
-        <td class="l" style="padding-left:14px">追加車両の想定稼働率%</td><td><input class="in sm" id="iAddU" type="number" min="0" max="100" step="5" value="50"></td></tr>
-      </table>
-      <div class="kpi" style="margin-top:6px">
-        <div class="b" style="background:#f1f5f9;border:1px solid #e2e8f0;color:#0f172a"><div class="k">現状の月間見込み</div><div class="v" id="oBase"></div></div>
-        <div class="b" style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412"><div class="k">目標まで不足</div><div class="v" id="oShort"></div></div>
-      </div>
-      <div class="scroll" style="margin-top:8px">
-        <table>
-          <thead><tr><th class="l">クラス</th><th>想定売上/台<br>(月)</th><th>追加台数</th><th>追加売上</th><th>単独で目標<br>充足に必要</th></tr></thead>
-          <tbody id="addBody"></tbody>
-          <tfoot><tr><td class="l">追加合計</td><td></td><td id="oAddN" class="calc"></td><td id="oAddRev" class="calc big"></td><td></td></tr></tfoot>
-        </table>
-      </div>
-      <div class="kpi" style="margin-top:8px">
-        <div class="b hp"><div class="k">追加後の見込み合計</div><div class="v" id="oAfter"></div></div>
-        <div class="b" id="oAchBox" style="background:#f1f5f9;border:1px solid #e2e8f0"><div class="k">目標達成率</div><div class="v" id="oAch"></div></div>
-      </div>
-      <div class="legend" style="padding:6px 0 0">現状見込み＝現有車両の目標売上合計（①）。想定売上/台＝そのクラスの現行(平均)単価×想定稼働率×日数。「必要台数」＝不足額をそのクラスだけで埋める概算。</div>
+      <div class="sub" id="acSub" style="padding:6px 0 0"></div>
+      <div class="legend" style="padding:6px 0 0">目標＝①の目標売上合計（台数×単価×稼働率×日数）。実績＝<b>全期間の月平均</b>(返却ベース・キャンセル除外・累計÷稼働月数)＝月指定に依存しない実力値。乖離＝実績−目標。</div>
     </div>
   </div>
 </div>
@@ -167,96 +131,65 @@ async function fetchActual(){
   ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   if(g('actNote'))g('actNote').textContent='全期間累計 '+M+'ヶ月の月平均（返却ベース・実績'+(hpN+otaN)+'件）｜最終更新 '+ACT.upd+'｜🟢オンタイム';
 }
-const COLG='<colgroup><col style="width:150px"><col style="width:44px"><col style="width:80px"><col style="width:66px"><col style="width:70px"><col style="width:90px"><col style="width:72px"></colgroup>';
-const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th class="rl">予約占有率%<br>(全期間)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
+const COLG='<colgroup><col style="width:150px"><col style="width:44px"><col style="width:84px"><col style="width:58px"><col style="width:50px"><col style="width:64px"><col style="width:88px"><col style="width:72px"></colgroup>';
+const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>台数</th><th class="rl">予約占有率%<br>(全期間)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
 function buildRows(){
   const s=loadStore();
-  const rowHtml=v=>{const t=v.type||'';const dp=(s['p_'+v.code]!=null)?s['p_'+v.code]:(DEFP[t]||5000);const du=(s['u_'+v.code]!=null)?s['u_'+v.code]:50;const col=CLSCOL[t]||'#64748b';
+  const rowHtml=v=>{const t=v.type||'';const dp=(s['p_'+v.code]!=null)?s['p_'+v.code]:(DEFP[t]||5000);const du=(s['u_'+v.code]!=null)?s['u_'+v.code]:50;const dn=(s['n_'+v.code]!=null)?s['n_'+v.code]:1;const col=CLSCOL[t]||'#64748b';
     return '<tr><td class="l">'+(v.name||v.code)+' <span class="sub">'+(v.plate_no||'')+'</span></td>'
       +'<td><span class="cls" style="background:'+col+'">'+t+'</span></td>'
       +'<td><input class="in" data-k="p_'+v.code+'" type="number" min="0" step="500" value="'+dp+'"></td>'
       +'<td><input class="in sm" data-k="u_'+v.code+'" type="number" min="0" max="100" step="1" value="'+du+'"></td>'
+      +'<td><input class="in xs" data-k="n_'+v.code+'" type="number" min="0" step="1" value="'+dn+'"></td>'
       +'<td id="ru_'+v.code+'" class="rl"></td><td id="mt_'+v.code+'" class="calc"></td><td id="rr_'+v.code+'" class="rl"></td></tr>';};
-  const subFoot=(pfx,label)=>'<tfoot><tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_ru" class="rl"></td><td id="'+pfx+'_tgt" class="calc big"></td><td id="'+pfx+'_real" class="rl big"></td></tr></tfoot>';
+  const subFoot=(pfx,label)=>'<tfoot><tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_n" class="calc"></td><td id="'+pfx+'_ru" class="rl"></td><td id="'+pfx+'_tgt" class="calc big"></td><td id="'+pfx+'_real" class="rl big"></td></tr></tfoot>';
   const AA=VEH.filter(v=>v.type==='AA'), OTH=VEH.filter(v=>v.type!=='AA');
   let html='';
   if(AA.length) html+='<div class="grp"><div class="gh" style="background:#fff7ed;color:#9a3412">🏆 AAクラス（輸入・最上位）</div><table class="gt">'+COLG+THEAD+'<tbody>'+AA.map(rowHtml).join('')+'</tbody>'+subFoot('sAA','小計')+'</table></div>';
   if(OTH.length) html+='<div class="grp"><div class="gh" style="background:#f5f3ff;color:#4c1d95">🚗 スタンダード（A〜H）</div><table class="gt">'+COLG+THEAD+'<tbody>'+OTH.map(rowHtml).join('')+'</tbody>'+subFoot('sOth','小計')+'</table></div>';
-  html+='<div class="grp gtot"><div class="gh">Σ 合計（全車）</div><table class="gt">'+COLG+'<tbody><tr><td class="l">合計 <span id="oCnt" class="sub"></span></td><td></td><td></td><td id="oAvgU" class="calc"></td><td id="oAvgRU" class="rl"></td><td id="oTgt" class="calc big"></td><td id="oReal" class="rl big"></td></tr></tbody></table></div>';
+  html+='<div class="grp gtot"><div class="gh">Σ 合計（全車）</div><table class="gt">'+COLG+'<tbody><tr><td class="l">合計 <span id="oCnt" class="sub"></span></td><td></td><td></td><td id="oAvgU" class="calc"></td><td id="oUnits" class="calc"></td><td id="oAvgRU" class="rl"></td><td id="oTgt" class="calc big"></td><td id="oReal" class="rl big"></td></tr></tbody></table></div>';
   g('grpArea').innerHTML=html;
   document.querySelectorAll('#grpArea input.in').forEach(e=>e.addEventListener('input',onInput));
   const di=g('iDays');if(di&&!di._b){di._b=1;di.addEventListener('input',onInput);}
-  const hpE=g('iHP'),otaE=g('iOTA');
-  if(hpE&&!hpE._b){hpE._b=1;hpE.addEventListener('input',()=>{g('iOTA').value=Math.max(0,100-numv('iHP'));saveKV('iHP',g('iHP').value);saveKV('iOTA',g('iOTA').value);calc();});}
-  if(otaE&&!otaE._b){otaE._b=1;otaE.addEventListener('input',()=>{g('iHP').value=Math.max(0,100-numv('iOTA'));saveKV('iHP',g('iHP').value);saveKV('iOTA',g('iOTA').value);calc();});}
-  // ④ クラス別 追加プランナー（追加台数＝変動値）
-  const classes=[...new Set(VEH.map(v=>v.type))].sort((a,b)=>CO(a)-CO(b));
-  if(g('addBody'))g('addBody').innerHTML=classes.map(c=>{const col=CLSCOL[c]||'#64748b';const av=(s['add_'+c]!=null)?s['add_'+c]:0;
-    return '<tr><td class="l"><span class="cls" style="background:'+col+'">'+c+'</span></td>'
-      +'<td id="apt_'+c+'" class="calc"></td>'
-      +'<td><input class="in sm" data-add="'+c+'" type="number" min="0" step="1" value="'+av+'"></td>'
-      +'<td id="arv_'+c+'" class="rl"></td><td id="anr_'+c+'"></td></tr>';}).join('');
-  document.querySelectorAll('#addBody input').forEach(e=>e.addEventListener('input',e2=>{saveKV('add_'+e2.target.dataset.add,e2.target.value);calc();}));
-  ['iGoal','iAddU'].forEach(id=>{const e=g(id);if(e&&!e._b){e._b=1;e.addEventListener('input',onInput);}});
   calc();
 }
 function saveKV(k,val){const s=loadStore();s[k]=val;saveStore(s);}
-function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays','iHP','iOTA','iGoal','iAddU'].indexOf(t.id)>=0)saveKV(t.id,t.value);calc();}
+function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays'].indexOf(t.id)>=0)saveKV(t.id,t.value);calc();}
 function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);calc();}
 
 function fillSub(pfx,d){
-  if(g(pfx+'_cnt'))g(pfx+'_cnt').textContent='('+d.n+'台)';
-  if(g(pfx+'_u'))g(pfx+'_u').textContent=d.n?(d.u/d.n).toFixed(0)+'%':'—';
-  if(g(pfx+'_ru'))g(pfx+'_ru').textContent=d.n?(d.ru/d.n).toFixed(0)+'%':'—';
+  if(g(pfx+'_cnt'))g(pfx+'_cnt').textContent='('+d.rows+'台)';
+  if(g(pfx+'_u'))g(pfx+'_u').textContent=d.rows?(d.u/d.rows).toFixed(0)+'%':'—';
+  if(g(pfx+'_n'))g(pfx+'_n').textContent=d.units+'台';
+  if(g(pfx+'_ru'))g(pfx+'_ru').textContent=d.rows?(d.ru/d.rows).toFixed(0)+'%':'—';
   if(g(pfx+'_tgt'))g(pfx+'_tgt').textContent=yen(d.tgt);
   if(g(pfx+'_real'))g(pfx+'_real').innerHTML=yen(d.real)+'<div class="sub">累計'+yen(d.tot||0)+'</div>';
 }
 function calc(){
   const D=numv('iDays')||30;
-  const G={AA:{tgt:0,u:0,n:0,real:0,ru:0,tot:0},OTH:{tgt:0,u:0,n:0,real:0,ru:0,tot:0}};
+  const G={AA:{tgt:0,u:0,rows:0,units:0,real:0,ru:0,tot:0},OTH:{tgt:0,u:0,rows:0,units:0,real:0,ru:0,tot:0}};
   VEH.forEach(v=>{
-    const p=qv('[data-k="p_'+v.code+'"]'),u=qv('[data-k="u_'+v.code+'"]');
-    const mt=p*(u/100*D);
+    const p=qv('[data-k="p_'+v.code+'"]'),u=qv('[data-k="u_'+v.code+'"]'),n=qv('[data-k="n_'+v.code+'"]');
+    const mt=p*(u/100*D)*n;
     const a=ACT.byV[v.code]||{rev:0,util:0,total:0};
     const ru=a.util||0;
     if(g('mt_'+v.code))g('mt_'+v.code).textContent=yen(mt);
     if(g('ru_'+v.code))g('ru_'+v.code).textContent=ru.toFixed(0)+'%';
     if(g('rr_'+v.code))g('rr_'+v.code).innerHTML=a.rev?(yen(a.rev)+'<div class="sub">累計'+yen(a.total)+'</div>'):'—';
     const d=G[(v.type==='AA')?'AA':'OTH'];
-    d.tgt+=mt;d.u+=u;d.n++;d.real+=a.rev;d.ru+=ru;d.tot+=(a.total||0);
+    d.tgt+=mt;d.u+=u;d.rows++;d.units+=n;d.real+=a.rev;d.ru+=ru;d.tot+=(a.total||0);
   });
   fillSub('sAA',G.AA);fillSub('sOth',G.OTH);
-  const tgt=G.AA.tgt+G.OTH.tgt,real=G.AA.real+G.OTH.real,totCum=G.AA.tot+G.OTH.tot,n=G.AA.n+G.OTH.n,uS=G.AA.u+G.OTH.u,ruS=G.AA.ru+G.OTH.ru;
-  if(g('oCnt'))g('oCnt').textContent='('+n+'台)';
-  if(g('oAvgU'))g('oAvgU').textContent=n?(uS/n).toFixed(0)+'%':'—';
-  if(g('oAvgRU'))g('oAvgRU').textContent=n?(ruS/n).toFixed(0)+'%':'—';
+  const tgt=G.AA.tgt+G.OTH.tgt,real=G.AA.real+G.OTH.real,totCum=G.AA.tot+G.OTH.tot,rows=G.AA.rows+G.OTH.rows,units=G.AA.units+G.OTH.units,uS=G.AA.u+G.OTH.u,ruS=G.AA.ru+G.OTH.ru;
+  if(g('oCnt'))g('oCnt').textContent='('+rows+'台)';
+  if(g('oAvgU'))g('oAvgU').textContent=rows?(uS/rows).toFixed(0)+'%':'—';
+  if(g('oUnits'))g('oUnits').textContent=units+'台';
+  if(g('oAvgRU'))g('oAvgRU').textContent=rows?(ruS/rows).toFixed(0)+'%':'—';
   if(g('oTgt'))g('oTgt').textContent=yen(tgt);
   if(g('oReal'))g('oReal').innerHTML=yen(real)+'<div class="sub">累計'+yen(totCum)+'</div>';
-  let hp=numv('iHP'),ota=numv('iOTA');const tot=(hp+ota)||100;
-  setProg('HP',tgt*hp/tot,ACT.hp);setProg('OTA',tgt*ota/tot,ACT.ota);setProg('All',tgt,ACT.hp+ACT.ota);
-  // ④ 車両追加シミュレーション（台数＝変動値）
-  const addU=numv('iAddU')/100, goal=numv('iGoal'), base=tgt, short=Math.max(0,goal-base);
-  if(g('oBase'))g('oBase').textContent=yen(base);
-  if(g('oShort'))g('oShort').textContent=yen(short);
-  const classes=[...new Set(VEH.map(v=>v.type))].sort((a,b)=>CO(a)-CO(b));
-  let addRev=0,addN=0;
-  classes.forEach(c=>{
-    const list=VEH.filter(v=>v.type===c);
-    const avgP=list.length?list.reduce((sm,v)=>sm+qv('[data-k="p_'+v.code+'"]'),0)/list.length:(DEFP[c]||5000);
-    const perVeh=avgP*addU*D;
-    const nAdd=qv('[data-add="'+c+'"]');
-    const rev=perVeh*nAdd, need=perVeh>0?Math.ceil(short/perVeh):0;
-    if(g('apt_'+c))g('apt_'+c).textContent=yen(perVeh);
-    if(g('arv_'+c))g('arv_'+c).textContent=rev?yen(rev):'—';
-    if(g('anr_'+c))g('anr_'+c).textContent=short>0?('約'+need+'台'):'✓達成';
-    addRev+=rev;addN+=nAdd;
-  });
-  if(g('oAddN'))g('oAddN').textContent=addN+'台';
-  if(g('oAddRev'))g('oAddRev').textContent=yen(addRev);
-  const after=base+addRev, ach=goal?after/goal*100:0;
-  if(g('oAfter'))g('oAfter').textContent=yen(after);
-  if(g('oAch'))g('oAch').innerHTML='<span class="'+(ach>=100?'ok':'ng')+'">'+ach.toFixed(0)+'%</span>';
-  const box=g('oAchBox');if(box){box.style.background=ach>=100?'#ecfdf5':'#fef2f2';box.style.border='1px solid '+(ach>=100?'#a7f3d0':'#fecaca');}
+  // ② 進捗（合計・目標=①のΣ目標売上 vs 月平均実績）
+  setProg('All',tgt,ACT.hp+ACT.ota);
+  if(g('acSub'))g('acSub').textContent='うち実績 HP(自社) '+yen(ACT.hp)+' / OTA '+yen(ACT.ota)+'（月平均）';
 }
 function setProg(sfx,target,actual){
   if(g('tg'+sfx))g('tg'+sfx).textContent=yen(target);
@@ -267,12 +200,12 @@ function setProg(sfx,target,actual){
   if(g('rt'+sfx))g('rt'+sfx).innerHTML='<span class="'+(rt>=100?'ok':'ng')+'">'+rt.toFixed(0)+'%</span>';
 }
 function refreshAct(){fetchActual().then(calc).catch(e=>{g('actNote').textContent='更新エラー: '+(e.message||e);});}
-function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|add_)/.test(k)||['iDays','iHP','iOTA','iGoal','iAddU'].indexOf(k)>=0)delete s[k];});saveStore(s);g('iDays').value=30;g('iHP').value=40;g('iOTA').value=60;g('iGoal').value=5000000;g('iAddU').value=50;buildRows();}
+function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)/.test(k)||['iDays'].indexOf(k)>=0)delete s[k];});saveStore(s);g('iDays').value=30;buildRows();}
 
 (async function(){
   const st=g('status');
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（車両マスター・実績はログイン必須）。';return;}
-  const s=loadStore();['iDays','iHP','iOTA','iGoal','iAddU'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
+  const s=loadStore();['iDays'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
   try{
     VEH=await fetchVeh();
     VEH.sort((a,b)=>CO(a.type)-CO(b.type)||String(a.name||a.code).localeCompare(String(b.name||b.code),'ja'));
