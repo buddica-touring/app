@@ -26,6 +26,8 @@
   .calc{background:#f8fafc;font-weight:700}
   .avg{background:#f1f5f9;font-weight:800;color:#0f172a}
   .sep{border-left:2px solid #e2e8f0}
+  .diffrow td{background:#f0fdf4;font-weight:800;border-top:2px solid #bbf7d0}
+  .basrow td{color:#475569}
   .big{font-size:15px;font-weight:800;color:#0f172a}
   .cls{display:inline-block;min-width:18px;text-align:center;font-weight:800;color:#fff;border-radius:5px;padding:0 5px;font-size:11px}
   .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
@@ -46,7 +48,7 @@
 <div class="wrap">
   <div class="card">
     <h2>📊 売上シミュレーション — 🚐高松店 <span class="sub" style="color:#cbd5e1">仮説＋実績オンタイム</span> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
-    <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動</b>。<b>台数を増やせば増車シミュ</b>（既定1台・売上実績も台数連動）。</div></div>
+    <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動＝常に現状</b>。<b>台数を変えた効果は下の「🚀増車シミュ差分」に集約</b>（実績列は台数で動かさない）。</div></div>
   </div>
   <div id="status" class="st"></div>
 
@@ -58,7 +60,25 @@
         <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#334155;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
       </tr></table>
       <div class="scroll" id="grpArea" style="margin-top:6px"><div style="padding:10px;color:#94a3b8">読み込み中…</div></div>
-      <div class="legend" style="padding:6px 0 0" id="lg1">目標売上＝単価×(目標稼働率×日数)×台数。<b>稼働率(実績)＝その月の予約日数÷月の日数</b>（複数月にまたがる予約は日割り）。<b>売上(実績)＝その月に配分した予約売上×台数</b>（日割り按分・基本＋オプション−割引）。<b>平均＝3ヶ月の平均</b>。金額は万円・キャンセル除外。</div>
+      <div class="legend" style="padding:6px 0 0" id="lg1">目標売上＝単価×(目標稼働率×日数)×台数。<b>稼働率(実績)＝その月の予約日数÷月の日数</b>（複数月にまたがる予約は日割り）。<b>売上(実績)＝その月に配分した予約売上</b>（日割り按分・基本＋オプション−割引・現状＝台数無関係）。<b>平均＝3ヶ月の平均</b>。金額は万円・キャンセル除外。台数を増やした効果は下の増車シミュ差分に出ます。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🚀 増車シミュ差分 — 台数を変えた効果（現状 → シミュ）</h2>
+    <div class="bd">
+      <div class="scroll">
+      <table>
+        <thead><tr><th class="l">売上</th><th id="dm0">当月</th><th id="dm1">翌月</th><th id="dm2">翌々月</th><th class="avg">平均</th></tr></thead>
+        <tbody>
+          <tr class="basrow"><td class="l">現状（実績・全車）</td><td id="db0"></td><td id="db1"></td><td id="db2"></td><td class="avg" id="dba"></td></tr>
+          <tr><td class="l">シミュ（台数反映）</td><td id="ds0"></td><td id="ds1"></td><td id="ds2"></td><td class="avg" id="dsa"></td></tr>
+          <tr class="diffrow"><td class="l">差分（＋増車分）</td><td id="dd0"></td><td id="dd1"></td><td id="dd2"></td><td class="avg" id="dda"></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="sub" id="diffNote" style="padding-top:6px"></div>
+      <div class="legend" style="padding:6px 0 0">①の台数を変えると差分だけが動きます。差分＝台数を増やした車の想定増収（各車の現状実績×追加台数・同じ需要と仮定）。稼働率(実績)は1台あたりのレートなので台数では変わりません。</div>
     </div>
   </div>
 
@@ -154,6 +174,9 @@ function buildRows(){
   if(OTH.length) html+='<div class="grp"><div class="gh">🚗 スタンダード（A〜H）</div><table class="gt">'+COLG+thead()+'<tbody>'+OTH.map(rowHtml).join('')+'</tbody><tfoot>'+totRow('sOth','小計')+'</tfoot></table></div>';
   html+='<div class="grp gtot"><div class="gh">Σ 合計（全車）</div><table class="gt">'+COLG+'<tbody>'+totRow('sAll','合計')+'</tbody></table></div>';
   g('grpArea').innerHTML=html;
+  if(g('dm0'))g('dm0').innerHTML=MONTHS[0].m+'月<br><span class="sub">当月</span>';
+  if(g('dm1'))g('dm1').innerHTML=MONTHS[1].m+'月<br><span class="sub">翌月</span>';
+  if(g('dm2'))g('dm2').innerHTML=MONTHS[2].m+'月<br><span class="sub">翌々月</span>';
   document.querySelectorAll('#grpArea input.in').forEach(e=>e.addEventListener('input',onInput));
   const di=g('iDays');if(di&&!di._b){di._b=1;di.addEventListener('input',onInput);}
   calc();
@@ -162,10 +185,10 @@ function saveKV(k,val){const s=loadStore();s[k]=val;saveStore(s);}
 function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays'].indexOf(t.id)>=0)saveKV(t.id,t.value);calc();}
 function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);calc();}
 
-function _grp(){return{rows:0,units:0,uSum:0,tgt:0,D:[0,0,0],R:[0,0,0]};}
+function _grp(){return{rows:0,units:0,uSum:0,tgt:0,D:[0,0,0],R:[0,0,0],Rsim:[0,0,0]};}
 function fillTot(pfx,x,D){
   const dim=MONTHS.map(m=>m.dim);
-  const ut=x.D.map((dd,i)=>(x.units*dim[i])?dd/(x.units*dim[i])*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
+  const ut=x.D.map((dd,i)=>(x.rows*dim[i])?dd/(x.rows*dim[i])*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
   const rav=(x.R[0]+x.R[1]+x.R[2])/3;
   if(g(pfx+'_cnt'))g(pfx+'_cnt').textContent='('+x.rows+'台)';
   if(g(pfx+'_u'))g(pfx+'_u').textContent=x.rows?(x.uSum/x.rows).toFixed(0)+'%':'—';
@@ -185,21 +208,29 @@ function calc(){
     const dy=u/100*D, mt=p*dy*n;
     const a=ACT.byV[c]||{d:[0,0,0],r:[0,0,0]};
     const ut=a.d.map((dd,i)=>dim[i]?dd/dim[i]*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
-    const rv=a.r.map(x=>x*n);const rav=(rv[0]+rv[1]+rv[2])/3;
+    const rav=(a.r[0]+a.r[1]+a.r[2])/3;               // 実績＝現状（台数無関係で固定）
     if(g('dy_'+c))g('dy_'+c).textContent=dy.toFixed(1)+'日';
     if(g('mt_'+c))g('mt_'+c).innerHTML=man(mt);
     ['au0','au1','au2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).textContent=pct(ut[i]);});
     if(g('aua_'+c))g('aua_'+c).textContent=pct(uav);
-    ['ar0','ar1','ar2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).innerHTML=man(rv[i]);});
+    ['ar0','ar1','ar2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).innerHTML=man(a.r[i]);});
     if(g('ara_'+c))g('ara_'+c).innerHTML=man(rav);
     const gg=G[(v.type==='AA')?'AA':'OTH'];
-    gg.rows++;gg.units+=n;gg.uSum+=u;gg.tgt+=mt;for(let i=0;i<3;i++){gg.D[i]+=a.d[i]*n;gg.R[i]+=rv[i];}
+    gg.rows++;gg.units+=n;gg.uSum+=u;gg.tgt+=mt;for(let i=0;i<3;i++){gg.D[i]+=a.d[i];gg.R[i]+=a.r[i];gg.Rsim[i]+=a.r[i]*n;}
   });
   fillTot('sAA',G.AA,D);fillTot('sOth',G.OTH,D);
-  const T=_grp();[G.AA,G.OTH].forEach(x=>{T.rows+=x.rows;T.units+=x.units;T.uSum+=x.uSum;T.tgt+=x.tgt;for(let i=0;i<3;i++){T.D[i]+=x.D[i];T.R[i]+=x.R[i];}});
+  const T=_grp();[G.AA,G.OTH].forEach(x=>{T.rows+=x.rows;T.units+=x.units;T.uSum+=x.uSum;T.tgt+=x.tgt;for(let i=0;i<3;i++){T.D[i]+=x.D[i];T.R[i]+=x.R[i];T.Rsim[i]+=x.Rsim[i];}});
   fillTot('sAll',T,D);
-  const rAvgTot=(T.R[0]+T.R[1]+T.R[2])/3;
-  setProg('All',T.tgt,rAvgTot);
+  // 🚀 増車シミュ差分（現状 vs 台数反映）
+  const base=T.R, sim=T.Rsim, dif=[sim[0]-base[0],sim[1]-base[1],sim[2]-base[2]];
+  const av=arr=>(arr[0]+arr[1]+arr[2])/3;
+  ['db0','db1','db2'].forEach((id,i)=>{if(g(id))g(id).innerHTML=man(base[i]);});if(g('dba'))g('dba').innerHTML=man(av(base));
+  ['ds0','ds1','ds2'].forEach((id,i)=>{if(g(id))g(id).innerHTML=man(sim[i]);});if(g('dsa'))g('dsa').innerHTML=man(av(sim));
+  ['dd0','dd1','dd2'].forEach((id,i)=>{if(g(id))g(id).innerHTML=dif[i]>0?'<span class="ok">＋'+man(dif[i])+'</span>':man(dif[i]);});
+  if(g('dda'))g('dda').innerHTML=av(dif)>0?'<span class="ok">＋'+man(av(dif))+'</span>':man(av(dif));
+  const baseUnits=VEH.length, simUnits=T.units;
+  if(g('diffNote'))g('diffNote').textContent='稼働台数 '+baseUnits+'台 → '+simUnits+'台（＋'+(simUnits-baseUnits)+'台）｜差分＝台数を増やした車の想定増収（各車の現状実績×追加台数・同じ需要と仮定）。';
+  setProg('All',T.tgt,av(sim));  // ②進捗：目標(台数込み) vs 台数反映シミュ実績
 }
 function setProg(sfx,target,actual){
   if(g('tg'+sfx))g('tg'+sfx).innerHTML=man(target);
