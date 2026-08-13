@@ -39,7 +39,7 @@
   .grp{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px}
   .gh{padding:7px 10px;font-size:12.5px;font-weight:800}
   .gtot{border-color:#c4b5fd}.gtot .gh{background:#4c1d95;color:#fff}
-  table.gt{min-width:612px;table-layout:fixed}
+  table.gt{min-width:662px;table-layout:fixed}
   table.gt td.l,table.gt th.l{white-space:normal;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
@@ -131,8 +131,8 @@ async function fetchActual(){
   ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   if(g('actNote'))g('actNote').textContent='全期間累計 '+M+'ヶ月の月平均（返却ベース・実績'+(hpN+otaN)+'件）｜最終更新 '+ACT.upd+'｜🟢オンタイム';
 }
-const COLG='<colgroup><col style="width:150px"><col style="width:44px"><col style="width:84px"><col style="width:58px"><col style="width:50px"><col style="width:64px"><col style="width:88px"><col style="width:72px"></colgroup>';
-const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>台数</th><th class="rl">予約占有率%<br>(全期間)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
+const COLG='<colgroup><col style="width:150px"><col style="width:44px"><col style="width:84px"><col style="width:58px"><col style="width:52px"><col style="width:50px"><col style="width:64px"><col style="width:88px"><col style="width:72px"></colgroup>';
+const THEAD='<thead><tr><th class="l">車両</th><th>クラス</th><th>販売単価<br>(円/日)</th><th>目標<br>稼働率%</th><th>稼働<br>日数</th><th>台数</th><th class="rl">予約占有率%<br>(全期間)</th><th>目標売上<br>(月)</th><th class="rl">月平均実績<br>(累計/月)</th></tr></thead>';
 function buildRows(){
   const s=loadStore();
   const rowHtml=v=>{const t=v.type||'';const dp=(s['p_'+v.code]!=null)?s['p_'+v.code]:(DEFP[t]||5000);const du=(s['u_'+v.code]!=null)?s['u_'+v.code]:50;const dn=(s['n_'+v.code]!=null)?s['n_'+v.code]:1;const col=CLSCOL[t]||'#64748b';
@@ -140,14 +140,15 @@ function buildRows(){
       +'<td><span class="cls" style="background:'+col+'">'+t+'</span></td>'
       +'<td><input class="in" data-k="p_'+v.code+'" type="number" min="0" step="500" value="'+dp+'"></td>'
       +'<td><input class="in sm" data-k="u_'+v.code+'" type="number" min="0" max="100" step="1" value="'+du+'"></td>'
+      +'<td id="dy_'+v.code+'" class="calc"></td>'
       +'<td><input class="in xs" data-k="n_'+v.code+'" type="number" min="0" step="1" value="'+dn+'"></td>'
       +'<td id="ru_'+v.code+'" class="rl"></td><td id="mt_'+v.code+'" class="calc"></td><td id="rr_'+v.code+'" class="rl"></td></tr>';};
-  const subFoot=(pfx,label)=>'<tfoot><tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_n" class="calc"></td><td id="'+pfx+'_ru" class="rl"></td><td id="'+pfx+'_tgt" class="calc big"></td><td id="'+pfx+'_real" class="rl big"></td></tr></tfoot>';
+  const subFoot=(pfx,label)=>'<tfoot><tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_dy" class="calc"></td><td id="'+pfx+'_n" class="calc"></td><td id="'+pfx+'_ru" class="rl"></td><td id="'+pfx+'_tgt" class="calc big"></td><td id="'+pfx+'_real" class="rl big"></td></tr></tfoot>';
   const AA=VEH.filter(v=>v.type==='AA'), OTH=VEH.filter(v=>v.type!=='AA');
   let html='';
   if(AA.length) html+='<div class="grp"><div class="gh" style="background:#fff7ed;color:#9a3412">🏆 AAクラス（輸入・最上位）</div><table class="gt">'+COLG+THEAD+'<tbody>'+AA.map(rowHtml).join('')+'</tbody>'+subFoot('sAA','小計')+'</table></div>';
   if(OTH.length) html+='<div class="grp"><div class="gh" style="background:#f5f3ff;color:#4c1d95">🚗 スタンダード（A〜H）</div><table class="gt">'+COLG+THEAD+'<tbody>'+OTH.map(rowHtml).join('')+'</tbody>'+subFoot('sOth','小計')+'</table></div>';
-  html+='<div class="grp gtot"><div class="gh">Σ 合計（全車）</div><table class="gt">'+COLG+'<tbody><tr><td class="l">合計 <span id="oCnt" class="sub"></span></td><td></td><td></td><td id="oAvgU" class="calc"></td><td id="oUnits" class="calc"></td><td id="oAvgRU" class="rl"></td><td id="oTgt" class="calc big"></td><td id="oReal" class="rl big"></td></tr></tbody></table></div>';
+  html+='<div class="grp gtot"><div class="gh">Σ 合計（全車）</div><table class="gt">'+COLG+'<tbody><tr><td class="l">合計 <span id="oCnt" class="sub"></span></td><td></td><td></td><td id="oAvgU" class="calc"></td><td id="oAvgDy" class="calc"></td><td id="oUnits" class="calc"></td><td id="oAvgRU" class="rl"></td><td id="oTgt" class="calc big"></td><td id="oReal" class="rl big"></td></tr></tbody></table></div>';
   g('grpArea').innerHTML=html;
   document.querySelectorAll('#grpArea input.in').forEach(e=>e.addEventListener('input',onInput));
   const di=g('iDays');if(di&&!di._b){di._b=1;di.addEventListener('input',onInput);}
@@ -160,6 +161,7 @@ function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{
 function fillSub(pfx,d){
   if(g(pfx+'_cnt'))g(pfx+'_cnt').textContent='('+d.rows+'台)';
   if(g(pfx+'_u'))g(pfx+'_u').textContent=d.rows?(d.u/d.rows).toFixed(0)+'%':'—';
+  if(g(pfx+'_dy'))g(pfx+'_dy').textContent=d.rows?((d.u/d.rows)/100*(numv('iDays')||30)).toFixed(1)+'日':'—';
   if(g(pfx+'_n'))g(pfx+'_n').textContent=d.units+'台';
   if(g(pfx+'_ru'))g(pfx+'_ru').textContent=d.rows?(d.ru/d.rows).toFixed(0)+'%':'—';
   if(g(pfx+'_tgt'))g(pfx+'_tgt').textContent=yen(d.tgt);
@@ -173,6 +175,7 @@ function calc(){
     const mt=p*(u/100*D)*n;
     const a=ACT.byV[v.code]||{rev:0,util:0,total:0};
     const ru=a.util||0;
+    if(g('dy_'+v.code))g('dy_'+v.code).textContent=(u/100*D).toFixed(1)+'日';
     if(g('mt_'+v.code))g('mt_'+v.code).textContent=yen(mt);
     if(g('ru_'+v.code))g('ru_'+v.code).textContent=ru.toFixed(0)+'%';
     if(g('rr_'+v.code))g('rr_'+v.code).innerHTML=a.rev?(yen(a.rev)+'<div class="sub">累計'+yen(a.total)+'</div>'):'—';
@@ -183,6 +186,7 @@ function calc(){
   const tgt=G.AA.tgt+G.OTH.tgt,real=G.AA.real+G.OTH.real,totCum=G.AA.tot+G.OTH.tot,rows=G.AA.rows+G.OTH.rows,units=G.AA.units+G.OTH.units,uS=G.AA.u+G.OTH.u,ruS=G.AA.ru+G.OTH.ru;
   if(g('oCnt'))g('oCnt').textContent='('+rows+'台)';
   if(g('oAvgU'))g('oAvgU').textContent=rows?(uS/rows).toFixed(0)+'%':'—';
+  if(g('oAvgDy'))g('oAvgDy').textContent=rows?((uS/rows)/100*D).toFixed(1)+'日':'—';
   if(g('oUnits'))g('oUnits').textContent=units+'台';
   if(g('oAvgRU'))g('oAvgRU').textContent=rows?(ruS/rows).toFixed(0)+'%':'—';
   if(g('oTgt'))g('oTgt').textContent=yen(tgt);
