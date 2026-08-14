@@ -19,10 +19,10 @@
   th{background:#f1f5f9;color:#475569;font-weight:700;font-size:11px;border-bottom:1px solid #e2e8f0}
   td.l,th.l{text-align:left}
   .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  input.in{width:80px;text-align:right;border:1px solid #fde68a;background:#fef9c3;border-radius:6px;padding:5px 6px;font-size:13px;font-weight:700;color:#0f172a}
+  input.in{width:72px;text-align:right;border:1px solid #fde68a;background:#fef9c3;border-radius:6px;padding:5px 4px;font-size:13px;font-weight:700;color:#0f172a}
   input.in:focus{outline:2px solid #94a3b8;background:#fffbeb}
-  input.sm{width:52px}
-  input.xs{width:40px}
+  input.sm{width:46px}
+  input.xs{width:36px}
   .calc{background:#f8fafc;font-weight:700}
   .avg{background:#f1f5f9;font-weight:800;color:#0f172a}
   .sep{border-left:2px solid #e2e8f0}
@@ -40,7 +40,7 @@
   .grp{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:10px}
   .gh{padding:7px 10px;font-size:12px;font-weight:800;background:#eef2f7;color:#334155}
   .gtot .gh{background:#334155;color:#fff}
-  table.gt{min-width:1046px;table-layout:fixed}
+  table.gt{min-width:868px;table-layout:fixed}
   table.gt td.l,table.gt th.l{white-space:normal;overflow:hidden;text-overflow:ellipsis}
   @media print{
     @page{margin:8mm}
@@ -99,7 +99,7 @@ const setU=(el,n)=>{if(!el)return;el.textContent=pct(n);const c=uColor(n);el.sty
 function pdfExport(){if(window.self===window.top){window.print();return;}var u=location.href.split('#')[0];u+=(u.indexOf('?')>=0?'&':'?')+'print=1';var w=window.open(u,'_blank');if(!w)window.print();}
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
-const BUILD='2026-08-14j';
+const BUILD='2026-08-14k';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
@@ -150,7 +150,7 @@ async function fetchActual(){
   ACT.byV=byV;ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   if(g('actNote'))g('actNote').textContent='配車表(予約)から '+MONTHS.map(x=>x.m+'月').join(' / ')+' を集計 ｜ 最終更新 '+ACT.upd+' ｜ 🟢オンタイム';
 }
-const COLG='<colgroup><col style="width:130px"><col style="width:36px"><col style="width:78px"><col style="width:50px"><col style="width:48px"><col style="width:42px"><col style="width:84px"><col style="width:70px"><col style="width:84px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:62px"></colgroup>';
+const COLG='<colgroup><col style="width:104px"><col style="width:34px"><col style="width:78px"><col style="width:50px"><col style="width:42px"><col style="width:42px"><col style="width:58px"><col style="width:50px"><col style="width:58px"><col style="width:40px"><col style="width:40px"><col style="width:40px"><col style="width:44px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"></colgroup>';
 function thead(){const M=MONTHS;
   return '<thead><tr><th class="l" rowspan="2">車両</th><th rowspan="2">クラス</th><th rowspan="2">販売単価<br>(円/日)</th><th rowspan="2">目標<br>稼働率%</th><th rowspan="2">稼働<br>日数</th><th rowspan="2">台数</th><th rowspan="2">基本料金<br>(月)</th><th rowspan="2">付帯売上<br>(15%)</th><th rowspan="2">売上合計<br>(月)</th>'
     +'<th colspan="4" class="sep">🚗 稼働率%(実績)</th><th colspan="4" class="sep">💴 売上(実績・万円)</th></tr>'
