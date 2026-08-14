@@ -82,20 +82,6 @@
       <div class="legend" style="padding:6px 0 0">①の台数を変えると差分だけが動きます。差分＝台数を増やした車の想定増収（各車の現状実績×追加台数・同じ需要と仮定）。稼働率(実績)は1台あたりのレートなので台数では変わりません。</div>
     </div>
   </div>
-
-  <div class="card">
-    <h2>② 進捗 — 月間目標（①合計） vs 実績(3ヶ月平均) <a class="rst" href="#" onclick="refreshAct();return false">🔄 更新</a></h2>
-    <div class="bd">
-      <div class="sub" id="actNote">—</div>
-      <div class="scroll">
-      <table>
-        <thead><tr><th class="l">区分</th><th>目標(仮説)</th><th class="avg">実績(3ヶ月平均)</th><th>乖離</th><th>進捗率</th></tr></thead>
-        <tbody><tr><td class="l">合計</td><td id="tgAll" class="calc big"></td><td id="acAll" class="avg big"></td><td id="gpAll" class="big"></td><td id="rtAll" class="big"></td></tr></tbody>
-      </table>
-      </div>
-      <div class="legend" style="padding:6px 0 0">目標＝①の目標売上合計（台数×単価×稼働率×日数）。実績＝当月/翌月/翌々月の売上(配車表・台数反映)の平均。乖離＝実績−目標。</div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -248,17 +234,7 @@ function calc(){
   if(g('dda'))g('dda').innerHTML=av(dif)>0?'<span class="ok">＋'+man(av(dif))+'</span>':man(av(dif));
   const baseUnits=VEH.length, simUnits=T.units;
   if(g('diffNote'))g('diffNote').textContent='稼働台数 '+baseUnits+'台 → '+simUnits+'台（＋'+(simUnits-baseUnits)+'台）｜差分＝台数を増やした車の想定増収（各車の現状実績×追加台数・同じ需要と仮定）。';
-  setProg('All',T.tgt,av(sim));  // ②進捗：目標(台数込み) vs 台数反映シミュ実績
 }
-function setProg(sfx,target,actual){
-  if(g('tg'+sfx))g('tg'+sfx).innerHTML=man(target);
-  if(g('ac'+sfx))g('ac'+sfx).innerHTML=man(actual);
-  const gap=actual-target;
-  if(g('gp'+sfx))g('gp'+sfx).innerHTML='<span class="'+(gap>=0?'ok':'ng')+'">'+(gap>=0?'+':'−')+man(Math.abs(gap))+'</span>';
-  const rt=target?actual/target*100:0;
-  if(g('rt'+sfx))g('rt'+sfx).innerHTML='<span class="'+(rt>=100?'ok':'ng')+'">'+rt.toFixed(0)+'%</span>';
-}
-function refreshAct(){fetchActual().then(calc).catch(e=>{if(g('actNote'))g('actNote').textContent='更新エラー: '+(e.message||e);});}
 function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)/.test(k)||['iDays'].indexOf(k)>=0)delete s[k];});saveStore(s);saveShared();g('iDays').value=30;buildRows();}
 
 (async function(){
