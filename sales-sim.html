@@ -80,9 +80,12 @@ const numv=id=>{const e=g(id);return e?(parseFloat(e.value)||0):0;};
 const qv=sel=>{const e=document.querySelector(sel);return e?(parseFloat(e.value)||0):0;};
 const man=n=>{if(!n||n<=0)return '<span class="dim">—</span>';const v=n/10000;return (v<10?(Math.round(v*10)/10):Math.round(v))+'万';};
 const pct=n=>(Math.round(n)||0)+'%';
+// 稼働率を10%刻みでヒートマップ色分け（0-9%…90%+）
+const uColor=n=>{if(n==null||isNaN(n))return['',''];const b=Math.max(0,Math.min(9,Math.floor(n/10)));const bg=['#f1f5f9','#e6f5ec','#ccebd7','#a9dcbb','#82cd9c','#57bd7c','#33ad60','#1f9950','#127a3f','#0a5c30'][b];const fg=b>=6?'#fff':'#0f172a';return[bg,fg];};
+const setU=(el,n)=>{if(!el)return;el.textContent=pct(n);const c=uColor(n);el.style.background=c[0];el.style.color=c[1];el.style.fontWeight='700';};
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
-const BUILD='2026-08-14e';
+const BUILD='2026-08-14f';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
@@ -178,8 +181,8 @@ function fillTot(pfx,x,D){
   if(g(pfx+'_dy'))g(pfx+'_dy').textContent=x.rows?((x.uSum/x.rows)/100*D).toFixed(1)+'日':'—';
   if(g(pfx+'_n'))g(pfx+'_n').textContent=x.units+'台';
   if(g(pfx+'_tgt'))g(pfx+'_tgt').innerHTML=man(x.tgt);
-  ['tu0','tu1','tu2'].forEach((id,i)=>{if(g(id+'_'+pfx))g(id+'_'+pfx).textContent=pct(ut[i]);});
-  if(g('tua_'+pfx))g('tua_'+pfx).textContent=pct(uav);
+  ['tu0','tu1','tu2'].forEach((id,i)=>{setU(g(id+'_'+pfx),ut[i]);});
+  setU(g('tua_'+pfx),uav);
   ['tr0','tr1','tr2'].forEach((id,i)=>{if(g(id+'_'+pfx))g(id+'_'+pfx).innerHTML=man(x.R[i]);});
   if(g('tra_'+pfx))g('tra_'+pfx).innerHTML=man(rav);
 }
@@ -194,8 +197,8 @@ function calc(){
     const rav=(a.r[0]+a.r[1]+a.r[2])/3;               // 実績＝現状（台数無関係で固定）
     if(g('dy_'+c))g('dy_'+c).textContent=dy.toFixed(1)+'日';
     if(g('mt_'+c))g('mt_'+c).innerHTML=man(mt);
-    ['au0','au1','au2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).textContent=pct(ut[i]);});
-    if(g('aua_'+c))g('aua_'+c).textContent=pct(uav);
+    ['au0','au1','au2'].forEach((id,i)=>{setU(g(id+'_'+c),ut[i]);});
+    setU(g('aua_'+c),uav);
     ['ar0','ar1','ar2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).innerHTML=man(a.r[i]);});
     if(g('ara_'+c))g('ara_'+c).innerHTML=man(rav);
     const gg=G[(v.type==='AA')?'AA':'OTH'];
