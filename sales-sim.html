@@ -53,7 +53,7 @@
   .grp{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:10px}
   .gh{padding:7px 10px;font-size:12px;font-weight:800;background:#eef2f7;color:#334155}
   .gtot .gh{background:#334155;color:#fff}
-  table.gt{min-width:868px;table-layout:fixed}
+  table.gt{min-width:930px;table-layout:fixed}
   table.gt td.l,table.gt th.l{white-space:normal;overflow:hidden;text-overflow:ellipsis}
   @media print{
     @page{size:A4 landscape;margin:6mm}
@@ -193,15 +193,15 @@ async function fetchActual(){
   ACT.byV=byV;ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   if(g('actNote'))g('actNote').textContent='配車表(予約)から '+MONTHS.map(x=>x.m+'月').join(' / ')+' を集計 ｜ 最終更新 '+ACT.upd+' ｜ 🟢オンタイム';
 }
-const COLG='<colgroup><col style="width:104px"><col style="width:34px"><col style="width:78px"><col style="width:50px"><col style="width:42px"><col style="width:42px"><col style="width:58px"><col style="width:50px"><col style="width:58px"><col style="width:40px"><col style="width:40px"><col style="width:40px"><col style="width:44px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"></colgroup>';
+const COLG='<colgroup><col style="width:104px"><col style="width:34px"><col style="width:78px"><col style="width:50px"><col style="width:42px"><col style="width:42px"><col style="width:58px"><col style="width:50px"><col style="width:58px"><col style="width:62px"><col style="width:40px"><col style="width:40px"><col style="width:40px"><col style="width:44px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"></colgroup>';
 function thead(){const M=MONTHS;
   return '<thead>'
     +'<tr><th class="l" rowspan="3">車両</th><th rowspan="3">クラス</th>'
       +'<th colspan="7" class="simhd">🎯 計画（仮説を入力）</th>'
-      +'<th colspan="8" class="acthd divL">📊 実績（配車表・実数／編集不可）</th></tr>'
+      +'<th colspan="9" class="acthd divL">📊 実績（配車表・実数／編集不可）</th></tr>'
     +'<tr><th rowspan="2">販売単価<br>(円/日)</th><th rowspan="2">目標<br>稼働率%</th><th rowspan="2">稼働<br>日数</th><th rowspan="2">台数</th><th rowspan="2">基本料金<br>(月)</th><th rowspan="2">付帯売上<br>(15%)</th><th rowspan="2">売上合計<br>(月)</th>'
-      +'<th colspan="4" class="divL">🚗 稼働率%</th><th colspan="4" class="sep">💴 売上(万円)</th></tr>'
-    +'<tr><th class="divL">'+M[0].m+'月<br><span class="sub">当月</span></th><th>'+M[1].m+'月<br><span class="sub">翌月</span></th><th>'+M[2].m+'月<br><span class="sub">翌々</span></th><th class="avg">平均</th>'
+      +'<th rowspan="2" class="divL">実績単価<br>(円/日)</th><th colspan="4">🚗 稼働率%</th><th colspan="4" class="sep">💴 売上(万円)</th></tr>'
+    +'<tr><th>'+M[0].m+'月<br><span class="sub">当月</span></th><th>'+M[1].m+'月<br><span class="sub">翌月</span></th><th>'+M[2].m+'月<br><span class="sub">翌々</span></th><th class="avg">平均</th>'
     +'<th class="sep">'+M[0].m+'月<br><span class="sub">当月</span></th><th>'+M[1].m+'月<br><span class="sub">翌月</span></th><th>'+M[2].m+'月<br><span class="sub">翌々</span></th><th class="avg">平均</th></tr></thead>';}
 function buildRows(){
   const s=loadStore();
@@ -213,10 +213,12 @@ function buildRows(){
       +'<td id="dy_'+c+'" class="calc sc"></td>'
       +'<td class="sc '+ncls+'"><input class="in xs" data-k="n_'+c+'" type="number" min="0" step="1" value="'+dn+'"></td>'
       +'<td id="mt_'+c+'" class="calc sc"></td><td id="fee_'+c+'" class="calc sc"></td><td id="tot_'+c+'" class="calc big sc"></td>'
-      +'<td id="au0_'+c+'" class="divL"></td><td id="au1_'+c+'"></td><td id="au2_'+c+'"></td><td id="aua_'+c+'" class="avg"></td>'
+      +'<td id="aup_'+c+'" class="ac divL"></td>'
+      +'<td id="au0_'+c+'"></td><td id="au1_'+c+'"></td><td id="au2_'+c+'"></td><td id="aua_'+c+'" class="avg"></td>'
       +'<td id="ar0_'+c+'" class="sep ac"></td><td id="ar1_'+c+'" class="ac"></td><td id="ar2_'+c+'" class="ac"></td><td id="ara_'+c+'" class="avg ac"></td></tr>';};
   const totRow=(pfx,label)=>'<tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td class="sc"></td><td id="'+pfx+'_u" class="calc sc"></td><td id="'+pfx+'_dy" class="calc sc"></td><td id="'+pfx+'_n" class="calc sc"></td><td id="'+pfx+'_tgt" class="calc sc"></td><td id="'+pfx+'_fee" class="calc sc"></td><td id="'+pfx+'_tot" class="calc big sc"></td>'
-    +'<td id="tu0_'+pfx+'" class="divL"></td><td id="tu1_'+pfx+'"></td><td id="tu2_'+pfx+'"></td><td id="tua_'+pfx+'" class="avg"></td>'
+    +'<td id="tup_'+pfx+'" class="ac divL"></td>'
+    +'<td id="tu0_'+pfx+'"></td><td id="tu1_'+pfx+'"></td><td id="tu2_'+pfx+'"></td><td id="tua_'+pfx+'" class="avg"></td>'
     +'<td id="tr0_'+pfx+'" class="sep ac"></td><td id="tr1_'+pfx+'" class="ac"></td><td id="tr2_'+pfx+'" class="ac"></td><td id="tra_'+pfx+'" class="avg big ac"></td></tr>';
   const AA=VEH.filter(v=>v.type==='AA'), OTH=VEH.filter(v=>v.type!=='AA');
   let html='';
@@ -248,6 +250,8 @@ function fillTot(pfx,x,D){
   setU(g('tua_'+pfx),uav);
   ['tr0','tr1','tr2'].forEach((id,i)=>{if(g(id+'_'+pfx))g(id+'_'+pfx).innerHTML=man(x.R[i]);});
   if(g('tra_'+pfx))g('tra_'+pfx).innerHTML=man(rav);
+  const tR=x.R[0]+x.R[1]+x.R[2],tD=x.D[0]+x.D[1]+x.D[2],tup=tD>0?Math.round(tR/tD):0;
+  if(g('tup_'+pfx))g('tup_'+pfx).innerHTML=tup>0?tup.toLocaleString()+'円':'<span class="dim">—</span>';
 }
 function calc(){
   const D=numv('iDays')||30;const dim=MONTHS.map(m=>m.dim);
@@ -258,6 +262,8 @@ function calc(){
     const a=ACT.byV[c]||{d:[0,0,0],r:[0,0,0]};
     const ut=a.d.map((dd,i)=>dim[i]?dd/dim[i]*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
     const rav=(a.r[0]+a.r[1]+a.r[2])/3;               // 実績＝現状（台数無関係で固定）
+    const _tR=a.r[0]+a.r[1]+a.r[2],_tD=a.d[0]+a.d[1]+a.d[2],aup=_tD>0?Math.round(_tR/_tD):0; // 実績単価＝実績売上÷実績稼働日数(円/日)
+    if(g('aup_'+c))g('aup_'+c).innerHTML=aup>0?aup.toLocaleString()+'円':'<span class="dim">—</span>';
     if(g('dy_'+c))g('dy_'+c).textContent=dy.toFixed(1)+'日';
     if(g('mt_'+c))g('mt_'+c).innerHTML=man(mt);
     if(g('fee_'+c))g('fee_'+c).innerHTML=man(mt*0.15);
