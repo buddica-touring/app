@@ -80,10 +80,12 @@
 const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const KEY='bt_salesim_v1';
-const CLASS_ORDER=['AA','A','B','C','D','E','F','G','H'];
+const CLASS_ORDER=['AA','A','B','C','D','E','F','G','H','軽'];
 const CO=t=>{const i=CLASS_ORDER.indexOf(t||'');return i<0?99:i;};
-const DEFP={AA:30000,A:14500,B:11000,C:11000,D:8000,E:6500,F:5500,G:4500,H:4500};
-const CLSCOL={AA:'#b45309',A:'#7c3aed',B:'#0284c7',C:'#0284c7',D:'#d97706',E:'#0d9488',F:'#059669',G:'#475569',H:'#64748b'};
+const DEFP={AA:30000,A:14500,B:11000,C:11000,D:8000,E:6500,F:5500,G:4500,H:4500,軽:4000};
+const CLSCOL={AA:'#b45309',A:'#7c3aed',B:'#0284c7',C:'#0284c7',D:'#d97706',E:'#0d9488',F:'#059669',G:'#475569',H:'#64748b',軽:'#0891b2'};
+// 検討中の車両（配車表に未登録・実績なし）＝仮説の目標売上だけ出す
+const CANDIDATES=[{code:'CAND_KEI',name:'軽クラス',plate_no:'検討中',type:'軽',_cand:true}];
 const pad2=n=>String(n).padStart(2,'0');
 const g=id=>document.getElementById(id);
 const numv=id=>{const e=g(id);return e?(parseFloat(e.value)||0):0;};
@@ -97,7 +99,7 @@ const setU=(el,n)=>{if(!el)return;el.textContent=pct(n);const c=uColor(n);el.sty
 function pdfExport(){if(window.self===window.top){window.print();return;}var u=location.href.split('#')[0];u+=(u.indexOf('?')>=0?'&':'?')+'print=1';var w=window.open(u,'_blank');if(!w)window.print();}
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
-const BUILD='2026-08-14h';
+const BUILD='2026-08-14i';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
@@ -183,10 +185,10 @@ function saveKV(k,val){const s=loadStore();s[k]=val;saveStore(s);}
 function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays'].indexOf(t.id)>=0)saveKV(t.id,t.value);saveShared();calc();}
 function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);saveShared();calc();}
 
-function _grp(){return{rows:0,units:0,uSum:0,tgt:0,D:[0,0,0],R:[0,0,0],Rsim:[0,0,0]};}
+function _grp(){return{rows:0,arows:0,units:0,uSum:0,tgt:0,D:[0,0,0],R:[0,0,0],Rsim:[0,0,0]};}
 function fillTot(pfx,x,D){
   const dim=MONTHS.map(m=>m.dim);
-  const ut=x.D.map((dd,i)=>(x.rows*dim[i])?dd/(x.rows*dim[i])*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
+  const ut=x.D.map((dd,i)=>(x.arows*dim[i])?dd/(x.arows*dim[i])*100:0);const uav=(ut[0]+ut[1]+ut[2])/3;
   const rav=(x.R[0]+x.R[1]+x.R[2])/3;
   if(g(pfx+'_cnt'))g(pfx+'_cnt').textContent='('+x.rows+'台)';
   if(g(pfx+'_u'))g(pfx+'_u').textContent=x.rows?(x.uSum/x.rows).toFixed(0)+'%':'—';
@@ -209,15 +211,21 @@ function calc(){
     const rav=(a.r[0]+a.r[1]+a.r[2])/3;               // 実績＝現状（台数無関係で固定）
     if(g('dy_'+c))g('dy_'+c).textContent=dy.toFixed(1)+'日';
     if(g('mt_'+c))g('mt_'+c).innerHTML=man(mt);
-    ['au0','au1','au2'].forEach((id,i)=>{setU(g(id+'_'+c),ut[i]);});
-    setU(g('aua_'+c),uav);
-    ['ar0','ar1','ar2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).innerHTML=man(a.r[i]);});
-    if(g('ara_'+c))g('ara_'+c).innerHTML=man(rav);
+    if(v._cand){ // 検討中＝実績なし → 実績列は「—」
+      ['au0','au1','au2','aua'].forEach(id=>{var el=g(id+'_'+c);if(el){el.textContent='—';el.style.background='';el.style.color='#94a3b8';}});
+      ['ar0','ar1','ar2','ara'].forEach(id=>{var el=g(id+'_'+c);if(el)el.innerHTML='<span class="dim">—</span>';});
+    }else{
+      ['au0','au1','au2'].forEach((id,i)=>{setU(g(id+'_'+c),ut[i]);});
+      setU(g('aua_'+c),uav);
+      ['ar0','ar1','ar2'].forEach((id,i)=>{if(g(id+'_'+c))g(id+'_'+c).innerHTML=man(a.r[i]);});
+      if(g('ara_'+c))g('ara_'+c).innerHTML=man(rav);
+    }
     const gg=G[(v.type==='AA')?'AA':'OTH'];
-    gg.rows++;gg.units+=n;gg.uSum+=u;gg.tgt+=mt;for(let i=0;i<3;i++){gg.D[i]+=a.d[i];gg.R[i]+=a.r[i];gg.Rsim[i]+=a.r[i]*n;}
+    gg.rows++;gg.units+=n;gg.uSum+=u;gg.tgt+=mt;
+    if(!v._cand){gg.arows++;for(let i=0;i<3;i++){gg.D[i]+=a.d[i];gg.R[i]+=a.r[i];gg.Rsim[i]+=a.r[i]*n;}}
   });
   fillTot('sAA',G.AA,D);fillTot('sOth',G.OTH,D);
-  const T=_grp();[G.AA,G.OTH].forEach(x=>{T.rows+=x.rows;T.units+=x.units;T.uSum+=x.uSum;T.tgt+=x.tgt;for(let i=0;i<3;i++){T.D[i]+=x.D[i];T.R[i]+=x.R[i];T.Rsim[i]+=x.Rsim[i];}});
+  const T=_grp();[G.AA,G.OTH].forEach(x=>{T.rows+=x.rows;T.arows+=x.arows;T.units+=x.units;T.uSum+=x.uSum;T.tgt+=x.tgt;for(let i=0;i<3;i++){T.D[i]+=x.D[i];T.R[i]+=x.R[i];T.Rsim[i]+=x.Rsim[i];}});
   fillTot('sAll',T,D);
 }
 function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)/.test(k)||['iDays'].indexOf(k)>=0)delete s[k];});saveStore(s);saveShared();g('iDays').value=30;buildRows();}
@@ -229,6 +237,7 @@ function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)
     await loadShared();
     const s=loadStore();['iDays'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
     VEH=await fetchVeh();
+    VEH=VEH.concat(CANDIDATES); // 検討中の車両を末尾に追加（配車表になくても目標売上を試算）
     VEH.sort((a,b)=>CO(a.type)-CO(b.type)||String(a.name||a.code).localeCompare(String(b.name||b.code),'ja'));
     if(!VEH.length){st.style.display='block';st.textContent='車両マスターに有効な車両がありません。';return;}
     buildRows();
