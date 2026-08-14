@@ -51,6 +51,7 @@
     <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動＝常に現状</b>。<b>台数を変えた効果は下の「🚀増車シミュ差分」に集約</b>（実績列は台数で動かさない）。</div></div>
   </div>
   <div id="status" class="st"></div>
+  <div class="legend" id="ver" style="text-align:center;padding:0 0 6px"></div>
 
   <div class="card">
     <h2>① 車両別 目標(仮説) × 3ヶ月アウトルック(実績)</h2>
@@ -113,12 +114,29 @@ const man=n=>{if(!n||n<=0)return '<span class="dim">—</span>';const v=n/10000;
 const pct=n=>(Math.round(n)||0)+'%';
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
+const BUILD='2026-08-14e';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
 function H(){const t=_sbToken();return {apikey:BT_ANON,Authorization:'Bearer '+(t||BT_ANON)};}
 function loadStore(){try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){return{};}}
 function saveStore(o){try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
+// 🔗 入力値(単価/目標稼働率/台数/日数)を全端末で共有＝bt_app_settings に保存（DBが正）
+const SKEY='salesim_inputs';
+async function loadShared(){
+  try{const r=await fetch(BT_SB+'/rest/v1/bt_app_settings?select=value&key=eq.'+SKEY,{headers:H()});
+    if(!r.ok)return;const j=await r.json();if(j&&j[0]&&j[0].value){const obj=JSON.parse(j[0].value);if(obj&&typeof obj==='object'){const s=loadStore();Object.assign(s,obj);saveStore(s);}}
+  }catch(e){}
+}
+let _saveT=null;
+function saveShared(){
+  if(_saveT)clearTimeout(_saveT);
+  _saveT=setTimeout(function(){
+    try{const body=JSON.stringify([{key:SKEY,value:JSON.stringify(loadStore()),updated_at:new Date().toISOString()}]);
+      fetch(BT_SB+'/rest/v1/bt_app_settings?on_conflict=key',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},H()),body:body}).catch(function(){});
+    }catch(e){}
+  },800);
+}
 
 async function fetchVeh(){
   const r=await fetch(BT_SB+'/rest/v1/bt_vehicles?select=code,name,plate_no,type&active=eq.true&order=type.asc,name.asc',{headers:H()});
@@ -182,8 +200,8 @@ function buildRows(){
   calc();
 }
 function saveKV(k,val){const s=loadStore();s[k]=val;saveStore(s);}
-function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays'].indexOf(t.id)>=0)saveKV(t.id,t.value);calc();}
-function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);calc();}
+function onInput(e){const t=e&&e.target;if(t&&t.dataset&&t.dataset.k)saveKV(t.dataset.k,t.value);if(t&&['iDays'].indexOf(t.id)>=0)saveKV(t.id,t.value);saveShared();calc();}
+function applyBulk(){const u=numv('iBulkU');const s=loadStore();VEH.forEach(v=>{const el=document.querySelector('[data-k="u_'+v.code+'"]');if(el){el.value=u;s['u_'+v.code]=u;}});saveStore(s);saveShared();calc();}
 
 function _grp(){return{rows:0,units:0,uSum:0,tgt:0,D:[0,0,0],R:[0,0,0],Rsim:[0,0,0]};}
 function fillTot(pfx,x,D){
@@ -241,17 +259,19 @@ function setProg(sfx,target,actual){
   if(g('rt'+sfx))g('rt'+sfx).innerHTML='<span class="'+(rt>=100?'ok':'ng')+'">'+rt.toFixed(0)+'%</span>';
 }
 function refreshAct(){fetchActual().then(calc).catch(e=>{if(g('actNote'))g('actNote').textContent='更新エラー: '+(e.message||e);});}
-function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)/.test(k)||['iDays'].indexOf(k)>=0)delete s[k];});saveStore(s);g('iDays').value=30;buildRows();}
+function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)/.test(k)||['iDays'].indexOf(k)>=0)delete s[k];});saveStore(s);saveShared();g('iDays').value=30;buildRows();}
 
 (async function(){
   const st=g('status');
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（車両マスター・実績はログイン必須）。';return;}
-  const s=loadStore();['iDays'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
   try{
+    await loadShared();
+    const s=loadStore();['iDays'].forEach(k=>{if(s[k]!=null&&g(k))g(k).value=s[k];});
     VEH=await fetchVeh();
     VEH.sort((a,b)=>CO(a.type)-CO(b.type)||String(a.name||a.code).localeCompare(String(b.name||b.code),'ja'));
     if(!VEH.length){st.style.display='block';st.textContent='車両マスターに有効な車両がありません。';return;}
     buildRows();
+    if(g('ver'))g('ver').textContent='版 '+BUILD+' ｜ 対象 '+MONTHS.map(x=>x.m+'月').join('/')+' ｜ 入力(単価/目標稼働率/台数)は全端末で共有(DB)。実績は配車表から自動。数字が端末で違う時は両方リロード。';
     await fetchActual();calc();
     setInterval(()=>fetchActual().then(calc).catch(()=>{}),300000);
   }catch(e){st.style.display='block';st.textContent='⚠️ 読み込みエラー: '+(e.message||e)+'（ログインしてから再度お開きください）';}
