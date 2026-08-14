@@ -40,7 +40,7 @@
   .grp{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:10px}
   .gh{padding:7px 10px;font-size:12px;font-weight:800;background:#eef2f7;color:#334155}
   .gtot .gh{background:#334155;color:#fff}
-  table.gt{min-width:892px;table-layout:fixed}
+  table.gt{min-width:1046px;table-layout:fixed}
   table.gt td.l,table.gt th.l{white-space:normal;overflow:hidden;text-overflow:ellipsis}
   @media print{
     @page{margin:8mm}
@@ -58,7 +58,7 @@
 <div class="wrap">
   <div class="card">
     <h2>📊 売上シミュレーション — 🚐高松店 <span class="sub" style="color:#cbd5e1">仮説＋実績オンタイム</span> <button class="noprint" style="margin-left:auto;border:none;background:#0f766e;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer" onclick="pdfExport()">📄 PDF出力</button> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
-    <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動＝常に現状</b>。<b>台数は目標売上(仮説)に反映</b>（実績列は台数で動かさない＝常に現状）。</div></div>
+    <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">基本料金＝単価×稼働率×日数×台数</b>、<b class="gy">付帯売上＝基本料金×15%(試算)</b>、<b class="gy">売上合計＝基本料金＋付帯売上</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動＝常に現状</b>。<b>台数は目標売上(仮説)に反映</b>（実績列は台数で動かさない＝常に現状）。</div></div>
   </div>
   <div id="status" class="st"></div>
   <div class="legend" id="ver" style="text-align:center;padding:0 0 6px"></div>
@@ -71,7 +71,7 @@
         <td class="l" style="padding-left:14px">一括稼働率%</td><td><input class="in sm" id="iBulkU" type="number" min="0" max="100" step="1" placeholder="—"><button onclick="applyBulk()" style="margin-left:4px;border:none;background:#334155;color:#fff;border-radius:6px;padding:5px 8px;font-weight:700;font-size:12px">適用</button></td>
       </tr></table>
       <div class="scroll" id="grpArea" style="margin-top:6px"><div style="padding:10px;color:#94a3b8">読み込み中…</div></div>
-      <div class="legend" style="padding:6px 0 0" id="lg1">目標売上＝単価×(目標稼働率×日数)×台数。<b>稼働率(実績)＝その月の予約日数÷月の日数</b>（複数月にまたがる予約は日割り）。<b>売上(実績)＝その月に配分した予約売上</b>（日割り按分・基本＋オプション−割引・現状＝台数無関係）。<b>平均＝3ヶ月の平均</b>。金額は万円・キャンセル除外。</div>
+      <div class="legend" style="padding:6px 0 0" id="lg1">基本料金＝単価×(目標稼働率×日数)×台数。付帯売上＝基本料金×15%(試算)。売上合計＝基本料金＋付帯売上。<b>稼働率(実績)＝その月の予約日数÷月の日数</b>（複数月にまたがる予約は日割り）。<b>売上(実績)＝その月に配分した予約売上</b>（日割り按分・基本＋オプション−割引・現状＝台数無関係）。<b>平均＝3ヶ月の平均</b>。金額は万円・キャンセル除外。</div>
     </div>
   </div>
 </div>
@@ -99,7 +99,7 @@ const setU=(el,n)=>{if(!el)return;el.textContent=pct(n);const c=uColor(n);el.sty
 function pdfExport(){if(window.self===window.top){window.print();return;}var u=location.href.split('#')[0];u+=(u.indexOf('?')>=0?'&':'?')+'print=1';var w=window.open(u,'_blank');if(!w)window.print();}
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
-const BUILD='2026-08-14i';
+const BUILD='2026-08-14j';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
@@ -150,9 +150,9 @@ async function fetchActual(){
   ACT.byV=byV;ACT.upd=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   if(g('actNote'))g('actNote').textContent='配車表(予約)から '+MONTHS.map(x=>x.m+'月').join(' / ')+' を集計 ｜ 最終更新 '+ACT.upd+' ｜ 🟢オンタイム';
 }
-const COLG='<colgroup><col style="width:130px"><col style="width:36px"><col style="width:78px"><col style="width:50px"><col style="width:48px"><col style="width:42px"><col style="width:84px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:62px"></colgroup>';
+const COLG='<colgroup><col style="width:130px"><col style="width:36px"><col style="width:78px"><col style="width:50px"><col style="width:48px"><col style="width:42px"><col style="width:84px"><col style="width:70px"><col style="width:84px"><col style="width:46px"><col style="width:46px"><col style="width:46px"><col style="width:50px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:62px"></colgroup>';
 function thead(){const M=MONTHS;
-  return '<thead><tr><th class="l" rowspan="2">車両</th><th rowspan="2">クラス</th><th rowspan="2">販売単価<br>(円/日)</th><th rowspan="2">目標<br>稼働率%</th><th rowspan="2">稼働<br>日数</th><th rowspan="2">台数</th><th rowspan="2">目標売上<br>(月)</th>'
+  return '<thead><tr><th class="l" rowspan="2">車両</th><th rowspan="2">クラス</th><th rowspan="2">販売単価<br>(円/日)</th><th rowspan="2">目標<br>稼働率%</th><th rowspan="2">稼働<br>日数</th><th rowspan="2">台数</th><th rowspan="2">基本料金<br>(月)</th><th rowspan="2">付帯売上<br>(15%)</th><th rowspan="2">売上合計<br>(月)</th>'
     +'<th colspan="4" class="sep">🚗 稼働率%(実績)</th><th colspan="4" class="sep">💴 売上(実績・万円)</th></tr>'
     +'<tr><th class="sep">'+M[0].m+'月<br><span class="sub">当月</span></th><th>'+M[1].m+'月<br><span class="sub">翌月</span></th><th>'+M[2].m+'月<br><span class="sub">翌々</span></th><th class="avg">平均</th>'
     +'<th class="sep">'+M[0].m+'月<br><span class="sub">当月</span></th><th>'+M[1].m+'月<br><span class="sub">翌月</span></th><th>'+M[2].m+'月<br><span class="sub">翌々</span></th><th class="avg">平均</th></tr></thead>';}
@@ -165,10 +165,10 @@ function buildRows(){
       +'<td><input class="in sm" data-k="u_'+c+'" type="number" min="0" max="100" step="1" value="'+du+'"></td>'
       +'<td id="dy_'+c+'" class="calc"></td>'
       +'<td><input class="in xs" data-k="n_'+c+'" type="number" min="0" step="1" value="'+dn+'"></td>'
-      +'<td id="mt_'+c+'" class="calc"></td>'
+      +'<td id="mt_'+c+'" class="calc"></td><td id="fee_'+c+'" class="calc"></td><td id="tot_'+c+'" class="calc big"></td>'
       +'<td id="au0_'+c+'" class="sep"></td><td id="au1_'+c+'"></td><td id="au2_'+c+'"></td><td id="aua_'+c+'" class="avg"></td>'
       +'<td id="ar0_'+c+'" class="sep"></td><td id="ar1_'+c+'"></td><td id="ar2_'+c+'"></td><td id="ara_'+c+'" class="avg"></td></tr>';};
-  const totRow=(pfx,label)=>'<tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_dy" class="calc"></td><td id="'+pfx+'_n" class="calc"></td><td id="'+pfx+'_tgt" class="calc big"></td>'
+  const totRow=(pfx,label)=>'<tr><td class="l">'+label+' <span id="'+pfx+'_cnt" class="sub"></span></td><td></td><td></td><td id="'+pfx+'_u" class="calc"></td><td id="'+pfx+'_dy" class="calc"></td><td id="'+pfx+'_n" class="calc"></td><td id="'+pfx+'_tgt" class="calc"></td><td id="'+pfx+'_fee" class="calc"></td><td id="'+pfx+'_tot" class="calc big"></td>'
     +'<td id="tu0_'+pfx+'" class="sep"></td><td id="tu1_'+pfx+'"></td><td id="tu2_'+pfx+'"></td><td id="tua_'+pfx+'" class="avg"></td>'
     +'<td id="tr0_'+pfx+'" class="sep"></td><td id="tr1_'+pfx+'"></td><td id="tr2_'+pfx+'"></td><td id="tra_'+pfx+'" class="avg big"></td></tr>';
   const AA=VEH.filter(v=>v.type==='AA'), OTH=VEH.filter(v=>v.type!=='AA');
@@ -195,6 +195,8 @@ function fillTot(pfx,x,D){
   if(g(pfx+'_dy'))g(pfx+'_dy').textContent=x.rows?((x.uSum/x.rows)/100*D).toFixed(1)+'日':'—';
   if(g(pfx+'_n'))g(pfx+'_n').textContent=x.units+'台';
   if(g(pfx+'_tgt'))g(pfx+'_tgt').innerHTML=man(x.tgt);
+  if(g(pfx+'_fee'))g(pfx+'_fee').innerHTML=man(x.tgt*0.15);
+  if(g(pfx+'_tot'))g(pfx+'_tot').innerHTML=man(x.tgt*1.15);
   ['tu0','tu1','tu2'].forEach((id,i)=>{setU(g(id+'_'+pfx),ut[i]);});
   setU(g('tua_'+pfx),uav);
   ['tr0','tr1','tr2'].forEach((id,i)=>{if(g(id+'_'+pfx))g(id+'_'+pfx).innerHTML=man(x.R[i]);});
@@ -211,6 +213,8 @@ function calc(){
     const rav=(a.r[0]+a.r[1]+a.r[2])/3;               // 実績＝現状（台数無関係で固定）
     if(g('dy_'+c))g('dy_'+c).textContent=dy.toFixed(1)+'日';
     if(g('mt_'+c))g('mt_'+c).innerHTML=man(mt);
+    if(g('fee_'+c))g('fee_'+c).innerHTML=man(mt*0.15);
+    if(g('tot_'+c))g('tot_'+c).innerHTML=man(mt*1.15);
     if(v._cand){ // 検討中＝実績なし → 実績列は「—」
       ['au0','au1','au2','aua'].forEach(id=>{var el=g(id+'_'+c);if(el){el.textContent='—';el.style.background='';el.style.color='#94a3b8';}});
       ['ar0','ar1','ar2','ara'].forEach(id=>{var el=g(id+'_'+c);if(el)el.innerHTML='<span class="dim">—</span>';});
