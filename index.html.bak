@@ -16201,7 +16201,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
 
   const[isMobile,setIsMobile]=useState(window.innerWidth<=768);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<=768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
-  const COL_W=viewMode==="month"?(isMobile?60:80):viewMode==="week"?(isMobile?100:140):600;const LEFT_W=isMobile?100:260;const ROW_H=30;const CLASS_H=28;
+  const COL_W=viewMode==="month"?(isMobile?60:80):viewMode==="week"?(isMobile?100:140):600;const LEFT_W=isMobile?140:260;const ROW_H=30;const CLASS_H=28;
   const monthLabel=useMemo(()=>{const dt=new Date(baseDate+"T00:00:00");return`${dt.getFullYear()}年${dt.getMonth()+1}月`;},[baseDate]);
   const monthStats=useMemo(()=>{const dt=new Date(baseDate+"T00:00:00");const y=dt.getFullYear(),m=dt.getMonth();const mStart=`${y}-${String(m+1).padStart(2,"0")}-01`;const mEnd=`${y}-${String(m+1).padStart(2,"0")}-${new Date(y,m+1,0).getDate()}`;const active=data.filter(r=>r.status!=="cancelled");const dep=active.filter(r=>r.lendDate>=mStart&&r.lendDate<=mEnd).length;const ret=active.filter(r=>r.returnDate>=mStart&&r.returnDate<=mEnd).length;return{dep,ret};},[data,baseDate]);
 
@@ -16561,8 +16561,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
             {!collapsed[g.type]&&g.items.map(v=>{const bars=vehicleBars[v.code]||[];const isDT=dropTarget&&dropTarget.vc===v.code;const rowHL=isDT?(dropTarget.ok?"rgba(34,197,94,.15)":"rgba(239,68,68,.1)"):"transparent";const hasSearchHit=searchResult&&searchResult.found&&bars.some(b=>b.type==="reservation"&&searchResult.hitSet.has(b.r.id));return <tr key={v.id} ref={el=>{vehicleRowRefs.current[v.code]=el;}} onDragOver={e=>handleDragOver(e,v.code)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,v.code)} style={{outline:isDT?(dropTarget.ok?"2px solid #22c55e":"2px dashed #ef4444"):"none",background:hasSearchHit?"#fefce8":"transparent"}}>
               <td style={{position:"sticky",left:0,zIndex:5,height:ROW_H,background:hasSearchHit?"#fef08a":(isDT?(dropTarget.ok?"#dcfce7":"#fef2f2"):"#fff"),borderBottom:"1px solid #f1f5f9",borderRight:hasSearchHit?"3px solid #f59e0b":"2px solid #94a3b8",padding:isMobile?"0 4px":"0 10px",overflow:"hidden",whiteSpace:"nowrap",transition:"background .15s"}}>
                 {hasSearchHit&&<span style={{fontSize:9,marginRight:3}}>📍</span>}
-                <span style={{fontSize:isMobile?9:10,fontWeight:700,color:hasSearchHit?"#b45309":"#2563eb"}}>{v.no}<span style={{fontSize:8,color:hasSearchHit?"#92400e":"#94a3b8",fontWeight:500}}>({v.seats})</span></span>
-                {!isMobile&&<span style={{fontSize:9,color:"#64748b",marginLeft:4}}>{v.name}</span>}
+                <span style={{fontSize:isMobile?9:10,fontWeight:700,color:hasSearchHit?"#b45309":"#2563eb"}}>{v.name} {v.no}<span style={{fontSize:8,color:hasSearchHit?"#92400e":"#94a3b8",fontWeight:500}}>({v.seats})</span></span>
                 <span onClick={e=>{e.stopPropagation();toggleKpi(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:isKpiActive(v.code)?"#dcfce7":"#fee2e2",color:isKpiActive(v.code)?"#059669":"#dc2626",border:"1px solid "+(isKpiActive(v.code)?"#86efac":"#fca5a5")}} title={isKpiActive(v.code)?"稼働中（クリックで除外）":"除外中（クリックで稼働に変更）"}>{isKpiActive(v.code)?"稼働":"除外"}</span>
                 <span onClick={e=>{e.stopPropagation();toggleHideVeh(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:"#f1f5f9",color:"#64748b",border:"1px solid #cbd5e1"}} title="折りたたみ（一時的に非表示・クラス見出しから戻せます）">👁 隠す</span>
                 {vehicleRevenue[v.code]>0&&<span title={"車両売上 ¥"+Math.round(vehicleRevenue[v.code]).toLocaleString()+" (配車表 表示期間内)"} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,background:"#f0fdf4",color:"#15803d",border:"1px solid #86efac"}}>💰 {fmtRev(vehicleRevenue[v.code])}</span>}
@@ -23260,7 +23259,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.320-BT";
+const APP_VERSION="v1.0.321-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
