@@ -65,7 +65,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🌐 獲得サマリ（HP／OTA） <span id="storelbl" style="font-size:11px;color:#64748b"></span> <button class="btn g noprint" style="margin-left:auto" onclick="window.print()">📄 PDF出力</button> <a href="index.html">🏠 管理APP</a></h1>
+  <h1>🌐 獲得サマリ（HP／OTA） <span id="storelbl" style="font-size:11px;color:#64748b"></span> <button class="btn g noprint" style="margin-left:auto" onclick="pdfExport()">📄 PDF出力</button> <a href="index.html">🏠 管理APP</a></h1>
   <div class="note">
     <b>流通（発生月）ベース</b>＝予約が<b>入った月</b>で集計。<b>「HP」＝自社獲得（公式サイト・直販＝OTA以外）</b>。札幌/那覇＝ota:HP・SP／高松＝公式site＋SP。キャンセル（英/日）除外。<br>
     ・獲得数/売上＝その月に発生したHP予約。CPA＝広告費÷獲得数／ROAS＝売上÷広告費。<br>
@@ -269,9 +269,12 @@ function renderLT(elId,Md,occMonths){
 (async function(){
   const st=document.getElementById('status');
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（データはログイン必須）。';return;}
-  try{await loadAd();const resv=await fetchAll();ROWS=resv;BUILT=build(resv);render();}
+  try{await loadAd();const resv=await fetchAll();ROWS=resv;BUILT=build(resv);render();
+    if(new URLSearchParams(location.search).get('print')){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},500);}}
   catch(e){st.style.display='block';st.textContent='⚠️ 読み込みエラー: '+(e.message||e);}
 })();
+// PDF出力：ハブのiframe内からwindow.print()するとプレビューが出ないブラウザがあるため、別タブで開いて自動印刷
+function pdfExport(){if(window.self===window.top){window.print();return;}var u=location.href.split('#')[0];u+=(u.indexOf('?')>=0?'&':'?')+'print=1';var w=window.open(u,'_blank');if(!w)window.print();}
 </script>
 </body>
 </html>

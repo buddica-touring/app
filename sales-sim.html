@@ -57,7 +57,7 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h2>📊 売上シミュレーション — 🚐高松店 <span class="sub" style="color:#cbd5e1">仮説＋実績オンタイム</span> <button class="noprint" style="margin-left:auto;border:none;background:#0f766e;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer" onclick="window.print()">📄 PDF出力</button> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
+    <h2>📊 売上シミュレーション — 🚐高松店 <span class="sub" style="color:#cbd5e1">仮説＋実績オンタイム</span> <button class="noprint" style="margin-left:auto;border:none;background:#0f766e;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer" onclick="pdfExport()">📄 PDF出力</button> <a class="rst" href="#" onclick="reset_();return false">↩ 初期値</a></h2>
     <div class="bd"><div class="legend">マスター車両ごとに <b class="yl">販売単価</b>・<b class="yl">目標稼働率</b>・<b class="yl">台数</b> を入力→<b class="gy">目標売上＝単価×稼働率×日数×台数</b>。<b class="gr">稼働率(実績)・売上(実績)は当月/翌月/翌々月＋平均を配車表(予約)から自動＝常に現状</b>。<b>台数は目標売上(仮説)に反映</b>（実績列は台数で動かさない＝常に現状）。</div></div>
   </div>
   <div id="status" class="st"></div>
@@ -93,9 +93,11 @@ const pct=n=>(Math.round(n)||0)+'%';
 // 稼働率を10%刻みでヒートマップ色分け（0-9%…90%+）
 const uColor=n=>{if(n==null||isNaN(n))return['',''];const b=Math.max(0,Math.min(9,Math.floor(n/10)));const bg=['#f1f5f9','#e6f5ec','#ccebd7','#a9dcbb','#82cd9c','#57bd7c','#33ad60','#1f9950','#127a3f','#0a5c30'][b];const fg=b>=6?'#fff':'#0f172a';return[bg,fg];};
 const setU=(el,n)=>{if(!el)return;el.textContent=pct(n);const c=uColor(n);el.style.background=c[0];el.style.color=c[1];el.style.fontWeight='700';};
+// PDF出力：ハブのiframe内からwindow.print()するとプレビューが出ないブラウザがあるため、別タブで開いて自動印刷
+function pdfExport(){if(window.self===window.top){window.print();return;}var u=location.href.split('#')[0];u+=(u.indexOf('?')>=0?'&':'?')+'print=1';var w=window.open(u,'_blank');if(!w)window.print();}
 function calcMonths(){const now=new Date();const MS=[];let y=now.getFullYear(),m=now.getMonth()+1;for(let i=0;i<3;i++){let yy=y,mm=m+i;while(mm>12){mm-=12;yy++;}MS.push({y:yy,m:mm,dim:new Date(yy,mm,0).getDate(),ms:new Date(yy,mm-1,1),me:new Date(yy,mm,0)});}return MS;}
 const MONTHS=calcMonths();
-const BUILD='2026-08-14g';
+const BUILD='2026-08-14h';
 let VEH=[], ACT={byV:{},upd:''};
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
@@ -233,6 +235,7 @@ function reset_(){const s=loadStore();Object.keys(s).forEach(k=>{if(/^(p_|u_|n_)
     if(g('ver'))g('ver').textContent='版 '+BUILD+' ｜ 対象 '+MONTHS.map(x=>x.m+'月').join('/')+' ｜ 入力(単価/目標稼働率/台数)は全端末で共有(DB)。実績は配車表から自動。数字が端末で違う時は両方リロード。';
     await fetchActual();calc();
     setInterval(()=>fetchActual().then(calc).catch(()=>{}),300000);
+    if(new URLSearchParams(location.search).get('print')){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},500);}
   }catch(e){st.style.display='block';st.textContent='⚠️ 読み込みエラー: '+(e.message||e)+'（ログインしてから再度お開きください）';}
 })();
 </script>
