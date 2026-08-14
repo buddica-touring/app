@@ -34,6 +34,7 @@ const TABS=[
   {id:'sim', ico:'🎯', l:'売上シミュレーション',         src:'sales-sim.html?v=12'},
 ];
 const KEY='bt_strategy_tab';
+const CB=Date.now(); // ページ読込ごとに変わるキャッシュバスター＝常に最新のツールを取得（?v手動更新が不要）
 let cur=(()=>{try{const v=localStorage.getItem(KEY);return TABS.some(t=>t.id===v)?v:TABS[0].id;}catch(e){return TABS[0].id;}})();
 const tabsEl=document.getElementById('tabs'), framesEl=document.getElementById('frames');
 function render(){
@@ -41,7 +42,7 @@ function render(){
   TABS.forEach(t=>{
     let f=document.getElementById('fr_'+t.id);
     if(t.id===cur&&!f){ // 初回表示時にだけ生成（lazy）。以後は保持＝タブ往復で状態が消えない
-      f=document.createElement('iframe');f.id='fr_'+t.id;f.src=t.src;framesEl.appendChild(f);
+      f=document.createElement('iframe');f.id='fr_'+t.id;f.src=t.src+(t.src.indexOf('?')>=0?'&':'?')+'_cb='+CB;framesEl.appendChild(f);
     }
     if(f)f.className=(t.id===cur?'on':'');
   });
