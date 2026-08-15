@@ -23265,7 +23265,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.322-BT";
+const APP_VERSION="v1.0.323-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24873,6 +24873,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
   // ★ 全車両ランキング用KPI（bt_vehicle_monthly_kpi）＝車両ランキングタブと同一計算をPDF下段に反映
   const [rankKpi,setRankKpi]=React.useState([]);
   const [txtOut,setTxtOut]=React.useState(null);   // テキスト日報（コピー用）
+  const [mtgOpen,setMtgOpen]=React.useState(false); // 📋定例MTGまとめ（既存計算値の集約表示・再計算なし）
   React.useEffect(()=>{
     if(!sb)return;let alive=true;
     (async()=>{try{const{data:k}=await sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,year_month,active");if(alive)setRankKpi(k||[]);}catch(e){console.warn("[日報ランキングKPI]",e);}})();
@@ -25422,6 +25423,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         <button onClick={openPreview} disabled={pdfBusy} style={{padding:"7px 16px",background:"#FABE00",color:"#0F1F45",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"👁 プレビュー"}</button>
         <button onClick={makePdf} disabled={pdfBusy} style={{padding:"7px 16px",background:"#fff",color:"#0F1F45",border:"1.5px solid #FABE00",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>{pdfBusy?"生成中…":"📄 PDF出力"}</button>
         <button onClick={copyDailyText} style={{padding:"7px 16px",background:"#0f766e",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📋 テキストコピー</button>
+        <button onClick={()=>setMtgOpen(true)} style={{padding:"7px 16px",background:"#7c3aed",color:"#fff",border:"none",borderRadius:8,fontWeight:800,fontSize:13,cursor:"pointer"}}>📋 定例MTG</button>
         {savedMsg&&<span style={{fontSize:12,fontWeight:700,color:savedMsg[0]==="✅"?"#059669":"#dc2626"}}>{savedMsg}</span>}
       </div>
       {txtOut!=null&&<div onClick={()=>setTxtOut(null)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -25435,6 +25437,74 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
           <textarea readOnly value={txtOut} onFocus={e=>e.target.select()} style={{width:"100%",flex:1,minHeight:360,fontFamily:"ui-monospace,Menlo,Consolas,monospace",fontSize:12,lineHeight:1.5,border:"1px solid #cbd5e1",borderRadius:8,padding:12,whiteSpace:"pre",overflow:"auto",color:"#0f172a",background:"#f8fafc"}}/>
         </div>
       </div>}
+      {/* 📋 定例MTG まとめ（既存計算値をそのまま集約＝日報テキスト buildDailyText と同じ数字・再計算なし） */}
+      {mtgOpen&&(()=>{
+        const yen=n=>"¥"+Number(n||0).toLocaleString();
+        const curYr=repSum.curYM.slice(0,4);
+        const yrD=repSum.byY[curYr]||{count:0,sales:0};
+        const curM=repSum.byM[repSum.curYM]||{count:0,sales:0};
+        const hp=(repSum.curCh&&repSum.curCh["HP"])||{count:0,sales:0};
+        const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
+        const oth=(repSum.curCh&&repSum.curCh["その他"])||{count:0,sales:0};
+        const uOf=c=>c.count?Math.round(c.sales/c.count):0;
+        const yogai=Math.max(0,(curM.sales||0)-hp.sales-ota.sales-oth.sales);
+        const dc=repSum.dayCmp||{dCount:0,dSales:0};
+        const mm=repSum.curYM.slice(5)+"月";
+        const fmtD=(n,y)=>(n>0?"+":(n<0?"−":"±"))+(y?yen(Math.abs(n)):(Math.abs(n)+"件"));
+        const gAA=Number(gGroupOf("aa"))||0,gOt=Number(gGroupOf("other"))||0,gTot=gAA+gOt;
+        const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt;
+        const vr=computeVehicleRanking(vehicles,data,fleet,rankKpi,"bt","ALL",maintenance);
+        const vrows=(vr.rows||[]).filter(r=>(r.cnt||0)>0||(r.revTotal||0)>0);
+        const sec={marginBottom:14};
+        const secHd={fontSize:13,fontWeight:900,color:"#fff",background:"#0F1F45",padding:"7px 12px",borderRadius:"9px 9px 0 0"};
+        const secBd={border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 9px 9px",padding:12,background:"#fff"};
+        const chRow=(nm,c)=>{const pct=repSum.total>0?Math.round((c.sales||0)/repSum.total*100):0;return <tr key={nm} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{c.count||0}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(c.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed",fontWeight:800}}>{pct}%</td></tr>;};
+        return <div onClick={()=>setMtgOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#f8fafc",borderRadius:14,maxWidth:820,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)",padding:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <b style={{fontSize:16,color:"#0F1F45"}}>📋 定例MTG まとめ</b>
+              <span style={{fontSize:10.5,color:"#64748b"}}>日報の集計値をそのまま集約（返却月ベース・再計算なし）／基準日 {norm(date)}</span>
+              <button onClick={copyDailyText} style={{marginLeft:"auto",padding:"5px 12px",background:"#0f766e",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📋 テキストで全文コピー</button>
+              <button onClick={()=>setMtgOpen(false)} style={{padding:"5px 12px",background:"#e2e8f0",color:"#334155",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>✕ 閉じる</button>
+            </div>
+            {/* ① 件数・売上サマリー */}
+            <div style={sec}><div style={secHd}>■ 件数・売上（返却月ベース・実績）</div><div style={secBd}>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                <div style={{flex:"1 1 160px",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{curYr}年 累計</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{yrD.count}件</div></div>
+                <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月（{mm}）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件　<span style={{color:dc.dSales>=0?"#059669":"#dc2626"}}>前日比 {fmtD(dc.dCount,false)} / {fmtD(dc.dSales,true)}</span></div></div>
+              </div>
+              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                <tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>🌐 HP（自社）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{hp.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(hp.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(hp))}</td></tr>
+                <tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>🏢 OTA</td><td style={{padding:"5px 6px",textAlign:"right"}}>{ota.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(ota.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(ota))}</td></tr>
+                {(oth.count||oth.sales)?<tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>▫️ その他</td><td style={{padding:"5px 6px",textAlign:"right"}}>{oth.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(oth.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(oth))}</td></tr>:null}
+                {yogai>0?<tr><td style={{padding:"5px 6px",fontWeight:800,color:"#5b21b6"}}>＋予約外売上</td><td style={{padding:"5px 6px",textAlign:"right",color:"#94a3b8",fontSize:10}}>件数外</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:"#5b21b6"}}>{fmtD(yogai,true)}</td><td></td></tr>:null}
+              </tbody></table>
+            </div></div>
+            {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
+            <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）</div><div style={secBd}>
+              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>チャネル</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>計上額</td><td style={{padding:"4px 6px",textAlign:"right"}}>構成比</td></tr>
+                {["OTA","HP","その他"].map(ch=>chRow(ch,(repSum.byCh&&repSum.byCh[ch])||{count:0,sales:0}))}
+                <tr style={{background:"#0F1F45",color:"#fff",fontWeight:900}}><td style={{padding:"6px"}}>合計</td><td style={{padding:"6px",textAlign:"right"}}>{["OTA","HP","その他"].reduce((s,ch)=>s+(((repSum.byCh&&repSum.byCh[ch])||{}).count||0),0)}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(repSum.total)}</td><td style={{padding:"6px",textAlign:"right"}}>100%</td></tr>
+              </tbody></table>
+            </div></div>
+            {/* ③ 月間目標 */}
+            <div style={sec}><div style={secHd}>■ 月間目標（テーマ／{repSum.curYM}）</div><div style={secBd}>
+              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                {[["AAクラス",gAA,aAA],["AA以外",gOt,aOt],["合計",gTot,aTot]].map(([nm,g,a])=>{const r=g>0?Math.round(a/g*100):0;return <tr key={nm} style={{borderBottom:"1px solid #f1f5f9",fontWeight:nm==="合計"?900:600}}><td style={{padding:"5px 6px"}}>{nm}</td><td style={{padding:"5px 6px",textAlign:"right",color:r>=100?"#059669":r>=80?"#d97706":"#dc2626",fontWeight:800}}>達成{r}%</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>目標{yen(g)}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>実績{yen(a)}</td></tr>;})}
+              </tbody></table>
+            </div></div>
+            {/* ④ 車両ランキング */}
+            <div style={sec}><div style={secHd}>■ 車両ランキング（累計・予約実績あり・稼働率=配車表ルール）</div><div style={secBd}>
+              {vrows.length?<table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}><tbody>
+                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:10.5}}><td style={{padding:"4px 5px"}}>#</td><td style={{padding:"4px 5px"}}>車両</td><td style={{padding:"4px 5px",textAlign:"center"}}>評価</td><td style={{padding:"4px 5px",textAlign:"right"}}>売上</td><td style={{padding:"4px 5px",textAlign:"right"}}>粗利</td><td style={{padding:"4px 5px",textAlign:"right"}}>予約</td><td style={{padding:"4px 5px",textAlign:"right"}}>稼働</td></tr>
+                {vrows.map((r,i)=>{const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";return <tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 5px",color:"#94a3b8",fontWeight:800}}>{i+1}</td><td style={{padding:"5px 5px",fontWeight:800}}>{veh}<span style={{color:"#94a3b8",fontWeight:600}}> / {r.type||"-"}</span></td><td style={{padding:"5px 5px",textAlign:"center",fontWeight:900,color:"#7c3aed"}}>{r.rank||"-"}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{yen(Math.round(r.revTotal))}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800,color:r.profit<0?"#dc2626":"#059669"}}>{r.profit<0?"▲":"+"}{yen(Math.abs(Math.round(r.profit)))}</td><td style={{padding:"5px 5px",textAlign:"right"}}>{r.cnt||0}件</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{Math.round(r.utilPct)}%</td></tr>;})}
+              </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>予約実績のある車両なし</div>}
+              <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※累計・全期間。予約・売上なしの車両は非表示。</div>
+            </div></div>
+          </div>
+        </div>;
+      })()}
       {/* ★ 2026-08-10 上段サマリー：年間・月別 件数/売上（日報実績と一致＝返却月×配車済×revOf） */}
       <div style={{marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
         <div style={{padding:"6px 10px",background:"#0F1F45",color:"#fff",fontSize:12,fontWeight:800}}>📊 件数・売上サマリー（返却月ベース・実績）</div>
