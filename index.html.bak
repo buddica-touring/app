@@ -23265,7 +23265,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.323-BT";
+const APP_VERSION="v1.0.324-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24745,7 +24745,7 @@ function BtInventoryTab({data,sb,store,onCancel}){
   const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR","じゃらん":"JLN","楽天":"RKT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
   const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b","じゃらん":"#16a34a","楽天":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
   // 高松の在庫調整対象3チャネル
-  const CH=[{key:"adj_airtrip",l:"エアトリ",origin:"O"},{key:"adj_official",l:"オフィシャル",origin:"HP"},{key:"adj_rentacom",l:"レンカ",origin:"RC"},{key:"adj_jalan",l:"じゃらん",origin:"J"}];
+  const CH=[{key:"adj_official",l:"BDC",origin:"HP"},{key:"adj_airtrip",l:"ART",origin:"O"},{key:"adj_rentacom",l:"RDC",origin:"RC"},{key:"adj_jalan",l:"JLN",origin:"J"}];
   // 発生元OTA→自媒体キー（空欄/その他は「オフィシャル」扱い・オーナー確定）
   // ★2026-08-05 発生元OTAは「コード(O/A/RC)」と「フルネーム(エアトリ/レンタカードットコム)」の両方に対応。
   //  GAS取込はota=フルネーム・CSV取込はota=コードで保存されるため、片方だけ見ると全OTA予約がオフィシャル誤判定(オフィシャル済み)になっていた。
@@ -24825,12 +24825,12 @@ function BtInventoryTab({data,sb,store,onCancel}){
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#059669"}}>{cntDone}</div><div style={{fontSize:11,color:"#64748b"}}>対応済み</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700}}>{rows.length}</div><div style={{fontSize:11,color:"#64748b"}}>表示中</div></div>
     </div>
-    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}{chip("O","エアトリ")}{chip("HP","オフィシャル")}{chip("RC","レンカ")}{chip("J","じゃらん")}</div>
+    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}{chip("HP","BDC")}{chip("O","ART")}{chip("RC","RDC")}{chip("J","JLN")}</div>
     <div style={{overflowX:"auto"}}>
     <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 6px",minWidth:900}}>
       <thead><tr style={{fontSize:11,color:"#64748b",textAlign:"left"}}>
         <th style={{padding:"0 8px 4px"}}>予約日時</th><th style={{padding:"0 8px 4px"}}>媒体</th><th style={{padding:"0 8px 4px"}}>予約者名</th><th style={{padding:"0 8px 4px"}}>予約番号</th><th style={{padding:"0 8px 4px"}}>貸出</th><th style={{padding:"0 8px 4px"}}>返却</th><th style={{padding:"0 8px 4px"}}>クラス</th>
-        <th style={{padding:"0 8px 4px",textAlign:"center"}}>エアトリ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>オフィシャル</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>レンカ</th><th style={{padding:"0 8px 4px",textAlign:"center"}}>じゃらん</th>
+        {CH.map(c=><th key={c.key} style={{padding:"0 8px 4px",textAlign:"center"}}>{c.l}</th>)}
       </tr></thead>
       <tbody>
       {shown.length===0&&<tr><td colSpan={11} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
