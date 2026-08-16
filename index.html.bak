@@ -17377,7 +17377,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     return()=>{clearTimeout(t0);clearInterval(iv);};
   },[selDate,tasks.length]);
   // ソート
-  const[sortKey,setSortKey]=useState(null);const[sortAsc,setSortAsc]=useState(true);
+  const[sortKey,setSortKey]=useState("time");const[sortAsc,setSortAsc]=useState(true);/* ★2026-08-16 デフォルト=時間昇順。手動並び替え(moveRow)はsetSortKey(null)→_sortOrder順を維持 */
   const _mn=x=>{const m=/^(\d{1,2}):(\d{2})/.exec(String((x&&x.timeChange)||(x&&x._ssTime)||(x&&x.time)||""));return m?(+m[1]*60+ +m[2]):99999;};
   const doSort=(arr,key,asc)=>{const dir=asc?1:-1;const tm=x=>_mn(x);return[...arr].sort((a,b)=>{let va,vb;switch(key){case"time":va=_mn(a);vb=_mn(b);break;case"type":va=a.type||"";vb=b.type||"";break;case"assignee":va=a.assignee||"zzz";vb=b.assignee||"zzz";break;case"name":va=a.name||"";vb=b.name||"";break;case"vehicle":va=a.assignedVehicle||"";vb=b.assignedVehicle||"";break;case"done":va=a.done?1:0;vb=b.done?1:0;break;default:va="";vb="";}let cmp=(typeof va==="number")?(va-vb):va.localeCompare(vb,"ja");if(cmp!==0)return cmp*dir;/* ★同値は時間の早い順で二次ソート（担当ソート時に各人の中が時系列になる）*/return tm(a)-tm(b);});};
   const handleSort=(key)=>{
@@ -23265,7 +23265,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.325-BT";
+const APP_VERSION="v1.0.326-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
