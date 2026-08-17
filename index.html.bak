@@ -5099,18 +5099,19 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
    車検/点検/修理（3サブタブ: 車両マスター / スケジュール / 資金繰り）
    ========================================== */
 // 🏭 入庫予定 登録フォーム（配車表 bt_maintenance へ登録＋在庫調整 bt_intake_actions へ起票）
-function IntakeAddForm({preset,vehicles,maintenance,onMaintenanceChange,onClose}){
+function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onClose}){
   const today=new Date().toISOString().slice(0,10);
-  const[vc,setVc]=useState(preset.vehicleCode||"");
-  const[label,setLabel]=useState(preset.label||"車検");
-  const[fix,setFix]=useState(false);
-  const[sd,setSd]=useState(preset.date||today);
-  const[ed,setEd]=useState(preset.date||today);
-  const[st,setSt]=useState("");
-  const[et,setEt]=useState("");
-  const[ws,setWs]=useState("");
-  const[cost,setCost]=useState("");
-  const[detail,setDetail]=useState("");
+  const e=edit||{};
+  const[vc,setVc]=useState(e.vehicleCode||preset.vehicleCode||"");
+  const[label,setLabel]=useState(e.label||preset.label||"車検");
+  const[fix,setFix]=useState((e.status||"")==="approved");
+  const[sd,setSd]=useState(e.startDate||preset.date||today);
+  const[ed,setEd]=useState(e.endDate||preset.date||today);
+  const[st,setSt]=useState(e.startTime||"");
+  const[et,setEt]=useState(e.endTime||"");
+  const[ws,setWs]=useState(e.workshop||"");
+  const[cost,setCost]=useState(e.cost?String(e.cost):"");
+  const[detail,setDetail]=useState(e.maintNotes||"");
   const[saving,setSaving]=useState(false);
   const vehName=(code)=>{const v=(vehicles||[]).find(x=>x.code===code);return v?v.name:code;};
   const LAB={display:"block",fontSize:11,fontWeight:700,color:"#475569",marginBottom:3};
@@ -5121,26 +5122,42 @@ function IntakeAddForm({preset,vehicles,maintenance,onMaintenanceChange,onClose}
     if(!sd||!ed){alert("入庫日・引取日を入力してください");return;}
     if(ed<sd){alert("引取日は入庫日以降にしてください");return;}
     setSaving(true);
-    const id="m"+Date.now();
+    const id=edit?edit.id:("m"+Date.now());
     const status=fix?"approved":"pending";
-    const row={id,vehicle_code:vc,start_date:sd,end_date:ed,label,cost:Number(cost)||0,actual_cost:0,workshop:ws||"",invoice_no:"",maint_notes:detail||"",status,work_detail:detail||"",start_time:st||null,end_time:et||null};
+    const ac=edit?(Number(edit.actualCost)||0):0; // 編集時は確定金額を保持（確定入力を上書きしない）
+    const row={id,vehicle_code:vc,start_date:sd,end_date:ed,label,cost:Number(cost)||0,actual_cost:ac,workshop:ws||"",invoice_no:edit?(edit.invoiceNo||""):"",maint_notes:detail||"",status,work_detail:detail||"",start_time:st||null,end_time:et||null};
     try{
       if(typeof sb!=="undefined"&&sb){
-        const{error}=await sb.from("bt_maintenance").insert(row);
+        const{error}=await sb.from("bt_maintenance").upsert(row,{onConflict:"id"});
         if(error)throw new Error(error.message);
         // 在庫調整に起票（全媒体 調整対象）
-        try{await sb.from("bt_intake_actions").insert({action_type:"intake_created",vehicle_code:vc,user_email:(window.__BT_USER_EMAIL||""),target_date_from:sd,target_date_to:ed,notified_slack:false,payload:{action:"intake_created",id,label,vehicle:vehName(vc),start:sd,end:ed,start_time:st||"",end_time:et||"",workshop:ws||"",status,all_media:true,adjust_target:"全媒体",source:"inspection"}});}catch(e){}
+        try{await sb.from("bt_intake_actions").insert({action_type:edit?"intake_edited":"intake_created",vehicle_code:vc,user_email:(window.__BT_USER_EMAIL||""),target_date_from:sd,target_date_to:ed,notified_slack:false,payload:{action:edit?"intake_edited":"intake_created",id,label,vehicle:vehName(vc),start:sd,end:ed,start_time:st||"",end_time:et||"",workshop:ws||"",status,all_media:true,adjust_target:"全媒体",source:"inspection"}});}catch(e){}
       }
-      const rec={id,vehicleCode:vc,startDate:sd,endDate:ed,label,cost:Number(cost)||0,actualCost:0,workshop:ws||"",invoiceNo:"",maintNotes:detail||"",status,startTime:st||"",endTime:et||""};
-      if(onMaintenanceChange)onMaintenanceChange([...(maintenance||[]),rec]);
-      try{const arr=JSON.parse(localStorage.getItem("bt_maintenance")||"[]");arr.push(rec);localStorage.setItem("bt_maintenance",JSON.stringify(arr));}catch(e){}
+      const rec={id,vehicleCode:vc,startDate:sd,endDate:ed,label,cost:Number(cost)||0,actualCost:ac,workshop:ws||"",invoiceNo:edit?(edit.invoiceNo||""):"",maintNotes:detail||"",status,startTime:st||"",endTime:et||""};
+      if(onMaintenanceChange)onMaintenanceChange(edit?(maintenance||[]).map(m=>m.id===id?rec:m):[...(maintenance||[]),rec]);
+      try{const arr=JSON.parse(localStorage.getItem("bt_maintenance")||"[]").filter(m=>m.id!==id);arr.push(rec);localStorage.setItem("bt_maintenance",JSON.stringify(arr));}catch(e){}
       onClose(true);
-    }catch(e){alert("登録に失敗しました: "+(e.message||e));setSaving(false);}
+    }catch(e){alert((edit?"更新":"登録")+"に失敗しました: "+(e.message||e));setSaving(false);}
+  };
+  const del=async()=>{
+    if(!edit)return;
+    if(!window.confirm("この入庫予定を削除しますか？\n配車表・在庫調整からも消えます。"))return;
+    setSaving(true);
+    try{
+      if(typeof sb!=="undefined"&&sb){
+        await DB.deleteMaintenance(edit.id);
+        try{await sb.from("bt_inventory_status").delete().eq("id",edit.id);}catch(e){}
+        try{await sb.from("bt_intake_actions").insert({action_type:"intake_cancelled",vehicle_code:vc,user_email:(window.__BT_USER_EMAIL||""),target_date_from:sd,target_date_to:ed,notified_slack:false,payload:{action:"intake_cancelled",id:edit.id,label,vehicle:vehName(vc),start:sd,end:ed,source:"inspection"}});}catch(e){}
+      }
+      if(onMaintenanceChange)onMaintenanceChange((maintenance||[]).filter(m=>m.id!==edit.id));
+      try{const arr=JSON.parse(localStorage.getItem("bt_maintenance")||"[]").filter(m=>m.id!==edit.id);localStorage.setItem("bt_maintenance",JSON.stringify(arr));}catch(e){}
+      onClose(true);
+    }catch(e){alert("削除に失敗しました: "+(e.message||e));setSaving(false);}
   };
   return <div onClick={()=>onClose()} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:20,width:"100%",maxWidth:460,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-        <span style={{fontSize:15,fontWeight:900}}>🏭 入庫予定を登録</span>
+        <span style={{fontSize:15,fontWeight:900}}>🏭 入庫予定を{edit?"編集":"登録"}</span>
         <span style={{fontSize:10,color:"#94a3b8",marginLeft:"auto"}}>配車表・在庫調整に反映</span>
       </div>
       <div style={{display:"grid",gap:12}}>
@@ -5170,7 +5187,8 @@ function IntakeAddForm({preset,vehicles,maintenance,onMaintenanceChange,onClose}
       </div>
       <div style={{display:"flex",gap:8,marginTop:16}}>
         <button onClick={()=>onClose()} style={{flex:1,padding:"11px",borderRadius:10,border:"1px solid #e2e8f0",background:"#fff",color:"#64748b",fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
-        <button onClick={save} disabled={saving} style={{flex:2,padding:"11px",borderRadius:10,border:"none",background:"#1d4ed8",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",opacity:saving?.6:1}}>{saving?"登録中…":"登録する"}</button>
+        {edit&&<button onClick={del} disabled={saving} style={{flex:1,padding:"11px",borderRadius:10,border:"1px solid #fecaca",background:"#fff",color:"#dc2626",fontWeight:800,fontSize:13,cursor:"pointer",opacity:saving?.6:1}}>🗑 削除</button>}
+        <button onClick={save} disabled={saving} style={{flex:2,padding:"11px",borderRadius:10,border:"none",background:"#1d4ed8",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",opacity:saving?.6:1}}>{saving?(edit?"更新中…":"登録中…"):(edit?"更新する":"登録する")}</button>
       </div>
       <div style={{fontSize:10,color:"#94a3b8",marginTop:10,lineHeight:1.5}}>登録すると<b>配車表</b>にメンテブロック（該当期間は配車不可）として反映され、<b>在庫調整</b>に「全媒体 調整対象」として起票されます。</div>
     </div>
@@ -5241,8 +5259,9 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
   };
   const[openMonths,setOpenMonths]=useState({});
   const toggleMonth=(mo)=>setOpenMonths(p=>({...p,[mo]:!p[mo]}));
-  const[addForm,setAddForm]=useState(null); // 🏭 入庫予定 登録フォーム {vehicleCode?,label?}
-  const openAdd=(preset)=>setAddForm(preset||{});
+  const[addForm,setAddForm]=useState(null); // 🏭 入庫予定 フォーム {preset:{vehicleCode?,label?}} または {edit:record}
+  const openAdd=(preset)=>setAddForm({preset:preset||{}});
+  const openEdit=(rec)=>{if(rec&&rec.id)setAddForm({edit:rec});};
 
   // ===== タブボタン =====
   const tabBtn=(id,icon,label)=><button onClick={()=>setIcTab(id)} style={{padding:"6px 14px",fontSize:12,fontWeight:icTab===id?700:500,color:icTab===id?"#2563eb":"#64748b",background:icTab===id?"#eff6ff":"none",border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><span>{icon}</span>{label}</button>;
@@ -5263,11 +5282,11 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
       {tabBtn("inspection","🚗","車検/点検/修理 スケジュール")}
     </div>
 
-    {/* 🏭 入庫予定 登録フォーム */}
-    {addForm&&<IntakeAddForm preset={addForm} vehicles={vehicles} maintenance={maintenance} onMaintenanceChange={onMaintenanceChange} onClose={()=>setAddForm(null)}/>}
+    {/* 🏭 入庫予定 登録/編集フォーム */}
+    {addForm&&<IntakeAddForm preset={addForm.preset||{}} edit={addForm.edit||null} vehicles={vehicles} maintenance={maintenance} onMaintenanceChange={onMaintenanceChange} onClose={()=>setAddForm(null)}/>}
 
     {/* ========== 📋 車両マスター ========== */}
-    {icTab==="master"&&<InspectionMasterView vehicles={vehicles} maintenance={maintenance} onMaintenanceChange={onMaintenanceChange} onOpenAdd={openAdd} thS={thS} tdS={tdS} TC={TC}/>}
+    {icTab==="master"&&<InspectionMasterView vehicles={vehicles} maintenance={maintenance} onMaintenanceChange={onMaintenanceChange} onOpenAdd={openAdd} onOpenEdit={openEdit} thS={thS} tdS={tdS} TC={TC}/>}
 
     {/* ========== 📅 予算スケジュール ========== */}
     {icTab==="budget"&&<div>
@@ -5348,8 +5367,8 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
                     const v=getVeh(r.vehicleCode);
                     const actual=findActualForMaint(r);
                     const diff=actual>0&&r.cost>0?actual-r.cost:null;
-                    return<div key={r.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderTop:"1px dashed #f1f5f9",background:isNow?"#eff6ff":"#fff"}}>
-                      <span style={{minWidth:28,color:tc.color,fontSize:12}}>↳</span>
+                    return<div key={r.id} onClick={()=>openEdit(r)} title="タップで編集・削除" style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderTop:"1px dashed #f1f5f9",background:isNow?"#eff6ff":"#fff",cursor:"pointer"}}>
+                      <span style={{minWidth:28,color:tc.color,fontSize:12}}>↳<span style={{fontSize:9,color:"#2563eb",marginLeft:2}}>✏</span></span>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                           <span style={{fontSize:12,fontWeight:700}}>{v?v.name:r.vehicleCode}</span>
@@ -5505,26 +5524,28 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
           return{bg:"#f0fdf4",fg:"#16a34a",label:"🟢余裕",border:"#bbf7d0"};
         };
         // 配車表のメンテブロックから「次回車検予定」「次回点検予定」を計算（未来日の最早）
-        const nextShakenMap={};const nextTenkenMap={};
+        const nextShakenMap={};const nextTenkenMap={};const nextShakenRec={};const nextTenkenRec={};
         (maintenance||[]).forEach(m=>{
           const sd=m.startDate||m.start_date;
           const vc=m.vehicleCode||m.vehicle_code;
           if(!sd||!vc||sd<todayStr)return;
-          if(m.label==="車検"){if(!nextShakenMap[vc]||sd<nextShakenMap[vc])nextShakenMap[vc]=sd;}
-          if(m.label==="半年点検"){if(!nextTenkenMap[vc]||sd<nextTenkenMap[vc])nextTenkenMap[vc]=sd;}
+          if(m.label==="車検"){if(!nextShakenMap[vc]||sd<nextShakenMap[vc]){nextShakenMap[vc]=sd;nextShakenRec[vc]=m;}}
+          if(m.label==="半年点検"){if(!nextTenkenMap[vc]||sd<nextTenkenMap[vc]){nextTenkenMap[vc]=sd;nextTenkenRec[vc]=m;}}
         });
         const rows=(vehicles||[]).filter(v=>v.active!==false).map(v=>{
           const insDueDate=v.inspectionDueDate||"";
           const tenDueDate=v.tenkenDueDate||"";
           const insNextDate=nextShakenMap[v.code]||"";
           const tenNextDate=nextTenkenMap[v.code]||"";
+          const insNextRec=nextShakenRec[v.code]||null;
+          const tenNextRec=nextTenkenRec[v.code]||null;
           const insDue=calcDays(insDueDate);
           const insNext=calcDays(insNextDate);
           const tenDue=calcDays(tenDueDate);
           const tenNext=calcDays(tenNextDate);
           const urgs=[insDue,insNext,tenDue,tenNext].filter(x=>x!==null);
           const urgency=urgs.length?Math.min(...urgs):999;
-          return{v,insDueDate,insNextDate,tenDueDate,tenNextDate,insDue,insNext,tenDue,tenNext,urgency};
+          return{v,insDueDate,insNextDate,tenDueDate,tenNextDate,insNextRec,tenNextRec,insDue,insNext,tenDue,tenNext,urgency};
         }).sort((a,b)=>a.urgency-b.urgency);
         const summary={expired:0,critical:0,warning:0,notRegistered:0};
         rows.forEach(r=>{
@@ -5533,13 +5554,13 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
           else if([r.insDue,r.tenDue].some(d=>d!==null&&d<30))summary.warning++;
           if(r.insDue===null||r.tenDue===null)summary.notRegistered++;
         });
-        const Cell=({date,days,addPreset})=>{
+        const Cell=({date,days,addPreset,editRec})=>{
           if(!date)return addPreset
             ?<button onClick={()=>openAdd(addPreset)} style={{color:"#2563eb",fontSize:11,fontWeight:700,background:"#eff6ff",border:"1px dashed #93c5fd",borderRadius:6,padding:"4px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>＋ 予定を登録</button>
             :<div style={{color:"#cbd5e1",fontSize:11}}>未登録</div>;
           const s=sigStyle(days);
-          return <div style={{display:"flex",flexDirection:"column",gap:2}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#1e293b"}}>{date}</div>
+          return <div onClick={editRec?()=>openEdit(editRec):undefined} title={editRec?"タップで編集・削除":undefined} style={{display:"flex",flexDirection:"column",gap:2,cursor:editRec?"pointer":"default"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#1e293b"}}>{date}{editRec&&<span style={{fontSize:9,color:"#2563eb",marginLeft:4}}>✏</span>}</div>
             <span style={{fontSize:9,fontWeight:800,color:s.fg,background:s.bg,padding:"1px 6px",borderRadius:4,border:"1px solid "+s.border,alignSelf:"flex-start"}}>{s.label} {days>=0?"+":""}{days}日</span>
           </div>;
         };
@@ -5577,9 +5598,9 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
                       <span style={{fontSize:10,fontWeight:700,padding:"2px 6px",background:"#e0e7ff",color:"#4338ca",borderRadius:4}}>{v.type}</span>
                     </td>
                     <td style={{padding:"10px",borderLeft:"3px solid #fee2e2"}}><Cell date={r.insDueDate} days={r.insDue}/></td>
-                    <td style={{padding:"10px"}}><Cell date={r.insNextDate} days={r.insNext} addPreset={{vehicleCode:v.code,label:"車検"}}/></td>
+                    <td style={{padding:"10px"}}><Cell date={r.insNextDate} days={r.insNext} addPreset={{vehicleCode:v.code,label:"車検"}} editRec={r.insNextRec}/></td>
                     <td style={{padding:"10px",borderLeft:"3px solid #dcfce7"}}><Cell date={r.tenDueDate} days={r.tenDue}/></td>
-                    <td style={{padding:"10px"}}><Cell date={r.tenNextDate} days={r.tenNext} addPreset={{vehicleCode:v.code,label:"半年点検"}}/></td>
+                    <td style={{padding:"10px"}}><Cell date={r.tenNextDate} days={r.tenNext} addPreset={{vehicleCode:v.code,label:"半年点検"}} editRec={r.tenNextRec}/></td>
                   </tr>;
                 })}
               </tbody>
@@ -5598,7 +5619,7 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
 }
 
 /* 📋 車両マスター（車両ごとの車検/点検サマリー + 確定金額入力） */
-function InspectionMasterView({vehicles,maintenance,onMaintenanceChange,onOpenAdd,thS,tdS,TC}){
+function InspectionMasterView({vehicles,maintenance,onMaintenanceChange,onOpenAdd,onOpenEdit,thS,tdS,TC}){
   const[editId,setEditId]=useState(null);
   const[editVal,setEditVal]=useState("");
   const[saving,setSaving]=useState(false);
@@ -5690,7 +5711,7 @@ function InspectionMasterView({vehicles,maintenance,onMaintenanceChange,onOpenAd
                 return<tr key={v.code} style={{background:"#fff"}}>
                   <td style={tdS}><div style={{fontWeight:700,fontSize:12}}>{v.name}</div><div style={{fontSize:10,color:"#94a3b8"}}>{v.no}</div></td>
                   <td style={{...tdS,background:"#eff6ff"}}>
-                    {nextShaken?<div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,fontWeight:700,color:"#1e40af"}}>{shakenDate||"-"}</span>{ss&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:ss.bg,color:ss.color,fontWeight:700}}>{ss.label}</span>}</div>{nextShaken.workshop&&<div style={{fontSize:10,color:"#64748b",marginTop:1}}>{nextShaken.workshop}</div>}</div>:<button onClick={()=>onOpenAdd&&onOpenAdd({vehicleCode:v.code,label:"車検"})} style={{fontSize:10,color:"#2563eb",fontWeight:700,background:"#eff6ff",border:"1px dashed #93c5fd",borderRadius:6,padding:"3px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>＋ 登録</button>}
+                    {nextShaken?<div onClick={()=>onOpenEdit&&onOpenEdit(nextShaken)} title="タップで編集・削除" style={{cursor:"pointer"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,fontWeight:700,color:"#1e40af"}}>{shakenDate||"-"}</span><span style={{fontSize:9,color:"#2563eb"}}>✏</span>{ss&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:ss.bg,color:ss.color,fontWeight:700}}>{ss.label}</span>}</div>{nextShaken.workshop&&<div style={{fontSize:10,color:"#64748b",marginTop:1}}>{nextShaken.workshop}</div>}</div>:<button onClick={()=>onOpenAdd&&onOpenAdd({vehicleCode:v.code,label:"車検"})} style={{fontSize:10,color:"#2563eb",fontWeight:700,background:"#eff6ff",border:"1px dashed #93c5fd",borderRadius:6,padding:"3px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>＋ 登録</button>}
                   </td>
                   <td style={{...tdS,background:"#eff6ff"}}>
                     {editId===nextShaken?.id
@@ -5698,7 +5719,7 @@ function InspectionMasterView({vehicles,maintenance,onMaintenanceChange,onOpenAd
                       :<div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"flex-end"}}>{costDisp(nextShaken)}{nextShaken&&<button onClick={()=>{setEditId(nextShaken.id);setEditVal(nextShaken.actualCost>0?String(nextShaken.actualCost):String(nextShaken.cost||""));}} style={{fontSize:9,padding:"2px 7px",background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:5,cursor:"pointer",color:"#2563eb",fontWeight:700,whiteSpace:"nowrap"}}>確定入力</button>}</div>}
                   </td>
                   <td style={{...tdS,background:"#f0fdf4"}}>
-                    {nextTenken?<div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,fontWeight:700,color:"#166534"}}>{tenkenDate||"-"}</span>{ts&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:ts.bg,color:ts.color,fontWeight:700}}>{ts.label}</span>}</div>{nextTenken.workshop&&<div style={{fontSize:10,color:"#64748b",marginTop:1}}>{nextTenken.workshop}</div>}</div>:<button onClick={()=>onOpenAdd&&onOpenAdd({vehicleCode:v.code,label:"半年点検"})} style={{fontSize:10,color:"#16a34a",fontWeight:700,background:"#f0fdf4",border:"1px dashed #86efac",borderRadius:6,padding:"3px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>＋ 登録</button>}
+                    {nextTenken?<div onClick={()=>onOpenEdit&&onOpenEdit(nextTenken)} title="タップで編集・削除" style={{cursor:"pointer"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,fontWeight:700,color:"#166534"}}>{tenkenDate||"-"}</span><span style={{fontSize:9,color:"#16a34a"}}>✏</span>{ts&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:ts.bg,color:ts.color,fontWeight:700}}>{ts.label}</span>}</div>{nextTenken.workshop&&<div style={{fontSize:10,color:"#64748b",marginTop:1}}>{nextTenken.workshop}</div>}</div>:<button onClick={()=>onOpenAdd&&onOpenAdd({vehicleCode:v.code,label:"半年点検"})} style={{fontSize:10,color:"#16a34a",fontWeight:700,background:"#f0fdf4",border:"1px dashed #86efac",borderRadius:6,padding:"3px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>＋ 登録</button>}
                   </td>
                   <td style={{...tdS,background:"#f0fdf4"}}>
                     {editId===nextTenken?.id
@@ -23353,7 +23374,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.331-BT";
+const APP_VERSION="v1.0.332-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
