@@ -23374,7 +23374,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.332-BT";
+const APP_VERSION="v1.0.333-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25586,12 +25586,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const secBd={border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 9px 9px",padding:12,background:"#fff"};
         const chRow=(nm,c)=>{const pct=repSum.total>0?Math.round((c.sales||0)/repSum.total*100):0;return <tr key={nm} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{c.count||0}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(c.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed",fontWeight:800}}>{pct}%</td></tr>;};
         return <div onClick={()=>setMtgOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#f8fafc",borderRadius:14,maxWidth:820,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)",padding:16}}>
+          <div onClick={e=>e.stopPropagation()} id="mtgSheet" style={{background:"#f8fafc",borderRadius:14,maxWidth:820,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)",padding:16}}>
+            <style dangerouslySetInnerHTML={{__html:"@media print{body *{visibility:hidden!important}#mtgSheet,#mtgSheet *{visibility:visible!important}#mtgSheet{position:absolute!important;left:0;top:0;width:100%!important;max-width:none!important;box-shadow:none!important;padding:0!important;background:#fff!important}.mtg-noprint{display:none!important}@page{size:A4;margin:8mm}}"}}/>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
               <b style={{fontSize:16,color:"#0F1F45"}}>📋 定例MTG まとめ</b>
               <span style={{fontSize:10.5,color:"#64748b"}}>日報の集計値をそのまま集約（返却月ベース・再計算なし）／基準日 {norm(date)}</span>
-              <button onClick={copyDailyText} style={{marginLeft:"auto",padding:"5px 12px",background:"#0f766e",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📋 テキストで全文コピー</button>
-              <button onClick={()=>setMtgOpen(false)} style={{padding:"5px 12px",background:"#e2e8f0",color:"#334155",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>✕ 閉じる</button>
+              <button className="mtg-noprint" onClick={()=>window.print()} style={{marginLeft:"auto",padding:"5px 12px",background:"#7c3aed",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📄 PDF</button>
+              <button className="mtg-noprint" onClick={copyDailyText} style={{padding:"5px 12px",background:"#0f766e",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📋 テキストで全文コピー</button>
+              <button className="mtg-noprint" onClick={()=>setMtgOpen(false)} style={{padding:"5px 12px",background:"#e2e8f0",color:"#334155",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>✕ 閉じる</button>
             </div>
             {/* ① 件数・売上サマリー */}
             <div style={sec}><div style={secHd}>■ 件数・売上（返却月ベース・実績）</div><div style={secBd}>
