@@ -1,7 +1,7 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>BUDDICA TOURISM ご利用ガイド｜高松空港店</title>
-<!-- guide-v: 2026-08-09b 運転者追加で選択済ファイルが消えない（行だけ追記・全体再描画しない）/免許証capture削除 -->
+<!-- guide-v: 2026-08-18 マイナ免許証対応=裏面を任意化(表面のみでUP可)+PDF許可+案内文。2026-08-09b 運転者追加で選択済ファイルが消えない/免許証capture削除 -->
 <meta name="guide-ver" content="2026-08-09b-lic-add-nowipe">
 
 <style>
@@ -740,13 +740,15 @@ function renderLicCard(cnt){
 }
 function _licRowHTML(i){
   var T=_lict();
-  var backLabel={ja:'（免許証 裏面）',en:'(License — Back)',zh:'（駕照 背面）',ko:'（면허증 뒷면）'}[LANG]||'（免許証 裏面）';
+  var backLabel={ja:'（免許証 裏面／任意）',en:'(License — Back / optional)',zh:'（駕照 背面／選填）',ko:'（면허증 뒷면／선택）'}[LANG]||'（免許証 裏面／任意）';
+  var mynaNote={ja:'マイナ免許証の方は、スマホ内の画像・スクリーンショット・PDFを添付できます（裏面は任意）。',en:'My Number (digital) license: attach a saved photo, screenshot, or PDF (back optional).',zh:'My Number數位駕照：可附加圖片、截圖或PDF（背面選填）。',ko:'마이나 면허증: 사진·스크린샷·PDF 첨부 가능(뒷면 선택).'}[LANG]||'マイナ免許証の方は、スマホ内の画像・スクリーンショット・PDFを添付できます（裏面は任意）。';
   return '<div style="margin-bottom:14px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px">'
     +'<div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+T.driver+(i+1)+'</div>'
+    +'<div style="font-size:11px;color:#64748b;margin-bottom:7px">'+mynaNote+'</div>'
     +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+T.front+'</div>'
-    +'<input type="file" accept="image/*" id="licf'+i+'" style="width:100%;font-size:14px;margin-bottom:9px">'
+    +'<input type="file" accept="image/*,application/pdf" id="licf'+i+'" style="width:100%;font-size:14px;margin-bottom:9px">'
     +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+backLabel+'</div>'
-    +'<input type="file" accept="image/*" id="licb'+i+'" style="width:100%;font-size:14px"></div>';
+    +'<input type="file" accept="image/*,application/pdf" id="licb'+i+'" style="width:100%;font-size:14px"></div>';
 }
 // 選択済みファイルを消さずに運転者行だけ追記（全体再描画しない）
 function licAddRow(){
@@ -765,7 +767,6 @@ async function licUpload(){
   for(var i=0;i<LIC_ROWS;i++){
     var fEl=document.getElementById('licf'+i), bEl=document.getElementById('licb'+i);
     var hasF=fEl&&fEl.files&&fEl.files[0], hasB=bEl&&bEl.files&&bEl.files[0];
-    if((hasF&&!hasB)||(!hasF&&hasB)){ msg.innerHTML='<span style="color:#dc2626;font-weight:700">'+T.driver+(i+1)+'：'+(T.needset||'表面と裏面の両方を選択してください')+'</span>'; return; }
     if(hasF){ files.push({f:fEl.files[0],label:'driver'+(i+1)+'_front'}); }
     if(hasB){ files.push({f:bEl.files[0],label:'driver'+(i+1)+'_back'}); }
   }
@@ -776,7 +777,7 @@ async function licUpload(){
     try{
       var fobj=files[j].f;
       var b64=await new Promise(function(res,rej){var rd=new FileReader();rd.onload=function(){res(String(rd.result).split(',')[1]);};rd.onerror=rej;rd.readAsDataURL(fobj);});
-      var _body=JSON.stringify({secret:GAS_LICENSE_SECRET,store:'bt',resId:(typeof RES!=='undefined'&&RES&&RES.id)||'',custName:(typeof RES!=='undefined'&&RES&&RES.name)||'',label:files[j].label,fileName:'license_'+files[j].label+'_'+Date.now()+'.jpg',mime:fobj.type||'image/jpeg',b64:b64});
+      var _body=JSON.stringify({secret:GAS_LICENSE_SECRET,store:'bt',resId:(typeof RES!=='undefined'&&RES&&RES.id)||'',custName:(typeof RES!=='undefined'&&RES&&RES.name)||'',label:files[j].label,fileName:'license_'+files[j].label+'_'+Date.now()+'.'+((fobj.type==='application/pdf')?'pdf':(fobj.type==='image/png'?'png':'jpg')),mime:fobj.type||'image/jpeg',b64:b64});
       // 2026-08-09: 1枚ごとにリトライ(最大3回・指数バックオフ)+30秒タイムアウト。通信詰まりで「3枚目でエラー」対策。
       var _ok=false;
       for(var _a=0;_a<3&&!_ok;_a++){
