@@ -23374,7 +23374,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.334-BT";
+const APP_VERSION="v1.0.335-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25270,7 +25270,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         tableBlock("項目",S(96),[curYr+"年累計","当月 "+repSum.curYM,"HP単価(当月)","OTA単価(当月)"],[
           {label:"件数/単価",bold:true,vals:[yrD.count+"件",curM.count+"件","¥"+hpU.toLocaleString(),"¥"+otaU.toLocaleString()]},
           {label:"売上/内訳",vals:["¥"+yrD.sales.toLocaleString(),"¥"+curM.sales.toLocaleString(),hp.count+"件・¥"+hp.sales.toLocaleString(),ota.count+"件・¥"+ota.sales.toLocaleString()]},
-          {label:"前日比",vals:["",fmtD(dcmp.dCount,false)+" / "+fmtD(dcmp.dSales,true),"",""],color:(v,i)=>up?"#059669":(dn?"#dc2626":"#94a3b8")}
+          {label:"本日流通(新規取込)",vals:["",fmtD(dcmp.dCount,false)+" / "+fmtD(dcmp.dSales,true),"",""],color:(v,i)=>up?"#059669":(dn?"#dc2626":"#94a3b8")}
         ],1);
         // 月別 推移（表・当月列ハイライト）
         subHead("月別 推移（件数・売上）");
@@ -25442,13 +25442,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
     const curYM=(norm(date)||"").slice(0,7); // 当月＝レポート月（返却月ベース）
-    // 前日比用：選択日(当日)と前日の返却実績（返却日ベース）
+    // ★新規増(流通)用：選択日(当日)に"取込(created_at)"された予約＝返却日/利用月に関係なく今日新しく入った予約
     const curDay=norm(date)||"";
     const prevDay=(()=>{const d=new Date(curDay+"T00:00:00");if(isNaN(d))return"";d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");})();
     const byM={},byY={},byCh={},curCh={};let total=0;
-    let dToday={count:0,sales:0},dPrev={count:0,sales:0};
+    let dNew={count:0,sales:0};
     (data||[]).forEach(r=>{
       if(isCancel(r.status))return;
+      // ★新規増(流通)＝取込日(created_at)が当日の予約。いつの利用・返却日でも、今日入った予約を+件/+¥でカウント（配車前でもカウント＝配車フィルタの前で判定）
+      if(((r.createdAt||r.bookedAt||"").slice(0,10))===curDay){dNew.count++;dNew.sales+=revOf(r);}
       const code=fl[r.id];if(!code||!codes.has(code))return;
       const rd=norm(r.returnDate)||norm(r.lendDate);if(!rd)return;
       const rev=revOf(r),ym=rd.slice(0,7),y=rd.slice(0,4),ch=CHof(r);
@@ -25456,10 +25458,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;total+=rev;
       if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;} // 当月返却のチャネル別(予約単価=予約売上÷件数用)
-      if(rd===curDay){dToday.count++;dToday.sales+=rev;}else if(rd===prevDay){dPrev.count++;dPrev.sales+=rev;}
     });
-    // 前日比＝当月累計が前日から増えた分＝選択日に返却された分（returnDate==当日）＝累計(≤当日)−累計(≤前日)
-    const dayCmp={today:dToday,prev:dPrev,dCount:dToday.count,dSales:dToday.sales,prevDay};
+    // ★新規増(流通)＝選択日に取込(created_at==当日)された予約の件数・売上（返却日ベースの累計とは別軸＝今日の新規獲得）
+    const dayCmp={today:dNew,dCount:dNew.count,dSales:dNew.sales,prevDay};
     // 予約外売上を加算（月別/年間/合計/その他チャネル。件数は予約件数のまま増やさない）
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
@@ -25491,10 +25492,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const yogai=Math.max(0,(curM.sales||0)-hp.sales-ota.sales-oth.sales);   // ★予約外売上(件数外)＝当月合計−予約チャネル合計。HP+OTA+その他+予約外=当月合計 に一致させる
     const dc=repSum.dayCmp||{dCount:0,dSales:0};
     const mm=repSum.curYM.slice(5)+"月";
-    L.push("■ 件数・売上（返却月ベース・実績）");
-    L.push("・"+curYr+"累計："+yrD.count+"件 / "+yen(yrD.sales));
-    L.push("・当月("+mm+")："+curM.count+"件 / "+yen(curM.sales));
-    L.push("・前日比(当月)："+fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true));
+    L.push("■ 件数・売上 累計（返却月ベース・実績）");
+    L.push("・"+curYr+"累計（返却月）："+yrD.count+"件 / "+yen(yrD.sales));
+    L.push("・当月累計（"+mm+"・返却月）："+curM.count+"件 / "+yen(curM.sales));
+    L.push("");
+    L.push("■ 本日の流通（新規取込・取込日ベース）");
+    L.push("・新規増（流通）："+fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true));
+    L.push("");
+    L.push("■ チャネル別（当月・返却月ベース）");
     L.push("・HP："+hp.count+"件 / "+yen(hp.sales)+"（単価"+yen(hpU)+"）");
     L.push("・OTA："+ota.count+"件 / "+yen(ota.sales)+"（単価"+yen(otaU)+"）");
     if(oth.count||oth.sales)L.push("・その他："+oth.count+"件 / "+yen(oth.sales)+(oth.count?"（単価"+yen(othU)+"）":""));
@@ -25599,7 +25604,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             <div style={sec}><div style={secHd}>■ 件数・売上（返却月ベース・実績）</div><div style={secBd}>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
                 <div style={{flex:"1 1 160px",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{curYr}年 累計</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{yrD.count}件</div></div>
-                <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月（{mm}）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件　<span style={{color:dc.dSales>=0?"#059669":"#dc2626"}}>前日比 {fmtD(dc.dCount,false)} / {fmtD(dc.dSales,true)}</span></div></div>
+                <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月累計（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件</div></div>
+                <div style={{flex:"1 1 160px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>本日の流通（新規取込）</div><div style={{fontSize:20,fontWeight:900,color:dc.dSales>0?"#166534":"#92400e"}}>{fmtD(dc.dSales,true)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{fmtD(dc.dCount,false)}　<span style={{fontSize:10,color:"#94a3b8"}}>取込日ベース</span></div></div>
               </div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 <tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>🌐 HP（自社）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{hp.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(hp.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(hp))}</td></tr>
