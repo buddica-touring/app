@@ -622,7 +622,7 @@ const DB = {
   async fetchMaintenance(){
     if(!sb){return DB._maintLsLoad();}
     const{data,error}=await sb.from("bt_maintenance").select("*");if(error){dbLog("fetchMaint",false,error.message);return DB._maintLsLoad();}
-    const result=(data||[]).map(m=>({id:m.id,vehicleCode:m.vehicle_code,startDate:m.start_date,endDate:m.end_date,label:m.label||"",cost:Number(m.cost)||0,actualCost:Number(m.actual_cost)||0,workshop:m.workshop||"",invoiceNo:m.invoice_no||"",maintNotes:m.maint_notes||"",status:m.status||"",startTime:m.start_time||"",endTime:m.end_time||""}));
+    const result=(data||[]).map(m=>({id:m.id,vehicleCode:m.vehicle_code,startDate:m.start_date,endDate:m.end_date,label:m.label||"",cost:Number(m.cost)||0,actualCost:Number(m.actual_cost)||0,workshop:m.workshop||"",invoiceNo:m.invoice_no||"",maintNotes:m.maint_notes||"",status:m.status||"",startTime:m.start_time||"",endTime:m.end_time||"",createdAt:m.created_at||""}));
     // Supabaseが権威: DBの結果でlocalStorageを上書き（削除済みブロックの復活を防止）
     DB._maintLsSave(result);
     dbLog("fetchMaint",true,result.length+"件");
@@ -5133,7 +5133,7 @@ function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onC
         // 在庫調整に起票（全媒体 調整対象）
         try{await sb.from("bt_intake_actions").insert({action_type:edit?"intake_edited":"intake_created",vehicle_code:vc,user_email:(window.__BT_USER_EMAIL||""),target_date_from:sd,target_date_to:ed,notified_slack:false,payload:{action:edit?"intake_edited":"intake_created",id,label,vehicle:vehName(vc),start:sd,end:ed,start_time:st||"",end_time:et||"",workshop:ws||"",status,all_media:true,adjust_target:"全媒体",source:"inspection"}});}catch(e){}
       }
-      const rec={id,vehicleCode:vc,startDate:sd,endDate:ed,label,cost:Number(cost)||0,actualCost:ac,workshop:ws||"",invoiceNo:edit?(edit.invoiceNo||""):"",maintNotes:detail||"",status,startTime:st||"",endTime:et||""};
+      const rec={id,vehicleCode:vc,startDate:sd,endDate:ed,label,cost:Number(cost)||0,actualCost:ac,workshop:ws||"",invoiceNo:edit?(edit.invoiceNo||""):"",maintNotes:detail||"",status,startTime:st||"",endTime:et||"",createdAt:edit&&edit.createdAt?edit.createdAt:new Date().toISOString()};
       if(onMaintenanceChange)onMaintenanceChange(edit?(maintenance||[]).map(m=>m.id===id?rec:m):[...(maintenance||[]),rec]);
       try{const arr=JSON.parse(localStorage.getItem("bt_maintenance")||"[]").filter(m=>m.id!==id);arr.push(rec);localStorage.setItem("bt_maintenance",JSON.stringify(arr));}catch(e){}
       onClose(true);
@@ -16432,7 +16432,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   const addMaint=async(vc,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,editId)=>{
     if(maintSaving)return;
     setMaintSaving(true);
-    const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||""};
+    const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||"",createdAt:((editId&&(maintenance||[]).find(x=>x.id===editId))||{}).createdAt||new Date().toISOString()};
     const next=editId?(maintenance||[]).map(x=>x.id===editId?m:x):[...(maintenance||[]),m];
     onMaintenanceChange(next);
     DB._maintLsSave(next);
@@ -23374,7 +23374,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.333-BT";
+const APP_VERSION="v1.0.334-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24863,7 +24863,7 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
     return (maintenance||[]).filter(m=>m&&IL.includes(m.label)&&(m.endDate||m.startDate)&&(m.endDate||m.startDate)>=today&&m.deleted!==true)
       .map(m=>({id:m.id,_intake:true,label:m.label,status:m.status||"pending",ota:"入庫",
         name:_vehName(m.vehicleCode),vehicle:_vehName(m.vehicleCode),vehicleCode:m.vehicleCode,
-        lendDate:m.startDate,returnDate:m.endDate||m.startDate,createdAt:m.createdAt||m.startDate||""}));
+        lendDate:m.startDate,returnDate:m.endDate||m.startDate,createdAt:m.createdAt||today}));
   },[maintenance,vehicles,today]);
   const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR","じゃらん":"JLN","楽天":"RKT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
   const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b","じゃらん":"#16a34a","楽天":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
