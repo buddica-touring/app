@@ -23441,7 +23441,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.340-BT";
+const APP_VERSION="v1.0.339-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25540,21 +25540,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
     if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
-    // ── リードタイム（予約日→貸出日の日数・当月貸出ベース・HP/OTA別）
-    // 予約日=booked_at優先(無ければcreated_at)。一括取込日(2026-03-29)は予約日不明として除外
-    const _bookDate=(r)=>{const b=(r.bookedAt||"").slice(0,10);return (b&&b!=="2026-03-29")?b:"";};
-    const ltHP=[],ltOTA=[];
-    (data||[]).forEach(r=>{
-      if(isCancel(r.status))return;
-      const code=fl[r.id];if(!code||!codes.has(code))return; // 配車済(サマリー件数と同じ母集団)
-      const ld=norm(r.lendDate);if(!ld||ld.slice(0,7)!==curYM)return; // 当月貸出
-      const bd=_bookDate(r);if(!bd)return;
-      const lt=Math.max(0,Math.round((new Date(ld)-new Date(bd))/86400000));
-      const ch=CHof(r);if(ch==="HP")ltHP.push(lt);else if(ch==="OTA")ltOTA.push(lt);
-    });
-    const _ltStat=(arr)=>{if(!arr.length)return{cnt:0,median:null,avg:null,min:null,max:null};const s=arr.slice().sort((a,b)=>a-b);const med=s.length%2?s[(s.length-1)/2]:Math.round((s[s.length/2-1]+s[s.length/2])/2);const avg=Math.round(s.reduce((a,b)=>a+b,0)/s.length);return{cnt:s.length,median:med,avg,min:s[0],max:s[s.length-1]};};
-    const lead={hp:_ltStat(ltHP),ota:_ltStat(ltOTA),all:_ltStat(ltHP.concat(ltOTA))};
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp,lead};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25603,13 +25589,6 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     Object.keys(_fco).sort((a,b)=>_fco[b].sales-_fco[a].sales).forEach(on=>{L.push("　└ "+on+"："+_fco[on].count+"件 / "+yen(_fco[on].sales)+"（単価"+yen(_u(_fco[on]))+"）");});
     if(_fOth.count||_fOth.sales)L.push("・その他："+_fOth.count+"件 / "+yen(_fOth.sales)+(_fOth.count?"（単価"+yen(_u(_fOth))+"）":""));
     L.push("　※チャネル別は取込月(流通)ベース。予約外売上は会計(返却月)＝累計に含む");
-    L.push("");
-    // リードタイム（予約日→貸出日・HP/OTA別）
-    L.push("■ リードタイム（予約日→貸出日／当月貸出ベース）");
-    const _ld=repSum.lead||{hp:{},ota:{},all:{}};const _dd=(v)=>v==null?"—":v+"日";
-    const _ltL=(nm,st)=>L.push("・"+nm+"："+(st.cnt||0)+"件 ｜ 中央値"+_dd(st.median)+" / 平均"+_dd(st.avg)+(st.cnt?"（"+st.min+"〜"+st.max+"日）":""));
-    _ltL("HP",_ld.hp);_ltL("OTA（計）",_ld.ota);_ltL("合計",_ld.all);
-    L.push("　※予約日=booked_at優先。当月貸出・配車済が対象。一括取込(3/29)除外");
     L.push("");
     // 月別
     L.push("■ 月別 推移");
@@ -25725,24 +25704,6 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 {(fOth.count||fOth.sales)?<tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>▫️ その他</td><td style={{padding:"5px 6px",textAlign:"right"}}>{fOth.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(fOth.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(fOth))}</td></tr>:null}
               </tbody></table>
               <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース。予約外売上（会計・返却月）は当月累計に含む。</div>
-            </div></div>
-            {/* ①-2 リードタイム（予約日→貸出日・HP/OTA別） */}
-            <div style={sec}><div style={secHd}>■ リードタイム（予約日→貸出日／当月貸出ベース・HP/OTA別）</div><div style={secBd}>
-              {(()=>{const ld=repSum.lead||{hp:{},ota:{},all:{}};const dd=v=>v==null?"—":v+"日";
-                const ltRow=(nm,st,bold)=><tr key={nm} style={{borderBottom:"1px solid #f1f5f9",fontWeight:bold?900:600,background:bold?"#f8fafc":"transparent"}}>
-                  <td style={{padding:"5px 6px",fontWeight:800}}>{nm}</td>
-                  <td style={{padding:"5px 6px",textAlign:"right"}}>{st.cnt||0}件</td>
-                  <td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:"#7c3aed"}}>{dd(st.median)}</td>
-                  <td style={{padding:"5px 6px",textAlign:"right",color:"#475569"}}>{dd(st.avg)}</td>
-                  <td style={{padding:"5px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>{st.cnt?st.min+"〜"+st.max+"日":"—"}</td>
-                </tr>;
-                return <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                  <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>チャネル</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>中央値</td><td style={{padding:"4px 6px",textAlign:"right"}}>平均</td><td style={{padding:"4px 6px",textAlign:"right"}}>最短〜最長</td></tr>
-                  {ltRow("🌐 HP（自社）",ld.hp)}
-                  {ltRow("🏢 OTA（計）",ld.ota)}
-                  {ltRow("合計",ld.all,true)}
-                </tbody></table>;})()}
-              <div style={{fontSize:10,color:"#94a3b8",marginTop:5}}>※予約日=予約受付日(booked_at優先／無ければ取込日)。当月貸出(start_date)・配車済が対象。中央値が実態の目安（外れ値に強い）。一括取込分(3/29)は予約日不明として除外。</div>
             </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
             <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）</div><div style={secBd}>
