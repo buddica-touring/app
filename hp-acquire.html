@@ -116,9 +116,9 @@ const MAIN_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const BT_SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const CFG={
-  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', ret:'return_date',occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店',hpMode:'ota'},
-  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店',hpMode:'ota'},
-  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source'},
+  spk:{sb:MAIN,anon:MAIN_ANON,resv:'reservations',    lend:'lend_date', ret:'return_date',occ:['created_at'],             st:'app_settings',    adk:'hp_adspend_spk',lbl:'❄️札幌店',hpMode:'ota',   acct:'spk_accounting'},
+  nha:{sb:MAIN,anon:MAIN_ANON,resv:'nha_reservations',lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'nha_app_settings',adk:'hp_adspend_nha',lbl:'🏝️那覇店',hpMode:'ota',   acct:'nha_accounting'},
+  bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source',acct:'bt_accounting'},
 };
 // hpMode: 'ota'＝ota in(HP,SP)で公式判定（札幌/那覇）／'source'＝OTA以外(source≠ota)を公式扱い（高松＝公式siteはota空・SPも含む）
 const STORE=(new URLSearchParams(location.search).get('store')||'spk').toLowerCase();
@@ -142,8 +142,17 @@ function isHP(r){return C.hpMode==='source'?(String(r.source||'')!=='ota'):(r.ot
 function isOTA(r){return C.hpMode==='source'?(String(r.source||'')==='ota'):(OTA_CODES.indexOf(r.ota)>=0);}
 function chOf(r){return C.hpMode==='source'?(r.ota||'その他'):(OTANAME[r.ota]||r.ota||'その他');}
 let VIEW=(()=>{try{return localStorage.getItem('hp_view_'+STORE)==='ota'?'ota':'hp';}catch(e){return 'hp';}})();
-let AD={}, ROWS=[], BUILT=null;
+let AD={}, ROWS=[], BUILT=null, EXTRA=0;
 
+// ★2026-08-21 予約外売上(extra_sales)を取得＝グロス合計に含める（定例MTG累計と統一）。件数外・広告費なし＝純額に全額。
+async function fetchExtra(){
+  EXTRA=0;
+  try{
+    const r=await fetch(C.sb+'/rest/v1/'+C.acct+'?type=eq.extra_sales&select=amount,date',{headers:H()});
+    if(!r.ok)return;const d=await r.json();
+    (d||[]).forEach(x=>{ if(ym(x.date)>=START) EXTRA+=(+x.amount||0); });
+  }catch(e){EXTRA=0;}
+}
 async function fetchAll(){
   let out=[],off=0;
   const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+','+C.ret+',status'+(C.hpMode==='source'?',source':'');
@@ -205,12 +214,15 @@ function render(){
   const oFee=oR*FEE,oNet=oR-oFee,hEff=hAd>0?(hR-hAd):null;
   const avgN=(s,c)=>c?(s/c).toFixed(1)+'泊':'—';
   const aC=hC+oC,aR=hR+oR,aCost=hAd+oFee,aNet=(hEff!=null?hEff:0)+oNet;
+  const aRg=aR+EXTRA;                       // ★グロス合計＝予約(HP+OTA)＋予約外売上（定例MTG累計と統一）
+  const aNetg=aNet+EXTRA;                   // 予約外はコストなし＝全額純額
   const pct=(p,w)=>w?(p/w*100).toFixed(1)+'%':'—';
   // ⚖️ 累計比較（平均泊数＝1予約の稼働日数）／各セル下段＝合計に対する構成比
   let ct='<thead><tr><th class="l">区分</th><th>件数</th><th>売上(グロス)</th><th>客単価</th><th>平均泊数</th><th>コスト</th><th>CPA</th><th>純額</th></tr></thead><tbody>';
   ct+='<tr><td class="l num">🌐 HP(自社)</td><td class="num">'+hC+'件<div class="sub">'+pct(hC,aC)+'</div></td><td class="yen">'+yen(hR)+'<div class="sub">'+pct(hR,aR)+'</div></td><td>'+(hC?yen(hR/hC):'—')+'</td><td class="stay">'+avgN(hNS,hNC)+'</td><td class="fee">'+(hAd?yen(hAd):'—')+'<div class="sub">広告費 '+pct(hAd,aCost)+'</div></td><td class="cpa">'+(hAd&&hC?yen(hAd/hC):'—')+'</td><td class="net" style="color:'+colP(hEff)+'">'+(hEff==null?'—':fmtP(hEff))+'<div class="sub">効果 '+pct(hEff!=null?hEff:0,aNet)+'</div></td></tr>';
   ct+='<tr><td class="l num">🏨 OTA</td><td class="num">'+oC+'件<div class="sub">'+pct(oC,aC)+'</div></td><td class="yen">'+yen(oR)+'<div class="sub">'+pct(oR,aR)+'</div></td><td>'+(oC?yen(oR/oC):'—')+'</td><td class="stay">'+avgN(oNS,oNC)+'</td><td class="fee">'+yen(oFee)+'<div class="sub">手数料18% '+pct(oFee,aCost)+'</div></td><td class="cpa">'+(oC?yen(oFee/oC):'—')+'</td><td class="net">'+yen(oNet)+'<div class="sub">手取り82% '+pct(oNet,aNet)+'</div></td></tr>';
-  ct+='</tbody><tfoot><tr><td class="l">合計</td><td>'+aC+'件<div class="sub">100%</div></td><td>'+yen(aR)+'<div class="sub">100%</div></td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="stay">'+avgN(hNS+oNS,hNC+oNC)+'</td><td class="fee">'+yen(aCost)+'<div class="sub">100%</div></td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNet)+'<div class="sub">100%</div></td></tr></tfoot>';
+  if(EXTRA>0)ct+='<tr><td class="l num">📝 予約外売上</td><td class="num">—<div class="sub">件数外</div></td><td class="yen">'+yen(EXTRA)+'<div class="sub">'+pct(EXTRA,aRg)+'</div></td><td>—</td><td class="stay">—</td><td class="fee">—<div class="sub">コストなし</div></td><td class="cpa">—</td><td class="net" style="color:#0e7a3b">+'+yen(EXTRA)+'<div class="sub">全額純額</div></td></tr>';
+  ct+='</tbody><tfoot><tr><td class="l">合計(グロス)</td><td>'+aC+'件<div class="sub">100%</div></td><td>'+yen(aRg)+(EXTRA>0?'<div class="sub">うち予約外 '+yen(EXTRA)+'</div>':'<div class="sub">100%</div>')+'</td><td>'+(aC?yen(aR/aC):'—')+'</td><td class="stay">'+avgN(hNS+oNS,hNC+oNC)+'</td><td class="fee">'+yen(aCost)+'<div class="sub">100%</div></td><td class="cpa">'+(aC?yen(aCost/aC):'—')+'</td><td class="net">'+yen(aNetg)+'<div class="sub">100%</div></td></tr></tfoot>';
   document.getElementById('cmpTot').innerHTML=ct;
   // 空の過去月は隠す（データのある最初の月〜／例:高松=8月開始）
   let fi=occMonths.findIndex(m=>M[m].count>0||MO[m].count>0);if(fi<0)fi=occMonths.length-1;
@@ -269,7 +281,7 @@ function renderLT(elId,Md,occMonths){
 (async function(){
   const st=document.getElementById('status');
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（データはログイン必須）。';return;}
-  try{await loadAd();const resv=await fetchAll();ROWS=resv;BUILT=build(resv);render();
+  try{await loadAd();await fetchExtra();const resv=await fetchAll();ROWS=resv;BUILT=build(resv);render();
     if(new URLSearchParams(location.search).get('print')){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},500);}}
   catch(e){st.style.display='block';st.textContent='⚠️ 読み込みエラー: '+(e.message||e);}
 })();
