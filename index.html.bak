@@ -282,7 +282,7 @@ const DB = {
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");/* ★2026-07-26 予約削除時は紐づくタスク(d-/c-/w-等)も墓標化=孤児タスク残存を防ぐ */try{await sb.from("bt_tasks").update({deleted:true}).in("予約番号",ids);}catch(e){dbLog("deleteRes_tasks",false,String(e));}},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||""};},
-  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,paid:!!d.paid,payment:d.payment||"",basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:normResStatus(d.status),visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",bookedAt:norm(d.booked_at||d.created_at)||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||""};},
+  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,paid:!!d.paid,payment:d.payment||"",basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:normResStatus(d.status),visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",bookedAt:norm(d.booked_at||d.created_at)||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||"",source:d.source||""};},
   // --- 配車（LS併用で車両変更保護） ---
   _fleetLsKey:"bt_fleet",
   _fleetLsSave(f){try{const cnt=Object.keys(f).filter(k=>k!=="_unassignedReasons").length;if(cnt>=10){localStorage.setItem("bt_fleet_backup",JSON.stringify({data:f,ts:Date.now(),count:cnt}));}localStorage.setItem(DB._fleetLsKey,JSON.stringify(f));}catch(e){}},
@@ -23472,7 +23472,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.344-BT";
+const APP_VERSION="v1.0.345-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25536,6 +25536,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
   const [extraSales,setExtraSales]=React.useState({byM:{},byY:{},total:0});
   React.useEffect(()=>{if(!sb)return;let alive=true;(async()=>{try{const{data:ex}=await sb.from("bt_accounting").select("date,amount,type").eq("type","extra_sales");if(alive&&ex){const byM={},byY={};let total=0;ex.forEach(r=>{const d=String(r.date||"").slice(0,10);if(!d)return;const a=Number(r.amount)||0;byM[d.slice(0,7)]=(byM[d.slice(0,7)]||0)+a;byY[d.slice(0,4)]=(byY[d.slice(0,4)]||0)+a;total+=a;});setExtraSales({byM,byY,total});}}catch(e){}})();return()=>{alive=false;};},[]);
   // ★ 2026-08-10 上段サマリー：年間/月別 件数・売上 ＝ 予約(revOf×返却月×配車済×非キャンセル) ＋ 予約外売上（TOP Summary/経営タブと一致）
+  // 🎁 純広告費（運用戦略/HP新規獲得と同一ソース：bt_app_settings key=hp_adspend_bt）→ グロスCPAのHP純広告に使用
+  const [hpAdSpend,setHpAdSpend]=React.useState({});
+  React.useEffect(()=>{if(!sb)return;let alive=true;(async()=>{try{const{data:row}=await sb.from("bt_app_settings").select("value").eq("key","hp_adspend_bt").single();if(alive&&row&&row.value){const v=typeof row.value==="string"?JSON.parse(row.value):row.value;setHpAdSpend(v||{});}}catch(e){}})();return()=>{alive=false;};},[]);
   const repSum=useMemo(()=>{
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
@@ -25630,6 +25633,19 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     // CVチャネル
     L.push("■ CVチャネル構成比（グロス）");
     ["OTA","HP","その他"].forEach(ch=>{const c=repSum.byCh[ch];if(!c||(!c.sales&&!c.count))return;const pct=repSum.total>0?Math.round(c.sales/repSum.total*100):0;L.push("・"+ch+"："+pct+"% ｜ "+c.count+"件 / "+yen(c.sales));});
+    L.push("");
+    // CPA（グロス）
+    L.push("■ CPA（グロス・"+repSum.curYM+"）");
+    let _hpOccM=0;(data||[]).forEach(r=>{if(isCancel(r.status))return;const _o=(r.bookedAt||r.createdAt||"");const _o2=_o?String(_o).slice(0,7):"";if(!_o2||_o2<"2026-02")return;if(String(r.source||"")!=="ota"&&_o2===repSum.curYM)_hpOccM++;});
+    const _hpAd=Math.round(Number((hpAdSpend||{})[repSum.curYM])||0);
+    const _hpCpa=_hpOccM>0?Math.round(_hpAd/_hpOccM):0;
+    const _otaC=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
+    const _otaFee=Math.round((_otaC.sales||0)*0.18);
+    const _otaCpa=(_otaC.count||0)>0?Math.round(_otaFee/_otaC.count):0;
+    const _gCnt=_hpOccM+(_otaC.count||0),_gCost=_hpAd+_otaFee,_gCpa=_gCnt>0?Math.round(_gCost/_gCnt):0;
+    L.push("・純広告(HP・運用戦略/発生月)："+_hpOccM+"件 / 広告費"+yen(_hpAd)+" / CPA"+(_hpCpa>0?yen(_hpCpa):"—"));
+    L.push("・OTA(グロス・返却月/手数料18%)："+(_otaC.count||0)+"件 / "+yen(_otaFee)+" / CPA"+(_otaCpa>0?yen(_otaCpa):"—"));
+    L.push("・合算グロスCPA："+_gCnt+"件 / コスト"+yen(_gCost)+" / CPA"+(_gCpa>0?yen(_gCpa):"—"));
     L.push("");
     // 月間目標
     L.push("■ 月間目標（テーマ）");
@@ -25744,6 +25760,28 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <tr style={{background:"#0F1F45",color:"#fff",fontWeight:900}}><td style={{padding:"6px"}}>合計</td><td style={{padding:"6px",textAlign:"right"}}>{["OTA","HP","その他"].reduce((s,ch)=>s+(((repSum.byCh&&repSum.byCh[ch])||{}).count||0),0)}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(repSum.total)}</td><td style={{padding:"6px",textAlign:"right"}}>100%</td></tr>
               </tbody></table>
             </div></div>
+            {/* ②-2 CPA（グロス／純広告=運用戦略HP・OTA=グロス日次最新） */}
+            {(()=>{
+              const _occ=(r)=>{const v=r.bookedAt||r.createdAt||"";return v?String(v).slice(0,7):"";};
+              let hpOccM=0;
+              (data||[]).forEach(r=>{if(isCancel(r.status))return;const o=_occ(r);if(!o||o<"2026-02")return;if(String(r.source||"")!=="ota"&&o===repSum.curYM)hpOccM++;});
+              const hpAd=Math.round(Number((hpAdSpend||{})[repSum.curYM])||0);
+              const hpCpa=hpOccM>0?Math.round(hpAd/hpOccM):0;
+              const otaC=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
+              const otaFee=Math.round((otaC.sales||0)*0.18);
+              const otaCpa=(otaC.count||0)>0?Math.round(otaFee/otaC.count):0;
+              const gCnt=hpOccM+(otaC.count||0),gCost=hpAd+otaFee,gCpa=gCnt>0?Math.round(gCost/gCnt):0;
+              const cRow=(nm,cnt,cost,cpa,cc,note)=><tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}{note?<span style={{fontSize:9.5,color:"#94a3b8",fontWeight:600}}> {note}</span>:null}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{cnt}件</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>{yen(cost)}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:cc}}>{cpa>0?yen(cpa):"—"}</td></tr>;
+              return <div style={sec}><div style={secHd}>■ CPA（グロス・{repSum.curYM}）純広告＝運用戦略(HP)／OTA＝グロス日次最新</div><div style={secBd}>
+                <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                  <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>区分</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>コスト</td><td style={{padding:"4px 6px",textAlign:"right"}}>CPA</td></tr>
+                  {cRow("🌐 純広告（HP）",hpOccM,hpAd,hpCpa,"#1d4ed8","発生月・広告費÷獲得")}
+                  {cRow("🏢 OTA（グロス）",otaC.count||0,otaFee,otaCpa,"#7c3aed","返却月・手数料18%÷件数")}
+                  <tr style={{background:"#fef9c3",fontWeight:900}}><td style={{padding:"6px"}}>💰 合算グロスCPA</td><td style={{padding:"6px",textAlign:"right"}}>{gCnt}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(gCost)}</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{gCpa>0?yen(gCpa):"—"}</td></tr>
+                </tbody></table>
+                <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※純広告CPA＝運用戦略（HP新規獲得）と同一：純広告費(hp_adspend)÷HP獲得件数（発生月・source基準）。OTA CPA＝当月返却グロス売上×18%÷OTA件数（日次最新）。広告費が未入力の月はコスト¥0＝CPA「—」。</div>
+              </div></div>;
+            })()}
             {/* ③ 月間目標 */}
             <div style={sec}><div style={secHd}>■ 月間目標（テーマ／{repSum.curYM}）</div><div style={secBd}>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
