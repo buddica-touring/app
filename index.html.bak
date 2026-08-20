@@ -17147,7 +17147,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     if(!sb){setNextDayWashOverlay([]);return;}
     try{
       const prev=dOff(date,-1);
-      const{data,error}=await sb.from("bt_tasks").select("*").eq("date",prev).eq("内容","洗車").neq("deleted",true);
+      const{data,error}=await sb.from("bt_tasks").select("*").eq("date",prev).in("内容",["洗車","返却後洗車"]).neq("deleted",true);
       if(error||!data){setNextDayWashOverlay([]);return;}
       const ov=data.map(DB._fromDbTask).filter(t=>t._nextDayWash).map(t=>({...t,_nextDayWashShown:true,_srcDate:prev}));
       setNextDayWashOverlay(ov);
@@ -17229,7 +17229,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       const _saveDate=t._srcDate||dOff(selDate,-1);
       let prev=null;
       setNextDayWashOverlay(ov=>ov.map(x=>{if(x._id===id){prev=x;return t;}return x;}));
-      if(prev&&t.done&&!prev.done){setTimeout(function(){celebrateDone();},0);if(t.type==="洗車"&&t.assignedVehicle){DB.recordVehicleWash(t.assignedVehicle,_saveDate);}}
+      if(prev&&t.done&&!prev.done){setTimeout(function(){celebrateDone();},0);if((t.type==="洗車"||t.type==="返却後洗車")&&t.assignedVehicle){DB.recordVehicleWash(t.assignedVehicle,_saveDate);}}
       if(prev&&t.assignee&&t.assignee!==prev.assignee){setTimeout(function(){celebrateAssign(t.assignee);},0);}
       pendingSaves.current++;setSaveStatus("saving");
       await DB.updateTask(t,_saveDate);
@@ -17271,9 +17271,10 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   /* ★2026-08-19 洗車「翌日対応」トグル: _nextDayWashフラグを立て/外すだけ(その洗車タスク1件のchanged_jsonを部分更新・日付/_taskDateは不動)。
      ONで「当日貸出洗車」(貸出日=前日+1に表示)へ、OFFで前日対応に戻る。オーバーレイ(前日実在)分は実日付=_srcDateへ書く。NHA/SPKと同仕様。 */
   const toggleNextDayWash=async(t)=>{
-    if(t.type!=="洗車")return;
+    if(t.type!=="洗車"&&t.type!=="返却後洗車")return;
+    const _rw=t.type==="返却後洗車";
     const turningOn=!t._nextDayWash;
-    if(!window.confirm(turningOn?"この洗車を翌日（貸出当日）対応に切り替えますか？\n（前日はグレー表示になり、貸出当日に「当日貸出洗車」として表示されます）":"この洗車を前日対応に戻しますか？"))return;
+    if(!window.confirm(turningOn?(_rw?"この返却後洗車を翌日対応に切り替えますか？\n（当日はグレー表示になり、翌日に「翌日返却後洗車」として表示されます）":"この洗車を翌日（貸出当日）対応に切り替えますか？\n（前日はグレー表示になり、貸出当日に「当日貸出洗車」として表示されます）"):(_rw?"この返却後洗車を当日対応に戻しますか？":"この洗車を前日対応に戻しますか？")))return;
     const realDate=t._nextDayWashShown?(t._srcDate||dOff(selDate,-1)):selDate; /* オーバーレイは前日が実日付 */
     const nt={...t,_nextDayWash:turningOn,_nextDayWashAt:turningOn?new Date().toISOString():""};
     delete nt._nextDayWashShown;delete nt._srcDate;
@@ -18582,6 +18583,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const filtered=sortedTasks.filter(t=>t.type==="洗車");
         const autoWash=filtered.filter(t=>!t.manual);
         const manualWash=filtered.filter(t=>t.manual);
+        const rwashTasks=sortedTasks.filter(t=>t.type==="返却後洗車"); /* ★2026-08-20 返却後洗車も洗車タブで管理(翌日対応トグル付き) */
         const doneC=filtered.filter(t=>t.done).length;
         const getNextDayDeparture=(t)=>{
           if(!t.reservationId)return "";
@@ -18611,11 +18613,12 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           const vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;
           const _wGray=t._nextDayWash&&!t._nextDayWashShown; /* 当日行に_nextDayWash=true(前日の実在タスク)=前日は行わない */
           const _wToday=!!t._nextDayWashShown; /* 当日に表示されているオーバーレイ=当日貸出洗車 */
+          const _isRw=t.type==="返却後洗車";
           return <div key={t._id} style={{padding:isMob?"8px 10px":"6px 10px",borderBottom:"1px solid #f1f5f9",opacity:t.done?0.5:(_wGray?0.55:1),background:_wToday?"#eff6ff":undefined}}>
             <div style={{display:"flex",alignItems:"center",gap:6,fontSize:isMob?13:11}}>
               <span style={{cursor:"pointer",fontSize:isMob?16:13,flexShrink:0}} onClick={()=>{const u=mark({...t,done:!t.done},"done");upd(t._id,u);}}>{t.done?"✅":"⬜"}</span>
-              {_wToday&&<span title="翌日対応に切り替えた洗車（当日貸出洗車）" style={{fontSize:isMob?9:8,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:4,padding:"1px 5px",flexShrink:0}}>🚿当日貸出</span>}
-              {_wGray&&<span title="翌日（貸出当日）に切り替え済み・当日は行いません" style={{fontSize:isMob?9:8,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:4,padding:"1px 5px",flexShrink:0}}>→翌日対応</span>}
+              {_wToday&&<span title="翌日対応に切り替えた洗車" style={{fontSize:isMob?9:8,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:4,padding:"1px 5px",flexShrink:0}}>{_isRw?"🚿翌日返却後洗車":"🚿当日貸出"}</span>}
+              {_wGray&&<span title={_isRw?"翌日に切り替え済み・当日は行いません":"翌日（貸出当日）に切り替え済み・当日は行いません"} style={{fontSize:isMob?9:8,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:4,padding:"1px 5px",flexShrink:0}}>→翌日対応</span>}
               <span style={{fontWeight:700,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.name||""}</span>
               {t.time&&<span style={{fontSize:isMob?11:10,fontWeight:800,color:"#1e293b",fontFamily:"monospace",background:"#f1f5f9",padding:"1px 6px",borderRadius:4,flexShrink:0}}>{t.time}</span>}
               {vn&&<span style={{color:"#059669",fontSize:isMob?10:9,fontWeight:600,flexShrink:0}}>🚗{vn.name}</span>}
@@ -18634,7 +18637,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               {nextDep&&<span style={{color:"#ea580c",fontWeight:700}}>翌日出発 {nextDep}</span>}
               {t.memo&&<span style={{color:"#475569",fontWeight:600,background:"#fefce8",padding:"1px 4px",borderRadius:3}}>{t.memo}</span>}
               <span style={{flex:1}}></span>
-              <button onClick={()=>toggleNextDayWash(t)} title={t._nextDayWash?"前日対応に戻す":"翌日（貸出当日）対応に切り替え＝当日貸出洗車"} style={{fontSize:isMob?10:9,fontWeight:700,padding:"2px 8px",borderRadius:5,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer",flexShrink:0}}>{t._nextDayWash?"前日に戻す":"翌日対応"}</button>
+              <button onClick={()=>toggleNextDayWash(t)} title={t._nextDayWash?(_isRw?"当日対応に戻す":"前日対応に戻す"):(_isRw?"翌日対応に切り替え":"翌日（貸出当日）対応に切り替え＝当日貸出洗車")} style={{fontSize:isMob?10:9,fontWeight:700,padding:"2px 8px",borderRadius:5,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer",flexShrink:0}}>{t._nextDayWash?(_isRw?"当日に戻す":"前日に戻す"):"翌日対応"}</button>
               {(t.manual||String(t._id||"").indexOf("wash_manual_")===0)&&<button onClick={()=>deleteWashTask(t._id)} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:4,fontSize:isMob?10:9,color:"#dc2626",fontWeight:700,padding:"2px 8px",cursor:"pointer",flexShrink:0}}>削除</button>}
             </div>
           </div>;
@@ -18684,7 +18687,15 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             </div>
             {manualWash.map(renderWashRow)}
           </div>}
-          {filtered.length===0&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>洗車タスクなし — 上のボタンから追加できます</div>}
+          {/* 返却後洗車（返却車両・翌日対応可） */}
+          {rwashTasks.length>0&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #99f6e4",overflow:"hidden"}}>
+            <div style={{padding:"6px 12px",background:"#f0fdfa",borderBottom:"1px solid #99f6e4",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontWeight:800,fontSize:12,color:"#0d9488"}}>🔁 返却後洗車（返却車両）</span>
+              <span style={{fontSize:10,fontWeight:600,color:"#5eead4"}}>{rwashTasks.length}件</span>
+            </div>
+            {rwashTasks.map(renderWashRow)}
+          </div>}
+          {filtered.length===0&&rwashTasks.length===0&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>洗車タスクなし — 上のボタンから追加できます</div>}
         </div>;
       })()}
       {/* ★ リスト表示モード（全タスクマスター） */}
@@ -18974,7 +18985,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <td style={{...cellR(2),textAlign:"center",fontWeight:700,color:resolvedT?"#1e293b":"#dc2626",background:missingTime?"#fef2f2":(resolvedT&&resolvedT!==t.time)?"#f5f3ff":cellR(2).background,padding:isTimeEdit?0:cellR(2).padding}} onClick={e=>{if(isTimeEdit)e.stopPropagation();}}>{isTimeEdit?<select value={t.time||""} onChange={e=>{e.stopPropagation();const v=e.target.value;if(!window.confirm((isWash?"洗車時間":"時間")+"を「"+(v||"クリア")+"」に変更しますか？")){return;}const u=mark({...t,time:v},"time");upd(t._id,u);}} style={{width:"100%",border:"none",background:"transparent",fontSize:9,fontWeight:700,color:t.time?"#1e293b":"#ccc",padding:"2px",cursor:"pointer",appearance:"none",WebkitAppearance:"none",textAlign:"center"}}><option value="">-</option>{TIME_OPTS.filter(o=>o).map(o=><option key={o} value={o}>{o}</option>)}</select>:missingTime?<span style={{color:"#dc2626",fontSize:8}}>⚠未</span>:<React.Fragment>{resolvedT||"-"}{resolvedT&&resolvedT!==t.time&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>←{t.time||"空"}</div>}</React.Fragment>}</td>
               <td style={{...cellR(3),textAlign:"center",fontWeight:800,fontSize:9,whiteSpace:"nowrap",color:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#fff":"#cbd5e1",background:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#ee6a1c":cellR(3).background}}>{srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店")?"🚐"+srcRes.pickupTime:"-"}</td>
               <td style={{...cellR(3),fontWeight:700,color:tm.c,background:t.typeChange?"#f5f3ff":cellR(3).background}}>{washCat(t)||t.type||"-"}{t.typeChange&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>{t.typeChange}</div>}</td>
-              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{t.type==="洗車"&&t._nextDayWashShown&&<span title="翌日対応に切り替えた洗車（当日貸出洗車）" style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:3,padding:"1px 4px",marginRight:3}}>🚿当日貸出洗車</span>}{t.type==="洗車"&&t._nextDayWash&&!t._nextDayWashShown&&<span title="翌日（貸出当日）に切り替え済み・当日は行いません" style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:3,padding:"1px 4px",marginRight:3}}>→翌日対応</span>}{t.name||"-"}{t.type==="洗車"&&<button onClick={e=>{e.stopPropagation();toggleNextDayWash(t);}} title={t._nextDayWash?"前日対応に戻す":"翌日（貸出当日）対応に切り替え＝当日貸出洗車"} style={{display:"inline-block",marginLeft:4,fontSize:7,fontWeight:700,padding:"1px 5px",borderRadius:4,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer"}}>{t._nextDayWash?"前日に戻す":"翌日対応"}</button>}{srcRes&&srcRes.mypageToken&&<a href={custPageUrl(srcRes.mypageToken,srcRes.ota,"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9} ttype={t.type}/>:null}</td>
+              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWashShown&&<span title="翌日対応に切り替えた洗車" style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:3,padding:"1px 4px",marginRight:3}}>{t.type==="返却後洗車"?"🚿翌日返却後洗車":"🚿当日貸出洗車"}</span>}{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown&&<span title={t.type==="返却後洗車"?"翌日に切り替え済み・当日は行いません":"翌日（貸出当日）に切り替え済み・当日は行いません"} style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:3,padding:"1px 4px",marginRight:3}}>→翌日対応</span>}{t.name||"-"}{(t.type==="洗車"||t.type==="返却後洗車")&&<button onClick={e=>{e.stopPropagation();toggleNextDayWash(t);}} title={t._nextDayWash?(t.type==="返却後洗車"?"当日対応に戻す":"前日対応に戻す"):(t.type==="返却後洗車"?"翌日対応に切り替え":"翌日（貸出当日）対応に切り替え＝当日貸出洗車")} style={{display:"inline-block",marginLeft:4,fontSize:7,fontWeight:700,padding:"1px 5px",borderRadius:4,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer"}}>{t._nextDayWash?(t.type==="返却後洗車"?"当日に戻す":"前日に戻す"):"翌日対応"}</button>}{srcRes&&srcRes.mypageToken&&<a href={custPageUrl(srcRes.mypageToken,srcRes.ota,"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9} ttype={t.type}/>:null}</td>
               <td onClick={e=>{
                 e.stopPropagation();
                 if(!t.reservationId)return;
@@ -23441,7 +23452,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.341-BT";
+const APP_VERSION="v1.0.342-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
