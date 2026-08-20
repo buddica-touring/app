@@ -333,6 +333,24 @@ const DB = {
     }
     return tasks;
   },
+  /* ★2026-08-20 「翌日対応」洗車の日跨ぎを解決した実効タスク一覧(TOPサマリー用・OPシートoverlayと同一結果)。
+     当日の洗車/返却後洗車で_nextDayWash=true=翌日へ繰越→当日リストから除外。
+     前日の洗車/返却後洗車で_nextDayWash=true=当日へ繰越→当日リストに取込。
+     これで「押した後に当日と翌日の両方に出る(重複表示)」を解消し、繰越先の1日にだけ表示する。 */
+  async fetchTasksForDay(date){
+    const cur=await DB.fetchTasks(date);
+    const isW=t=>!!t&&(t.type==="洗車"||t.type==="返却後洗車");
+    const curEff=(cur||[]).filter(t=>!(isW(t)&&t._nextDayWash));
+    let prevOv=[];
+    try{
+      const prev=await DB.fetchTasks(dOff(date,-1));
+      const ids=new Set(curEff.map(t=>t._id));
+      prevOv=(prev||[]).filter(t=>isW(t)&&t._nextDayWash&&!ids.has(t._id)).map(t=>({...t,_nextDayWashShown:true}));
+    }catch(e){}
+    const out=[...curEff,...prevOv];
+    if(cur&&cur._fetchError)out._fetchError=true;
+    return out;
+  },
   // 3段階保存: full → mid(changed_json付きmin) → bare(changed_jsonなしmin)
   _toDbTaskBare(t,date,i){return{_id:t._id,date:date,"内容":t.type||"","時間":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&!((t.timeChange&&String(t.timeChange).trim())||(t._ssTime&&String(t._ssTime).trim())||(t._manualTimeAt&&String(t._manualTimeAt).trim())))?"":(t.time||"")),"変更":t.timeChange||"","内案":t.typeChange||"","予約者":t.name||"","担当":t.assignee||"","確認":!!t.done,"メモ":t.memo||"","予約番号":t.reservationId||"","OTA":t.ota||"","TEL":t.tel||"","MAIL":t.mail||"",assigned_vehicle:t.assignedVehicle||"","No":t.plateNo||"","人数":t.people||0,"送迎場所":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&!(t._placeSource==="manual"||t._placeSource==="customer"||(t._ssPlace&&String(t._ssPlace).trim())))?"":(t.place||"")),"クラス":t.vehicle||"","確定":t.insurance||"","便名":t.flight||"","返却日":t.returnDate||"","返却":t.returnTime||"","送迎":t.returnType||"","集客":t.colPlace||"","B":t.opts&&t.opts.b||0,"C":t.opts&&t.opts.c||0,"J":t.opts&&t.opts.j||0,"USB":t.opts&&t.opts.usb||0,"約款":!!t.yakkan,"LINE":!!t.line,"決済":!!t.payment,sort_order:(t._sortOrder!=null&&t._sortOrder!==""?+t._sortOrder:i)};},
   _toDbTaskMin(t,date,i){const b=DB._toDbTaskBare(t,date,i);b.changed_json=JSON.stringify(t._changed||{});return b;},
@@ -17812,7 +17830,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           {(()=>{
             const timedWash=sortedTasks.filter(t=>t.type==="洗車"&&t.time);
             const untimedWash=sortedTasks.filter(t=>t.type==="洗車"&&!t.time);
-            const allSchedule=[...sortedTasks.filter(t=>t.type!=="洗車"&&t.type!=="CXL"),...timedWash].sort((a,b)=>{const ta=a.timeChange||a._ssTime||a.time||"99:99";const tb=b.timeChange||b._ssTime||b.time||"99:99";return ta.localeCompare(tb);});
+            const allSchedule=[...sortedTasks.filter(t=>t.type!=="洗車"&&t.type!=="CXL"&&!(t.type==="返却後洗車"&&t._nextDayWash&&!t._nextDayWashShown)),...timedWash].sort((a,b)=>{const ta=a.timeChange||a._ssTime||a.time||"99:99";const tb=b.timeChange||b._ssTime||b.time||"99:99";return ta.localeCompare(tb);});
             const washList=untimedWash;
             const timeGroups={};
             allSchedule.forEach(t=>{const tm=t.timeChange||t._ssTime||t.time||"--:--";const hh=tm.substring(0,2)||"--";if(!timeGroups[hh])timeGroups[hh]=[];timeGroups[hh].push(t);});
@@ -22523,9 +22541,9 @@ function App(){
                   const[dbTasks,setDbTasks]=useState([]);
                   const[loaded,setLoaded]=useState(false);
                   const prevJsonRef=useRef("");
-                  const refetchTasks=()=>{DB.fetchTasks(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  const refetchTasks=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;setDbTasks(t);}}).catch(()=>{});};
                   useEffect(()=>{
-                    DB.fetchTasks(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
                     // ★ Realtime購読: OPシートでの完了チェックを即反映
                     let ch=null;
                     if(sb){
@@ -22670,9 +22688,9 @@ function App(){
                   const[dbTasks,setDbTasks]=useState([]);
                   const[loaded,setLoaded]=useState(false);
                   const prevJsonRef2=useRef("");
-                  const refetchTasks2=()=>{DB.fetchTasks(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  const refetchTasks2=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;setDbTasks(t);}}).catch(()=>{});};
                   useEffect(()=>{
-                    DB.fetchTasks(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
                     // ★ Realtime購読: タスク完了を即反映
                     let ch=null;
                     if(sb){
@@ -22924,8 +22942,8 @@ function App(){
               {(()=>{
                 const TopSchedule=()=>{
                   const[schTasks,setSchTasks]=useState([]);const[schLoaded,setSchLoaded]=useState(false);
-                  useEffect(()=>{DB.fetchTasks(today).then(t=>{setSchTasks(t||[]);setSchLoaded(true);}).catch(()=>setSchLoaded(true));
-                    let ch=null;if(sb){ch=sb.channel("top-sched-"+today).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+today},()=>{DB.fetchTasks(today).then(t=>{if(t)setSchTasks(t);});}).subscribe();}
+                  useEffect(()=>{DB.fetchTasksForDay(today).then(t=>{setSchTasks(t||[]);setSchLoaded(true);}).catch(()=>setSchLoaded(true));
+                    let ch=null;if(sb){ch=sb.channel("top-sched-"+today).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+today},()=>{DB.fetchTasksForDay(today).then(t=>{if(t)setSchTasks(t);});}).subscribe();}
                     return()=>{if(ch)sb.removeChannel(ch);};
                   },[]);
                   if(!schLoaded)return <div style={{padding:12,fontSize:10,color:"#94a3b8"}}>読込中...</div>;
@@ -23454,7 +23472,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.343-BT";
+const APP_VERSION="v1.0.344-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
