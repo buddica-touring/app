@@ -23476,7 +23476,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.347-BT";
+const APP_VERSION="v1.0.348-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25758,6 +25758,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>チャネル</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>計上額</td><td style={{padding:"4px 6px",textAlign:"right"}}>構成比</td></tr>
                 {["OTA","HP","その他"].map(ch=>chRow(ch,(repSum.byCh&&repSum.byCh[ch])||{count:0,sales:0}))}
+                {(()=>{const _hp=(repSum.byCh&&repSum.byCh["HP"])||{count:0,sales:0};const _ot=(repSum.byCh&&repSum.byCh["その他"])||{count:0,sales:0};const _c=(_hp.count||0)+(_ot.count||0),_s=(_hp.sales||0)+(_ot.sales||0),_p=repSum.total>0?Math.round(_s/repSum.total*100):0;return <tr style={{borderTop:"2px solid #cbd5e1",background:"#f8fafc",fontWeight:800}}><td style={{padding:"5px 6px"}}>🏠 HP＋その他（自社計）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{_c}件</td><td style={{padding:"5px 6px",textAlign:"right"}}>{yen(_s)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed"}}>{_p}%</td></tr>;})()}
                 <tr style={{background:"#0F1F45",color:"#fff",fontWeight:900}}><td style={{padding:"6px"}}>合計</td><td style={{padding:"6px",textAlign:"right"}}>{["OTA","HP","その他"].reduce((s,ch)=>s+(((repSum.byCh&&repSum.byCh[ch])||{}).count||0),0)}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(repSum.total)}</td><td style={{padding:"6px",textAlign:"right"}}>100%</td></tr>
               </tbody></table>
             </div></div>
