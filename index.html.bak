@@ -22582,6 +22582,8 @@ function App(){
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
                       await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
+                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
+                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
                     }catch(_err){
                       console.error("[ToggleTaskDone]",_err);
                       // ロールバック
@@ -22726,6 +22728,8 @@ function App(){
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
                       await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
+                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
+                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
                     }catch(_err){
                       console.error("[ToggleTaskDone2]",_err);
                       setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_t.done}):_x;});});
@@ -23472,7 +23476,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.346-BT";
+const APP_VERSION="v1.0.347-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
