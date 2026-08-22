@@ -23479,7 +23479,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.350-BT";
+const APP_VERSION="v1.0.351-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25555,10 +25555,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const byM={},byY={},byCh={},curCh={},curOta={};let total=0; // curOta=当月返却のOTA名別内訳(OTAグロスを細分化)
     let dNew={count:0,sales:0};const newBrk={}; // newBrk=本日の流通(新規取込)のチャネル/OTA名別内訳
     const curFlowCh={},curFlowOta={};let curFlowTotal=0; // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別内訳＝チャネル別を流通ベースで揃える
+    const ltHp=[],ltOta=[]; // ★リードタイム(発生→利用開始の日数)＝当月発生・HP(自社=非OTA)/OTA別。最後にグロス(合算)。CPAカードと同じsource基準。負値/一括取込除外
     // ★取込日(created_at)をJST(+9h)の日付に変換して当日判定（created_atはUTC保存＝生sliceだと日境界で±9hズレる）
     const _createdJst=(r)=>{const raw=r.createdAt||r.bookedAt||"";if(!raw)return"";const d=new Date(String(raw).replace(" ","T"));if(isNaN(d))return String(raw).slice(0,10);const j=new Date(d.getTime()+9*3600*1000);return j.getUTCFullYear()+"-"+String(j.getUTCMonth()+1).padStart(2,"0")+"-"+String(j.getUTCDate()).padStart(2,"0");};
     (data||[]).forEach(r=>{
       if(isCancel(r.status))return;
+      // ★リードタイム＝利用開始(lendDate)−予約発生(bookedAt優先／2026-03-29一括取込は除外)。当月発生のみ・HP(非OTA)/OTA別。負値(遡及取込)は除外。
+      {const _bk=r.bookedAt||(r.createdAt&&String(r.createdAt).slice(0,10)!=="2026-03-29"?r.createdAt:null);const _ld=norm(r.lendDate);
+        if(_bk&&_ld&&String(_bk).slice(0,7)===curYM){const _lt=Math.round((new Date(_ld.slice(0,10))-new Date(String(_bk).slice(0,10)))/86400000);if(_lt>=0&&_lt<=400){if(String(r.source||"")!=="ota")ltHp.push(_lt);else ltOta.push(_lt);}}}
       // ★新規増(流通)＝取込日(created_at・JST)が当日の予約。いつの利用・返却日でも、今日入った予約を+件/+¥でカウント（配車前でもカウント＝配車フィルタの前で判定）
       const _cj=_createdJst(r); // 取込日(JST)
       if(_cj===curDay){const _lb=labelOf(r),_rv=revOf(r);dNew.count++;dNew.sales+=_rv;if(!newBrk[_lb])newBrk[_lb]={count:0,sales:0};newBrk[_lb].count++;newBrk[_lb].sales+=_rv;}
@@ -25579,7 +25583,13 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     Object.entries(extraSales.byM||{}).forEach(([ym,a])=>{if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].sales+=a;});
     Object.entries(extraSales.byY||{}).forEach(([y,a])=>{if(!byY[y])byY[y]={count:0,sales:0};byY[y].sales+=a;});
     if(extraSales.total){if(!byCh["その他"])byCh["その他"]={count:0,sales:0};byCh["その他"].sales+=extraSales.total;total+=extraSales.total;}
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp};
+    // ★リードタイム統計（当月発生・HP/OTA/グロス）。med=中央値・avg=平均・near=直前率(≤3日%)
+    const _med=(a)=>{if(!a||!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2);};
+    const _avg=(a)=>a.length?Math.round(a.reduce((p,c)=>p+c,0)/a.length*10)/10:0;
+    const _near=(a)=>a.length?Math.round(a.filter(x=>x<=3).length/a.length*100):0;
+    const ltGross=ltHp.concat(ltOta);
+    const lead={hp:{n:ltHp.length,med:_med(ltHp),avg:_avg(ltHp),near:_near(ltHp)},ota:{n:ltOta.length,med:_med(ltOta),avg:_avg(ltOta),near:_near(ltOta)},gross:{n:ltGross.length,med:_med(ltGross),avg:_avg(ltGross),near:_near(ltGross)}};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp,lead};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25650,6 +25660,13 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("・純広告(自社/HP・運用戦略)："+_hpOccM+"件 / 広告費"+yen(_hpAd)+" / CPA"+(_hpCpa>0?yen(_hpCpa):"—"));
     L.push("・OTA(グロス/売上×18%)："+_otaOccM+"件 / "+yen(_otaFee)+" / CPA"+(_otaCpa>0?yen(_otaCpa):"—"));
     L.push("・合算グロスCPA："+_gCnt+"件 / コスト"+yen(_gCost)+" / CPA"+(_gCpa>0?yen(_gCpa):"—"));
+    L.push("");
+    // リードタイム（当月発生・HP/OTA/グロス）
+    L.push("■ リードタイム（"+repSum.curYM+" 発生月・予約→利用開始）");
+    const _LT=repSum.lead||{hp:{},ota:{},gross:{}};
+    const _ltL=(nm,o)=>L.push("・"+nm+"："+(o.n?(o.n+"件 / 中央値"+o.med+"日 / 平均"+o.avg+"日 / 直前率"+o.near+"%"):"データなし"));
+    _ltL("HP(自社)",_LT.hp);_ltL("OTA",_LT.ota);_ltL("グロス(合算)",_LT.gross);
+    L.push("　※直前率＝リードタイム3日以内の割合");
     L.push("");
     // 月間目標
     L.push("■ 月間目標（テーマ）");
@@ -25784,6 +25801,19 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                   <tr style={{background:"#fef9c3",fontWeight:900}}><td style={{padding:"6px"}}>💰 合算グロスCPA</td><td style={{padding:"6px",textAlign:"right"}}>{gCnt}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(gCost)}</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{gCpa>0?yen(gCpa):"—"}</td></tr>
                 </tbody></table>
                 <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※全て<b>発生月（獲得月）・source基準＝運用戦略（HP新規獲得）と同一</b>。純広告(自社)＝HP直販＋SP＋その他（＝上のCV構成比のHP＋その他）。純広告CPA＝広告費(hp_adspend)÷自社獲得件数／OTA CPA＝OTAグロス売上×18%÷OTA件数（日次最新）。広告費が未入力の月はコスト¥0＝CPA「—」。</div>
+              </div></div>;
+            })()}
+            {/* ②-3 リードタイム（当月発生・HP/OTA/グロス） */}
+            {(()=>{const LT=repSum.lead||{hp:{},ota:{},gross:{}};
+              const ltRow=(nm,o,cc,note)=><tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}{note?<span style={{fontSize:9.5,color:"#94a3b8",fontWeight:600}}> {note}</span>:null}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{o.n||0}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:cc}}>{o.n?o.med+"日":"—"}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>{o.n?o.avg+"日":"—"}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>{o.n?o.near+"%":"—"}</td></tr>;
+              return <div style={sec}><div style={secHd}>■ リードタイム（{repSum.curYM} 発生月・予約→利用開始）</div><div style={secBd}>
+                <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                  <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>区分</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>中央値</td><td style={{padding:"4px 6px",textAlign:"right"}}>平均</td><td style={{padding:"4px 6px",textAlign:"right"}}>直前率</td></tr>
+                  {ltRow("🌐 HP（自社）",LT.hp,"#1d4ed8","非OTA")}
+                  {ltRow("🏢 OTA",LT.ota,"#7c3aed","OTA経由")}
+                  <tr style={{background:"#fef9c3",fontWeight:900}}><td style={{padding:"6px"}}>💰 グロス（合算）</td><td style={{padding:"6px",textAlign:"right"}}>{LT.gross.n||0}件</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{LT.gross.n?LT.gross.med+"日":"—"}</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{LT.gross.n?LT.gross.avg+"日":"—"}</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{LT.gross.n?LT.gross.near+"%":"—"}</td></tr>
+                </tbody></table>
+                <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※<b>当月発生（予約が入った月）</b>の予約について、利用開始日−予約発生日の日数。中央値／平均／<b>直前率＝リードタイム3日以内の割合</b>。source基準（非OTA=HP自社／OTA=OTA経由）＝CPAと同一。負値(遡及取込)は除外。</div>
               </div></div>;
             })()}
             {/* ③ 月間目標 */}
