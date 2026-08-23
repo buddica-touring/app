@@ -23479,7 +23479,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.351-BT";
+const APP_VERSION="v1.0.352-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25602,9 +25602,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const yen=(n)=>"¥"+Number(n||0).toLocaleString();
     const fmtD=(n,y)=>(n>0?"+":(n<0?"−":"±"))+(y?yen(Math.abs(n)):(Math.abs(n)+"件"));
     const L=[];
-    L.push("BUDDICA TOURISM 日報");
-    L.push(norm(date)+" ("+wd+")");
-    L.push("━━━━━━━━━━");L.push("");
+    L.push("━━━━━━━━━━━━━━━");
+    L.push("🍜 高松店　日報");
+    L.push("🗓 "+norm(date)+"（"+wd+"）");
+    L.push("━━━━━━━━━━━━━━━");L.push("");
     // 件数・売上サマリー
     const curYr=repSum.curYM.slice(0,4);
     const yrD=repSum.byY[curYr]||{count:0,sales:0};
@@ -25620,6 +25621,18 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("・"+curYr+"累計（返却月）："+yrD.count+"件 / "+yen(yrD.sales));
     L.push("・当月累計（"+mm+"・返却月）："+curM.count+"件 / "+yen(curM.sales));
     if(yogai>0)L.push("　└ うち予約外売上（会計）："+yen(yogai));
+    {const _ld2=(d)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+     const _cu=(ym)=>{const p=ym.split("-").map(Number),yy=p[0],mo2=p[1];const dim=new Date(yy,mo2,0).getDate();const ms=new Date(yy,mo2-1,1),me=new Date(yy,mo2-1,dim);const kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===ym)kf[k.vehicle_code]=(k.active!==false);});const act=(c)=>kf[c]!==undefined?kf[c]:((vehicles.find(v=>v.code===c)||{}).active!==false);let td=0,ac=0;vehicles.forEach(v=>{if(!act(v.code))return;ac++;const rd=new Set();(data||[]).forEach(r=>{if(fleet[r.id]!==v.code)return;const ld=new Date(norm(r.lendDate)+"T00:00:00"),re=new Date(norm(r.returnDate)+"T00:00:00");if(isNaN(ld)||isNaN(re))return;const s=ld>ms?ld:ms,e=re<me?re:me;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))rd.add(_ld2(d));});td+=rd.size;});const md=ac*dim;return md>0?Math.round(td/md*100):null;};
+     const _am=(ym,n)=>{const p=ym.split("-").map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
+     const _y1=_am(repSum.curYM,1),_y2=_am(repSum.curYM,2);
+     const _m1=repSum.byM[_y1]||{count:0,sales:0},_m2=repSum.byM[_y2]||{count:0,sales:0};
+     const _uS=(ym)=>{const q=_cu(ym);return q===null?"":" ｜ 稼働 "+q+"%";};
+     L.push("");
+     L.push("📊 売上見通し（返却月）");
+     L.push("・当月（"+mm+"）："+yen(curM.sales)+_uS(repSum.curYM));
+     L.push("・翌月（"+_y1.slice(5)+"月）："+_m1.count+"件 / "+yen(_m1.sales)+_uS(_y1));
+     L.push("・翌々月（"+_y2.slice(5)+"月）："+_m2.count+"件 / "+yen(_m2.sales)+_uS(_y2));
+     L.push("　※翌月以降は先行予約分（着地は変動）／稼働率＝配車表と同じ値");}
     L.push("");
     L.push("■ 本日の流通（新規取込・取込日ベース）");
     L.push("・新規増（流通）："+fmtD(dc.dCount,false)+" / "+fmtD(dc.dSales,true));
@@ -25718,7 +25731,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             <button onClick={async()=>{try{await navigator.clipboard.writeText(txtOut);setSavedMsg("✅ コピーしました");setTimeout(()=>setSavedMsg(""),2000);}catch(e){}}} style={{marginLeft:"auto",padding:"5px 12px",background:"#0f766e",color:"#fff",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>📋 再コピー</button>
             <button onClick={()=>setTxtOut(null)} style={{padding:"5px 12px",background:"#e2e8f0",color:"#334155",border:"none",borderRadius:7,fontWeight:800,fontSize:12,cursor:"pointer"}}>✕ 閉じる</button>
           </div>
-          <textarea readOnly value={txtOut} onFocus={e=>e.target.select()} style={{width:"100%",flex:1,minHeight:360,fontFamily:"ui-monospace,Menlo,Consolas,monospace",fontSize:12,lineHeight:1.5,border:"1px solid #cbd5e1",borderRadius:8,padding:12,whiteSpace:"pre",overflow:"auto",color:"#0f172a",background:"#f8fafc"}}/>
+          <textarea readOnly value={txtOut} onFocus={e=>e.target.select()} style={{width:"100%",flex:1,minHeight:360,fontFamily:"ui-monospace,Menlo,Consolas,monospace",fontSize:13.5,lineHeight:1.75,letterSpacing:.2,border:"1px solid #cbd5e1",borderRadius:8,padding:14,whiteSpace:"pre",overflow:"auto",color:"#0f172a",background:"#f8fafc"}}/>
         </div>
       </div>}
       {/* 📋 定例MTG まとめ（既存計算値をそのまま集約＝日報テキスト buildDailyText と同じ数字・再計算なし） */}
