@@ -23479,7 +23479,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.353-BT";
+const APP_VERSION="v1.0.354-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25805,22 +25805,25 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             {/* ②-2 CPA（グロス／純広告=運用戦略HP・OTA=グロス日次最新） */}
             {(()=>{
               const _occ=(r)=>{const v=r.bookedAt||r.createdAt||"";return v?String(v).slice(0,7):"";};
-              let hpOccM=0,otaOccM=0,otaOccS=0; // 発生月・source基準（＝運用戦略と同一）で件数を揃える
-              (data||[]).forEach(r=>{if(isCancel(r.status))return;const o=_occ(r);if(!o||o<"2026-02"||o!==repSum.curYM)return;if(String(r.source||"")!=="ota")hpOccM++;else{otaOccM++;otaOccS+=revOf(r);}});
+              let hpOccM=0,hpOccS=0,otaOccM=0,otaOccS=0; // 発生月・source基準（＝運用戦略と同一）で件数/売上を揃える
+              (data||[]).forEach(r=>{if(isCancel(r.status))return;const o=_occ(r);if(!o||o<"2026-02"||o!==repSum.curYM)return;const _rv=revOf(r);if(String(r.source||"")!=="ota"){hpOccM++;hpOccS+=_rv;}else{otaOccM++;otaOccS+=_rv;}});
               const hpAd=Math.round(Number((hpAdSpend||{})[repSum.curYM])||0);
               const hpCpa=hpOccM>0?Math.round(hpAd/hpOccM):0;
               const otaFee=Math.round(otaOccS*0.18);
               const otaCpa=otaOccM>0?Math.round(otaFee/otaOccM):0;
-              const gCnt=hpOccM+otaOccM,gCost=hpAd+otaFee,gCpa=gCnt>0?Math.round(gCost/gCnt):0;
-              const cRow=(nm,cnt,cost,cpa,cc,note)=><tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}{note?<span style={{fontSize:9.5,color:"#94a3b8",fontWeight:600}}> {note}</span>:null}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{cnt}件</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>{yen(cost)}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:cc}}>{cpa>0?yen(cpa):"—"}</td></tr>;
-              return <div style={sec}><div style={secHd}>■ CPA（グロス・{repSum.curYM} 発生月／運用戦略と同一基準）</div><div style={secBd}>
-                <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                  <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>区分</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>コスト</td><td style={{padding:"4px 6px",textAlign:"right"}}>CPA</td></tr>
-                  {cRow("🌐 純広告（自社/HP）",hpOccM,hpAd,hpCpa,"#1d4ed8","広告費÷自社獲得")}
-                  {cRow("🏢 OTA（グロス）",otaOccM,otaFee,otaCpa,"#7c3aed","OTAグロス売上×18%÷件数")}
-                  <tr style={{background:"#fef9c3",fontWeight:900}}><td style={{padding:"6px"}}>💰 合算グロスCPA</td><td style={{padding:"6px",textAlign:"right"}}>{gCnt}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(gCost)}</td><td style={{padding:"6px",textAlign:"right",color:"#92400e"}}>{gCpa>0?yen(gCpa):"—"}</td></tr>
-                </tbody></table>
-                <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※全て<b>発生月（獲得月）・source基準＝運用戦略（HP新規獲得）と同一</b>。純広告(自社)＝HP直販＋SP＋その他（＝上のCV構成比のHP＋その他）。純広告CPA＝広告費(hp_adspend)÷自社獲得件数／OTA CPA＝OTAグロス売上×18%÷OTA件数（日次最新）。広告費が未入力の月はコスト¥0＝CPA「—」。</div>
+              const gCnt=hpOccM+otaOccM,gSales=hpOccS+otaOccS,gCost=hpAd+otaFee,gCpa=gCnt>0?Math.round(gCost/gCnt):0;
+              const hpUnit=hpOccM>0?Math.round(hpOccS/hpOccM):0,otaUnit=otaOccM>0?Math.round(otaOccS/otaOccM):0,gUnit=gCnt>0?Math.round(gSales/gCnt):0;
+              const hpEff=hpOccS-hpAd,otaEff=otaOccS-otaFee,gEff=gSales-gCost; // 効果＝HP:売上−広告費／OTA:手取り(売上−手数料)
+              const effC=v=>v>=0?"#059669":"#dc2626",effS=v=>(v>=0?"+":"−")+yen(Math.abs(v));
+              const cRow=(nm,cnt,sales,unit,cost,cpa,eff,cc,note)=><tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}{note?<span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}> {note}</span>:null}</td><td style={{padding:"5px 4px",textAlign:"right"}}>{cnt}件</td><td style={{padding:"5px 4px",textAlign:"right",fontWeight:800}}>{yen(sales)}</td><td style={{padding:"5px 4px",textAlign:"right",color:"#64748b"}}>{unit>0?yen(unit):"—"}</td><td style={{padding:"5px 4px",textAlign:"right",color:"#64748b"}}>{yen(cost)}</td><td style={{padding:"5px 4px",textAlign:"right",fontWeight:900,color:cc}}>{cpa>0?yen(cpa):"—"}</td><td style={{padding:"5px 4px",textAlign:"right",fontWeight:800,color:effC(eff)}}>{effS(eff)}</td></tr>;
+              return <div style={sec}><div style={secHd}>■ CPA・売上・効果（グロス・{repSum.curYM} 発生月／運用戦略と同一基準）</div><div style={secBd}>
+                <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:11.5,borderCollapse:"collapse",minWidth:520}}><tbody>
+                  <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:10.5}}><td style={{padding:"4px 6px"}}>区分</td><td style={{padding:"4px 4px",textAlign:"right"}}>件数</td><td style={{padding:"4px 4px",textAlign:"right"}}>売上</td><td style={{padding:"4px 4px",textAlign:"right"}}>予約単価</td><td style={{padding:"4px 4px",textAlign:"right"}}>広告費/手数料</td><td style={{padding:"4px 4px",textAlign:"right"}}>CPA</td><td style={{padding:"4px 4px",textAlign:"right"}}>効果</td></tr>
+                  {cRow("🌐 純広告（自社/HP）",hpOccM,hpOccS,hpUnit,hpAd,hpCpa,hpEff,"#1d4ed8","効果=売上−広告費")}
+                  {cRow("🏢 OTA（グロス）",otaOccM,otaOccS,otaUnit,otaFee,otaCpa,otaEff,"#7c3aed","効果=手取り(売上−手数料)")}
+                  <tr style={{background:"#fef9c3",fontWeight:900}}><td style={{padding:"6px"}}>💰 合算グロス</td><td style={{padding:"6px 4px",textAlign:"right"}}>{gCnt}件</td><td style={{padding:"6px 4px",textAlign:"right"}}>{yen(gSales)}</td><td style={{padding:"6px 4px",textAlign:"right"}}>{gUnit>0?yen(gUnit):"—"}</td><td style={{padding:"6px 4px",textAlign:"right"}}>{yen(gCost)}</td><td style={{padding:"6px 4px",textAlign:"right",color:"#92400e"}}>{gCpa>0?yen(gCpa):"—"}</td><td style={{padding:"6px 4px",textAlign:"right",color:effC(gEff)}}>{effS(gEff)}</td></tr>
+                </tbody></table></div>
+                <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※全て<b>発生月（獲得月）・source基準＝運用戦略（HP新規獲得）と同一</b>。売上＝発生月の予約売上(revOf)／予約単価＝売上÷件数。純広告(自社)＝HP直販＋SP＋その他。純広告CPA＝広告費(hp_adspend)÷件数・<b>効果＝売上−広告費</b>／OTA CPA＝グロス売上×18%÷件数・<b>効果＝手取り(売上−手数料18%)</b>。広告費が未入力の月はコスト¥0＝CPA「—」。</div>
               </div></div>;
             })()}
             {/* ②-3 リードタイム（当月発生・HP/OTA/グロス） */}
