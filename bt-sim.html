@@ -206,18 +206,26 @@ function ensure(ph){
   [ph.fixed,ph.sga].forEach(function(arr){(arr||[]).forEach(function(g){if(!(g.mv&&g.mv.length===12)){g.mv=[];for(var k=0;k<12;k++)g.mv[k]=+g.amt||0;}});});
 }
 function moNo(m){return ((S.startM-1+m)%12)+1;}
+var OTA_FEE_RATE=0.18;
+function isOtaFee(g){return /OTA手数料/.test(g.label||'');}
 function costMV(g,m){return (g.mv&&g.mv.length===12)?(+g.mv[m]||0):(+g.amt||0);}
 function fixedM(ph,m){return ph.fixed.reduce(function(a,g){return a+costMV(g,m);},0);}
-function sgaM(ph,m){return ph.sga.reduce(function(a,g){return a+costMV(g,m);},0);}
+function sgaManual(ph,m){return ph.sga.reduce(function(a,g){return a+(isOtaFee(g)?0:costMV(g,m));},0);} // OTA手数料は自動計算に置換
+function otaFeeM(ph,m){var mo=calcSales(ph,m);return mo.total*((+ph.otaPct||0)/100)*OTA_FEE_RATE;}
+function sgaM(ph,m){return sgaManual(ph,m)+otaFeeM(ph,m);}
 
-function calcMonth(ph,m){
+function calcSales(ph,m){ // 売上のみ（コスト非依存＝循環参照回避）
   var basic=0,units=0,cnt=0,cd=0;
   ph.types.forEach(function(t){var occ=ph.season[m]==='peak'?t.occP:t.occN;var adr=ph.season[m]==='peak'?t.adrP:t.adrN;var rd=t.rdays;var cdCar=occ/100*S.days;var c=cdCar*t.n;
     basic+=c*adr;units+=t.n;cnt+=(rd>0?cdCar/rd:0)*t.n;cd+=c;});
-  var anc=basic*(S.ancRate/100),total=basic+anc,vari=total*(S.varRate/100);
-  var fixed=fixedM(ph,m),sga=sgaM(ph,m),op=total-vari-fixed-sga;
-  var occ=units>0?cd/(units*S.days)*100:0,avgResv=cnt>0?total/cnt:0;
-  return {basic:basic,anc:anc,total:total,vari:vari,fixed:fixed,sga:sga,op:op,units:units,cnt:cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
+  var anc=basic*(S.ancRate/100),total=basic+anc;
+  return {basic:basic,anc:anc,total:total,units:units,cnt:cnt,cd:cd};
+}
+function calcMonth(ph,m){
+  var s=calcSales(ph,m),total=s.total,vari=total*(S.varRate/100);
+  var otaFee=otaFeeM(ph,m),fixed=fixedM(ph,m),sga=sgaManual(ph,m)+otaFee,op=total-vari-fixed-sga;
+  var occ=s.units>0?s.cd/(s.units*S.days)*100:0,avgResv=s.cnt>0?total/s.cnt:0;
+  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
 }
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
@@ -401,12 +409,16 @@ function costGrid(tid,arr,kind){
   var h='<thead><tr><th class="l stick">項目</th>';
   for(var m=0;m<NM;m++)h+='<th'+(P.season[m]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moNo(m)+'月'+(m>0?'<br><button class="mini" onclick="'+cpc+'('+m+')" title="前月をこの月にコピー">◀前月</button>':'')+'</th>';
   h+='<th class="yr">年計</th><th></th></tr></thead><tbody>';
-  arr.forEach(function(g,i){ensureMV(g);var yr=0;
-    h+='<tr><td class="l stick"><input class="cell name" value="'+g.label+'" onchange="'+updL+'('+i+',this.value)"></td>';
+  arr.forEach(function(g,i){ensureMV(g);var yr=0;var ex=(kind==='S'&&isOtaFee(g));
+    h+='<tr'+(ex?' style="opacity:.5"':'')+'><td class="l stick"><input class="cell name" value="'+g.label+'" onchange="'+updL+'('+i+',this.value)">'+(ex?'<div style="font-size:9px;color:#dc2626">→自動18%に置換中（計上されません）</div>':'')+'</td>';
     for(var m=0;m<NM;m++){var v=+g.mv[m]||0;yr+=v;h+='<td'+(P.season[m]==='peak'?' class="pk"':'')+'><input class="cell" type="number" value="'+v+'" onchange="'+upd+'('+i+','+m+',this.value)"></td>';}
     h+='<td class="yr">'+yen(yr)+'</td><td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td></tr>';});
+  if(kind==='S'){var yf=0;
+    h+='<tr style="background:#eff6ff"><td class="l stick">OTA手数料<br><span style="font-size:9px;color:#0369a1">OTA売上×'+Math.round(OTA_FEE_RATE*100)+'%（自動・⑤連動）</span></td>';
+    for(var mf=0;mf<NM;mf++){var fee=otaFeeM(P,mf);yf+=fee;h+='<td'+(P.season[mf]==='peak'?' class="pk"':'')+' style="color:#0369a1;font-weight:700">'+yen(fee)+'</td>';}
+    h+='<td class="yr" style="color:#0369a1">'+yen(yf)+'</td><td></td></tr>';}
   h+='<tr class="total"><td class="l stick">合計</td>';var gy=0;
-  for(var m2=0;m2<NM;m2++){var s=arr.reduce(function(a,g){return a+(+(g.mv&&g.mv[m2])||0);},0);gy+=s;h+='<td>'+yen(s)+'</td>';}
+  for(var m2=0;m2<NM;m2++){var s=arr.reduce(function(a,g){return a+((kind==='S'&&isOtaFee(g))?0:(+(g.mv&&g.mv[m2])||0));},0);if(kind==='S')s+=otaFeeM(P,m2);gy+=s;h+='<td>'+yen(s)+'</td>';}
   h+='<td class="yr">'+yen(gy)+'</td><td></td></tr></tbody>';
   document.getElementById(tid).innerHTML=h;
 }
