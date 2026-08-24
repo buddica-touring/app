@@ -74,12 +74,13 @@ th.stick{background:#f8fafc}
     <table id="ttbl">
       <thead><tr><th class="l">タイプ</th><th class="peak">日単価¥/日<br>繁忙期</th><th class="in">日単価¥/日<br>通常期</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
         <th class="peak">稼働率%<br>繁忙期</th><th class="in">稼働率%<br>通常期</th>
-        <th>客単価/件<br>(繁/通)</th><th>年間件数<br>(算出)</th><th>年間<br>基本料金</th><th></th></tr></thead>
+        <th>客単価/件<br>(繁/通)</th><th>年間件数<br>(算出)</th><th>年間基本料金<br><span style="color:#94a3b8;font-weight:600">(付帯別)</span></th><th>月商(平均)<br><span style="color:#c2681c;font-weight:600">付帯込</span></th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td></td><td></td><td id="t-n"></td><td></td><td id="t-occp"></td><td id="t-occn"></td>
-        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-rev"></td><td></td></tr></tfoot>
+        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-rev"></td><td id="t-mo"></td><td></td></tr></tfoot>
     </table>
     </div>
+    <div id="yrSum" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"></div>
     <div style="margin-top:10px"><button class="btn btn-add" onclick="addType()">＋タイプ追加</button>
       <button class="btn btn-s" onclick="applyAct('rdays')" style="margin-left:8px">📊 レンタル日数を実績に</button>
       <button class="btn btn-s" onclick="applyAct('both')" style="margin-left:6px">📊 日単価も実績に</button></div>
@@ -220,6 +221,7 @@ function render(){
       '<td><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)"></td>'+
       '<td class="auto" style="font-size:11px"><span style="color:#be123c">'+yen(kyakuP)+'</span><br><span style="color:#1e40af">'+yen(kyakuN)+'</span></td>'+
       '<td class="auto">'+Math.round(cnt)+'件</td><td class="auto">'+yen(rev)+'</td>'+
+      '<td class="auto" style="font-weight:700;color:#1e40af">'+yen(rev*(1+S.ancRate/100)/NM)+'</td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
   });
@@ -229,6 +231,13 @@ function render(){
   document.getElementById('t-adr').textContent=yen(tCnt>0?tRev*(1+S.ancRate/100)/tCnt:0);
   document.getElementById('t-cnt').textContent=Math.round(tCnt)+'件/年';
   document.getElementById('t-rev').textContent=yen(tRev)+'/年';
+  var yrAnc=tRev*(S.ancRate/100), yrTot=tRev+yrAnc;
+  document.getElementById('t-mo').textContent=yen(yrTot/NM)+'/月';
+  document.getElementById('yrSum').innerHTML=
+    ysCard(yen(tRev),'年間 基本料金','#f8fafc','#0F1F45')+ysPlus('＋')+
+    ysCard(yen(yrAnc),'年間 付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+ysPlus('＝')+
+    ysCard(yen(yrTot),'年間 総売上','#eef6ff','#1e40af')+ysPlus('｜')+
+    ysCard(yen(yrTot/NM),'月商（平均・付帯込）','#f0fdf4','#15803d');
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
@@ -291,6 +300,8 @@ function renderCost(id,arr,upd,del){var b=document.getElementById(id);b.innerHTM
       '<td><input class="cell" style="width:120px" type="number" value="'+g.amt+'" onchange="'+upd+'('+i+',\'amt\',this.value)"></td>'+
       '<td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td>';b.appendChild(tr);});return t;}
 function kpi(t,n,pos){return '<div class="k"><div class="n '+(pos?'':'neg')+'">'+n+'</div><div class="t">'+t+'</div></div>';}
+function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
+function ysPlus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
 
 function uT(i,f,v){S.types[i][f]=(f==='name')?v:(+v||0);render();}
 function delType(i){S.types.splice(i,1);render();}
