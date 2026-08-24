@@ -348,7 +348,24 @@ document.getElementById('hpPct').addEventListener('change',function(){cur().hpPc
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
 ['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
 function resetAll(){if(confirm('全フェーズ初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
-(function(){var d=localStorage.getItem(SKEY);if(d){try{S=JSON.parse(d);}catch(e){}}render();})();
+(function(){var d=localStorage.getItem(SKEY);
+  if(d){try{S=JSON.parse(d);}catch(e){}}
+  else{ // 旧バージョンキー(単一フェーズ)から自動移植＝入力を消さない
+    for(var v=8;v>=3;v--){var old=localStorage.getItem('bt_sim_v'+v);if(!old)continue;
+      try{var o=JSON.parse(old);
+        if(o.startM)S.startM=o.startM;if(o.days)S.days=o.days;if(o.ancRate!==undefined)S.ancRate=o.ancRate;if(o.varRate!==undefined)S.varRate=o.varRate;
+        S.phases.forEach(function(p){
+          if(o.fixed&&o.fixed.length)p.fixed=JSON.parse(JSON.stringify(o.fixed));
+          if(o.sga&&o.sga.length)p.sga=JSON.parse(JSON.stringify(o.sga));
+          if(o.hpPct!==undefined)p.hpPct=o.hpPct;if(o.otaPct!==undefined)p.otaPct=o.otaPct;
+          if(o.types&&o.types[0]&&o.types[0].adrP!==undefined)p.types=JSON.parse(JSON.stringify(o.types));
+          p.season=null;});
+        break;}catch(e){}}
+    try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}
+  }
+  if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;
+  render();
+})();
 </script>
 </body>
 </html>
