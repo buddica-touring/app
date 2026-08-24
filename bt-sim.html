@@ -212,8 +212,7 @@ function cleanupOtaFee(){(S.phases||[]).forEach(function(p){if(p.sga)p.sga=p.sga
 function costMV(g,m){return (g.mv&&g.mv.length===12)?(+g.mv[m]||0):(+g.amt||0);}
 function fixedM(ph,m){return ph.fixed.reduce(function(a,g){return a+costMV(g,m);},0);}
 function sgaManual(ph,m){return ph.sga.reduce(function(a,g){return a+(isOtaFee(g)?0:costMV(g,m));},0);} // OTA手数料は自動計算に置換
-function annualSales(ph){var t=0;for(var k=0;k<NM;k++)t+=calcSales(ph,k).total;return t;}
-function otaFeeM(ph,m){return annualSales(ph)*((+ph.otaPct||0)/100)*OTA_FEE_RATE/NM;} // ⑤OTA売上(年平均月商×OTA%)×18%＝各月一律
+function otaFeeM(ph,m){var mo=calcSales(ph,m);return mo.total*((+ph.otaPct||0)/100)*OTA_FEE_RATE;} // その月のOTA売上×18%(繁忙/通常で変動)
 function sgaM(ph,m){return sgaManual(ph,m)+otaFeeM(ph,m);}
 
 function calcSales(ph,m){ // 売上のみ（コスト非依存＝循環参照回避）
@@ -306,15 +305,14 @@ function render(){
     seasonBlock('🔴 繁忙期',nP,pkB,pkA,pkT,'#fff1f2','#be123c')+
     seasonBlock('🔵 通常期',nN,nmB,nmA,nmT,'#eff6ff','#1e40af')+
     '<div style="flex:1;min-width:150px;background:#0F1F45;border-radius:10px;padding:10px;text-align:center;color:#fff"><div style="font-size:11px;opacity:.85">＝ 年間 総売上（繁忙＋通常）</div><div style="font-size:20px;font-weight:900;margin-top:2px">'+yen(yrTot)+'</div><div style="font-size:10px;opacity:.8;margin-top:3px">月平均 '+yen(yrTot/NM)+'/月</div></div>';
-  // ④ OTA/HP
-  var moTot=yrTot/NM,hpP=+P.hpPct||0,otaP=+P.otaPct||0;
+  // ⑤ OTA/HP（繁忙期／通常期で分ける＝月が異なるので売上も手数料も変動）
+  var hpP=+P.hpPct||0,otaP=+P.otaPct||0;
+  var pkMo=nP>0?pkT/nP:0,nmMo=nN>0?nmT/nN:0;
   document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠</span>':' ✓');
-  var otaRev=moTot*otaP/100;
   document.getElementById('splitOut').innerHTML=
-    ysCard(yen(moTot*hpP/100),'🌐 HP(自社) 売上/月 ('+hpP+'%)','#eff6ff','#1e40af')+ysPlus('＋')+
-    ysCard(yen(otaRev),'🏢 OTA 売上/月 ('+otaP+'%)','#fef9f2','#c2681c')+ysPlus('＝')+
-    ysCard(yen(moTot),'総売上/月','#f8fafc','#0F1F45')+
-    '<div style="flex:1 0 100%;margin-top:6px;padding:8px 10px;background:#eff6ff;border:1px dashed #0369a1;border-radius:8px;font-size:12px;color:#0369a1;font-weight:700">🏢 OTA手数料（OTA売上 '+yen(otaRev)+' × '+Math.round(OTA_FEE_RATE*100)+'%）＝ <b style="font-size:15px">'+yen(otaRev*OTA_FEE_RATE)+'/月</b> → ⑦販管費に自動計上</div>';
+    otaBlock('🔴 繁忙期の1ヶ月',pkMo,hpP,otaP,'#fff1f2','#be123c')+
+    otaBlock('🔵 通常期の1ヶ月',nmMo,hpP,otaP,'#eff6ff','#1e40af')+
+    '<div style="flex:1 0 100%;margin-top:4px;font-size:11px;color:#64748b">※OTA手数料＝各月のOTA売上×'+Math.round(OTA_FEE_RATE*100)+'%（繁忙月と通常月で金額が変わり、⑦販管費に月別で自動計上）。</div>';
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
@@ -389,6 +387,10 @@ function seasonBlock(title,nm,b,a,t,bg,col){
     '</div>';
 }
 function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
+function otaBlock(title,mo,hp,ota,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=otav*OTA_FEE_RATE;
+  return '<div style="flex:1;min-width:250px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
+    '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'</div>'+
+    '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b><br>🏢 OTA手数料('+Math.round(OTA_FEE_RATE*100)+'%) <b style="color:#0369a1;font-size:14px">'+yen(fee)+'</b>/月</div></div>';}
 function copyFromPhase(){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}var cs=document.getElementById('copySrc');if(!cs||cs.value==='')return;var si=+cs.value;if(si===S.active){alert('同じフェーズです。');return;}var src=S.phases[si],dst=cur();if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※このフェーズの名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[S.active]=c;render();}
 function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
