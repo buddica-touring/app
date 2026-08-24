@@ -205,7 +205,7 @@ function render(){
   if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
   document.getElementById('editor').style.display='';document.getElementById('sumView').style.display='none';
   var P=cur();ensure(P);
-  ['startM','days','ancRate','varRate','tgt'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
+  ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
   var hp=document.getElementById('hpPct');if(document.activeElement!==hp)hp.value=P.hpPct;
   var op2=document.getElementById('otaPct');if(document.activeElement!==op2)op2.value=P.otaPct;
@@ -346,7 +346,7 @@ function addSga(){cur().sga.push({label:'新項目',amt:0});render();}
 document.getElementById('phName').addEventListener('change',function(){cur().name=this.value;render();});
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
-['startM','days','ancRate','varRate','tgt'].forEach(function(id){document.getElementById(id).addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
+['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
 function resetAll(){if(confirm('全フェーズ初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
 (function(){var d=localStorage.getItem(SKEY);if(d){try{S=JSON.parse(d);}catch(e){}}render();})();
 </script>
