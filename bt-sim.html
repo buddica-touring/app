@@ -21,6 +21,15 @@ input.cell{width:64px;padding:4px 5px;border:1px solid #cbd5e1;border-radius:6px
 input.cell.name{width:150px;text-align:left;background:#fff}
 th.in{background:#fff7ed;color:#9a3412}
 th.peak{background:#fff1f2;color:#be123c}
+th.norm{background:#eff6ff;color:#1e40af}
+th.peakhead{background:#ffdfe3;color:#9f1239;font-size:12px;border-bottom:2px solid #fb7185}
+th.normhead{background:#dbeafe;color:#1e40af;font-size:12px;border-bottom:2px solid #60a5fa}
+td.pk{background:#fff8f8}td.nm{background:#f6faff}
+.grpP{border-left:3px solid #fb7185}.grpN{border-left:3px solid #60a5fa}
+.locked input.cell,.locked .btn-del,.locked .btn-add,.locked .btn-s,.locked .mchip,.locked .btn-g{pointer-events:none;opacity:.5}
+.locked input.cell{background:#f1f5f9;color:#334155}
+.lockbtn{border:none;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer}
+.lockbtn.off{background:#fef3c7;color:#92400e}.lockbtn.on{background:#dcfce7;color:#166534;border:1.5px solid #16a34a}
 tr.total td{font-weight:800;background:#f8fafc;border-top:2px solid #cbd5e1}
 .auto{color:#334155}
 .btn{border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
@@ -66,8 +75,9 @@ th.stick{background:#f8fafc}
       <label>付帯売上率% <input class="cell" id="ancRate" type="number" style="width:52px"></label>
       <label>変動費率% <input class="cell" id="varRate" type="number" style="width:52px"></label>
       <span class="saved" id="savedMsg"></span>
+      <button id="lockBtn" class="lockbtn off" onclick="toggleLock()" style="margin-left:auto">🔒 数字をロック</button>
     </div>
-    <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全フェーズ共通。台数・稼働率・単価・コストはフェーズごと。</div>
+    <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全フェーズ共通。台数・稼働率・単価・コストはフェーズごと。<b>🔒ロック中は全入力が編集不可＝誤操作で数字が変わりません。</b></div>
   </div>
 
   <div class="card">
@@ -80,12 +90,17 @@ th.stick{background:#f8fafc}
     <h2>③ タイプ別（繁忙／通常の稼働率・単価を設定）</h2>
     <div class="tblwrap">
     <table id="ttbl">
-      <thead><tr><th class="l">タイプ</th><th class="peak">日単価¥/日<br>繁忙期</th><th class="in">日単価¥/日<br>通常期</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
-        <th class="peak">稼働率%<br>繁忙期</th><th class="in">稼働率%<br>通常期</th>
-        <th>客単価/件<br>(繁/通)</th><th>予約件数/月<br><span style="color:#94a3b8;font-weight:600">繁/通(想定)</span></th><th>月商/月<br><span style="color:#94a3b8;font-weight:600">基本/付帯/計</span></th><th></th></tr></thead>
+      <thead>
+        <tr><th class="l" rowspan="2">タイプ</th><th class="in" rowspan="2">台数</th><th class="in" rowspan="2">平均<br>レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
+          <th class="peakhead" colspan="5">🔴 繁忙期の1ヶ月</th><th class="normhead" colspan="5">🔵 通常期の1ヶ月</th><th rowspan="2"></th></tr>
+        <tr><th class="peak">日単価¥/日</th><th class="peak">稼働率%</th><th class="peak">客単価/件</th><th class="peak">件数/月</th><th class="peak">月商/月<br>基本/付帯/計</th>
+          <th class="norm">日単価¥/日</th><th class="norm">稼働率%</th><th class="norm">客単価/件</th><th class="norm">件数/月</th><th class="norm">月商/月<br>基本/付帯/計</th></tr>
+      </thead>
       <tbody id="tbody"></tbody>
-      <tfoot><tr class="total"><td class="l">合計</td><td></td><td></td><td id="t-n"></td><td></td><td id="t-occp"></td><td id="t-occn"></td>
-        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-mo"></td><td></td></tr></tfoot>
+      <tfoot><tr class="total"><td class="l">合計</td><td id="t-n"></td><td></td>
+        <td class="grpP"></td><td id="t-occp"></td><td id="t-adrp"></td><td id="t-cntp"></td><td id="t-mop"></td>
+        <td class="grpN"></td><td id="t-occn"></td><td id="t-adrn"></td><td id="t-cntn"></td><td id="t-mon"></td>
+        <td></td></tr></tfoot>
     </table>
     </div>
     <div id="yrSum" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"></div>
@@ -171,7 +186,7 @@ function mkPhase(name,mult){mult=mult||1;
     fixed:[{label:'車両リース・保険・車検 等',amt:0}],
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
-var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,
+var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,
   phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 成長期',1.5),mkPhase('③ 安定期',2)]};
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
@@ -202,6 +217,7 @@ function render(){
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
   var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 3フェーズ合算';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
+  applyLock();
   if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
   document.getElementById('editor').style.display='';document.getElementById('sumView').style.display='none';
   var P=cur();ensure(P);
@@ -219,41 +235,56 @@ function render(){
     '<div><span style="color:#be123c;font-weight:800">🔴 繁忙期（'+peakMos.length+'ヶ月）</span>：'+(peakMos.length?peakMos.join('・')+'月':'なし')+'</div>'+
     '<div><span style="color:#1e40af;font-weight:800">🔵 通常期（'+normMos.length+'ヶ月）</span>：'+(normMos.length?normMos.join('・')+'月':'なし')+'</div>';
 
-  var months=phaseMonths(P);
-  // ③ タイプ表
-  var tb=document.getElementById('tbody');tb.innerHTML='';var tN=0,tCnt=0,tRev=0,opW=0,onW=0,oD=0,tCP=0,tCN=0;
+  var months=phaseMonths(P);var nP=P.season.filter(function(x){return x==='peak';}).length,nN=NM-nP;
+  // ③ タイプ表（繁忙期の1ヶ月／通常期の1ヶ月を完全分離）
+  var tb=document.getElementById('tbody');tb.innerHTML='';
+  var tN=0,occPw=0,occNw=0,basicPm=0,basicNm=0,cntPm2=0,cntNm2=0;
   P.types.forEach(function(t,i){
-    var actD=(ACT[t.actKey]||ACT.ALL).days,cnt=0,rev=0;
-    for(var m=0;m<NM;m++){var occ=P.season[m]==='peak'?t.occP:t.occN,adr=P.season[m]==='peak'?t.adrP:t.adrN;var cdCar=occ/100*S.days;cnt+=(t.rdays>0?cdCar/t.rdays:0)*t.n;rev+=cdCar*t.n*adr;}
-    var kyakuP=t.adrP*t.rdays,kyakuN=t.adrN*t.rdays;
-    var cntPm=t.rdays>0?(t.occP/100*S.days/t.rdays*t.n):0,cntNm=t.rdays>0?(t.occN/100*S.days/t.rdays*t.n):0;
-    tN+=t.n;tCnt+=cnt;tRev+=rev;opW+=t.occP*t.n;onW+=t.occN*t.n;oD+=t.n;tCP+=cntPm;tCN+=cntNm;
+    var actD=(ACT[t.actKey]||ACT.ALL).days;
+    var dcP=t.occP/100*S.days,dcN=t.occN/100*S.days;
+    var bP=dcP*t.n*t.adrP,bN=dcN*t.n*t.adrN;                 // 月商 基本（単月）
+    var cP=t.rdays>0?dcP/t.rdays*t.n:0,cN=t.rdays>0?dcN/t.rdays*t.n:0; // 件数（単月）
+    var kP=t.adrP*t.rdays,kN=t.adrN*t.rdays;                 // 客単価/件
+    tN+=t.n;occPw+=t.occP*t.n;occNw+=t.occN*t.n;basicPm+=bP;basicNm+=bN;cntPm2+=cP;cntNm2+=cN;
+    var moCell=function(b){var a=b*S.ancRate/100;return '<div style="line-height:1.45;text-align:right">基本 <b>'+yen(b)+'</b><br>付帯 <span style="color:#c2681c">'+yen(a)+'</span><br>計 <b>'+yen(b+a)+'</b></div>';};
     var tr=document.createElement('tr');
     tr.innerHTML='<td class="l"><input class="cell name" value="'+t.name+'" onchange="uT('+i+',\'name\',this.value)"></td>'+
-      '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.adrP+'" onchange="uT('+i+',\'adrP\',this.value)"></td>'+
-      '<td><input class="cell" type="number" value="'+t.adrN+'" onchange="uT('+i+',\'adrN\',this.value)"></td>'+
-      '<td><input class="cell" type="number" value="'+t.n+'" onchange="uT('+i+',\'n\',this.value)"></td>'+
-      '<td><input class="cell" type="number" step="0.01" value="'+t.rdays+'" onchange="uT('+i+',\'rdays\',this.value)">'+
+      '<td><input class="cell" type="number" value="'+t.n+'" onchange="uT('+i+',\'n\',this.value)" style="width:48px"></td>'+
+      '<td><input class="cell" type="number" step="0.01" value="'+t.rdays+'" onchange="uT('+i+',\'rdays\',this.value)" style="width:52px">'+
         '<div style="font-size:9px;margin-top:2px;color:'+(Math.abs(t.rdays-actD)<0.01?"#16a34a":"#94a3b8")+'">実績 '+actD+'日'+(Math.abs(t.rdays-actD)<0.01?" ✓":"")+'</div></td>'+
-      '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.occP+'" onchange="uT('+i+',\'occP\',this.value)"></td>'+
-      '<td><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)"></td>'+
-      '<td class="auto" style="font-size:11px"><span style="color:#be123c">'+yen(kyakuP)+'</span><br><span style="color:#1e40af">'+yen(kyakuN)+'</span></td>'+
-      '<td class="auto" style="font-size:11px"><span style="color:#be123c">繁 '+Math.round(cntPm)+'件</span><br><span style="color:#1e40af">通 '+Math.round(cntNm)+'件</span></td>'+
-      '<td class="auto" style="font-size:10.5px;line-height:1.5;text-align:right">基本 <b>'+yen(rev/NM)+'</b><br>付帯 <span style="color:#c2681c">'+yen(rev*S.ancRate/100/NM)+'</span><br>計 <b style="color:#1e40af">'+yen(rev*(1+S.ancRate/100)/NM)+'</b></td>'+
+      // 繁忙
+      '<td class="pk grpP"><input class="cell" type="number" value="'+t.adrP+'" onchange="uT('+i+',\'adrP\',this.value)"></td>'+
+      '<td class="pk"><input class="cell" type="number" value="'+t.occP+'" onchange="uT('+i+',\'occP\',this.value)" style="width:52px"></td>'+
+      '<td class="pk auto" style="font-size:11px">'+yen(kP)+'</td>'+
+      '<td class="pk auto" style="font-size:11px">'+Math.round(cP)+'件</td>'+
+      '<td class="pk auto" style="font-size:10.5px">'+moCell(bP)+'</td>'+
+      // 通常
+      '<td class="nm grpN"><input class="cell" type="number" value="'+t.adrN+'" onchange="uT('+i+',\'adrN\',this.value)"></td>'+
+      '<td class="nm"><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)" style="width:52px"></td>'+
+      '<td class="nm auto" style="font-size:11px">'+yen(kN)+'</td>'+
+      '<td class="nm auto" style="font-size:11px">'+Math.round(cN)+'件</td>'+
+      '<td class="nm auto" style="font-size:10.5px">'+moCell(bN)+'</td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
   });
+  var moCellT=function(b){var a=b*S.ancRate/100;return '<div style="line-height:1.4;text-align:right;font-size:10.5px">基本 '+yen(b)+'<br>付帯 <span style="color:#c2681c">'+yen(a)+'</span><br>計 <b>'+yen(b+a)+'</b></div>';};
   document.getElementById('t-n').textContent=tN+'台';
-  document.getElementById('t-occp').textContent=pct(oD>0?opW/oD:0);
-  document.getElementById('t-occn').textContent=pct(oD>0?onW/oD:0);
-  document.getElementById('t-adr').textContent=yen(tCnt>0?tRev*(1+S.ancRate/100)/tCnt:0);
-  document.getElementById('t-cnt').innerHTML='<span style="font-size:10.5px"><span style="color:#be123c">繁 '+Math.round(tCP)+'件</span> / <span style="color:#1e40af">通 '+Math.round(tCN)+'件</span></span>';
-  var yrAnc=tRev*(S.ancRate/100),yrTot=tRev+yrAnc;
-  document.getElementById('t-mo').innerHTML='<span style="font-size:10.5px;line-height:1.5">基本 '+yen(tRev/NM)+'<br>付帯 <span style="color:#c2681c">'+yen(yrAnc/NM)+'</span><br>計 <span style="color:#1e40af">'+yen(yrTot/NM)+'</span></span>';
+  document.getElementById('t-occp').textContent=pct(tN>0?occPw/tN:0);
+  document.getElementById('t-occn').textContent=pct(tN>0?occNw/tN:0);
+  document.getElementById('t-adrp').innerHTML='<span style="font-size:11px">'+yen(cntPm2>0?basicPm*(1+S.ancRate/100)/cntPm2:0)+'</span>';
+  document.getElementById('t-adrn').innerHTML='<span style="font-size:11px">'+yen(cntNm2>0?basicNm*(1+S.ancRate/100)/cntNm2:0)+'</span>';
+  document.getElementById('t-cntp').textContent=Math.round(cntPm2)+'件';
+  document.getElementById('t-cntn').textContent=Math.round(cntNm2)+'件';
+  document.getElementById('t-mop').innerHTML=moCellT(basicPm);
+  document.getElementById('t-mon').innerHTML=moCellT(basicNm);
+  // ③下: 繁忙期／通常期を分けて 期間売上まで（月が異なるので合算しない）
+  var pkB=0,pkA=0,pkT=0,nmB=0,nmA=0,nmT=0;
+  for(var m2=0;m2<NM;m2++){if(P.season[m2]==='peak'){pkB+=months[m2].basic;pkA+=months[m2].anc;pkT+=months[m2].total;}else{nmB+=months[m2].basic;nmA+=months[m2].anc;nmT+=months[m2].total;}}
+  var yrTot=pkT+nmT;
   document.getElementById('yrSum').innerHTML=
-    ysCard(yen(tRev/NM),'月 基本料金(平均)','#f8fafc','#0F1F45')+ysPlus('＋')+
-    ysCard(yen(yrAnc/NM),'月 付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+ysPlus('＝')+
-    ysCard(yen(yrTot/NM),'月 総売上（＝月商）','#eef6ff','#1e40af');
+    seasonBlock('🔴 繁忙期',nP,pkB,pkA,pkT,'#fff1f2','#be123c')+
+    seasonBlock('🔵 通常期',nN,nmB,nmA,nmT,'#eff6ff','#1e40af')+
+    '<div style="flex:1;min-width:150px;background:#0F1F45;border-radius:10px;padding:10px;text-align:center;color:#fff"><div style="font-size:11px;opacity:.85">＝ 年間 総売上（繁忙＋通常）</div><div style="font-size:20px;font-weight:900;margin-top:2px">'+yen(yrTot)+'</div><div style="font-size:10px;opacity:.8;margin-top:3px">月平均 '+yen(yrTot/NM)+'/月</div></div>';
   // ④ OTA/HP
   var moTot=yrTot/NM,hpP=+P.hpPct||0,otaP=+P.otaPct||0;
   document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠</span>':' ✓');
@@ -328,7 +359,16 @@ function renderCost(id,arr,upd,del){var b=document.getElementById(id);b.innerHTM
     tr.innerHTML='<td class="l"><input class="cell name" value="'+g.label+'" onchange="'+upd+'('+i+',\'label\',this.value)"></td>'+
       '<td><input class="cell" style="width:120px" type="number" value="'+g.amt+'" onchange="'+upd+'('+i+',\'amt\',this.value)"></td>'+
       '<td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td>';b.appendChild(tr);});return t;}
+function seasonBlock(title,nm,b,a,t,bg,col){
+  return '<div style="flex:1;min-width:210px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
+    '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'（'+nm+'ヶ月）</div>'+
+    '<div style="font-size:11.5px;color:#334155;margin-top:5px">月商 <b style="font-size:14px;color:'+col+'">'+yen(nm>0?t/nm:0)+'</b>/月<br><span style="font-size:10px;color:#64748b">（基本 '+yen(nm>0?b/nm:0)+' ＋ 付帯 '+yen(nm>0?a/nm:0)+'）</span></div>'+
+    '<div style="margin-top:7px;padding-top:7px;border-top:1px dashed '+col+'"><span style="font-size:10px;color:#64748b">'+title.replace(/[🔴🔵 ]/g,'')+'の売上（'+nm+'ヶ月分）</span><br><span style="font-size:18px;font-weight:900;color:'+col+'">'+yen(t)+'</span></div>'+
+    '</div>';
+}
 function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
+function toggleLock(){S.locked=!S.locked;saveNow();render();}
+function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
 function ysPlus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
 function kpi(t,n,pos){return '<div class="k"><div class="n '+(pos?'':'neg')+'">'+n+'</div><div class="t">'+t+'</div></div>';}
 function saveNow(){try{localStorage.setItem(SKEY,JSON.stringify(S));var sm=document.getElementById('savedMsg');if(sm){sm.textContent='✓自動保存';setTimeout(function(){sm.textContent='';},1200);}}catch(e){}}
@@ -347,7 +387,7 @@ document.getElementById('phName').addEventListener('change',function(){cur().nam
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
 ['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
-function resetAll(){if(confirm('全フェーズ初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
+function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロック解除」してください。');return;}if(confirm('全フェーズ初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
 (function(){var d=localStorage.getItem(SKEY);
   if(d){try{S=JSON.parse(d);}catch(e){}}
   else{ // 旧バージョンキー(単一フェーズ)から自動移植＝入力を消さない
