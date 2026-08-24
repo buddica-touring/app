@@ -23481,7 +23481,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.355-BT";
+const APP_VERSION="v1.0.356-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25768,9 +25768,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const secHd={fontSize:13,fontWeight:900,color:"#fff",background:"#0F1F45",padding:"7px 12px",borderRadius:"9px 9px 0 0"};
         const secBd={border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 9px 9px",padding:12,background:"#fff"};
         const chRow=(nm,c)=>{const pct=repSum.total>0?Math.round((c.sales||0)/repSum.total*100):0;return <tr key={nm} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{c.count||0}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(c.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed",fontWeight:800}}>{pct}%</td></tr>;};
-        return <div onClick={()=>setMtgOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
+        return <div className="mtg-overlay" onClick={()=>setMtgOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,31,69,.72)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px",overflowY:"auto"}}>
           <div onClick={e=>e.stopPropagation()} id="mtgSheet" style={{background:"#f8fafc",borderRadius:14,maxWidth:820,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,.4)",padding:16}}>
-            <style dangerouslySetInnerHTML={{__html:"@media print{body *{visibility:hidden!important}#mtgSheet,#mtgSheet *{visibility:visible!important}#mtgSheet{position:absolute!important;left:0;top:0;width:100%!important;max-width:none!important;box-shadow:none!important;padding:0!important;background:#fff!important}.mtg-noprint{display:none!important}@page{size:A4;margin:8mm}}"}}/>
+            <style dangerouslySetInnerHTML={{__html:"@media print{body *{visibility:hidden!important}#mtgSheet,#mtgSheet *{visibility:visible!important}.mtg-overlay{position:static!important;display:block!important;overflow:visible!important;height:auto!important;max-height:none!important;padding:0!important;background:#fff!important}#mtgSheet{position:static!important;left:auto;top:auto;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;padding:0!important;background:#fff!important}#mtgSheet *{overflow:visible!important;max-height:none!important}#mtgSheet table{min-width:0!important;width:100%!important}.mtg-noprint{display:none!important}@page{size:A4;margin:8mm}}"}}/>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
               <b style={{fontSize:16,color:"#0F1F45"}}>📋 定例MTG まとめ</b>
               <span style={{fontSize:10.5,color:"#64748b"}}>日報の集計値をそのまま集約（返却月ベース・再計算なし）／基準日 {norm(date)}</span>
