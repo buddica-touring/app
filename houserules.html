@@ -113,6 +113,8 @@ details.item>summary:hover{background:#f8fafc}
 .ib li{margin:3px 0}
 .ck li{list-style:none;position:relative;padding-left:22px}
 .ck li::before{content:"☐";position:absolute;left:0;color:#2563eb;font-weight:900}
+.ckgh{font-weight:800;color:#334155;font-size:12px;margin:9px 0 2px;padding-left:2px}
+.ckgh::before{content:"▍";color:#0d9488;margin-right:4px}
 .done li{list-style:none;position:relative;padding-left:22px}
 .done li::before{content:"✅";position:absolute;left:0}
 .warn{background:#fef2f2;border-left:3px solid #ef4444;color:#991b1b;border-radius:0 6px 6px 0;padding:7px 10px;font-size:12px;margin:8px 0}
@@ -179,6 +181,7 @@ details.item>summary:hover{background:#f8fafc}
   <div class="hist">
     <h3>📝 更新履歴（店舗ハウスルール）</h3>
     <ul>
+      <li>2026-08-24　v0.5（試行版）　見やすさ改善：本文中の番号マーカー【⑦】等を全削除。閉店・前日準備のチェックリストで「翌日使用車両」「送迎車」など同じ項目を見出しでひとまとめに表示（チェックリストが小見出し＋☐でグループ表示できるよう対応）。</li>
       <li>2026-08-24　v0.4（試行版）　現場運用ルールを本文へ反映：開店準備に「準備完了後は各自タスク管理表の指示で業務」／店舗運営の前提に「事務所を離れるときの待機・無人時の施錠と外出中札」／返却車両対応に「全席の忘れ物・ETC抜き忘れ・ガソリン満タン確認」「貸出時の傷 指差し確認と傷編集での更新」「外装洗車・車内清掃の手順」／洗車時点検に「ガソリンの有無」／閉店・前日準備に「翌日使用車両の詳細チェック（洗車・車内・ウォッシャー液・空気圧＋タイヤワックス・動作確認）と送迎車チェック・別の人によるダブルチェック」を追記。<b>店舗衛生・備品管理（随時）</b>を新設（窓/ガラス/玄関マット確認・洗車場/入口の砂利流し・事務所窓の拭き掃除・消耗品の買い出し・iPad/PC/支給洗車用具を丁寧に扱い元に戻す）。</li>
       <li>2026-08-02　v0.3（試行版）　確定ルールを本文まで充実：店舗運営の前提／全車両簡易確認／洗車時点検／5日未出庫の定期洗車／返却車両対応／月次車両管理を<b>確定</b>として掲載。開店準備・閉店/前日準備を<b>試行中</b>で本文化。第二軸を5分野（一日の店舗運営/車両管理/店舗衛生/防犯設備/情報共有引継ぎ）へ拡張。各ルールに状態（確定|試行中|策定中）を明記。全文検索を本文全体に対応。週次のみ策定中（推測で増やさない）。</li>
       <li>2026-08-02　v0.2（試行版）　情報設計を再構築：第一軸「実施周期（日次/週次/月次/随時）」・第二軸「業務分野」の二軸タグ化。1ルール1本文をタグで複数の見方から表示（本文は複製しない）。「開店業務」→「開店準備」に改称。</li>
@@ -186,7 +189,7 @@ details.item>summary:hover{background:#f8fafc}
     </ul>
   </div>
 
-  <div class="footer">BUDDICA TOURISM 高松空港店　店舗ハウスルール　試行版 v0.4</div>
+  <div class="footer">BUDDICA TOURISM 高松空港店　店舗ハウスルール　試行版 v0.5</div>
 </div>
 <button class="top-link" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
 
@@ -482,7 +485,7 @@ const ITEMS = [
       "翌日使用する車両を前日までに仕上げておく。",
       "翌日使用車両は前日に、①洗車 ②車内の汚れチェック（汚れがあれば清掃）③ウォッシャー液の確認 ④タイヤの空気圧チェックとタイヤワックス ⑤動作確認（ウインカー・ワイパー・ライトなど基本走行に問題ないか）を行う。",
       "送迎車は、車外・車内の汚れチェック（汚い場合は清掃）とガソリンの有無を確認する。",
-      "⑦でチェックした翌日使用車両の項目を、別の人がダブルチェックする。",
+      "翌日使用車両のチェック項目を、別の人がダブルチェックする。",
       "店内を清掃・確認する（床／受付／ガラス／トイレ2か所／洗面／玄関）。",
       "掃除機・拭き掃除・ゴミ・消耗品を確認する。",
       "外周・敷地のクモの巣を除去する。",
@@ -496,14 +499,18 @@ const ITEMS = [
       "未完了・翌日の注意点・車両の状態を引き継ぐ。",
     ],
     checklist:[
-      "翌日使用車両：洗車した",
-      "翌日使用車両：車内の汚れをチェックした（汚れがあれば清掃した）",
-      "翌日使用車両：ウォッシャー液を確認した",
-      "翌日使用車両：タイヤの空気圧を確認し、タイヤワックスを塗った",
-      "翌日使用車両：動作確認（ウインカー・ワイパー・ライトなど）をした",
-      "送迎車：車外・車内の汚れをチェックした（汚い場合は清掃した）",
-      "送迎車：ガソリンの有無を確認した",
-      "⑦の翌日使用車両のチェック項目を別の人がダブルチェックした",
+      {h:"翌日使用車両（前日に仕上げる）", items:[
+        "洗車した",
+        "車内の汚れをチェックした（汚れがあれば清掃した）",
+        "ウォッシャー液を確認した",
+        "タイヤの空気圧を確認し、タイヤワックスを塗った",
+        "動作確認（ウインカー・ワイパー・ライトなど）をした",
+        "上記の項目を別の人がダブルチェックした",
+      ]},
+      {h:"送迎車（前日に確認）", items:[
+        "車外・車内の汚れをチェックした（汚い場合は清掃した）",
+        "ガソリンの有無を確認した",
+      ]},
       "店内（床/受付/ガラス/トイレ2/洗面/玄関）を清掃・確認した",
       "掃除機・拭き掃除・ゴミ・消耗品を確認した",
       "外周のクモの巣を除去し、傘立てを店内に入れた",
@@ -523,7 +530,7 @@ const ITEMS = [
     steps:[
       {t:"翌日使用車両を仕上げる", d:"洗車／車内の汚れチェック（汚れがあれば清掃）／ウォッシャー液の確認／タイヤ空気圧チェックとタイヤワックス／動作確認（ウインカー・ワイパー・ライトなど基本走行に問題ないか）を前日のうちに行う。"},
       {t:"送迎車を確認する", d:"送迎車の車外・車内の汚れをチェックし（汚い場合は清掃）、ガソリンの有無を確認する。"},
-      {t:"翌日使用車両をダブルチェックする", d:"⑦でチェックした翌日使用車両の項目を、別の人がもう一度確認する。"},
+      {t:"翌日使用車両をダブルチェックする", d:"翌日使用車両のチェック項目を、別の人がもう一度確認する。"},
       {t:"店内を清掃・確認する", d:"床・受付・ガラス・トイレ2か所・洗面・玄関を清掃・確認する。"},
       {t:"掃除機・拭き掃除・ゴミ・消耗品を確認する", d:"掃除機がけ・拭き掃除を行い、ゴミと消耗品の残量を確認する。"},
       {t:"外周のクモの巣を除去する", d:"店舗外周・敷地のクモの巣を除去する。"},
@@ -618,6 +625,17 @@ const ITEMS = [
 /* ===== レンダリング ===== */
 const esc = s => String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const li = arr => (arr||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+/* チェックリスト：文字列は通常の☐項目、{h:見出し,items:[…]} は同じ項目を見出しでひとまとめに表示 */
+function renderChecklist(arr){
+  let html=""; let buf=[];
+  const flush=()=>{ if(buf.length){ html+=`<ul class="ck">${li(buf)}</ul>`; buf=[]; } };
+  (arr||[]).forEach(x=>{
+    if(x && typeof x==="object"){ flush(); html+=`<div class="ckgh">${esc(x.h)}</div><ul class="ck">${li(x.items||[])}</ul>`; }
+    else buf.push(x);
+  });
+  flush();
+  return html;
+}
 const domLabel = id => (DOMAINS.find(d=>d.id===id)||{}).short||id;
 const freqLabel = id => (FREQS.find(f=>f.id===id)||{}).t||id;
 const ST_LABEL = {trial:"試行中", confirmed:"確定", draft:"策定中", review:"見直し中"};
@@ -656,7 +674,7 @@ function renderTpl(it){
     ${glance}
     ${t.condition?`<div class="sec-cond"><b>実施条件・発生条件：</b>${esc(t.condition)}</div>`:""}
     ${(t.rules||[]).length?`<div class="layer l1">① ハウスルール（いつ・誰が・必ず何を）</div><ul>${li(t.rules)}</ul>`:""}
-    ${(t.checklist||[]).length?`<div class="layer l2">② チェックリスト・確認項目（その場で確認）</div><ul class="ck">${li(t.checklist)}</ul>`:""}
+    ${(t.checklist||[]).length?`<div class="layer l2">② チェックリスト・確認項目（その場で確認）</div>${renderChecklist(t.checklist)}`:""}
     ${lists}
     ${(t.done||[]).length?`<div class="sec">完了基準（この状態でOK）</div><ul class="done">${li(t.done)}</ul>`:""}
     ${(t.steps||[]).length?`<div class="layer l3">③ 作業マニュアル（具体的な手順）</div><div class="sec">手順</div><ol>${steps}</ol>`:""}
