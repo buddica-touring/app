@@ -23479,7 +23479,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.352-BT";
+const APP_VERSION="v1.0.353-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25556,10 +25556,12 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     let dNew={count:0,sales:0};const newBrk={}; // newBrk=本日の流通(新規取込)のチャネル/OTA名別内訳
     const curFlowCh={},curFlowOta={};let curFlowTotal=0; // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別内訳＝チャネル別を流通ベースで揃える
     const ltHp=[],ltOta=[]; // ★リードタイム(発生→利用開始の日数)＝当月発生・HP(自社=非OTA)/OTA別。最後にグロス(合算)。CPAカードと同じsource基準。負値/一括取込除外
+    const cxlByM={},cxlByY={}; // ★キャンセル件数（返却月/年基準・既存キャンセル率推移ウィジェットと同定義）
     // ★取込日(created_at)をJST(+9h)の日付に変換して当日判定（created_atはUTC保存＝生sliceだと日境界で±9hズレる）
     const _createdJst=(r)=>{const raw=r.createdAt||r.bookedAt||"";if(!raw)return"";const d=new Date(String(raw).replace(" ","T"));if(isNaN(d))return String(raw).slice(0,10);const j=new Date(d.getTime()+9*3600*1000);return j.getUTCFullYear()+"-"+String(j.getUTCMonth()+1).padStart(2,"0")+"-"+String(j.getUTCDate()).padStart(2,"0");};
     (data||[]).forEach(r=>{
-      if(isCancel(r.status))return;
+      // ★キャンセルは返却月/年で件数集計してから除外（率＝キャンセル÷(返却+キャンセル)・返却月基準）
+      if(isCancel(r.status)){const _crd=norm(r.returnDate)||norm(r.lendDate);if(_crd){cxlByM[_crd.slice(0,7)]=(cxlByM[_crd.slice(0,7)]||0)+1;cxlByY[_crd.slice(0,4)]=(cxlByY[_crd.slice(0,4)]||0)+1;}return;}
       // ★リードタイム＝利用開始(lendDate)−予約発生(bookedAt優先／2026-03-29一括取込は除外)。当月発生のみ・HP(非OTA)/OTA別。負値(遡及取込)は除外。
       {const _bk=r.bookedAt||(r.createdAt&&String(r.createdAt).slice(0,10)!=="2026-03-29"?r.createdAt:null);const _ld=norm(r.lendDate);
         if(_bk&&_ld&&String(_bk).slice(0,7)===curYM){const _lt=Math.round((new Date(_ld.slice(0,10))-new Date(String(_bk).slice(0,10)))/86400000);if(_lt>=0&&_lt<=400){if(String(r.source||"")!=="ota")ltHp.push(_lt);else ltOta.push(_lt);}}}
@@ -25589,7 +25591,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const _near=(a)=>a.length?Math.round(a.filter(x=>x<=3).length/a.length*100):0;
     const ltGross=ltHp.concat(ltOta);
     const lead={hp:{n:ltHp.length,med:_med(ltHp),avg:_avg(ltHp),near:_near(ltHp)},ota:{n:ltOta.length,med:_med(ltOta),avg:_avg(ltOta),near:_near(ltOta)},gross:{n:ltGross.length,med:_med(ltGross),avg:_avg(ltGross),near:_near(ltGross)}};
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp,lead};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25621,6 +25623,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("・"+curYr+"累計（返却月）："+yrD.count+"件 / "+yen(yrD.sales));
     L.push("・当月累計（"+mm+"・返却月）："+curM.count+"件 / "+yen(curM.sales));
     if(yogai>0)L.push("　└ うち予約外売上（会計）："+yen(yogai));
+    {const _cxl=(repSum.cxlByM&&repSum.cxlByM[repSum.curYM])||0;const _cxr=(curM.count+_cxl)>0?Math.round(_cxl/(curM.count+_cxl)*100):0;const _cxy=(repSum.cxlByY&&repSum.cxlByY[curYr])||0;L.push("・当月キャンセル（"+mm+"・返却月）："+_cxl+"件（率"+_cxr+"%）／"+curYr+"累計 "+_cxy+"件");}
     {const _ld2=(d)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
      const _cu=(ym)=>{const p=ym.split("-").map(Number),yy=p[0],mo2=p[1];const dim=new Date(yy,mo2,0).getDate();const ms=new Date(yy,mo2-1,1),me=new Date(yy,mo2-1,dim);const kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===ym)kf[k.vehicle_code]=(k.active!==false);});const act=(c)=>kf[c]!==undefined?kf[c]:((vehicles.find(v=>v.code===c)||{}).active!==false);let td=0,ac=0;vehicles.forEach(v=>{if(!act(v.code))return;ac++;const rd=new Set();(data||[]).forEach(r=>{if(fleet[r.id]!==v.code)return;const ld=new Date(norm(r.lendDate)+"T00:00:00"),re=new Date(norm(r.returnDate)+"T00:00:00");if(isNaN(ld)||isNaN(re))return;const s=ld>ms?ld:ms,e=re<me?re:me;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))rd.add(_ld2(d));});td+=rd.size;});const md=ac*dim;return md>0?Math.round(td/md*100):null;};
      const _am=(ym,n)=>{const p=ym.split("-").map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
@@ -25744,6 +25747,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
         const oth=(repSum.curCh&&repSum.curCh["その他"])||{count:0,sales:0};
         const uOf=c=>c.count?Math.round(c.sales/c.count):0;
+        const cxlCur=(repSum.cxlByM&&repSum.cxlByM[repSum.curYM])||0; // 当月キャンセル件数（返却月基準）
+        const cxlYr=(repSum.cxlByY&&repSum.cxlByY[curYr])||0; // 当年キャンセル件数
+        const cxlRate=(curM.count+cxlCur)>0?Math.round(cxlCur/(curM.count+cxlCur)*100):0; // 率＝ｷｬﾝｾﾙ÷(返却+ｷｬﾝｾﾙ)
         const yogai=Math.max(0,(curM.sales||0)-hp.sales-ota.sales-oth.sales);
         const fHp=(repSum.curFlowCh&&repSum.curFlowCh["HP"])||{count:0,sales:0};
         const fOta=(repSum.curFlowCh&&repSum.curFlowCh["OTA"])||{count:0,sales:0};
@@ -25776,6 +25782,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月累計（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件{yogai>0?<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>　うち予約外{yen(yogai)}</span>:null}</div></div>
                 <div style={{flex:"1 1 160px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>本日の流通（新規取込）</div><div style={{fontSize:20,fontWeight:900,color:dc.dSales>0?"#166534":"#92400e"}}>{fmtD(dc.dSales,true)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{fmtD(dc.dCount,false)}　<span style={{fontSize:10,color:"#94a3b8"}}>取込日ベース</span></div>
                   {(()=>{const nb=repSum.newBrk||{};const ks=Object.keys(nb).sort((a,b)=>(a==="HP"?-1:b==="HP"?1:a==="その他"?1:b==="その他"?-1:(nb[b].sales-nb[a].sales)));return ks.length?<div style={{fontSize:10.5,color:"#64748b",fontWeight:600,marginTop:4,lineHeight:1.6,borderTop:"1px dashed #fde68a",paddingTop:3}}>{ks.map(k=><div key={k}>└ {k}：{fmtD(nb[k].count,false)} / {fmtD(nb[k].sales,true)}</div>)}</div>:null;})()}</div>
+                <div style={{flex:"1 1 160px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月キャンセル（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#dc2626"}}>{cxlCur}件</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>ｷｬﾝｾﾙ率 {cxlRate}%　<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>{curYr}年 累計{cxlYr}件</span></div></div>
               </div>
               <div style={{fontSize:11,color:"#64748b",fontWeight:700,margin:"2px 2px 4px"}}>チャネル別（当月・流通/取込月ベース）</div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
