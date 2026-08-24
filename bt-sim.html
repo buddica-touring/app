@@ -309,10 +309,12 @@ function render(){
   // ⑤ OTA/HP（繁忙期／通常期で分ける＝月が異なるので売上も手数料も変動）
   var hpP=+P.hpPct||0,otaP=+P.otaPct||0;
   var pkMo=nP>0?pkT/nP:0,nmMo=nN>0?nmT/nN:0;
+  var pkIdx=P.season.indexOf('peak'),nmIdx=P.season.indexOf('normal');
+  var pkCnt=pkIdx>=0?calcSales(P,pkIdx).cnt:0,nmCnt=nmIdx>=0?calcSales(P,nmIdx).cnt:0;
   document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠</span>':' ✓');
   document.getElementById('splitOut').innerHTML=
-    otaBlock('🔴 繁忙期の1ヶ月',pkMo,hpP,otaP,'#fff1f2','#be123c')+
-    otaBlock('🔵 通常期の1ヶ月',nmMo,hpP,otaP,'#eff6ff','#1e40af')+
+    otaBlock('🔴 繁忙期の1ヶ月',pkMo,pkCnt,hpP,otaP,'#fff1f2','#be123c')+
+    otaBlock('🔵 通常期の1ヶ月',nmMo,nmCnt,hpP,otaP,'#eff6ff','#1e40af')+
     '<div style="flex:1 0 100%;margin-top:4px;font-size:11px;color:#64748b">※OTA手数料＝各月のOTA売上×'+Math.round(OTA_FEE_RATE*100)+'%（繁忙月と通常月で金額が変わり、⑦販管費に月別で自動計上）。</div>';
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
@@ -388,10 +390,10 @@ function seasonBlock(title,nm,b,a,t,bg,col){
     '</div>';
 }
 function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
-function otaBlock(title,mo,hp,ota,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=otav*OTA_FEE_RATE;
+function otaBlock(title,mo,cnt,hp,ota,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=otav*OTA_FEE_RATE;var hpc=cnt*hp/100,otac=cnt*ota/100;
   return '<div style="flex:1;min-width:250px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
     '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'</div>'+
-    '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b><br>🏢 OTA手数料('+Math.round(OTA_FEE_RATE*100)+'%) <b style="color:#0369a1;font-size:14px">'+yen(fee)+'</b>/月</div></div>';}
+    '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🎫 獲得本数 <b>'+Math.round(cnt)+'件</b>/月（🌐HP '+Math.round(hpc)+'件・🏢OTA '+Math.round(otac)+'件）<hr style="border:none;border-top:1px dashed '+col+';margin:5px 0">🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b><br>🏢 OTA手数料('+Math.round(OTA_FEE_RATE*100)+'%) <b style="color:#0369a1;font-size:14px">'+yen(fee)+'</b>/月</div></div>';}
 function copyToPhaseIdx(di){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}if(di===S.active)return;var src=cur(),dst=S.phases[di];if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※コピー先「'+dst.name+'」の名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[di]=c;render();}
 function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
