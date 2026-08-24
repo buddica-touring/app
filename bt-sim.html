@@ -208,6 +208,7 @@ function ensure(ph){
 function moNo(m){return ((S.startM-1+m)%12)+1;}
 var OTA_FEE_RATE=0.18;
 function isOtaFee(g){return /OTA手数料/.test(g.label||'');}
+function cleanupOtaFee(){(S.phases||[]).forEach(function(p){if(p.sga)p.sga=p.sga.filter(function(g){return !isOtaFee(g);});});} // 手入力OTA手数料は削除(自動18%に一本化)
 function costMV(g,m){return (g.mv&&g.mv.length===12)?(+g.mv[m]||0):(+g.amt||0);}
 function fixedM(ph,m){return ph.fixed.reduce(function(a,g){return a+costMV(g,m);},0);}
 function sgaManual(ph,m){return ph.sga.reduce(function(a,g){return a+(isOtaFee(g)?0:costMV(g,m));},0);} // OTA手数料は自動計算に置換
@@ -412,8 +413,8 @@ function costGrid(tid,arr,kind){
   var h='<thead><tr><th class="l stick">項目</th>';
   for(var m=0;m<NM;m++)h+='<th'+(P.season[m]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moNo(m)+'月'+(m>0?'<br><button class="mini" onclick="'+cpc+'('+m+')" title="前月をこの月にコピー">◀前月</button>':'')+'</th>';
   h+='<th class="yr">年計</th><th></th></tr></thead><tbody>';
-  arr.forEach(function(g,i){ensureMV(g);var yr=0;var ex=(kind==='S'&&isOtaFee(g));
-    h+='<tr'+(ex?' style="opacity:.5"':'')+'><td class="l stick"><input class="cell name" value="'+g.label+'" onchange="'+updL+'('+i+',this.value)">'+(ex?'<div style="font-size:9px;color:#dc2626">→自動18%に置換中（計上されません）</div>':'')+'</td>';
+  arr.forEach(function(g,i){if(kind==='S'&&isOtaFee(g))return;ensureMV(g);var yr=0;
+    h+='<tr><td class="l stick"><input class="cell name" value="'+g.label+'" onchange="'+updL+'('+i+',this.value)"></td>';
     for(var m=0;m<NM;m++){var v=+g.mv[m]||0;yr+=v;h+='<td'+(P.season[m]==='peak'?' class="pk"':'')+'><input class="cell" type="number" value="'+v+'" onchange="'+upd+'('+i+','+m+',this.value)"></td>';}
     h+='<td class="yr">'+yen(yr)+'</td><td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td></tr>';});
   if(kind==='S'){var yf=0;
@@ -458,10 +459,11 @@ function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロッ
     try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}
   }
   if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;
+  cleanupOtaFee();
   render();
   // サーバ（全端末共有）が正。あれば採用、無ければ現状をサーバへ初期保存
   serverLoad(function(srv){
-    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();}
+    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;cleanupOtaFee();try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();serverSave();}
     else{serverSave();}
   });
   // 別端末での更新を復帰時に取り込む（入力中はスキップ）
