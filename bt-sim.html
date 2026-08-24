@@ -17,10 +17,11 @@ th,td{padding:4px 6px;border-bottom:1px solid #eef2f7;text-align:right;white-spa
 th{background:#f8fafc;color:#475569;font-weight:700;font-size:10.5px}
 td.l,th.l{text-align:left}
 .tblwrap{overflow-x:auto}
-input.cell{width:66px;padding:4px 5px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right;background:#fffdf5}
+input.cell{width:64px;padding:4px 5px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right;background:#fffdf5}
 input.cell.name{width:150px;text-align:left;background:#fff}
 input.mo{width:52px;padding:3px;border:1px solid #d8dee6;border-radius:5px;font-size:11px;text-align:right;background:#fffef7}
 th.in{background:#fff7ed;color:#9a3412}
+th.peak{background:#fff1f2;color:#be123c}
 tr.total td{font-weight:800;background:#f8fafc;border-top:2px solid #cbd5e1}
 .auto{color:#334155}
 .btn{border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
@@ -40,15 +41,15 @@ th.stick{background:#f8fafc}
 .kpi .k .n{font-size:16px;font-weight:900;color:#0F1F45}.kpi .k .t{font-size:10px;color:#64748b}
 details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;margin:4px 0}
 .saved{font-size:11px;color:#16a34a;font-weight:700}
-.legend{font-size:10.5px;color:#64748b;margin:2px 0 8px}
-.legend b{padding:1px 6px;border-radius:4px}
+.mchip{display:inline-block;padding:6px 10px;margin:2px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #cbd5e1;background:#fff;color:#64748b}
+.mchip.peak{background:#ffe4e6;border-color:#fb7185;color:#be123c}
+.mchip.normal{background:#eff6ff;border-color:#93c5fd;color:#1e40af}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター</h1>
-  <div class="sub">台あたり稼働率（入力）× 台数 × 日単価 → 売上。平均レンタル日数（実績）で 客単価・件数 が算出される。付帯・チャネル・固定費・販管費を引いて月次PL。<b>入力は自動保存</b>。</div>
-  <div class="legend"><b style="background:#fff7ed;color:#9a3412">■ 入力（黄・オレンジ見出し）</b>　<b style="background:#eef2f7;color:#334155">■ 自動計算</b>　<b style="background:#f6faf6;color:#4b6b4b">■ 実績</b></div>
+  <div class="sub">繁忙期／通常期を分けて設定 → 12ヶ月が自動生成。台あたり稼働率（入力）× 台数 × 日単価 → 売上。平均レンタル日数（実績）で客単価・件数が算出。<b>入力は自動保存</b>。</div>
 
   <div class="card">
     <h2>① 前提</h2>
@@ -60,53 +61,54 @@ details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;ma
       <label>変動費率% <input class="cell" id="varRate" type="number" style="width:52px"></label>
       <span class="saved" id="savedMsg"></span>
     </div>
-    <div class="hint">稼働率＝台あたり（1台平均）の稼働率。稼働日数/台＝稼働率×営業日数。件数/台＝稼働日数/台 ÷ 平均レンタル日数。付帯＝基本料金×付帯率。</div>
   </div>
 
   <div class="card">
-    <h2>② タイプ別 計画</h2>
+    <h2>② 繁忙期／通常期（月を選ぶ→12ヶ月が組み上がる）</h2>
+    <div id="seasonChips" style="margin-bottom:6px"></div>
+    <div id="seasonCount" style="font-size:12.5px;font-weight:700"></div>
+    <div class="hint">各月をタップで <span style="color:#be123c;font-weight:700">繁忙期</span> ⇄ <span style="color:#1e40af;font-weight:700">通常期</span> を切替。タイプ別の「稼働率(繁忙)／(通常)」がその月に適用され、12ヶ月のPLが自動で出来上がります。</div>
+  </div>
+
+  <div class="card">
+    <h2>③ タイプ別 計画</h2>
     <div class="tblwrap">
     <table id="ttbl">
-      <thead><tr><th class="l">タイプ</th><th class="in">日単価<br>¥/日</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th><th class="in">台あたり<br>稼働率%</th>
-        <th>客単価<br>/件</th><th>件数/台<br>(算出)</th><th>総件数/月<br>(算出)</th><th>基本料金<br>(月)</th><th>台/売上<br>(総・月)</th><th></th></tr></thead>
+      <thead><tr><th class="l">タイプ</th><th class="in">日単価<br>¥/日</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
+        <th class="peak">稼働率%<br>繁忙期</th><th class="in">稼働率%<br>通常期</th>
+        <th>客単価<br>/件</th><th>年間件数<br>(算出)</th><th>年間<br>基本料金</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
-      <tfoot><tr class="total"><td class="l">合計</td><td></td><td id="t-n"></td><td></td><td id="t-occ"></td>
-        <td id="t-adr"></td><td></td><td id="t-cnt"></td><td id="t-rev"></td><td id="t-pc"></td><td></td></tr></tfoot>
+      <tfoot><tr class="total"><td class="l">合計</td><td></td><td id="t-n"></td><td></td><td id="t-occp"></td><td id="t-occn"></td>
+        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-rev"></td><td></td></tr></tfoot>
     </table>
     </div>
     <div id="baseSum" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"></div>
     <div style="margin-top:10px"><button class="btn btn-add" onclick="addType()">＋タイプ追加</button>
       <button class="btn btn-s" onclick="applyAct('rdays')" style="margin-left:8px">📊 レンタル日数を実績に</button>
       <button class="btn btn-s" onclick="applyAct('both')" style="margin-left:6px">📊 日単価も実績に</button></div>
-    <div class="hint">入力＝日単価・台数・平均レンタル日・台あたり稼働率。→ 客単価（日単価×レンタル日）・件数/台（稼働率×営業日÷レンタル日）・基本料金（稼働率×営業日×日単価×台数）が自動。稼働率を上げる／レンタル日を変えると件数・客単価が連動。</div>
+    <div class="hint">稼働率は繁忙期・通常期の2つを入力。年間件数・年間基本料金＝繁忙月×繁忙値＋通常月×通常値の合計。客単価＝日単価×平均レンタル日。</div>
   </div>
 
   <div class="card">
     <details open>
-      <summary>📊 実績（BT実データ・クラス別／新店ゆえ件数少・参考値）▼</summary>
+      <summary>📊 実績（BT実データ・クラス別／参考値）▼</summary>
       <div class="tblwrap" style="margin-top:8px"><table>
         <thead><tr><th class="l">クラス</th><th>実績件数</th><th>平均レンタル日</th><th>平均日単価</th><th>平均客単価/件</th></tr></thead>
         <tbody id="actbody"></tbody>
       </table></div>
-      <div class="hint">start_date〜end_dateの日数・実売上から算出（非キャンセル）。「レンタル日数を実績に」で各タイプに転記。</div>
     </details>
   </div>
 
   <div class="card">
     <details>
-      <summary>③ 月別上書き（任意・季節変動／増車計画）▼</summary>
-      <div style="margin-top:8px">
-        <div style="font-weight:700;margin-bottom:4px;font-size:12px">台あたり稼働率%（月別）</div>
-        <div class="tblwrap"><table id="occGrid"></table></div>
-        <div style="font-weight:700;margin:12px 0 4px;font-size:12px">台数（月別）</div>
-        <div class="tblwrap"><table id="unitGrid"></table></div>
-        <button class="btn btn-s" onclick="resetGrids()">基準を全月へ再セット</button>
-      </div>
+      <summary>④ 台数 月別上書き（増車計画・任意）▼</summary>
+      <div class="tblwrap" style="margin-top:8px"><table id="unitGrid"></table></div>
+      <button class="btn btn-s" onclick="resetGrids()" style="margin-top:8px">基準を全月へ再セット</button>
     </details>
   </div>
 
   <div class="card">
-    <h2>④ チャネル構成比（売上配分）</h2>
+    <h2>⑤ チャネル構成比（売上配分）</h2>
     <div class="tblwrap"><table><thead><tr><th class="l">チャネル</th><th class="in">構成比%</th><th>月売上(平均)</th><th>件数(平均)</th><th></th></tr></thead>
       <tbody id="chbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td id="ch-sum"></td><td id="ch-rev"></td><td id="ch-cnt"></td><td></td></tr></tfoot></table></div>
@@ -114,28 +116,28 @@ details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;ma
   </div>
 
   <div class="card">
-    <h2>⑤ 固定費（車両リース等・月額）</h2>
+    <h2>⑥ 固定費（車両リース等・月額）</h2>
     <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in">¥/月</th><th></th></tr></thead>
       <tbody id="fbody"></tbody><tfoot><tr class="total"><td class="l">固定費 合計</td><td id="fsum"></td><td></td></tr></tfoot></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addFix()">＋固定費追加</button></div>
   </div>
 
   <div class="card">
-    <h2>⑥ 販管費（月額）</h2>
+    <h2>⑦ 販管費（月額）</h2>
     <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in">¥/月</th><th></th></tr></thead>
       <tbody id="sbody"></tbody><tfoot><tr class="total"><td class="l">販管費 合計</td><td id="ssum"></td><td></td></tr></tfoot></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addSga()">＋販管費追加</button></div>
   </div>
 
   <div class="card">
-    <h2>⑦ 月次PL（推移）</h2>
+    <h2>⑧ 月次PL（12ヶ月・繁忙/通常反映）</h2>
     <div class="kpi" id="kpibox"></div>
     <div class="tblwrap"><table class="res" id="restbl"></table></div>
-    <div class="hint">営業利益 = 総売上 − 変動費 − 固定費 − 販管費。年計＝合計。</div>
+    <div class="hint">営業利益 = 総売上 − 変動費 − 固定費 − 販管費。年計＝合計。各月の🔴繁忙/🔵通常は②の設定に連動。</div>
   </div>
 
   <div class="card">
-    <h2>⑧ 目標逆算（月次）</h2>
+    <h2>⑨ 目標逆算（月次）</h2>
     <div class="row"><label>目標 月商 ¥ <input class="cell" style="width:120px" id="tgt" type="number"></label></div>
     <div class="tblwrap"><table id="tgttbl"></table></div>
   </div>
@@ -160,46 +162,44 @@ var ACT_LABEL={A:'A アルヴェル',AA:'AA 高級',C:'C ミニバン',D:'D SUV'
 
 var DEFAULT={
   startM:8, nMonths:12, days:30, ancRate:15, varRate:0,
-  // occ=台あたり稼働率%(入力), rdays=平均レンタル日数(実績)
   types:[
-    {name:'A アルヴェル/D5', adr:17000, n:6, rdays:4.33, occ:50, actKey:'A'},
-    {name:'B ミニバン',      adr:15000, n:6, rdays:3.25, occ:50, actKey:'C'},
-    {name:'C コンパクトSUV', adr:8000,  n:2, rdays:2.2,  occ:50, actKey:'F'},
-    {name:'D セダン',        adr:9000,  n:2, rdays:2.86, occ:50, actKey:'ALL'},
-    {name:'E SUV',           adr:11000, n:2, rdays:3.67, occ:50, actKey:'D'},
-    {name:'F コンパクト',    adr:6000,  n:2, rdays:2.83, occ:50, actKey:'G'}
+    {name:'A アルヴェル/D5', adr:17000, n:6, rdays:4.33, occP:65, occN:45, actKey:'A'},
+    {name:'B ミニバン',      adr:15000, n:6, rdays:3.25, occP:65, occN:45, actKey:'C'},
+    {name:'C コンパクトSUV', adr:8000,  n:2, rdays:2.2,  occP:65, occN:45, actKey:'F'},
+    {name:'D セダン',        adr:9000,  n:2, rdays:2.86, occP:65, occN:45, actKey:'ALL'},
+    {name:'E SUV',           adr:11000, n:2, rdays:3.67, occP:65, occN:45, actKey:'D'},
+    {name:'F コンパクト',    adr:6000,  n:2, rdays:2.83, occP:65, occN:45, actKey:'G'}
   ],
-  occG:null, unitG:null,
+  season:null, // 各月 'peak'|'normal'
+  unitG:null,
   channels:[{name:'オフィシャル',pct:0},{name:'じゃらん',pct:25},{name:'楽天',pct:25},{name:'エアトリ',pct:25},{name:'レンタカードットコム',pct:0},{name:'スカイチケット',pct:25},{name:'その他',pct:0}],
   fixed:[{label:'車両リース・保険・車検 等',amt:0}],
   sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}],
   tgt:5000000
 };
+// 高松の繁忙月の初期想定（8,7,3月＝夏休み/春）。開始月からの相対で設定。
 var S=JSON.parse(JSON.stringify(DEFAULT));
-var SKEY='bt_sim_v4';
+var SKEY='bt_sim_v5';
 
-function ensureGrids(){
+function ensureArrays(){
   var N=S.nMonths;
-  if(!S.occG)S.occG=[]; if(!S.unitG)S.unitG=[];
-  S.types.forEach(function(t,i){
-    if(!S.occG[i])S.occG[i]=[]; if(!S.unitG[i])S.unitG[i]=[];
-    for(var m=0;m<N;m++){ if(S.occG[i][m]==null)S.occG[i][m]=t.occ; if(S.unitG[i][m]==null)S.unitG[i][m]=t.n; }
-    S.occG[i]=S.occG[i].slice(0,N); S.unitG[i]=S.unitG[i].slice(0,N);
-  });
-  S.occG=S.occG.slice(0,S.types.length); S.unitG=S.unitG.slice(0,S.types.length);
+  if(!S.season){S.season=[];for(var m=0;m<N;m++){var mo=((S.startM-1+m)%12)+1;S.season[m]=([8,7,3,12].indexOf(mo)>=0)?'peak':'normal';}}
+  S.season=S.season.slice(0,N); for(var s=0;s<N;s++)if(!S.season[s])S.season[s]='normal';
+  if(!S.unitG)S.unitG=[];
+  S.types.forEach(function(t,i){ if(!S.unitG[i])S.unitG[i]=[]; for(var m2=0;m2<N;m2++)if(S.unitG[i][m2]==null)S.unitG[i][m2]=t.n; S.unitG[i]=S.unitG[i].slice(0,N); });
+  S.unitG=S.unitG.slice(0,S.types.length);
 }
-function resetGrids(){S.occG=null;S.unitG=null;ensureGrids();render();}
+function resetGrids(){S.unitG=null;ensureArrays();render();}
 function moLabel(m){return (((S.startM-1+m)%12)+1)+'月';}
+function occOf(t,m){return S.season[m]==='peak'?t.occP:t.occN;}
 
 function calcMonth(m){
   var basic=0,unitsTot=0,cntTot=0,cdTot=0;
   S.types.forEach(function(t,i){
-    var occ=S.occG[i][m], u=S.unitG[i][m], rd=t.rdays;
-    var cdCar=occ/100*S.days;        // 稼働日数/台
-    var cd=cdCar*u;                  // 稼働日数(合計)
-    var cntCar=rd>0?cdCar/rd:0;      // 件数/台
-    var totCnt=cntCar*u;             // 総件数
-    var rev=cd*t.adr;                // 基本売上
+    var occ=occOf(t,m), u=S.unitG[i][m], rd=t.rdays;
+    var cdCar=occ/100*S.days, cd=cdCar*u;
+    var cntCar=rd>0?cdCar/rd:0, totCnt=cntCar*u;
+    var rev=cd*t.adr;
     basic+=rev; unitsTot+=u; cntTot+=totCnt; cdTot+=cd;
   });
   var anc=basic*(S.ancRate/100), total=basic+anc;
@@ -209,60 +209,63 @@ function calcMonth(m){
   var op=total-vari-fixed-sga;
   var occ=unitsTot>0?cdTot/(unitsTot*S.days)*100:0;
   var avgResv=cntTot>0?total/cntTot:0;
-  return {basic:basic,anc:anc,total:total,vari:vari,fixed:fixed,sga:sga,op:op,units:unitsTot,cnt:cntTot,occ:occ,avgResv:avgResv};
+  return {basic:basic,anc:anc,total:total,vari:vari,fixed:fixed,sga:sga,op:op,units:unitsTot,cnt:cntTot,occ:occ,avgResv:avgResv,season:S.season[m]};
 }
+// タイプ別の年間集計
+function typeAnnual(i){var t=S.types[i],cnt=0,rev=0;for(var m=0;m<S.nMonths;m++){var occ=occOf(t,m),u=S.unitG[i][m];var cdCar=occ/100*S.days;cnt+=(t.rdays>0?cdCar/t.rdays:0)*u;rev+=cdCar*u*t.adr;}return {cnt:cnt,rev:rev};}
 
 function render(){
   ['startM','nMonths','days','ancRate','varRate','tgt'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
-  ensureGrids();
-  var tb=document.getElementById('tbody');tb.innerHTML='';
-  var tN=0,tCnt=0,tCd=0,tRev=0;
+  ensureArrays();
+  // ② 季節チップ
+  var sc=document.getElementById('seasonChips');sc.innerHTML='';var np=0;
+  for(var m=0;m<S.nMonths;m++){(function(m){var sp=document.createElement('span');var pk=S.season[m]==='peak';if(pk)np++;
+    sp.className='mchip '+(pk?'peak':'normal');sp.textContent=moLabel(m)+(pk?' 繁忙':' 通常');
+    sp.onclick=function(){S.season[m]=(S.season[m]==='peak'?'normal':'peak');render();};sc.appendChild(sp);})(m);}
+  document.getElementById('seasonCount').innerHTML='<span style="color:#be123c">繁忙期 '+np+'ヶ月</span> ／ <span style="color:#1e40af">通常期 '+(S.nMonths-np)+'ヶ月</span> ＝ 計'+S.nMonths+'ヶ月';
+
+  // ③ タイプ表（年間集計を表示）
+  var tb=document.getElementById('tbody');tb.innerHTML='';var tN=0,tCnt=0,tRev=0,occpW=0,occnW=0,ocD=0;
   S.types.forEach(function(t,i){
-    var cdCar=t.occ/100*S.days, cd=cdCar*t.n;
-    var kyaku=t.adr*t.rdays;                 // 客単価
-    var cntCar=t.rdays>0?cdCar/t.rdays:0;    // 件数/台
-    var totCnt=cntCar*t.n;                   // 総件数
-    var rev=cd*t.adr;                        // 基本料金
-    var actD=(ACT[t.actKey]||ACT.ALL).days;  // 実績レンタル日
-    tN+=t.n;tCnt+=totCnt;tCd+=cd;tRev+=rev;
-    var occCls=t.occ>100?'neg':(t.occ>=40?'pos':'');
+    var an=typeAnnual(i), kyaku=t.adr*t.rdays, actD=(ACT[t.actKey]||ACT.ALL).days;
+    tN+=t.n;tCnt+=an.cnt;tRev+=an.rev;occpW+=t.occP*t.n;occnW+=t.occN*t.n;ocD+=t.n;
     var tr=document.createElement('tr');
     tr.innerHTML='<td class="l"><input class="cell name" value="'+t.name+'" onchange="uT('+i+',\'name\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.adr+'" onchange="uT('+i+',\'adr\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.n+'" onchange="uT('+i+',\'n\',this.value)"></td>'+
       '<td><input class="cell" type="number" step="0.01" value="'+t.rdays+'" onchange="uT('+i+',\'rdays\',this.value)">'+
         '<div style="font-size:9px;margin-top:2px;color:'+(Math.abs(t.rdays-actD)<0.01?"#16a34a":"#94a3b8")+'">実績 '+actD+'日'+(Math.abs(t.rdays-actD)<0.01?" ✓":"")+'</div></td>'+
-      '<td><input class="cell" type="number" value="'+t.occ+'" onchange="uT('+i+',\'occ\',this.value)"></td>'+
+      '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.occP+'" onchange="uT('+i+',\'occP\',this.value)"></td>'+
+      '<td><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)"></td>'+
       '<td class="auto">'+yen(kyaku)+'</td>'+
-      '<td class="auto">'+(Math.round(cntCar*10)/10)+'</td>'+
-      '<td class="auto">'+(Math.round(totCnt))+'件</td>'+
-      '<td class="auto">'+yen(rev)+'</td>'+
-      '<td class="auto" style="font-weight:700;color:#1e40af">'+yen(t.n>0?rev*(1+S.ancRate/100)/t.n:0)+'</td>'+
+      '<td class="auto">'+Math.round(an.cnt)+'件</td>'+
+      '<td class="auto">'+yen(an.rev)+'</td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
   });
-  var occAll=tN>0?tCd/(tN*S.days)*100:0;
   document.getElementById('t-n').textContent=tN+'台';
-  document.getElementById('t-occ').textContent=pct(occAll);
-  document.getElementById('t-occ').className=occAll>100?'neg':(occAll>=40?'pos':'');
+  document.getElementById('t-occp').textContent=pct(ocD>0?occpW/ocD:0);
+  document.getElementById('t-occn').textContent=pct(ocD>0?occnW/ocD:0);
   document.getElementById('t-adr').textContent=yen(tCnt>0?tRev*(1+S.ancRate/100)/tCnt:0);
-  document.getElementById('t-cnt').textContent=Math.round(tCnt)+'件';
-  document.getElementById('t-rev').textContent=yen(tRev);
-  document.getElementById('t-pc').textContent=yen(tN>0?tRev*(1+S.ancRate/100)/tN:0);
-  var baseAnc=tRev*(S.ancRate/100), baseTot=tRev+baseAnc;
+  document.getElementById('t-cnt').textContent=Math.round(tCnt)+'件/年';
+  document.getElementById('t-rev').textContent=yen(tRev)+'/年';
+  // baseSum：繁忙期1ヶ月 / 通常期1ヶ月 / 年間
+  var peakM=(function(){var sv=S.season.slice();for(var m=0;m<S.nMonths;m++)S.season[m]='peak';var r=calcMonth(0);S.season=sv;return r;})();
+  var normM=(function(){var sv=S.season.slice();for(var m=0;m<S.nMonths;m++)S.season[m]='normal';var r=calcMonth(0);S.season=sv;return r;})();
+  var months0=[];for(var mm=0;mm<S.nMonths;mm++)months0.push(calcMonth(mm));
+  var yrRev0=months0.reduce(function(a,x){return a+x.total;},0);
   document.getElementById('baseSum').innerHTML=
-    card2(yen(tRev),'基本料金（稼働×日単価×台数）','#f8fafc','#0F1F45')+plus('＋')+
-    card2(yen(baseAnc),'付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+plus('＝')+
-    card2(yen(baseTot),'合計（総売上）','#eef6ff','#1e40af');
+    card2(yen(peakM.total),'繁忙期 総売上/月','#fff1f2','#be123c')+plus('／')+
+    card2(yen(normM.total),'通常期 総売上/月','#eff6ff','#1e40af')+plus('→')+
+    card2(yen(yrRev0),'年間 総売上','#eef6ff','#0F1F45');
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
     tr.innerHTML='<td class="l">'+ACT_LABEL[k]+'</td><td>'+a.n+'件</td><td>'+a.days+'日</td><td>'+yen(a.daily)+'</td><td>'+yen(a.rev)+'</td>';ab.appendChild(tr);});
 
-  buildGrid('occGrid',S.occG,'uOcc');
   buildGrid('unitGrid',S.unitG,'uUnit');
 
-  var months=[];for(var m=0;m<S.nMonths;m++)months.push(calcMonth(m));
+  var months=months0;
   var avgTotal=months.reduce(function(a,x){return a+x.total;},0)/S.nMonths;
   var avgResv=months.reduce(function(a,x){return a+x.avgResv;},0)/S.nMonths;
   var cb=document.getElementById('chbody');cb.innerHTML='';var chSum=0,chRev=0,chCnt=0;
@@ -279,17 +282,19 @@ function render(){
   document.getElementById('fsum').textContent=yen(renderCost('fbody',S.fixed,'uFix','delFix'));
   document.getElementById('ssum').textContent=yen(renderCost('sbody',S.sga,'uSga','delSga'));
 
-  var rows=[['基本料金','basic'],['付帯売上','anc'],['総売上','total'],['− 変動費','vari'],['− 固定費','fixed'],['− 販管費','sga'],['営業利益','op'],['台数','units'],['件数','cnt'],['稼働率','occ']];
+  var rows=[['区分','season'],['基本料金','basic'],['付帯売上','anc'],['総売上','total'],['− 変動費','vari'],['− 固定費','fixed'],['− 販管費','sga'],['営業利益','op'],['台数','units'],['件数','cnt'],['稼働率','occ']];
   var html='<thead><tr><th class="stick">項目</th>';
-  for(var m3=0;m3<S.nMonths;m3++)html+='<th>'+moLabel(m3)+'</th>';
+  for(var m3=0;m3<S.nMonths;m3++)html+='<th'+(S.season[m3]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moLabel(m3)+'</th>';
   html+='<th class="yr">年計</th></tr></thead><tbody>';
   rows.forEach(function(r){var key=r[1],emph=(key==='total'||key==='op');
     html+='<tr'+(emph?' class="total"':'')+'><td class="stick">'+r[0]+'</td>';var sum=0,os=0;
     for(var m=0;m<S.nMonths;m++){var v=months[m][key];
-      if(key==='occ'){html+='<td class="'+(v>100?'neg':'')+'">'+pct(v)+'</td>';os+=v;}
+      if(key==='season'){html+='<td>'+(v==='peak'?'<span style="color:#be123c;font-weight:700">繁忙</span>':'<span style="color:#1e40af">通常</span>')+'</td>';}
+      else if(key==='occ'){html+='<td class="'+(v>100?'neg':'')+'">'+pct(v)+'</td>';os+=v;}
       else if(key==='units'||key==='cnt'){html+='<td>'+Math.round(v)+'</td>';sum+=v;}
       else{var cls=(key==='op'?(v>=0?'pos':'neg'):'');html+='<td class="'+cls+'">'+yen(v)+'</td>';sum+=v;}}
-    if(key==='occ')html+='<td class="yr">'+pct(os/S.nMonths)+'</td>';
+    if(key==='season')html+='<td class="yr"></td>';
+    else if(key==='occ')html+='<td class="yr">'+pct(os/S.nMonths)+'</td>';
     else if(key==='units')html+='<td class="yr">'+Math.round(sum/S.nMonths)+'/月</td>';
     else if(key==='cnt')html+='<td class="yr">'+Math.round(sum)+'件</td>';
     else{var c2=(key==='op'?(sum>=0?'pos':'neg'):'');html+='<td class="yr '+c2+'">'+yen(sum)+'</td>';}
@@ -304,7 +309,7 @@ function render(){
     kpi('月平均 営業利益',yen(yrOp/S.nMonths),yrOp>=0)+kpi('営業利益率',pct(yrRev>0?yrOp/yrRev*100:0),yrOp>=0);
 
   var tgt=+S.tgt||0,th='<thead><tr><th class="stick">項目</th>';
-  for(var m2=0;m2<S.nMonths;m2++)th+='<th>'+moLabel(m2)+'</th>';th+='</tr></thead><tbody>';
+  for(var m2=0;m2<S.nMonths;m2++)th+='<th'+(S.season[m2]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moLabel(m2)+'</th>';th+='</tr></thead><tbody>';
   th+=trRow('目標月商',months,function(){return yen(tgt);});
   th+=trRow('シミュ総売上',months,function(x){return yen(x.total);});
   th+=trRow('達成率',months,function(x){return pct(x.total>0?x.total/tgt*100:0);});
@@ -316,7 +321,7 @@ function render(){
 }
 function trRow(l,months,fn){var s='<tr><td class="stick">'+l+'</td>';for(var m=0;m<months.length;m++)s+='<td>'+fn(months[m])+'</td>';return s+'</tr>';}
 function buildGrid(id,grid,fn){var h='<thead><tr><th class="stick">タイプ＼月</th>';
-  for(var m=0;m<S.nMonths;m++)h+='<th>'+moLabel(m)+'</th>';h+='</tr></thead><tbody>';
+  for(var m=0;m<S.nMonths;m++)h+='<th'+(S.season[m]==='peak'?' style="color:#be123c"':'')+'>'+moLabel(m)+'</th>';h+='</tr></thead><tbody>';
   S.types.forEach(function(t,i){h+='<tr><td class="stick">'+t.name+'</td>';
     for(var m=0;m<S.nMonths;m++)h+='<td><input class="mo" type="number" value="'+grid[i][m]+'" onchange="'+fn+'('+i+','+m+',this.value)"></td>';h+='</tr>';});
   document.getElementById(id).innerHTML=h+'</tbody>';}
@@ -325,19 +330,17 @@ function renderCost(id,arr,upd,del){var b=document.getElementById(id);b.innerHTM
     tr.innerHTML='<td class="l"><input class="cell name" value="'+g.label+'" onchange="'+upd+'('+i+',\'label\',this.value)"></td>'+
       '<td><input class="cell" style="width:120px" type="number" value="'+g.amt+'" onchange="'+upd+'('+i+',\'amt\',this.value)"></td>'+
       '<td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td>';b.appendChild(tr);});return t;}
-function card2(n,t,bg,col){return '<div style="flex:1;min-width:150px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
-function plus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:18px;font-weight:900;color:#94a3b8">'+s+'</div>';}
+function card2(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
+function plus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
 function kpi(t,n,pos){return '<div class="k"><div class="n '+(pos?'':'neg')+'">'+n+'</div><div class="t">'+t+'</div></div>';}
 
 function uT(i,f,v){S.types[i][f]=(f==='name')?v:(+v||0);
-  if(f==='occ'&&S.occG&&S.occG[i])for(var m=0;m<S.nMonths;m++)S.occG[i][m]=S.types[i].occ;
   if(f==='n'&&S.unitG&&S.unitG[i])for(var m2=0;m2<S.nMonths;m2++)S.unitG[i][m2]=S.types[i].n;
   render();}
-function delType(i){S.types.splice(i,1);if(S.occG)S.occG.splice(i,1);if(S.unitG)S.unitG.splice(i,1);render();}
-function addType(){S.types.push({name:'新タイプ',adr:9000,n:1,rdays:2.86,occ:50,actKey:'ALL'});S.occG=null;S.unitG=null;render();}
+function delType(i){S.types.splice(i,1);if(S.unitG)S.unitG.splice(i,1);render();}
+function addType(){S.types.push({name:'新タイプ',adr:9000,n:1,rdays:2.86,occP:65,occN:45,actKey:'ALL'});S.unitG=null;render();}
 function applyAct(mode){S.types.forEach(function(t){var a=ACT[t.actKey]||ACT.ALL;t.rdays=a.days;if(mode==='both')t.adr=a.daily;});render();}
-function uOcc(i,m,v){ensureGrids();S.occG[i][m]=+v||0;render();}
-function uUnit(i,m,v){ensureGrids();S.unitG[i][m]=+v||0;render();}
+function uUnit(i,m,v){ensureArrays();S.unitG[i][m]=+v||0;render();}
 function uCh(i,f,v){S.channels[i][f]=(f==='name')?v:(+v||0);render();}
 function delCh(i){S.channels.splice(i,1);render();}
 function addCh(){S.channels.push({name:'新チャネル',pct:0});render();}
@@ -348,7 +351,7 @@ function uSga(i,f,v){S.sga[i][f]=(f==='label')?v:(+v||0);render();}
 function delSga(i){S.sga.splice(i,1);render();}
 function addSga(){S.sga.push({label:'新項目',amt:0});render();}
 ['startM','nMonths','days','ancRate','varRate','tgt'].forEach(function(id){
-  document.getElementById(id).addEventListener('change',function(){S[id]=+this.value||0;if(id==='nMonths'||id==='startM'){S.occG=null;S.unitG=null;}render();});
+  document.getElementById(id).addEventListener('change',function(){S[id]=+this.value||0;if(id==='nMonths'||id==='startM'){S.season=null;S.unitG=null;}render();});
 });
 function resetAll(){if(confirm('初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
 (function(){var d=localStorage.getItem(SKEY);if(d){try{S=JSON.parse(d);}catch(e){}}render();})();
