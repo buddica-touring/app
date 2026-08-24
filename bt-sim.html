@@ -74,10 +74,10 @@ th.stick{background:#f8fafc}
     <table id="ttbl">
       <thead><tr><th class="l">タイプ</th><th class="peak">日単価¥/日<br>繁忙期</th><th class="in">日単価¥/日<br>通常期</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
         <th class="peak">稼働率%<br>繁忙期</th><th class="in">稼働率%<br>通常期</th>
-        <th>客単価/件<br>(繁/通)</th><th>年間件数<br>(算出)</th><th>年間基本料金<br><span style="color:#94a3b8;font-weight:600">(付帯別)</span></th><th>月商(平均)<br><span style="color:#94a3b8;font-weight:600">基本/付帯</span></th><th></th></tr></thead>
+        <th>客単価/件<br>(繁/通)</th><th>件数/月<br>(平均)</th><th>月商/月<br><span style="color:#94a3b8;font-weight:600">基本/付帯/計</span></th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td></td><td></td><td id="t-n"></td><td></td><td id="t-occp"></td><td id="t-occn"></td>
-        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-rev"></td><td id="t-mo"></td><td></td></tr></tfoot>
+        <td id="t-adr"></td><td id="t-cnt"></td><td id="t-mo"></td><td></td></tr></tfoot>
     </table>
     </div>
     <div id="yrSum" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"></div>
@@ -220,7 +220,7 @@ function render(){
       '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.occP+'" onchange="uT('+i+',\'occP\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)"></td>'+
       '<td class="auto" style="font-size:11px"><span style="color:#be123c">'+yen(kyakuP)+'</span><br><span style="color:#1e40af">'+yen(kyakuN)+'</span></td>'+
-      '<td class="auto">'+Math.round(cnt)+'件</td><td class="auto">'+yen(rev)+'</td>'+
+      '<td class="auto">'+Math.round(cnt/NM)+'件</td>'+
       '<td class="auto" style="font-size:10.5px;line-height:1.5;text-align:right">基本 <b>'+yen(rev/NM)+'</b><br>付帯 <span style="color:#c2681c">'+yen(rev*S.ancRate/100/NM)+'</span><br>計 <b style="color:#1e40af">'+yen(rev*(1+S.ancRate/100)/NM)+'</b></td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
@@ -229,15 +229,13 @@ function render(){
   document.getElementById('t-occp').textContent=pct(oD>0?opW/oD:0);
   document.getElementById('t-occn').textContent=pct(oD>0?onW/oD:0);
   document.getElementById('t-adr').textContent=yen(tCnt>0?tRev*(1+S.ancRate/100)/tCnt:0);
-  document.getElementById('t-cnt').textContent=Math.round(tCnt)+'件/年';
-  document.getElementById('t-rev').textContent=yen(tRev)+'/年';
+  document.getElementById('t-cnt').textContent=Math.round(tCnt/NM)+'件/月';
   var yrAnc=tRev*(S.ancRate/100), yrTot=tRev+yrAnc;
   document.getElementById('t-mo').innerHTML='<span style="font-size:10.5px;line-height:1.5">基本 '+yen(tRev/NM)+'<br>付帯 <span style="color:#c2681c">'+yen(yrAnc/NM)+'</span><br>計 <span style="color:#1e40af">'+yen(yrTot/NM)+'</span></span>';
   document.getElementById('yrSum').innerHTML=
-    ysCard(yen(tRev),'年間 基本料金','#f8fafc','#0F1F45')+ysPlus('＋')+
-    ysCard(yen(yrAnc),'年間 付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+ysPlus('＝')+
-    ysCard(yen(yrTot),'年間 総売上','#eef6ff','#1e40af')+ysPlus('｜')+
-    ysCard(yen(yrTot/NM),'月商（平均・付帯込）','#f0fdf4','#15803d');
+    ysCard(yen(tRev/NM),'月 基本料金(平均)','#f8fafc','#0F1F45')+ysPlus('＋')+
+    ysCard(yen(yrAnc/NM),'月 付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+ysPlus('＝')+
+    ysCard(yen(yrTot/NM),'月 総売上（＝月商）','#eef6ff','#1e40af');
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
