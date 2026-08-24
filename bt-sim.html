@@ -211,7 +211,8 @@ function isOtaFee(g){return /OTA手数料/.test(g.label||'');}
 function costMV(g,m){return (g.mv&&g.mv.length===12)?(+g.mv[m]||0):(+g.amt||0);}
 function fixedM(ph,m){return ph.fixed.reduce(function(a,g){return a+costMV(g,m);},0);}
 function sgaManual(ph,m){return ph.sga.reduce(function(a,g){return a+(isOtaFee(g)?0:costMV(g,m));},0);} // OTA手数料は自動計算に置換
-function otaFeeM(ph,m){var mo=calcSales(ph,m);return mo.total*((+ph.otaPct||0)/100)*OTA_FEE_RATE;}
+function annualSales(ph){var t=0;for(var k=0;k<NM;k++)t+=calcSales(ph,k).total;return t;}
+function otaFeeM(ph,m){return annualSales(ph)*((+ph.otaPct||0)/100)*OTA_FEE_RATE/NM;} // ⑤OTA売上(年平均月商×OTA%)×18%＝各月一律
 function sgaM(ph,m){return sgaManual(ph,m)+otaFeeM(ph,m);}
 
 function calcSales(ph,m){ // 売上のみ（コスト非依存＝循環参照回避）
@@ -307,10 +308,12 @@ function render(){
   // ④ OTA/HP
   var moTot=yrTot/NM,hpP=+P.hpPct||0,otaP=+P.otaPct||0;
   document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠</span>':' ✓');
+  var otaRev=moTot*otaP/100;
   document.getElementById('splitOut').innerHTML=
     ysCard(yen(moTot*hpP/100),'🌐 HP(自社) 売上/月 ('+hpP+'%)','#eff6ff','#1e40af')+ysPlus('＋')+
-    ysCard(yen(moTot*otaP/100),'🏢 OTA 売上/月 ('+otaP+'%)','#fef9f2','#c2681c')+ysPlus('＝')+
-    ysCard(yen(moTot),'総売上/月','#f8fafc','#0F1F45');
+    ysCard(yen(otaRev),'🏢 OTA 売上/月 ('+otaP+'%)','#fef9f2','#c2681c')+ysPlus('＝')+
+    ysCard(yen(moTot),'総売上/月','#f8fafc','#0F1F45')+
+    '<div style="flex:1 0 100%;margin-top:6px;padding:8px 10px;background:#eff6ff;border:1px dashed #0369a1;border-radius:8px;font-size:12px;color:#0369a1;font-weight:700">🏢 OTA手数料（OTA売上 '+yen(otaRev)+' × '+Math.round(OTA_FEE_RATE*100)+'%）＝ <b style="font-size:15px">'+yen(otaRev*OTA_FEE_RATE)+'/月</b> → ⑦販管費に自動計上</div>';
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
