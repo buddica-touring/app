@@ -74,7 +74,7 @@ th.stick{background:#f8fafc}
     <table id="ttbl">
       <thead><tr><th class="l">タイプ</th><th class="peak">日単価¥/日<br>繁忙期</th><th class="in">日単価¥/日<br>通常期</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
         <th class="peak">稼働率%<br>繁忙期</th><th class="in">稼働率%<br>通常期</th>
-        <th>客単価/件<br>(繁/通)</th><th>件数/月<br>(平均)</th><th>月商/月<br><span style="color:#94a3b8;font-weight:600">基本/付帯/計</span></th><th></th></tr></thead>
+        <th>客単価/件<br>(繁/通)</th><th>予約件数/月<br><span style="color:#94a3b8;font-weight:600">繁/通(想定)</span></th><th>月商/月<br><span style="color:#94a3b8;font-weight:600">基本/付帯/計</span></th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td></td><td></td><td id="t-n"></td><td></td><td id="t-occp"></td><td id="t-occn"></td>
         <td id="t-adr"></td><td id="t-cnt"></td><td id="t-mo"></td><td></td></tr></tfoot>
@@ -204,12 +204,13 @@ function render(){
   var months=[];for(var mm=0;mm<NM;mm++)months.push(calcMonth(mm));
 
   // ③ タイプ表（年間集計）
-  var tb=document.getElementById('tbody');tb.innerHTML='';var tN=0,tCnt=0,tRev=0,opW=0,onW=0,oD=0;
+  var tb=document.getElementById('tbody');tb.innerHTML='';var tN=0,tCnt=0,tRev=0,opW=0,onW=0,oD=0,tCP=0,tCN=0;
   S.types.forEach(function(t,i){
     var actD=(ACT[t.actKey]||ACT.ALL).days,cnt=0,rev=0;
     for(var m=0;m<NM;m++){var occ=occOf(t,m),adr=adrOf(t,m);var cdCar=occ/100*S.days;cnt+=(t.rdays>0?cdCar/t.rdays:0)*t.n;rev+=cdCar*t.n*adr;}
     var kyakuP=t.adrP*t.rdays, kyakuN=t.adrN*t.rdays;
-    tN+=t.n;tCnt+=cnt;tRev+=rev;opW+=t.occP*t.n;onW+=t.occN*t.n;oD+=t.n;
+    var cntPm=t.rdays>0?(t.occP/100*S.days/t.rdays*t.n):0, cntNm=t.rdays>0?(t.occN/100*S.days/t.rdays*t.n):0; // 予約件数/月(繁/通)
+    tN+=t.n;tCnt+=cnt;tRev+=rev;opW+=t.occP*t.n;onW+=t.occN*t.n;oD+=t.n;tCP+=cntPm;tCN+=cntNm;
     var tr=document.createElement('tr');
     tr.innerHTML='<td class="l"><input class="cell name" value="'+t.name+'" onchange="uT('+i+',\'name\',this.value)"></td>'+
       '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.adrP+'" onchange="uT('+i+',\'adrP\',this.value)"></td>'+
@@ -220,7 +221,7 @@ function render(){
       '<td style="background:#fff5f6"><input class="cell" type="number" value="'+t.occP+'" onchange="uT('+i+',\'occP\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)"></td>'+
       '<td class="auto" style="font-size:11px"><span style="color:#be123c">'+yen(kyakuP)+'</span><br><span style="color:#1e40af">'+yen(kyakuN)+'</span></td>'+
-      '<td class="auto">'+Math.round(cnt/NM)+'件</td>'+
+      '<td class="auto" style="font-size:11px"><span style="color:#be123c">繁 '+Math.round(cntPm)+'件</span><br><span style="color:#1e40af">通 '+Math.round(cntNm)+'件</span></td>'+
       '<td class="auto" style="font-size:10.5px;line-height:1.5;text-align:right">基本 <b>'+yen(rev/NM)+'</b><br>付帯 <span style="color:#c2681c">'+yen(rev*S.ancRate/100/NM)+'</span><br>計 <b style="color:#1e40af">'+yen(rev*(1+S.ancRate/100)/NM)+'</b></td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
@@ -229,7 +230,7 @@ function render(){
   document.getElementById('t-occp').textContent=pct(oD>0?opW/oD:0);
   document.getElementById('t-occn').textContent=pct(oD>0?onW/oD:0);
   document.getElementById('t-adr').textContent=yen(tCnt>0?tRev*(1+S.ancRate/100)/tCnt:0);
-  document.getElementById('t-cnt').textContent=Math.round(tCnt/NM)+'件/月';
+  document.getElementById('t-cnt').innerHTML='<span style="font-size:10.5px"><span style="color:#be123c">繁 '+Math.round(tCP)+'件</span> / <span style="color:#1e40af">通 '+Math.round(tCN)+'件</span></span>';
   var yrAnc=tRev*(S.ancRate/100), yrTot=tRev+yrAnc;
   document.getElementById('t-mo').innerHTML='<span style="font-size:10.5px;line-height:1.5">基本 '+yen(tRev/NM)+'<br>付帯 <span style="color:#c2681c">'+yen(yrAnc/NM)+'</span><br>計 <span style="color:#1e40af">'+yen(yrTot/NM)+'</span></span>';
   document.getElementById('yrSum').innerHTML=
