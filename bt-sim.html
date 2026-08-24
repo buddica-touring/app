@@ -80,6 +80,11 @@ th.stick{background:#f8fafc}
       <button id="lockBtn" class="lockbtn off" onclick="toggleLock()" style="margin-left:auto">🔒 数字をロック</button>
     </div>
     <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全フェーズ共通。台数・稼働率・単価・コストはフェーズごと。<b>🔒ロック中は全入力が編集不可＝誤操作で数字が変わりません。</b></div>
+    <div class="row" style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0">
+      <label>📋 他フェーズからコピー <select id="copySrc" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:700;background:#fffdf5"></select></label>
+      <button class="btn btn-s" onclick="copyFromPhase()">このフェーズに上書きコピー</button>
+      <span class="hint" style="margin:0">①を作り込んで②③にコピー→<b>修正するところだけ</b>直す運用に。名前は保持されます。</span>
+    </div>
   </div>
 
   <div class="card">
@@ -227,6 +232,7 @@ function render(){
   var P=cur();ensure(P);
   ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
+  var cs=document.getElementById('copySrc');if(cs){var o='';S.phases.forEach(function(p,i){if(i!==S.active)o+='<option value="'+i+'">'+p.name+'</option>';});cs.innerHTML=o;}
   var hp=document.getElementById('hpPct');if(document.activeElement!==hp)hp.value=P.hpPct;
   var op2=document.getElementById('otaPct');if(document.activeElement!==op2)op2.value=P.otaPct;
 
@@ -370,6 +376,7 @@ function seasonBlock(title,nm,b,a,t,bg,col){
     '</div>';
 }
 function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
+function copyFromPhase(){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}var cs=document.getElementById('copySrc');if(!cs||cs.value==='')return;var si=+cs.value;if(si===S.active){alert('同じフェーズです。');return;}var src=S.phases[si],dst=cur();if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※このフェーズの名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[S.active]=c;render();}
 function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
 function ysPlus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
