@@ -130,16 +130,22 @@ th.stick{background:#f8fafc}
   </div>
 
   <div class="card">
-    <h2>⑤ 固定費（車両リース等・月額）</h2>
-    <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in">¥/月</th><th></th></tr></thead>
-      <tbody id="fbody"></tbody><tfoot><tr class="total"><td class="l">固定費 合計/月</td><td id="fsum"></td><td></td></tr></tfoot></table></div>
+    <h2>⑤ 固定費（車両リース等）｜月別に設定</h2>
+    <div class="row" style="margin-bottom:4px">
+      <label>📅 対象月 <select id="costMonth" onchange="setCostM(this.value)" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:800;background:#fffdf5"></select></label>
+      <button class="btn btn-s" onclick="copyPrevCost()">◀ 前月をコピー</button>
+      <button class="btn btn-s" onclick="applyAllMonths()">全月に同額適用</button>
+    </div>
+    <div class="hint" style="margin:0 0 8px">※対象月を選んで各月の固定費・販管費を入力。毎月同じなら「全月に同額適用」1回でOK。<b>PLに月別で反映</b>されます。</div>
+    <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in" id="fcolh">¥/月</th><th></th></tr></thead>
+      <tbody id="fbody"></tbody><tfoot><tr class="total"><td class="l" id="fsumlbl">固定費 合計/月</td><td id="fsum"></td><td></td></tr></tfoot></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addFix()">＋固定費追加</button></div>
   </div>
 
   <div class="card">
-    <h2>⑥ 販管費（月額）</h2>
-    <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in">¥/月</th><th></th></tr></thead>
-      <tbody id="sbody"></tbody><tfoot><tr class="total"><td class="l">販管費 合計/月</td><td id="ssum"></td><td></td></tr></tfoot></table></div>
+    <h2>⑥ 販管費｜月別に設定 <span id="sgaMonLbl" style="font-size:12px;color:#64748b;font-weight:600"></span></h2>
+    <div class="tblwrap"><table><thead><tr><th class="l">項目</th><th class="in" id="scolh">¥/月</th><th></th></tr></thead>
+      <tbody id="sbody"></tbody><tfoot><tr class="total"><td class="l" id="ssumlbl">販管費 合計/月</td><td id="ssum"></td><td></td></tr></tfoot></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addSga()">＋販管費追加</button></div>
   </div>
 
@@ -186,7 +192,7 @@ function mkPhase(name,mult){mult=mult||1;
     fixed:[{label:'車両リース・保険・車検 等',amt:0}],
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
-var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,
+var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,
   phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 成長期',1.5),mkPhase('③ 安定期',2)]};
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
@@ -195,17 +201,19 @@ function cur(){return S.phases[S.active];}
 function ensure(ph){
   if(!ph.season){ph.season=[];for(var m=0;m<NM;m++){var mo=((S.startM-1+m)%12)+1;ph.season[m]=([8,7,3,12].indexOf(mo)>=0)?'peak':'normal';}}
   ph.season=ph.season.slice(0,NM);for(var s=0;s<NM;s++)if(!ph.season[s])ph.season[s]='normal';
+  [ph.fixed,ph.sga].forEach(function(arr){(arr||[]).forEach(function(g){if(!(g.mv&&g.mv.length===12)){g.mv=[];for(var k=0;k<12;k++)g.mv[k]=+g.amt||0;}});});
 }
 function moNo(m){return ((S.startM-1+m)%12)+1;}
-function fixedM(ph){return ph.fixed.reduce(function(a,g){return a+(+g.amt||0);},0);}
-function sgaM(ph){return ph.sga.reduce(function(a,g){return a+(+g.amt||0);},0);}
+function costMV(g,m){return (g.mv&&g.mv.length===12)?(+g.mv[m]||0):(+g.amt||0);}
+function fixedM(ph,m){return ph.fixed.reduce(function(a,g){return a+costMV(g,m);},0);}
+function sgaM(ph,m){return ph.sga.reduce(function(a,g){return a+costMV(g,m);},0);}
 
 function calcMonth(ph,m){
   var basic=0,units=0,cnt=0,cd=0;
   ph.types.forEach(function(t){var occ=ph.season[m]==='peak'?t.occP:t.occN;var adr=ph.season[m]==='peak'?t.adrP:t.adrN;var rd=t.rdays;var cdCar=occ/100*S.days;var c=cdCar*t.n;
     basic+=c*adr;units+=t.n;cnt+=(rd>0?cdCar/rd:0)*t.n;cd+=c;});
   var anc=basic*(S.ancRate/100),total=basic+anc,vari=total*(S.varRate/100);
-  var fixed=fixedM(ph),sga=sgaM(ph),op=total-vari-fixed-sga;
+  var fixed=fixedM(ph,m),sga=sgaM(ph,m),op=total-vari-fixed-sga;
   var occ=units>0?cd/(units*S.days)*100:0,avgResv=cnt>0?total/cnt:0;
   return {basic:basic,anc:anc,total:total,vari:vari,fixed:fixed,sga:sga,op:op,units:units,cnt:cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
 }
@@ -297,8 +305,14 @@ function render(){
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
     tr.innerHTML='<td class="l">'+ACT_LABEL[k]+'</td><td>'+a.n+'件</td><td>'+a.days+'日</td><td>'+yen(a.daily)+'</td><td>'+yen(a.rev)+'</td>';ab.appendChild(tr);});
 
-  document.getElementById('fsum').textContent=yen(renderCost('fbody',P.fixed,'uFix','delFix'));
-  document.getElementById('ssum').textContent=yen(renderCost('sbody',P.sga,'uSga','delSga'));
+  // ⑤⑥ 月別コスト
+  if(typeof S.costM!=='number'||S.costM<0||S.costM>11)S.costM=0;var cm=S.costM,cmLbl=moNo(cm)+'月';
+  var csel=document.getElementById('costMonth');if(csel){var opt='';for(var mm=0;mm<NM;mm++)opt+='<option value="'+mm+'"'+(mm===cm?' selected':'')+'>'+moNo(mm)+'月</option>';csel.innerHTML=opt;}
+  document.getElementById('fcolh').textContent='¥（'+cmLbl+'）';document.getElementById('scolh').textContent='¥（'+cmLbl+'）';
+  document.getElementById('fsumlbl').textContent='固定費 合計（'+cmLbl+'）';document.getElementById('ssumlbl').textContent='販管費 合計（'+cmLbl+'）';
+  document.getElementById('sgaMonLbl').textContent='（対象月：'+cmLbl+'・⑤と連動）';
+  document.getElementById('fsum').textContent=yen(renderCost('fbody',P.fixed,'uFix','delFix',cm));
+  document.getElementById('ssum').textContent=yen(renderCost('sbody',P.sga,'uSga','delSga',cm));
 
   // ⑦ 12ヶ月PL
   document.getElementById('restbl').innerHTML=plTable(P,months);
@@ -354,10 +368,10 @@ function renderSum(){
     kpi('営業利益率',pct(gRev>0?gOp/gRev*100:0),gOp>=0);
 }
 
-function renderCost(id,arr,upd,del){var b=document.getElementById(id);b.innerHTML='';var t=0;
-  arr.forEach(function(g,i){t+=(+g.amt||0);var tr=document.createElement('tr');
+function renderCost(id,arr,upd,del,cm){var b=document.getElementById(id);b.innerHTML='';var t=0;
+  arr.forEach(function(g,i){var v=costMV(g,cm);t+=v;var tr=document.createElement('tr');
     tr.innerHTML='<td class="l"><input class="cell name" value="'+g.label+'" onchange="'+upd+'('+i+',\'label\',this.value)"></td>'+
-      '<td><input class="cell" style="width:120px" type="number" value="'+g.amt+'" onchange="'+upd+'('+i+',\'amt\',this.value)"></td>'+
+      '<td><input class="cell" style="width:120px" type="number" value="'+v+'" onchange="'+upd+'('+i+',\'amt\',this.value)"></td>'+
       '<td><button class="btn btn-del" onclick="'+del+'('+i+')">×</button></td>';b.appendChild(tr);});return t;}
 function seasonBlock(title,nm,b,a,t,bg,col){
   return '<div style="flex:1;min-width:210px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
@@ -376,12 +390,18 @@ function uT(i,f,v){cur().types[i][f]=(f==='name')?v:(+v||0);render();}
 function delType(i){cur().types.splice(i,1);render();}
 function addType(){cur().types.push({name:'新タイプ',adrP:10000,adrN:9000,n:1,rdays:2.86,occP:65,occN:45,actKey:'ALL'});render();}
 function applyAct(mode){cur().types.forEach(function(t){var a=ACT[t.actKey]||ACT.ALL;t.rdays=a.days;if(mode==='both'){t.adrP=a.daily;t.adrN=a.daily;}});render();}
-function uFix(i,f,v){cur().fixed[i][f]=(f==='label')?v:(+v||0);render();}
+function ensureMV(g){if(!(g.mv&&g.mv.length===12)){g.mv=[];for(var k=0;k<12;k++)g.mv[k]=+g.amt||0;}return g;}
+function setCostVal(g,v){ensureMV(g);g.mv[S.costM]=+v||0;g.amt=g.mv[S.costM];}
+function newCostItem(label){var g={label:label,amt:0,mv:[]};for(var k=0;k<12;k++)g.mv[k]=0;return g;}
+function uFix(i,f,v){var g=cur().fixed[i];if(f==='label')g.label=v;else setCostVal(g,v);render();}
 function delFix(i){cur().fixed.splice(i,1);render();}
-function addFix(){cur().fixed.push({label:'新固定費',amt:0});render();}
-function uSga(i,f,v){cur().sga[i][f]=(f==='label')?v:(+v||0);render();}
+function addFix(){cur().fixed.push(newCostItem('新固定費'));render();}
+function uSga(i,f,v){var g=cur().sga[i];if(f==='label')g.label=v;else setCostVal(g,v);render();}
 function delSga(i){cur().sga.splice(i,1);render();}
-function addSga(){cur().sga.push({label:'新項目',amt:0});render();}
+function addSga(){cur().sga.push(newCostItem('新項目'));render();}
+function setCostM(v){S.costM=+v||0;render();}
+function copyPrevCost(){var m=S.costM;if(m<=0){alert('先頭月（'+moNo(0)+'月）です。前月がありません。');return;}var P=cur();[P.fixed,P.sga].forEach(function(arr){arr.forEach(function(g){ensureMV(g);g.mv[m]=g.mv[m-1];});});render();}
+function applyAllMonths(){var m=S.costM,P=cur();if(!confirm(moNo(m)+'月の固定費・販管費を全12ヶ月に同額適用しますか？')){return;}[P.fixed,P.sga].forEach(function(arr){arr.forEach(function(g){ensureMV(g);for(var k=0;k<12;k++)g.mv[k]=g.mv[m];});});render();}
 document.getElementById('phName').addEventListener('change',function(){cur().name=this.value;render();});
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
