@@ -87,6 +87,17 @@ th.stick{background:#f8fafc}
   </div>
 
   <div class="card">
+    <h2>売上構成比率（OTA／HP・手動）</h2>
+    <div class="row">
+      <label>🌐 HP(自社) % <input class="cell" id="hpPct" type="number" style="width:60px"></label>
+      <label>🏢 OTA % <input class="cell" id="otaPct" type="number" style="width:60px"></label>
+      <span id="splitChk" style="font-weight:700;font-size:12.5px"></span>
+    </div>
+    <div id="splitOut" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px"></div>
+    <div class="hint">月商(総売上・付帯込)を OTA / HP の比率で配分。合計は100%に。</div>
+  </div>
+
+  <div class="card">
     <details open>
       <summary>📊 実績（BT実データ・クラス別／参考値）▼</summary>
       <div class="tblwrap" style="margin-top:8px"><table>
@@ -159,7 +170,7 @@ var DEFAULT={
     {name:'E SUV',           adrP:13000, adrN:11000, n:2, rdays:3.67, occP:65, occN:45, actKey:'D'},
     {name:'F コンパクト',    adrP:7000,  adrN:6000,  n:2, rdays:2.83, occP:65, occN:45, actKey:'G'}
   ],
-  season:null,
+  season:null, hpPct:20, otaPct:80,
   channels:[{name:'オフィシャル',pct:0},{name:'じゃらん',pct:25},{name:'楽天',pct:25},{name:'エアトリ',pct:25},{name:'レンタカードットコム',pct:0},{name:'スカイチケット',pct:25},{name:'その他',pct:0}],
   fixed:[{label:'車両リース・保険・車検 等',amt:0}],
   sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}],
@@ -190,7 +201,7 @@ function calcMonth(m){
 }
 
 function render(){
-  ['startM','days','ancRate','varRate','tgt'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
+  ['startM','days','ancRate','varRate','tgt','hpPct','otaPct'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   ensure();
   // ② チップ＆グループ
   var sc=document.getElementById('seasonChips');sc.innerHTML='';var peakMos=[],normMos=[];
@@ -237,6 +248,13 @@ function render(){
     ysCard(yen(tRev/NM),'月 基本料金(平均)','#f8fafc','#0F1F45')+ysPlus('＋')+
     ysCard(yen(yrAnc/NM),'月 付帯料金（+'+S.ancRate+'%）','#fef9f2','#c2681c')+ysPlus('＝')+
     ysCard(yen(yrTot/NM),'月 総売上（＝月商）','#eef6ff','#1e40af');
+  // 売上構成比率(OTA/HP)
+  var moTot=yrTot/NM, hpP=+S.hpPct||0, otaP=+S.otaPct||0;
+  document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠ 100%ではありません</span>':' ✓');
+  document.getElementById('splitOut').innerHTML=
+    ysCard(yen(moTot*hpP/100),'🌐 HP(自社) 売上/月 ('+hpP+'%)','#eff6ff','#1e40af')+ysPlus('＋')+
+    ysCard(yen(moTot*otaP/100),'🏢 OTA 売上/月 ('+otaP+'%)','#fef9f2','#c2681c')+ysPlus('＝')+
+    ysCard(yen(moTot),'総売上/月','#f8fafc','#0F1F45');
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
   ACT_ORDER.forEach(function(k){var a=ACT[k];var tr=document.createElement('tr');tr.className=(k==='ALL'?'total':'act');
@@ -315,7 +333,7 @@ function addFix(){S.fixed.push({label:'新固定費',amt:0});render();}
 function uSga(i,f,v){S.sga[i][f]=(f==='label')?v:(+v||0);render();}
 function delSga(i){S.sga.splice(i,1);render();}
 function addSga(){S.sga.push({label:'新項目',amt:0});render();}
-['startM','days','ancRate','varRate','tgt'].forEach(function(id){
+['startM','days','ancRate','varRate','tgt','hpPct','otaPct'].forEach(function(id){
   document.getElementById(id).addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.season=null;render();});
 });
 function resetAll(){if(confirm('初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
