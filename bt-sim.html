@@ -174,11 +174,11 @@ function resetGrids(){ S.occG=null; S.unitG=null; ensureGrids(); render(); }
 function moLabel(m){ var mo=((S.startM-1+m)%12)+1; return mo+'月'; }
 
 function calcMonth(m){
-  var basic=0, unitsTot=0, occW=0, occD=0;
+  var basic=0, unitsTot=0, occW=0, occD=0, katsudo=0;
   S.types.forEach(function(t,i){
     var occ=S.occG[i][m], u=S.unitG[i][m];
     var rev = u * t.adr * S.days * (occ/100);
-    basic += rev; unitsTot += u; occW += occ*u; occD += u;
+    basic += rev; unitsTot += u; occW += occ*u; occD += u; katsudo += u*(occ/100); // 稼働台数
   });
   var anc=basic*(S.ancRate/100);
   var total=basic+anc;
@@ -187,7 +187,7 @@ function calcMonth(m){
   var sga=S.sga.reduce(function(a,g){return a+(+g.amt||0);},0);
   var op=total-vari-fixed-sga;
   var avgOcc=occD>0?occW/occD:0;
-  var avgUnitPrice = occD>0 ? total/occD/S.days : 0; // 平均販売単価/台/日
+  var avgUnitPrice = katsudo>0 ? total/katsudo/S.days : 0; // 平均販売単価/台/日（÷稼働台数）
   var avgResv = avgUnitPrice*S.avgDays; // 平均予約単価/件
   var cnt = avgResv>0 ? total/avgResv : 0;
   return {basic:basic,anc:anc,total:total,vari:vari,fixed:fixed,sga:sga,op:op,units:unitsTot,avgOcc:avgOcc,avgResv:avgResv,cnt:cnt};
