@@ -67,7 +67,7 @@ details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;ma
     <h2>② タイプ別 計画</h2>
     <div class="tblwrap">
     <table id="ttbl">
-      <thead><tr><th class="l">タイプ</th><th class="in">日単価<br>¥/日</th><th class="in">台数</th><th class="in">平均<br>レンタル日</th><th class="in">台あたり<br>稼働率%</th>
+      <thead><tr><th class="l">タイプ</th><th class="in">日単価<br>¥/日</th><th class="in">台数</th><th class="in">平均レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th><th class="in">台あたり<br>稼働率%</th>
         <th>客単価<br>/件</th><th>件数/台<br>(算出)</th><th>総件数/月<br>(算出)</th><th>基本料金<br>(月)</th><th>台/売上<br>(総・月)</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td></td><td id="t-n"></td><td></td><td id="t-occ"></td>
@@ -223,13 +223,15 @@ function render(){
     var cntCar=t.rdays>0?cdCar/t.rdays:0;    // 件数/台
     var totCnt=cntCar*t.n;                   // 総件数
     var rev=cd*t.adr;                        // 基本料金
+    var actD=(ACT[t.actKey]||ACT.ALL).days;  // 実績レンタル日
     tN+=t.n;tCnt+=totCnt;tCd+=cd;tRev+=rev;
     var occCls=t.occ>100?'neg':(t.occ>=40?'pos':'');
     var tr=document.createElement('tr');
     tr.innerHTML='<td class="l"><input class="cell name" value="'+t.name+'" onchange="uT('+i+',\'name\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.adr+'" onchange="uT('+i+',\'adr\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.n+'" onchange="uT('+i+',\'n\',this.value)"></td>'+
-      '<td><input class="cell" type="number" step="0.01" value="'+t.rdays+'" onchange="uT('+i+',\'rdays\',this.value)"></td>'+
+      '<td><input class="cell" type="number" step="0.01" value="'+t.rdays+'" onchange="uT('+i+',\'rdays\',this.value)">'+
+        '<div style="font-size:9px;margin-top:2px;color:'+(Math.abs(t.rdays-actD)<0.01?"#16a34a":"#94a3b8")+'">実績 '+actD+'日'+(Math.abs(t.rdays-actD)<0.01?" ✓":"")+'</div></td>'+
       '<td><input class="cell" type="number" value="'+t.occ+'" onchange="uT('+i+',\'occ\',this.value)"></td>'+
       '<td class="auto">'+yen(kyaku)+'</td>'+
       '<td class="auto">'+(Math.round(cntCar*10)/10)+'</td>'+
