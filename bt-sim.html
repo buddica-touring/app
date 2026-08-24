@@ -117,7 +117,13 @@ th.stick{background:#f8fafc}
   </div>
 
   <div class="card">
-    <h2>④ 売上構成比率（OTA／HP・手動）</h2>
+    <h2>④ 12ヶ月 予測PL（このフェーズ）</h2>
+    <div class="kpi" id="kpibox"></div>
+    <div class="tblwrap"><table class="res" id="restbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>⑤ 売上構成比率（OTA／HP・手動）</h2>
     <div class="row">
       <label>🌐 HP(自社) % <input class="cell" id="hpPct" type="number" style="width:60px"></label>
       <label>🏢 OTA % <input class="cell" id="otaPct" type="number" style="width:60px"></label>
@@ -137,24 +143,19 @@ th.stick{background:#f8fafc}
   </div>
 
   <div class="card">
-    <h2>⑤ 固定費（車両リース等）｜12ヶ月</h2>
+    <h2>⑥ 固定費（車両リース等）｜12ヶ月</h2>
     <div class="row" style="margin-bottom:4px"><button class="btn btn-s" onclick="cpAllF()">📋 先頭月を全月にコピー</button><span class="hint" style="margin:0">各月に金額を入力。列見出しの ◀ ＝前月をこの月にコピー。毎月同じなら「先頭月を全月に」1回。<b>PLに月別反映</b>。</span></div>
     <div class="tblwrap"><table id="ftbl"></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addFix()">＋固定費追加</button></div>
   </div>
 
   <div class="card">
-    <h2>⑥ 販管費｜12ヶ月</h2>
+    <h2>⑦ 販管費｜12ヶ月</h2>
     <div class="row" style="margin-bottom:4px"><button class="btn btn-s" onclick="cpAllS()">📋 先頭月を全月にコピー</button><span class="hint" style="margin:0">列見出しの ◀ ＝前月をこの月にコピー。</span></div>
     <div class="tblwrap"><table id="stbl"></table></div>
     <div style="margin-top:8px"><button class="btn btn-add" onclick="addSga()">＋販管費追加</button></div>
   </div>
 
-  <div class="card">
-    <h2>⑦ 12ヶ月 予測PL（このフェーズ）</h2>
-    <div class="kpi" id="kpibox"></div>
-    <div class="tblwrap"><table class="res" id="restbl"></table></div>
-  </div>
   </div><!--/editor-->
 
   <div id="sumView" style="display:none">
@@ -381,7 +382,12 @@ function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
 function ysPlus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
 function kpi(t,n,pos){return '<div class="k"><div class="n '+(pos?'':'neg')+'">'+n+'</div><div class="t">'+t+'</div></div>';}
-function saveNow(){try{localStorage.setItem(SKEY,JSON.stringify(S));var sm=document.getElementById('savedMsg');if(sm){sm.textContent='✓自動保存';setTimeout(function(){sm.textContent='';},1200);}}catch(e){}}
+var BT_URL='https://ggqugvyskyiblxiycpci.supabase.co';
+var BT_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+var SIM_ID='shared';var _svTimer=null;
+function serverSave(){try{fetch(BT_URL+'/rest/v1/bt_sim_state?on_conflict=id',{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:SIM_ID,data:S})}).then(function(r){var sm=document.getElementById('savedMsg');if(sm){sm.textContent=r.ok?'✓保存（全端末共有）':'⚠保存失敗';setTimeout(function(){sm.textContent='';},1500);}}).catch(function(){var sm=document.getElementById('savedMsg');if(sm)sm.textContent='⚠オフライン(ローカルのみ)';});}catch(e){}}
+function serverLoad(cb){try{fetch(BT_URL+'/rest/v1/bt_sim_state?id=eq.'+SIM_ID+'&select=data',{headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON}}).then(function(r){return r.json();}).then(function(a){cb(a&&a[0]&&a[0].data?a[0].data:null);}).catch(function(){cb(null);});}catch(e){cb(null);}}
+function saveNow(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}clearTimeout(_svTimer);_svTimer=setTimeout(serverSave,600);}
 
 function uT(i,f,v){cur().types[i][f]=(f==='name')?v:(+v||0);render();}
 function delType(i){cur().types.splice(i,1);render();}
@@ -438,6 +444,16 @@ function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロッ
   }
   if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;
   render();
+  // サーバ（全端末共有）が正。あれば採用、無ければ現状をサーバへ初期保存
+  serverLoad(function(srv){
+    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();}
+    else{serverSave();}
+  });
+  // 別端末での更新を復帰時に取り込む（入力中はスキップ）
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden)return;var ae=document.activeElement;if(ae&&(ae.tagName==='INPUT'||ae.tagName==='SELECT'))return;
+    serverLoad(function(srv){if(srv&&srv.phases&&JSON.stringify(srv)!==JSON.stringify(S)){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;render();}});
+  });
 })();
 </script>
 </body>
