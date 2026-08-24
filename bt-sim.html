@@ -81,9 +81,9 @@ th.stick{background:#f8fafc}
     </div>
     <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全フェーズ共通。台数・稼働率・単価・コストはフェーズごと。<b>🔒ロック中は全入力が編集不可＝誤操作で数字が変わりません。</b></div>
     <div class="row" style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0">
-      <label>📋 <b id="curPhLbl"></b> を <select id="copySrc" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:700;background:#fffdf5"></select> にコピー</label>
-      <button class="btn btn-s" onclick="copyToPhase()">上書きコピー</button>
-      <span class="hint" style="margin:0">今のフェーズを選んだフェーズに丸ごと上書き→<b>修正するところだけ</b>直す運用に。コピー先の名前は保持されます。</span>
+      <span style="font-size:13px;font-weight:700">📋 <b id="curPhLbl"></b> を他フェーズにコピー →</span>
+      <span id="copyBtns"></span>
+      <span class="hint" style="margin:0">押したフェーズに丸ごと上書き→<b>修正するところだけ</b>直す運用に。コピー先の名前は保持されます。</span>
     </div>
   </div>
 
@@ -243,7 +243,7 @@ function render(){
   ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
   var cpl=document.getElementById('curPhLbl');if(cpl)cpl.textContent=P.name;
-  var cs=document.getElementById('copySrc');if(cs){var o='';S.phases.forEach(function(p,i){if(i!==S.active)o+='<option value="'+i+'">'+p.name+'</option>';});cs.innerHTML=o;}
+  var cb=document.getElementById('copyBtns');if(cb){var b='';S.phases.forEach(function(p,i){if(i!==S.active)b+='<button class="btn btn-s" style="margin-right:6px" onclick="copyToPhaseIdx('+i+')">'+p.name+'にコピー</button>';});cb.innerHTML=b;}
   var hp=document.getElementById('hpPct');if(document.activeElement!==hp)hp.value=P.hpPct;
   var op2=document.getElementById('otaPct');if(document.activeElement!==op2)op2.value=P.otaPct;
 
@@ -392,7 +392,7 @@ function otaBlock(title,mo,hp,ota,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=
   return '<div style="flex:1;min-width:250px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
     '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'</div>'+
     '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b><br>🏢 OTA手数料('+Math.round(OTA_FEE_RATE*100)+'%) <b style="color:#0369a1;font-size:14px">'+yen(fee)+'</b>/月</div></div>';}
-function copyToPhase(){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}var cs=document.getElementById('copySrc');if(!cs||cs.value==='')return;var di=+cs.value;if(di===S.active){alert('同じフェーズです。');return;}var src=cur(),dst=S.phases[di];if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※コピー先「'+dst.name+'」の名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[di]=c;render();}
+function copyToPhaseIdx(di){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}if(di===S.active)return;var src=cur(),dst=S.phases[di];if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※コピー先「'+dst.name+'」の名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[di]=c;render();}
 function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
 function ysPlus(s){return '<div style="flex:0 0 auto;align-self:center;font-size:16px;font-weight:900;color:#94a3b8">'+s+'</div>';}
