@@ -62,9 +62,9 @@ details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;ma
     <div class="tblwrap">
     <table id="ttbl">
       <thead><tr><th class="l">タイプ</th><th>単価¥/日</th><th>台数</th><th>稼働率%</th>
-        <th>稼働日/台</th><th>月額/台<br>(基本料金)</th><th>月額合計<br>(基本料金)</th><th></th></tr></thead>
+        <th>稼働日/台</th><th>月額/台<br>(基本料金)</th><th>月額合計<br>(基本料金)</th><th>台/売上<br>(総・月)</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
-      <tfoot><tr class="total"><td class="l">合計</td><td></td><td id="t-n"></td><td id="t-occ"></td><td></td><td class="l" style="font-size:11px;color:#64748b">基本料金合計→</td><td id="t-rev"></td><td></td></tr></tfoot>
+      <tfoot><tr class="total"><td class="l">合計</td><td></td><td id="t-n"></td><td id="t-occ"></td><td></td><td class="l" style="font-size:11px;color:#64748b">基本料金合計→</td><td id="t-rev"></td><td id="t-pc"></td><td></td></tr></tfoot>
     </table>
     </div>
     <div id="baseSum" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"></div>
@@ -208,12 +208,14 @@ function render(){
       '<td><input class="cell" type="number" value="'+t.n+'" onchange="uT('+i+',\'n\',this.value)"></td>'+
       '<td><input class="cell" type="number" value="'+t.occ+'" onchange="uT('+i+',\'occ\',this.value)"></td>'+
       '<td>'+(Math.round(occDay*10)/10)+'</td><td>'+yen(perU)+'</td><td>'+yen(tot)+'</td>'+
+      '<td style="font-weight:700;color:#1e40af">'+yen(perU*(1+S.ancRate/100))+'</td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
   });
   document.getElementById('t-n').textContent=tN+'台';
   document.getElementById('t-occ').textContent=pct(occD>0?occW/occD:0);
   document.getElementById('t-rev').textContent=yen(tRev);
+  document.getElementById('t-pc').textContent=yen(tN>0?(tRev*(1+S.ancRate/100))/tN:0);
   var baseAnc=tRev*(S.ancRate/100), baseTot=tRev+baseAnc;
   document.getElementById('baseSum').innerHTML=
     '<div class="k" style="flex:1;min-width:150px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:900;color:#0F1F45">'+yen(tRev)+'</div><div style="font-size:10px;color:#64748b">基本料金（月額合計）</div></div>'+
@@ -280,11 +282,14 @@ function render(){
 
   var yrOp=months.reduce(function(a,x){return a+x.op;},0);
   var yrRev=months.reduce(function(a,x){return a+x.total;},0);
+  var avgUnits=months.reduce(function(a,x){return a+x.units;},0)/S.nMonths;
+  var grossPerCar=avgUnits>0?(yrRev/S.nMonths)/avgUnits:0; // グロス台あたり売上/月(総売上)
   var kp=document.getElementById('kpibox');
   kp.innerHTML=
     kpi('年間 総売上', yen(yrRev), true)+
     kpi('年間 営業利益', yen(yrOp), yrOp>=0)+
     kpi('月平均 売上', yen(yrRev/S.nMonths), true)+
+    kpi('台あたり売上/月(グロス)', yen(grossPerCar), true)+
     kpi('月平均 営業利益', yen(yrOp/S.nMonths), yrOp>=0)+
     kpi('営業利益率', pct(yrRev>0?yrOp/yrRev*100:0), yrOp>=0);
 
