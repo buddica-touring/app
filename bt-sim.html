@@ -120,6 +120,7 @@ th.stick{background:#f8fafc}
     <h2>④ 12ヶ月 予測PL（このフェーズ）</h2>
     <div class="kpi" id="kpibox"></div>
     <div class="tblwrap"><table class="res" id="restbl"></table></div>
+    <div style="margin-top:12px"><div style="font-size:13px;font-weight:800;color:#1e3a5f;margin-bottom:6px">📣 集客コスト＆CPA（OTA手数料＋広告費 ÷ 獲得件数・繁忙/通常別）</div><div id="cpaBox" style="display:flex;gap:10px;flex-wrap:wrap"></div></div>
   </div>
 
   <div class="card">
@@ -315,9 +316,10 @@ function render(){
   var pkCnt=pkIdx>=0?calcSales(P,pkIdx).cnt:0,nmCnt=nmIdx>=0?calcSales(P,nmIdx).cnt:0;
   var pkAd=pkIdx>=0?costByLabel(P,pkIdx,P.sga,/広告/):0,nmAd=nmIdx>=0?costByLabel(P,nmIdx,P.sga,/広告/):0;
   document.getElementById('splitChk').innerHTML='合計 '+(hpP+otaP)+'%'+(Math.abs(hpP+otaP-100)>0.1?' <span style="color:#dc2626">⚠</span>':' ✓');
+  var _cpa=document.getElementById('cpaBox');if(_cpa)_cpa.innerHTML=cpaBlock('🔴 繁忙期の1ヶ月',pkMo,pkCnt,hpP,otaP,pkAd,'#fff1f2','#be123c')+cpaBlock('🔵 通常期の1ヶ月',nmMo,nmCnt,hpP,otaP,nmAd,'#eff6ff','#1e40af');
   document.getElementById('splitOut').innerHTML=
-    otaBlock('🔴 繁忙期の1ヶ月',pkMo,pkCnt,hpP,otaP,pkAd,'#fff1f2','#be123c')+
-    otaBlock('🔵 通常期の1ヶ月',nmMo,nmCnt,hpP,otaP,nmAd,'#eff6ff','#1e40af')+
+    otaBlock('🔴 繁忙期の1ヶ月',pkMo,pkCnt,hpP,otaP,'#fff1f2','#be123c')+
+    otaBlock('🔵 通常期の1ヶ月',nmMo,nmCnt,hpP,otaP,'#eff6ff','#1e40af')+
     '<div style="flex:1 0 100%;margin-top:4px;font-size:11px;color:#64748b">※OTA手数料＝各月のOTA売上×'+Math.round(OTA_FEE_RATE*100)+'%（繁忙月と通常月で金額が変わり、⑦販管費に月別で自動計上）。</div>';
 
   var ab=document.getElementById('actbody');ab.innerHTML='';
@@ -391,16 +393,18 @@ function seasonBlock(title,nm,b,a,t,bg,col){
     '</div>';
 }
 function ysCard(n,t,bg,col){return '<div style="flex:1;min-width:140px;background:'+bg+';border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:15px;font-weight:900;color:'+col+'">'+n+'</div><div style="font-size:10px;color:#64748b">'+t+'</div></div>';}
-function otaBlock(title,mo,cnt,hp,ota,ad,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=otav*OTA_FEE_RATE;var hpc=cnt*hp/100,otac=cnt*ota/100;
+function otaBlock(title,mo,cnt,hp,ota,bg,col){var hpv=mo*hp/100,otav=mo*ota/100,fee=otav*OTA_FEE_RATE;var hpc=cnt*hp/100,otac=cnt*ota/100;
+  return '<div style="flex:1;min-width:250px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
+    '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'</div>'+
+    '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🎫 獲得本数 <b>'+Math.round(cnt)+'件</b>/月（🌐HP '+Math.round(hpc)+'件・🏢OTA '+Math.round(otac)+'件）<hr style="border:none;border-top:1px dashed '+col+';margin:5px 0">🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b><br>🏢 OTA手数料('+Math.round(OTA_FEE_RATE*100)+'%) <b style="color:#0369a1;font-size:14px">'+yen(fee)+'</b>/月</div></div>';}
+function cpaBlock(title,mo,cnt,hp,ota,ad,bg,col){var otav=mo*ota/100,fee=otav*OTA_FEE_RATE;var hpc=cnt*hp/100,otac=cnt*ota/100;
   var otaCPA=otac>0?fee/otac:0,hpCPA=hpc>0?ad/hpc:0,allCPA=cnt>0?(fee+ad)/cnt:0;
   return '<div style="flex:1;min-width:270px;background:'+bg+';border:1.5px solid '+col+';border-radius:10px;padding:10px">'+
-    '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'</div>'+
-    '<div style="font-size:12px;margin-top:5px;line-height:1.8">総売上 <b>'+yen(mo)+'</b>/月<br>🎫 獲得本数 <b>'+Math.round(cnt)+'件</b>/月（🌐HP '+Math.round(hpc)+'件・🏢OTA '+Math.round(otac)+'件）<hr style="border:none;border-top:1px dashed '+col+';margin:5px 0">🌐 HP('+hp+'%) '+yen(hpv)+'<br>🏢 OTA('+ota+'%) <b>'+yen(otav)+'</b></div>'+
-    '<div style="margin-top:7px;padding:7px 8px;background:rgba(255,255,255,.6);border-radius:8px;font-size:11.5px;line-height:1.75">'+
-      '📣 <b>集客コスト＆CPA</b><br>'+
+    '<div style="font-weight:800;color:'+col+';font-size:13px">'+title+'（獲得 '+Math.round(cnt)+'件）</div>'+
+    '<div style="font-size:11.5px;margin-top:5px;line-height:1.85">'+
       '🏢 OTA手数料 '+yen(fee)+' ÷ '+Math.round(otac)+'件 ＝ CPA <b style="color:#c2681c">'+yen(otaCPA)+'</b><br>'+
       '🌐 広告費 '+yen(ad)+' ÷ HP '+Math.round(hpc)+'件 ＝ CPA <b style="color:#1e40af">'+yen(hpCPA)+'</b><br>'+
-      '＝ 合算 '+yen(fee+ad)+' ÷ '+Math.round(cnt)+'件 ＝ CPA <b style="color:#be123c;font-size:14px">'+yen(allCPA)+'</b></div></div>';}
+      '＝ 合算 '+yen(fee+ad)+' ÷ '+Math.round(cnt)+'件 ＝ CPA <b style="color:'+col+';font-size:15px">'+yen(allCPA)+'</b></div></div>';}
 function copyToPhaseIdx(di){if(S.locked){alert('🔒ロック中です。先にロック解除してください。');return;}if(di===S.active)return;var src=cur(),dst=S.phases[di];if(!confirm('「'+src.name+'」の内容（台数・稼働率・単価・シーズン・コスト・構成比）を「'+dst.name+'」に上書きコピーしますか？\n※コピー先「'+dst.name+'」の名前は保持されます。上書き後、修正するところだけ直してください。')){return;}var nm=dst.name;var c=JSON.parse(JSON.stringify(src));c.name=nm;S.phases[di]=c;render();}
 function toggleLock(){S.locked=!S.locked;saveNow();render();}
 function applyLock(){document.body.classList.toggle('locked',!!S.locked);var b=document.getElementById('lockBtn');if(b){b.className='lockbtn '+(S.locked?'on':'off');b.textContent=S.locked?'🔓 ロック中（タップで編集解除）':'🔒 数字をロック';}}
