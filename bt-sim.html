@@ -383,10 +383,13 @@ function plTable(P,months){
   return html+'</tbody>';
 }
 
-var KPI_HEAD='<thead><tr><th class="stick">フェーズ</th><th>運用台数</th><th>総売上</th><th>営業利益</th><th>利益率</th><th>予約件数</th><th>客単価</th><th>CPA</th><th>広告費＋OTA</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+var KPI_HEAD='<thead><tr><th class="stick l">フェーズ</th><th class="l">商品構成</th><th class="l">定義</th><th>運用台数</th><th>総売上</th><th>営業利益</th><th>利益率</th><th>予約件数</th><th>客単価</th><th>CPA</th><th>広告費＋OTA</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
 function kpiRow(p,rev,op,cnt,ad,lease,itaku,jin,units,taiPerCar){
   var adr=cnt>0?rev/cnt:0,cpa=cnt>0?ad/cnt:0,oc=(op>=0?'pos':'neg');
-  return '<tr><td class="stick">'+p.name+'</td>'+
+  var parts=(p.name||'').split(' '),num=parts[0]||'',def=parts.slice(1).join(' ')||p.name;
+  return '<tr><td class="stick l" style="font-weight:800">'+num+'</td>'+
+    '<td class="l">'+(p.kousei||'バランス型')+'</td>'+
+    '<td class="l">'+def+'</td>'+
     '<td>'+units+'台</td>'+
     '<td>'+yen(rev)+'</td>'+
     '<td class="'+oc+'">'+yen(op)+'</td>'+
@@ -414,7 +417,7 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
   S.phases.forEach(function(p){ensure(p);
     var units=(p.types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
     var idx=p.season.indexOf(skey);
-    if(idx<0){ph+='<tr><td class="stick">'+p.name+'</td><td>'+units+'台</td><td colspan="11" style="text-align:center;color:#94a3b8">該当月なし</td></tr>';return;}
+    if(idx<0){var pt=(p.name||'').split(' ');ph+='<tr><td class="stick l" style="font-weight:800">'+(pt[0]||'')+'</td><td class="l">'+(p.kousei||'バランス型')+'</td><td class="l">'+(pt.slice(1).join(' ')||p.name)+'</td><td>'+units+'台</td><td colspan="11" style="text-align:center;color:#94a3b8">該当月なし</td></tr>';return;}
     var m=calcMonth(p,idx);
     ph+=kpiRow(p,m.total,m.op,m.cnt,(m.ad||0)+(m.otaFee||0),m.lease||0,m.itaku||0,m.jinken||0,units,50000);});
   return ph+'</tbody>';
@@ -422,11 +425,7 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
 function renderSum(){
   var u1=(S.phases[0].types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
   var sk=document.getElementById('sumKpi');sk.style.display='block';
-  var comp='<div class="tblwrap" style="margin-bottom:10px"><table style="font-size:13px"><thead><tr><th class="l">フェーズ</th><th class="l">商品構成</th><th class="l">定義</th></tr></thead><tbody>';
-  S.phases.forEach(function(p){var parts=(p.name||'').split(' '),num=parts[0]||'',def=parts.slice(1).join(' ')||p.name;
-    comp+='<tr><td class="l" style="font-weight:800">'+num+'</td><td class="l">'+(p.kousei||'バランス型')+'</td><td class="l">'+def+'</td></tr>';});
-  comp+='</tbody></table></div>';
-  sk.innerHTML=comp+'<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（③）以外はバランス型で同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
+  sk.innerHTML='<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（③）以外はバランス型で同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
   document.getElementById('sumPhase').innerHTML=kpiTable();
   document.getElementById('sumMonthP').innerHTML=kpiTableSeason('peak');
   document.getElementById('sumMonthN').innerHTML=kpiTableSeason('normal');
