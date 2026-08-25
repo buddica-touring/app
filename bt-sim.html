@@ -191,8 +191,8 @@ var ACT_ORDER=['A','AA','C','D','E','F','G','H','ALL'];
 var ACT_LABEL={A:'A アルヴェル',AA:'AA 高級',C:'C ミニバン',D:'D SUV',E:'E ハイブリッド',F:'F コンパクトSUV',G:'G コンパクト',H:'H ハイトワゴン',ALL:'全体'};
 var NM=12;
 
-function mkPhase(name,mult){mult=mult||1;
-  return {name:name,season:null,hpPct:20,otaPct:80,
+function mkPhase(name,mult,kousei){mult=mult||1;
+  return {name:name,kousei:kousei||'バランス型',season:null,hpPct:20,otaPct:80,
     types:[
       {name:'A アルヴェル/D5',adrP:20000,adrN:17000,n:Math.round(6*mult),rdays:4.33,occP:65,occN:45,actKey:'A'},
       {name:'B ミニバン',adrP:18000,adrN:15000,n:Math.round(6*mult),rdays:3.25,occP:65,occN:45,actKey:'C'},
@@ -204,9 +204,9 @@ function mkPhase(name,mult){mult=mult||1;
     fixed:[{label:'車両リース・保険・車検 等',amt:0}],
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
-var CH_NAME='③ チャレンジ｜アルファード特化';
+var CH_NAME='③ チャレンジ枠';
 var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,sumMode:'year',
-  phases:[mkPhase('① コスト/現状維持',1),mkPhase('② コスト/調整',1.5),mkPhase(CH_NAME,1),mkPhase('④ 乗り潰し/減価償却終了後（参考）',2)]};
+  phases:[mkPhase('① コスト現状維持',1),mkPhase('② コスト調整',1.5),mkPhase(CH_NAME,1,'アルファード特化'),mkPhase('④ 乗り潰し/減価償却終了後',2)]};
 // ④チャレンジは①をコピーした状態を初期値に（フォーマットは全フェーズ共通・そこから変更する）
 function migratePhases(){if(!S.phases)return;
   if(S.phases.length===3){var c=JSON.parse(JSON.stringify(S.phases[0]));c.name=CH_NAME;S.phases.push(c);}
@@ -422,7 +422,11 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
 function renderSum(){
   var u1=(S.phases[0].types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
   var sk=document.getElementById('sumKpi');sk.style.display='block';
-  sk.innerHTML='<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（④）以外は同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
+  var comp='<div class="tblwrap" style="margin-bottom:10px"><table style="font-size:13px"><thead><tr><th class="l">フェーズ</th><th class="l">商品構成</th><th class="l">定義</th></tr></thead><tbody>';
+  S.phases.forEach(function(p){var parts=(p.name||'').split(' '),num=parts[0]||'',def=parts.slice(1).join(' ')||p.name;
+    comp+='<tr><td class="l" style="font-weight:800">'+num+'</td><td class="l">'+(p.kousei||'バランス型')+'</td><td class="l">'+def+'</td></tr>';});
+  comp+='</tbody></table></div>';
+  sk.innerHTML=comp+'<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（③）以外はバランス型で同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
   document.getElementById('sumPhase').innerHTML=kpiTable();
   document.getElementById('sumMonthP').innerHTML=kpiTableSeason('peak');
   document.getElementById('sumMonthN').innerHTML=kpiTableSeason('normal');
