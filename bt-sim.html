@@ -63,7 +63,7 @@ th.stick{background:#f8fafc}
 <body>
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（3フェーズ）</h1>
-  <div class="sub">事業フェーズ（立ち上げ／成長／安定）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 最後に3フェーズ合算。<b>入力は自動保存</b>。</div>
+  <div class="sub">事業フェーズ（立ち上げ／成長／安定）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL。<b>入力は自動保存（全端末共有）</b>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
@@ -222,23 +222,24 @@ function calcSales(ph,m){ // 売上のみ（コスト非依存＝循環参照回
   var anc=basic*(S.ancRate/100),total=basic+anc;
   return {basic:basic,anc:anc,total:total,units:units,cnt:cnt,cd:cd};
 }
+function costByLabel(ph,m,arr,re){return (arr||[]).reduce(function(a,g){return a+(re.test(g.label||'')?costMV(g,m):0);},0);}
 function calcMonth(ph,m){
   var s=calcSales(ph,m),total=s.total,vari=total*(S.varRate/100);
   var otaFee=otaFeeM(ph,m),fixed=fixedM(ph,m),sga=sgaManual(ph,m)+otaFee,op=total-vari-fixed-sga;
   var occ=s.units>0?s.cd/(s.units*S.days)*100:0,avgResv=s.cnt>0?total/s.cnt:0;
-  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
+  var lease=costByLabel(ph,m,ph.fixed,/リース|償却/),gyA=costByLabel(ph,m,ph.sga,/業務委託.*A/),gyB=costByLabel(ph,m,ph.sga,/業務委託.*B/),ad=costByLabel(ph,m,ph.sga,/広告/);
+  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,lease:lease,gyoumuA:gyA,gyoumuB:gyB,ad:ad,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
 }
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
 function render(){
-  // フェーズタブ
+  // フェーズタブ（合算タブは廃止）
+  if(S.active==='sum')S.active=0;
   var pt=document.getElementById('ptabs');pt.innerHTML='';
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
-  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 3フェーズ合算';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
   applyLock();
-  if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
-  document.getElementById('editor').style.display='';document.getElementById('sumView').style.display='none';
+  document.getElementById('editor').style.display='';var _sv=document.getElementById('sumView');if(_sv)_sv.style.display='none';
   var P=cur();ensure(P);
   ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
@@ -335,12 +336,17 @@ function render(){
 }
 
 function plTable(P,months){
-  var rows=[['区分','season'],['基本料金','basic'],['付帯売上','anc'],['総売上','total'],['− 変動費','vari'],['− 固定費','fixed'],['− 販管費','sga'],['営業利益','op'],['稼働率','occ'],['件数','cnt']];
+  var rows=[['区分','season'],['基本料金','basic'],['付帯売上','anc'],['総売上','total'],
+    ['− 変動費','vari'],
+    ['− 固定費','fixed'],['　└ リース/償却','lease',1],
+    ['− 販管費','sga'],['　└ OTA手数料','otaFee',1],['　└ 業務委託A','gyoumuA',1],['　└ 業務委託B','gyoumuB',1],['　└ 広告費','ad',1],
+    ['営業利益','op'],['稼働率','occ'],['件数','cnt']];
   var html='<thead><tr><th class="stick">項目</th>';
   for(var m3=0;m3<NM;m3++)html+='<th'+(P.season[m3]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moNo(m3)+'月</th>';
   html+='<th class="yr">年計</th></tr></thead><tbody>';
-  rows.forEach(function(r){var key=r[1],emph=(key==='total'||key==='op');
-    html+='<tr'+(emph?' class="total"':'')+'><td class="stick">'+r[0]+'</td>';var sum=0,os=0;
+  rows.forEach(function(r){var key=r[1],emph=(key==='total'||key==='op'),sub=(r[2]===1);
+    var rst=sub?' style="color:#94a3b8;font-size:10.5px"':'';
+    html+='<tr'+(emph?' class="total"':'')+rst+'><td class="stick"'+(sub?' style="color:#94a3b8;font-size:10.5px;font-weight:400"':'')+'>'+r[0]+'</td>';var sum=0,os=0;
     for(var m=0;m<NM;m++){var v=months[m][key];
       if(key==='season'){html+='<td>'+(v==='peak'?'<span style="color:#be123c;font-weight:700">繁忙</span>':'<span style="color:#1e40af">通常</span>')+'</td>';}
       else if(key==='occ'){html+='<td>'+pct(v)+'</td>';os+=v;}
