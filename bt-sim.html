@@ -67,6 +67,11 @@ th.stick{background:#f8fafc}
 .ptab{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:800;border:1.5px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer}
 .ptab.on{background:#0F1F45;color:#fff;border-color:#0F1F45}
 .ptab.sum{border-color:#15803d;color:#15803d}.ptab.sum.on{background:#15803d;color:#fff;border-color:#15803d}
+/* 運用案比較（年間合算）テーブルを画面幅に収める */
+#sumView .res{font-size:9.5px;width:100%;table-layout:auto}
+#sumView .res th,#sumView .res td{padding:4px 5px;white-space:nowrap}
+#sumView .res th{font-size:9px}
+#sumView .res td div{font-size:8px}
 /* ===== 印刷 / PDF出力 ===== */
 .prbtn{border:none;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;background:#0F1F45;color:#fff}
 .prfloat{position:fixed;right:16px;bottom:16px;z-index:50;box-shadow:0 3px 12px rgba(0,0,0,.28);padding:12px 18px;border-radius:30px;font-size:14px}
@@ -84,6 +89,8 @@ th.stick{background:#f8fafc}
   input.cell.name{width:auto!important}
   .hint{display:none!important}
   h1{font-size:13px;margin:0 0 4px}
+  #sumView .res{font-size:8px}
+  #sumView .res th,#sumView .res td{padding:2px 4px}
 }
 </style>
 </head>
@@ -91,7 +98,7 @@ th.stick{background:#f8fafc}
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（運用案別）</h1>
   <button class="prbtn prfloat no-print" onclick="window.print()" title="表示中の運用案(注釈＋12ヶ月PL)をPDF/印刷。プリンタ選択で「PDFに保存」を選ぶとPDF化できます。A4横推奨。">🖨 PDF出力</button>
-  <div class="sub">運用案（①ネクストアクション／②チャレンジ・育成／③乗り潰し＝減価償却終了後）ごとに 注釈（意図・課題）＋ 台数・稼働率・単価・コストを設計 → 各運用案12ヶ月PL。<b>入力は自動保存（全端末共有）</b>。<span class="no-print" style="color:#0F1F45;font-weight:700">🖨で表示中の運用案をPDF化可</span>。</div>
+  <div class="sub">運用案（①ネクストアクション／②チャレンジ・育成／③乗り潰し＝減価償却終了後）ごとに 注釈＋ 台数・稼働率・単価・コストを設計 → 各運用案12ヶ月PL → 📊運用案比較（年間の合算を横並び）。<b>入力は自動保存（全端末共有）</b>。<span class="no-print" style="color:#0F1F45;font-weight:700">🖨で表示中ビューをPDF化可</span>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
@@ -192,6 +199,14 @@ th.stick{background:#f8fafc}
 
   </div><!--/editor-->
 
+  <div id="sumView" style="display:none">
+    <div class="card">
+      <h2>📊 運用案比較（年間の合算）</h2>
+      <div class="hint">3案の年間合算（12ヶ月の合計）を横並びで比較。定義＝各運用案の注釈は各タブで編集。運用案を足した合計は出しません。</div>
+      <div class="tblwrap"><table class="res" id="sumPhase"></table></div>
+    </div>
+  </div>
+
   <div class="row"><button class="btn btn-g" onclick="resetAll()">初期値に戻す</button>
     <span class="hint" style="margin:0">※入力は自動保存（この端末のブラウザ）。</span></div>
 </div>
@@ -231,7 +246,6 @@ function migratePhases(){if(!S.phases)return;
   }
   // 常に3案に正規化（旧キャッシュ版が4案目を復活させても除去）
   if(S.phases.length>3)S.phases=S.phases.slice(0,3);
-  if(S.active==='sum')S.active=0;
 }
 // 各運用案の初期注釈（意図・課題）。編集可＝空('')にした場合は上書きしない
 var NOTE_DEFAULT=[
@@ -279,10 +293,13 @@ function render(){
   ensureNotes();
   // 運用案タブ
   var pt=document.getElementById('ptabs');pt.innerHTML='';
-  if(S.active==='sum'||typeof S.active!=='number'||S.active>=S.phases.length)S.active=0;
+  if(S.active!=='sum'&&(typeof S.active!=='number'||S.active>=S.phases.length))S.active=0;
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
+  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 運用案比較（合算）';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
   applyLock();
+  if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
+  document.getElementById('editor').style.display='';document.getElementById('sumView').style.display='none';
   var P=cur();ensure(P);
   ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
@@ -449,6 +466,9 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
     var m=calcMonth(p,idx);
     ph+=kpiRow(p,m.total,m.op,m.cnt,(m.ad||0)+(m.otaFee||0),m.lease||0,m.itaku||0,m.jinken||0,units,50000);});
   return ph+'</tbody>';
+}
+function renderSum(){
+  var el=document.getElementById('sumPhase');if(el)el.innerHTML=kpiTable();
 }
 function renderCost(id,arr,upd,del,cm){var b=document.getElementById(id);b.innerHTML='';var t=0;
   arr.forEach(function(g,i){var v=costMV(g,cm);t+=v;var tr=document.createElement('tr');
