@@ -63,7 +63,7 @@ th.stick{background:#f8fafc}
 <body>
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（3フェーズ）</h1>
-  <div class="sub">事業フェーズ（立ち上げ／成長／安定）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 📊3フェーズ比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
+  <div class="sub">事業フェーズ（立ち上げ／調整／着地／④チャレンジ＝アルファード特化）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 📊フェーズ比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
@@ -161,7 +161,7 @@ th.stick{background:#f8fafc}
 
   <div id="sumView" style="display:none">
     <div class="card">
-      <h2>📊 3フェーズ 比較</h2>
+      <h2>📊 フェーズ比較</h2>
       <div class="kpi" id="sumKpi"></div>
       <div class="tblwrap"><table class="res" id="sumPhase"></table></div>
       <div style="height:10px"></div>
@@ -195,8 +195,13 @@ function mkPhase(name,mult){mult=mult||1;
     fixed:[{label:'車両リース・保険・車検 等',amt:0}],
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
+function mkChallenge(){return {name:'④ チャレンジ｜アルファード特化',season:null,hpPct:20,otaPct:80,
+  types:[{name:'A アルファード',adrP:25000,adrN:20000,n:10,rdays:4.33,occP:70,occN:50,actKey:'A'}],
+  fixed:[{label:'車両リース・保険・車検 等',amt:0}],
+  sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'その他',amt:0}]};}
 var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,
-  phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 調整期',1.5),mkPhase('③ 着地',2)]};
+  phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 調整期',1.5),mkPhase('③ 着地',2),mkChallenge()]};
+function migratePhases(){if(S.phases&&S.phases.length===3)S.phases.push(mkChallenge());}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
 function cur(){return S.phases[S.active];}
@@ -237,7 +242,7 @@ function render(){
   // フェーズタブ
   var pt=document.getElementById('ptabs');pt.innerHTML='';
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
-  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 3フェーズ比較';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
+  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 フェーズ比較';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
   applyLock();
   if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
@@ -479,11 +484,11 @@ function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロッ
     try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}
   }
   if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;
-  cleanupOtaFee();
+  cleanupOtaFee();migratePhases();
   render();
   // サーバ（全端末共有）が正。あれば採用、無ければ現状をサーバへ初期保存
   serverLoad(function(srv){
-    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;cleanupOtaFee();try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();serverSave();}
+    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;cleanupOtaFee();migratePhases();try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();serverSave();}
     else{serverSave();}
   });
   // 別端末での更新を復帰時に取り込む（入力中はスキップ）
