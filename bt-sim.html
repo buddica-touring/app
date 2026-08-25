@@ -67,11 +67,14 @@ th.stick{background:#f8fafc}
 .ptab{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:800;border:1.5px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer}
 .ptab.on{background:#0F1F45;color:#fff;border-color:#0F1F45}
 .ptab.sum{border-color:#15803d;color:#15803d}.ptab.sum.on{background:#15803d;color:#fff;border-color:#15803d}
-/* 運用案比較（年間合算）テーブルを画面幅に収める */
+/* 運用案比較テーブルを1画面に収める（比較表のみコンパクト化） */
 #sumView .res{font-size:9.5px;width:100%;table-layout:auto}
-#sumView .res th,#sumView .res td{padding:4px 5px;white-space:nowrap}
+#sumView .res th,#sumView .res td{padding:3px 4px;white-space:nowrap}
 #sumView .res th{font-size:9px}
-#sumView .res td div{font-size:8px}
+#sumView .res .stick{min-width:20px}
+#sumView .tblwrap{border:none}
+#sumView .res td div{display:none}
+#sumView .card{padding:12px 14px}
 /* ===== 印刷 / PDF出力 ===== */
 .prbtn{border:none;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;background:#0F1F45;color:#fff}
 .prfloat{position:fixed;right:16px;bottom:16px;z-index:50;box-shadow:0 3px 12px rgba(0,0,0,.28);padding:12px 18px;border-radius:30px;font-size:14px}
@@ -89,8 +92,16 @@ th.stick{background:#f8fafc}
   input.cell.name{width:auto!important}
   .hint{display:none!important}
   h1{font-size:13px;margin:0 0 4px}
-  #sumView .res{font-size:8px}
-  #sumView .res th,#sumView .res td{padding:2px 4px}
+  #sumView{font-size:8px}
+  #sumView .card{border:none;padding:2px 2px;margin:0 0 4px;break-inside:auto;page-break-inside:auto}
+  #sumView .card h2{font-size:10px;margin:2px 0 4px}
+  #sumView table,#sumView .res{font-size:8px}
+  #sumView th,#sumView td{padding:1.5px 3px}
+  #sumView .notelist{gap:3px}
+  #sumView .notelist .ni{padding:3px 6px}
+  #sumView .notelist .ni b{font-size:8.5px;margin-bottom:1px}
+  #sumView .ntx{display:none!important}
+  #sumView .prnote{display:block!important;font-size:7.5px;line-height:1.35;margin-top:1px}
 }
 </style>
 </head>
@@ -98,7 +109,7 @@ th.stick{background:#f8fafc}
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（運用案別）</h1>
   <button class="prbtn prfloat no-print" onclick="window.print()" title="表示中の運用案(注釈＋12ヶ月PL)をPDF/印刷。プリンタ選択で「PDFに保存」を選ぶとPDF化できます。A4横推奨。">🖨 PDF出力</button>
-  <div class="sub">運用案（①ネクストアクション／②チャレンジ・育成／③乗り潰し＝減価償却終了後）ごとに 注釈＋ 台数・稼働率・単価・コストを設計 → 各運用案12ヶ月PL → 📊運用案比較（年間の合算を横並び）。<b>入力は自動保存（全端末共有）</b>。<span class="no-print" style="color:#0F1F45;font-weight:700">🖨で表示中ビューをPDF化可</span>。</div>
+  <div class="sub">運用案（①ネクストアクション／②チャレンジ・育成／③乗り潰し＝減価償却終了後）ごとに 注釈＋ 台数・稼働率・単価・コストを設計 → 各運用案12ヶ月PL → 📊運用案比較（年間・繁忙/通常）。<b>入力は自動保存（全端末共有）</b>。<span class="no-print" style="color:#0F1F45;font-weight:700">🖨で表示中ビューをPDF化可</span>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
@@ -201,9 +212,18 @@ th.stick{background:#f8fafc}
 
   <div id="sumView" style="display:none">
     <div class="card">
-      <h2>📊 運用案比較（年間の合算）</h2>
-      <div class="hint">3案の年間合算（12ヶ月の合計）を横並びで比較。定義＝各運用案の注釈は各タブで編集。運用案を足した合計は出しません。</div>
+      <h2>📝 運用案の注釈</h2>
+      <div class="notelist" id="sumNotes"></div>
+    </div>
+    <div class="card">
+      <h2>📅 年間</h2>
       <div class="tblwrap"><table class="res" id="sumPhase"></table></div>
+    </div>
+    <div class="card">
+      <h2>🔴 繁忙期の1ヶ月</h2>
+      <div class="tblwrap"><table class="res" id="sumMonthP"></table></div>
+      <h2 style="margin:16px 0 12px">🔵 通常期の1ヶ月</h2>
+      <div class="tblwrap"><table class="res" id="sumMonthN"></table></div>
     </div>
   </div>
 
@@ -253,6 +273,8 @@ var NOTE_DEFAULT=[
 '【チャレンジ/育成】高単価のアルファード/高級ミニバンを軸に、客単価とブランド力で利益を狙う攻め＋商品育成の案。\n【課題】高額車は稼働率が読めず空車リスク大。集客チャネルと予約の安定化・継続した販売努力が前提。',
 '【乗り潰し/減価償却終了後】償却を終えた車両を追加コストほぼゼロで回す最大効率ケース（参考値）。\n【課題】老朽化・整備費増・商品力低下。理論値で、実運用は買い替えとの兼ね合い。'];
 function ensureNotes(){if(!S.phases)return;S.phases.forEach(function(p,i){if(typeof p.note!=='string')p.note=NOTE_DEFAULT[i]||'';});}
+// 比較ビューの注釈テキストエリア編集（再描画せずフォーカス維持・全端末共有で自動保存）
+function setNote(i,v){if(!S.phases[i])return;S.phases[i].note=v;var e=document.getElementById('phNote');if(e&&S.active===i&&document.activeElement!==e)e.value=v;saveNow();}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
 function cur(){return S.phases[S.active];}
@@ -295,7 +317,7 @@ function render(){
   var pt=document.getElementById('ptabs');pt.innerHTML='';
   if(S.active!=='sum'&&(typeof S.active!=='number'||S.active>=S.phases.length))S.active=0;
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
-  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 運用案比較（合算）';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
+  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 運用案比較';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
   applyLock();
   if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
@@ -467,8 +489,14 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
     ph+=kpiRow(p,m.total,m.op,m.cnt,(m.ad||0)+(m.otaFee||0),m.lease||0,m.itaku||0,m.jinken||0,units,50000);});
   return ph+'</tbody>';
 }
+function esc(s){return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 function renderSum(){
-  var el=document.getElementById('sumPhase');if(el)el.innerHTML=kpiTable();
+  var sn=document.getElementById('sumNotes');
+  if(sn){sn.innerHTML=S.phases.map(function(p,i){
+    return '<div class="ni"><b>'+esc(p.name)+'</b><textarea class="ntx" oninput="setNote('+i+',this.value)" placeholder="この運用案の意図・狙い・課題などを自分の言葉で記載（自動保存）">'+esc(p.note||'')+'</textarea><div class="prnote">'+esc(p.note||'')+'</div></div>';}).join('');}
+  document.getElementById('sumPhase').innerHTML=kpiTable();
+  document.getElementById('sumMonthP').innerHTML=kpiTableSeason('peak');
+  document.getElementById('sumMonthN').innerHTML=kpiTableSeason('normal');
 }
 function renderCost(id,arr,upd,del,cm){var b=document.getElementById(id);b.innerHTML='';var t=0;
   arr.forEach(function(g,i){var v=costMV(g,cm);t+=v;var tr=document.createElement('tr');
