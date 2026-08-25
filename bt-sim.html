@@ -64,16 +64,16 @@ th.stick{background:#f8fafc}
 </head>
 <body>
 <div class="wrap">
-  <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（3フェーズ）</h1>
-  <div class="sub">事業フェーズ（①コスト現状維持／②コスト調整／③チャレンジ＝アルファード特化／④乗り潰し＝減価償却終了後・参考値）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 📊フェーズ比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
+  <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（運用案別）</h1>
+  <div class="sub">事業運用案（①コスト現状維持／②コスト調整／③チャレンジ＝アルファード特化／④乗り潰し＝減価償却終了後・参考値）ごとに 台数・稼働率・単価・コストを設計 → 各運用案12ヶ月PL → 📊運用案比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
   <div id="editor">
   <div class="card">
-    <h2>① フェーズ設定 ＆ 前提</h2>
+    <h2>① 運用案設定 ＆ 前提</h2>
     <div class="row">
-      <label>フェーズ名 <input class="cell" id="phName" style="width:150px;text-align:left;background:#fff7ed"></label>
+      <label>運用案名 <input class="cell" id="phName" style="width:150px;text-align:left;background:#fff7ed"></label>
       <label>開始月 <input class="cell" id="startM" type="number" style="width:52px"></label>
       <label>営業日数/月 <input class="cell" id="days" type="number" style="width:52px"></label>
       <label>付帯売上率% <input class="cell" id="ancRate" type="number" style="width:52px"></label>
@@ -81,11 +81,11 @@ th.stick{background:#f8fafc}
       <span class="saved" id="savedMsg"></span>
       <button id="lockBtn" class="lockbtn off" onclick="toggleLock()" style="margin-left:auto">🔒 数字をロック</button>
     </div>
-    <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全フェーズ共通。台数・稼働率・単価・コストはフェーズごと。<b>🔒ロック中は全入力が編集不可＝誤操作で数字が変わりません。</b></div>
+    <div class="hint">前提(開始月・営業日数・付帯率・変動費率)は全運用案共通。台数・稼働率・単価・コストは運用案ごと。<b>🔒ロック中は全入力が編集不可＝誤操作で数字が変わりません。</b></div>
     <div class="row" style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0">
-      <span style="font-size:13px;font-weight:700">📋 <b id="curPhLbl"></b> を他フェーズにコピー →</span>
+      <span style="font-size:13px;font-weight:700">📋 <b id="curPhLbl"></b> を他運用案にコピー →</span>
       <span id="copyBtns"></span>
-      <span class="hint" style="margin:0">押したフェーズに丸ごと上書き→<b>修正するところだけ</b>直す運用に。コピー先の名前は保持されます。</span>
+      <span class="hint" style="margin:0">押した運用案に丸ごと上書き→<b>修正するところだけ</b>直す運用に。コピー先の名前は保持されます。</span>
     </div>
   </div>
 
@@ -119,7 +119,7 @@ th.stick{background:#f8fafc}
   </div>
 
   <div class="card">
-    <h2>④ 12ヶ月 予測PL（このフェーズ）</h2>
+    <h2>④ 12ヶ月 予測PL（この運用案）</h2>
     <div class="kpi" id="kpibox"></div>
     <div class="tblwrap"><table class="res" id="restbl"></table></div>
     <div style="margin-top:12px"><div style="font-size:13px;font-weight:800;color:#1e3a5f;margin-bottom:6px">📣 集客コスト＆CPA（OTA手数料＋広告費 ÷ 獲得件数・繁忙/通常別）</div><div id="cpaBox" style="display:flex;gap:10px;flex-wrap:wrap"></div></div>
@@ -163,9 +163,9 @@ th.stick{background:#f8fafc}
 
   <div id="sumView" style="display:none">
     <div class="card">
-      <h2>📊 フェーズ比較</h2>
+      <h2>📊 運用案比較</h2>
       <div class="kpi" id="sumKpi"></div>
-      <div class="hint">フェーズを足した合計は出しません。CPA＝集客コスト（広告費＋OTA手数料）÷予約件数、台/コスト＝運用台数×¥50,000/台（固定試算）、リース/減価償却＝実入力。月は繁忙/通常で金額差が大きいため平均でなく<b>繁忙期の1ヶ月・通常期の1ヶ月を分けて</b>表示します。</div>
+      <div class="hint">運用案を足した合計は出しません。CPA＝集客コスト（広告費＋OTA手数料）÷予約件数、台/コスト＝運用台数×¥50,000/台（固定試算）、リース/減価償却＝実入力。月は繁忙/通常で金額差が大きいため平均でなく<b>繁忙期の1ヶ月・通常期の1ヶ月を分けて</b>表示します。</div>
     </div>
     <div class="card">
       <h2>📅 年間</h2>
@@ -207,7 +207,7 @@ function mkPhase(name,mult,kousei){mult=mult||1;
 var CH_NAME='③ チャレンジ枠';
 var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,sumMode:'year',
   phases:[mkPhase('① コスト現状維持',1),mkPhase('② コスト調整',1.5),mkPhase(CH_NAME,1,'アルファード特化'),mkPhase('④ 乗り潰し/減価償却終了後',2)]};
-// ④チャレンジは①をコピーした状態を初期値に（フォーマットは全フェーズ共通・そこから変更する）
+// ④チャレンジは①をコピーした状態を初期値に（フォーマットは全運用案共通・そこから変更する）
 function migratePhases(){if(!S.phases)return;
   if(S.phases.length===3){var c=JSON.parse(JSON.stringify(S.phases[0]));c.name=CH_NAME;S.phases.push(c);}
   else if(S.phases.length>=4&&S.phases[3]&&S.phases[3].types&&S.phases[3].types.length<=1){var c2=JSON.parse(JSON.stringify(S.phases[0]));c2.name=S.phases[3].name||CH_NAME;S.phases[3]=c2;}
@@ -249,10 +249,10 @@ function calcMonth(ph,m){
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
 function render(){
-  // フェーズタブ
+  // 運用案タブ
   var pt=document.getElementById('ptabs');pt.innerHTML='';
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
-  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 フェーズ比較';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
+  var ss=document.createElement('span');ss.className='ptab sum'+(S.active==='sum'?' on':'');ss.textContent='📊 運用案比較';ss.onclick=function(){S.active='sum';render();};pt.appendChild(ss);
 
   applyLock();
   if(S.active==='sum'){document.getElementById('editor').style.display='none';document.getElementById('sumView').style.display='';renderSum();saveNow();return;}
@@ -383,7 +383,7 @@ function plTable(P,months){
   return html+'</tbody>';
 }
 
-var KPI_HEAD='<thead><tr><th class="stick l">フェーズ</th><th class="l">商品構成</th><th class="l">定義</th><th>運用台数</th><th>総売上</th><th>営業利益</th><th>利益率</th><th>予約件数</th><th>客単価</th><th>CPA</th><th>広告費＋OTA</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+var KPI_HEAD='<thead><tr><th class="stick l">運用案</th><th class="l">商品構成</th><th class="l">定義</th><th>運用台数</th><th>総売上</th><th>営業利益</th><th>利益率</th><th>予約件数</th><th>客単価</th><th>CPA</th><th>広告費＋OTA</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
 function kpiRow(p,rev,op,cnt,ad,lease,itaku,jin,units,taiPerCar){
   var adr=cnt>0?rev/cnt:0,cpa=cnt>0?ad/cnt:0,oc=(op>=0?'pos':'neg');
   var parts=(p.name||'').split(' '),num=parts[0]||'',def=parts.slice(1).join(' ')||p.name;
@@ -508,10 +508,10 @@ document.getElementById('phName').addEventListener('change',function(){cur().nam
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
 ['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
-function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロック解除」してください。');return;}if(confirm('全フェーズ初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
+function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロック解除」してください。');return;}if(confirm('全運用案初期値に戻しますか？（保存も消えます）')){localStorage.removeItem(SKEY);S=JSON.parse(JSON.stringify(DEFAULT));render();}}
 (function(){var d=localStorage.getItem(SKEY);
   if(d){try{S=JSON.parse(d);}catch(e){}}
-  else{ // 旧バージョンキー(単一フェーズ)から自動移植＝入力を消さない
+  else{ // 旧バージョンキー(単一運用案)から自動移植＝入力を消さない
     for(var v=8;v>=3;v--){var old=localStorage.getItem('bt_sim_v'+v);if(!old)continue;
       try{var o=JSON.parse(old);
         if(o.startM)S.startM=o.startM;if(o.days)S.days=o.days;if(o.ancRate!==undefined)S.ancRate=o.ancRate;if(o.varRate!==undefined)S.varRate=o.varRate;
