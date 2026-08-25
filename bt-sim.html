@@ -50,13 +50,13 @@ tr.total td{font-weight:800;background:#f8fafc;border-top:2px solid #cbd5e1}
 .kpi .k .n{font-size:16px;font-weight:900;color:#0F1F45}.kpi .k .t{font-size:10px;color:#64748b}
 details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;margin:4px 0}
 .saved{font-size:11px;color:#16a34a;font-weight:700}
-.pnote{width:100%;min-height:76px;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;font-family:inherit;color:#1e293b;background:#fffdf5;resize:vertical}
-.locked .pnote{pointer-events:none;opacity:.6;background:#f1f5f9}
-.notelist{display:flex;flex-direction:column;gap:8px}
+.pnote{width:100%;min-height:88px;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;font-family:inherit;color:#1e293b;background:#fffdf5;resize:vertical}
+.notelist{display:flex;flex-direction:column;gap:10px}
 .notelist .ni{border:1px solid #e5eaf0;border-left:4px solid #f59e0b;border-radius:8px;padding:8px 11px;background:#fffdf5}
-.notelist .ni b{font-size:13px;color:#0F1F45}
-.notelist .ni .tx{font-size:12px;color:#334155;white-space:pre-wrap;line-height:1.6;margin-top:3px}
-.notelist .ni .em{color:#94a3b8;font-size:11.5px}
+.notelist .ni b{font-size:13px;color:#0F1F45;display:block;margin-bottom:4px}
+.ntx{width:100%;min-height:56px;border:1px solid #e5d3a0;border-radius:7px;padding:7px 9px;font-size:12.5px;line-height:1.65;font-family:inherit;color:#334155;background:#fff;resize:vertical}
+.ntx:focus{outline:2px solid #f59e0b;border-color:#f59e0b}
+.prnote{display:none;white-space:pre-wrap;font-size:12px;line-height:1.6;color:#334155;margin-top:3px}
 .mchip{display:inline-block;padding:7px 11px;margin:3px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #cbd5e1;background:#fff;color:#64748b;min-width:64px;text-align:center}
 .mchip.peak{background:#ffe4e6;border-color:#fb7185;color:#be123c}
 .mchip.normal{background:#eff6ff;border-color:#93c5fd;color:#1e40af}
@@ -101,8 +101,9 @@ th.stick{background:#f8fafc}
   #sumView th,#sumView td{padding:1.5px 3px}
   #sumView .notelist{gap:3px}
   #sumView .notelist .ni{padding:3px 6px}
-  #sumView .notelist .ni b{font-size:8.5px}
-  #sumView .notelist .ni .tx{font-size:7.5px;line-height:1.35;margin-top:1px}
+  #sumView .notelist .ni b{font-size:8.5px;margin-bottom:1px}
+  #sumView .ntx{display:none!important}
+  #sumView .prnote{display:block!important;font-size:7.5px;line-height:1.35;margin-top:1px}
 }
 </style>
 </head>
@@ -116,9 +117,9 @@ th.stick{background:#f8fafc}
 
   <div id="editor">
   <div class="card" id="noteCard" style="border-left:4px solid #f59e0b">
-    <h2 style="margin-bottom:8px">📝 <span id="notePhLbl"></span> の注釈（意図・課題）</h2>
-    <textarea id="phNote" class="pnote" placeholder="この運用案の意図・狙い・課題・前提などを自由に記載（全端末共有・自動保存）"></textarea>
-    <div class="hint">運用案ごとに保存されます。タブを切り替えると各運用案のメモが表示されます。<b>比較ビュー(📊)にも各運用案の注釈が並びます。</b></div>
+    <h2 style="margin-bottom:8px">📝 <span id="notePhLbl"></span> の注釈（意図・課題）｜<span style="font-size:12px;color:#b45309">自分の言葉で自由に編集できます</span></h2>
+    <textarea id="phNote" class="pnote" placeholder="この運用案の意図・狙い・課題・前提などを自分の言葉で自由に記載（全端末共有・自動保存・ロック中でも編集可）"></textarea>
+    <div class="hint">初期文はあくまで下書き＝<b>丸ごと消して自分の言葉に書き換えてOK</b>。運用案ごとに保存され、タブ切替で各案のメモが出ます。<b>比較ビュー(📊)でも4案をその場で直接編集できます。</b></div>
   </div>
   <div class="card">
     <h2>① 運用案設定 ＆ 前提</h2>
@@ -273,6 +274,8 @@ var NOTE_DEFAULT=[
 '【意図】高単価のアルファード/高級ミニバンに特化し、客単価とブランド力で利益を狙う攻めの案。\n【課題】高額車は稼働率が読めず空車リスク大。集客チャネルと予約の安定化が前提。',
 '【意図】減価償却を終えた車両を追加コストほぼゼロで回す最大効率ケース（参考値）。\n【課題】車両の老朽化・整備費増・商品力低下。償却後の理論値で、実運用は買い替えとの兼ね合い。'];
 function ensureNotes(){if(!S.phases)return;S.phases.forEach(function(p,i){if(typeof p.note!=='string')p.note=NOTE_DEFAULT[i]||'';});}
+// 注釈は自分の言葉で自由編集（ロックの影響を受けず・全端末共有で自動保存）。再描画せずフォーカス維持
+function setNote(i,v){if(!S.phases[i])return;S.phases[i].note=v;var e=document.getElementById('phNote');if(e&&S.active===i&&document.activeElement!==e)e.value=v;saveNow();}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
 function cur(){return S.phases[S.active];}
@@ -489,8 +492,8 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
 function esc(s){return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 function renderSum(){
   var sn=document.getElementById('sumNotes');
-  if(sn){sn.innerHTML=S.phases.map(function(p){var tx=(p.note||'').trim();
-    return '<div class="ni"><b>'+esc(p.name)+'</b><div class="'+(tx?'tx':'tx em')+'">'+(tx?esc(tx):'（注釈なし）')+'</div></div>';}).join('');}
+  if(sn){sn.innerHTML=S.phases.map(function(p,i){
+    return '<div class="ni"><b>'+esc(p.name)+'</b><textarea class="ntx" oninput="setNote('+i+',this.value)" placeholder="この運用案の意図・狙い・課題などを自分の言葉で記載（自動保存）">'+esc(p.note||'')+'</textarea><div class="prnote">'+esc(p.note||'')+'</div></div>';}).join('');}
   var u1=(S.phases[0].types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
   var sk=document.getElementById('sumKpi');sk.style.display='block';
   sk.innerHTML='<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（③）以外はバランス型で同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
@@ -573,7 +576,7 @@ function cpcS(m){if(m<=0)return;cur().sga.forEach(function(g){ensureMV(g);g.mv[m
 function cpAllF(){if(!confirm(moNo(0)+'月の固定費を全12ヶ月にコピーしますか？')){return;}cur().fixed.forEach(function(g){ensureMV(g);for(var k=0;k<12;k++)g.mv[k]=g.mv[0];});render();}
 function cpAllS(){if(!confirm(moNo(0)+'月の販管費を全12ヶ月にコピーしますか？')){return;}cur().sga.forEach(function(g){ensureMV(g);for(var k=0;k<12;k++)g.mv[k]=g.mv[0];});render();}
 document.getElementById('phName').addEventListener('change',function(){cur().name=this.value;render();});
-document.getElementById('phNote').addEventListener('input',function(){if(S.locked){this.value=(cur().note||'');return;}cur().note=this.value;saveNow();});
+document.getElementById('phNote').addEventListener('input',function(){cur().note=this.value;saveNow();});
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
 ['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
