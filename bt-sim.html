@@ -50,6 +50,13 @@ tr.total td{font-weight:800;background:#f8fafc;border-top:2px solid #cbd5e1}
 .kpi .k .n{font-size:16px;font-weight:900;color:#0F1F45}.kpi .k .t{font-size:10px;color:#64748b}
 details summary{cursor:pointer;font-weight:700;color:#0369a1;font-size:12.5px;margin:4px 0}
 .saved{font-size:11px;color:#16a34a;font-weight:700}
+.pnote{width:100%;min-height:76px;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;font-family:inherit;color:#1e293b;background:#fffdf5;resize:vertical}
+.locked .pnote{pointer-events:none;opacity:.6;background:#f1f5f9}
+.notelist{display:flex;flex-direction:column;gap:8px}
+.notelist .ni{border:1px solid #e5eaf0;border-left:4px solid #f59e0b;border-radius:8px;padding:8px 11px;background:#fffdf5}
+.notelist .ni b{font-size:13px;color:#0F1F45}
+.notelist .ni .tx{font-size:12px;color:#334155;white-space:pre-wrap;line-height:1.6;margin-top:3px}
+.notelist .ni .em{color:#94a3b8;font-size:11.5px}
 .mchip{display:inline-block;padding:7px 11px;margin:3px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #cbd5e1;background:#fff;color:#64748b;min-width:64px;text-align:center}
 .mchip.peak{background:#ffe4e6;border-color:#fb7185;color:#be123c}
 .mchip.normal{background:#eff6ff;border-color:#93c5fd;color:#1e40af}
@@ -72,19 +79,30 @@ th.stick{background:#f8fafc}
 .prbtn{border:none;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;background:#0F1F45;color:#fff}
 .prfloat{position:fixed;right:16px;bottom:16px;z-index:50;box-shadow:0 3px 12px rgba(0,0,0,.28);padding:12px 18px;border-radius:30px;font-size:14px}
 @media print{
-  @page{size:A4 landscape;margin:8mm}
+  @page{size:A4 landscape;margin:6mm}
   html,body{background:#fff!important;padding:0;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .wrap{max-width:none;padding:0}
   body{font-size:11px}
-  .ptabs,.prbtn,.btn,.lockbtn,.mini,.mchip,#copyBtns,.saved,.no-print{display:none!important}
+  .ptabs,.prbtn,.btn,.lockbtn,.mini,.mchip,#copyBtns,.saved,.no-print,.sub{display:none!important}
   .card{box-shadow:none;border:1px solid #cbd5e1;break-inside:avoid;page-break-inside:avoid;padding:10px 12px;margin-bottom:10px}
   .tblwrap{overflow:visible!important;border:none}
   table{font-size:10px;width:100%}
   th,td{padding:3px 6px}
   input.cell{border:none!important;background:transparent!important;color:#000!important;width:auto!important;min-width:34px;padding:0!important;font-size:10px}
   input.cell.name{width:auto!important}
-  .hint{color:#94a3b8}
-  h1{font-size:15px}
+  .hint{display:none!important}
+  h1{font-size:13px;margin:0 0 4px}
+  /* ===== 運用案比較ビューは1ページに凝縮 ===== */
+  #sumView{font-size:8px}
+  #sumView .card{border:none;padding:2px 2px;margin:0 0 4px;break-inside:auto;page-break-inside:auto}
+  #sumView .card h2{font-size:10px;margin:2px 0 4px}
+  #sumView .kpi{display:none!important}
+  #sumView table,#sumView .res{font-size:8px}
+  #sumView th,#sumView td{padding:1.5px 3px}
+  #sumView .notelist{gap:3px}
+  #sumView .notelist .ni{padding:3px 6px}
+  #sumView .notelist .ni b{font-size:8.5px}
+  #sumView .notelist .ni .tx{font-size:7.5px;line-height:1.35;margin-top:1px}
 }
 </style>
 </head>
@@ -97,6 +115,11 @@ th.stick{background:#f8fafc}
   <div class="ptabs" id="ptabs"></div>
 
   <div id="editor">
+  <div class="card" id="noteCard" style="border-left:4px solid #f59e0b">
+    <h2 style="margin-bottom:8px">📝 <span id="notePhLbl"></span> の注釈（意図・課題）</h2>
+    <textarea id="phNote" class="pnote" placeholder="この運用案の意図・狙い・課題・前提などを自由に記載（全端末共有・自動保存）"></textarea>
+    <div class="hint">運用案ごとに保存されます。タブを切り替えると各運用案のメモが表示されます。<b>比較ビュー(📊)にも各運用案の注釈が並びます。</b></div>
+  </div>
   <div class="card">
     <h2>① 運用案設定 ＆ 前提</h2>
     <div class="row">
@@ -190,6 +213,10 @@ th.stick{background:#f8fafc}
 
   <div id="sumView" style="display:none">
     <div class="card">
+      <h2>📝 運用案の注釈（意図・課題）</h2>
+      <div class="notelist" id="sumNotes"></div>
+    </div>
+    <div class="card">
       <h2>📊 運用案比較</h2>
       <div class="kpi" id="sumKpi"></div>
       <div class="hint">運用案を足した合計は出しません。CPA＝集客コスト（広告費＋OTA手数料）÷予約件数、台/コスト＝運用台数×¥50,000/台（固定試算）、リース/減価償却＝実入力。月は繁忙/通常で金額差が大きいため平均でなく<b>繁忙期の1ヶ月・通常期の1ヶ月を分けて</b>表示します。</div>
@@ -239,6 +266,13 @@ function migratePhases(){if(!S.phases)return;
   if(S.phases.length===3){var c=JSON.parse(JSON.stringify(S.phases[0]));c.name=CH_NAME;S.phases.push(c);}
   else if(S.phases.length>=4&&S.phases[3]&&S.phases[3].types&&S.phases[3].types.length<=1){var c2=JSON.parse(JSON.stringify(S.phases[0]));c2.name=S.phases[3].name||CH_NAME;S.phases[3]=c2;}
 }
+// 運用案①〜④の初期注釈（意図・課題）。オーナーが編集可＝空('')にした場合は上書きしない
+var NOTE_DEFAULT=[
+'【意図】現状の台数・コスト構造のまま運用した基準ケース（ベースライン）。②③④を比較する物差し。\n【課題】固定費（リース・委託・人件費）が重く利益率が伸びにくい。稼働率と単価の底上げが鍵。',
+'【意図】台数を増やして規模を拡大しつつ、委託費・固定費・販管費を見直して利益率を上げる案。\n【課題】台数増に見合う稼働・集客を確保できるか。人員/車両管理の負荷とコストのバランス。',
+'【意図】高単価のアルファード/高級ミニバンに特化し、客単価とブランド力で利益を狙う攻めの案。\n【課題】高額車は稼働率が読めず空車リスク大。集客チャネルと予約の安定化が前提。',
+'【意図】減価償却を終えた車両を追加コストほぼゼロで回す最大効率ケース（参考値）。\n【課題】車両の老朽化・整備費増・商品力低下。償却後の理論値で、実運用は買い替えとの兼ね合い。'];
+function ensureNotes(){if(!S.phases)return;S.phases.forEach(function(p,i){if(typeof p.note!=='string')p.note=NOTE_DEFAULT[i]||'';});}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
 function cur(){return S.phases[S.active];}
@@ -276,6 +310,7 @@ function calcMonth(ph,m){
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
 function render(){
+  ensureNotes();
   // 運用案タブ
   var pt=document.getElementById('ptabs');pt.innerHTML='';
   S.phases.forEach(function(p,i){var sp=document.createElement('span');sp.className='ptab'+(S.active===i?' on':'');sp.textContent=p.name;sp.onclick=function(){S.active=i;render();};pt.appendChild(sp);});
@@ -288,6 +323,8 @@ function render(){
   ['startM','days','ancRate','varRate'].forEach(function(id){var e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=S[id];});
   var pn=document.getElementById('phName');if(document.activeElement!==pn)pn.value=P.name;
   var cpl=document.getElementById('curPhLbl');if(cpl)cpl.textContent=P.name;
+  var npl=document.getElementById('notePhLbl');if(npl)npl.textContent=P.name;
+  var ntx=document.getElementById('phNote');if(ntx&&document.activeElement!==ntx)ntx.value=(P.note||'');
   var cb=document.getElementById('copyBtns');if(cb){var b='';S.phases.forEach(function(p,i){if(i!==S.active)b+='<button class="btn btn-s" style="margin-right:6px" onclick="copyToPhaseIdx('+i+')">'+p.name+'にコピー</button>';});cb.innerHTML=b;}
   var hp=document.getElementById('hpPct');if(document.activeElement!==hp)hp.value=P.hpPct;
   var op2=document.getElementById('otaPct');if(document.activeElement!==op2)op2.value=P.otaPct;
@@ -449,7 +486,11 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
     ph+=kpiRow(p,m.total,m.op,m.cnt,(m.ad||0)+(m.otaFee||0),m.lease||0,m.itaku||0,m.jinken||0,units,50000);});
   return ph+'</tbody>';
 }
+function esc(s){return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 function renderSum(){
+  var sn=document.getElementById('sumNotes');
+  if(sn){sn.innerHTML=S.phases.map(function(p){var tx=(p.note||'').trim();
+    return '<div class="ni"><b>'+esc(p.name)+'</b><div class="'+(tx?'tx':'tx em')+'">'+(tx?esc(tx):'（注釈なし）')+'</div></div>';}).join('');}
   var u1=(S.phases[0].types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
   var sk=document.getElementById('sumKpi');sk.style.display='block';
   sk.innerHTML='<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（③）以外はバランス型で同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
@@ -532,6 +573,7 @@ function cpcS(m){if(m<=0)return;cur().sga.forEach(function(g){ensureMV(g);g.mv[m
 function cpAllF(){if(!confirm(moNo(0)+'月の固定費を全12ヶ月にコピーしますか？')){return;}cur().fixed.forEach(function(g){ensureMV(g);for(var k=0;k<12;k++)g.mv[k]=g.mv[0];});render();}
 function cpAllS(){if(!confirm(moNo(0)+'月の販管費を全12ヶ月にコピーしますか？')){return;}cur().sga.forEach(function(g){ensureMV(g);for(var k=0;k<12;k++)g.mv[k]=g.mv[0];});render();}
 document.getElementById('phName').addEventListener('change',function(){cur().name=this.value;render();});
+document.getElementById('phNote').addEventListener('input',function(){if(S.locked){this.value=(cur().note||'');return;}cur().note=this.value;saveNow();});
 document.getElementById('hpPct').addEventListener('change',function(){cur().hpPct=+this.value||0;render();});
 document.getElementById('otaPct').addEventListener('change',function(){cur().otaPct=+this.value||0;render();});
 ['startM','days','ancRate','varRate'].forEach(function(id){var el=document.getElementById(id);if(!el)return;el.addEventListener('change',function(){S[id]=+this.value||0;if(id==='startM')S.phases.forEach(function(p){p.season=null;});render();});});
