@@ -166,7 +166,7 @@ th.stick{background:#f8fafc}
       <div class="tblwrap"><table class="res" id="sumPhase"></table></div>
       <div style="height:10px"></div>
       <div class="tblwrap"><table class="res" id="sumMonth"></table></div>
-      <div class="hint">各フェーズを並べて比較（3フェーズを足した合計は出しません）。上＝各フェーズの年間サマリー、下＝営業利益の月次をフェーズ別に比較。</div>
+      <div class="hint">各フェーズの主要KPIを年間ベースで並べて比較（フェーズを足した合計は出しません）。減価償却＝リース/償却、委託＝業務委託A+B、広告費＋OTA手数料＝集客コスト。</div>
     </div>
   </div>
 
@@ -234,8 +234,8 @@ function calcMonth(ph,m){
   var s=calcSales(ph,m),total=s.total,vari=total*(S.varRate/100);
   var otaFee=otaFeeM(ph,m),fixed=fixedM(ph,m),sga=sgaManual(ph,m)+otaFee,op=total-vari-fixed-sga;
   var occ=s.units>0?s.cd/(s.units*S.days)*100:0,avgResv=s.cnt>0?total/s.cnt:0;
-  var lease=costByLabel(ph,m,ph.fixed,/リース|償却/),gyA=costByLabel(ph,m,ph.sga,/業務委託.*A/),gyB=costByLabel(ph,m,ph.sga,/業務委託.*B/),ad=costByLabel(ph,m,ph.sga,/広告/);
-  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,lease:lease,gyoumuA:gyA,gyoumuB:gyB,ad:ad,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
+  var lease=costByLabel(ph,m,ph.fixed,/リース|償却/)+costByLabel(ph,m,ph.sga,/リース|償却/),gyA=costByLabel(ph,m,ph.sga,/業務委託.*A/),gyB=costByLabel(ph,m,ph.sga,/業務委託.*B/),ad=costByLabel(ph,m,ph.sga,/広告/),jinken=costByLabel(ph,m,ph.sga,/人件/);
+  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,lease:lease,gyoumuA:gyA,gyoumuB:gyB,ad:ad,jinken:jinken,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
 }
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
@@ -375,19 +375,24 @@ function plTable(P,months){
 }
 
 function renderSum(){
-  var phMonths=S.phases.map(function(p){return phaseMonths(p);});
-  // フェーズ別 比較（3フェーズを足した合計は出さない）
-  var ph='<thead><tr><th class="stick">フェーズ</th><th>年間 総売上</th><th>年間 営業利益</th><th>営業利益率</th><th>月平均 総売上</th><th>月平均 営業利益</th><th>年間 件数</th></tr></thead><tbody>';
-  S.phases.forEach(function(p,i){var yr=phMonths[i].reduce(function(a,x){return a+x.total;},0),yo=phMonths[i].reduce(function(a,x){return a+x.op;},0),yc=phMonths[i].reduce(function(a,x){return a+x.cnt;},0);
-    ph+='<tr><td class="stick">'+p.name+'</td><td>'+yen(yr)+'</td><td class="'+(yo>=0?'pos':'neg')+'">'+yen(yo)+'</td><td class="'+(yo>=0?'pos':'neg')+'">'+pct(yr>0?yo/yr*100:0)+'</td><td>'+yen(yr/NM)+'</td><td class="'+(yo>=0?'pos':'neg')+'">'+yen(yo/NM)+'</td><td>'+Math.round(yc)+'件</td></tr>';});
+  // フェーズ × 主要KPI（年間・3フェーズを足した合計は出さない）
+  var ph='<thead><tr><th class="stick">フェーズ</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>減価償却</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+  S.phases.forEach(function(p){var ms=phaseMonths(p);
+    var rev=0,op=0,cnt=0,ad=0,lease=0,itaku=0,jin=0;
+    ms.forEach(function(m){rev+=m.total;op+=m.op;cnt+=m.cnt;ad+=(m.ad||0)+(m.otaFee||0);lease+=(m.lease||0);itaku+=(m.gyoumuA||0)+(m.gyoumuB||0);jin+=(m.jinken||0);});
+    var adr=cnt>0?rev/cnt:0,oc=(op>=0?'pos':'neg');
+    ph+='<tr><td class="stick">'+p.name+'</td>'+
+      '<td>'+yen(rev)+'</td>'+
+      '<td class="'+oc+'">'+yen(op)+'</td>'+
+      '<td class="'+oc+'">'+pct(rev>0?op/rev*100:0)+'</td>'+
+      '<td>'+Math.round(cnt)+'件</td>'+
+      '<td>'+yen(adr)+'</td>'+
+      '<td>'+yen(ad)+'</td>'+
+      '<td>'+yen(lease)+'</td>'+
+      '<td>'+yen(itaku)+'</td>'+
+      '<td>'+yen(jin)+'</td></tr>';});
   document.getElementById('sumPhase').innerHTML=ph+'</tbody>';
-  // 営業利益の月次比較（フェーズ別・合計行なし）
-  var mh='<thead><tr><th class="stick">営業利益（月次）</th>';
-  for(var m3=0;m3<NM;m3++)mh+='<th>'+moNo(m3)+'月</th>';mh+='<th class="yr">年計</th></tr></thead><tbody>';
-  S.phases.forEach(function(p,pi){var sum=0;mh+='<tr><td class="stick">'+p.name+'</td>';
-    for(var m=0;m<NM;m++){var v=phMonths[pi][m].op;sum+=v;mh+='<td class="'+(v>=0?'pos':'neg')+'">'+yen(v)+'</td>';}
-    mh+='<td class="yr '+(sum>=0?'pos':'neg')+'">'+yen(sum)+'</td></tr>';});
-  document.getElementById('sumMonth').innerHTML=mh+'</tbody>';
+  document.getElementById('sumMonth').innerHTML='';
   document.getElementById('sumKpi').innerHTML='';
 }
 
