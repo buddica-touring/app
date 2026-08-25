@@ -211,17 +211,27 @@ th.stick{background:#f8fafc}
   </div><!--/editor-->
 
   <div id="sumView" style="display:none">
-    <div class="card" id="issueCard" style="border-left:5px solid #dc2626">
-      <h2>🔍 検討課題（方向性）｜<span style="font-size:12px;color:#b45309">自分の言葉で自由に編集できます</span></h2>
-      <div class="ni" style="border-left-color:#dc2626;margin-bottom:10px">
-        <b>① 販売戦略：アルファード（高単価車）の販売強化</b>
+    <div class="card" id="issueCard" style="border-left:5px solid #15803d">
+      <h2>🎯 アクションプラン｜<span style="font-size:12px;color:#15803d">自分の言葉で自由に編集できます（全端末共有・自動保存）</span></h2>
+      <div class="ni" style="border-left-color:#15803d;margin-bottom:10px">
+        <b>① OTAアカウント開設 ＆ 通常車両30台体制</b>
         <textarea class="ntx" id="issue1" oninput="setIssue(1,this.value)"></textarea>
         <div class="prnote" id="issue1p"></div>
       </div>
-      <div class="ni" style="border-left-color:#dc2626">
-        <b>② 車両維持コストの持ち方（PLインパクト大）</b>
+      <div class="ni" style="border-left-color:#15803d;margin-bottom:10px">
+        <b>② アルファードの流通促進（高単価車で経済効率を最大化）</b>
         <textarea class="ntx" id="issue2" oninput="setIssue(2,this.value)"></textarea>
         <div class="prnote" id="issue2p"></div>
+      </div>
+      <div class="ni" style="border-left-color:#15803d;margin-bottom:10px">
+        <b>③ 車両維持方法の再検討（持ち方＝PLインパクト最大）</b>
+        <textarea class="ntx" id="issue3" oninput="setIssue(3,this.value)"></textarea>
+        <div class="prnote" id="issue3p"></div>
+      </div>
+      <div class="ni" style="border-left-color:#15803d">
+        <b>④ コスト最適化（固定費・販管費の見直し）</b>
+        <textarea class="ntx" id="issue4" oninput="setIssue(4,this.value)"></textarea>
+        <div class="prnote" id="issue4p"></div>
       </div>
     </div>
     <div class="card">
@@ -290,9 +300,13 @@ function ensureNotes(){if(!S.phases)return;S.phases.forEach(function(p,i){if(typ
 function setNote(i,v){if(!S.phases[i])return;S.phases[i].note=v;var e=document.getElementById('phNote');if(e&&S.active===i&&document.activeElement!==e)e.value=v;saveNow();}
 // 検討課題（方向性）＝運用案比較ページに表示。編集可＝空('')は上書きしない
 var ISSUE_DEFAULT=[
-'アルファード（高単価車）が出る・売れるほど、少ない運用台数でユーザーメリットと利益を両立でき、経済効率が最大化する。この販売努力を継続する（②チャレンジ/育成の核）。',
-'車両維持コストの「持ち方」がPLに最も大きく影響する。例：リース月額を1,800→900にするだけでも年間で大きく改善。買取／リース／預かり／減価償却終了後の使い分けを検討する。'];
-function ensureIssues(){if(typeof S.issue1!=='string')S.issue1=ISSUE_DEFAULT[0];if(typeof S.issue2!=='string')S.issue2=ISSUE_DEFAULT[1];}
+'通常車両30台体制に変更し、可能な限り「計画流通」を起こせるOTAアカウントを開設する。（在庫を安定的に売り切れるチャネルを増やし、稼働率と売上の底上げを図る）',
+'アルファード（高単価車）が出る・売れるほど、少ない運用台数でユーザーメリットと利益を両立でき、経済効率が最大化する。運用のメインに据えてトライする。',
+'車両維持コストの「持ち方」がPLに最も大きく影響する。リース価格の見直し／リースにしない車両の増車 など。例：リース月額 1,800→900 にするだけで年間で大きく改善。買取・リース・預かり・減価償却終了後の使い分けを検討する。',
+'固定費・販管費を見直して利益率を改善する。バイトメンバーの固定化＋バイトリーダー的な存在をもう1名構築できた段階で、委託料とスイッチしてコストを削減する。'];
+function ensureIssues(){for(var i=1;i<=4;i++){if(typeof S['issue'+i]!=='string')S['issue'+i]=ISSUE_DEFAULT[i-1];}}
+// 旧「検討課題」(issue1/issue2の旧文)→ 4項目アクションプランへ1回だけ強制移行
+function migrateActionPlan(){if(S._ap1)return;for(var i=1;i<=4;i++)S['issue'+i]=ISSUE_DEFAULT[i-1];S._ap1=true;}
 function setIssue(n,v){S['issue'+n]=v;saveNow();}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
@@ -511,10 +525,10 @@ function kpiTableSeason(skey){ // 繁忙期/通常期の1ヶ月
 function esc(s){return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 function renderSum(){
   ensureIssues();
-  var i1=document.getElementById('issue1');if(i1&&document.activeElement!==i1)i1.value=S.issue1||'';
-  var i2=document.getElementById('issue2');if(i2&&document.activeElement!==i2)i2.value=S.issue2||'';
-  var i1p=document.getElementById('issue1p');if(i1p)i1p.textContent=S.issue1||'';
-  var i2p=document.getElementById('issue2p');if(i2p)i2p.textContent=S.issue2||'';
+  for(var _i=1;_i<=4;_i++){(function(i){
+    var ta=document.getElementById('issue'+i);if(ta&&document.activeElement!==ta)ta.value=S['issue'+i]||'';
+    var pn=document.getElementById('issue'+i+'p');if(pn)pn.textContent=S['issue'+i]||'';
+  })(_i);}
   var sn=document.getElementById('sumNotes');
   if(sn){sn.innerHTML=S.phases.map(function(p,i){
     return '<div class="ni"><b>'+esc(p.name)+'</b><textarea class="ntx" oninput="setNote('+i+',this.value)" placeholder="この運用案の意図・狙い・課題などを自分の言葉で記載（自動保存）">'+esc(p.note||'')+'</textarea><div class="prnote">'+esc(p.note||'')+'</div></div>';}).join('');}
@@ -617,11 +631,11 @@ function resetAll(){if(S.locked){alert('🔒ロック中です。先に「ロッ
     try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}
   }
   if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;
-  cleanupOtaFee();migratePhases();
+  cleanupOtaFee();migratePhases();migrateActionPlan();
   render();
   // サーバ（全端末共有）が正。あれば採用、無ければ現状をサーバへ初期保存
   serverLoad(function(srv){
-    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;cleanupOtaFee();migratePhases();try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();serverSave();}
+    if(srv&&srv.phases){S=srv;if(typeof S.active!=='number'&&S.active!=='sum')S.active=0;cleanupOtaFee();migratePhases();migrateActionPlan();try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}render();serverSave();}
     else{serverSave();}
   });
   // 別端末での更新を復帰時に取り込む（入力中はスキップ）
