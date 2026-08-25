@@ -234,8 +234,8 @@ function calcMonth(ph,m){
   var s=calcSales(ph,m),total=s.total,vari=total*(S.varRate/100);
   var otaFee=otaFeeM(ph,m),fixed=fixedM(ph,m),sga=sgaManual(ph,m)+otaFee,op=total-vari-fixed-sga;
   var occ=s.units>0?s.cd/(s.units*S.days)*100:0,avgResv=s.cnt>0?total/s.cnt:0;
-  var lease=costByLabel(ph,m,ph.fixed,/リース|償却/)+costByLabel(ph,m,ph.sga,/リース|償却/),gyA=costByLabel(ph,m,ph.sga,/業務委託.*A/),gyB=costByLabel(ph,m,ph.sga,/業務委託.*B/),ad=costByLabel(ph,m,ph.sga,/広告/),jinken=costByLabel(ph,m,ph.sga,/人件/);
-  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,lease:lease,gyoumuA:gyA,gyoumuB:gyB,ad:ad,jinken:jinken,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
+  var lease=costByLabel(ph,m,ph.fixed,/リース|償却/)+costByLabel(ph,m,ph.sga,/リース|償却/),itaku=costByLabel(ph,m,ph.sga,/委託/),ad=costByLabel(ph,m,ph.sga,/広告/),jinken=costByLabel(ph,m,ph.sga,/人件/);
+  return {basic:s.basic,anc:s.anc,total:total,vari:vari,fixed:fixed,sga:sga,otaFee:otaFee,lease:lease,itaku:itaku,ad:ad,jinken:jinken,op:op,units:s.units,cnt:s.cnt,occ:occ,avgResv:avgResv,season:ph.season[m]};
 }
 function phaseMonths(ph){ensure(ph);var a=[];for(var m=0;m<NM;m++)a.push(calcMonth(ph,m));return a;}
 
@@ -353,7 +353,7 @@ function plTable(P,months){
   var rows=[['区分','season'],['基本料金','basic'],['付帯売上','anc'],['総売上','total'],
     ['− 変動費','vari'],
     ['− 固定費','fixed'],['　└ リース/償却','lease',1],
-    ['− 販管費','sga'],['　└ OTA手数料','otaFee',1],['　└ 業務委託A','gyoumuA',1],['　└ 業務委託B','gyoumuB',1],['　└ 広告費','ad',1],
+    ['− 販管費','sga'],['　└ OTA手数料','otaFee',1],['　└ 委託','itaku',1],['　└ 広告費','ad',1],['　└ 人件費','jinken',1],
     ['営業利益','op'],['稼働率','occ'],['件数','cnt']];
   var html='<thead><tr><th class="stick">項目</th>';
   for(var m3=0;m3<NM;m3++)html+='<th'+(P.season[m3]==='peak'?' style="background:#fff1f2;color:#be123c"':'')+'>'+moNo(m3)+'月</th>';
@@ -376,12 +376,14 @@ function plTable(P,months){
 
 function renderSum(){
   // フェーズ × 主要KPI（年間・3フェーズを足した合計は出さない）
-  var ph='<thead><tr><th class="stick">フェーズ</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>減価償却</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
-  S.phases.forEach(function(p){var ms=phaseMonths(p);
+  var ph='<thead><tr><th class="stick">フェーズ</th><th>運用台数</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>減価償却</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+  S.phases.forEach(function(p){var ms=phaseMonths(p);ensure(p);
+    var units=(p.types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
     var rev=0,op=0,cnt=0,ad=0,lease=0,itaku=0,jin=0;
-    ms.forEach(function(m){rev+=m.total;op+=m.op;cnt+=m.cnt;ad+=(m.ad||0)+(m.otaFee||0);lease+=(m.lease||0);itaku+=(m.gyoumuA||0)+(m.gyoumuB||0);jin+=(m.jinken||0);});
+    ms.forEach(function(m){rev+=m.total;op+=m.op;cnt+=m.cnt;ad+=(m.ad||0)+(m.otaFee||0);lease+=(m.lease||0);itaku+=(m.itaku||0);jin+=(m.jinken||0);});
     var adr=cnt>0?rev/cnt:0,oc=(op>=0?'pos':'neg');
     ph+='<tr><td class="stick">'+p.name+'</td>'+
+      '<td>'+units+'台</td>'+
       '<td>'+yen(rev)+'</td>'+
       '<td class="'+oc+'">'+yen(op)+'</td>'+
       '<td class="'+oc+'">'+pct(rev>0?op/rev*100:0)+'</td>'+
