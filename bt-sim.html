@@ -63,7 +63,7 @@ th.stick{background:#f8fafc}
 <body>
 <div class="wrap">
   <h1>🚐 BUDDICA TOURISM 高松店 ｜ 売上・PLシミュレーター（3フェーズ）</h1>
-  <div class="sub">事業フェーズ（立ち上げ／調整／着地／④チャレンジ＝アルファード特化）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 📊フェーズ比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
+  <div class="sub">事業フェーズ（①コスト現状維持／②コスト調整／③減価償却なし／④チャレンジ＝アルファード特化）ごとに 台数・稼働率・単価・コストを設計 → 各フェーズ12ヶ月PL → 📊フェーズ比較（合計はしない）。<b>入力は自動保存（全端末共有）</b>。</div>
 
   <div class="ptabs" id="ptabs"></div>
 
@@ -197,7 +197,7 @@ function mkPhase(name,mult){mult=mult||1;
 }
 var CH_NAME='④ チャレンジ｜アルファード特化';
 var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,
-  phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 調整期',1.5),mkPhase('③ 着地',2),mkPhase(CH_NAME,1)]};
+  phases:[mkPhase('① コスト/現状維持',1),mkPhase('② コスト/調整',1.5),mkPhase('③ コスト/減価償却なし',2),mkPhase(CH_NAME,1)]};
 // ④チャレンジは①をコピーした状態を初期値に（フォーマットは全フェーズ共通・そこから変更する）
 function migratePhases(){if(!S.phases)return;
   if(S.phases.length===3){var c=JSON.parse(JSON.stringify(S.phases[0]));c.name=CH_NAME;S.phases.push(c);}
@@ -376,7 +376,7 @@ function plTable(P,months){
 
 function renderSum(){
   // フェーズ × 主要KPI（年間・3フェーズを足した合計は出さない）
-  var ph='<thead><tr><th class="stick">フェーズ</th><th>運用台数</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>減価償却</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+  var ph='<thead><tr><th class="stick">フェーズ</th><th>運用台数</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
   S.phases.forEach(function(p){var ms=phaseMonths(p);ensure(p);
     var units=(p.types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
     var rev=0,op=0,cnt=0,ad=0,lease=0,itaku=0,jin=0;
@@ -391,6 +391,7 @@ function renderSum(){
       '<td>'+yen(adr)+'</td>'+
       '<td>'+yen(ad)+'</td>'+
       '<td>'+yen(lease)+'</td>'+
+      '<td>'+yen(units*50000)+'<div style="font-size:9px;color:#94a3b8">'+units+'台×¥50,000</div></td>'+
       '<td>'+yen(itaku)+'</td>'+
       '<td>'+yen(jin)+'</td></tr>';});
   document.getElementById('sumPhase').innerHTML=ph+'</tbody>';
