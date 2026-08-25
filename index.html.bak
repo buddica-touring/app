@@ -3742,7 +3742,7 @@ function ForeignVisitorAnalysis({data}){
 const SLOTS=["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00"];
 const SLOTS15=(()=>{const a=[];for(let h=6;h<=22;h++)for(let m=0;m<60;m+=15){if(h===22&&m>0)break;a.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}return a;})();
 // ★ 「その他」タブ（手動タスク）で選択可能な種類。既存DEL/COL/事前駐車はreservation由来と区別するため manual===true フラグで識別する
-const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","開店業務","閉店業務","休憩","その他"];
+const OTHER_TASK_TYPES=["DEL","COL","事前駐車","乗捨回収","送迎","入庫","引取","洗車","開店業務","閉店業務","休憩","その他"];
 // 旧バージョン（車検/整備/小タスク）で作成されたタスクの後方互換用（フィルタのみ、ドロップダウンには出さない）
 const OTHER_TASK_TYPES_LEGACY=["車検","整備","小タスク"];
 const NHA_PLACE_OPTIONS=["来店","高松空港","DEL","COL"];
@@ -18776,7 +18776,10 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");setOtherAddAssignee("");
         };
         const deleteOtherTask=(id)=>{if(!window.confirm("このタスクを削除しますか？"))return;setTasks(ts=>{const next=ts.filter(x=>x._id!==id);try{DB.deleteTask&&DB.deleteTask(id,selDate);}catch(e){}return next;});};
-        const updateOtherTask=(id,updates)=>{setTasks(ts=>{const _p=ts.find(t=>t._id===id);if(_p&&updates&&updates.done&&!_p.done){setTimeout(function(){celebrateDone();},0);}if(_p&&updates&&updates.assignee&&updates.assignee!==_p.assignee){setTimeout(function(){celebrateAssign(updates.assignee);},0);}const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
+        const updateOtherTask=(id,updates)=>{setTasks(ts=>{const _p=ts.find(t=>t._id===id);if(_p&&updates&&updates.done&&!_p.done){setTimeout(function(){celebrateDone();},0);}if(_p&&updates&&updates.assignee&&updates.assignee!==_p.assignee){setTimeout(function(){celebrateAssign(updates.assignee);},0);}const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);
+          /* ★2026-08-25 その他タスク(洗車)を車両設定して完了→その車両の最終洗車日を記録=5日無稼働洗車カウンタをリセット(既存の洗車/返却後洗車と同一処理・洗車typeかつ車両ありのみ) */
+          if(_p&&upd&&updates&&updates.done&&!_p.done&&upd.type==="洗車"&&upd.assignedVehicle){DB.recordVehicleWash(upd.assignedVehicle,selDate);}
+          if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
         const typeColors={
           "DEL":{bg:"#dbeafe",c:"#1d4ed8",border:"#60a5fa",ico:"🚗"},
           "COL":{bg:"#ffedd5",c:"#9a3412",border:"#fdba74",ico:"📦"},
@@ -18785,6 +18788,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           "送迎":{bg:"#f0fdfa",c:"#0d9488",border:"#5eead4",ico:"🚐"},
           "入庫":{bg:"#ecfdf5",c:"#047857",border:"#6ee7b7",ico:"🏠"},
           "引取":{bg:"#fff7ed",c:"#c2410c",border:"#fed7aa",ico:"📤"},
+          "洗車":{bg:"#FFFDE7",c:"#795548",border:"#FFD54F",ico:"🧽"},
           "開店業務":{bg:"#fef9c3",c:"#a16207",border:"#fde68a",ico:"🌅"},
           "閉店業務":{bg:"#e0e7ff",c:"#3730a3",border:"#c7d2fe",ico:"🌙"},
           "休憩":{bg:"#dcfce7",c:"#15803d",border:"#bbf7d0",ico:"☕"},
@@ -23481,7 +23485,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.357-BT";
+const APP_VERSION="v1.0.358-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
