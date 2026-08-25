@@ -99,14 +99,14 @@ th.stick{background:#f8fafc}
     <table id="ttbl">
       <thead>
         <tr><th class="l" rowspan="2">タイプ</th><th class="in" rowspan="2">台数</th><th class="in" rowspan="2">平均<br>レンタル日<br><span style="color:#4b6b4b;font-weight:600">(実績参照)</span></th>
-          <th class="peakhead" colspan="5">🔴 繁忙期の1ヶ月</th><th class="normhead" colspan="5">🔵 通常期の1ヶ月</th><th rowspan="2"></th></tr>
-        <tr><th class="peak">日単価¥/日</th><th class="peak">稼働率%</th><th class="peak">客単価/件</th><th class="peak">件数/月</th><th class="peak">月商/月<br>基本/付帯/計</th>
-          <th class="norm">日単価¥/日</th><th class="norm">稼働率%</th><th class="norm">客単価/件</th><th class="norm">件数/月</th><th class="norm">月商/月<br>基本/付帯/計</th></tr>
+          <th class="peakhead" colspan="6">🔴 繁忙期の1ヶ月</th><th class="normhead" colspan="6">🔵 通常期の1ヶ月</th><th rowspan="2"></th></tr>
+        <tr><th class="peak">日単価¥/日</th><th class="peak">稼働率%</th><th class="peak">客単価/件</th><th class="peak">件数/月</th><th class="peak">月商/月<br>基本/付帯/計</th><th class="peak">台/売上<br>1台1ヶ月</th>
+          <th class="norm">日単価¥/日</th><th class="norm">稼働率%</th><th class="norm">客単価/件</th><th class="norm">件数/月</th><th class="norm">月商/月<br>基本/付帯/計</th><th class="norm">台/売上<br>1台1ヶ月</th></tr>
       </thead>
       <tbody id="tbody"></tbody>
       <tfoot><tr class="total"><td class="l">合計</td><td id="t-n"></td><td></td>
-        <td class="grpP"></td><td id="t-occp"></td><td id="t-adrp"></td><td id="t-cntp"></td><td id="t-mop"></td>
-        <td class="grpN"></td><td id="t-occn"></td><td id="t-adrn"></td><td id="t-cntn"></td><td id="t-mon"></td>
+        <td class="grpP"></td><td id="t-occp"></td><td id="t-adrp"></td><td id="t-cntp"></td><td id="t-mop"></td><td id="t-rpuP"></td>
+        <td class="grpN"></td><td id="t-occn"></td><td id="t-adrn"></td><td id="t-cntn"></td><td id="t-mon"></td><td id="t-rpuN"></td>
         <td></td></tr></tfoot>
     </table>
     </div>
@@ -282,12 +282,14 @@ function render(){
       '<td class="pk auto" style="font-size:11px">'+yen(kP)+'</td>'+
       '<td class="pk auto" style="font-size:11px">'+Math.round(cP)+'件</td>'+
       '<td class="pk auto" style="font-size:10.5px">'+moCell(bP)+'</td>'+
+      '<td class="pk auto" style="font-size:11px">'+yen(t.n>0?bP*(1+S.ancRate/100)/t.n:0)+'</td>'+
       // 通常
       '<td class="nm grpN"><input class="cell" type="number" value="'+t.adrN+'" onchange="uT('+i+',\'adrN\',this.value)"></td>'+
       '<td class="nm"><input class="cell" type="number" value="'+t.occN+'" onchange="uT('+i+',\'occN\',this.value)" style="width:52px"></td>'+
       '<td class="nm auto" style="font-size:11px">'+yen(kN)+'</td>'+
       '<td class="nm auto" style="font-size:11px">'+Math.round(cN)+'件</td>'+
       '<td class="nm auto" style="font-size:10.5px">'+moCell(bN)+'</td>'+
+      '<td class="nm auto" style="font-size:11px">'+yen(t.n>0?bN*(1+S.ancRate/100)/t.n:0)+'</td>'+
       '<td><button class="btn btn-del" onclick="delType('+i+')">×</button></td>';
     tb.appendChild(tr);
   });
@@ -301,6 +303,8 @@ function render(){
   document.getElementById('t-cntn').textContent=Math.round(cntNm2)+'件';
   document.getElementById('t-mop').innerHTML=moCellT(basicPm);
   document.getElementById('t-mon').innerHTML=moCellT(basicNm);
+  document.getElementById('t-rpuP').innerHTML='<span style="font-size:11px">'+yen(tN>0?basicPm*(1+S.ancRate/100)/tN:0)+'</span>';
+  document.getElementById('t-rpuN').innerHTML='<span style="font-size:11px">'+yen(tN>0?basicNm*(1+S.ancRate/100)/tN:0)+'</span>';
   // ③下: 繁忙期／通常期を分けて 期間売上まで（月が異なるので合算しない）
   var pkB=0,pkA=0,pkT=0,nmB=0,nmA=0,nmT=0;
   for(var m2=0;m2<NM;m2++){if(P.season[m2]==='peak'){pkB+=months[m2].basic;pkA+=months[m2].anc;pkT+=months[m2].total;}else{nmB+=months[m2].basic;nmA+=months[m2].anc;nmT+=months[m2].total;}}
