@@ -195,13 +195,14 @@ function mkPhase(name,mult){mult=mult||1;
     fixed:[{label:'車両リース・保険・車検 等',amt:0}],
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
-function mkChallenge(){return {name:'④ チャレンジ｜アルファード特化',season:null,hpPct:20,otaPct:80,
-  types:[{name:'A アルファード',adrP:25000,adrN:20000,n:10,rdays:4.33,occP:70,occN:50,actKey:'A'}],
-  fixed:[{label:'車両リース・保険・車検 等',amt:0}],
-  sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'その他',amt:0}]};}
+var CH_NAME='④ チャレンジ｜アルファード特化';
 var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,
-  phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 調整期',1.5),mkPhase('③ 着地',2),mkChallenge()]};
-function migratePhases(){if(S.phases&&S.phases.length===3)S.phases.push(mkChallenge());}
+  phases:[mkPhase('① 立ち上げ期',1),mkPhase('② 調整期',1.5),mkPhase('③ 着地',2),mkPhase(CH_NAME,1)]};
+// ④チャレンジは①をコピーした状態を初期値に（フォーマットは全フェーズ共通・そこから変更する）
+function migratePhases(){if(!S.phases)return;
+  if(S.phases.length===3){var c=JSON.parse(JSON.stringify(S.phases[0]));c.name=CH_NAME;S.phases.push(c);}
+  else if(S.phases.length>=4&&S.phases[3]&&S.phases[3].types&&S.phases[3].types.length<=1){var c2=JSON.parse(JSON.stringify(S.phases[0]));c2.name=S.phases[3].name||CH_NAME;S.phases[3]=c2;}
+}
 var S=JSON.parse(JSON.stringify(DEFAULT));
 var SKEY='bt_sim_v9';
 function cur(){return S.phases[S.active];}
