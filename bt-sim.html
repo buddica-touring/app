@@ -166,7 +166,7 @@ th.stick{background:#f8fafc}
       <div class="tblwrap"><table class="res" id="sumPhase"></table></div>
       <div style="height:10px"></div>
       <div class="tblwrap"><table class="res" id="sumMonth"></table></div>
-      <div class="hint">各フェーズの主要KPIを年間ベースで並べて比較（フェーズを足した合計は出しません）。減価償却＝リース/償却、委託＝業務委託A+B、広告費＋OTA手数料＝集客コスト。</div>
+      <div class="hint">上段＝年間／下段＝月平均で比較（フェーズを足した合計は出しません）。CPA＝集客コスト（広告費＋OTA手数料）÷予約件数、台/コスト＝運用台数×¥50,000/台（固定試算）、リース/減価償却＝実入力の車両コスト。</div>
     </div>
   </div>
 
@@ -196,7 +196,7 @@ function mkPhase(name,mult){mult=mult||1;
     sga:[{label:'人件費',amt:0},{label:'広告費',amt:0},{label:'家賃・駐車場',amt:0},{label:'水道光熱・通信',amt:0},{label:'その他',amt:0}]};
 }
 var CH_NAME='④ チャレンジ｜アルファード特化';
-var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,
+var DEFAULT={startM:8,days:30,ancRate:15,varRate:0,tgt:5000000,active:0,locked:false,costM:0,sumMode:'year',
   phases:[mkPhase('① コスト/現状維持',1),mkPhase('② コスト/調整',1.5),mkPhase('③ コスト/減価償却なし',2),mkPhase(CH_NAME,1)]};
 // ④チャレンジは①をコピーした状態を初期値に（フォーマットは全フェーズ共通・そこから変更する）
 function migratePhases(){if(!S.phases)return;
@@ -374,29 +374,35 @@ function plTable(P,months){
   return html+'</tbody>';
 }
 
-function renderSum(){
-  // フェーズ × 主要KPI（年間・3フェーズを足した合計は出さない）
-  var ph='<thead><tr><th class="stick">フェーズ</th><th>運用台数</th><th>年間総売上</th><th>年間営業利益</th><th>利益率</th><th>予約件数(年)</th><th>客単価</th><th>広告費＋OTA手数料</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
+function kpiTable(div,ml){
+  var ph='<thead><tr><th class="stick">フェーズ（'+ml+'）</th><th>運用台数</th><th>総売上</th><th>営業利益</th><th>利益率</th><th>予約件数</th><th>客単価</th><th>CPA</th><th>広告費＋OTA</th><th>リース/減価償却</th><th>台/コスト</th><th>委託</th><th>人件費</th></tr></thead><tbody>';
   S.phases.forEach(function(p){var ms=phaseMonths(p);ensure(p);
     var units=(p.types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
     var rev=0,op=0,cnt=0,ad=0,lease=0,itaku=0,jin=0;
     ms.forEach(function(m){rev+=m.total;op+=m.op;cnt+=m.cnt;ad+=(m.ad||0)+(m.otaFee||0);lease+=(m.lease||0);itaku+=(m.itaku||0);jin+=(m.jinken||0);});
-    var adr=cnt>0?rev/cnt:0,oc=(op>=0?'pos':'neg');
+    var taiY=units*50000*12;
+    var adr=cnt>0?rev/cnt:0,cpa=cnt>0?ad/cnt:0,oc=(op>=0?'pos':'neg');
     ph+='<tr><td class="stick">'+p.name+'</td>'+
       '<td>'+units+'台</td>'+
-      '<td>'+yen(rev)+'</td>'+
-      '<td class="'+oc+'">'+yen(op)+'</td>'+
+      '<td>'+yen(rev/div)+'</td>'+
+      '<td class="'+oc+'">'+yen(op/div)+'</td>'+
       '<td class="'+oc+'">'+pct(rev>0?op/rev*100:0)+'</td>'+
-      '<td>'+Math.round(cnt)+'件</td>'+
+      '<td>'+Math.round(cnt/div)+'件</td>'+
       '<td>'+yen(adr)+'</td>'+
-      '<td>'+yen(ad)+'</td>'+
-      '<td>'+yen(lease)+'</td>'+
-      '<td>'+yen(units*50000)+'<div style="font-size:9px;color:#94a3b8">'+units+'台×¥50,000</div></td>'+
-      '<td>'+yen(itaku)+'</td>'+
-      '<td>'+yen(jin)+'</td></tr>';});
-  document.getElementById('sumPhase').innerHTML=ph+'</tbody>';
-  document.getElementById('sumMonth').innerHTML='';
-  document.getElementById('sumKpi').innerHTML='';
+      '<td>'+yen(cpa)+'</td>'+
+      '<td>'+yen(ad/div)+'</td>'+
+      '<td>'+yen(lease/div)+'</td>'+
+      '<td>'+yen(taiY/div)+'</td>'+
+      '<td>'+yen(itaku/div)+'</td>'+
+      '<td>'+yen(jin/div)+'</td></tr>';});
+  return ph+'</tbody>';
+}
+function renderSum(){
+  var u1=(S.phases[0].types||[]).reduce(function(a,t){return a+(+t.n||0);},0);
+  var sk=document.getElementById('sumKpi');sk.style.display='block';
+  sk.innerHTML='<div class="note" style="margin-bottom:4px">🧮 <b>試算定義</b>：① 運用台数 <b>'+u1+'台</b>　／　② 運用クラス <b>特化型（④）以外は同数</b>　／　③ シーズナル <b>繁忙期・通常期の2パターン価格</b></div>';
+  document.getElementById('sumPhase').innerHTML=kpiTable(1,'年間');
+  document.getElementById('sumMonth').innerHTML=kpiTable(NM,'月平均');
 }
 
 function renderCost(id,arr,upd,del,cm){var b=document.getElementById(id);b.innerHTML='';var t=0;
