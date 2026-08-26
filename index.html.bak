@@ -2455,7 +2455,7 @@ async function saveMonthlySnapshot(store,ym,data,vehicles,fleet,kpiFlags,kpiTabl
   const[y,mo]=ym.split("-").map(Number);
   const dim=new Date(y,mo,0).getDate();
   const ms=new Date(y,mo-1,1),me=new Date(y,mo-1,dim);
-  const isKpiActive=(code)=>kpiFlags[code]!==undefined?kpiFlags[code]:(vehicles.find(v=>v.code===code)?.active!==false);
+  const isKpiActive=(code)=>{const _v=(vehicles||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiFlags[code]!==undefined?kpiFlags[code]:(_v?.active!==false);};
   const allRes=data.filter(r=>r.status!=="cancelled");
   const cancelled=data.filter(r=>r.status==="cancelled"&&r.returnDate&&r.returnDate.slice(0,7)===ym);
   const retRes=allRes.filter(r=>r.returnDate&&r.returnDate.slice(0,7)===ym);
@@ -2775,7 +2775,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
   },[viewYM]);
   const utilStats=useMemo(()=>{
     if(!vehicles||!vehicles.length||!data)return null;
-    const isKpiActive=(code)=>kpiFlags[code]!==undefined?kpiFlags[code]:(vehicles.find(v=>v.code===code)?.active!==false);
+    const isKpiActive=(code)=>{const _v=(vehicles||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiFlags[code]!==undefined?kpiFlags[code]:(_v?.active!==false);};
     const[y,mo]=viewYM.split("-").map(Number);
     const dim=new Date(y,mo,0).getDate();
     const ms=new Date(y,mo-1,1),me=new Date(y,mo-1,dim);
@@ -8802,11 +8802,12 @@ function ManagementTab({store}){
       const availOf=(c)=>dim-((maintByVeh[c]&&maintByVeh[c].size)||0);
       const activeVehs=dbVehs.filter(v=>{
         const c=v.code;
+        if(v.insuranceVeh||v.insurance_veh)return false;// 保険車/送迎車は稼働率の分母から除外
         const act=(kf[c]!==undefined)?(kf[c]!==false):(v.active!==false);
         return act&&availOf(c)>0;
       });
       m.activeCount=activeVehs.length;
-      m.totalVehs=dbVehs.length;
+      m.totalVehs=dbVehs.filter(v=>!(v.insuranceVeh||v.insurance_veh)).length;
       m.dim=dim;
       // 稼働日数（車両別日Set）
       const vehDays={};
@@ -9045,7 +9046,7 @@ function ManagementTab({store}){
       const ms=new Date(yr,mo-1,1),me=new Date(yr,mo-1,dim);
       const fMap={};dbFleet.forEach(f=>{fMap[f.reservation_id]=f.vehicle_code;});
       const kpiYm={};dbKpi.filter(k=>k.year_month===ym).forEach(k=>{kpiYm[k.vehicle_code]=k.active;});
-      const isKpiActive=(code)=>kpiYm[code]!==undefined?kpiYm[code]:(dbVehs.find(v=>v.code===code)?.active!==false);
+      const isKpiActive=(code)=>{const _v=(dbVehs||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiYm[code]!==undefined?kpiYm[code]:(_v?.active!==false);};
       const maintByVeh={};
       (dbMaint||[]).forEach(mm=>{
         if(mm.block_type&&mm.block_type!=="maintenance")return;
@@ -9152,7 +9153,7 @@ function ManagementTab({store}){
       const dim=new Date(yr,mo,0).getDate();
       const ms=new Date(yr,mo-1,1),me=new Date(yr,mo-1,dim);
       const kpiYm={};dbKpi.filter(k=>k.year_month===ym).forEach(k=>{kpiYm[k.vehicle_code]=k.active;});
-      const isKpiActive=(code)=>kpiYm[code]!==undefined?kpiYm[code]:(dbVehs.find(v=>v.code===code)?.active!==false);
+      const isKpiActive=(code)=>{const _v=(dbVehs||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiYm[code]!==undefined?kpiYm[code]:(_v?.active!==false);};
       const maintByVeh={};
       (dbMaint||[]).forEach(mm=>{
         if(mm.block_type&&mm.block_type!=="maintenance")return;
@@ -9702,7 +9703,7 @@ function ManagementTab({store}){
         });
         const unitPrice=plCnt>0?(plRev/plCnt):0;
         const kpiYm={};(dbKpi||[]).filter(k=>k.year_month===ym).forEach(k=>{kpiYm[k.vehicle_code]=k.active;});
-        const isKpiActive=(code)=>kpiYm[code]!==undefined?kpiYm[code]:((dbVehs||[]).find(v=>v.code===code)?.active!==false);
+        const isKpiActive=(code)=>{const _v=(dbVehs||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiYm[code]!==undefined?kpiYm[code]:(_v?.active!==false);};
         let utilDays=0,utilActiveCount=0;
         (dbVehs||[]).forEach(v=>{
           if(!isKpiActive(v.code))return;
@@ -16335,7 +16336,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     setKpiFlags(prev=>({...prev,[code]:next}));
     if(sb)sb.from("bt_vehicle_monthly_kpi").upsert({vehicle_code:code,year_month:kpiYM,active:next},{onConflict:"vehicle_code,year_month"}).then(({error})=>{if(error)console.error("[KPI]",error.message);});
   };
-  const isKpiActive=(code)=>kpiFlags[code]!==undefined?kpiFlags[code]:(vehicles.find(v=>v.code===code)?.active!==false);
+  const isKpiActive=(code)=>{const _v=(vehicles||[]).find(v=>v.code===code);if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return kpiFlags[code]!==undefined?kpiFlags[code]:(_v?.active!==false);};
   const kpiCount=vehicles.filter(v=>isKpiActive(v.code)).length;
   const[searchQuery,setSearchQuery]=useState("");const[searchResult,setSearchResult]=useState(null);const searchInputRef=useRef(null);const vehicleRowRefs=useRef({});
   // 検索実行: 予約番号(部分一致) or 予約者名で検索
@@ -23485,7 +23486,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.358-BT";
+const APP_VERSION="v1.0.359-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
