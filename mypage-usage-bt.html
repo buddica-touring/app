@@ -34,9 +34,11 @@ h2{font-size:17px;margin:4px 0 8px}
   <button onclick="if(history.length>1){history.back()}else{location.href='index.html'}" style="background:#fff;border:1.5px solid #0F1F45;color:#0F1F45;border-radius:8px;padding:6px 12px;font-weight:800;font-size:13px;cursor:pointer">← 戻る</button>
   <button class="reload" onclick="load()">↻ 更新</button>
 </div>
+<div id="pending"></div>
 <div id="app"><div class="empty">読み込み中…</div></div>
 <script>
 const SB="https://ggqugvyskyiblxiycpci.supabase.co";
+const FN_TKM=SB+"/functions/v1/handyman-mypage-tkm";
 const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 function authTok(){try{for(const k in localStorage){if(/sb-.*-auth-token/.test(k)){let v=localStorage[k];try{v=JSON.parse(v)}catch(e){}const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)||(Array.isArray(v)&&v[0]))||(typeof v==="string"?v:null);if(t&&(""+t).split(".").length===3)return t;}}}catch(e){}return ANON;}
 async function apiAll(path){let out=[],from=0;while(true){const r=await fetch(SB+"/rest/v1/"+path,{headers:{apikey:ANON,Authorization:"Bearer "+authTok(),Range:from+"-"+(from+999),"Range-Unit":"items"}});if(!r.ok){break}const rows=await r.json();if(!Array.isArray(rows))break;out.push(...rows);if(rows.length<1000)break;from+=1000;}return out;}
@@ -101,7 +103,37 @@ function render(){
     <div class="chips">${chip("all","すべて "+RES.length)}${chip("unsent","⚪ 未送信 "+cnt.unsent)}${chip("active","🟢 アクティブ "+cnt.active)}${chip("sent","🔵 送信済 "+cnt.sent)}${chip("through","🟡 スルー "+cnt.through)}${chip("nomail","🚩 メール未登録 "+cnt.nomail)}</div>
     <div class="list">${list.length?list.map(row).join(""):`<div class="empty">該当なし</div>`}</div>`;
 }
+// ==== キャンセル承認待ち（HP直販予約・承認必須。承認=キャンセル確定+配車解放／返金は手動Square）====
+async function loadPending(){
+  const box=document.getElementById("pending"); if(!box)return;
+  let chg=[]; try{ chg=await apiAll("bt_reservation_changes?change_type=eq.cancel&status=eq.requested&select=id,reservation_id,new_value,changed_at,source&order=changed_at.desc"); }catch(e){}
+  if(!chg||!chg.length){box.innerHTML="";return;}
+  const ids=chg.map(c=>c.reservation_id);
+  let nameMap={}; try{ const rs=await apiAll("bt_reservations?id=in.("+ids.map(encodeURIComponent).join(",")+")&select=id,name,start_date,end_date,vehicle_class,price,ota"); (rs||[]).forEach(r=>nameMap[r.id]=r); }catch(e){}
+  box.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px">
+    <div style="font-weight:800;font-size:14px;color:#b91c1c;margin-bottom:8px">🔴 キャンセル承認待ち ${chg.length}件</div>
+    <div style="font-size:11px;color:#7f1d1d;margin-bottom:8px">承認＝キャンセル確定＋配車解放。⚠️返金は規定（7日前無料/6-3日20%/2日前・前日30%/当日50%）に沿って Square で手動返金してください。</div>
+    ${chg.map(c=>{const r=nameMap[c.reservation_id]||{};return `<div style="border-top:1px solid #fecaca;padding:9px 2px;font-size:12.5px">
+      <b>${esc(r.name||"")}</b>様 <span style="color:#94a3b8;font-size:11px">${esc(c.reservation_id)}</span> ${r.ota?`<span class="otatag" style="background:${otaC(r.ota)}">${esc(otaL(r.ota))}</span>`:""}<br>
+      <span style="color:#64748b;font-size:11px">利用 ${esc(r.start_date||"")}〜${esc(r.end_date||"")}／${esc(r.vehicle_class||"")}／¥${Number(r.price||0).toLocaleString()}</span><br>
+      <span style="font-size:11px;color:#475569">理由: ${esc(c.new_value||"")}</span>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button onclick="decideCancel(${c.id},'approved',this)" style="background:#b91c1c;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-weight:800;font-size:12.5px;cursor:pointer">✅ 承認（キャンセル確定）</button>
+        <button onclick="decideCancel(${c.id},'rejected',this)" style="background:#fff;color:#475569;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px 14px;font-weight:800;font-size:12.5px;cursor:pointer">却下</button>
+      </div></div>`;}).join("")}</div>`;
+}
+async function decideCancel(id,dec,btn){
+  if(dec==="approved"&&!confirm("この予約をキャンセル確定しますか？（配車解放されます。返金は規定に沿って手動でSquare返金）"))return;
+  if(btn){btn.disabled=true;btn.textContent="処理中…";}
+  try{
+    const r=await fetch(FN_TKM,{method:"POST",headers:{apikey:ANON,Authorization:"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({action:"decide",staff_token:authTok(),change_id:id,decision:dec})});
+    const j=await r.json();
+    if(j&&j.ok){alert(dec==="approved"?"キャンセルを確定しました（配車解放済み）。返金は規定に沿ってSquareで手動対応してください。":"却下しました。");loadPending();load();}
+    else{alert("失敗: "+((j&&j.error)||"不明")+"\n（本体APPにログインしてから開いてください）");if(btn){btn.disabled=false;btn.textContent=dec==="approved"?"✅ 承認（キャンセル確定）":"却下";}}
+  }catch(e){alert("通信エラー");if(btn){btn.disabled=false;}}
+}
 async function load(){
+  loadPending();
   document.getElementById("app").innerHTML='<div class="empty">読み込み中…</div>';
   const td=today();
   const [res,sends,signs,opens]=await Promise.all([
