@@ -4324,7 +4324,7 @@ const OTA_NORM={"じゃらん":"J","エアトリ":"O","レンタカードット�
 function otaAbbr(o){if(o==null||o==="")return "-";const k=String(o).trim();return OTA_ABBR[k]||OTA_ABBR[k.toUpperCase()]||k;}
 /* ★2026-08-08 お客様ページURL：じゃらん(HDM)はHANDYMANマイページ(my-tkm)/それ以外はBUDDICAご利用ガイド。
    ota不明時はwindow._resOtaMap[resvNo]で解決(バッジ用)。suffix例 "&ro=1"(スタッフ閲覧)/"&staff=1"。 */
-function custPageUrl(token,ota,suffix){ if(!token)return""; const jl=String(ota||"").indexOf("じゃらん")>=0; const base=jl?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
+function custPageUrl(token,ota,suffix){ if(!token)return""; const o=String(ota||""); const hdm=o.indexOf("じゃらん")>=0||o.toUpperCase().indexOf("HANDYMAN")>=0; const base=hdm?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
 function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{})[resvNo]; return custPageUrl(token,ota,suffix); }
 function OBadge({ota}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);const o=OTA[k];const lbl=otaAbbr(ota);if(!o&&(!lbl||lbl==="-"))return null;const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 /* ★2026-08-10 HANDYMAN(じゃらん)予約の識別：送迎プラカード・問合せ・決済ツールが異なるため要注意。紺バッジ＋薄紺背景で警告。BUDDICAは無印。 */
@@ -23486,7 +23486,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.360-BT";
+const APP_VERSION="v1.0.361-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
