@@ -21813,7 +21813,7 @@ function App(){
           try{const attDB=await DB.fetchAttendance();if(attDB&&Object.keys(attDB).length)setAttendance(attDB);}catch(e){}
           try{const jpDB=await DB.fetchJalanPayment();if(jpDB)setJalanPay(jpDB);}catch(e){}
           // ★ 在庫調整の未対応バッジ用に bt_inventory_status を取得（TOPタイルのバッジ算出のみ・タブ側は別途購読）
-          try{if(sb){const{data:invRows}=await sb.from("bt_inventory_status").select("*");if(invRows){const m={};invRows.forEach(r=>{m[r.id]={adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,stock_released:!!r.stock_released};});setInvStatus(m);}}}catch(e){}
+          try{if(sb){const{data:invRows}=await sb.from("bt_inventory_status").select("*");if(invRows){const m={};invRows.forEach(r=>{m[r.id]={adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,stock_released:!!r.stock_released};});setInvStatus(m);}}}catch(e){}
           // ★ 2026-05-02 v3.4.30 DB の bt_places を唯一の真実とする（merge ではなく置換）
           // 旧バグ: localStorage に古い del_place/col_place が永久キャッシュされ、
           // GAS や直接DB編集で削除/更新した場所情報が APP 側で消えなかった。
@@ -23486,7 +23486,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.359-BT";
+const APP_VERSION="v1.0.360-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
