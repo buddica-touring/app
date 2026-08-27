@@ -1,7 +1,7 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>BUDDICA TOURISM ご利用ガイド｜高松空港店</title>
-<!-- guide-v: 2026-08-18 マイナ免許証対応=裏面を任意化(表面のみでUP可)+PDF許可+案内文。2026-08-09b 運転者追加で選択済ファイルが消えない/免許証capture削除 -->
+<!-- guide-v: 2026-08-27 キャンセル申請枠追加(HP直販=承認制/OTA=各OTA案内・規定確認→申請)。 2026-08-18 マイナ免許証対応=裏面を任意化(表面のみでUP可)+PDF許可+案内文。2026-08-09b 運転者追加で選択済ファイルが消えない/免許証capture削除 -->
 <meta name="guide-ver" content="2026-08-09b-lic-add-nowipe">
 
 <style>
@@ -235,6 +235,12 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
     <div class="pu-pick-row" id="rtTimeRow" style="display:none;margin-top:10px;"><select id="rtSel" class="pu-sel"></select><button id="rtSave" class="pu-save" onclick="saveReturn()" data-t="rt_save">この時間で確定</button></div>
     <div id="rtCur" class="pu-cur" style="display:none;"></div>
   </div>
+</div>
+
+<!-- 🚫 キャンセル申請 -->
+<div class="card" id="cxlCard" style="display:none">
+  <div class="sec-h"><span class="badge-no">🚫</span><span data-t="cxl_head">キャンセルについて</span></div>
+  <div id="cxlBody"></div>
 </div>
 
 <!-- 🪪 運転免許証のご登録（ご出発前・GAS→Googleドライブ保存） -->
@@ -649,7 +655,7 @@ function applyLang(){
   if(s1)s1.innerHTML=I18N[signed[1]?'st1_d':'st1_p'][LANG];
   if(s2)s2.innerHTML=I18N[signed[2]?'st2_d':'st2_p'][LANG];
   if(f)f.innerHTML=I18N[(signed[1]&&signed[2])?'fin_d':'fin_p'][LANG];
-  if(RES)renderRes();if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
+  if(RES)renderRes();try{if(RES)renderCancel();}catch(e){}if(typeof GUIDE_KEY!=='undefined'&&GUIDE_KEY)paintGuide();var _pz=document.getElementById("puSel");if(_pz&&_pz.options.length&&I18N["pu_choose"])_pz.options[0].textContent=I18N["pu_choose"][LANG];
   if(document.getElementById('licBody'))renderLicCard(); // 🪪 免許証カードも言語連動で再描画
   updateTermsAlert(); // 📝 約款未署名アラートも言語連動で再描画
   updatePuAlert();    // 🚐 お迎え時間 未選択アラートも言語連動で再描画
@@ -706,6 +712,56 @@ var GAS_LICENSE_SECRET='hdm-lic-7c3f9a21';
 function jstToday(){var n=new Date();var j=new Date(n.getTime()+(n.getTimezoneOffset()+540)*60000);return j.getFullYear()+'-'+('0'+(j.getMonth()+1)).slice(-2)+'-'+('0'+j.getDate()).slice(-2);}
 async function rpc(fn,args){
   try{var r=await fetch(BT_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});return await r.json();}catch(e){return null;}
+}
+/* 🚫 キャンセル申請（HP直販=承認制／OTA=各OTA案内）。承認でキャンセル確定＋配車解放＋顧客メール（返金は規定に沿って手動） */
+var CXLT={
+ ja:{head:"キャンセルについて",ota_h:"OTAでご予約のお客様",ota_b:"エアトリ・楽天・じゃらん・レンタカードットコム・たびらい 等の予約サイトからご予約の場合、キャンセルは<b>ご予約された各予約サイト</b>より手続きをお願いいたします（当ページからは受付できません）。",hp_b:"当店（公式サイト）からご予約のお客様は、こちらからキャンセルを申請できます。",btn:"キャンセルを申請する",pol_h:"キャンセル規定",pol_b:"・7日前まで：無料\n・6〜3日前：20%\n・2日前・前日：30%\n・当日以降／無連絡：50%\n※台風等の不可抗力（航空便欠航証明など）は無料。返金は規定に沿って手続きのうえ、担当よりご連絡いたします。",agree:"上記のキャンセル規定を確認し、同意します",reason:"キャンセル理由（任意）",submit:"この内容で申請する",cancel:"やめる",done:"🕓 キャンセル申請を承りました（承認待ち）。担当が確認し、確定後に改めてご連絡いたします。",already:"すでにキャンセル申請を受け付けています（承認待ち）。",cancelled:"この予約はキャンセル済みです。",ro:"閲覧専用モードのため申請できません。",err:"送信に失敗しました。通信環境をご確認のうえ再度お試しください。"},
+ en:{head:"Cancellation",ota_h:"Booked via an OTA",ota_b:"If you booked via an OTA (Airtrip, Rakuten, Jalan, Rentalcars, Tabirai, etc.), please cancel from <b>the site you booked with</b>. We cannot accept cancellations here.",hp_b:"If you booked on our official site, you can request a cancellation here.",btn:"Request cancellation",pol_h:"Cancellation policy",pol_b:"・7+ days before: Free\n・6–3 days before: 20%\n・2 days/1 day before: 30%\n・On the day / no-show: 50%\n※Force majeure (e.g., flight cancellation certificate) is free. Refunds are processed per policy and our staff will contact you.",agree:"I have read and agree to the cancellation policy above.",reason:"Reason (optional)",submit:"Submit request",cancel:"Cancel",done:"🕓 Your cancellation request has been received (pending approval). Our staff will confirm and contact you.",already:"A cancellation request is already pending.",cancelled:"This booking is already cancelled.",ro:"View-only mode. Cannot submit.",err:"Failed to send. Please check your connection and try again."},
+ zh:{head:"關於取消",ota_h:"透過OTA預約的旅客",ota_b:"若您透過 Airtrip、樂天、Jalan、Rentalcars、Tabirai 等預約網站預訂，請至<b>您預約的網站</b>辦理取消（本頁無法受理）。",hp_b:"透過本店官方網站預約的旅客，可於此申請取消。",btn:"申請取消",pol_h:"取消規定",pol_b:"・7日前：免費\n・6〜3日前：20%\n・2日前・前一日：30%\n・當日起／未聯絡：50%\n※颱風等不可抗力（航班取消證明等）免費。退款依規定辦理，將由專人與您聯繫。",agree:"我已確認並同意上述取消規定。",reason:"取消原因（選填）",submit:"送出申請",cancel:"取消",done:"🕓 已受理您的取消申請（等待審核）。專人確認後將與您聯繫。",already:"已受理取消申請（等待審核）。",cancelled:"此預約已取消。",ro:"僅供瀏覽，無法申請。",err:"送出失敗，請確認網路後再試。"},
+ ko:{head:"취소 안내",ota_h:"OTA로 예약하신 고객",ota_b:"에어트립·라쿠텐·자란·렌탈카스·타비라이 등 예약 사이트로 예약하신 경우, 취소는 <b>예약하신 각 사이트</b>에서 진행해 주세요(본 페이지에서는 접수 불가).",hp_b:"공식 사이트에서 예약하신 고객은 여기에서 취소를 신청할 수 있습니다.",btn:"취소 신청하기",pol_h:"취소 규정",pol_b:"・7일 전까지: 무료\n・6〜3일 전: 20%\n・2일 전·전일: 30%\n・당일 이후/무연락: 50%\n※태풍 등 불가항력(결항 증명 등)은 무료. 환불은 규정에 따라 처리되며 담당자가 연락드립니다.",agree:"위 취소 규정을 확인하고 동의합니다.",reason:"취소 사유(선택)",submit:"이 내용으로 신청",cancel:"취소",done:"🕓 취소 신청을 접수했습니다(승인 대기). 담당자가 확인 후 연락드립니다.",already:"이미 취소 신청이 접수되었습니다(승인 대기).",cancelled:"이 예약은 이미 취소되었습니다.",ro:"열람 전용 모드라 신청할 수 없습니다.",err:"전송에 실패했습니다. 통신 상태를 확인 후 다시 시도해 주세요."}
+};
+function _cxlt(){return CXLT[LANG]||CXLT.ja;}
+var _cxlDone=false;
+function renderCancel(){
+  var card=document.getElementById("cxlCard"),body=document.getElementById("cxlBody");
+  if(!card||!body||!RES){if(card)card.style.display="none";return;}
+  var T=_cxlt();var st=String(RES.status||"");
+  card.style.display="block";
+  var head=card.querySelector('[data-t="cxl_head"]');if(head)head.textContent=T.head;
+  if(st==="キャンセル"||st==="cancelled"||st==="cancel"){body.innerHTML='<div style="color:#64748b;font-size:13px;line-height:1.7">'+T.cancelled+'</div>';return;}
+  if(_cxlDone){body.innerHTML='<div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:12px;color:#155e63;font-size:13px;line-height:1.7">'+T.done+'</div>';return;}
+  var isOta=String(RES.source||"").toLowerCase()==="ota";
+  if(isOta){
+    body.innerHTML='<div style="font-weight:800;margin-bottom:4px">'+T.ota_h+'</div><div style="color:#334155;font-size:13px;line-height:1.7">'+T.ota_b+'</div>';
+    return;
+  }
+  body.innerHTML='<div style="color:#334155;font-size:13px;line-height:1.7;margin-bottom:10px">'+T.hp_b+'</div>'+
+    '<button type="button" class="pu-save" style="background:#fff;color:#b91c1c;border:2px solid #ef4444" onclick="openCxlPolicy()">'+T.btn+'</button>';
+}
+function openCxlPolicy(){
+  if(RO){alert(_cxlt().ro);return;}
+  var T=_cxlt();
+  var ov=document.createElement("div");ov.id="cxlOv";ov.style.cssText="position:fixed;inset:0;z-index:100000;background:rgba(8,15,35,.55);display:flex;align-items:flex-end;justify-content:center;padding:0";
+  ov.innerHTML='<div style="background:#fff;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:18px 16px 22px;max-height:88vh;overflow:auto">'+
+    '<div style="font-weight:900;font-size:16px;color:#b91c1c;margin-bottom:8px">🚫 '+T.pol_h+'</div>'+
+    '<div style="white-space:pre-wrap;font-size:13px;line-height:1.9;color:#334155;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:12px">'+T.pol_b+'</div>'+
+    '<label style="display:flex;gap:8px;align-items:flex-start;margin:14px 2px;font-size:13px;font-weight:700;color:#0f172a;cursor:pointer"><input type="checkbox" id="cxlAgree" onchange="document.getElementById(\'cxlDo\').disabled=!this.checked" style="width:18px;height:18px;margin-top:1px">'+T.agree+'</label>'+
+    '<textarea id="cxlReason" placeholder="'+T.reason+'" style="width:100%;min-height:56px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:14px;font-family:inherit"></textarea>'+
+    '<div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="pu-save" style="flex:1;background:#eef2f7;color:#334155;border:none" onclick="closeCxl()">'+T.cancel+'</button>'+
+    '<button type="button" id="cxlDo" disabled class="pu-save" style="flex:2;background:#ef4444;color:#fff;border:none;opacity:1" onclick="submitCancel()">'+T.submit+'</button></div></div>';
+  document.body.appendChild(ov);
+}
+function closeCxl(){var o=document.getElementById("cxlOv");if(o)o.remove();}
+async function submitCancel(){
+  var T=_cxlt();var btn=document.getElementById("cxlDo");if(btn){btn.disabled=true;btn.textContent="…";}
+  var reason=(document.getElementById("cxlReason")||{}).value||"";
+  try{
+    var r=await fetch(BT_URL+"/functions/v1/handyman-mypage-tkm",{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:JSON.stringify({token:TOKEN,action:"cancel_request",reason:reason})});
+    var d=await r.json().catch(function(){return{};});
+    if(d&&d.otaOnly){closeCxl();var b=document.getElementById("cxlBody");if(b)b.innerHTML='<div style="font-weight:800;margin-bottom:4px">'+T.ota_h+'</div><div style="color:#334155;font-size:13px;line-height:1.7">'+T.ota_b+'</div>';return;}
+    if(r.ok&&d&&(d.ok||d.requested||d.alreadyRequested)){_cxlDone=true;closeCxl();renderCancel();return;}
+    alert(T.err);if(btn){btn.disabled=false;btn.textContent=T.submit;}
+  }catch(e){alert(T.err);if(btn){btn.disabled=false;btn.textContent=T.submit;}}
 }
 /* 🪪 運転免許証アップロード（保存先=GAS→Googleドライブ／記録=license_uploads・予約番号キー＝どの導線でも同じ予約に紐づく） */
 var LIC_ROWS=1, LIC_CNT=0, LIC_READY=false;
@@ -873,6 +929,7 @@ async function boot(){
   RES_NAME=d.name||'';
   document.getElementById('r_id').textContent=d.id||'';
   RES=d;renderRes();
+  try{renderCancel();}catch(e){}
   // 🪪 免許証カード：license_uploads で登録済みか確認して描画（予約番号キー＝OP/タスクサマリからのアップとも共通）
   try{ var _lr=await fetch(BT_URL+'/rest/v1/license_uploads?reservation_id=eq.'+encodeURIComponent(d.id||'')+'&select=cnt',{headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON}}); var _lj=await _lr.json(); renderLicCard((_lj&&_lj[0]&&_lj[0].cnt)||0); }catch(e){ renderLicCard(0); }
   // ★ OTA予約はクラス指定→クラス名を表示（社内割当の具体車種は出さない）／HP(ota空/オフィシャル)は車種指定→車種名
