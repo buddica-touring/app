@@ -347,7 +347,7 @@ function checkUnrepliedAlert() {
     ``,
     ...lines,
     ``,
-    `▶ <https://buddica-touring.github.io/app/inquiry.html|対応画面を開く>`,
+    `▶ <https://handyman-inquiry.vercel.app/|対応画面を開く>`,
   ].join('\n');
 
   // Slack に送信（メールアドレス経由）
@@ -800,7 +800,7 @@ function realWatchdogInquiry() {
       `受信箱に未取込のフォーム問い合わせ *${pending}件* あり（例:「${sample}…」）。\n` +
       `→ GASで *debugImport* を実行し原因(SUPABASE_KEY/認可)を確認、` +
       `修正後 *setupTriggers* を再実行してください。\n` +
-      `▶ <https://buddica-touring.github.io/app/inquiry.html|対応画面>`);
+      `▶ <https://handyman-inquiry.vercel.app/|対応画面>`);
   } else {
     console.log(`ℹ️ ${ageMin}分新規なしだが未取込フォーム0件（単に問い合わせが無いだけ）`);
   }
