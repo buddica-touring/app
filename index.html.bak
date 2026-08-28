@@ -8715,7 +8715,7 @@ function ManagementTab({store}){
   // 経営DB: メトリクス計算
   const DB_CHANNELS=["オフィシャル","じゃらん","楽天","エアトリ","レンタカードットコム","スカイチケット","その他売上"];
   // ★2026-08-05 フルネームota(GAS取込)も正しいチャネルに集計。追加しないとエアトリ/レンタカードットコム等が「その他売上」に誤集計される。
-  const DB_OTA_MAP={"":"HP＋SP","HP":"HP＋SP","SP":"HP＋SP","オフィシャル":"HP＋SP","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上","じゃらん":"じゃらん","楽天":"楽天","エアトリ":"エアトリ","スカイチケット":"スカイチケット","レンタカードットコム":"レンタカードットコム","たびらい":"その他売上","TBR":"その他売上"};
+  const DB_OTA_MAP={"":"HP＋SP","HP":"HP＋SP","SP":"HP＋SP","オフィシャル":"HP＋SP","J":"じゃらん","R":"楽天","O":"エアトリ","A":"エアトリ","S":"スカイチケット","RC":"レンタカードットコム","G":"その他売上","direct":"その他売上","じゃらん":"じゃらん","楽天":"楽天","エアトリ":"エアトリ","スカイチケット":"スカイチケット","レンタカードットコム":"レンタカードットコム","たびらい":"たびらい","TBR":"たびらい"};
   const DB_VEH_TYPES=["A","B","C","D","E","H","S","F"];
 
   const dbMetrics=useMemo(()=>{
@@ -8956,7 +8956,7 @@ function ManagementTab({store}){
       }
     });
     const yms=Array.from(ymSet).sort();
-    const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","その他売上"];
+    const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","たびらい","その他売上"];
     const chs=chOrder.filter(c=>chSet.has(c)).concat(Array.from(chSet).filter(c=>!chOrder.includes(c)));
     return{yms,chs,map,daysByYm};
   },[dbResvs,dbStore]);
@@ -8989,7 +8989,7 @@ function ManagementTab({store}){
       map[key].count+=1;
     });
     const yms=Array.from(ymSet).sort();
-    const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","その他売上"];
+    const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","たびらい","その他売上"];
     const chs=chOrder.filter(c=>chSet.has(c)).concat(Array.from(chSet).filter(c=>!chOrder.includes(c)));
     // 支出予算（costAllMonthsから取得）
     const expByYm={};
@@ -12496,7 +12496,7 @@ function ManagementTab({store}){
     {sub==="cfsim"&&(()=>{
       const isSpk=dbStore==="spk";
       const rdKey=isSpk?"return_date":"end_date";
-      const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","その他売上"];
+      const chOrder=["オフィシャル","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","たびらい","その他売上"];
       const cycles={};(mgSettings.channels||[]).forEach(c=>{cycles[c.name]=c.cycle||0;});
       // 実績売上からチャネル構成比を算出
       const active=dbResvs.filter(r=>r.status!=="cancelled"&&r.status!=="キャンセル"&&r.status!=="cancel");
@@ -23501,7 +23501,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.367-BT";
+const APP_VERSION="v1.0.368-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
