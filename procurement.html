@@ -48,6 +48,9 @@
   .car small{color:#64748b;font-weight:600}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
   .cell:focus{border-color:#93c5fd;background:#fff;outline:none}
+  .ro{display:block;padding:3px 5px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a}
+  .cp{cursor:pointer;font-size:13px;opacity:.7}
+  .cp:hover{opacity:1}
   select.st{border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:13px;font-weight:800}
   .stU{color:#64748b}.stC{color:#b45309}.stO{color:#166534}.stN{color:#b91c1c}.stX{color:#1d4ed8}
   a.lnk{color:#2563eb;font-weight:700;text-decoration:none;font-size:12px}
@@ -168,9 +171,16 @@ const CLASSES=["","A","B","C","D","E","F","G","H","I","J"];
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
-let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set();
+let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
+// pending＝保存中の "id:field"。他ユーザーのリアルタイム更新がこのフィールドを勝手に戻さないよう守る（データ整合）
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function copyText(t){ t=String(t||""); if(!t){setStatus("コピーする値がありません");return;}
+  const done=()=>setStatus("📋 コピーしました: "+t.slice(0,28));
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done));}
+  else fallbackCopy(t,done);
+}
+function fallbackCopy(t,done){try{const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);done();}catch(e){setStatus("コピー失敗");}}
 // 同一車両URL(zaiko_code)重複チェック＝処理済み検知
 function urlKey(u){const s=String(u||"").trim();if(!s)return"";const m=s.match(/zaiko_code=([0-9]+)/);return m?m[1]:s;}
 function dupOf(u,exceptId){const k=urlKey(u);if(!k)return null;return rows.find(r=>r.id!==exceptId&&urlKey(r.url)===k)||null;}
@@ -232,21 +242,22 @@ function render(){
   $("tb").innerHTML=list.map(r=>`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car keep"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"><span class="mtoggle" title="詳細を開閉">▼</span></td>
+      <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="詳細を開閉">▼</span></td>
       <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
-      <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
-      <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
-      <td data-lb="価格">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<input class="cell" data-f="price" value="${esc(r.price)}">`}</td>
-      <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
-      <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
-      <td data-lb="問合せ"><input class="cell" data-f="inquiry" value="${esc(r.inquiry)}" style="font-family:monospace;font-size:12px;letter-spacing:.3px" placeholder="—"></td>
+      <td data-lb="年式"><span class="ro">${esc(r.year)||"—"}</span></td>
+      <td data-lb="走行"><span class="ro">${esc(r.mileage)||"—"}</span></td>
+      <td data-lb="価格">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<span class="ro">${esc(r.price)||"—"}</span>`}</td>
+      <td data-lb="カラー"><span class="ro">${esc(r.color)||"—"}</span></td>
+      <td data-lb="場所"><span class="ro">${esc(r.location)||"—"}</span></td>
+      <td data-lb="問合せ"><div style="display:flex;align-items:center;gap:4px;width:100%"><span style="font-family:monospace;font-size:12px;letter-spacing:.3px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.inquiry)||'<span style="color:#cbd5e1">—</span>'}</span>${r.inquiry?`<span class="cp" data-cp="inquiry" title="コードをコピー">📋</span>`:""}</div></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="現場引取">${(r.status==="OK"&&r.maint_status==="OK")?`<select class="st ${STCLS[r.pickup]||"stU"}" data-f="pickup">${opt(r.pickup)}</select>`:`<span style="color:#cbd5e1;font-size:11px">整備OK後</span>`}</td>
       <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:5px;width:100%">
-        <input class="cell" data-f="url" value="${esc(r.url)}" placeholder="ここにURLを貼付→自動取得" style="min-width:0;flex:1;border:1px dashed ${r.url?"transparent":"#93c5fd"}">
-        ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
+        ${r.url
+          ?`<span class="ro" style="flex:1;min-width:0;color:#64748b;font-size:11px">🔗 登録済み</span><span class="cp" data-cp="url" title="URLをコピー" style="flex-shrink:0">📋</span><a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`
+          :`<input class="cell" data-f="url" value="" placeholder="ここにURLを貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>`).join("")||`<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
@@ -258,6 +269,9 @@ function render(){
   });
   $("tb").querySelectorAll(".del").forEach(el=>{
     el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
+  });
+  $("tb").querySelectorAll(".cp").forEach(el=>{
+    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id,f=el.dataset.cp,r=rows.find(x=>x.id===id);if(r)copyText(r[f]);});
   });
   $("tb").querySelectorAll(".mtoggle").forEach(el=>{
     el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");});
@@ -278,10 +292,15 @@ function render(){
 }
 async function save(id,field,val){
   if(field==="url"&&val.trim()){const d=dupOf(val,id);if(d){render();flashRow(d.id);alert(dupMsg(d));return;}}
-  const r=rows.find(x=>x.id===id); if(r){r[field]=val; if(field==="status")renderDash();}
+  const r=rows.find(x=>x.id===id); if(!r)return;
+  const prev=r[field];                       // 保存失敗時の巻き戻し用
+  r[field]=val; if(field==="status")renderDash();
+  // ★ 変更した「その1項目だけ」を書く（他の項目・他の行は絶対に触らない）＋保存中はガード
+  const pk=id+":"+field; pending.add(pk);
   const patch={updated_at:new Date().toISOString()}; patch[field]=val;
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
-  if(error){setStatus("保存失敗");return;}
+  pending.delete(pk);
+  if(error){ r[field]=prev; render(); setStatus("⚠️ 保存失敗（変更を元に戻しました）"); return; }
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
   if(field==="status"){render();}         // 仕入OKで整備/現場/保険・クラス別確定数が変わる
   else if(field==="maint_status"){render();} // 整備OKで現場引き取りの表示が変わる
@@ -383,7 +402,10 @@ if(window.innerWidth>680){const d=$("clswrap");if(d)d.open=true;}   // PCは既�
 sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_procurement"},payload=>{
   const {eventType,new:nw,old}=payload;
   if(eventType==="INSERT"){ if(!rows.find(r=>r.id===nw.id)){rows.push(nw);} }
-  else if(eventType==="UPDATE"){ const i=rows.findIndex(r=>r.id===nw.id); if(i>=0)rows[i]=nw; }
+  else if(eventType==="UPDATE"){ const i=rows.findIndex(r=>r.id===nw.id);
+    if(i>=0){ const cur=rows[i]; /* フィールド単位でマージ：自分が保存中(pending)の項目はローカル値を守る＝他人の更新で勝手に戻さない */
+      Object.keys(nw).forEach(f=>{ if(!pending.has(nw.id+":"+f)) cur[f]=nw[f]; }); }
+    else rows.push(nw); }
   else if(eventType==="DELETE"){ rows=rows.filter(r=>r.id!==old.id); }
   rows.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   // 入力中セルは維持（フォーカス中は全再描画しない）
