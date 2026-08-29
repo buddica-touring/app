@@ -23501,7 +23501,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.368-BT";
+const APP_VERSION="v1.0.369-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25650,14 +25650,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     {const _ld2=(d)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
      const _cu=(ym)=>{const p=ym.split("-").map(Number),yy=p[0],mo2=p[1];const dim=new Date(yy,mo2,0).getDate();const ms=new Date(yy,mo2-1,1),me=new Date(yy,mo2-1,dim);const kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===ym)kf[k.vehicle_code]=(k.active!==false);});const act=(c)=>kf[c]!==undefined?kf[c]:((vehicles.find(v=>v.code===c)||{}).active!==false);let td=0,ac=0;vehicles.forEach(v=>{if(!act(v.code))return;ac++;const rd=new Set();(data||[]).forEach(r=>{if(fleet[r.id]!==v.code)return;const ld=new Date(norm(r.lendDate)+"T00:00:00"),re=new Date(norm(r.returnDate)+"T00:00:00");if(isNaN(ld)||isNaN(re))return;const s=ld>ms?ld:ms,e=re<me?re:me;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))rd.add(_ld2(d));});td+=rd.size;});const md=ac*dim;return md>0?Math.round(td/md*100):null;};
      const _am=(ym,n)=>{const p=ym.split("-").map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
-     const _y1=_am(repSum.curYM,1),_y2=_am(repSum.curYM,2);
-     const _m1=repSum.byM[_y1]||{count:0,sales:0},_m2=repSum.byM[_y2]||{count:0,sales:0};
+     const _y1=_am(repSum.curYM,1),_y2=_am(repSum.curYM,2),_y3=_am(repSum.curYM,3);
+     const _m1=repSum.byM[_y1]||{count:0,sales:0},_m2=repSum.byM[_y2]||{count:0,sales:0},_m3=repSum.byM[_y3]||{count:0,sales:0};
      const _uS=(ym)=>{const q=_cu(ym);return q===null?"":" ｜ 稼働 "+q+"%";};
      L.push("");
      L.push("📊 売上見通し（返却月）");
      L.push("・当月（"+mm+"）："+yen(curM.sales)+_uS(repSum.curYM));
      L.push("・翌月（"+_y1.slice(5)+"月）："+_m1.count+"件 / "+yen(_m1.sales)+_uS(_y1));
      L.push("・翌々月（"+_y2.slice(5)+"月）："+_m2.count+"件 / "+yen(_m2.sales)+_uS(_y2));
+     L.push("・翌々々月（"+_y3.slice(5)+"月）："+_m3.count+"件 / "+yen(_m3.sales)+_uS(_y3));
      L.push("　※翌月以降は先行予約分（着地は変動）／稼働率＝配車表と同じ値");}
     L.push("");
     L.push("■ 本日の流通（新規取込・取込日ベース）");
