@@ -175,7 +175,7 @@ const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const CLASSES=["","A","B","C","D","E","F","G","H","I","J"];
 const MEIGI=["未定","BD","HDM"];   // 名義プルダウン（BD=BUDDICA / HDM=HANDYMAN）
-const MEIGICLS={"未定":"stU","BD":"stX","HDM":"stO"};
+const MEIGICLS={"未定":"stU","BD":"stC","HDM":"stX"};   // BD=オレンジ / HDM=青
 function meigiOpt(sel){return MEIGI.map(m=>`<option value="${m}" ${m===(sel||"未定")?"selected":""}>${m}</option>`).join("");}
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
@@ -234,7 +234,7 @@ function renderDash(){
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`+
    (()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
-     return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#1d4ed8">${bud}</b> ／ HDM <b style="color:#16a34a">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／確定計${bud+hdm}台</small></div>`;})();
+     return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／確定計${bud+hdm}台</small></div>`;})();
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 // クラス別 ピック数（そのクラスで拾った総数）と 確定数（仕入OKのみ）
