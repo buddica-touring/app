@@ -168,7 +168,7 @@ function render(){
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
-      <td data-lb="整備"><select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select></td>
+      <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="保険登録"><select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select></td>
       <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
@@ -202,10 +202,9 @@ async function save(id,field,val){
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
   if(error){setStatus("保存失敗");return;}
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
-  if(field==="status"){const tr=$("tb").querySelector(`tr[data-id="${id}"]`);if(tr)tr.dataset.st=val;
-    const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="status"]`);if(s)s.className="st "+STCLS[val];}
-  if(field==="maint_status"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="maint_status"]`);if(s)s.className="st "+STCLS[val];}
-  if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
+  if(field==="status"){render();}   // 仕入OKで整備ステータスの表示/非表示が変わるので再描画
+  else if(field==="maint_status"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="maint_status"]`);if(s)s.className="st "+STCLS[val];}
+  else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
 }
 async function del(id){
   await sb.from("bt_procurement").delete().eq("id",id);
