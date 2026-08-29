@@ -231,7 +231,9 @@ function renderDash(){
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
    `<div class="card"><div class="lb">⏳ 候補（未決）</div><div class="vv" style="color:#b45309">${pool}<small>台</small></div><small>未対応${un}・確認中${c.確認中||0}・対応中${c.対応中||0}<br>ゴール−候補 ＝ <b style="color:#b45309">あと${Math.max(0,goal-pool)}台</b></small></div>`+
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
-   `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`;
+   `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`+
+   (()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(r.pickup==="BUDDICA")bud++;else if(r.pickup==="HANDYMAN")hdm++;});
+     return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:19px">BUDDICA <b style="color:#1d4ed8">${bud}</b> ／ HANDYMAN <b style="color:#16a34a">${hdm}</b></div><small>名義確定 計${bud+hdm}台（未定は除く）</small></div>`;})();
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 // クラス別 ピック数（そのクラスで拾った総数）と 確定数（仕入OKのみ）
