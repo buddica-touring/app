@@ -54,6 +54,12 @@
   .del:hover{color:#dc2626}
   .num{width:58px;text-align:right}
   .yr{width:54px}
+  .clsum{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px;align-items:center}
+  .clsum .lbl{font-size:11px;font-weight:800;color:#64748b}
+  .clsum .cc{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:800}
+  .clsum .cc b{font-size:14px;color:#166534}
+  .clsum .cc.z{opacity:.5}
+  .clsum .cc.z b{color:#94a3b8}
   .foot{font-size:11px;color:#94a3b8;margin-top:8px;text-align:center}
   #st{position:fixed;bottom:12px;left:12px;right:auto;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
   #reload{position:fixed;right:16px;bottom:16px;z-index:60;width:56px;height:56px;border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:24px;box-shadow:0 4px 12px rgba(37,99,235,.45);cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -95,6 +101,7 @@
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「OK」で確保。NG＝ノーカウント（除外）。</div>
 
   <div class="dash" id="dash"></div>
+  <div class="clsum" id="clsum"></div>
 
   <div class="tb">
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
@@ -107,7 +114,7 @@
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
+        <th style="width:34px">No</th><th style="min-width:110px">車種</th><th style="width:60px">クラス</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
         <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
         <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:96px">現場引き取り</th><th style="width:92px">保険登録</th><th style="min-width:180px">車両URL（貼付で自動取得）</th><th style="width:40px">削除</th>
       </tr></thead>
@@ -127,6 +134,8 @@ const STCLS={"未対応":"stU","確認中":"stC","対応中":"stX","NG":"stN","O
 const INS=["未対応","対応中","完了"];
 const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
+const CLASSES=["","A","B","C","D","E","F","G","H"];
+function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set();
 const $=id=>document.getElementById(id);
@@ -172,13 +181,27 @@ function renderDash(){
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`;
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
+// クラス別 確定数（仕入OKのみ）
+function renderClassSummary(){
+  const m={};CLASSES.slice(1).forEach(c=>m[c]=0);
+  rows.forEach(r=>{if(r.vclass&&r.status==="OK")m[r.vclass]=(m[r.vclass]||0)+1;});
+  const tot=Object.values(m).reduce((a,b)=>a+b,0);
+  $("clsum").innerHTML=`<span class="lbl">クラス別 確定（仕入OK）計${tot}台：</span>`+
+    CLASSES.slice(1).map(c=>`<span class="cc ${m[c]?"":"z"}">${c} <b>${m[c]}</b></span>`).join("");
+}
 function render(){
   renderDash();
-  const list=rows.filter(r=>filter==="all"||r.status===filter);
+  renderClassSummary();
+  const list=rows.filter(r=>filter==="all"||r.status===filter).slice().sort((a,b)=>{
+    const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス入りをA→H順にグループ化、未設定は末尾
+    if(ca!==cb)return ca<cb?-1:1;
+    return (a.sort_order||0)-(b.sort_order||0);
+  });
   $("tb").innerHTML=list.map(r=>`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"><span class="mtoggle" title="詳細を開閉">▼</span></td>
+      <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
       <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
       <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}" style="${/SOLD/i.test(r.price||"")?"color:#b91c1c;font-weight:800":""}"></td>
@@ -193,7 +216,7 @@ function render(){
         ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="13" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`).join("")||`<tr><td colspan="14" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -227,8 +250,9 @@ async function save(id,field,val){
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
   if(error){setStatus("保存失敗");return;}
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
-  if(field==="status"){render();}         // 仕入OKで整備/現場/保険の表示が変わる
+  if(field==="status"){render();}         // 仕入OKで整備/現場/保険・クラス別確定数が変わる
   else if(field==="maint_status"){render();} // 整備OKで現場引き取りの表示が変わる
+  else if(field==="vclass"){render();}      // クラス変更で並び替え・集計が変わる
   else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+STCLS[val];}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
   // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
@@ -309,8 +333,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","クラス","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
