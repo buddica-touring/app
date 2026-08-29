@@ -34,6 +34,8 @@
   table{width:100%;border-collapse:collapse;min-width:820px}
   th{font-size:11px;color:#64748b;font-weight:700;text-align:left;padding:8px 8px;border-bottom:2px solid #e2e8f0;white-space:nowrap;position:sticky;top:0;background:#f8fafc;z-index:1}
   td{padding:6px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  @keyframes flashrow{0%{background:#fde68a}60%{background:#fef3c7}100%{background:transparent}}
+  tr.flash{animation:flashrow 2.2s ease}
   tr[data-st="OK"]{background:#f0fdf4}
   tr[data-st="NG"]{background:#fef2f2;opacity:.62}
   tr[data-st="確認中"]{background:#fffbeb}
@@ -130,6 +132,9 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 // 同一車両URL(zaiko_code)重複チェック＝処理済み検知
 function urlKey(u){const s=String(u||"").trim();if(!s)return"";const m=s.match(/zaiko_code=([0-9]+)/);return m?m[1]:s;}
 function dupOf(u,exceptId){const k=urlKey(u);if(!k)return null;return rows.find(r=>r.id!==exceptId&&urlKey(r.url)===k)||null;}
+function dupMsg(d){return "🔁 この車両はすでにリストにあります（重複）\n\n・No."+(d.no||"?")+"　"+(d.model||"（車種未取得）")+(d.year?" "+d.year:"")+"\n・担当："+(d.assignee||"未設定")+"\n・状態："+d.status+"\n\n→ 同じ車両なので追加しませんでした。\n　その行を黄色く光らせて表示しています。";}
+function flashRow(id){ if(filter!=="all"){document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.remove("on"));document.querySelector('.chip[data-f="all"]').classList.add("on");filter="all";render();}
+  setTimeout(()=>{const tr=document.querySelector('#tb tr[data-id="'+id+'"]');if(tr){tr.scrollIntoView({behavior:"smooth",block:"center"});tr.classList.remove("flash");void tr.offsetWidth;tr.classList.add("flash");}},60); }
 // URLからページ情報(車種/年式/走行/価格)を取得
 async function fetchMeta(url){
   try{const r=await fetch(SB_URL+"/functions/v1/buddica-scrape",{method:"POST",headers:{apikey:ANON,Authorization:"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({url})});return await r.json();}
@@ -202,7 +207,7 @@ function render(){
   });
 }
 async function save(id,field,val){
-  if(field==="url"&&val.trim()){const d=dupOf(val,id);if(d){alert("⚠️ 処理済み\nこのURLは既に登録されています（No."+(d.no||"?")+" "+(d.model||"")+"・担当"+(d.assignee||"未")+"・"+d.status+"）");render();return;}}
+  if(field==="url"&&val.trim()){const d=dupOf(val,id);if(d){render();flashRow(d.id);alert(dupMsg(d));return;}}
   const r=rows.find(x=>x.id===id); if(r){r[field]=val; if(field==="status")renderDash();}
   const patch={updated_at:new Date().toISOString()}; patch[field]=val;
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
@@ -220,10 +225,10 @@ $("add").addEventListener("click",async()=>{
   if(raw===null)return;
   const urls=raw.split(/\s+/).map(x=>x.trim()).filter(x=>/buddica\.jp\/usedcar/.test(x));
   if(!urls.length){alert("有効な buddica.jp の中古車URLがありません");return;}
-  let added=0,dup=0,fail=0,no=rows.reduce((m,r)=>Math.max(m,r.no||0),0);
+  let added=0,fail=0,dupRows=[],no=rows.reduce((m,r)=>Math.max(m,r.no||0),0);
   for(let i=0;i<urls.length;i++){
     const url=urls[i];
-    if(dupOf(url,null)){dup++;continue;}
+    const d0=dupOf(url,null); if(d0){dupRows.push(d0);continue;}
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
@@ -233,7 +238,11 @@ $("add").addEventListener("click",async()=>{
     if(data&&data[0]){rows.push(data[0]);added++;}
   }
   render();
-  alert("✅ 追加 "+added+"件"+(dup?"\n⚠️ 処理済み(重複)スキップ "+dup+"件":"")+(fail?"\n❌ 登録失敗 "+fail+"件":""));
+  let msg="✅ "+added+"件を追加しました";
+  if(dupRows.length){msg+="\n\n🔁 すでにリストにある車両（重複）"+dupRows.length+"件は追加しませんでした：\n"+dupRows.map(d=>"・No."+(d.no||"?")+" "+(d.model||"車種未取得")+"（担当"+(d.assignee||"未")+"・"+d.status+"）").join("\n");}
+  if(fail)msg+="\n\n❌ 取得/登録に失敗 "+fail+"件";
+  alert(msg);
+  if(dupRows.length)flashRow(dupRows[0].id);
   setStatus("接続OK ("+rows.length+"台)");
 });
 // 既存全行をURLから一括再取得（車種/年式/走行/価格を埋める）
