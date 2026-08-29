@@ -104,7 +104,7 @@
       <thead><tr>
         <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
         <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
-        <th style="width:88px">担当</th><th style="width:96px">ステータス</th><th style="min-width:80px">メモ</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
+        <th style="width:88px">担当</th><th style="width:96px">ステータス</th><th style="width:92px">保険登録</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -118,6 +118,9 @@
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const STATUSES=["未確認","確認中","OK","NG","その他"];
 const STCLS={"未確認":"stU","確認中":"stC","OK":"stO","NG":"stN","その他":"stX"};
+const INS=["未対応","対応中","完了"];
+const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
+function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30);
 const who=localStorage.getItem("proc_who")||"";
@@ -178,7 +181,7 @@ function render(){
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="担当"><input class="cell" data-f="assignee" value="${esc(r.assignee)}" list="whoList" placeholder="担当" style="width:82px"></td>
       <td data-lb="状態"><select class="st ${STCLS[r.status]}" data-f="status">${opt(r.status)}</select></td>
-      <td data-lb="メモ"><input class="cell" data-f="memo" value="${esc(r.memo)}" placeholder="メモ"></td>
+      <td data-lb="保険登録"><select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select></td>
       <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>`).join("")||`<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
@@ -212,7 +215,8 @@ async function save(id,field,val){
   if(error){setStatus("保存失敗");return;}
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
   if(field==="status"){const tr=$("tb").querySelector(`tr[data-id="${id}"]`);if(tr)tr.dataset.st=val;
-    const s=$("tb").querySelector(`tr[data-id="${id}"] select.st`);if(s)s.className="st "+STCLS[val];}
+    const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="status"]`);if(s)s.className="st "+STCLS[val];}
+  if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
 }
 async function del(id){
   await sb.from("bt_procurement").delete().eq("id",id);
@@ -259,8 +263,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","年式","走行","価格","カラー","展示場所","担当","ステータス","メモ","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.assignee,r.status,(r.memo||"").replace(/,/g,"、"),r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","年式","走行","価格","カラー","展示場所","担当","ステータス","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.assignee,r.status,r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
