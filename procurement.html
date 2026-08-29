@@ -31,7 +31,7 @@
   .btn.p{background:#2563eb;color:#fff;border-color:#2563eb}
   /* table */
   .tblwrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:820px}
+  table{width:100%;border-collapse:collapse;min-width:1000px}
   th{font-size:11px;color:#64748b;font-weight:700;text-align:left;padding:8px 8px;border-bottom:2px solid #e2e8f0;white-space:nowrap;position:sticky;top:0;background:#f8fafc;z-index:1}
   td{padding:6px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
   @keyframes flashrow{0%{background:#fde68a}60%{background:#fef3c7}100%{background:transparent}}
@@ -107,13 +107,14 @@
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:34px">No</th><th>車種</th><th class="yr">年式</th><th class="num">走行</th><th class="num">価格</th>
-        <th style="width:90px">担当</th><th style="width:96px">ステータス</th><th>メモ</th><th style="width:44px">車両</th><th style="width:24px"></th>
+        <th style="width:34px">No</th><th>車種</th><th class="yr">年式</th><th style="width:74px">走行</th><th style="width:82px">価格</th>
+        <th style="width:74px">カラー</th><th style="width:84px">展示場所</th>
+        <th style="width:90px">担当</th><th style="width:92px">ステータス</th><th>メモ</th><th style="width:44px">車両</th><th style="width:24px"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
   </div>
-  <div class="foot">走行=万km / 価格=万円 ・ https://www.buddica.jp 参照 ・ データはリアルタイム共有</div>
+  <div class="foot">価格＝本体価格・走行/価格/カラー/展示場所は buddica.jp 表記どおり自動取得 ・ データはリアルタイム共有</div>
 </div>
 <div id="st">接続中…</div>
 
@@ -176,14 +177,16 @@ function render(){
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car"><div style="display:flex;flex-direction:column;gap:2px;width:100%"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種"><input class="cell" data-f="maker" value="${esc(r.maker)}" style="font-size:11px;color:#64748b" placeholder="メーカー"></div></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
-      <td data-lb="走行"><input class="cell num" data-f="mileage" value="${esc(r.mileage)}" inputmode="decimal"></td>
-      <td data-lb="価格"><input class="cell num" data-f="price" value="${esc(r.price)}" inputmode="decimal"></td>
+      <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
+      <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}"></td>
+      <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
+      <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="担当"><input class="cell" data-f="assignee" value="${esc(r.assignee)}" list="whoList" placeholder="担当" style="width:82px"></td>
       <td data-lb="状態"><select class="st ${STCLS[r.status]}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="メモ"><input class="cell" data-f="memo" value="${esc(r.memo)}" placeholder="メモ"></td>
       <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
       <td class="delc"><span class="del" title="削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`).join("")||`<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -199,7 +202,7 @@ function render(){
       setStatus("取得中…"); const meta=await fetchMeta(r.url);
       if(meta.error){alert("取得失敗: "+meta.error);setStatus("取得失敗");return;}
       if(!meta.found){alert("このページから情報を取得できませんでした");return;}
-      const patch={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,updated_at:new Date().toISOString()};
+      const patch={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
       const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
       if(error){alert("保存失敗");return;}
       Object.assign(r,patch); render(); setStatus("取得OK "+meta.model+" "+meta.year);
@@ -232,7 +235,7 @@ $("add").addEventListener("click",async()=>{
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
-    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",status:"未確認",sort_order:no,assignee:$("who").value.trim()};
+    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"未確認",sort_order:no,assignee:$("who").value.trim()};
     const {data,error}=await sb.from("bt_procurement").insert(rec).select();
     if(error){fail++;no--;continue;}
     if(data&&data[0]){rows.push(data[0]);added++;}
@@ -247,22 +250,22 @@ $("add").addEventListener("click",async()=>{
 });
 // 既存全行をURLから一括再取得（車種/年式/走行/価格を埋める）
 $("fetchAll").addEventListener("click",async()=>{
-  const targets=rows.filter(r=>r.url&&(!r.model||!r.year||!r.mileage||!r.price));
+  const targets=rows.filter(r=>r.url&&(!r.model||!r.year||!r.mileage||!r.price||!r.color||!r.location));
   if(!targets.length){alert("URLありで未取得の行はありません（既に取得済み）");return;}
   if(!confirm(targets.length+"件をURLから取得して埋めますか？")) return;
   let ok=0;
   for(let i=0;i<targets.length;i++){
     const r=targets[i]; setStatus("取得中… "+(i+1)+"/"+targets.length);
     const meta=await fetchMeta(r.url); if(meta.error||!meta.found)continue;
-    const patch={model:r.model||meta.model||"",year:r.year||meta.year||"",mileage:r.mileage||meta.mileage||"",price:r.price||meta.price||"",updated_at:new Date().toISOString()};
+    const patch={model:r.model||meta.model||"",year:r.year||meta.year||"",mileage:r.mileage||meta.mileage||"",price:r.price||meta.price||"",color:r.color||meta.color||"",location:r.location||meta.location||"",updated_at:new Date().toISOString()};
     const {error}=await sb.from("bt_procurement").update(patch).eq("id",r.id);
     if(!error){Object.assign(r,patch);ok++;}
   }
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","メーカー","車種","年式","走行(万km)","価格(万円)","担当","ステータス","メモ","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.maker,r.model,r.year,r.mileage,r.price,r.assignee,r.status,(r.memo||"").replace(/,/g,"、"),r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","年式","走行","価格","カラー","展示場所","担当","ステータス","メモ","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.assignee,r.status,(r.memo||"").replace(/,/g,"、"),r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
