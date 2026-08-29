@@ -55,7 +55,11 @@
   .num{width:58px;text-align:right}
   .yr{width:54px}
   .foot{font-size:11px;color:#94a3b8;margin-top:8px;text-align:center}
-  #st{position:fixed;bottom:10px;right:10px;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
+  #st{position:fixed;bottom:12px;left:12px;right:auto;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
+  #reload{position:fixed;right:16px;bottom:16px;z-index:60;width:56px;height:56px;border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:24px;box-shadow:0 4px 12px rgba(37,99,235,.45);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #reload:active{transform:scale(.93)}
+  #reload.spin{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   @media(max-width:680px){
     .wrap{padding:8px}
     .card{flex-basis:calc(50% - 4px);padding:8px 10px}
@@ -112,6 +116,7 @@
   </div>
   <div class="foot">価格＝本体価格・走行/価格/カラー/展示場所は buddica.jp 表記どおり自動取得 ・ データはリアルタイム共有</div>
 </div>
+<button id="reload" title="最新に更新">🔄</button>
 <div id="st">接続中…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -140,11 +145,14 @@ async function fetchMeta(url){
 
 function setStatus(t){$("st").textContent=t;}
 async function load(){
+  const rb=$("reload"); if(rb)rb.classList.add("spin");
   const {data,error}=await sb.from("bt_procurement").select("*").order("sort_order",{ascending:true});
+  if(rb)rb.classList.remove("spin");
   if(error){setStatus("読込エラー");return;}
   rows=data||[]; render();
-  setStatus("接続OK ("+rows.length+"台)");
+  setStatus("更新OK ("+rows.length+"台) "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
 }
+$("reload").addEventListener("click",()=>load());
 function counts(){
   const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
   rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1;});
