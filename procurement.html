@@ -64,7 +64,8 @@
   .clsum{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px;align-items:center}
   .clsum .lbl{font-size:11px;font-weight:800;color:#64748b}
   .clsum .cc{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:800}
-  .clsum .cc b{font-size:14px;color:#166534}
+  .clsum .cc b{font-size:13px;color:#166534}
+  .clsum .cc .pk{color:#64748b;font-weight:800;font-size:12px}
   .clsum .cc.z{opacity:.5}
   .clsum .cc.z b{color:#94a3b8}
   .foot{font-size:11px;color:#94a3b8;margin-top:8px;text-align:center}
@@ -200,13 +201,14 @@ function renderDash(){
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`;
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
-// クラス別 確定数（仕入OKのみ）
+// クラス別 ピック数（そのクラスで拾った総数）と 確定数（仕入OKのみ）
 function renderClassSummary(){
-  const m={};CLASSES.slice(1).forEach(c=>m[c]=0);
-  rows.forEach(r=>{if(r.vclass&&r.status==="OK")m[r.vclass]=(m[r.vclass]||0)+1;});
-  const tot=Object.values(m).reduce((a,b)=>a+b,0);
-  $("clsum").innerHTML=`<span class="lbl">クラス別 確定（仕入OK）計${tot}台：</span>`+
-    CLASSES.slice(1).map(c=>`<span class="cc ${m[c]?"":"z"}">${c} <b>${m[c]}</b></span>`).join("");
+  const pk={},ok={};CLASSES.slice(1).forEach(c=>{pk[c]=0;ok[c]=0;});
+  rows.forEach(r=>{if(r.vclass){pk[r.vclass]=(pk[r.vclass]||0)+1;if(r.status==="OK")ok[r.vclass]=(ok[r.vclass]||0)+1;}});
+  const tPk=Object.values(pk).reduce((a,b)=>a+b,0), tOk=Object.values(ok).reduce((a,b)=>a+b,0);
+  const shown=CLASSES.slice(1).filter(c=>pk[c]>0);
+  $("clsum").innerHTML=`<span class="lbl">クラス別 ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b>：</span>`+
+    (shown.length?shown.map(c=>`<span class="cc"><span style="color:#0f172a">${c}</span> <span class="pk" title="ピック数">📌${pk[c]}</span> <b title="確定(仕入OK)">✓${ok[c]}</b></span>`).join(""):`<span class="cc z">クラス未設定</span>`);
 }
 function render(){
   renderDash();
