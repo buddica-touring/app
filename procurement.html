@@ -157,6 +157,7 @@ const INS=["未対応","対応中","完了"];
 const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const CLASSES=["","A","B","C","D","E","F","G","H","I","J"];
+const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set();
@@ -186,7 +187,7 @@ async function load(){
 $("reload").addEventListener("click",()=>load());
 function counts(){
   const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
-  rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1;});
+  rows.forEach(r=>{if(isSample(r))return;c[r.status]=(c[r.status]||0)+1;});
   return c;
 }
 function renderDash(){
@@ -206,7 +207,7 @@ function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}<
 // クラス別 ピック数（そのクラスで拾った総数）と 確定数（仕入OKのみ）
 function renderClassSummary(){
   const pk={},ok={};CLASSES.slice(1).forEach(c=>{pk[c]=0;ok[c]=0;});
-  rows.forEach(r=>{if(r.vclass){pk[r.vclass]=(pk[r.vclass]||0)+1;if(r.status==="OK")ok[r.vclass]=(ok[r.vclass]||0)+1;}});
+  rows.forEach(r=>{if(isSample(r))return;if(r.vclass){pk[r.vclass]=(pk[r.vclass]||0)+1;if(r.status==="OK")ok[r.vclass]=(ok[r.vclass]||0)+1;}});
   const tPk=Object.values(pk).reduce((a,b)=>a+b,0), tOk=Object.values(ok).reduce((a,b)=>a+b,0);
   const shown=CLASSES.slice(1).filter(c=>pk[c]>0);
   $("clsum").innerHTML=`<span class="lbl">クラス別 ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b>：</span>`+
