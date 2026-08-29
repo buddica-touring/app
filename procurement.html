@@ -97,7 +97,7 @@
       <thead><tr>
         <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
         <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
-        <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:92px">保険登録</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
+        <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:92px">保険登録</th><th style="min-width:180px">車両URL（貼付で自動取得）</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -109,8 +109,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
-const STATUSES=["確認中","対応中","NG","OK"];
-const STCLS={"確認中":"stC","対応中":"stX","NG":"stN","OK":"stO"};
+const STATUSES=["未対応","確認中","対応中","NG","OK"];
+const STCLS={"未対応":"stU","確認中":"stC","対応中":"stX","NG":"stN","OK":"stO"};
 const INS=["未対応","対応中","完了"];
 const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
@@ -138,21 +138,22 @@ async function load(){
   setStatus("接続OK ("+rows.length+"台)");
 }
 function counts(){
-  const c={確認中:0,対応中:0,NG:0,OK:0};
+  const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
   rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1;});
   return c;
 }
 function renderDash(){
   const c=counts();
-  const ok=c.OK||0, pend=(c.確認中||0)+(c.対応中||0), ng=c.NG||0;
+  const ok=c.OK||0, un=c.未対応||0, prog=(c.確認中||0)+(c.対応中||0), ng=c.NG||0;
+  const pool=un+prog;                               // まだOK/NGが決まっていない候補
   const pct=Math.min(100,Math.round(ok/goal*100));
   const remain=Math.max(0,goal-ok);                 // あと確保すべき数
-  const shortfall=Math.max(0,goal-ok-pend);         // OK+仕掛かりでも足りない＝追加ピックアップ必要
+  const shortfall=Math.max(0,goal-ok-pool);         // OK+候補でも足りない＝追加ピックアップ必要
   $("dash").innerHTML=
    `<div class="card"><div class="lb">✅ 確保（仕入OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>`+
-   `<div class="card"><div class="lb">⏳ 仕掛かり</div><div class="vv" style="color:#b45309">${pend}<small>台</small></div><small>確認中${c.確認中||0}・対応中${c.対応中||0}</small></div>`+
+   `<div class="card"><div class="lb">⏳ 候補（未決）</div><div class="vv" style="color:#b45309">${pool}<small>台</small></div><small>未対応${un}・確認中${c.確認中||0}・対応中${c.対応中||0}</small></div>`+
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
-   `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pend}台</small></div>`;
+   `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`;
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 function render(){
@@ -169,8 +170,11 @@ function render(){
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
-      <td data-lb="保険登録"><select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select></td>
-      <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
+      <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
+      <td data-lb="車両URL"><div style="display:flex;align-items:center;gap:5px;width:100%">
+        <input class="cell" data-f="url" value="${esc(r.url)}" placeholder="ここにURLを貼付→自動取得" style="min-width:0;flex:1;border:1px dashed ${r.url?"transparent":"#93c5fd"}">
+        ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
+      </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>`).join("")||`<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
@@ -202,9 +206,18 @@ async function save(id,field,val){
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
   if(error){setStatus("保存失敗");return;}
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
-  if(field==="status"){render();}   // 仕入OKで整備ステータスの表示/非表示が変わるので再描画
+  if(field==="status"){render();}   // 仕入OKで整備/保険の表示が変わるので再描画
   else if(field==="maint_status"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="maint_status"]`);if(s)s.className="st "+STCLS[val];}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
+  // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
+  if(field==="url"&&val.trim()&&/buddica\.jp\/usedcar/.test(val)){
+    setStatus("URLから取得中…");
+    const meta=await fetchMeta(val.trim());
+    if(meta&&meta.found){
+      const p={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
+      await sb.from("bt_procurement").update(p).eq("id",id); Object.assign(r,p); render(); setStatus("取得OK "+(meta.model||""));
+    } else { render(); setStatus("URL保存(情報は取得できず)"); }
+  }
 }
 async function del(id){
   await sb.from("bt_procurement").delete().eq("id",id);
@@ -222,7 +235,7 @@ $("add").addEventListener("click",async()=>{
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
-    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"確認中",maint_status:"確認中",insurance:"未対応",sort_order:no};
+    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"未対応",maint_status:"未対応",insurance:"未対応",sort_order:no};
     const {data,error}=await sb.from("bt_procurement").insert(rec).select();
     if(error){fail++;no--;continue;}
     if(data&&data[0]){rows.push(data[0]);added++;}
