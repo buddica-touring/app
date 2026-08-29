@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>🚗 仕入進捗管理 | TOURISM 在庫入替</title>
+<title>🚗 レンタ車両/進捗管理 | TOURISM 在庫入替</title>
 <meta name="robots" content="noindex">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -39,7 +39,7 @@
   tr[data-st="OK"]{background:#f0fdf4}
   tr[data-st="NG"]{background:#fef2f2;opacity:.62}
   tr[data-st="確認中"]{background:#fffbeb}
-  tr[data-st="その他"]{background:#eff6ff}
+  tr[data-st="対応中"]{background:#eff6ff}
   .car{font-weight:800}
   .car small{color:#64748b;font-weight:600}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
@@ -80,19 +80,12 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🚗 仕入進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
-  <div class="sub">複数担当で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「OK」で確保。NG＝ノーカウント（除外）。</div>
+  <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
+  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「OK」で確保。NG＝ノーカウント（除外）。</div>
 
   <div class="dash" id="dash"></div>
 
   <div class="tb">
-    <div class="who">
-      <span style="font-size:11px;color:#64748b;font-weight:700">担当</span>
-      <input id="who" list="whoList" placeholder="名前" >
-      <datalist id="whoList"></datalist>
-    </div>
-  </div>
-  <div class="tb" style="margin-top:-2px">
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
     <button class="btn" id="fetchAll">🔄 URLから一括取得</button>
     <button class="btn" id="csv">CSV出力</button>
@@ -104,7 +97,7 @@
       <thead><tr>
         <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
         <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
-        <th style="width:88px">担当</th><th style="width:96px">ステータス</th><th style="width:92px">保険登録</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
+        <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:92px">保険登録</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -116,22 +109,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
-const STATUSES=["未確認","確認中","OK","NG","その他"];
-const STCLS={"未確認":"stU","確認中":"stC","OK":"stO","NG":"stN","その他":"stX"};
+const STATUSES=["確認中","対応中","NG","OK"];
+const STCLS={"確認中":"stC","対応中":"stX","NG":"stN","OK":"stO"};
 const INS=["未対応","対応中","完了"];
 const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30);
-const who=localStorage.getItem("proc_who")||"";
-document.getElementById("who").value=who;
-document.getElementById("who").addEventListener("change",e=>localStorage.setItem("proc_who",e.target.value.trim()));
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 // 同一車両URL(zaiko_code)重複チェック＝処理済み検知
 function urlKey(u){const s=String(u||"").trim();if(!s)return"";const m=s.match(/zaiko_code=([0-9]+)/);return m?m[1]:s;}
 function dupOf(u,exceptId){const k=urlKey(u);if(!k)return null;return rows.find(r=>r.id!==exceptId&&urlKey(r.url)===k)||null;}
-function dupMsg(d){return "🔁 この車両はすでにリストにあります（重複）\n\n・No."+(d.no||"?")+"　"+(d.model||"（車種未取得）")+(d.year?" "+d.year:"")+"\n・担当："+(d.assignee||"未設定")+"\n・状態："+d.status+"\n\n→ 同じ車両なので追加しませんでした。\n　その行を黄色く光らせて表示しています。";}
+function dupMsg(d){return "🔁 この車両はすでにリストにあります（重複）\n\n・No."+(d.no||"?")+"　"+(d.model||"（車種未取得）")+(d.year?" "+d.year:"")+"\n・仕入ステータス："+d.status+"\n\n→ 同じ車両なので追加しませんでした。\n　その行を黄色く光らせて表示しています。";}
 function flashRow(id){ if(filter!=="all"){document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.remove("on"));document.querySelector('.chip[data-f="all"]').classList.add("on");filter="all";render();}
   setTimeout(()=>{const tr=document.querySelector('#tb tr[data-id="'+id+'"]');if(tr){tr.scrollIntoView({behavior:"smooth",block:"center"});tr.classList.remove("flash");void tr.offsetWidth;tr.classList.add("flash");}},60); }
 // URLからページ情報(車種/年式/走行/価格)を取得
@@ -148,27 +138,25 @@ async function load(){
   setStatus("接続OK ("+rows.length+"台)");
 }
 function counts(){
-  const c={未確認:0,確認中:0,OK:0,NG:0,その他:0};
+  const c={確認中:0,対応中:0,NG:0,OK:0};
   rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1;});
   return c;
 }
 function renderDash(){
   const c=counts();
-  const ok=c.OK||0, pend=(c.未確認||0)+(c.確認中||0), ng=c.NG||0, other=c.その他||0;
+  const ok=c.OK||0, pend=(c.確認中||0)+(c.対応中||0), ng=c.NG||0;
   const pct=Math.min(100,Math.round(ok/goal*100));
   const remain=Math.max(0,goal-ok);                 // あと確保すべき数
-  const shortfall=Math.max(0,goal-ok-pend);         // OK+確認待ちでも足りない＝追加ピックアップ必要
+  const shortfall=Math.max(0,goal-ok-pend);         // OK+仕掛かりでも足りない＝追加ピックアップ必要
   $("dash").innerHTML=
-   `<div class="card"><div class="lb">✅ 確保（OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>`+
-   `<div class="card"><div class="lb">⏳ 確認待ち</div><div class="vv" style="color:#b45309">${pend}<small>台</small></div><small>未確認${c.未確認||0}・確認中${c.確認中||0}</small></div>`+
-   `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div>${other?`<small>その他 ${other}台</small>`:""}</div>`+
+   `<div class="card"><div class="lb">✅ 確保（仕入OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>`+
+   `<div class="card"><div class="lb">⏳ 仕掛かり</div><div class="vv" style="color:#b45309">${pend}<small>台</small></div><small>確認中${c.確認中||0}・対応中${c.対応中||0}</small></div>`+
+   `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pend}台</small></div>`;
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 function render(){
   renderDash();
-  const seen=new Set(rows.map(r=>r.assignee).filter(Boolean));
-  $("whoList").innerHTML=[...seen].map(n=>`<option value="${esc(n)}">`).join("");
   const list=rows.filter(r=>filter==="all"||r.status===filter);
   $("tb").innerHTML=list.map(r=>`
     <tr data-st="${esc(r.status)}" data-id="${r.id}">
@@ -179,8 +167,8 @@ function render(){
       <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}"></td>
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
-      <td data-lb="担当"><input class="cell" data-f="assignee" value="${esc(r.assignee)}" list="whoList" placeholder="担当" style="width:82px"></td>
-      <td data-lb="状態"><select class="st ${STCLS[r.status]}" data-f="status">${opt(r.status)}</select></td>
+      <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
+      <td data-lb="整備"><select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select></td>
       <td data-lb="保険登録"><select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select></td>
       <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
@@ -216,6 +204,7 @@ async function save(id,field,val){
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
   if(field==="status"){const tr=$("tb").querySelector(`tr[data-id="${id}"]`);if(tr)tr.dataset.st=val;
     const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="status"]`);if(s)s.className="st "+STCLS[val];}
+  if(field==="maint_status"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="maint_status"]`);if(s)s.className="st "+STCLS[val];}
   if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
 }
 async function del(id){
@@ -234,14 +223,14 @@ $("add").addEventListener("click",async()=>{
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
-    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"未確認",sort_order:no,assignee:$("who").value.trim()};
+    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"確認中",maint_status:"確認中",insurance:"未対応",sort_order:no};
     const {data,error}=await sb.from("bt_procurement").insert(rec).select();
     if(error){fail++;no--;continue;}
     if(data&&data[0]){rows.push(data[0]);added++;}
   }
   render();
   let msg="✅ "+added+"件を追加しました";
-  if(dupRows.length){msg+="\n\n🔁 すでにリストにある車両（重複）"+dupRows.length+"件は追加しませんでした：\n"+dupRows.map(d=>"・No."+(d.no||"?")+" "+(d.model||"車種未取得")+"（担当"+(d.assignee||"未")+"・"+d.status+"）").join("\n");}
+  if(dupRows.length){msg+="\n\n🔁 すでにリストにある車両（重複）"+dupRows.length+"件は追加しませんでした：\n"+dupRows.map(d=>"・No."+(d.no||"?")+" "+(d.model||"車種未取得")+"（仕入"+d.status+"）").join("\n");}
   if(fail)msg+="\n\n❌ 取得/登録に失敗 "+fail+"件";
   alert(msg);
   if(dupRows.length)flashRow(dupRows[0].id);
@@ -263,8 +252,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","年式","走行","価格","カラー","展示場所","担当","ステータス","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.assignee,r.status,r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"確認中",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
