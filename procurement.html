@@ -87,6 +87,7 @@
 
   <div class="tb">
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
+    <button class="btn" id="patrol" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">🚨 パトロール（SOLD OUT検知→NG）</button>
     <button class="btn" id="fetchAll">🔄 URLから一括取得</button>
     <button class="btn" id="csv">CSV出力</button>
     <span id="goal" class="btn">🎯 目標台数: <b id="goalN">30</b> <span style="color:#94a3b8">（クリックで変更）</span></span>
@@ -165,7 +166,7 @@ function render(){
       <td data-lb="車種" class="car"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
       <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
-      <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}"></td>
+      <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}" style="${/SOLD/i.test(r.price||"")?"color:#b91c1c;font-weight:800":""}"></td>
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
@@ -193,9 +194,10 @@ function render(){
       if(meta.error){alert("取得失敗: "+meta.error);setStatus("取得失敗");return;}
       if(!meta.found){alert("このページから情報を取得できませんでした");return;}
       const patch={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
+      if(meta.sold)patch.status="NG";
       const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
       if(error){alert("保存失敗");return;}
-      Object.assign(r,patch); render(); setStatus("取得OK "+meta.model+" "+meta.year);
+      Object.assign(r,patch); render(); setStatus(meta.sold?"SOLD OUT→NG "+meta.model:"取得OK "+meta.model+" "+meta.year);
     });
   });
 }
@@ -215,7 +217,8 @@ async function save(id,field,val){
     const meta=await fetchMeta(val.trim());
     if(meta&&meta.found){
       const p={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
-      await sb.from("bt_procurement").update(p).eq("id",id); Object.assign(r,p); render(); setStatus("取得OK "+(meta.model||""));
+      if(meta.sold)p.status="NG";
+      await sb.from("bt_procurement").update(p).eq("id",id); Object.assign(r,p); render(); setStatus(meta.sold?"SOLD OUT→NG":"取得OK "+(meta.model||""));
     } else { render(); setStatus("URL保存(情報は取得できず)"); }
   }
 }
@@ -235,7 +238,7 @@ $("add").addEventListener("click",async()=>{
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
-    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:"未対応",maint_status:"未対応",insurance:"未対応",sort_order:no};
+    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:(meta.sold?"NG":"未対応"),maint_status:"未対応",insurance:"未対応",sort_order:no};
     const {data,error}=await sb.from("bt_procurement").insert(rec).select();
     if(error){fail++;no--;continue;}
     if(data&&data[0]){rows.push(data[0]);added++;}
@@ -248,6 +251,27 @@ $("add").addEventListener("click",async()=>{
   if(dupRows.length)flashRow(dupRows[0].id);
   setStatus("接続OK ("+rows.length+"台)");
 });
+// 🚨 パトロール＝全URLを再チェックし、SOLD OUTになっていたら仕入ステータスをNGに（価格も更新）
+$("patrol").addEventListener("click",async()=>{
+  const targets=rows.filter(r=>r.url&&/buddica\.jp\/usedcar/.test(r.url));
+  if(!targets.length){alert("URLありの車両がありません");return;}
+  if(!confirm("🚨 パトロール開始\n\n"+targets.length+"台のURLを再チェックし、SOLD OUTになっていたら仕入ステータスを自動でNGにします。\n（数秒かかります）")) return;
+  let sold=0,upd=0,ng=[];
+  for(let i=0;i<targets.length;i++){
+    const r=targets[i]; setStatus("🚨 パトロール中… "+(i+1)+"/"+targets.length+" "+(r.model||""));
+    const meta=await fetchMeta(r.url); if(!meta||meta.error)continue;
+    const patch={updated_at:new Date().toISOString()};
+    if(meta.price&&meta.price!==r.price)patch.price=meta.price;
+    if(meta.sold){ if(r.status!=="NG"){patch.status="NG";ng.push(r);} sold++; }
+    if(Object.keys(patch).length>1){ await sb.from("bt_procurement").update(patch).eq("id",r.id); Object.assign(r,patch); upd++; }
+  }
+  render();
+  let msg="🚨 パトロール完了（"+targets.length+"台チェック）\n\n・SOLD OUT検知："+sold+"台";
+  if(ng.length)msg+="\n・仕入NGに変更："+ng.length+"台\n"+ng.map(r=>"　#"+r.no+" "+(r.model||"")).join("\n"); else if(sold) msg+="（既にNG）";
+  if(!sold)msg+="\n・在庫あり＝全台まだ買えます 👍";
+  alert(msg);
+  setStatus("接続OK ("+rows.length+"台)");
+});
 // 既存全行をURLから一括再取得（車種/年式/走行/価格を埋める）
 $("fetchAll").addEventListener("click",async()=>{
   const targets=rows.filter(r=>r.url&&(!r.model||!r.year||!r.mileage||!r.price||!r.color||!r.location));
@@ -258,6 +282,7 @@ $("fetchAll").addEventListener("click",async()=>{
     const r=targets[i]; setStatus("取得中… "+(i+1)+"/"+targets.length);
     const meta=await fetchMeta(r.url); if(meta.error||!meta.found)continue;
     const patch={model:r.model||meta.model||"",year:r.year||meta.year||"",mileage:r.mileage||meta.mileage||"",price:r.price||meta.price||"",color:r.color||meta.color||"",location:r.location||meta.location||"",updated_at:new Date().toISOString()};
+    if(meta.sold)patch.status="NG";
     const {error}=await sb.from("bt_procurement").update(patch).eq("id",r.id);
     if(!error){Object.assign(r,patch);ok++;}
   }
