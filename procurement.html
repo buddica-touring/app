@@ -145,6 +145,7 @@
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
     <button class="btn" id="patrol" style="background:#fef2f2;border-color:#fca5a5;color:#b91c1c">🚨 パトロール（SOLD OUT検知→NG）</button>
     <button class="btn" id="fetchAll">🔄 URLから一括取得</button>
+    <button class="btn" id="okurls" style="background:#f0fdf4;border-color:#86efac;color:#166534">🔗 仕入OKのURL抽出</button>
     <button class="btn" id="csv">CSV出力</button>
     <span id="goal" class="btn">🎯 目標台数: <b id="goalN">30</b> <span style="color:#94a3b8">（クリックで変更）</span></span>
   </div>
@@ -401,6 +402,13 @@ $("fetchAll").addEventListener("click",async()=>{
     if(!error){Object.assign(r,patch);ok++;}
   }
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
+});
+$("okurls").addEventListener("click",()=>{
+  const oks=rows.filter(r=>!isSample(r)&&r.status==="OK"&&r.url);
+  if(!oks.length){alert("仕入OKのURLはまだありません");return;}
+  const urls=oks.map(r=>r.url);
+  copyText(urls.join("\n"));   // 改行区切りでクリップボードへ
+  alert("📋 仕入OKの車両URL "+oks.length+"件をコピーしました\n\n"+oks.map(r=>"・"+(r.model||"")+(r.vclass?"("+r.vclass+")":"")+"\n　"+r.url).join("\n\n"));
 });
 $("csv").addEventListener("click",()=>{
   const head=["No","車種","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","現場希望","仕入ステータス","整備ステータス","名義","保険登録","URL"];
