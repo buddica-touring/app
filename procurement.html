@@ -58,6 +58,9 @@
   .cp:hover{opacity:1}
   select.st{border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:13px;font-weight:800}
   .stU{color:#64748b}.stC{color:#b45309}.stO{color:#166534}.stN{color:#b91c1c}.stX{color:#1d4ed8}
+  select.meU{background:#f1f5f9;color:#64748b}
+  select.meBD{background:#f97316;color:#fff;border-color:#ea580c!important}
+  select.meHDM{background:#2563eb;color:#fff;border-color:#1d4ed8!important}
   a.lnk{color:#2563eb;font-weight:700;text-decoration:none;font-size:12px}
   .refetch{cursor:pointer;font-size:13px;margin-left:2px;opacity:.7}
   .refetch:hover{opacity:1}
@@ -175,7 +178,7 @@ const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const CLASSES=["","A","B","C","D","E","F","G","H","I","J"];
 const MEIGI=["未定","BD","HDM"];   // 名義プルダウン（BD=BUDDICA / HDM=HANDYMAN）
-const MEIGICLS={"未定":"stU","BD":"stC","HDM":"stX"};   // BD=オレンジ / HDM=青
+const MEIGICLS={"未定":"meU","BD":"meBD","HDM":"meHDM"};   // ハイライト背景: BD=オレンジ / HDM=青
 function meigiOpt(sel){return MEIGI.map(m=>`<option value="${m}" ${m===(sel||"未定")?"selected":""}>${m}</option>`).join("");}
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
@@ -232,6 +235,8 @@ function renderDash(){
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
    `<div class="card"><div class="lb">⏳ 候補（未決）</div><div class="vv" style="color:#b45309">${pool}<small>台</small></div><small>未対応${un}・確認中${c.確認中||0}・対応中${c.対応中||0}<br>ゴール−候補 ＝ <b style="color:#b45309">あと${Math.max(0,goal-pool)}台</b></small></div>`+
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
+   (()=>{let fr=0,frOk=0;rows.forEach(r=>{if(isSample(r))return;if(r.field_req){fr++;if(r.status==="OK")frOk++;}});
+     return `<div class="card"><div class="lb">🏭 現場希望</div><div class="vv" style="color:#2563eb">${fr}<small>台</small></div><small>うち仕入OK ${frOk}台</small></div>`;})()+
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`+
    (()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
      return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／確定計${bud+hdm}台</small></div>`;})();
@@ -268,7 +273,7 @@ function render(){
       <td data-lb="現場希望" style="text-align:center"><input type="checkbox" data-f="field_req" ${r.field_req?"checked":""} title="現場希望" style="width:19px;height:19px;cursor:pointer;accent-color:#2563eb"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
-      <td data-lb="名義"><select class="st ${MEIGICLS[r.pickup]||"stU"}" data-f="pickup">${meigiOpt(r.pickup)}</select></td>
+      <td data-lb="名義"><select class="st ${MEIGICLS[r.pickup]||"meU"}" data-f="pickup">${meigiOpt(r.pickup)}</select></td>
       <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:7px;width:100%">
         ${r.url
@@ -324,7 +329,7 @@ async function save(id,field,val){
   if(field==="status"){render();}         // 仕入OKで整備/現場/保険・クラス別確定数が変わる
   else if(field==="maint_status"){render();} // 整備OKで現場引き取りの表示が変わる
   else if(field==="vclass"){render();}      // クラス変更で並び替え・集計が変わる
-  else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+(MEIGICLS[val]||"stU");}
+  else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+(MEIGICLS[val]||"meU");}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
   // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
   if(field==="url"&&val.trim()&&/buddica\.jp\/usedcar/.test(val)){
