@@ -17880,7 +17880,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
                       {t.assignee?<span style={{fontSize:isMob?10:9,background:"#ede9fe",color:"#6d28d9",fontWeight:700,padding:"1px 6px",borderRadius:4}}>👤{t.assignee}</span>:(t.type!=="来店"&&t.type!=="返却"&&<span style={{fontSize:isMob?9:8,color:"#f59e0b",fontWeight:700}}>担当未定</span>)}
                       {t.ota==="J"&&(t.type==="DEL"||t.type==="PU")&&(()=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;const isPaid=njp&&njp.status==="paid";return <span style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 5px",borderRadius:3,background:isPaid?"#dcfce7":"#fef2f2",color:isPaid?"#059669":"#dc2626",border:"1px solid "+(isPaid?"#86efac":"#fecaca")}}>{isPaid?"💳済":"💳未"}</span>;})()}
-                      {t.reservationId&&["DEL","来店","PU","PUB","PUB来店"].includes(t.type)&&(()=>{const st=gStat(t.reservationId);if(!st.has)return null;if(st.terms&&!st.dmg)return null;const _bg=st.skip?"#dcfce7":st.terms?"#fef9c3":"#f1f5f9",_cc=st.skip?"#15803d":st.terms?"#854d0e":"#94a3b8",_bd=st.skip?"#86efac":st.terms?"#fde68a":"#e2e8f0";const _lbl=st.both?"✅傷+約款済 受付スキップ可":st.dmg?"✅傷サイン済 受付スキップ可":st.terms?"📄約款のみ(傷未)":"🖊未サイン";return <span title="ご利用ガイドのサイン状況（傷サイン／約款サイン）" style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 6px",borderRadius:3,background:_bg,color:_cc,border:"1px solid "+_bd}}>{_lbl}</span>;})()}
+                      {t.reservationId&&["DEL","来店","PU","PUB","PUB来店","貸出"].includes(t.type)&&(()=>{const st=gStat(t.reservationId);if(!st.has)return null;if(st.terms&&!st.dmg)return null;const _bg=st.skip?"#dcfce7":st.terms?"#fef9c3":"#f1f5f9",_cc=st.skip?"#15803d":st.terms?"#854d0e":"#94a3b8",_bd=st.skip?"#86efac":st.terms?"#fde68a":"#e2e8f0";const _lbl=st.both?"✅傷+約款済 受付スキップ可":st.dmg?"✅傷サイン済 受付スキップ可":st.terms?"📄約款のみ(傷未)":"🖊未サイン";return <span title="ご利用ガイドのサイン状況（傷サイン／約款サイン）" style={{fontSize:isMob?9:8,fontWeight:800,padding:"1px 6px",borderRadius:3,background:_bg,color:_cc,border:"1px solid "+_bd}}>{_lbl}</span>;})()}
                     </div>
                   </div>;
               })}
@@ -18924,7 +18924,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const seen={};const rows=[];
         sortedTasks.forEach(t=>{
           if(!t.reservationId||seen[t.reservationId])return;
-          if(!["DEL","来店","PU","PUB","PUB来店"].includes(t.type))return;
+          if(!["DEL","来店","PU","PUB","PUB来店","貸出"].includes(t.type))return;
           seen[t.reservationId]=1;
           const r=(reservations||[]).find(x=>x.id===t.reservationId)||{};
           rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||""});
@@ -21573,7 +21573,7 @@ function LicenseBadge({resvNo,size,token,ttype}){
   const [n,setN]=React.useState(0);
   React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
   // 🪪免許証は貸出系タスク(PU/PUB/DEL/来店)のみ表示。BD/COL/洗車等には出さない
-  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
+  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="貸出"))return null;
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚）",style:okst}, "🪪免許OK");}
@@ -21584,7 +21584,7 @@ function JalanPayBadge({resvNo,ota,size,ttype}){
   const [st,setSt]=React.useState(null);
   React.useEffect(()=>{ const update=()=>{ const m=window._btPayMap||{}; setSt(resvNo&&m[resvNo]?m[resvNo]:null); }; update(); window.addEventListener("btPayUpdate",update); return ()=>window.removeEventListener("btPayUpdate",update); },[resvNo]);
   // 💳決済は貸出系タスク(PU/PUB/DEL/来店)＋BDのみ表示。COL/洗車等には出さない
-  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="BD"))return null;
+  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="BD"||ttype==="貸出"))return null;
   if(!st)return null;                            // 決済リンク未発行＝表示しない（発行済の予約のみ表示）
   const s={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   if(st.paid)return React.createElement("span",{title:"事前決済 入金済み",style:{...s,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"}},"💳入金済");
@@ -21597,9 +21597,9 @@ function SignBadge({resvNo,kind,size,token,ttype}){
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   // 🔍傷チェックは出発(貸出)系タスクのみ表示（洗車・返却等は対象外）
-  if(kind==="damage"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
+  if(kind==="damage"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="貸出"))return null;
   // 📝約款は貸出系タスク(PU/PUB/DEL/来店)のみ表示。BD/COL/洗車等には出さない
-  if(kind==="terms"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
+  if(kind==="terms"&&!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="貸出"))return null;
   if(ok){const label=kind==="terms"?"📝約款OK":"🔍傷OK";const okst={...st,background:"#dcfce7",color:"#15803d",border:"1px solid #86efac"};const ti=(kind==="terms"?"貸渡約款に同意（署名）済み":"傷確認 承認済み")+"・クリックでガイドを開く";return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:ti,style:{...okst,textDecoration:"none",cursor:"pointer"}}, label):React.createElement("span",{title:ti,style:okst}, label);}
   if(kind==="damage"){ if(!token)return null; return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"傷チェック 未確認 → クリックでガイドを開く",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🔍傷未確認"); }
   if(kind!=="terms"||!token)return null;
@@ -21609,7 +21609,7 @@ function SignBadge({resvNo,kind,size,token,ttype}){
 function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   if(pickup)return null;
   if(!token)return null;
-  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"))return null;
+  if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="貸出"))return null;
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
@@ -23501,7 +23501,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.369-BT";
+const APP_VERSION="v1.0.370-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
