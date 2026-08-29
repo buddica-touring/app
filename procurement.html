@@ -67,13 +67,14 @@
     tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px;padding:8px 10px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.05)}
     td{border:none;padding:4px 0;display:flex;align-items:center;gap:8px}
     td:before{content:attr(data-lb);font-size:11px;color:#94a3b8;font-weight:800;min-width:48px;flex-shrink:0}
-    td.noNo{position:absolute;top:6px;right:10px;padding:0;font-size:16px}
+    td.noNo{position:absolute;top:8px;right:12px;padding:0;font-size:15px;color:#94a3b8;font-weight:800}
     td.noNo:before{content:""}
-    td.delc{position:absolute;top:6px;right:44px;padding:0}
-    td.delc:before{content:""}
+    td.delc{justify-content:flex-end}
+    td.delc .del{font-size:20px}
     .cell{border:1px solid #e2e8f0;background:#fff;padding:6px 8px}
     select.st{width:100%}
-    .cell.num,.cell.yr{width:100%}
+    .cell{width:100%}
+    .car{padding-right:40px}
   }
 </style>
 </head>
@@ -107,9 +108,9 @@
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:34px">No</th><th>車種</th><th class="yr">年式</th><th style="width:74px">走行</th><th style="width:82px">価格</th>
-        <th style="width:74px">カラー</th><th style="width:84px">展示場所</th>
-        <th style="width:90px">担当</th><th style="width:92px">ステータス</th><th>メモ</th><th style="width:44px">車両</th><th style="width:24px"></th>
+        <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
+        <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
+        <th style="width:88px">担当</th><th style="width:96px">ステータス</th><th style="min-width:80px">メモ</th><th style="width:48px">車両</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -175,7 +176,7 @@ function render(){
   $("tb").innerHTML=list.map(r=>`
     <tr data-st="${esc(r.status)}" data-id="${r.id}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car"><div style="display:flex;flex-direction:column;gap:2px;width:100%"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種"><input class="cell" data-f="maker" value="${esc(r.maker)}" style="font-size:11px;color:#64748b" placeholder="メーカー"></div></td>
+      <td data-lb="車種" class="car"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
       <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
       <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}"></td>
@@ -185,7 +186,7 @@ function render(){
       <td data-lb="状態"><select class="st ${STCLS[r.status]}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="メモ"><input class="cell" data-f="memo" value="${esc(r.memo)}" placeholder="メモ"></td>
       <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a><span class="refetch" title="URLから車種/年式/走行/価格を取得">🔄</span>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
-      <td class="delc"><span class="del" title="削除">🗑</span></td>
+      <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>`).join("")||`<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
