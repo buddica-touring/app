@@ -49,6 +49,7 @@
   a.lnk{color:#2563eb;font-weight:700;text-decoration:none;font-size:12px}
   .refetch{cursor:pointer;font-size:13px;margin-left:2px;opacity:.7}
   .refetch:hover{opacity:1}
+  .mtoggle{display:none}
   .del{color:#cbd5e1;cursor:pointer;font-size:15px}
   .del:hover{color:#dc2626}
   .num{width:58px;text-align:right}
@@ -74,7 +75,13 @@
     .cell{border:1px solid #e2e8f0;background:#fff;padding:6px 8px}
     select.st{width:100%}
     .cell{width:100%}
-    .car{padding-right:40px}
+    .car{padding-right:36px}
+    /* 折りたたみ：既定は車種名+URLだけ。▼タップで詳細を展開 */
+    .mtoggle{display:inline-block;margin-left:auto;color:#94a3b8;font-size:14px;padding:6px 6px 6px 10px;flex-shrink:0;transition:transform .15s;cursor:pointer}
+    tr.open .mtoggle{transform:rotate(180deg)}
+    tr:not(.open) td:not(.keep):not(.noNo){display:none}
+    tr:not(.open){padding-bottom:10px}
+    td[data-lb="車両URL"]{padding-top:2px}
   }
 </style>
 </head>
@@ -116,7 +123,7 @@ const INS=["未対応","対応中","完了"];
 const INSCLS={"未対応":"stN","対応中":"stC","完了":"stO"};
 function insOpt(sel){return INS.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
-let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30);
+let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set();
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 // 同一車両URL(zaiko_code)重複チェック＝処理済み検知
@@ -161,9 +168,9 @@ function render(){
   renderDash();
   const list=rows.filter(r=>filter==="all"||r.status===filter);
   $("tb").innerHTML=list.map(r=>`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}">
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"></td>
+      <td data-lb="車種" class="car keep"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"><span class="mtoggle" title="詳細を開閉">▼</span></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
       <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
       <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}" style="${/SOLD/i.test(r.price||"")?"color:#b91c1c;font-weight:800":""}"></td>
@@ -172,7 +179,7 @@ function render(){
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
-      <td data-lb="車両URL"><div style="display:flex;align-items:center;gap:5px;width:100%">
+      <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:5px;width:100%">
         <input class="cell" data-f="url" value="${esc(r.url)}" placeholder="ここにURLを貼付→自動取得" style="min-width:0;flex:1;border:1px dashed ${r.url?"transparent":"#93c5fd"}">
         ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
       </div></td>
@@ -186,6 +193,9 @@ function render(){
   });
   $("tb").querySelectorAll(".del").forEach(el=>{
     el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
+  });
+  $("tb").querySelectorAll(".mtoggle").forEach(el=>{
+    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");});
   });
   $("tb").querySelectorAll(".refetch").forEach(el=>{
     el.addEventListener("click",async()=>{
