@@ -145,7 +145,7 @@
     <table>
       <thead><tr>
         <th style="width:34px">No</th><th style="min-width:110px">車種</th><th style="width:60px">クラス</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
-        <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
+        <th style="width:78px">カラー</th><th style="width:88px">展示場所</th><th style="width:104px">お問合せコード</th>
         <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:96px">現場引き取り</th><th style="width:92px">保険登録</th><th style="min-width:180px">車両URL（貼付で自動取得）</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
@@ -239,6 +239,7 @@ function render(){
       <td data-lb="価格">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<input class="cell" data-f="price" value="${esc(r.price)}">`}</td>
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
+      <td data-lb="問合せ"><input class="cell" data-f="inquiry" value="${esc(r.inquiry)}" style="font-family:monospace;font-size:12px;letter-spacing:.3px" placeholder="—"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="現場引取">${(r.status==="OK"&&r.maint_status==="OK")?`<select class="st ${STCLS[r.pickup]||"stU"}" data-f="pickup">${opt(r.pickup)}</select>`:`<span style="color:#cbd5e1;font-size:11px">整備OK後</span>`}</td>
@@ -248,7 +249,7 @@ function render(){
         ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="14" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`).join("")||`<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -267,7 +268,7 @@ function render(){
       setStatus("取得中…"); const meta=await fetchMeta(r.url);
       if(meta.error){alert("取得失敗: "+meta.error);setStatus("取得失敗");return;}
       if(!meta.found){alert("このページから情報を取得できませんでした");return;}
-      const patch={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
+      const patch={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,inquiry:meta.inquiry||r.inquiry,updated_at:new Date().toISOString()};
       if(meta.sold)patch.status="NG";
       const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
       if(error){alert("保存失敗");return;}
@@ -292,7 +293,7 @@ async function save(id,field,val){
     setStatus("URLから取得中…");
     const meta=await fetchMeta(val.trim());
     if(meta&&meta.found){
-      const p={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,updated_at:new Date().toISOString()};
+      const p={model:meta.model||r.model,year:meta.year||r.year,mileage:meta.mileage||r.mileage,price:meta.price||r.price,color:meta.color||r.color,location:meta.location||r.location,inquiry:meta.inquiry||r.inquiry,updated_at:new Date().toISOString()};
       if(meta.sold)p.status="NG";
       await sb.from("bt_procurement").update(p).eq("id",id); Object.assign(r,p); render(); setStatus(meta.sold?"SOLD OUT→NG":"取得OK "+(meta.model||""));
     } else { render(); setStatus("URL保存(情報は取得できず)"); }
@@ -314,7 +315,7 @@ $("add").addEventListener("click",async()=>{
     setStatus("URLから取得中… "+(i+1)+"/"+urls.length);
     const meta=await fetchMeta(url);
     no++;
-    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",status:(meta.sold?"NG":"未対応"),maint_status:"未対応",insurance:"未対応",sort_order:no};
+    const rec={no,url,model:meta.model||"",year:meta.year||"",mileage:meta.mileage||"",price:meta.price||"",color:meta.color||"",location:meta.location||"",inquiry:meta.inquiry||"",status:(meta.sold?"NG":"未対応"),maint_status:"未対応",insurance:"未対応",sort_order:no};
     const {data,error}=await sb.from("bt_procurement").insert(rec).select();
     if(error){fail++;no--;continue;}
     if(data&&data[0]){rows.push(data[0]);added++;}
@@ -357,7 +358,7 @@ $("fetchAll").addEventListener("click",async()=>{
   for(let i=0;i<targets.length;i++){
     const r=targets[i]; setStatus("取得中… "+(i+1)+"/"+targets.length);
     const meta=await fetchMeta(r.url); if(meta.error||!meta.found)continue;
-    const patch={model:r.model||meta.model||"",year:r.year||meta.year||"",mileage:r.mileage||meta.mileage||"",price:r.price||meta.price||"",color:r.color||meta.color||"",location:r.location||meta.location||"",updated_at:new Date().toISOString()};
+    const patch={model:r.model||meta.model||"",year:r.year||meta.year||"",mileage:r.mileage||meta.mileage||"",price:r.price||meta.price||"",color:r.color||meta.color||"",location:r.location||meta.location||"",inquiry:r.inquiry||meta.inquiry||"",updated_at:new Date().toISOString()};
     if(meta.sold)patch.status="NG";
     const {error}=await sb.from("bt_procurement").update(patch).eq("id",r.id);
     if(!error){Object.assign(r,patch);ok++;}
@@ -365,8 +366,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","クラス","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","クラス","年式","走行","価格","カラー","展示場所","お問合せコード","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
