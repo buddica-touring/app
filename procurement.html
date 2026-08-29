@@ -33,7 +33,7 @@
   #add{animation:pulseAdd 1.5s infinite}
   /* table */
   .tblwrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:1120px;table-layout:fixed}
+  table{width:100%;border-collapse:collapse;min-width:1180px;table-layout:fixed}
   th{font-size:10.5px;color:#64748b;font-weight:700;text-align:left;padding:7px 5px;border-bottom:2px solid #e2e8f0;line-height:1.2;position:sticky;top:0;background:#f8fafc;z-index:1}
   td{padding:5px 5px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
   .ro{padding:2px 3px;font-size:12px}
@@ -154,7 +154,7 @@
       <thead><tr>
         <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
         <th style="width:82px">カラー</th><th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
-        <th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:78px">現場</th><th style="width:78px">保険</th><th style="width:82px">URL</th><th style="width:30px"></th>
+        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:78px">現場</th><th style="width:78px">保険</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -259,6 +259,7 @@ function render(){
       <td data-lb="カラー"><span class="ro">${esc(r.color)||"—"}</span></td>
       <td data-lb="場所"><span class="ro">${esc(r.location)||"—"}</span></td>
       <td data-lb="問合せ"><div style="display:flex;align-items:center;gap:4px;width:100%"><span style="font-family:monospace;font-size:12px;letter-spacing:.3px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.inquiry)||'<span style="color:#cbd5e1">—</span>'}</span>${r.inquiry?`<span class="cp" data-cp="inquiry" title="コードをコピー">📋</span>`:""}</div></td>
+      <td data-lb="現場希望" style="text-align:center"><input type="checkbox" data-f="field_req" ${r.field_req?"checked":""} title="現場希望" style="width:19px;height:19px;cursor:pointer;accent-color:#2563eb"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="現場引取">${(r.status==="OK"&&r.maint_status==="OK")?`<select class="st ${STCLS[r.pickup]||"stU"}" data-f="pickup">${opt(r.pickup)}</select>`:`<span style="color:#cbd5e1;font-size:11px">整備OK後</span>`}</td>
@@ -269,7 +270,7 @@ function render(){
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -278,6 +279,9 @@ function render(){
   });
   $("tb").querySelectorAll(".del").forEach(el=>{
     el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
+  });
+  $("tb").querySelectorAll('input[type="checkbox"][data-f]').forEach(el=>{
+    el.addEventListener("change",()=>save(el.closest("tr").dataset.id, el.dataset.f, el.checked));
   });
   $("tb").querySelectorAll(".cp").forEach(el=>{
     el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id,f=el.dataset.cp,r=rows.find(x=>x.id===id);if(r)copyText(r[f]);});
@@ -394,8 +398,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","クラス","年式","走行","価格","カラー","展示場所","お問合せコード","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","現場希望","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",(r.field_req?"○":""),r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
