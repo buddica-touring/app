@@ -109,7 +109,7 @@
       <thead><tr>
         <th style="width:34px">No</th><th style="min-width:110px">車種</th><th class="yr">年式</th><th style="width:80px">走行</th><th style="width:100px">価格</th>
         <th style="width:78px">カラー</th><th style="width:88px">展示場所</th>
-        <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:92px">保険登録</th><th style="min-width:180px">車両URL（貼付で自動取得）</th><th style="width:40px">削除</th>
+        <th style="width:96px">仕入ステータス</th><th style="width:96px">整備ステータス</th><th style="width:96px">現場引き取り</th><th style="width:92px">保険登録</th><th style="min-width:180px">車両URL（貼付で自動取得）</th><th style="width:40px">削除</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -185,14 +185,15 @@ function render(){
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
-      <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stC"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
+      <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
+      <td data-lb="現場引取">${(r.status==="OK"&&r.maint_status==="OK")?`<select class="st ${STCLS[r.pickup]||"stU"}" data-f="pickup">${opt(r.pickup)}</select>`:`<span style="color:#cbd5e1;font-size:11px">整備OK後</span>`}</td>
       <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:5px;width:100%">
         <input class="cell" data-f="url" value="${esc(r.url)}" placeholder="ここにURLを貼付→自動取得" style="min-width:0;flex:1;border:1px dashed ${r.url?"transparent":"#93c5fd"}">
         ${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="flex-shrink:0">開く↗</a><span class="refetch" title="URLから再取得" style="flex-shrink:0">🔄</span>`:""}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`).join("")||`<tr><td colspan="13" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -226,8 +227,9 @@ async function save(id,field,val){
   const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
   if(error){setStatus("保存失敗");return;}
   setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
-  if(field==="status"){render();}   // 仕入OKで整備/保険の表示が変わるので再描画
-  else if(field==="maint_status"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="maint_status"]`);if(s)s.className="st "+STCLS[val];}
+  if(field==="status"){render();}         // 仕入OKで整備/現場/保険の表示が変わる
+  else if(field==="maint_status"){render();} // 整備OKで現場引き取りの表示が変わる
+  else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+STCLS[val];}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
   // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
   if(field==="url"&&val.trim()&&/buddica\.jp\/usedcar/.test(val)){
@@ -307,8 +309,8 @@ $("fetchAll").addEventListener("click",async()=>{
   render(); alert("取得完了 "+ok+"件"); setStatus("接続OK");
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"確認中",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","年式","走行","価格","カラー","展示場所","仕入ステータス","整備ステータス","現場引き取り","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.year,r.mileage,r.price,r.color,r.location,r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
