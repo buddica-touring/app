@@ -63,7 +63,12 @@
   .help summary::-webkit-details-marker{display:none}
   .help .hbody{color:#334155;line-height:1.9;padding:2px 0 10px}
   .help .hbody b{color:#0f172a}
-  .clsum{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px;align-items:center}
+  .clswrap{margin-bottom:10px}
+  .clswrap summary{cursor:pointer;font-size:12px;font-weight:800;color:#334155;list-style:none;padding:7px 2px}
+  .clswrap summary::-webkit-details-marker{display:none}
+  .clswrap summary::before{content:"▸ ";color:#94a3b8}
+  .clswrap[open] summary::before{content:"▾ ";color:#94a3b8}
+  .clsum{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;align-items:center}
   .clsum .lbl{font-size:11px;font-weight:800;color:#64748b}
   .clsum .cc{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:800}
   .clsum .cc b{font-size:13px;color:#166534}
@@ -123,7 +128,10 @@
   </details>
 
   <div class="dash" id="dash"></div>
-  <div class="clsum" id="clsum"></div>
+  <details class="clswrap" id="clswrap">
+    <summary id="clsummary">クラス別 ピック / 確定</summary>
+    <div class="clsum" id="clsum"></div>
+  </details>
 
   <div class="tb">
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
@@ -210,8 +218,8 @@ function renderClassSummary(){
   rows.forEach(r=>{if(isSample(r))return;if(r.vclass){pk[r.vclass]=(pk[r.vclass]||0)+1;if(r.status==="OK")ok[r.vclass]=(ok[r.vclass]||0)+1;}});
   const tPk=Object.values(pk).reduce((a,b)=>a+b,0), tOk=Object.values(ok).reduce((a,b)=>a+b,0);
   const shown=CLASSES.slice(1).filter(c=>pk[c]>0);
-  $("clsum").innerHTML=`<span class="lbl">クラス別 ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b>：</span>`+
-    (shown.length?shown.map(c=>`<span class="cc"><span style="color:#0f172a">${c}</span> <span class="pk" title="ピック数">📌${pk[c]}</span> <b title="確定(仕入OK)">✓${ok[c]}</b></span>`).join(""):`<span class="cc z">クラス未設定</span>`);
+  $("clsummary").innerHTML=`📊 クラス別　ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b> <span style="color:#94a3b8;font-weight:600">（タップで内訳）</span>`;
+  $("clsum").innerHTML=shown.length?shown.map(c=>`<span class="cc"><span style="color:#0f172a">${c}</span> <span class="pk" title="ピック数">📌${pk[c]}</span> <b title="確定(仕入OK)">✓${ok[c]}</b></span>`).join(""):`<span class="cc z">クラス未設定</span>`;
 }
 function render(){
   renderDash();
@@ -369,6 +377,7 @@ document.querySelectorAll(".chip[data-f]").forEach(c=>c.addEventListener("click"
   document.querySelectorAll(".chip[data-f]").forEach(x=>x.classList.remove("on"));c.classList.add("on");filter=c.dataset.f;render();
 }));
 $("goalN").textContent=goal;$("goalTxt").textContent=goal;
+if(window.innerWidth>680){const d=$("clswrap");if(d)d.open=true;}   // PCは既定オープン／スマホはクローズ
 // realtime
 sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_procurement"},payload=>{
   const {eventType,new:nw,old}=payload;
