@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>🚗 仕入進捗管理 | TOURISM 在庫入替</title>
+<meta name="robots" content="noindex">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:12px}
+  h1{font-size:18px;margin:6px 0 2px;display:flex;align-items:center;gap:8px}
+  .sub{font-size:11px;color:#64748b;margin-bottom:10px}
+  /* dashboard */
+  .dash{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .card{flex:1 1 130px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card .lb{font-size:11px;color:#64748b;font-weight:700}
+  .card .vv{font-size:24px;font-weight:900;line-height:1.1;margin-top:2px}
+  .card small{font-size:11px;font-weight:700;color:#94a3b8}
+  .bar{height:14px;background:#e2e8f0;border-radius:8px;overflow:hidden;margin-top:6px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#16a34a,#22c55e)}
+  .need{border-color:#fca5a5;background:#fef2f2}
+  .need .vv{color:#dc2626}
+  /* toolbar */
+  .tb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+  .chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;color:#475569}
+  .chip.on{background:#0f172a;color:#fff;border-color:#0f172a}
+  .who{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .who input{border:1px solid #cbd5e1;border-radius:8px;padding:5px 8px;font-size:13px;width:120px}
+  .btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;color:#334155}
+  .btn.p{background:#2563eb;color:#fff;border-color:#2563eb}
+  /* table */
+  .tblwrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:820px}
+  th{font-size:11px;color:#64748b;font-weight:700;text-align:left;padding:8px 8px;border-bottom:2px solid #e2e8f0;white-space:nowrap;position:sticky;top:0;background:#f8fafc;z-index:1}
+  td{padding:6px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  tr[data-st="OK"]{background:#f0fdf4}
+  tr[data-st="NG"]{background:#fef2f2;opacity:.62}
+  tr[data-st="確認中"]{background:#fffbeb}
+  tr[data-st="その他"]{background:#eff6ff}
+  .car{font-weight:800}
+  .car small{color:#64748b;font-weight:600}
+  .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
+  .cell:focus{border-color:#93c5fd;background:#fff;outline:none}
+  select.st{border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:13px;font-weight:800}
+  .stU{color:#64748b}.stC{color:#b45309}.stO{color:#166534}.stN{color:#b91c1c}.stX{color:#1d4ed8}
+  a.lnk{color:#2563eb;font-weight:700;text-decoration:none;font-size:12px}
+  .del{color:#cbd5e1;cursor:pointer;font-size:15px}
+  .del:hover{color:#dc2626}
+  .num{width:58px;text-align:right}
+  .yr{width:54px}
+  .foot{font-size:11px;color:#94a3b8;margin-top:8px;text-align:center}
+  #st{position:fixed;bottom:10px;right:10px;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
+  @media(max-width:680px){
+    .wrap{padding:8px}
+    .card{flex-basis:calc(50% - 4px);padding:8px 10px}
+    .card .vv{font-size:20px}
+    .who{margin-left:0;width:100%;justify-content:flex-end}
+    .who input{width:110px}
+    table{min-width:0}
+    thead{display:none}
+    tbody,tr,td{display:block}
+    tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px;padding:8px 10px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+    td{border:none;padding:4px 0;display:flex;align-items:center;gap:8px}
+    td:before{content:attr(data-lb);font-size:11px;color:#94a3b8;font-weight:800;min-width:48px;flex-shrink:0}
+    td.noNo{position:absolute;top:6px;right:10px;padding:0;font-size:16px}
+    td.noNo:before{content:""}
+    td.delc{position:absolute;top:6px;right:44px;padding:0}
+    td.delc:before{content:""}
+    .cell{border:1px solid #e2e8f0;background:#fff;padding:6px 8px}
+    select.st{width:100%}
+    .cell.num,.cell.yr{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚗 仕入進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
+  <div class="sub">複数担当で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「OK」で確保。NG＝ノーカウント（除外）。</div>
+
+  <div class="dash" id="dash"></div>
+
+  <div class="tb">
+    <span class="chip on" data-f="all">全て</span>
+    <span class="chip" data-f="未確認">未確認</span>
+    <span class="chip" data-f="確認中">確認中</span>
+    <span class="chip" data-f="OK">OK</span>
+    <span class="chip" data-f="NG">NG</span>
+    <span class="chip" data-f="その他">その他</span>
+    <div class="who">
+      <span style="font-size:11px;color:#64748b;font-weight:700">担当</span>
+      <input id="who" list="whoList" placeholder="名前" >
+      <datalist id="whoList"></datalist>
+    </div>
+  </div>
+  <div class="tb" style="margin-top:-2px">
+    <button class="btn p" id="add">＋ 候補を追加</button>
+    <button class="btn" id="csv">CSV出力</button>
+    <span id="goal" class="btn">🎯 目標台数: <b id="goalN">30</b> <span style="color:#94a3b8">（クリックで変更）</span></span>
+  </div>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th style="width:34px">No</th><th>車種</th><th class="yr">年式</th><th class="num">走行</th><th class="num">価格</th>
+        <th style="width:90px">担当</th><th style="width:96px">ステータス</th><th>メモ</th><th style="width:44px">車両</th><th style="width:24px"></th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <div class="foot">走行=万km / 価格=万円 ・ https://www.buddica.jp 参照 ・ データはリアルタイム共有</div>
+</div>
+<div id="st">接続中…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+const STATUSES=["未確認","確認中","OK","NG","その他"];
+const STCLS={"未確認":"stU","確認中":"stC","OK":"stO","NG":"stN","その他":"stX"};
+const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
+let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30);
+const who=localStorage.getItem("proc_who")||"";
+document.getElementById("who").value=who;
+document.getElementById("who").addEventListener("change",e=>localStorage.setItem("proc_who",e.target.value.trim()));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// 同一車両URL(zaiko_code)重複チェック＝処理済み検知
+function urlKey(u){const s=String(u||"").trim();if(!s)return"";const m=s.match(/zaiko_code=([0-9]+)/);return m?m[1]:s;}
+function dupOf(u,exceptId){const k=urlKey(u);if(!k)return null;return rows.find(r=>r.id!==exceptId&&urlKey(r.url)===k)||null;}
+
+function setStatus(t){$("st").textContent=t;}
+async function load(){
+  const {data,error}=await sb.from("bt_procurement").select("*").order("sort_order",{ascending:true});
+  if(error){setStatus("読込エラー");return;}
+  rows=data||[]; render();
+  setStatus("接続OK ("+rows.length+"台)");
+}
+function counts(){
+  const c={未確認:0,確認中:0,OK:0,NG:0,その他:0};
+  rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1;});
+  return c;
+}
+function renderDash(){
+  const c=counts();
+  const ok=c.OK||0, pend=(c.未確認||0)+(c.確認中||0), ng=c.NG||0, other=c.その他||0;
+  const pct=Math.min(100,Math.round(ok/goal*100));
+  const remain=Math.max(0,goal-ok);                 // あと確保すべき数
+  const shortfall=Math.max(0,goal-ok-pend);         // OK+確認待ちでも足りない＝追加ピックアップ必要
+  $("dash").innerHTML=
+   `<div class="card"><div class="lb">✅ 確保（OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>`+
+   `<div class="card"><div class="lb">⏳ 確認待ち</div><div class="vv" style="color:#b45309">${pend}<small>台</small></div><small>未確認${c.未確認||0}・確認中${c.確認中||0}</small></div>`+
+   `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div>${other?`<small>その他 ${other}台</small>`:""}</div>`+
+   `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pend}台</small></div>`;
+}
+function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
+function render(){
+  renderDash();
+  const seen=new Set(rows.map(r=>r.assignee).filter(Boolean));
+  $("whoList").innerHTML=[...seen].map(n=>`<option value="${esc(n)}">`).join("");
+  const list=rows.filter(r=>filter==="all"||r.status===filter);
+  $("tb").innerHTML=list.map(r=>`
+    <tr data-st="${esc(r.status)}" data-id="${r.id}">
+      <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
+      <td data-lb="車種" class="car"><div style="display:flex;flex-direction:column;gap:2px;width:100%"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種"><input class="cell" data-f="maker" value="${esc(r.maker)}" style="font-size:11px;color:#64748b" placeholder="メーカー"></div></td>
+      <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
+      <td data-lb="走行"><input class="cell num" data-f="mileage" value="${esc(r.mileage)}" inputmode="decimal"></td>
+      <td data-lb="価格"><input class="cell num" data-f="price" value="${esc(r.price)}" inputmode="decimal"></td>
+      <td data-lb="担当"><input class="cell" data-f="assignee" value="${esc(r.assignee)}" list="whoList" placeholder="担当" style="width:82px"></td>
+      <td data-lb="状態"><select class="st ${STCLS[r.status]}" data-f="status">${opt(r.status)}</select></td>
+      <td data-lb="メモ"><input class="cell" data-f="memo" value="${esc(r.memo)}" placeholder="メモ"></td>
+      <td data-lb="車両">${r.url?`<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">開く↗</a>`:'<span style="color:#cbd5e1;font-size:12px">URL無</span>'}</td>
+      <td class="delc"><span class="del" title="削除">🗑</span></td>
+    </tr>`).join("")||`<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+  // wire
+  $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
+    const id=el.closest("tr").dataset.id, f=el.dataset.f;
+    const ev=el.tagName==="SELECT"?"change":"change";
+    el.addEventListener(ev,()=>save(id,f,el.value));
+  });
+  $("tb").querySelectorAll(".del").forEach(el=>{
+    el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
+  });
+}
+async function save(id,field,val){
+  if(field==="url"&&val.trim()){const d=dupOf(val,id);if(d){alert("⚠️ 処理済み\nこのURLは既に登録されています（No."+(d.no||"?")+" "+(d.model||"")+"・担当"+(d.assignee||"未")+"・"+d.status+"）");render();return;}}
+  const r=rows.find(x=>x.id===id); if(r){r[field]=val; if(field==="status")renderDash();}
+  const patch={updated_at:new Date().toISOString()}; patch[field]=val;
+  const {error}=await sb.from("bt_procurement").update(patch).eq("id",id);
+  if(error){setStatus("保存失敗");return;}
+  setStatus("保存OK "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
+  if(field==="status"){const tr=$("tb").querySelector(`tr[data-id="${id}"]`);if(tr)tr.dataset.st=val;
+    const s=$("tb").querySelector(`tr[data-id="${id}"] select.st`);if(s)s.className="st "+STCLS[val];}
+}
+async function del(id){
+  await sb.from("bt_procurement").delete().eq("id",id);
+  rows=rows.filter(r=>r.id!==id); render();
+}
+$("add").addEventListener("click",async()=>{
+  const url=(prompt("車両URL（buddica.jp）を貼り付け。空でもOK：","")||"").trim();
+  if(url){const d=dupOf(url,null);if(d){alert("⚠️ 処理済み\nこのURLは既に登録されています（No."+(d.no||"?")+" "+(d.model||"")+"・担当"+(d.assignee||"未")+"・"+d.status+"）\n追加を中止しました。");return;}}
+  const model=prompt("車種名（例: シエンタ）：","")||"";
+  if(model===null)return;
+  const no=(rows.reduce((m,r)=>Math.max(m,r.no||0),0))+1;
+  const rec={no,model:model.trim(),url:url.trim(),status:"未確認",sort_order:no,assignee:$("who").value.trim()};
+  const {data,error}=await sb.from("bt_procurement").insert(rec).select();
+  if(error){alert("追加失敗: "+error.message);return;}
+  if(data&&data[0]){rows.push(data[0]);render();}
+});
+$("csv").addEventListener("click",()=>{
+  const head=["No","メーカー","車種","年式","走行(万km)","価格(万円)","担当","ステータス","メモ","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.maker,r.model,r.year,r.mileage,r.price,r.assignee,r.status,(r.memo||"").replace(/,/g,"、"),r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
+});
+$("goal").addEventListener("click",()=>{
+  const v=prompt("目標台数：",goal); if(v===null)return; const n=parseInt(v,10); if(n>0){goal=n;localStorage.setItem("proc_goal",n);$("goalN").textContent=n;$("goalTxt").textContent=n;renderDash();}
+});
+document.querySelectorAll(".chip[data-f]").forEach(c=>c.addEventListener("click",()=>{
+  document.querySelectorAll(".chip[data-f]").forEach(x=>x.classList.remove("on"));c.classList.add("on");filter=c.dataset.f;render();
+}));
+$("goalN").textContent=goal;$("goalTxt").textContent=goal;
+// realtime
+sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_procurement"},payload=>{
+  const {eventType,new:nw,old}=payload;
+  if(eventType==="INSERT"){ if(!rows.find(r=>r.id===nw.id)){rows.push(nw);} }
+  else if(eventType==="UPDATE"){ const i=rows.findIndex(r=>r.id===nw.id); if(i>=0)rows[i]=nw; }
+  else if(eventType==="DELETE"){ rows=rows.filter(r=>r.id!==old.id); }
+  rows.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  // 入力中セルは維持（フォーカス中は全再描画しない）
+  if(!document.activeElement||!document.activeElement.classList||!document.activeElement.classList.contains("cell")){render();}
+  else{renderDash();}
+}).subscribe(s=>{ if(s==="SUBSCRIBED")setStatus("リアルタイム接続"); });
+load();
+setInterval(()=>{ if(!document.activeElement||document.activeElement.tagName==="BODY")load(); },60000);
+</script>
+</body>
+</html>
