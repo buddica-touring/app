@@ -38,6 +38,8 @@
   tr.flash{animation:flashrow 2.2s ease}
   tr[data-st="OK"]{background:#f0fdf4}
   tr[data-st="NG"]{background:#fef2f2;opacity:.62}
+  tr.sold{background:#fff1f2!important;opacity:1!important;box-shadow:inset 5px 0 0 #dc2626}
+  .soldbadge{display:inline-block;background:#dc2626;color:#fff;font-weight:900;font-size:11px;letter-spacing:.5px;padding:4px 9px;border-radius:6px;box-shadow:0 1px 3px rgba(220,38,38,.4)}
   tr[data-st="確認中"]{background:#fffbeb}
   tr[data-st="対応中"]{background:#eff6ff}
   .car{font-weight:800}
@@ -54,6 +56,11 @@
   .del:hover{color:#dc2626}
   .num{width:58px;text-align:right}
   .yr{width:54px}
+  .help{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:2px 12px;margin-bottom:10px;font-size:12px}
+  .help summary{cursor:pointer;font-weight:800;color:#1d4ed8;padding:8px 0;list-style:none}
+  .help summary::-webkit-details-marker{display:none}
+  .help .hbody{color:#334155;line-height:1.9;padding:2px 0 10px}
+  .help .hbody b{color:#0f172a}
   .clsum{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px;align-items:center}
   .clsum .lbl{font-size:11px;font-weight:800;color:#64748b}
   .clsum .cc{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:800}
@@ -98,7 +105,19 @@
 <body>
 <div class="wrap">
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
-  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「OK」で確保。NG＝ノーカウント（除外）。</div>
+  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
+
+  <details class="help">
+    <summary>📖 使い方（タップで開く）</summary>
+    <div class="hbody">
+      ① <b>登録</b>：「＋ URLで追加」に buddica.jp の車両URLを貼付（複数は改行区切りで一括）→ 車種・年式・走行・価格・カラー・展示場所を自動取得。<br>
+      ② <b>クラス</b>：A〜J を選ぶと同じクラスで並び替え、上部に「クラス別 確定（仕入OK）数」が出ます。<br>
+      ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → 整備 → 現場引き取り → 保険登録 が順に出現（未対応→確認中→対応中→OK/NG）。<br>
+      ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
+      ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
+      ⑥ <b>更新</b>：右下の 🔄 で最新に。変更は全員リアルタイム共有。スマホは「車種名＋URL」だけ表示、▼で詳細を展開。
+    </div>
+  </details>
 
   <div class="dash" id="dash"></div>
   <div class="clsum" id="clsum"></div>
@@ -198,13 +217,13 @@ function render(){
     return (a.sort_order||0)-(b.sort_order||0);
   });
   $("tb").innerHTML=list.map(r=>`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open":""}">
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><input class="cell" data-f="model" value="${esc(r.model)}" style="font-weight:800" placeholder="車種名"><span class="mtoggle" title="詳細を開閉">▼</span></td>
       <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
       <td data-lb="年式"><input class="cell yr" data-f="year" value="${esc(r.year)}"></td>
       <td data-lb="走行"><input class="cell" data-f="mileage" value="${esc(r.mileage)}"></td>
-      <td data-lb="価格"><input class="cell" data-f="price" value="${esc(r.price)}" style="${/SOLD/i.test(r.price||"")?"color:#b91c1c;font-weight:800":""}"></td>
+      <td data-lb="価格">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<input class="cell" data-f="price" value="${esc(r.price)}">`}</td>
       <td data-lb="カラー"><input class="cell" data-f="color" value="${esc(r.color)}" placeholder="色"></td>
       <td data-lb="場所"><input class="cell" data-f="location" value="${esc(r.location)}" placeholder="展示場所"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
