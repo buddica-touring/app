@@ -212,6 +212,7 @@ function counts(){
   rows.forEach(r=>{if(isSample(r))return;c[r.status]=(c[r.status]||0)+1;});
   return c;
 }
+const priceNum=s=>{const m=String(s||"").match(/([\d.]+)\s*万円/);return m?parseFloat(m[1]):0;};
 function renderDash(){
   const c=counts();
   const ok=c.OK||0, un=c.未対応||0, prog=(c.確認中||0)+(c.対応中||0), ng=c.NG||0;
@@ -219,8 +220,11 @@ function renderDash(){
   const pct=Math.min(100,Math.round(ok/goal*100));
   const remain=Math.max(0,goal-ok);                 // あと確保すべき数
   const shortfall=Math.max(0,goal-ok-pool);         // OK+候補でも足りない＝追加ピックアップ必要
+  let okSum=0; rows.forEach(r=>{if(!isSample(r)&&r.status==="OK")okSum+=priceNum(r.price);}); // 仕入OK車両の本体価格合計(万円)
+  const okSumTxt=okSum?okSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
   $("dash").innerHTML=
    `<div class="card"><div class="lb">✅ 確保（仕入OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>`+
+   `<div class="card"><div class="lb">💰 確定 価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
    `<div class="card"><div class="lb">⏳ 候補（未決）</div><div class="vv" style="color:#b45309">${pool}<small>台</small></div><small>未対応${un}・確認中${c.確認中||0}・対応中${c.対応中||0}</small></div>`+
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`;
