@@ -6,56 +6,83 @@
 <title>Rental Car Guide for Visitors</title>
 <meta name="robots" content="noindex">
 <style>
+  :root{
+    --bg:#f5efe4; --card:#fff; --ink:#1c2430; --sub:#6b7784; --line:#e6ddcd;
+    --accent:#0e7a6b; --accent-d:#0a5e52; --warn:#c2410c; --danger:#b91c1c; --gold:#b45309;
+    --r:16px; --shadow:0 3px 16px rgba(20,30,45,.09);
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;background:#f1f5f9;color:#0f172a;font-size:15px;line-height:1.7}
-  .wrap{max-width:640px;margin:0 auto;padding:0 0 60px}
-  /* hero */
-  .hero{padding:22px 18px 20px;color:#fff;position:relative}
-  .hero h1{font-size:21px;margin:0 0 4px;font-weight:900;letter-spacing:.3px}
-  .hero .brand{font-size:12px;font-weight:800;opacity:.92;letter-spacing:1px;text-transform:uppercase}
-  .hero .tag{font-size:13px;opacity:.95;margin-top:6px}
-  /* lang bar */
-  .langbar{display:flex;gap:6px;padding:10px 14px;background:#fff;position:sticky;top:0;z-index:20;border-bottom:1px solid #e2e8f0;overflow-x:auto}
-  .lang{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer;color:#475569;white-space:nowrap;flex-shrink:0}
-  .lang.on{background:#0f172a;color:#fff;border-color:#0f172a}
-  /* section cards */
-  .body{padding:14px}
-  .sec{background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .sec>summary{list-style:none;cursor:pointer;padding:15px 16px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:11px}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.7;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+  .wrap{max-width:560px;margin:0 auto;padding:12px 14px 60px}
+  /* lang switch (mypage style pills) */
+  .langbar{display:flex;gap:6px;justify-content:flex-end;padding:2px 0 10px;position:sticky;top:0;z-index:20;flex-wrap:wrap}
+  .lang{font-size:11.5px;font-weight:800;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;white-space:nowrap}
+  .lang.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  /* premium hero (nhero) */
+  .nhero{position:relative;border-radius:var(--r);overflow:hidden;color:#fff;margin:2px 0 14px;min-height:210px;box-shadow:var(--shadow);
+    background:linear-gradient(180deg,rgba(3,8,28,.5) 0%,rgba(4,14,40,.4) 45%,rgba(3,8,28,.8) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:20px 18px}
+  .nhero.img{background-size:cover;background-position:center 32%;background-repeat:no-repeat}
+  .nhero::before{content:"";position:absolute;left:0;right:0;top:0;height:80px;background:linear-gradient(180deg,rgba(3,8,28,.6),rgba(3,8,28,0))}
+  .nhero .nh-eye{font-family:"Hiragino Mincho ProN",serif;font-size:12px;font-style:italic;letter-spacing:2px;opacity:.9;margin-bottom:4px;position:relative}
+  .nhero .nh-oki{font-family:"Hiragino Mincho ProN",serif;font-size:44px;font-weight:800;color:var(--goldh,#FABE00);line-height:1;letter-spacing:.12em;padding-left:.12em;text-shadow:0 3px 20px rgba(0,0,0,.5);position:relative}
+  .nhero .nh-name{margin-top:12px;font-family:"Hiragino Mincho ProN",serif;font-size:14px;letter-spacing:.5px;opacity:.96;position:relative;font-weight:700}
+  .nhero .nh-tag{margin-top:5px;font-size:12px;opacity:.9;position:relative}
+  /* section divider label */
+  .divlabel{display:flex;align-items:center;gap:10px;margin:16px 4px 10px;color:var(--sub);font-size:10.5px;letter-spacing:3px;font-weight:800}
+  .divlabel::before,.divlabel::after{content:"";flex:1;height:1px;background:var(--line)}
+  /* accordions (mypage .acc) */
+  .sec{background:#fff;border:1px solid var(--line);border-radius:16px;margin-bottom:11px;box-shadow:0 5px 16px rgba(10,59,71,.05);overflow:hidden}
+  .sec>summary{list-style:none;cursor:pointer;padding:15px 15px;display:flex;align-items:center;gap:11px;font-weight:800;font-size:15px;color:var(--accent-d)}
   .sec>summary::-webkit-details-marker{display:none}
-  .sec>summary .ico{font-size:22px;flex-shrink:0}
-  .sec>summary .arw{margin-left:auto;color:#94a3b8;transition:transform .18s;font-size:14px}
+  .sec>summary .ico{font-size:21px;flex-shrink:0}
+  .sec>summary .arw{margin-left:auto;color:var(--sub);transition:.25s;font-size:12px}
   .sec[open]>summary .arw{transform:rotate(180deg)}
-  .sec[open]>summary{border-bottom:1px solid #f1f5f9}
-  .sbody{padding:6px 17px 17px;color:#334155}
-  .sbody h4{font-size:14px;margin:14px 0 5px;color:#0f172a;font-weight:800}
+  .sbody{padding:4px 17px 17px;color:#334155}
+  .sbody h4{font-size:14px;margin:14px 0 5px;color:var(--accent-d);font-weight:800}
   .sbody h4:first-child{margin-top:6px}
   .sbody ul{margin:5px 0;padding-left:20px}
-  .sbody li{margin:5px 0}
+  .sbody li{margin:6px 0}
   .sbody p{margin:6px 0}
-  .sbody b{color:#0f172a}
-  .tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
-  .warn{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
-  .warn b{color:#b91c1c}
-  .ok{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
-  .kv{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed #e2e8f0;font-size:14px}
-  .kv:last-child{border:none}
-  .kv .k{min-width:120px;font-weight:800;color:#475569;flex-shrink:0}
-  .num{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;background:#0f172a;color:#fff;border-radius:50%;font-size:12px;font-weight:800;margin-right:6px}
-  .opt{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}
+  .sbody b{color:var(--ink)}
+  .tip{background:#f0f7f5;border:1px solid #cfe7e0;border-radius:12px;padding:10px 13px;margin:9px 0;font-size:14px}
+  .warn{background:#fff5ed;border:1px solid #fcd9bd;border-radius:12px;padding:10px 13px;margin:9px 0;font-size:14px}
+  .warn b{color:var(--warn)}
+  .ok{background:#f0f7f5;border:1px solid #cfe7e0;border-radius:12px;padding:10px 13px;margin:9px 0;font-size:14px}
+  .num{display:inline-block;min-width:23px;height:23px;line-height:23px;text-align:center;background:var(--accent);color:#fff;border-radius:50%;font-size:12px;font-weight:800;margin-right:7px}
+  .opt{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid #f1ede3;font-size:14px}
   .opt:last-child{border:none}
-  .opt .st{margin-left:auto;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .opt .yes{background:#dcfce7;color:#166534}
-  .opt .no{background:#fee2e2;color:#b91c1c}
-  .opt .note{color:#64748b;font-size:12.5px;flex-basis:100%;padding-left:0;margin-top:-3px}
-  .emg{background:#0f172a;color:#fff;border-radius:14px;padding:16px;margin-bottom:10px;text-align:center}
-  .emg .big{font-size:15px;font-weight:800;margin-bottom:10px}
+  .opt .st{margin-left:auto;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .opt .yes{background:#e3f2ee;color:var(--accent-d)}
+  .opt .no{background:#fde8e8;color:var(--danger)}
+  .opt .note{color:var(--sub);font-size:12.5px;flex-basis:100%;margin-top:-2px}
+  /* emergency block */
+  .emg{background:linear-gradient(135deg,#1c2430,#0a0f1a);color:#fff;border-radius:16px;padding:16px;margin-bottom:12px;text-align:center;box-shadow:var(--shadow)}
+  .emg .big{font-size:14px;font-weight:800;margin-bottom:11px;opacity:.95}
   .emg .nums{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .emg a{display:block;background:#dc2626;color:#fff;text-decoration:none;font-weight:900;padding:11px 16px;border-radius:10px;font-size:15px;flex:1 1 44%;min-width:130px}
+  .emg a{display:block;background:#dc2626;color:#fff;text-decoration:none;font-weight:900;padding:12px 14px;border-radius:11px;font-size:14.5px;flex:1 1 44%;min-width:128px}
   .emg a.police{background:#1d4ed8}
-  .emg a.store{background:#059669}
-  .foot{text-align:center;font-size:11px;color:#94a3b8;padding:16px}
-  .empty{display:none}
+  .emg a.store{background:var(--accent)}
+  .foot{text-align:center;font-size:11px;color:var(--sub);padding:18px 8px 4px;line-height:1.8}
+  /* ===== BUDDICA (dark navy / orange) skin ===== */
+  body.bt{background:#0e0e12}
+  body.bt .lang{border-color:#33333a;background:#1c1c1f;color:#c9c9cf}
+  body.bt .lang.on{background:var(--btor,#ee6a1c);color:#fff;border-color:var(--btor,#ee6a1c)}
+  body.bt .bttop{position:relative;overflow:hidden;background:linear-gradient(120deg,#121214 0%,#1c1c1f 60%,#241a12 100%);color:#fff;border-radius:16px;padding:22px 20px;margin:2px 0 14px;border:1px solid #2a2a2e}
+  body.bt .bttop::after{content:"";position:absolute;right:-30px;top:0;bottom:0;width:120px;background:linear-gradient(120deg,transparent,#ee6a1c);transform:skewX(-18deg);opacity:.85}
+  body.bt .bttop .bt-brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#e9b06a;position:relative}
+  body.bt .bttop h1{font-size:22px;font-weight:900;margin:6px 0 4px;position:relative}
+  body.bt .bttop .bt-tag{font-size:13px;color:#c9c9cf;position:relative}
+  body.bt .divlabel{color:#8a8a93}
+  body.bt .divlabel::before,body.bt .divlabel::after{background:#2a2a2e}
+  body.bt .sec{background:#fff;border:none;box-shadow:0 1px 6px rgba(0,0,0,.4)}
+  body.bt .sec>summary{color:#c85a12}
+  body.bt .sbody h4{color:#c85a12}
+  body.bt .num{background:#ee6a1c}
+  body.bt .opt .yes{background:#fff2e6;color:#c85a12}
+  body.bt .tip,body.bt .ok{background:#fff7ef;border-color:#ffd9b8}
+  body.bt .emg a.store{background:#ee6a1c}
+  body.bt .foot{color:#8a8a93}
 </style>
 </head>
 <body>
@@ -68,7 +95,7 @@
 <script>
 /* ===== store config ===== */
 const STORES = {
-  hdmt: { brand:"HANDYMAN", area:"Takamatsu Airport", color:"#0F1F45", accent:"#FABE00",
+  hdmt: { brand:"HANDYMAN", area:"Takamatsu Airport", family:"hdm", hero:"", eye:"Rental Car", word:"TAKAMATSU",
     name:{en:"HANDYMAN Takamatsu Airport",zh:"HANDYMAN 高松機場店",ko:"HANDYMAN 다카마쓰공항점",ja:"HANDYMAN 高松空港店"},
     tel:"087-000-0000",
     shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
@@ -80,7 +107,7 @@ const STORES = {
       ko:"가가와현은 눈이 드물지만 겨울철 산길(고토히라 방면 등)은 미끄러울 수 있습니다. 우동집 주차장은 좁은 곳이 많습니다.",
       ja:"香川は雪が少ないですが、冬の山道（金刀比羅方面など）は路面が滑ることがあります。うどん店の駐車場は狭い場所が多いです。"},
     troubles:{en:"", zh:"", ko:"", ja:""} },
-  spk: { brand:"HANDYMAN", area:"Sapporo", color:"#0369a1", accent:"#38bdf8",
+  spk: { brand:"HANDYMAN", area:"Sapporo", family:"hdm", hero:"hero-sapporo.jpg", eye:"Sapporo Delivery", word:"SAPPORO",
     name:{en:"HANDYMAN Sapporo Delivery",zh:"HANDYMAN 札幌店",ko:"HANDYMAN 삿포로점",ja:"HANDYMAN 札幌デリバリー店"},
     tel:"011-000-0000",
     shuttle:{has:false, txt:{en:"Delivery / collection service. We deliver the car to your hotel or specified location and collect it there.",
@@ -92,7 +119,7 @@ const STORES = {
       ko:"겨울 운전: 11~4월 노면 눈/빙판. 차량은 스터드리스 타이어 장착. 서행·조기 브레이크·차간거리 유지. 신치토세공항은 삿포로 중심에서 약 50분. '삿포로'는 시내 한정, 신치토세공항은 별도 구역입니다.",
       ja:"冬季走行：11〜4月は積雪・凍結。車はスタッドレス装着。徐行・早めのブレーキ・車間確保を。新千歳空港は札幌中心部から約50分。『札幌』は市内のみで新千歳空港は別エリアです。"},
     troubles:{en:"", zh:"", ko:"", ja:""} },
-  nha: { brand:"HANDYMAN", area:"Naha (Okinawa)", color:"#0891b2", accent:"#22d3ee",
+  nha: { brand:"HANDYMAN", area:"Naha (Okinawa)", family:"hdm", hero:"hero-shisa.jpg", eye:"Okinawa", word:"OKINAWA",
     name:{en:"HANDYMAN Naha Airport",zh:"HANDYMAN 那霸機場店",ko:"HANDYMAN 나하공항점",ja:"HANDYMAN 那覇空港店"},
     tel:"098-000-0000",
     shuttle:{has:true, txt:{en:"Free shuttle bus between Naha Airport and our yard. After arrival, come to the designated bus stop; the shuttle runs on a set schedule.",
@@ -104,7 +131,7 @@ const STORES = {
       ko:"오키나와: 출퇴근 시간 58번 국도·나하 주변 정체. 유이레일 모노레일이 일부 도로를 가로지릅니다. 태풍철(6~10월) 폭우 시 해안도로 침수 가능. 눈은 없습니다.",
       ja:"沖縄：ラッシュ時は国道58号・那覇周辺が渋滞。ゆいレールが一部道路をまたぎます。台風期（6〜10月）の大雨で海岸道路が冠水することがあります。雪はありません。"},
     troubles:{en:"", zh:"", ko:"", ja:""} },
-  bt: { brand:"BUDDICA TOURISM", area:"Takamatsu Airport", color:"#1e293b", accent:"#f59e0b",
+  bt: { brand:"BUDDICA TOURISM", area:"Takamatsu Airport", family:"bt", hero:"", eye:"", word:"TAKAMATSU",
     name:{en:"BUDDICA TOURISM Takamatsu",zh:"BUDDICA TOURISM 高松店",ko:"BUDDICA TOURISM 다카마쓰점",ja:"BUDDICA TOURISM 高松空港店"},
     tel:"087-000-0000",
     shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
@@ -343,9 +370,18 @@ function steps(keys){return keys.map((k,i)=>`<p><span class="num">${i+1}</span>$
 function render(){
   const t=T[lang];
   document.documentElement.lang=lang;
-  document.getElementById("hero").style.background=`linear-gradient(135deg,${S.color},${S.color}dd)`;
-  document.getElementById("hero").innerHTML=
-    `<div class="brand">${S.brand} · ${S.area}</div><h1>🚗 ${tr(S.name)}</h1><div class="tag">${t.tag}</div>`;
+  document.body.className = S.family==="bt" ? "bt" : "";
+  const hero=document.getElementById("hero");
+  if(S.family==="bt"){
+    hero.className="bttop";
+    hero.innerHTML=`<div class="bt-brand">${S.brand} · ${S.area}</div><h1>🚗 ${tr(S.name)}</h1><div class="bt-tag">${t.tag}</div>`;
+  }else{
+    hero.className="nhero"+(S.hero?" img":"");
+    if(S.hero) hero.style.backgroundImage=`linear-gradient(180deg,rgba(3,8,28,.5) 0%,rgba(4,14,40,.4) 45%,rgba(3,8,28,.8) 100%),url('${S.hero}')`;
+    else hero.style.background="linear-gradient(150deg,#0f2b45,#0a5e52 60%,#083a34)";
+    hero.innerHTML=`<div class="nh-eye">${S.eye||S.brand}</div><div class="nh-oki">${S.word}</div>`+
+      `<div class="nh-name">${S.brand} · ${tr(S.name)}</div><div class="nh-tag">${t.tag}</div>`;
+  }
 
   // emergency (always open, top)
   const emg=`<div class="emg"><div class="big">${t.emg_big}</div><div class="nums">`+
@@ -367,6 +403,7 @@ function render(){
 
   const body=
     emg+
+    `<div class="divlabel">GUIDE</div>`+
     sec("emg","🚑","s_emg",`<h4>${t.emg_flow}</h4>${steps(["emg_l1","emg_l2","emg_l3","emg_l4","emg_l5"])}`,true)+
     sec("rule","🛣️","s_rule",li(["rule_l1","rule_l2","rule_l3","rule_l4","rule_l5","rule_l6","rule_l7","rule_l8","rule_l9"]))+
     sec("fuel","⛽","s_fuel",`<div class="tip">${t.fuel_note}</div><h4>${t.fuel_type}</h4><p>${t.fuel_type_v}</p><h4>${t.s_fuel}</h4>${steps(["fuel_l1","fuel_l2","fuel_l3","fuel_l4","fuel_l5"])}`)+
