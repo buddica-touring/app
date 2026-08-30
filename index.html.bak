@@ -963,7 +963,7 @@ function normClass(raw){
   if(cls2.includes(c))return c;
   if(c.length<=2&&cls1.includes(c.charAt(0))&&/^[A-Z]\d?$/.test(c))return c.charAt(0);
   // ③ 日本語車名・カテゴリからクラス推定（長いキーから先にマッチ）
-  const nameMap={"アルファード/ヴェルファイア":"A","ヴェルファイア":"A","アルファード":"A","デリカD5":"B","デリカ":"B","ヤリスクロス":"F","ライズ":"F","ロッキー":"F","ノア":"C","ヴォクシー":"C","セレナ":"C","エスクァイア":"C","ハリアー":"D","プリウスα":"E","プリウスアルファ":"E","プリウス":"E","ルーミー":"H","ソリオ":"H","タンク":"H","ヤリス":"G","ヴィッツ":"G","アクア":"G","ノート":"G","ラグジュアリーミニバン":"A","コンパクトSUV":"F","コンパクトカー":"G","コンパクト":"G","ミニバン":"C","ワゴン":"C","1BOX":"C","ワンボックス":"C","SUV":"D","セダン":"E","ハイブリッド":"E","エコノミー":"G","軽自動車":"G"};
+  const nameMap={"アルファード/ヴェルファイア":"A","ヴェルファイア":"A","アルファード":"A","デリカD5":"B","デリカ":"B","ヤリスクロス":"F","ライズ":"F","ロッキー":"F","ノア":"C","ヴォクシー":"C","セレナ":"C","エスクァイア":"C","ハリアー":"D","プリウスα":"E","プリウスアルファ":"E","プリウス":"E","ルーミー":"H","ソリオ":"H","タンク":"H","ヤリス":"G","ヴィッツ":"G","アクア":"G","ノート":"G","ラグジュアリーミニバン":"A","コンパクトSUV":"F","コンパクトカー":"G","コンパクト":"G","ミニバン":"C","ワゴン":"C","1BOX":"C","ワンボックス":"C","SUV":"D","セダン":"E","ハイブリッド":"E","エコノミー":"G","軽自動車":"G","N-BOX":"I","N-ＢＯＸ":"I","エヌボックス":"I","タント":"I","ハスラー":"J","パッソ":"J","シエンタ":"K"};
   for(const[k,v]of Object.entries(nameMap)){if(raw.includes(k))return v;}
   // ④ マッチしない場合はログ出力してデフォルト
   console.warn("[normClass] クラス判定失敗:",raw,"→デフォルトC");
@@ -2792,7 +2792,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
       const set=maintByVeh[mm.vehicleCode]||(maintByVeh[mm.vehicleCode]=new Set());
       for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))set.add(toLD(d));
     });
-    const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
+    const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea","I":"#0d9488","J":"#db2777","K":"#65a30d"};
     const byClass={};
     vehicles.forEach(v=>{
       if(!isKpiActive(v.code))return;
@@ -3852,11 +3852,14 @@ const INIT_CLASSES=[
   {type:"F",label:"コンパクトSUV",seats:5},
   {type:"G",label:"コンパクト",seats:5},
   {type:"H",label:"コンパクト",seats:5},
+  {type:"I",label:"軽ハイトワゴン",seats:4},
+  {type:"J",label:"軽・コンパクト",seats:4},
+  {type:"K",label:"コンパクトミニバン",seats:7},
 ];
 // 車両の統一並び順: クラス階層(AA→A→B→C→D→E→F→G→H→未知)→車種名→ナンバー。
 // vehicles配列の入口で常にこの順に整列させ、アプリ全体のプルダウン/一覧/配車表に自動反映する。
 // 新規登録車両もクラスに応じて自動でこの位置に並ぶ(手動並べ替え不要)。
-const VEH_CLASS_ORDER=["AA","A","B","C","D","E","F","G","H"];
+const VEH_CLASS_ORDER=["AA","A","B","C","D","E","F","G","H","I","J","K"];
 function sortVehicles(arr){
   if(!Array.isArray(arr))return arr;
   const ci=t=>{const i=VEH_CLASS_ORDER.indexOf(t);return i<0?VEH_CLASS_ORDER.length:i;};
@@ -20186,7 +20189,7 @@ function Dashboard({data,fleet,vehicles,maintenance}){
 
     {/* クラス別売上 */}
     {(()=>{
-      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
+      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea","I":"#0d9488","J":"#db2777","K":"#65a30d"};
       // 車両コード→クラスtype マッピング
       const codeToType={};vehicles.forEach(v=>{codeToType[v.code]=v.type;});
       // クラス別集計
@@ -20248,7 +20251,7 @@ function Dashboard({data,fleet,vehicles,maintenance}){
 
     {/* クラス別稼働率 */}
     {(()=>{
-      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea"};
+      const CLASS_C={"AA":"#facc15","A":"#dc2626","B":"#2563eb","C":"#16a34a","D":"#ea580c","E":"#475569","F":"#7c3aed","G":"#0891b2","H":"#9333ea","I":"#0d9488","J":"#db2777","K":"#65a30d"};
       const codeToType={};vehicles.forEach(v=>{codeToType[v.code]=v.type;});
       // クラスごとの車両台数
       const classVehCount={};
@@ -23501,7 +23504,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.370-BT";
+const APP_VERSION="v1.0.371-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
