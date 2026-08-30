@@ -68,7 +68,8 @@
   body.bt{background:#0e0e12}
   body.bt .lang{border-color:#33333a;background:#1c1c1f;color:#c9c9cf}
   body.bt .lang.on{background:var(--btor,#ee6a1c);color:#fff;border-color:var(--btor,#ee6a1c)}
-  body.bt .bttop{position:relative;overflow:hidden;background:linear-gradient(120deg,#121214 0%,#1c1c1f 60%,#241a12 100%);color:#fff;border-radius:16px;padding:22px 20px;margin:2px 0 14px;border:1px solid #2a2a2e}
+  body.bt .bttop{position:relative;overflow:hidden;background:linear-gradient(120deg,#121214 0%,#1c1c1f 60%,#241a12 100%);color:#fff;border-radius:16px;padding:22px 20px;margin:2px 0 14px;border:1px solid #2a2a2e;min-height:180px;display:flex;flex-direction:column;justify-content:flex-end}
+  body.bt .bttop.img{background-size:cover;background-position:center 40%}
   body.bt .bttop::after{content:"";position:absolute;right:-30px;top:0;bottom:0;width:120px;background:linear-gradient(120deg,transparent,#ee6a1c);transform:skewX(-18deg);opacity:.85}
   body.bt .bttop .bt-brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#e9b06a;position:relative}
   body.bt .bttop h1{font-size:22px;font-weight:900;margin:6px 0 4px;position:relative}
@@ -95,7 +96,7 @@
 <script>
 /* ===== store config ===== */
 const STORES = {
-  hdmt: { brand:"HANDYMAN", area:"Takamatsu Airport", family:"hdm", hero:"", eye:"Rental Car", word:"TAKAMATSU",
+  hdmt: { brand:"HANDYMAN", area:"Takamatsu Airport", family:"hdm", hero:"hero-takamatsu.jpg", eye:"Takamatsu Airport", word:"TAKAMATSU",
     name:{en:"HANDYMAN Takamatsu Airport",zh:"HANDYMAN 高松機場店",ko:"HANDYMAN 다카마쓰공항점",ja:"HANDYMAN 高松空港店"},
     tel:"087-000-0000",
     shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
@@ -131,7 +132,7 @@ const STORES = {
       ko:"오키나와: 출퇴근 시간 58번 국도·나하 주변 정체. 유이레일 모노레일이 일부 도로를 가로지릅니다. 태풍철(6~10월) 폭우 시 해안도로 침수 가능. 눈은 없습니다.",
       ja:"沖縄：ラッシュ時は国道58号・那覇周辺が渋滞。ゆいレールが一部道路をまたぎます。台風期（6〜10月）の大雨で海岸道路が冠水することがあります。雪はありません。"},
     troubles:{en:"", zh:"", ko:"", ja:""} },
-  bt: { brand:"BUDDICA TOURISM", area:"Takamatsu Airport", family:"bt", hero:"", eye:"", word:"TAKAMATSU",
+  bt: { brand:"BUDDICA TOURISM", area:"Takamatsu Airport", family:"bt", hero:"hero-takamatsu.jpg", eye:"", word:"TAKAMATSU",
     name:{en:"BUDDICA TOURISM Takamatsu",zh:"BUDDICA TOURISM 高松店",ko:"BUDDICA TOURISM 다카마쓰점",ja:"BUDDICA TOURISM 高松空港店"},
     tel:"087-000-0000",
     shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
@@ -373,7 +374,8 @@ function render(){
   document.body.className = S.family==="bt" ? "bt" : "";
   const hero=document.getElementById("hero");
   if(S.family==="bt"){
-    hero.className="bttop";
+    hero.className="bttop"+(S.hero?" img":"");
+    if(S.hero) hero.style.backgroundImage=`linear-gradient(120deg,rgba(10,10,14,.82),rgba(28,28,31,.72) 55%,rgba(36,26,18,.8)),url('${S.hero}')`;
     hero.innerHTML=`<div class="bt-brand">${S.brand} · ${S.area}</div><h1>🚗 ${tr(S.name)}</h1><div class="bt-tag">${t.tag}</div>`;
   }else{
     hero.className="nhero"+(S.hero?" img":"");
