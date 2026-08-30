@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Rental Car Guide for Visitors</title>
+<meta name="robots" content="noindex">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;background:#f1f5f9;color:#0f172a;font-size:15px;line-height:1.7}
+  .wrap{max-width:640px;margin:0 auto;padding:0 0 60px}
+  /* hero */
+  .hero{padding:22px 18px 20px;color:#fff;position:relative}
+  .hero h1{font-size:21px;margin:0 0 4px;font-weight:900;letter-spacing:.3px}
+  .hero .brand{font-size:12px;font-weight:800;opacity:.92;letter-spacing:1px;text-transform:uppercase}
+  .hero .tag{font-size:13px;opacity:.95;margin-top:6px}
+  /* lang bar */
+  .langbar{display:flex;gap:6px;padding:10px 14px;background:#fff;position:sticky;top:0;z-index:20;border-bottom:1px solid #e2e8f0;overflow-x:auto}
+  .lang{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer;color:#475569;white-space:nowrap;flex-shrink:0}
+  .lang.on{background:#0f172a;color:#fff;border-color:#0f172a}
+  /* section cards */
+  .body{padding:14px}
+  .sec{background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .sec>summary{list-style:none;cursor:pointer;padding:15px 16px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:11px}
+  .sec>summary::-webkit-details-marker{display:none}
+  .sec>summary .ico{font-size:22px;flex-shrink:0}
+  .sec>summary .arw{margin-left:auto;color:#94a3b8;transition:transform .18s;font-size:14px}
+  .sec[open]>summary .arw{transform:rotate(180deg)}
+  .sec[open]>summary{border-bottom:1px solid #f1f5f9}
+  .sbody{padding:6px 17px 17px;color:#334155}
+  .sbody h4{font-size:14px;margin:14px 0 5px;color:#0f172a;font-weight:800}
+  .sbody h4:first-child{margin-top:6px}
+  .sbody ul{margin:5px 0;padding-left:20px}
+  .sbody li{margin:5px 0}
+  .sbody p{margin:6px 0}
+  .sbody b{color:#0f172a}
+  .tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
+  .warn{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
+  .warn b{color:#b91c1c}
+  .ok{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 13px;margin:9px 0;font-size:14px}
+  .kv{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed #e2e8f0;font-size:14px}
+  .kv:last-child{border:none}
+  .kv .k{min-width:120px;font-weight:800;color:#475569;flex-shrink:0}
+  .num{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;background:#0f172a;color:#fff;border-radius:50%;font-size:12px;font-weight:800;margin-right:6px}
+  .opt{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}
+  .opt:last-child{border:none}
+  .opt .st{margin-left:auto;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .opt .yes{background:#dcfce7;color:#166534}
+  .opt .no{background:#fee2e2;color:#b91c1c}
+  .opt .note{color:#64748b;font-size:12.5px;flex-basis:100%;padding-left:0;margin-top:-3px}
+  .emg{background:#0f172a;color:#fff;border-radius:14px;padding:16px;margin-bottom:10px;text-align:center}
+  .emg .big{font-size:15px;font-weight:800;margin-bottom:10px}
+  .emg .nums{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .emg a{display:block;background:#dc2626;color:#fff;text-decoration:none;font-weight:900;padding:11px 16px;border-radius:10px;font-size:15px;flex:1 1 44%;min-width:130px}
+  .emg a.police{background:#1d4ed8}
+  .emg a.store{background:#059669}
+  .foot{text-align:center;font-size:11px;color:#94a3b8;padding:16px}
+  .empty{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="langbar" id="langbar"></div>
+  <div class="hero" id="hero"></div>
+  <div class="body" id="body"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script>
+/* ===== store config ===== */
+const STORES = {
+  hdmt: { brand:"HANDYMAN", area:"Takamatsu Airport", color:"#0F1F45", accent:"#FABE00",
+    name:{en:"HANDYMAN Takamatsu Airport",zh:"HANDYMAN 高松機場店",ko:"HANDYMAN 다카마쓰공항점",ja:"HANDYMAN 高松空港店"},
+    tel:"087-000-0000",
+    shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
+      zh:"本店與高松機場之間提供免費接送。請事先告知航班號，工作人員將在抵達大廳迎接。",
+      ko:"본점과 다카마쓰공항 사이 무료 픽업. 항공편 번호를 미리 알려주시면 도착 로비에서 안내해 드립니다.",
+      ja:"店舗〜高松空港間の無料送迎あり。事前に便名をお知らせください。到着ロビーでお迎えします。"}},
+    notes:{en:"Snow is rare in Kagawa, but mountain roads (e.g. toward Kotohira) can be slippery in winter. Udon shop parking lots are often narrow.",
+      zh:"香川縣少雪，但冬季山路（如往金刀比羅方向）可能濕滑。烏龍麵店停車場多狹窄。",
+      ko:"가가와현은 눈이 드물지만 겨울철 산길(고토히라 방면 등)은 미끄러울 수 있습니다. 우동집 주차장은 좁은 곳이 많습니다.",
+      ja:"香川は雪が少ないですが、冬の山道（金刀比羅方面など）は路面が滑ることがあります。うどん店の駐車場は狭い場所が多いです。"},
+    troubles:{en:"", zh:"", ko:"", ja:""} },
+  spk: { brand:"HANDYMAN", area:"Sapporo", color:"#0369a1", accent:"#38bdf8",
+    name:{en:"HANDYMAN Sapporo Delivery",zh:"HANDYMAN 札幌店",ko:"HANDYMAN 삿포로점",ja:"HANDYMAN 札幌デリバリー店"},
+    tel:"011-000-0000",
+    shuttle:{has:false, txt:{en:"Delivery / collection service. We deliver the car to your hotel or specified location and collect it there.",
+      zh:"提供送車／取車服務。我們會將車輛送到您的飯店或指定地點，並在該處回收。",
+      ko:"딜리버리/회수 서비스. 호텔 또는 지정 장소로 차량을 배달하고 그곳에서 회수합니다.",
+      ja:"お届け／回収サービス。ご指定のホテル・場所へ車をお届けし、その場で回収します。"}},
+    notes:{en:"WINTER DRIVING: roads are snow-covered/icy Nov–Apr. Cars have studless tires. Drive slowly, brake early, keep distance. New Chitose Airport is ~50 min from central Sapporo. 'Sapporo' area only — New Chitose Airport is a separate area.",
+      zh:"冬季行車：11月至4月路面積雪／結冰。車輛配備無釘雪胎。請慢速行駛、提前煞車、保持車距。新千歲機場距札幌市中心約50分鐘。「札幌」僅限市內，新千歲機場為另一區域。",
+      ko:"겨울 운전: 11~4월 노면 눈/빙판. 차량은 스터드리스 타이어 장착. 서행·조기 브레이크·차간거리 유지. 신치토세공항은 삿포로 중심에서 약 50분. '삿포로'는 시내 한정, 신치토세공항은 별도 구역입니다.",
+      ja:"冬季走行：11〜4月は積雪・凍結。車はスタッドレス装着。徐行・早めのブレーキ・車間確保を。新千歳空港は札幌中心部から約50分。『札幌』は市内のみで新千歳空港は別エリアです。"},
+    troubles:{en:"", zh:"", ko:"", ja:""} },
+  nha: { brand:"HANDYMAN", area:"Naha (Okinawa)", color:"#0891b2", accent:"#22d3ee",
+    name:{en:"HANDYMAN Naha Airport",zh:"HANDYMAN 那霸機場店",ko:"HANDYMAN 나하공항점",ja:"HANDYMAN 那覇空港店"},
+    tel:"098-000-0000",
+    shuttle:{has:true, txt:{en:"Free shuttle bus between Naha Airport and our yard. After arrival, come to the designated bus stop; the shuttle runs on a set schedule.",
+      zh:"那霸機場與本店場地之間提供免費接駁巴士。抵達後請至指定巴士站，接駁車按時刻表運行。",
+      ko:"나하공항과 본점 야드 사이 무료 셔틀버스. 도착 후 지정 버스정류장으로 오세요. 셔틀은 시간표대로 운행합니다.",
+      ja:"那覇空港〜ヤード間の無料シャトルバス。到着後は指定のバス停へ。運行時刻表に沿って運行します。"}},
+    notes:{en:"Okinawa: heavy traffic on Route 58 and around Naha at rush hour. The Yui Rail monorail crosses some roads. Beach/coastal roads can flood in heavy rain (typhoon season Jun–Oct). No snow.",
+      zh:"沖繩：尖峰時段58號國道及那霸周邊易塞車。單軌電車（Yui Rail）會跨越部分道路。颱風季（6-10月）暴雨時海岸道路可能積水。無雪。",
+      ko:"오키나와: 출퇴근 시간 58번 국도·나하 주변 정체. 유이레일 모노레일이 일부 도로를 가로지릅니다. 태풍철(6~10월) 폭우 시 해안도로 침수 가능. 눈은 없습니다.",
+      ja:"沖縄：ラッシュ時は国道58号・那覇周辺が渋滞。ゆいレールが一部道路をまたぎます。台風期（6〜10月）の大雨で海岸道路が冠水することがあります。雪はありません。"},
+    troubles:{en:"", zh:"", ko:"", ja:""} },
+  bt: { brand:"BUDDICA TOURISM", area:"Takamatsu Airport", color:"#1e293b", accent:"#f59e0b",
+    name:{en:"BUDDICA TOURISM Takamatsu",zh:"BUDDICA TOURISM 高松店",ko:"BUDDICA TOURISM 다카마쓰점",ja:"BUDDICA TOURISM 高松空港店"},
+    tel:"087-000-0000",
+    shuttle:{has:true, txt:{en:"Free pick-up between our office and Takamatsu Airport. Tell us your flight number in advance; staff will meet you at the arrival lobby.",
+      zh:"本店與高松機場之間提供免費接送。請事先告知航班號，工作人員將在抵達大廳迎接。",
+      ko:"본점과 다카마쓰공항 사이 무료 픽업. 항공편 번호를 미리 알려주시면 도착 로비에서 안내해 드립니다.",
+      ja:"店舗〜高松空港間の無料送迎あり。事前に便名をお知らせください。到着ロビーでお迎えします。"}},
+    notes:{en:"Snow is rare in Kagawa, but winter mountain roads can be slippery. Shikoku has many narrow roads and blind curves outside cities — drive carefully.",
+      zh:"香川縣少雪，但冬季山路可能濕滑。四國城區外道路狹窄、彎道視野差，請小心駕駛。",
+      ko:"가가와현은 눈이 드물지만 겨울 산길은 미끄러울 수 있습니다. 시코쿠는 도심 외곽에 좁은 길과 급커브가 많으니 조심하세요.",
+      ja:"香川は雪が少ないですが、冬の山道は滑ることがあります。四国は市街地外に狭路・見通しの悪いカーブが多いので慎重に。"},
+    troubles:{en:"", zh:"", ko:"", ja:""} },
+};
+
+/* per-store options: label + availability + note (i18n) */
+function optionsFor(k){
+  const common=[
+    { ic:"🚼", label:{en:"Child / Junior seat",zh:"兒童／幼兒座椅",ko:"카시트／주니어시트",ja:"チャイルド／ジュニアシート"}, yes:true,
+      note:{en:"Available on request. Please reserve in advance (limited stock).",zh:"可預約提供（數量有限，請提前預約）。",ko:"사전 예약제(수량 한정).",ja:"事前予約制（数量限定）。"} },
+    { ic:"📡", label:{en:"ETC on-board unit",zh:"ETC車載器",ko:"ETC 단말기",ja:"ETC車載器"}, yes:true,
+      note:{en:"The car HAS an ETC unit, but we do NOT provide an ETC card. Please bring your own ETC card, or pay tolls in cash at the manned booth.",
+        zh:"車輛配備ETC車載器，但本店不提供ETC卡。請自備ETC卡，或於人工收費道走人工車道以現金支付。",
+        ko:"차량에 ETC 단말기는 있으나 ETC 카드는 제공하지 않습니다. 개인 ETC 카드를 지참하시거나 일반 차로에서 현금 결제하세요.",
+        ja:"車両にETC車載器はありますが、ETCカードは貸出しておりません。ご自身のETCカードをお持ちいただくか、一般レーンで現金精算をお願いします。"} },
+    { ic:"🔌", label:{en:"USB charging",zh:"USB充電",ko:"USB 충전",ja:"USB充電"}, yes:true,
+      note:{en:"USB port available in the car (free).",zh:"車內配備USB插孔（免費）。",ko:"차내 USB 포트 이용 가능(무료).",ja:"車内にUSBポートあり（無料）。"} },
+  ];
+  return common;
+}
+
+/* ===== i18n : common manual ===== */
+const LANGS=[["en","English"],["zh","中文"],["ko","한국어"],["ja","日本語"]];
+const T={
+ en:{
+  tag:"Everything you need to know before you drive.",
+  s_emg:"Emergency / Accident", s_rule:"Driving Rules in Japan", s_fuel:"How to Refuel",
+  s_nav:"Navigation & ETC", s_traffic:"Traffic & Road Info", s_store:"Store Rules",
+  s_shuttle:"Pick-up / Delivery", s_local:"Local Notes", s_opt:"Options & Equipment", s_trouble:"Recent Trouble Alerts",
+  emg_big:"In an accident, first ensure safety, then call:",
+  emg_amb:"🚑 Ambulance / Fire 119", emg_pol:"🚓 Police 110", emg_store:"📞 Call our store",
+  emg_flow:"Accident steps",
+  emg_l1:"Check for injuries. If anyone is hurt, call <b>119</b> immediately.",
+  emg_l2:"Call the <b>police 110</b> — required by law, even for minor accidents. You need a police report for insurance.",
+  emg_l3:"Call <b>our store</b>. Do not settle on the spot with the other party.",
+  emg_l4:"Do not move the vehicles until police arrive (unless blocking traffic). Note the other party's name, phone, plate number, and take photos.",
+  emg_l5:"If the car cannot be driven, we will arrange a tow truck.",
+  rule_l1:"Drive on the <b>LEFT</b> side of the road.",
+  rule_l2:"An <b>International Driving Permit (Geneva Convention)</b> or an official Japanese translation is required. Carry your passport, home licence and IDP at all times.",
+  rule_l3:"<b>Seatbelts mandatory</b> for all passengers. Children need a child seat.",
+  rule_l4:"<b>Zero tolerance for drink-driving.</b> Severe penalties. No alcohol at all before driving.",
+  rule_l5:"No holding your phone while driving.",
+  rule_l6:"<b>Full stop</b> at every「止まれ」(STOP) sign / stop line.",
+  rule_l7:"Pedestrians have priority at crossings.",
+  rule_l8:"<b>Stop before every railway crossing</b>, check both sides, then proceed.",
+  rule_l9:"Speed limits are posted in km/h. Typical: city 40–50, open road 50–60, expressway 80–100.",
+  fuel_note:"Please return the car with a <b>FULL tank</b> (満タン返し). Keep the receipt.",
+  fuel_type:"Fuel type",
+  fuel_type_v:"Most of our cars use <b>Regular (レギュラー / red pump)</b>. Please confirm the sticker near the fuel cap.",
+  fuel_l1:"Enter a self-service gas stand (セルフ). Park at an open pump.",
+  fuel_l2:"Touch the screen → choose <b>Regular (レギュラー, red)</b> → choose <b>Full tank (満タン)</b> → payment method.",
+  fuel_l3:"Discharge static electricity (touch the pad), open the fuel cap, insert the nozzle fully.",
+  fuel_l4:"Squeeze the lever; it stops automatically when full. Return the nozzle, close the cap.",
+  fuel_l5:"Take your receipt from the machine (needed to prove full tank).",
+  nav_l1:"Set your destination by <b>phone number</b> or <b>Map Code</b> (common in Japan) — more reliable than address.",
+  nav_l2:"Many cars support English/Chinese/Korean menus. Ask staff to switch the language.",
+  nav_l3:"ETC: the car has a unit but no card — see Options below.",
+  nav_l4:"Google Maps on your phone also works well; bring a phone holder or use USB charging.",
+  traffic_l1:"Expressways (高速) are toll roads. Without an ETC card, use the manned lane (一般) and pay cash/credit.",
+  traffic_l2:"Japan uses ETC for automatic toll payment. Green 'ETC' lanes are only for cars with a valid ETC card inserted.",
+  traffic_l3:"Watch live traffic on the car navi or Google Maps; city centres get congested at rush hour.",
+  store_l1:"<b>No smoking</b> in all vehicles (cleaning fee applies).",
+  store_l2:"No pets unless arranged in advance.",
+  store_l3:"Please return on time. Late return may incur extra charges.",
+  store_l4:"Return with a full tank and no heavy soiling.",
+  store_l5:"To extend your rental, contact the store as early as possible (subject to availability).",
+  opt_intro:"Availability of equipment and options:",
+  trouble_none:"No current alerts. Drive safely and enjoy your trip!",
+  foot:"This guide is for reference. If in doubt, please contact our store."
+ },
+ zh:{
+  tag:"開車前必讀的重要資訊。",
+  s_emg:"緊急／事故處理", s_rule:"日本駕駛規則", s_fuel:"加油方法",
+  s_nav:"導航與ETC", s_traffic:"交通與路況", s_store:"門市規則",
+  s_shuttle:"接送／送車", s_local:"當地注意事項", s_opt:"選配與設備", s_trouble:"近期問題提醒",
+  emg_big:"發生事故時，先確保安全，再撥打：",
+  emg_amb:"🚑 救護／消防 119", emg_pol:"🚓 警察 110", emg_store:"📞 撥打本店",
+  emg_flow:"事故處理步驟",
+  emg_l1:"確認有無傷者。如有人受傷，立即撥打<b>119</b>。",
+  emg_l2:"撥打<b>警察110</b>——即使是輕微事故，法律也要求報警。保險理賠需要警方報告。",
+  emg_l3:"聯絡<b>本店</b>。切勿與對方當場私下和解。",
+  emg_l4:"警察到達前請勿移動車輛（除非阻礙交通）。記下對方姓名、電話、車牌，並拍照。",
+  emg_l5:"若車輛無法行駛，我們將安排拖車。",
+  rule_l1:"靠<b>左側</b>行駛。",
+  rule_l2:"需持<b>國際駕照（日內瓦公約）</b>或日本官方翻譯件。請隨身攜帶護照、本國駕照與國際駕照。",
+  rule_l3:"所有乘客<b>必須繫安全帶</b>。兒童需使用兒童座椅。",
+  rule_l4:"<b>嚴禁酒後駕駛</b>，罰則極重。開車前絕不可飲酒。",
+  rule_l5:"行駛中禁止手持手機。",
+  rule_l6:"遇「止まれ」(STOP)標誌／停止線須<b>完全停車</b>。",
+  rule_l7:"行人穿越道行人優先。",
+  rule_l8:"<b>鐵路平交道前必須停車</b>，左右確認後再通過。",
+  rule_l9:"速限以km/h標示。一般：市區40–50、郊區50–60、高速80–100。",
+  fuel_note:"請將油箱<b>加滿</b >後歸還（滿タン返し），並保留收據。",
+  fuel_type:"油種",
+  fuel_type_v:"本店多數車輛使用<b>普通汽油（レギュラー／紅色油槍）</b>。請確認油箱蓋附近的標示。",
+  fuel_l1:"進入自助加油站（セルフ），停靠空的加油機。",
+  fuel_l2:"觸控螢幕 →選<b>普通汽油（レギュラー，紅）</b> →選<b>加滿（満タン）</b> →選付款方式。",
+  fuel_l3:"觸摸靜電消除墊，打開油箱蓋，將油槍完全插入。",
+  fuel_l4:"握下油槍手把，加滿會自動停止。放回油槍，關上油箱蓋。",
+  fuel_l5:"從機器取出收據（作為加滿證明）。",
+  nav_l1:"用<b>電話號碼</b>或<b>Map Code（地圖碼）</b>設定目的地，比地址更準確。",
+  nav_l2:"多數車輛支援中／英／韓文選單，可請工作人員切換語言。",
+  nav_l3:"ETC：車上有車載器但無卡，詳見下方選配。",
+  nav_l4:"手機Google Maps也很好用；請攜帶手機支架或使用USB充電。",
+  traffic_l1:"高速公路為收費道路。無ETC卡時請走人工車道（一般），以現金／信用卡支付。",
+  traffic_l2:"日本以ETC自動繳費。綠色「ETC」車道僅限已插入有效ETC卡的車輛。",
+  traffic_l3:"可透過車機或Google Maps查看即時路況；尖峰時段市中心易塞車。",
+  store_l1:"全車<b>禁菸</b>（違者收清潔費）。",
+  store_l2:"未事先安排不可攜帶寵物。",
+  store_l3:"請準時歸還。逾時可能加收費用。",
+  store_l4:"歸還時請加滿油且無嚴重髒污。",
+  store_l5:"如需延長租期，請儘早聯絡門市（視車輛狀況而定）。",
+  opt_intro:"設備與選配的提供狀況：",
+  trouble_none:"目前無提醒事項。祝您旅途愉快、行車平安！",
+  foot:"本指南僅供參考。如有疑問請聯絡本店。"
+ },
+ ko:{
+  tag:"운전 전 꼭 알아둘 정보입니다.",
+  s_emg:"긴급／사고 대응", s_rule:"일본 운전 규칙", s_fuel:"주유 방법",
+  s_nav:"내비게이션 & ETC", s_traffic:"교통·도로 정보", s_store:"매장 규칙",
+  s_shuttle:"픽업／딜리버리", s_local:"현지 주의사항", s_opt:"옵션 & 장비", s_trouble:"최근 트러블 안내",
+  emg_big:"사고 시 먼저 안전을 확보한 뒤 전화하세요:",
+  emg_amb:"🚑 구급／소방 119", emg_pol:"🚓 경찰 110", emg_store:"📞 매장 전화",
+  emg_flow:"사고 대응 순서",
+  emg_l1:"부상자 확인. 다친 사람이 있으면 즉시 <b>119</b>.",
+  emg_l2:"<b>경찰 110</b> 신고 — 경미한 사고라도 법적 의무입니다. 보험 처리에 경찰 신고가 필요합니다.",
+  emg_l3:"<b>매장</b>에 연락하세요. 상대방과 현장에서 합의하지 마세요.",
+  emg_l4:"경찰 도착 전 차량을 이동하지 마세요(교통 방해 시 제외). 상대 이름·전화·번호판을 기록하고 사진을 찍으세요.",
+  emg_l5:"차량 주행이 불가능하면 견인차를 수배해 드립니다.",
+  rule_l1:"<b>좌측</b> 통행입니다.",
+  rule_l2:"<b>국제운전면허(제네바협약)</b> 또는 일본어 공식 번역본이 필요합니다. 여권·본국 면허·국제면허를 항상 소지하세요.",
+  rule_l3:"전 좌석 <b>안전벨트 필수</b>. 어린이는 카시트가 필요합니다.",
+  rule_l4:"<b>음주운전 절대 금지</b>, 처벌이 매우 무겁습니다. 운전 전 음주 금지.",
+  rule_l5:"운전 중 휴대폰 손에 들기 금지.",
+  rule_l6:"「止まれ」(STOP) 표지·정지선에서 <b>완전 정지</b>.",
+  rule_l7:"횡단보도에서는 보행자 우선.",
+  rule_l8:"<b>철길 건널목 앞 반드시 일시정지</b>, 좌우 확인 후 통과.",
+  rule_l9:"제한속도는 km/h. 보통 시내 40–50, 국도 50–60, 고속도로 80–100.",
+  fuel_note:"차량은 <b>가득(만탱크)</b> 채워 반납해 주세요(満タン返し). 영수증을 보관하세요.",
+  fuel_type:"연료 종류",
+  fuel_type_v:"대부분 차량은 <b>보통 휘발유(レギュラー／빨간 주유기)</b>를 사용합니다. 주유구 근처 스티커를 확인하세요.",
+  fuel_l1:"셀프 주유소(セルフ)에 들어가 빈 주유기에 정차.",
+  fuel_l2:"화면 터치 →<b>보통(レギュラー, 빨강)</b> →<b>가득(満タン)</b> →결제 방법 선택.",
+  fuel_l3:"정전기 제거 패드를 만지고 주유구를 열어 노즐을 끝까지 삽입.",
+  fuel_l4:"레버를 당기면 가득 차면 자동 정지. 노즐을 걸고 주유구를 닫으세요.",
+  fuel_l5:"기계에서 영수증을 받으세요(만탱크 증빙).",
+  nav_l1:"목적지는 <b>전화번호</b> 또는 <b>맵코드(Map Code)</b>로 설정하면 주소보다 정확합니다.",
+  nav_l2:"다수 차량이 한/영/중 메뉴를 지원합니다. 직원에게 언어 변경을 요청하세요.",
+  nav_l3:"ETC: 차량에 단말기는 있으나 카드는 없습니다 — 아래 옵션 참고.",
+  nav_l4:"휴대폰 구글맵도 잘 됩니다. 거치대 지참 또는 USB 충전을 이용하세요.",
+  traffic_l1:"고속도로(高速)는 유료입니다. ETC 카드가 없으면 일반 차로(一般)에서 현금/카드로 결제하세요.",
+  traffic_l2:"일본은 ETC 자동 결제를 씁니다. 녹색 'ETC' 차로는 유효한 ETC 카드가 삽입된 차량만 통과 가능.",
+  traffic_l3:"차량 내비나 구글맵으로 실시간 교통을 확인하세요. 러시아워에는 도심이 혼잡합니다.",
+  store_l1:"전 차량 <b>금연</b>(위반 시 청소비 부과).",
+  store_l2:"사전 협의 없이 반려동물 동승 불가.",
+  store_l3:"정시 반납 부탁드립니다. 지연 시 추가 요금이 발생할 수 있습니다.",
+  store_l4:"가득 주유·심한 오염 없이 반납해 주세요.",
+  store_l5:"대여 연장은 가능한 빨리 매장에 연락하세요(차량 사정에 따름).",
+  opt_intro:"장비 및 옵션 제공 현황:",
+  trouble_none:"현재 안내 사항 없음. 안전 운전하시고 즐거운 여행 되세요!",
+  foot:"본 가이드는 참고용입니다. 궁금한 점은 매장으로 문의하세요."
+ },
+ ja:{
+  tag:"運転前に知っておきたい情報をまとめました。",
+  s_emg:"緊急・事故対応", s_rule:"日本の交通ルール", s_fuel:"給油方法",
+  s_nav:"ナビ・ETC", s_traffic:"交通情報・道路", s_store:"店舗ルール",
+  s_shuttle:"送迎・お届け", s_local:"各店の特筆情報", s_opt:"オプション・装備", s_trouble:"最近のトラブル注意",
+  emg_big:"事故のときは、まず安全確保→次に電話：",
+  emg_amb:"🚑 救急・消防 119", emg_pol:"🚓 警察 110", emg_store:"📞 店舗へ電話",
+  emg_flow:"事故対応の手順",
+  emg_l1:"けが人の確認。負傷者がいれば直ちに<b>119</b>。",
+  emg_l2:"<b>警察110</b>へ通報 — 軽微でも法律上必須。保険手続きに事故証明が必要です。",
+  emg_l3:"<b>店舗</b>へ連絡。相手とその場で示談しないでください。",
+  emg_l4:"警察到着まで車を動かさない（通行の妨げになる場合を除く）。相手の氏名・電話・ナンバーを控え、写真を撮影。",
+  emg_l5:"走行不能の場合はレッカーを手配します。",
+  rule_l1:"<b>左側</b>通行です。",
+  rule_l2:"<b>国際運転免許（ジュネーブ条約）</b>または日本語公式翻訳が必要。パスポート・本国免許・国際免許を常に携帯。",
+  rule_l3:"全席<b>シートベルト必須</b>。お子様はチャイルドシートが必要です。",
+  rule_l4:"<b>飲酒運転は厳禁</b>、罰則は非常に重いです。運転前は一切飲酒禁止。",
+  rule_l5:"運転中の携帯電話の手持ち禁止。",
+  rule_l6:"「止まれ」標識・停止線では<b>完全停止</b>。",
+  rule_l7:"横断歩道は歩行者優先。",
+  rule_l8:"<b>踏切の前は必ず一時停止</b>、左右確認して通過。",
+  rule_l9:"制限速度はkm/h表示。目安：市街40–50、郊外50–60、高速80–100。",
+  fuel_note:"車は<b>満タン</b>で返却してください（満タン返し）。レシートを保管してください。",
+  fuel_type:"燃料の種類",
+  fuel_type_v:"当店の多くの車は<b>レギュラー（赤いノズル）</b>です。給油口付近のシールをご確認ください。",
+  fuel_l1:"セルフのガソリンスタンドへ。空いている給油機に停車。",
+  fuel_l2:"画面をタッチ →<b>レギュラー（赤）</b> →<b>満タン</b> →支払い方法を選択。",
+  fuel_l3:"静電気除去パッドに触れ、給油口を開けてノズルを奥まで挿入。",
+  fuel_l4:"レバーを握ると満タンで自動停止。ノズルを戻し、給油口を閉める。",
+  fuel_l5:"機械からレシートを受け取る（満タンの証明に必要）。",
+  nav_l1:"目的地は<b>電話番号</b>または<b>マップコード</b>で設定すると住所より確実です。",
+  nav_l2:"多くの車で英/中/韓メニューに対応。スタッフに言語切替を依頼できます。",
+  nav_l3:"ETC：車載器はありますがカードはありません — 下のオプション参照。",
+  nav_l4:"スマホのGoogleマップも便利です。ホルダー持参かUSB充電をご利用ください。",
+  traffic_l1:"高速道路は有料。ETCカードが無い場合は一般レーンで現金／クレジット精算。",
+  traffic_l2:"日本はETC自動精算。緑の「ETC」レーンは有効なETCカードを挿した車のみ通行可。",
+  traffic_l3:"車のナビやGoogleマップで渋滞情報を確認。ラッシュ時は都心が混みます。",
+  store_l1:"全車<b>禁煙</b>（違反時は清掃料）。",
+  store_l2:"事前手配のないペット同乗は不可。",
+  store_l3:"時間厳守でご返却ください。延着は追加料金の場合があります。",
+  store_l4:"満タン・ひどい汚れなしでご返却ください。",
+  store_l5:"延長はできるだけ早く店舗へご連絡ください（空車状況によります）。",
+  opt_intro:"装備・オプションの提供状況：",
+  trouble_none:"現在お知らせはありません。安全運転で良い旅を！",
+  foot:"本ガイドは参考情報です。ご不明点は店舗へお問い合わせください。"
+ }
+};
+
+/* ===== render ===== */
+const qs=new URLSearchParams(location.search);
+let store=(qs.get("store")||"hdmt").toLowerCase(); if(!STORES[store])store="hdmt";
+let lang=(qs.get("lang")||localStorage.getItem("ig_lang")||"en").toLowerCase(); if(!T[lang])lang="en";
+const S=STORES[store];
+function tr(o){return (o&&(o[lang]||o.en||o.ja))||"";}
+
+function renderLang(){
+  document.getElementById("langbar").innerHTML=LANGS.map(([c,n])=>`<div class="lang ${c===lang?"on":""}" data-l="${c}">${n}</div>`).join("");
+  document.querySelectorAll(".lang").forEach(el=>el.onclick=()=>{lang=el.dataset.l;localStorage.setItem("ig_lang",lang);document.documentElement.lang=lang;render();});
+}
+function sec(id,ico,titleKey,inner,open){
+  return `<details class="sec" ${open?"open":""}><summary><span class="ico">${ico}</span><span>${T[lang][titleKey]}</span><span class="arw">▼</span></summary><div class="sbody">${inner}</div></details>`;
+}
+function li(keys){return "<ul>"+keys.map(k=>`<li>${T[lang][k]}</li>`).join("")+"</ul>";}
+function steps(keys){return keys.map((k,i)=>`<p><span class="num">${i+1}</span>${T[lang][k]}</p>`).join("");}
+
+function render(){
+  const t=T[lang];
+  document.documentElement.lang=lang;
+  document.getElementById("hero").style.background=`linear-gradient(135deg,${S.color},${S.color}dd)`;
+  document.getElementById("hero").innerHTML=
+    `<div class="brand">${S.brand} · ${S.area}</div><h1>🚗 ${tr(S.name)}</h1><div class="tag">${t.tag}</div>`;
+
+  // emergency (always open, top)
+  const emg=`<div class="emg"><div class="big">${t.emg_big}</div><div class="nums">`+
+    `<a href="tel:119">${t.emg_amb}</a><a class="police" href="tel:110">${t.emg_pol}</a>`+
+    `<a class="store" href="tel:${S.tel}">${t.emg_store}</a></div></div>`;
+
+  // shuttle
+  const shuttle = sec("shuttle","🚌","s_shuttle",
+    `<p>${tr(S.shuttle.txt)}</p>${S.shuttle.has?`<div class="ok">${t.emg_store.replace('📞 ','')}: <b>${S.tel}</b></div>`:""}`);
+
+  // options
+  const opts=optionsFor(store).map(o=>
+    `<div class="opt"><span style="font-size:19px">${o.ic}</span><span>${tr(o.label)}</span><span class="st ${o.yes?"yes":"no"}">${o.yes?"✓":"✕"}</span><span class="note">${tr(o.note)}</span></div>`).join("");
+  const options=sec("opt","🧳","s_opt",`<p>${t.opt_intro}</p>${opts}`);
+
+  // trouble
+  const tb=tr(S.troubles);
+  const trouble=sec("trouble","⚠️","s_trouble", tb?`<div class="warn">${tb}</div>`:`<p>${t.trouble_none}</p>`);
+
+  const body=
+    emg+
+    sec("emg","🚑","s_emg",`<h4>${t.emg_flow}</h4>${steps(["emg_l1","emg_l2","emg_l3","emg_l4","emg_l5"])}`,true)+
+    sec("rule","🛣️","s_rule",li(["rule_l1","rule_l2","rule_l3","rule_l4","rule_l5","rule_l6","rule_l7","rule_l8","rule_l9"]))+
+    sec("fuel","⛽","s_fuel",`<div class="tip">${t.fuel_note}</div><h4>${t.fuel_type}</h4><p>${t.fuel_type_v}</p><h4>${t.s_fuel}</h4>${steps(["fuel_l1","fuel_l2","fuel_l3","fuel_l4","fuel_l5"])}`)+
+    sec("nav","🧭","s_nav",li(["nav_l1","nav_l2","nav_l3","nav_l4"]))+
+    sec("traffic","🚦","s_traffic",li(["traffic_l1","traffic_l2","traffic_l3"]))+
+    shuttle+
+    sec("local","📍","s_local",`<p>${tr(S.notes)}</p>`)+
+    options+
+    sec("store","📋","s_store",li(["store_l1","store_l2","store_l3","store_l4","store_l5"]))+
+    trouble;
+
+  document.getElementById("body").innerHTML=body;
+  document.getElementById("foot").innerHTML=`${t.foot}<br>${tr(S.name)} · ${S.tel}`;
+  document.title=tr(S.name)+" — Guide";
+}
+renderLang();render();
+</script>
+</body>
+</html>
