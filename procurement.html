@@ -119,6 +119,13 @@
     tr:not(.open){padding-bottom:10px}
     td[data-lb="車両URL"]{padding-top:2px}
   }
+
+tr.clsgrp td{background:#eef2f7;font-weight:800;color:#0f172a;padding:6px 10px;border-top:3px solid var(--cc);font-size:12px}
+tr.clsgrp .cbadge{display:inline-block;color:#fff;padding:1px 9px;border-radius:5px;font-weight:900;margin-right:8px}
+tr.clsgrp .ccount{color:#64748b;font-weight:700;font-size:11px;margin-left:8px}
+tr.grpRow td:first-child{border-left:3px solid var(--cc)}
+tr.grpRow td:last-child{border-right:3px solid var(--cc)}
+tr.grpLast td{border-bottom:3px solid var(--cc)}
 </style>
 </head>
 <body>
@@ -259,8 +266,12 @@ function render(){
     if(ca!==cb)return ca<cb?-1:1;
     return (a.sort_order||0)-(b.sort_order||0);
   });
-  $("tb").innerHTML=list.map(r=>`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}" class="${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
+  const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
+  const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
+  const gcount={};list.forEach(x=>{const c=x.vclass||"";gcount[c]=(gcount[c]||0)+1;});
+  let _prevC=null;
+  $("tb").innerHTML=list.map((r,idx)=>{const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||((_nx.vclass||"")!==c);let hdr="";if(c!==_prevC){_prevC=c;const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[c]||0}台</span></td></tr>`;}return hdr+`
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="詳細を開閉">▼</span></td>
       <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
@@ -281,7 +292,7 @@ function render(){
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
