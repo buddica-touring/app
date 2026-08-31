@@ -25,6 +25,10 @@
   .tb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
   .chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;color:#475569}
   .chip.on{background:#0f172a;color:#fff;border-color:#0f172a}
+  .chip b{font-weight:900}
+  .chip.cOK.on{background:#16a34a;border-color:#16a34a}
+  .chip.cNG.on{background:#64748b;border-color:#64748b}
+  .chip.cSold.on{background:#dc2626;border-color:#dc2626}
   .who{margin-left:auto;display:flex;gap:6px;align-items:center}
   .who input{border:1px solid #cbd5e1;border-radius:8px;padding:5px 8px;font-size:13px;width:120px}
   .btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;color:#334155}
@@ -160,6 +164,8 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
     <span id="goal" class="btn">🎯 目標台数: <b id="goalN">30</b> <span style="color:#94a3b8">（クリックで変更）</span></span>
   </div>
 
+  <div class="tb" id="fbar" style="margin-top:-2px"></div>
+
   <div class="tblwrap">
     <table>
       <thead><tr>
@@ -222,6 +228,7 @@ async function load(){
   setStatus("更新OK ("+rows.length+"台) "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
 }
 $("reload").addEventListener("click",()=>load());
+$("fbar").addEventListener("click",e=>{const c=e.target.closest(".chip[data-f]");if(!c)return;filter=c.dataset.f;render();});
 function counts(){
   const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
   rows.forEach(r=>{if(isSample(r))return;c[r.status]=(c[r.status]||0)+1;});
@@ -258,10 +265,31 @@ function renderClassSummary(){
   $("clsummary").innerHTML=`📊 クラス別　ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b> <span style="color:#94a3b8;font-weight:600">（タップで内訳）</span>`;
   $("clsum").innerHTML=shown.length?shown.map(c=>`<span class="cc"><span style="color:#0f172a">${c}</span> <span class="pk" title="ピック数">📌${pk[c]}</span> <b title="確定(仕入OK)">✓${ok[c]}</b></span>`).join(""):`<span class="cc z">クラス未設定</span>`;
 }
+function renderFilterBar(){
+  const real=rows.filter(r=>!isSample(r));
+  const cAll=real.length;
+  const cOK=real.filter(r=>r.status==="OK").length;
+  const cNG=real.filter(r=>r.status==="NG").length;
+  const cSold=real.filter(r=>/SOLD/i.test(r.price||"")).length;
+  const chips=[
+    {f:"all",lb:"全て",n:cAll,cl:""},
+    {f:"OK",lb:"✅ 仕入OK",n:cOK,cl:"cOK"},
+    {f:"NG",lb:"❌ NG",n:cNG,cl:"cNG"},
+    {f:"sold",lb:"🔴 SOLD OUT",n:cSold,cl:"cSold"},
+  ];
+  const bar=document.getElementById("fbar");
+  bar.innerHTML=`<span style="font-size:11px;font-weight:800;color:#94a3b8;align-self:center;margin-right:2px">絞り込み</span>`+
+    chips.map(c=>`<span class="chip ${c.cl} ${filter===c.f?"on":""}" data-f="${c.f}">${c.lb} <b>${c.n}</b></span>`).join("");
+}
 function render(){
   renderDash();
   renderClassSummary();
-  const list=rows.filter(r=>filter==="all"||r.status===filter).slice().sort((a,b)=>{
+  renderFilterBar();
+  const list=rows.filter(r=>{
+    if(filter==="all")return true;
+    if(filter==="sold")return /SOLD/i.test(r.price||"");
+    return r.status===filter;
+  }).slice().sort((a,b)=>{
     const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス入りをA→H順にグループ化、未設定は末尾
     if(ca!==cb)return ca<cb?-1:1;
     return (a.sort_order||0)-(b.sort_order||0);
