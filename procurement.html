@@ -194,6 +194,7 @@ const MEIGI=["未定","BD","HDM"];   // 名義プルダウン（BD=BUDDICA / HDM
 const MEIGICLS={"未定":"meU","BD":"meBD","HDM":"meHDM"};   // ハイライト背景: BD=オレンジ / HDM=青
 function meigiOpt(sel){return MEIGI.map(m=>`<option value="${m}" ${m===(sel||"未定")?"selected":""}>${m}</option>`).join("");}
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
+const isOut=r=>(r&&(r.status==="NG"||/SOLD/i.test(r.price||"")));  // NG・SOLD OUT＝候補外（消さず最下部にまとめる）
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
@@ -290,15 +291,18 @@ function render(){
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
   }).slice().sort((a,b)=>{
+    const oa=isOut(a)?1:0, ob=isOut(b)?1:0;   // NG・SOLD OUT は消さず最下部にまとめる
+    if(oa!==ob)return oa-ob;
     const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス入りをA→H順にグループ化、未設定は末尾
     if(ca!==cb)return ca<cb?-1:1;
     return (a.sort_order||0)-(b.sort_order||0);
   });
   const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
   const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-  const gcount={};list.forEach(x=>{const c=x.vclass||"";gcount[c]=(gcount[c]||0)+1;});
-  let _prevC=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||((_nx.vclass||"")!==c);let hdr="";if(c!==_prevC){_prevC=c;const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[c]||0}台</span></td></tr>`;}return hdr+`
+  const gkey=r=>isOut(r)?"__OUT__":(r.vclass||"");
+  const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
+  let _prevG=null;
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="詳細を開閉">▼</span></td>
