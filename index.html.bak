@@ -20942,6 +20942,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     {h:"COL場所",w:110,k:null},
     {h:"送迎(帰)",w:100,k:null},
     {h:"料金",w:70,k:"price"},
+    {h:"決済",w:44,k:null},
     {h:"便名",w:56,k:"flight"},
     {h:"予約番号",w:120,k:"id"},
     {h:"OTA",w:44,k:"ota"},
@@ -21084,16 +21085,19 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
                 </>;
               })()}
               <td style={{...cellR(23),fontWeight:700,color:"#1e293b",textAlign:"right"}}>{r.price?"¥"+(r.price||0).toLocaleString():"-"}</td>
-              <td style={{...cellR(24),color:"#2563eb",fontSize:9}}>{(()=>{
+              <td style={{...cellR(24),textAlign:"center"}}>{(()=>{/* ★ 2026-08-31 決済列: 事前決済(じゃらんpaid or 公式Square paid)=決済済み / それ以外=現地(未決済) */const njp=nhaJpMap[r.id];const isPrepaid=!!r.paid||(njp&&njp.status==="paid");return isPrepaid
+                ?<span style={{fontSize:8,fontWeight:800,color:"#059669",background:"#dcfce7",border:"1px solid #86efac",borderRadius:3,padding:"1px 4px"}}>事前</span>
+                :<span style={{fontSize:8,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1px solid #fde68a",borderRadius:3,padding:"1px 4px"}}>現地</span>;})()}</td>
+              <td style={{...cellR(25),color:"#2563eb",fontSize:9}}>{(()=>{
                 /* ★ 2026-05-02 v3.4.28 デバッグ: 実値を可視化 */
                 if(r.flight===undefined)return <span style={{color:"#dc2626"}}>?undef</span>;
                 if(r.flight===null)return <span style={{color:"#dc2626"}}>?null</span>;
                 if(r.flight==="")return <span style={{color:"#94a3b8"}}>-</span>;
                 return "✈"+r.flight;
               })()}</td>
-              <td onClick={e=>copyResvId(r.id,e)} title="クリックで予約番号をコピー" style={{...cellR(25),fontFamily:"monospace",fontSize:7,cursor:r.id?"copy":"default",color:copiedId===r.id?"#059669":"#1d4ed8",textDecoration:r.id?"underline":"none",fontWeight:copiedId===r.id?800:400,userSelect:"all"}}>{copiedId===r.id?"✓ "+r.id:(r.id||"")}</td>
-              <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(26),textAlign:"center"}}>{(r.ota||resBrand(r))?<OBadge ota={r.ota} brand={resBrand(r)}/>:""}</td>
-              <td style={cellR(27)}>{r.tel||""}</td>
+              <td onClick={e=>copyResvId(r.id,e)} title="クリックで予約番号をコピー" style={{...cellR(26),fontFamily:"monospace",fontSize:7,cursor:r.id?"copy":"default",color:copiedId===r.id?"#059669":"#1d4ed8",textDecoration:r.id?"underline":"none",fontWeight:copiedId===r.id?800:400,userSelect:"all"}}>{copiedId===r.id?"✓ "+r.id:(r.id||"")}</td>
+              <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(27),textAlign:"center"}}>{(r.ota||resBrand(r))?<OBadge ota={r.ota} brand={resBrand(r)}/>:""}</td>
+              <td style={cellR(28)}>{r.tel||""}</td>
             </tr>;
           })}
           {list.length===0&&<tr><td colSpan={cols.length} style={{textAlign:"center",padding:20,color:"#94a3b8",fontSize:11}}>該当する予約がありません</td></tr>}
@@ -23506,7 +23510,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.373-BT";
+const APP_VERSION="v1.0.374-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
