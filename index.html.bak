@@ -4290,7 +4290,8 @@ function autoAssign(reservations,vehicles,existingFleet,maintenance){
     const rL=norm(r.lendDate),rR=norm(r.returnDate);
     // ★2026-09-01 ブランド分離: 予約brand(HDM/BUDDICA)に一致する運用車両のみ候補にする（混合配車を禁止）。brand不明の予約のみ従来通り全候補。
     const rBrand=resBrand(r);
-    const brandOk=v=>!rBrand||normBrand(v.brand)===rBrand;
+    const _anyHdm=(vehicles||[]).some(v=>normBrand(v.brand)==="HDM"); // ★安全弁: HDM運用車を1台も設定していない間はブランド絞り込みを無効化(全車BUDDICA=従来通り・副作用ゼロ)
+    const brandOk=v=>!_anyHdm||!rBrand||normBrand(v.brand)===rBrand;
     const _bl=rBrand==="HDM"?"HDM":rBrand==="BUDDICA"?"BT":"";
     // ★ サブクラスフォールバック: A2→A, B2→B（車両未登録時）
     const SUBCLASS_FB={"A2":"A","B2":"B"};
@@ -16335,6 +16336,7 @@ function TimeTable({tasks,staffCount}){
 function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenanceChange,vehicles,vehicleClasses,onAddReservation,onBulkAddReservation,onCancelReservation,onDeleteReservation,onReassignVehicle,unassignedReasons,hmReload,onVehiclesChange}){
   const scrollRef=useRef(null);const[tooltip,setTooltip]=useState(null);const[viewMode,setViewMode]=useState("month");const[baseDate,setBaseDate]=useState(today);const[collapsed,setCollapsed]=useState(()=>window.innerWidth<=768?{unassignedAlert:true}:{});const[showMaintForm,setShowMaintForm]=useState(null);const[showResForm,setShowResForm]=useState(null);const[maintSaving,setMaintSaving]=useState(false);
   const[dragInfo,setDragInfo]=useState(null);const[dropTarget,setDropTarget]=useState(null);const dropTargetRef=useRef(null);
+  const[brandView,setBrandView]=useState("all"); // ★2026-09-01 配車表 全体/HDM/BT 切替（宣言漏れ修正）
   // ★ 月別稼働フラグ
   const[kpiFlags,setKpiFlags]=useState({});
   const kpiYM=useMemo(()=>{const d=new Date(baseDate+"T00:00:00");return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");},[baseDate]);
@@ -23540,7 +23542,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.377-BT";
+const APP_VERSION="v1.0.378-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
