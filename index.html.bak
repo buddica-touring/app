@@ -3893,12 +3893,23 @@ function checkVehicleConflict(targetVc,resId,data,fleet,maintenance){
   // 予約重複チェック
   const conflict=data.find(r=>r.id!==resId&&r.status!=="cancelled"&&fleet[r.id]===targetVc&&norm(r.lendDate)<=rd&&norm(r.returnDate)>=ld);
   if(conflict)return conflict;
-  // メンテナンス重複チェック
+  // メンテナンス重複チェック（partner_reserved=協力会社予約枠は除外）
   if(maintenance&&maintenance.length){
-    const maintConflict=maintenance.find(m=>m.vehicleCode===targetVc&&norm(m.startDate)<=rd&&norm(m.endDate)>=ld);
-    if(maintConflict)return{_isMaint:true,name:"メンテナンス("+maintConflict.label+")",lendDate:maintConflict.startDate,returnDate:maintConflict.endDate};
+    const maintConflict=maintenance.find(m=>m.vehicleCode===targetVc&&(m.blockType||m.block_type)!=="partner_reserved"&&norm(m.startDate)<=rd&&norm(m.endDate||m.startDate)>=ld);
+    if(maintConflict)return{_isMaint:true,name:"入庫予定("+(maintConflict.label||"入庫")+")",lendDate:maintConflict.startDate,returnDate:maintConflict.endDate||maintConflict.startDate};
   }
   return null;
+}
+// ★ 2026-09-01 二重予定ガード(maintenance×reservation): メンテブロックを対象車両×期間に登録する時、その車両に配車済みの生存予約が重なれば返す。
+function checkResConflictForMaint(targetVc,vname,start,end,data,fleet,excludeMaintId){
+  const ms=norm(start),me=norm(end||start);
+  const r=(data||[]).find(x=>{
+    if(x.status==="cancelled")return false;
+    const assigned=(fleet||{})[x.id];
+    if(assigned!==targetVc&&(!vname||assigned!==vname))return false;
+    return norm(x.lendDate)<=me&&norm(x.returnDate)>=ms;
+  });
+  return r||null;
 }
 function toYM(d){const s=String(d);const dt=new Date(s.length===10?s+"T00:00:00":s);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`;}
 function daysInMonth(ym){const[y,m]=ym.split("-").map(Number);return new Date(y,m,0).getDate();}
@@ -16482,6 +16493,9 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   const handleBarClick=(e,b)=>{e.stopPropagation();if(b.type==="reservation")setTooltip({type:"reservation",...b.r,vc:fleet[b.r.id]});else setTooltip({type:"maintenance",...b.m});};
 
   const addMaint=async(vc,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,editId)=>{
+    // ★ 2026-09-01 二重予定ガード: 既存の配車済み予約と重なる車両には入庫/メンテを登録拒否
+    {const _rc=checkResConflictForMaint(vc,((vehicles||[]).find(x=>x.code===vc)||{}).name||"",start,end,data,fleet,editId);
+    if(_rc){const _vn=(vehicles||[]).find(x=>x.code===vc);alert("⚠️ 予約と重複するため入庫/メンテを登録できません。\n\n"+(_vn?_vn.name+" ("+_vn.no+")":vc)+" は "+fmtD(_rc.lendDate)+"〜"+fmtD(_rc.returnDate)+" に\n「"+_rc.name+"」様の予約が入っています。\n\n先に予約を別車両へ移動するか、期間を変更してください。");return;}}
     if(maintSaving)return;
     setMaintSaving(true);
     const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||"",createdAt:((editId&&(maintenance||[]).find(x=>x.id===editId))||{}).createdAt||new Date().toISOString()};
@@ -17345,7 +17359,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     setSaveStatus(DB._dbSaveOk?(pendingSaves.current>0?"saving":"ok"):"error");
   };
   const TIME_OPTS=useMemo(()=>{const opts=[""];for(let h=6;h<=22;h++)for(let m=0;m<60;m+=5){if(h===22&&m>0)break;opts.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}return opts;},[]);
-  const assignVehicle=(taskId,vehicleCode)=>{selfUpdatedIds.current.set(taskId,Date.now());const task=tasks.find(t=>t._id===taskId);if(!task)return;const v=vehicles.find(x=>x.code===vehicleCode);const updated={...task,assignedVehicle:vehicleCode,plateNo:v?v.no:""};setTasks(ts=>ts.map(x=>x._id===taskId?updated:x));DB.updateTask(updated,selDate);if(task.reservationId){onFleetChange(prev=>{const nf={...(typeof prev==="object"?prev:fleetRef.current)};if(vehicleCode)nf[task.reservationId]=vehicleCode;else delete nf[task.reservationId];return nf;});}if(v&&task.reservationId){DB.updateReservationField(task.reservationId,{vehicle:v.type},"配車変更→クラス同期","op_sheet");if(onReservationUpdate)onReservationUpdate(task.reservationId,{vehicle:v.type});}};
+  const assignVehicle=(taskId,vehicleCode)=>{const _tk0=tasks.find(t=>t._id===taskId);if(vehicleCode&&_tk0&&_tk0.reservationId){const _cf=checkVehicleConflict(vehicleCode,_tk0.reservationId,reservations,fleetRef.current,maintenance);if(_cf){const _v0=vehicles.find(x=>x.code===vehicleCode);alert("⚠️ "+(_cf._isMaint?"入庫予定":"ダブルブッキング")+"と重複するため配車できません。\n\n"+(_v0?_v0.name+" ("+_v0.no+")":vehicleCode)+" は "+fmtD(_cf.lendDate)+"〜"+fmtD(_cf.returnDate)+" に"+(_cf._isMaint?"「"+_cf.name+"」が入っています。":"「"+_cf.name+"」様の予約が入っています。"));return;}}selfUpdatedIds.current.set(taskId,Date.now());const task=tasks.find(t=>t._id===taskId);if(!task)return;const v=vehicles.find(x=>x.code===vehicleCode);const updated={...task,assignedVehicle:vehicleCode,plateNo:v?v.no:""};setTasks(ts=>ts.map(x=>x._id===taskId?updated:x));DB.updateTask(updated,selDate);if(task.reservationId){onFleetChange(prev=>{const nf={...(typeof prev==="object"?prev:fleetRef.current)};if(vehicleCode)nf[task.reservationId]=vehicleCode;else delete nf[task.reservationId];return nf;});}if(v&&task.reservationId){DB.updateReservationField(task.reservationId,{vehicle:v.type},"配車変更→クラス同期","op_sheet");if(onReservationUpdate)onReservationUpdate(task.reservationId,{vehicle:v.type});}};
   const done=tasks.filter(t=>t.done).length;const staffCount=activeMembers.length;
   const WK=["日","月","火","水","木","金","土"];
   const dayButtons=useMemo(()=>{
@@ -22115,6 +22129,15 @@ function App(){
 
   // 配車変更 + OPシートタスク同時更新
   const reassignVehicle=useCallback(async(resId,newVc)=>{
+    // ★ 2026-09-01 二重予定ガード: メンテブロック(車検/点検/修理入庫)と重なる車両には配車拒否（全配車経路の最終防衛）
+    if(newVc){
+      const _mc=checkVehicleConflict(newVc,resId,data,fleetRefApp.current,maintenance);
+      if(_mc&&_mc._isMaint){
+        const _vn1=vehicles.find(x=>x.code===newVc);
+        alert("⚠️ 入庫予定と重複するため配車できません。\n\n"+(_vn1?_vn1.name+" ("+_vn1.no+")":newVc)+" は "+fmtD(_mc.lendDate)+"〜"+fmtD(_mc.returnDate)+" に\n「"+_mc.name+"」が入っています。\n\n別の車両を選ぶか、入庫予定を調整してください。");
+        return;
+      }
+    }
     // ★ DB最新チェック: ダブルブッキング防止（サーバーサイド完全チェック）
     if(sb&&newVc){
       try{
@@ -22191,7 +22214,7 @@ function App(){
       const tasks3=await DB.fetchTasks(prevDay);
       if(tasks3&&tasks3.length){const updated3=tasks3.map(t=>t.reservationId===resId?{...t,assignedVehicle:newVc,plateNo:vn.no||"",vehicle:vn.type||t.vehicle}:t);if(JSON.stringify(updated3)!==JSON.stringify(tasks3))await DB.upsertTasks(updated3,prevDay);}
     }catch(e){console.error("task vehicle update error:",e);}
-  },[data,vehicles,silentRefresh]);
+  },[data,vehicles,silentRefresh,maintenance]);
 
   const imp=useCallback(async(d)=>{
     importingRef.current=true; // ★ 全てのDB再読込・RT更新をブロック
@@ -23548,7 +23571,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.381-BT";
+const APP_VERSION="v1.0.382-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
