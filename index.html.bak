@@ -16573,11 +16573,11 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     });
   },[vehicles]);
   const groups=useMemo(()=>vehicleClasses.map(vc=>{
-    const allItems=vehicles.filter(v=>v.type===vc.type);
+    const allItems=vehicles.filter(v=>v.type===vc.type&&(brandView==="all"||normBrand(v.brand)===brandView)); // ★2026-09-01 配車表トグル: HDM/BT選択時は該当ブランドの車両行のみ表示
     const items=allItems.filter(v=>!hiddenVeh.includes(v.code));
     const hiddenCount=allItems.length-items.length;
     return{...vc,items,hiddenCount,allItemsCount:allItems.length};
-  }).filter(g=>g.allItemsCount>0),[vehicles,vehicleClasses,hiddenVeh]);
+  }).filter(g=>g.allItemsCount>0),[vehicles,vehicleClasses,hiddenVeh,brandView]);
 
   return <div style={{display:"flex",flexDirection:"column",background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,.06)",border:"1px solid #e5e7eb",overflow:"hidden",height:"100%",minHeight:0}}>
     <div style={{padding:isMobile?"4px 6px":"8px 12px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:isMobile?4:8,flexShrink:0,position:"sticky",top:0,zIndex:20}}>
@@ -23542,7 +23542,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.378-BT";
+const APP_VERSION="v1.0.379-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
