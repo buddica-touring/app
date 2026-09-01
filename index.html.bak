@@ -4288,13 +4288,17 @@ function autoAssign(reservations,vehicles,existingFleet,maintenance){
     const cls=r.vehicle;
     const pvc=r.preferVc||"";
     const rL=norm(r.lendDate),rR=norm(r.returnDate);
+    // ★2026-09-01 ブランド分離: 予約brand(HDM/BUDDICA)に一致する運用車両のみ候補にする（混合配車を禁止）。brand不明の予約のみ従来通り全候補。
+    const rBrand=resBrand(r);
+    const brandOk=v=>!rBrand||normBrand(v.brand)===rBrand;
+    const _bl=rBrand==="HDM"?"HDM":rBrand==="BUDDICA"?"BT":"";
     // ★ サブクラスフォールバック: A2→A, B2→B（車両未登録時）
     const SUBCLASS_FB={"A2":"A","B2":"B"};
-    let candidates=vehicles.filter(v=>v.type===cls&&!v.insuranceVeh);
+    let candidates=vehicles.filter(v=>v.type===cls&&!v.insuranceVeh&&brandOk(v));
     let usedCls=cls;
-    if(candidates.length===0&&SUBCLASS_FB[cls]){usedCls=SUBCLASS_FB[cls];candidates=vehicles.filter(v=>v.type===usedCls&&!v.insuranceVeh);}
+    if(candidates.length===0&&SUBCLASS_FB[cls]){usedCls=SUBCLASS_FB[cls];candidates=vehicles.filter(v=>v.type===usedCls&&!v.insuranceVeh&&brandOk(v));}
     if(candidates.length===0){
-      _reasons[r.id]=`クラス"${cls}"の車両が登録されていません`;
+      _reasons[r.id]=_bl?`${_bl}の${cls}クラス対象車がありません（未登録 or 全て他ブランド運用車）`:`クラス"${cls}"の車両が登録されていません`;
       return;
     }
     let allTried=[];
@@ -4314,9 +4318,9 @@ function autoAssign(reservations,vehicles,existingFleet,maintenance){
       if(res.v){fleet[r.id]=res.v.code;usageCount[res.v.code]=(usageCount[res.v.code]||0)+1;return;}
       allTried=allTried.concat(res.tried);
     }
-    _reasons[r.id]=pvc
+    _reasons[r.id]=(_bl?`[${_bl}] `:"")+(pvc
       ?`${cls}クラス(車種指定:${pvc})全${candidates.length}台が使用中(${allTried.join(", ")})`
-      :`${cls}クラス全${candidates.length}台が使用中(${allTried.join(", ")})`;
+      :`${cls}クラス全${candidates.length}台が使用中(${allTried.join(", ")})`);
   });
   fleet._unassignedReasons=_reasons;
   return fleet;
@@ -4328,6 +4332,10 @@ const OTA_NORM={"じゃらん":"J","エアトリ":"O","レンタカードット�
 function otaAbbr(o,brand){if(o==null||o===""){const b=String(brand||"").trim().toUpperCase();if(b==="BUDDICA")return "BDC";if(b==="HDM")return "HDM";return "-";}const k=String(o).trim();return OTA_ABBR[k]||OTA_ABBR[k.toUpperCase()]||k;}
 /* 予約のブランド解決：brand列優先→無ければsource/idから導出(hdm系→HDM/その他直販→BUDDICA) */
 function resBrand(r){if(!r)return "";if(r.brand)return String(r.brand).trim().toUpperCase();const src=String(r.source||"").toLowerCase();const id=String(r.id||"").toUpperCase();if(src.indexOf("hdm")>=0||id.indexOf("HDMT")===0)return "HDM";if(src)return "BUDDICA";return "";}
+/* ★2026-09-01 ブランド分離：HDM(HANDYMAN高松)車両とBUDDICA車両は運用が分かれ混合不可。
+   normBrand=値を HDM|BUDDICA|"" に正規化。BrandBadge=所属バッジ(HDM=紺/BT=緑)。車両bt_vehicles.brand・予約resBrand()で共通利用。 */
+function normBrand(b){const s=String(b||"").trim().toUpperCase();if(s==="HDM"||s==="HANDYMAN")return "HDM";if(s==="BUDDICA"||s==="BT")return "BUDDICA";return "";}
+function BrandBadge({brand,size}){const b=normBrand(brand);if(!b)return null;const st=b==="HDM"?{bg:"#1e3a8a",c:"#fff",t:"HDM"}:{bg:"#047857",c:"#fff",t:"BT"};const fs=size==="sm"?9:10;return <span title={b==="HDM"?"HANDYMAN高松 運用車":"BUDDICA 運用車"} style={{background:st.bg,color:st.c,padding:"1px 6px",borderRadius:4,fontSize:fs,fontWeight:800,letterSpacing:.3,lineHeight:1.4,display:"inline-block"}}>{st.t}</span>;}
 /* ★2026-08-08 お客様ページURL：じゃらん(HDM)はHANDYMANマイページ(my-tkm)/それ以外はBUDDICAご利用ガイド。
    ota不明時はwindow._resOtaMap[resvNo]で解決(バッジ用)。suffix例 "&ro=1"(スタッフ閲覧)/"&staff=1"。 */
 function custPageUrl(token,ota,suffix){ if(!token)return""; const o=String(ota||""); const hdm=o.indexOf("じゃらん")>=0||o.toUpperCase().indexOf("HANDYMAN")>=0; const base=hdm?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
@@ -4335,7 +4343,7 @@ function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{
 function OBadge({ota,brand}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);let o=OTA[k];const lbl=otaAbbr(ota,brand);if(!o&&(!lbl||lbl==="-"))return null;if(!o&&(ota==null||ota==="")){const b=String(brand||"").trim().toUpperCase();if(b==="HDM")o={bg:"#e0e7ff",c:"#1e3a8a"};else if(b==="BUDDICA")o=OTA["HP"];}const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 /* ★2026-08-10 HANDYMAN(じゃらん)予約の識別：送迎プラカード・問合せ・決済ツールが異なるため要注意。紺バッジ＋薄紺背景で警告。BUDDICAは無印。 */
 function isHdmOta(o){const k=String(o||"").trim();return k==="J"||k==="じゃらん"||k.indexOf("じゃらん")>=0;}
-function HdmBadge({ota,size}){if(!isHdmOta(ota))return null;return <span title="HANDYMAN予約（じゃらん）— 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意" style={{background:"#1e3a8a",color:"#fff",padding:"1px 6px",borderRadius:4,fontSize:size||10,fontWeight:800,border:"1px solid #1e3a8a",letterSpacing:.3}}>HDM</span>;}
+function HdmBadge({ota,brand,size}){const isHdm=normBrand(brand)==="HDM"||isHdmOta(ota);if(!isHdm)return null;return <span title="HANDYMAN高松 予約 — 送迎プラカード・問い合わせ対応・支払いツール・配車車両が異なるため要注意" style={{background:"#1e3a8a",color:"#fff",padding:"1px 6px",borderRadius:4,fontSize:size||10,fontWeight:800,border:"1px solid #1e3a8a",letterSpacing:.3}}>HDM</span>;}
 function PayBadge({r}){if(!r)return null;var o=String(r.ota||"");var isJ=o==="J"||o.indexOf("じゃらん")>=0;var isSP=o==="SP"||r.payment==="現地決済";if(!isJ&&!isSP)return null;if(r.paid)return <span title="決済 入金済み" style={{display:"inline-flex",alignItems:"center",gap:2,background:"#dcfce7",color:"#166534",borderRadius:5,padding:"1px 6px",fontSize:11,fontWeight:800,flexShrink:0}}>💳入金済</span>;var a=(r.finalPrice>0?r.finalPrice:(r.price||0))||0;return <span onClick={function(e){e.stopPropagation();if(window.__btPayOpen)window.__btPayOpen(r);}} title="タップで現地決済を完了にする" style={{display:"inline-flex",alignItems:"center",gap:2,background:"#fee2e2",color:"#991b1b",borderRadius:5,padding:"1px 6px",fontSize:11,fontWeight:800,flexShrink:0,cursor:"pointer",border:"1px solid #fca5a5"}}>💳未決済{a>0?" ¥"+a.toLocaleString():""}</span>;}
 function PayCompleteModal({r,onClose,onDone}){
   var amt=(r.finalPrice>0?r.finalPrice:(r.price||0))||0;
@@ -4568,7 +4576,7 @@ function VehDetailList({vehicles,vehicleClasses,maintenance,onEdit}){
   </div>;
 }
 function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicle,highlightVehicle,maintenance}){
-  const EMPTY={name:"",no:"",type:"A",grade:"",brand:"",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:"",specs:{}};
+  const EMPTY={name:"",no:"",type:"A",grade:"",brand:"BUDDICA",seats:5,insuranceVeh:false,year:"",color:"",equip:"",insPrice:"",memo:"",insuranceAnnual:0,leaseMonthly:0,shakenCost:0,tenkenCost:0,carTax:0,oilIntervalKm:5000,inspectionDueDate:"",inspectionNextDate:"",tenkenDueDate:"",tenkenNextDate:"",specs:{}};
   const[modal,setModal]=useState(null);
   const[form,setForm]=useState(EMPTY);
   const[mTab,setMTab]=useState("basic");
@@ -4706,6 +4714,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
         <div onClick={()=>toggleCls(g.type)} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:isOpen?"8px 8px 0 0":"8px",cursor:"pointer",userSelect:"none"}}>
           <span style={{padding:"2px 10px",background:"#2563eb",color:"#fff",borderRadius:4,fontSize:11,fontWeight:800}}>{g.type}</span>
           <span style={{fontSize:12,color:"#374151",fontWeight:700,flex:1}}>{g.label}</span>
+          {(()=>{const h=g.items.filter(v=>normBrand(v.brand)==="HDM").length,b=g.items.filter(v=>normBrand(v.brand)==="BUDDICA").length;return<span style={{display:"flex",gap:4}}>{b>0&&<span style={{fontSize:9,fontWeight:800,padding:"1px 5px",borderRadius:4,background:"#047857",color:"#fff"}}>BT{b}</span>}{h>0&&<span style={{fontSize:9,fontWeight:800,padding:"1px 5px",borderRadius:4,background:"#1e3a8a",color:"#fff"}}>HDM{h}</span>}</span>;})()}
           <span style={{fontSize:11,color:"#94a3b8"}}>{g.items.length}台</span>
           {mc>0&&<span style={{fontSize:11,fontWeight:700,color:"#d97706"}}>原価¥{mc.toLocaleString()}/月</span>}
           <span style={{fontSize:12,color:"#94a3b8"}}>{isOpen?"▲":"▼"}</span>
@@ -4718,7 +4727,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
           ?<div style={{border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}}>
             {g.items.map((v,i)=>{const ks=getKpiStatus(v.code);const mc2=Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12);return<div key={v.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#fafafa",outline:highlightVehicle===v.code?"2px solid #fbbf24":"none"}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>{v.name}</div>
+                <div style={{fontSize:13,fontWeight:700,color:"#1e293b",display:"flex",alignItems:"center",gap:6}}><BrandBadge brand={v.brand} size="sm"/><span>{v.name}</span></div>
                 <div style={{display:"flex",gap:6,alignItems:"center",marginTop:3,flexWrap:"wrap"}}>
                   <span style={{fontSize:12,fontFamily:"monospace",color:"#2563eb",fontWeight:700}}>{v.no}</span>
                   {v.year&&<span style={{fontSize:10,color:"#94a3b8"}}>{v.year}年式</span>}
@@ -4743,7 +4752,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
               </tr></thead>
               <tbody>{g.items.map((v,i)=>{const ks=getKpiStatus(v.code);return<tr key={v.id} style={{background:i%2===0?"#fff":"#fafafa",outline:highlightVehicle===v.code?"2px solid #fbbf24":"none"}}>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><span style={{fontSize:11,fontWeight:900,padding:"2px 8px",borderRadius:6,background:v.type==="AA"?"#fef3c7":"#dbeafe",color:v.type==="AA"?"#92400e":"#1e40af"}}>{v.type}</span></td>
-                <td style={{padding:"7px 10px",fontWeight:600}}>{v.name}</td>
+                <td style={{padding:"7px 10px",fontWeight:600}}><span style={{marginRight:6}}><BrandBadge brand={v.brand} size="sm"/></span>{v.name}</td>
                 <td style={{padding:"7px 10px",color:"#64748b",fontSize:11}}>{v.grade||"-"}</td>
                 <td style={{padding:"7px 10px",fontFamily:"monospace",color:"#2563eb",fontWeight:700}}>{v.no}</td>
                 <td style={{padding:"7px 10px"}}>{v.seats}名</td>
@@ -4761,7 +4770,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
       </div>;
     })}
     {!vehListView&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
-      <div style={{fontSize:11,color:"#94a3b8"}}>合計: {vehicles.length}台</div>
+      <div style={{fontSize:11,color:"#94a3b8",display:"flex",gap:8,alignItems:"center"}}>合計: {vehicles.length}台{(()=>{const h=vehicles.filter(v=>normBrand(v.brand)==="HDM").length,b=vehicles.filter(v=>normBrand(v.brand)==="BUDDICA").length;return<span style={{display:"flex",gap:4}}><span style={{fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:4,background:"#047857",color:"#fff"}}>BT {b}台</span><span style={{fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:4,background:"#1e3a8a",color:"#fff"}}>HDM {h}台</span></span>;})()}</div>
       {(()=>{const total=vehicles.reduce((s,v)=>s+Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12),0);return total>0&&<div style={{fontSize:12,fontWeight:700,color:"#d97706"}}>月次原価 合計: ¥{total.toLocaleString()}/月</div>;})()}
     </div>}
 
@@ -4786,6 +4795,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
             {secH("基本スペック")}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={lS}>クラス</label><select value={form.type} onChange={e=>upF("type",e.target.value)} style={fS}>{vehicleClasses.map(c=><option key={c.type} value={c.type}>{c.type} — {c.label}</option>)}</select></div>
+              <div><label style={lS}>所属ブランド <span style={{color:"#dc2626"}}>*</span></label><select value={normBrand(form.brand)||"BUDDICA"} onChange={e=>upF("brand",e.target.value)} style={{...fS,fontWeight:700,color:normBrand(form.brand)==="HDM"?"#1e3a8a":"#047857"}}><option value="BUDDICA">BUDDICA（BT運用車）</option><option value="HDM">HDM（HANDYMAN高松 運用車）</option></select></div>
               <div><label style={lS}>車種名</label><input value={form.name} onChange={e=>upF("name",e.target.value)} style={fS} placeholder={form.type==="AA"?"例: Mercedes GL500 / Lamborghini Urus":"アルファード①"}/></div>
               <div><label style={lS}>略称</label><input value={(form.specs&&form.specs.abbr)||""} onChange={e=>upS("abbr",e.target.value)} style={fS} placeholder="アル①"/></div>
               <div><label style={lS}>グレード</label><input value={form.grade} onChange={e=>upF("grade",e.target.value)} style={fS} placeholder="2.5S Cパッケージ"/></div>
@@ -16574,6 +16584,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <button onClick={goPrev} style={{padding:isMobile?"2px 4px":"4px 8px",background:"#fff",border:"1px solid #d1d5db",borderRadius:4,fontSize:isMobile?10:14,cursor:"pointer"}}>◀</button>
         <button onClick={goNext} style={{padding:isMobile?"2px 4px":"4px 8px",background:"#fff",border:"1px solid #d1d5db",borderRadius:4,fontSize:isMobile?10:14,cursor:"pointer"}}>▶</button>
         <span style={{fontSize:isMobile?11:14,fontWeight:700,color:"#1e293b",marginLeft:2}}>{monthLabel}</span>
+        <span style={{display:"inline-flex",marginLeft:isMobile?4:10,border:"1px solid #cbd5e1",borderRadius:6,overflow:"hidden",flexShrink:0}} title="配車表を全体/HDM/BTで切替">{[["all","🔀全体"],["HDM","🔵HDM"],["BUDDICA","🟢BT"]].map(([k,lb])=><button key={k} onClick={()=>setBrandView(k)} style={{padding:isMobile?"2px 6px":"3px 10px",fontSize:isMobile?9:11,fontWeight:brandView===k?800:500,border:"none",cursor:"pointer",background:brandView===k?(k==="HDM"?"#1e3a8a":k==="BUDDICA"?"#047857":"#334155"):"#fff",color:brandView===k?"#fff":"#64748b"}}>{lb}</button>)}</span>
         {viewMode==="month"&&<span style={{display:"inline-flex",gap:isMobile?4:8,marginLeft:isMobile?4:12,fontSize:isMobile?8:11,fontWeight:600}}>
           <span style={{background:"#dbeafe",color:"#1e40af",padding:"2px 6px",borderRadius:4}}>出発 {monthStats.dep}</span>
           <span style={{background:"#fef3c7",color:"#92400e",padding:"2px 6px",borderRadius:4}}>返却 {monthStats.ret}</span>
@@ -16599,7 +16610,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       </div>
     </div>
 
-    {((unassigned)=>{const allUa=data.filter(r=>r.status!=="cancelled"&&!fleet[r.id]&&r.returnDate&&r.returnDate>=today);
+    {((unassigned)=>{const allUa=data.filter(r=>r.status!=="cancelled"&&!fleet[r.id]&&r.returnDate&&r.returnDate>=today&&(brandView==="all"||resBrand(r)===brandView));
       const[hiddenIds,setHiddenIds]=React.useState(()=>{try{return JSON.parse(localStorage.getItem("bt_hidden_unassigned")||"[]");}catch(e){return[];}});
       const hideId=(id)=>{const next=[...hiddenIds,id];setHiddenIds(next);try{localStorage.setItem("bt_hidden_unassigned",JSON.stringify(next));}catch(e){}};
       const showAll=()=>{setHiddenIds([]);try{localStorage.removeItem("bt_hidden_unassigned");}catch(e){}};
@@ -16716,6 +16727,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
             {!collapsed[g.type]&&g.items.map(v=>{const bars=vehicleBars[v.code]||[];const isDT=dropTarget&&dropTarget.vc===v.code;const rowHL=isDT?(dropTarget.ok?"rgba(34,197,94,.15)":"rgba(239,68,68,.1)"):"transparent";const hasSearchHit=searchResult&&searchResult.found&&bars.some(b=>b.type==="reservation"&&searchResult.hitSet.has(b.r.id));return <tr key={v.id} ref={el=>{vehicleRowRefs.current[v.code]=el;}} onDragOver={e=>handleDragOver(e,v.code)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,v.code)} style={{outline:isDT?(dropTarget.ok?"2px solid #22c55e":"2px dashed #ef4444"):"none",background:hasSearchHit?"#fefce8":"transparent"}}>
               <td style={{position:"sticky",left:0,zIndex:5,height:ROW_H,background:hasSearchHit?"#fef08a":(isDT?(dropTarget.ok?"#dcfce7":"#fef2f2"):"#fff"),borderBottom:"1px solid #f1f5f9",borderRight:hasSearchHit?"3px solid #f59e0b":"2px solid #94a3b8",padding:isMobile?"0 4px":"0 10px",overflow:"hidden",whiteSpace:"nowrap",transition:"background .15s"}}>
                 {hasSearchHit&&<span style={{fontSize:9,marginRight:3}}>📍</span>}
+                {normBrand(v.brand)==="HDM"&&<span style={{marginRight:3}}><BrandBadge brand="HDM" size="sm"/></span>}
                 <span style={{fontSize:isMobile?9:10,fontWeight:700,color:hasSearchHit?"#b45309":"#2563eb"}}>{v.name} {v.no}<span style={{fontSize:8,color:hasSearchHit?"#92400e":"#94a3b8",fontWeight:500}}>({v.seats})</span></span>
                 <span onClick={e=>{e.stopPropagation();toggleKpi(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:isKpiActive(v.code)?"#dcfce7":"#fee2e2",color:isKpiActive(v.code)?"#059669":"#dc2626",border:"1px solid "+(isKpiActive(v.code)?"#86efac":"#fca5a5")}} title={isKpiActive(v.code)?"稼働中（クリックで除外）":"除外中（クリックで稼働に変更）"}>{isKpiActive(v.code)?"稼働":"除外"}</span>
                 <span onClick={e=>{e.stopPropagation();toggleHideVeh(v.code);}} style={{fontSize:8,fontWeight:700,marginLeft:3,padding:"0 3px",borderRadius:3,cursor:"pointer",background:"#f1f5f9",color:"#64748b",border:"1px solid #cbd5e1"}} title="折りたたみ（一時的に非表示・クラス見出しから戻せます）">👁 隠す</span>
@@ -17869,7 +17881,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontWeight:700,fontSize:isMob?14:13,color:"#0f172a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{t.type==="洗車"?(t.name||"洗車"):(t.name||"名前なし")}</span>
-                      {t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand((reservations||[]).find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand((reservations||[]).find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?(reservations||[]).find(x=>x.id===t.reservationId):null}/>}
+                      {t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand((reservations||[]).find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand((reservations||[]).find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand((reservations||[]).find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?(reservations||[]).find(x=>x.id===t.reservationId):null}/>}
                       {t.reservationId?(()=>{const _r=(reservations||[]).find(x=>x.id===t.reservationId);const _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（閲覧専用）" style={{fontSize:14,textDecoration:"none",flexShrink:0}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                       {t.type==="洗車"&&t.memo&&<span style={{fontSize:isMob?10:9,color:"#795548",fontWeight:600}}>{t.memo}</span>}
                       {t.type!=="洗車"&&<span style={{fontSize:isMob?11:10,fontWeight:700,color:"#7c3aed",flexShrink:0}}>👥{ppl}</span>}
@@ -21096,7 +21108,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
                 return "✈"+r.flight;
               })()}</td>
               <td onClick={e=>copyResvId(r.id,e)} title="クリックで予約番号をコピー" style={{...cellR(26),fontFamily:"monospace",fontSize:7,cursor:r.id?"copy":"default",color:copiedId===r.id?"#059669":"#1d4ed8",textDecoration:r.id?"underline":"none",fontWeight:copiedId===r.id?800:400,userSelect:"all"}}>{copiedId===r.id?"✓ "+r.id:(r.id||"")}</td>
-              <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(27),textAlign:"center"}}>{(r.ota||resBrand(r))?<OBadge ota={r.ota} brand={resBrand(r)}/>:""}</td>
+              <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(27),textAlign:"center"}}><span style={{display:"inline-flex",gap:3,alignItems:"center",justifyContent:"center"}}><BrandBadge brand={resBrand(r)} size="sm"/>{(r.ota||resBrand(r))?<OBadge ota={r.ota} brand={resBrand(r)}/>:""}</span></td>
               <td style={cellR(28)}>{r.tel||""}</td>
             </tr>;
           })}
@@ -22123,6 +22135,18 @@ function App(){
         }
       }catch(e){console.warn("[reassign] DB check error:",e);}
     }
+    // ★2026-09-01 ブランド不一致ガード: HDM予約↔BUDDICA車の混合配車を原則禁止（全配車経路はここに集約）
+    if(newVc){
+      const _res=data.find(r=>r.id===resId);
+      const _veh=vehicles.find(v=>v.code===newVc);
+      if(_res&&_veh){
+        const rb=resBrand(_res),vb=normBrand(_veh.brand);
+        if(rb&&vb&&rb!==vb){
+          const rl=rb==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA",vl=vb==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA";
+          if(!window.confirm("⚠ ブランドが一致しません。\n\n予約: "+rl+"\n車両: "+_veh.name+"（"+vl+"運用車）\n\nHDMとBUDDICAは運用車両が分かれています。それでも配車しますか？"))return;
+        }
+      }
+    }
     // ★ 配車解除の場合
     if(!newVc){
       const nf={...fleetRefApp.current};delete nf[resId];
@@ -22637,7 +22661,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -22783,7 +22807,7 @@ function App(){
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
                     <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
                     {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
                     <div style={{flexBasis:"100%",height:0}}/>
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
@@ -23516,7 +23540,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.376-BT";
+const APP_VERSION="v1.0.377-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
