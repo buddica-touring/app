@@ -3911,6 +3911,19 @@ function checkResConflictForMaint(targetVc,vname,start,end,data,fleet,excludeMai
   });
   return r||null;
 }
+// ★ 2026-09-01 二重予定ガード(maintenance×maintenance): メンテ/入庫ブロックを対象車両×期間に登録する時、その車両に既存の入庫ブロック(車検/半年点検/整備/修理等)が重なれば返す。partner_reserved(協力会社在庫枠)は除外。編集中の自身(excludeMaintId)は除外。
+function checkMaintConflictForMaint(targetVc,vname,start,end,maints,excludeMaintId){
+  const ms=norm(start),me=norm(end||start);
+  const m=(maints||[]).find(x=>{
+    if(excludeMaintId&&x.id===excludeMaintId)return false;
+    if((x.blockType||x.block_type)==="partner_reserved")return false;
+    const vc=x.vehicleCode;if(!vc)return false;
+    if(vc!==targetVc&&(!vname||vc!==vname))return false;
+    const xs=norm(x.startDate),xe=norm(x.endDate||x.startDate);
+    return xs<=me&&xe>=ms;
+  });
+  return m||null;
+}
 function toYM(d){const s=String(d);const dt=new Date(s.length===10?s+"T00:00:00":s);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`;}
 function daysInMonth(ym){const[y,m]=ym.split("-").map(Number);return new Date(y,m,0).getDate();}
 function ymLabel(ym){const[y,m]=ym.split("-").map(Number);return`${y}年${m}月`;}
@@ -5182,6 +5195,9 @@ function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onC
     if(!vc){alert("車両を選択してください");return;}
     if(!sd||!ed){alert("入庫日・引取日を入力してください");return;}
     if(ed<sd){alert("引取日は入庫日以降にしてください");return;}
+    // ★ 2026-09-01 二重予定ガード(maintenance×maintenance): 同一車両×期間に既存の入庫ブロックがあれば拒否
+    {const _mc=checkMaintConflictForMaint(vc,vehName(vc),sd,ed,maintenance,edit?edit.id:undefined);
+    if(_mc){alert("⚠️ 入庫予定が重複するため登録できません。\n\n"+vehName(vc)+" は "+fmtD(_mc.startDate)+"〜"+fmtD(_mc.endDate||_mc.startDate)+" に\n「"+(_mc.label||"入庫")+"」の入庫予定が入っています。\n\n期間を変更するか、既存の入庫予定を確認してください。");return;}}
     setSaving(true);
     const id=edit?edit.id:("m"+Date.now());
     const status=fix?"approved":"pending";
@@ -16496,6 +16512,8 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     // ★ 2026-09-01 二重予定ガード: 既存の配車済み予約と重なる車両には入庫/メンテを登録拒否
     {const _rc=checkResConflictForMaint(vc,((vehicles||[]).find(x=>x.code===vc)||{}).name||"",start,end,data,fleet,editId);
     if(_rc){const _vn=(vehicles||[]).find(x=>x.code===vc);alert("⚠️ 予約と重複するため入庫/メンテを登録できません。\n\n"+(_vn?_vn.name+" ("+_vn.no+")":vc)+" は "+fmtD(_rc.lendDate)+"〜"+fmtD(_rc.returnDate)+" に\n「"+_rc.name+"」様の予約が入っています。\n\n先に予約を別車両へ移動するか、期間を変更してください。");return;}}
+    {const _mc=checkMaintConflictForMaint(vc,((vehicles||[]).find(x=>x.code===vc)||{}).name||"",start,end,maintenance,editId);
+    if(_mc){const _vm=(vehicles||[]).find(x=>x.code===vc);alert("⚠️ 入庫予定が重複するため登録できません。\n\n"+(_vm?_vm.name+" ("+_vm.no+")":vc)+" は "+fmtD(_mc.startDate)+"〜"+fmtD(_mc.endDate||_mc.startDate)+" に\n「"+(_mc.label||"入庫")+"」の入庫予定が入っています。\n\n期間を変更するか、既存の入庫予定を確認してください。");return;}}
     if(maintSaving)return;
     setMaintSaving(true);
     const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||"",createdAt:((editId&&(maintenance||[]).find(x=>x.id===editId))||{}).createdAt||new Date().toISOString()};
@@ -23571,7 +23589,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.382-BT";
+const APP_VERSION="v1.0.383-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
