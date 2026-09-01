@@ -21655,17 +21655,23 @@ function App(){
   });
   const[showOP,setShowOP]=useState(false);const[showFloatFleet,setShowFloatFleet]=useState(false);const[floatFleetSize,setFloatFleetSize]=useState("half");const[jalanPay,setJalanPay]=useState({});
   const[invStatus,setInvStatus]=useState({}); // ★ bt_inventory_status（TOP在庫調整タイルの未対応バッジ用）
+  const _invMk=React.useCallback((r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,stock_released:!!r.stock_released}),[]);
+  const _invReload=React.useCallback(async()=>{if(!sb)return;try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!rows)return;const m={};rows.forEach(r=>{m[r.id]=_invMk(r);});setInvStatus(m);}catch(e){}},[sb,_invMk]);
   // ★2026-08-27 TOP在庫調整バッジのライブ同期：初回ロードのinvStatus(line21819)は一度きりで購読が無く、
-  //   在庫調整タブで対応完了しても TOPバッジが古い値のまま残る（未対応0なのに「3」等）。
-  //   タブと同じ realtime 購読で invStatus を常に最新化し、タブの表示と一致させる。
+  //   在庫調整タブで対応完了しても TOPバッジが古い値のまま残る（未対応0なのに「1」等）。
+  // ★2026-09-01 根治(複製ドリフト自己修復)：①deps[]→[sb]でsb遅延時も購読を張る ②DELETEを処理して削除済み状態行をstaleに残さない
+  //   ③TOPを開く度にDB再取得＝realtime取りこぼしでも必ず現在DB(=タブ=正本)に一致。バッジが永続staleになるのを構造的に排除。
   React.useEffect(()=>{
-    if(!sb)return;let on=true;
-    const mk=(r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,stock_released:!!r.stock_released});
-    const reload=async()=>{try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!on||!rows)return;const m={};rows.forEach(r=>{m[r.id]=mk(r);});setInvStatus(m);}catch(e){}};
-    reload();
-    const ch=sb.channel("bt_inv_status_top").on("postgres_changes",{event:"*",schema:"public",table:"bt_inventory_status"},p=>{const r=p.new;if(!r||!r.id)return;setInvStatus(s=>({...s,[r.id]:mk(r)}));}).subscribe();
-    return()=>{on=false;try{sb.removeChannel(ch);}catch(e){}};
-  },[]);
+    if(!sb)return;
+    _invReload();
+    const ch=sb.channel("bt_inv_status_top").on("postgres_changes",{event:"*",schema:"public",table:"bt_inventory_status"},p=>{
+      if(p.eventType==="DELETE"){const id=p.old&&p.old.id;if(id)setInvStatus(s=>{const n={...s};delete n[id];return n;});return;}
+      const r=p.new;if(!r||!r.id)return;setInvStatus(s=>({...s,[r.id]:_invMk(r)}));
+    }).subscribe();
+    return()=>{try{sb.removeChannel(ch);}catch(e){}};
+  },[sb,_invReload,_invMk]);
+  // ★TOP表示の度に現在DBへ再同期（バッジ=タブ=DBを保証）
+  React.useEffect(()=>{if(tab==="top")_invReload();},[tab,_invReload]);
   const[opOpenIntent,setOpOpenIntent]=useState(null); // ★ データタブ等から「この予約を開いて」の指示
   const[opInitialView,setOpInitialView]=useState(null); // ★ 特定タブで開く
   const[showSqFailed,setShowSqFailed]=useState(false); // ★ Square自動取込失敗リスト
@@ -23510,7 +23516,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.375-BT";
+const APP_VERSION="v1.0.376-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
