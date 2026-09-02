@@ -21707,7 +21707,7 @@ function App(){
   });
   const[showOP,setShowOP]=useState(false);const[showFloatFleet,setShowFloatFleet]=useState(false);const[floatFleetSize,setFloatFleetSize]=useState("half");const[jalanPay,setJalanPay]=useState({});
   const[invStatus,setInvStatus]=useState({}); // ★ bt_inventory_status（TOP在庫調整タイルの未対応バッジ用）
-  const _invMk=React.useCallback((r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,stock_released:!!r.stock_released}),[]);
+  const _invMk=React.useCallback((r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,adj_official_hdm:!!r.adj_official_hdm,adj_rakuten:!!r.adj_rakuten,stock_released:!!r.stock_released}),[]);
   const _invReload=React.useCallback(async()=>{if(!sb)return;try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!rows)return;const m={};rows.forEach(r=>{m[r.id]=_invMk(r);});setInvStatus(m);}catch(e){}},[sb,_invMk]);
   // ★2026-08-27 TOP在庫調整バッジのライブ同期：初回ロードのinvStatus(line21819)は一度きりで購読が無く、
   //   在庫調整タブで対応完了しても TOPバッジが古い値のまま残る（未対応0なのに「1」等）。
@@ -22481,7 +22481,7 @@ function App(){
         <div className="fade-in" style={{flex:1,minHeight:0,display:(tab==="fleet")?"flex":"block",flexDirection:"column"}}>
           {tab==="top"&&(()=>{
             const ltWaiting=(()=>{const td=new Date();td.setHours(0,0,0,0);let w=0;(data||[]).forEach(r=>{if(r.status==="cancelled")return;const ld=new Date((r.lendDate||"")+"T00:00:00");if(isNaN(ld.getTime())||ld<td)return;if(!fleet||!fleet[r.id])w++;});return w;})();
-            const invTodo=btInvTodoCount(data,invStatus,maintenance); // ★ 在庫調整 未対応(status未対応)件数＋入庫(全媒体調整対象)
+            const invTodo=btInvTodoCount(data,invStatus,maintenance,vehicles); // ★ 在庫調整 未対応(status未対応)件数＋入庫(全媒体調整対象)。vehicles=ブランド(HDM/BUDDICA)別媒体判定用
             const sections=[
               {title:"日常業務",color:"#2563eb",items:[
                 {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
@@ -23589,7 +23589,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.383-BT";
+const APP_VERSION="v1.0.384-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25042,24 +25042,27 @@ function BtAnnouncementBoard({sb}){
    ★2026-08-11 キャンセル解放を「相殺 or 媒体別解放」に修正：
      調整済み(発生元以外を実際に減らした)予約のみ在庫解放待ち。未調整予約はキャンセル時=相殺(表示しない)。
      解放は減らした媒体だけを個別に戻す(adj=false)＝一律1マークで水増し解放しない。 */
-function btInvTodoCount(data,stat,maintenance){
+function btInvTodoCount(data,stat,maintenance,vehicles){
   stat=stat||{};
   const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
-  const CH=[{key:"adj_airtrip"},{key:"adj_official"},{key:"adj_rentacom"},{key:"adj_jalan"},{key:"adj_tabirai"}];
-  const originKey=(r)=>{const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="J"||o==="じゃらん")return"adj_jalan";if(o==="TBR"||o==="たびらい")return"adj_tabirai";return"adj_official";};
+  // ★2026-09-02 ブランド2系統：BUDDICA媒体(BDC/ART/RDC/TBR)とHANDYMAN媒体(HDM/JLN/RTT)。車両ブランドをまたいで絞らない。
+  const CH_BUDDICA=[{key:"adj_official"},{key:"adj_airtrip"},{key:"adj_rentacom"},{key:"adj_tabirai"}];
+  const CH_HDM=[{key:"adj_official_hdm"},{key:"adj_jalan"},{key:"adj_rakuten"}];
+  const brandOf=(r)=>{if(r._intake){const v=(vehicles||[]).find(x=>x&&x.code===r.vehicleCode);return normBrand(v&&v.brand)||"BUDDICA";}return resBrand(r)||"BUDDICA";};
+  const chOf=(r)=>brandOf(r)==="HDM"?CH_HDM:CH_BUDDICA;
+  const originKey=(r)=>{if(r._intake)return"";const br=brandOf(r);const o=String(r.ota||"").trim();if(br==="HDM"){if(o==="J"||o==="じゃらん")return"adj_jalan";if(o==="R"||o==="楽天"||o==="楽天トラベル")return"adj_rakuten";return"adj_official_hdm";}if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="TBR"||o==="たびらい")return"adj_tabirai";return"adj_official";};
   const isCxl=(r)=>r.status==="cancelled";
-  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",adj_tabirai:ok==="adj_tabirai",stock_released:false};};
-  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;const ok=originKey(r);return{...s,[ok]:true};};
-  // 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか
-  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return CH.some(c=>c.key!==ok&&s[c.key]);};
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):CH.some(c=>c.key!==ok&&!s[c.key]);};
+  const sOf=(r)=>{const s=stat[r.id]||{};const ok=originKey(r);return{...s,[ok]:true};};
+  // 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&s[c.key]);};
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&!s[c.key]);};
   // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放(旧stock_released済みは除外)
   const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);});
   let cnt=rows.filter(isTodo).length;
-  // ★2026-08-17 入庫(車検/点検/修理)=全媒体調整対象。全4媒体のうち未チェックが残れば未対応
+  // ★2026-08-17/2026-09-02 入庫(車検/点検/修理)=車両ブランドの媒体だけ調整対象。未チェックが残れば未対応
   const IL=["車検","半年点検","修理"];
-  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};if(CH.some(c=>!s[c.key]))cnt++;});
+  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};const ch=chOf({_intake:true,vehicleCode:m.vehicleCode});if(ch.some(c=>!s[c.key]))cnt++;});
   return cnt;
 }
 
@@ -25080,33 +25083,41 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
         name:_vehName(m.vehicleCode),vehicle:_vehName(m.vehicleCode),vehicleCode:m.vehicleCode,
         lendDate:m.startDate,returnDate:m.endDate||m.startDate,createdAt:m.createdAt||today}));
   },[maintenance,vehicles,today]);
-  const OTA_L={J:"JLN",R:"RKT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR","たびらい":"TBR","じゃらん":"JLN","楽天":"RKT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
-  const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b",TBR:"#f59e0b","たびらい":"#f59e0b","じゃらん":"#16a34a","楽天":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
-  // 高松の在庫調整対象チャネル（BDC/ART/RDC/JLN/TBR）
-  const CH=[{key:"adj_official",l:"BDC",origin:"HP"},{key:"adj_airtrip",l:"ART",origin:"O"},{key:"adj_rentacom",l:"RDC",origin:"RC"},{key:"adj_jalan",l:"JLN",origin:"J"},{key:"adj_tabirai",l:"TBR",origin:"TBR"}];
-  // 発生元OTA→自媒体キー（空欄/その他は「オフィシャル」扱い・オーナー確定）
+  const OTA_L={J:"JLN",R:"RTT",S:"SKT",O:"ART",A:"ART",HP:"HDM",SP:"SP",RC:"RDC",G:"GOO",KEYDROP:"KEY",direct:"直接",TBR:"TBR",HANDYMAN:"HDM","たびらい":"TBR","じゃらん":"JLN","楽天":"RTT","楽天トラベル":"RTT","スカイチケット":"SKT","エアトリ":"ART","レンタカードットコム":"RDC","オフィシャル":"HDM"};
+  const OTA_C={S:"#2563eb",J:"#16a34a",R:"#dc2626",O:"#22c55e",A:"#22c55e",HP:"#6366f1",SP:"#1e3a8a",RC:"#f97316",G:"#0f766e",KEYDROP:"#0f766e",direct:"#64748b",TBR:"#f59e0b",HANDYMAN:"#1e3a8a","たびらい":"#f59e0b","じゃらん":"#16a34a","楽天":"#dc2626","楽天トラベル":"#dc2626","スカイチケット":"#2563eb","エアトリ":"#22c55e","レンタカードットコム":"#f97316","オフィシャル":"#6366f1"};
+  // ★2026-09-02 ブランド2系統に分割（車検証使用者=会社が物理的に別＝在庫はブランド内でのみ調整・またがない）。
+  //   BUDDICA = {BDC(公式), ART(エアトリ), RDC(レンカ), TBR(たびらい)}
+  //   HANDYMAN = {HDM(公式), JLN(じゃらん), RTT(楽天=枠だけ先行・予約ゼロでもチェック欄を出す)}
+  //   ブランド判定＝予約は bt_reservations.brand(resBrand)、入庫は車両brand。空/不明はBUDDICA(自社)に倒す。
+  const CH_BUDDICA=[{key:"adj_official",l:"BDC",brand:"BUDDICA"},{key:"adj_airtrip",l:"ART",brand:"BUDDICA"},{key:"adj_rentacom",l:"RDC",brand:"BUDDICA"},{key:"adj_tabirai",l:"TBR",brand:"BUDDICA"}];
+  const CH_HDM=[{key:"adj_official_hdm",l:"HDM",brand:"HDM"},{key:"adj_jalan",l:"JLN",brand:"HDM"},{key:"adj_rakuten",l:"RTT",brand:"HDM"}];
+  const ALL_CH=[...CH_BUDDICA,...CH_HDM];  // ヘッダー用（全7媒体・ブランド別グループ表示）
+  const brandOf=(r)=>{if(r._intake){const v=(vehicles||[]).find(x=>x&&x.code===r.vehicleCode);return normBrand(v&&v.brand)||"BUDDICA";}return resBrand(r)||"BUDDICA";};
+  const chOf=(r)=>brandOf(r)==="HDM"?CH_HDM:CH_BUDDICA;  // その予約(車両)ブランドの調整対象媒体だけ
+  // 発生元OTA→自媒体キー（ブランド内で判定。空欄/その他は各ブランドの「公式」扱い・オーナー確定）
   // ★2026-08-05 発生元OTAは「コード(O/A/RC)」と「フルネーム(エアトリ/レンタカードットコム)」の両方に対応。
   //  GAS取込はota=フルネーム・CSV取込はota=コードで保存されるため、片方だけ見ると全OTA予約がオフィシャル誤判定(オフィシャル済み)になっていた。
-  // ★2026-08-21 たびらい(TBR)を独立チャネル化。旧はデフォルト(adj_official)に落ちて全たびらい予約がオフィシャル済み誤判定になっていた。
-  const originKey=(r)=>{if(r._intake)return"";const o=String(r.ota||"").trim();if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="J"||o==="じゃらん")return"adj_jalan";if(o==="TBR"||o==="たびらい")return"adj_tabirai";return"adj_official";};
+  // ★2026-08-21 たびらい(TBR)を独立チャネル化。★2026-09-02 ブランド別に公式(BDC/HDM)・じゃらん/楽天を分岐。
+  const originKey=(r)=>{if(r._intake)return"";const br=brandOf(r);const o=String(r.ota||"").trim();if(br==="HDM"){if(o==="J"||o==="じゃらん")return"adj_jalan";if(o==="R"||o==="楽天"||o==="楽天トラベル")return"adj_rakuten";return"adj_official_hdm";}if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="TBR"||o==="たびらい")return"adj_tabirai";return"adj_official";};
   const [stat,setStat]=React.useState({});
   const [filt,setFilt]=React.useState("all");
   const isCxl=(r)=>r.status==="cancelled";
   React.useEffect(()=>{
     if(!sb)return;let on=true;
-    const mk=(r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,stock_released:!!r.stock_released});
+    const mk=(r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,adj_official_hdm:!!r.adj_official_hdm,adj_rakuten:!!r.adj_rakuten,stock_released:!!r.stock_released});
     const load=async()=>{try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!on||!rows)return;const m={};rows.forEach(r=>{m[r.id]=mk(r);});setStat(m);}catch(e){}};
     load();
     const ch=sb.channel("bt_inv_status").on("postgres_changes",{event:"*",schema:"public",table:"bt_inventory_status"},p=>{const r=p.new;if(!r||!r.id)return;setStat(s=>({...s,[r.id]:mk(r)}));}).subscribe();
     return()=>{on=false;try{sb.removeChannel(ch);}catch(e){}};
   },[sb]);
-  // 既定：発生元だけ自動で済（true）、残り2チャネルは未（要）
-  const defOf=(r)=>{const ok=originKey(r);return{adj_airtrip:ok==="adj_airtrip",adj_official:ok==="adj_official",adj_rentacom:ok==="adj_rentacom",adj_jalan:ok==="adj_jalan",adj_tabirai:ok==="adj_tabirai",stock_released:false};};
-  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元は常に済扱いにマージ */const ok=originKey(r);return{...s,[ok]:true};};
-  // ★2026-08-11 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか
-  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return CH.some(c=>c.key!==ok&&s[c.key]);};
+  // 既定：発生元だけ自動で済（true）、残りは未（要）
+  const ALL_KEYS=["adj_airtrip","adj_official","adj_rentacom","adj_jalan","adj_tabirai","adj_official_hdm","adj_rakuten"];
+  const defOf=(r)=>{const ok=originKey(r);const o={stock_released:false};ALL_KEYS.forEach(k=>o[k]=(k===ok));return o;};
+  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元は常に済扱いにマージ */const ok=originKey(r);return{...base,...s,[ok]:true};};
+  // ★2026-08-11/2026-09-02 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&s[c.key]);};
   // 未対応＝発生元以外のチャネルに未チェックが残っている（キャンセルは「減らした媒体の解放が残る」）
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):CH.some(c=>c.key!==ok&&!s[c.key]);};
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&!s[c.key]);};
   // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放。未調整キャンセルは相殺で表示しない。旧stock_released済みは除外。
   const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=React.useMemo(()=>{
@@ -25114,14 +25125,14 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
     return resv.concat(intakeRows).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   },[data,today,stat,intakeRows]);
   const isNew=(r)=>!stat[r.id]&&!isCxl(r);
-  const FILT_CH={O:"adj_airtrip",HP:"adj_official",RC:"adj_rentacom",J:"adj_jalan",TBR:"adj_tabirai"};/* ★媒体絞り込みはコード/フルネーム両対応(GAS取込はota=フルネーム)→発生元キーで判定 */
-  const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):FILT_CH[filt]?originKey(r)===FILT_CH[filt]:r.ota===filt);
+  const FILT_CH={BDC:"adj_official",ART:"adj_airtrip",RDC:"adj_rentacom",TBR:"adj_tabirai",HDM:"adj_official_hdm",JLN:"adj_jalan",RTT:"adj_rakuten"};/* ★媒体絞り込みは発生元キーで判定（ブランド別・2026-09-02） */
+  const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):filt==="brandBT"?brandOf(r)==="BUDDICA":filt==="brandHDM"?brandOf(r)==="HDM":FILT_CH[filt]?originKey(r)===FILT_CH[filt]:r.ota===filt);
   const cntTodo=rows.filter(isTodo).length, cntNew=rows.filter(r=>isNew(r)&&isTodo(r)).length, cntCxl=rows.filter(cxNeedRel).length, cntDone=rows.length-cntTodo;
   const toggle=async(r,key)=>{
     const ok=originKey(r);if(key===ok)return;/* 発生元は操作不可 */
     const cur=sOf(r);const next={...cur,[key]:!cur[key],[ok]:true};
     setStat(s=>({...s,[r.id]:next}));
-    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,adj_tabirai:next.adj_tabirai,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
+    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,adj_tabirai:next.adj_tabirai,adj_official_hdm:next.adj_official_hdm,adj_rakuten:next.adj_rakuten,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
       try{const res=await sb.from("bt_inventory_status").upsert({...base,stock_released:next.stock_released},{onConflict:"id"});
         if(res&&res.error){await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}
       }catch(e){try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e2){}}}
@@ -25131,9 +25142,9 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   const releaseCh=async(r,key)=>{
     const ok=originKey(r);if(key===ok)return;/* 自媒体は減らしていないので解放不可 */
     const cur=sOf(r);const next={...cur,[key]:false,[ok]:true};
-    const anyLeft=CH.some(c=>c.key!==ok&&next[c.key]);next.stock_released=!anyLeft;
+    const anyLeft=chOf(r).some(c=>c.key!==ok&&next[c.key]);next.stock_released=!anyLeft;
     setStat(s=>({...s,[r.id]:next}));
-    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,adj_tabirai:next.adj_tabirai,stock_released:next.stock_released,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
+    if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,adj_tabirai:next.adj_tabirai,adj_official_hdm:next.adj_official_hdm,adj_rakuten:next.adj_rakuten,stock_released:next.stock_released,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
       try{await sb.from("bt_inventory_status").upsert(base,{onConflict:"id"});}catch(e){}}
   };
   const fmtDt=(s)=>{if(!s)return"-";const d=new Date(s);if(isNaN(d))return s.slice(0,16).replace("T"," ");return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");};
@@ -25160,35 +25171,42 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   };
   return(<div style={{maxWidth:1100,margin:"0 auto",padding:"4px 2px"}}>
     <h2 style={{fontSize:18,margin:"6px 4px 4px"}}>📦 在庫調整 <span style={{fontSize:12,color:"#64748b",fontWeight:400}}>これからの貸出のみ</span></h2>
-    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。<br/><b style={{color:"#7c3aed"}}>キャンセル時</b>＝在庫を絞った予約だけ<b>絞った媒体を1つずつ「戻」（解放）</b>。<span style={{color:"#94a3b8"}}>まだ絞っていない予約は相殺で消えるだけ＝解放不要（水増し解放を防止）。</span><br/><span style={{color:"#92400e"}}><b>🏭入庫（車検/点検/修理）</b>＝発生元媒体が無いため<b>全5媒体が「要」（全媒体調整対象）</b>。該当期間は各OTAで在庫を絞ってチェック。入庫予定は「🔧車両→車検/点検/修理」または配車表から登録すると自動でここに出ます。</span></p>
+    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。<br/><b style={{color:"#047857"}}>🟢 BUDDICA</b>＝BDC(公式)/ART/RDC/TBR ／ <b style={{color:"#1e3a8a"}}>🔵 HANDYMAN</b>＝HDM(公式)/JLN/RTT(楽天)。<b>車検証使用者(会社)が物理的に別＝在庫はブランド内でのみ調整</b>、ブランドをまたいで絞りません（BUDDICA車の予約→BUDDICA媒体だけ／HANDYMAN車の予約→HANDYMAN媒体だけ「要」）。<br/><b style={{color:"#7c3aed"}}>キャンセル時</b>＝在庫を絞った予約だけ<b>絞った媒体を1つずつ「戻」（解放）</b>。<span style={{color:"#94a3b8"}}>まだ絞っていない予約は相殺で消えるだけ＝解放不要（水増し解放を防止）。</span><br/><span style={{color:"#92400e"}}><b>🏭入庫（車検/点検/修理）</b>＝発生元媒体が無いため<b>その車両ブランドの全媒体が「要」</b>（BUDDICA車=4媒体／HANDYMAN車=3媒体）。入庫予定は「🔧車両→車検/点検/修理」または配車表から登録すると自動でここに出ます。</span></p>
     <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{cntTodo}</div><div style={{fontSize:11,color:"#64748b"}}>🔴 未対応{cntNew>0?"（新規"+cntNew+"）":""}</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#7c3aed"}}>{cntCxl}</div><div style={{fontSize:11,color:"#64748b"}}>🟣 在庫解放待ち(キャンセル)</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#059669"}}>{cntDone}</div><div style={{fontSize:11,color:"#64748b"}}>対応済み</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700}}>{rows.length}</div><div style={{fontSize:11,color:"#64748b"}}>表示中</div></div>
     </div>
-    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}{chip("HP","BDC")}{chip("O","ART")}{chip("RC","RDC")}{chip("J","JLN")}{chip("TBR","TBR")}</div>
+    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>{chip("all","すべて")}{chip("todo","🔴 未対応のみ")}{chip("cxl","🟣 キャンセル")}<span style={{width:1,height:18,background:"#e2e8f0",margin:"0 2px"}}></span>{chip("brandBT","🟢 BUDDICA")}{chip("BDC","BDC")}{chip("ART","ART")}{chip("RDC","RDC")}{chip("TBR","TBR")}<span style={{width:1,height:18,background:"#e2e8f0",margin:"0 2px"}}></span>{chip("brandHDM","🔵 HANDYMAN")}{chip("HDM","HDM")}{chip("JLN","JLN")}{chip("RTT","RTT")}</div>
     <div style={{overflowX:"auto"}}>
     <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 6px",minWidth:900}}>
-      <thead><tr style={{fontSize:11,color:"#64748b",textAlign:"left"}}>
+      <thead>
+      <tr style={{fontSize:10,textAlign:"center"}}>
+        <th colSpan={7}></th>
+        <th colSpan={CH_BUDDICA.length} style={{padding:"0 4px 2px",color:"#047857",fontWeight:800,borderBottom:"2px solid #a7f3d0"}}>🟢 BUDDICA</th>
+        <th colSpan={CH_HDM.length} style={{padding:"0 4px 2px",color:"#1e3a8a",fontWeight:800,borderBottom:"2px solid #bfdbfe"}}>🔵 HANDYMAN</th>
+      </tr>
+      <tr style={{fontSize:11,color:"#64748b",textAlign:"left"}}>
         <th style={{padding:"0 8px 4px"}}>予約日時</th><th style={{padding:"0 8px 4px"}}>媒体</th><th style={{padding:"0 8px 4px"}}>予約者名</th><th style={{padding:"0 8px 4px"}}>予約番号</th><th style={{padding:"0 8px 4px"}}>貸出</th><th style={{padding:"0 8px 4px"}}>返却</th><th style={{padding:"0 8px 4px"}}>クラス</th>
-        {CH.map(c=><th key={c.key} style={{padding:"0 8px 4px",textAlign:"center"}}>{c.l}</th>)}
+        {ALL_CH.map(c=><th key={c.key} style={{padding:"0 8px 4px",textAlign:"center",color:c.brand==="HDM"?"#1e3a8a":"#047857"}}>{c.l}</th>)}
       </tr></thead>
       <tbody>
-      {shown.length===0&&<tr><td colSpan={7+CH.length} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
+      {shown.length===0&&<tr><td colSpan={7+ALL_CH.length} style={{padding:24,textAlign:"center",color:"#94a3b8",background:"#fff",borderRadius:10}}>対象の予約はありません</td></tr>}
       {shown.map(r=>{const s=sOf(r);const todo=isTodo(r);const nw=isNew(r)&&todo;const cx=isCxl(r);const cxTodo=cx&&!s.stock_released;
         const bg=cxTodo?"#faf5ff":cx?"#f8fafc":nw?"#fef2f2":todo?"#fff7ed":"#fff";
         const td={background:bg,padding:"10px 8px",fontSize:13,verticalAlign:"middle"};
         const shadow=cxTodo?"inset 3px 0 0 #7c3aed":nw?"inset 3px 0 0 #dc2626":"0 1px 2px rgba(0,0,0,.05)";
         return(<tr key={r.id} style={{boxShadow:shadow}}>
           <td style={{...td,borderRadius:"10px 0 0 10px",whiteSpace:"nowrap"}}>{fmtDt(r.createdAt)}{nw&&<span style={{fontSize:9,fontWeight:700,color:"#dc2626",border:"1px solid #dc2626",borderRadius:4,padding:"0 4px",marginLeft:5}}>NEW</span>}{cx&&<span style={{fontSize:9,fontWeight:700,color:"#fff",background:"#7c3aed",borderRadius:4,padding:"1px 5px",marginLeft:5}}>キャンセル</span>}</td>
-          <td style={td}>{r._intake?<span style={{fontSize:11,fontWeight:800,padding:"3px 8px",borderRadius:6,color:"#92400e",whiteSpace:"nowrap",background:"#fde68a"}}>🏭{r.label}</span>:<span style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:6,color:"#fff",whiteSpace:"nowrap",background:OTA_C[r.ota]||"#94a3b8"}}>{OTA_L[r.ota]||r.ota||"直販"}</span>}</td>
-          <td style={{...td,fontWeight:600,textDecoration:cx?"line-through":"none",color:cx?"#94a3b8":"inherit"}}>{r.name||"-"}{r._intake&&<span style={{fontSize:9,fontWeight:800,color:"#92400e",background:"#fef3c7",borderRadius:4,padding:"1px 5px",marginLeft:5}}>入庫（全媒体）</span>}</td>
+          <td style={td}><span style={{display:"inline-flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}><BrandBadge brand={brandOf(r)} size="sm"/>{r._intake?<span style={{fontSize:11,fontWeight:800,padding:"3px 8px",borderRadius:6,color:"#92400e",whiteSpace:"nowrap",background:"#fde68a"}}>🏭{r.label}</span>:<span style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:6,color:"#fff",whiteSpace:"nowrap",background:OTA_C[r.ota]||"#94a3b8"}}>{OTA_L[r.ota]||r.ota||"直販"}</span>}</span></td>
+          <td style={{...td,fontWeight:600,textDecoration:cx?"line-through":"none",color:cx?"#94a3b8":"inherit"}}>{r.name||"-"}{r._intake&&<span style={{fontSize:9,fontWeight:800,color:"#92400e",background:"#fef3c7",borderRadius:4,padding:"1px 5px",marginLeft:5}}>入庫（{brandOf(r)==="HDM"?"HDM全媒体":"BT全媒体"}）</span>}</td>
           <td style={{...td,fontSize:11,color:"#475569"}}>{r._intake?"—":r.id}{!cx&&!r._intake&&onCancel&&<button onClick={()=>doCancel(r)} style={{marginLeft:6,fontSize:9,color:"#dc2626",border:"1px solid #fecaca",background:"#fff",borderRadius:5,padding:"1px 5px",cursor:"pointer"}}>✕取消</button>}</td>
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.lendDate)}</td>
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.returnDate)}</td>
           <td style={{...td,fontWeight:700}}>{r.vehicle||"-"}</td>
-          {CH.map((c,ci)=><td key={c.key} style={ci===CH.length-1?{...td,borderRadius:"0 10px 10px 0"}:td}>{cx?RelCell(r,c):AdjCell(r,c)}</td>)}
+          {ALL_CH.map((c,ci)=>{const inBrand=(c.brand===brandOf(r));const last=ci===ALL_CH.length-1;const cellStyle=last?{...td,borderRadius:"0 10px 10px 0"}:td;
+            return<td key={c.key} style={cellStyle}>{!inBrand?<div style={{textAlign:"center",color:"#e2e8f0",fontSize:12}}>—</div>:cx?RelCell(r,c):AdjCell(r,c)}</td>;})}
         </tr>);})}
       </tbody>
     </table>
