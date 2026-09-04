@@ -23591,7 +23591,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.394-BT";
+const APP_VERSION="v1.0.395-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26180,14 +26180,14 @@ function MileageLogTab({sb}){
     const [rr,ff,vv]=await Promise.all([
       sb.from("bt_reservations").select("id,vehicle_class,start_date,end_date,name,ota,status,start_odo,end_odo,driven_km").order("start_date",{ascending:false}),
       sb.from("bt_fleet").select("reservation_id,vehicle_code"),
-      sb.from("bt_vehicles").select("code,name,type,active,current_mileage")]);
+      sb.from("bt_vehicles").select("code,name,type,active,current_mileage,plate_no")]);
     const vmap={};(vv.data||[]).forEach(v=>vmap[v.code]=v);setVeh(vmap);
     const fmap={};(ff.data||[]).forEach(f=>{fmap[f.reservation_id]=f.vehicle_code;});
     const nz=s=>String(s||"").toLowerCase();
     const list=(rr.data||[]).filter(r=>!/cancel|キャンセル/.test(nz(r.status))).map(r=>{
       const vc=fmap[r.id],v=vc?vmap[vc]:null;let days=1;
       try{if(r.start_date&&r.end_date)days=Math.max(1,Math.round((new Date(r.end_date)-new Date(r.start_date))/86400000)+1);}catch(e){}
-      return {...r,vname:v?v.name:"",vcode:vc||"",days};});
+      return {...r,vname:v?v.name:"",vplate:v?(v.plate_no||""):"",vcode:vc||"",days};});
     setRows(list);
   }finally{setLoading(false);}},[sb]);
   React.useEffect(()=>{load();},[load]);
@@ -26226,6 +26226,13 @@ function MileageLogTab({sb}){
   const nMonths=ym?1:(months.length||1);
   const kmPerCarMonth=activeVeh?Math.round(totKm/activeVeh/nMonths):0;
   const byClass={};recd.forEach(r=>{const k=r.vehicle_class||"?";(byClass[k]=byClass[k]||{km:0,n:0,days:0});byClass[k].km+=r.driven_km||0;byClass[k].n++;byClass[k].days+=r.days||0;});
+  // 🚙 個体(ナンバー)別：予約あたり走行＋計測開始〜最新の累計
+  const byVeh={};
+  fr.forEach(r=>{if(!r.vcode)return;var g=byVeh[r.vcode]||(byVeh[r.vcode]={code:r.vcode,name:r.vname,plate:r.vplate,cls:r.vehicle_class,km:0,n:0,minS:null,maxE:null});
+    if(r.driven_km!=null){g.km+=r.driven_km;g.n++;}
+    if(r.start_odo!=null)g.minS=(g.minS==null?r.start_odo:Math.min(g.minS,r.start_odo));
+    if(r.end_odo!=null)g.maxE=(g.maxE==null?r.end_odo:Math.max(g.maxE,r.end_odo));});
+  const vehRows=Object.values(byVeh).map(g=>{var cur=(veh[g.code]&&veh[g.code].current_mileage)||g.maxE;var cum=(g.minS!=null&&g.maxE!=null&&g.maxE>=g.minS)?(g.maxE-g.minS):g.km;return {...g,avg:g.n?Math.round(g.km/g.n):null,cum:cum,cur:cur};}).filter(g=>g.n>0||g.minS!=null||g.maxE!=null).sort((a,b)=>(b.cum||0)-(a.cum||0));
   const inp={width:78,border:"1px solid #cbd5e1",borderRadius:6,padding:"5px 7px",fontSize:13,textAlign:"right"};
   const csv=()=>{const h=["予約番号","クラス","車両","利用開始","利用日数","出発メーター","返却メーター","走行km","km/日"];
     const lines=[h.join(",")].concat(fr.map(r=>[r.id,r.vehicle_class||"",r.vname,r.start_date||"",r.days,r.start_odo??"",r.end_odo??"",r.driven_km??"",(r.driven_km!=null&&r.days)?Math.round(r.driven_km/r.days):""].join(",")));
@@ -26250,6 +26257,21 @@ function MileageLogTab({sb}){
     {Object.keys(byClass).length>0&&<div style={{background:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:"0 1px 5px rgba(0,0,0,.07)"}}>
       <div style={{fontSize:12,fontWeight:700,color:"#0F1F45",marginBottom:6}}>クラス別 平均走行（1予約あたり）</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{Object.keys(byClass).sort().map(k=>{const b=byClass[k];return <div key={k} style={{background:"#f8fafc",borderRadius:8,padding:"6px 12px",fontSize:12}}><b>{k}</b>：{Math.round(b.km/b.n).toLocaleString()}km/予約 <span style={{color:"#94a3b8"}}>({b.n}件)</span></div>;})}</div></div>}
+    {vehRows.length>0&&<div style={{background:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:"0 1px 5px rgba(0,0,0,.07)",overflowX:"auto"}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#0F1F45",marginBottom:8}}>🚙 個体（ナンバー）別 走行</div>
+      <table style={{width:"100%",minWidth:640,borderCollapse:"collapse",fontSize:12.5}}>
+        <thead><tr>{["車両（ナンバー）","クラス","計測予約数","予約あたり平均","累計走行(計測開始〜最新)","現在メーター"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+        <tbody>{vehRows.map(g=><tr key={g.code}>
+          <td style={td}>{g.name||g.code}{g.plate?<span style={{fontFamily:"monospace",fontWeight:900,color:"#065f46",marginLeft:5}}>{g.plate}</span>:null}</td>
+          <td style={td}>{g.cls||"-"}</td>
+          <td style={{...td,textAlign:"right"}}>{g.n}件</td>
+          <td style={{...td,textAlign:"right",fontWeight:700}}>{g.avg!=null?g.avg.toLocaleString()+"km":"—"}</td>
+          <td style={{...td,textAlign:"right",fontWeight:800,color:"#1e3a8a"}}>{g.cum!=null?g.cum.toLocaleString()+"km":"—"}</td>
+          <td style={{...td,textAlign:"right",color:"#64748b"}}>{g.cur!=null?g.cur.toLocaleString()+"km":"—"}</td>
+        </tr>)}</tbody>
+      </table>
+      <div style={{fontSize:10,color:"#94a3b8",marginTop:6}}>累計＝その車の「最初に計測した出発メーター」から「最新の返却メーター」までの走行距離。現在メーター＝車両登録の最新値。</div>
+    </div>}
     {loading?<div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>読み込み中…</div>:
      fr.length===0?<div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>該当なし</div>:
      <div style={{overflowX:"auto",background:"#fff",borderRadius:10,boxShadow:"0 1px 6px rgba(0,0,0,.07)"}}>
