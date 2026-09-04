@@ -22422,7 +22422,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"jalan_tmpl",ico:"📧",l:"じゃらんテンプレ"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"board",ico:"📢",l:"お知らせ"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"jalan_tmpl",ico:"📧",l:"じゃらんテンプレ"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"mileage",ico:"🚗",l:"走行ログ"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"board",ico:"📢",l:"お知らせ"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -23218,6 +23218,7 @@ function App(){
           {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
+          {tab==="mileage"&&<MileageLogTab sb={sb}/>}
           {tab==="intake"&&<div style={{padding:"0 0 16px"}}>
             <iframe src={`./intake.html?v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}}/>
           </div>}
@@ -23589,7 +23590,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.386-BT";
+const APP_VERSION="v1.0.387-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26131,6 +26132,94 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       </div>
     </div>
   );
+}
+/* 🚗 走行ログタブ：1予約ごとの走行距離を記録＋グロス分析(1台あたり月◯km) */
+function MileageLogTab({sb}){
+  const [rows,setRows]=React.useState([]);const [veh,setVeh]=React.useState({});
+  const [loading,setLoading]=React.useState(true);
+  const [ym,setYm]=React.useState("");const [cls,setCls]=React.useState("");const [unrec,setUnrec]=React.useState(false);
+  const [busy,setBusy]=React.useState("");
+  const load=React.useCallback(async()=>{setLoading(true);try{
+    const [rr,ff,vv]=await Promise.all([
+      sb.from("bt_reservations").select("id,vehicle_class,start_date,end_date,name,ota,status,start_odo,end_odo,driven_km").order("start_date",{ascending:false}),
+      sb.from("bt_fleet").select("reservation_id,vehicle_code"),
+      sb.from("bt_vehicles").select("code,name,type,active,current_mileage")]);
+    const vmap={};(vv.data||[]).forEach(v=>vmap[v.code]=v);setVeh(vmap);
+    const fmap={};(ff.data||[]).forEach(f=>{fmap[f.reservation_id]=f.vehicle_code;});
+    const nz=s=>String(s||"").toLowerCase();
+    const list=(rr.data||[]).filter(r=>!/cancel|キャンセル/.test(nz(r.status))).map(r=>{
+      const vc=fmap[r.id],v=vc?vmap[vc]:null;let days=1;
+      try{if(r.start_date&&r.end_date)days=Math.max(1,Math.round((new Date(r.end_date)-new Date(r.start_date))/86400000)+1);}catch(e){}
+      return {...r,vname:v?v.name:"",vcode:vc||"",days};});
+    setRows(list);
+  }finally{setLoading(false);}},[sb]);
+  React.useEffect(()=>{load();},[load]);
+  const saveOdo=async(r,field,valStr)=>{
+    const val=valStr===""?null:parseInt(valStr);if(valStr!==""&&(isNaN(val)||val<0)){alert("数値を入力してください");return;}
+    setBusy(r.id+field);
+    try{
+      const s=field==="start_odo"?val:r.start_odo, e=field==="end_odo"?val:r.end_odo;
+      const dk=(s!=null&&e!=null&&e>=s)?(e-s):null;
+      const patch={};patch[field]=val;patch[field==="start_odo"?"start_odo_at":"end_odo_at"]=new Date().toISOString();patch.driven_km=dk;
+      await sb.from("bt_reservations").update(patch).eq("id",r.id);
+      if(field==="end_odo"&&val!=null&&r.vcode){const cur=(veh[r.vcode]||{}).current_mileage||0;if(val>cur)await sb.from("bt_vehicles").update({current_mileage:val}).eq("code",r.vcode);}
+      setRows(rs=>rs.map(x=>x.id===r.id?{...x,[field]:val,driven_km:dk}:x));
+    }catch(e){alert("保存失敗: "+(e.message||e));}finally{setBusy("");}
+  };
+  const months=[...new Set(rows.map(r=>(r.start_date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const classes=[...new Set(rows.map(r=>r.vehicle_class).filter(Boolean))].sort();
+  let fr=rows;
+  if(ym)fr=fr.filter(r=>(r.start_date||"").slice(0,7)===ym);
+  if(cls)fr=fr.filter(r=>r.vehicle_class===cls);
+  if(unrec)fr=fr.filter(r=>r.driven_km==null);
+  const recd=fr.filter(r=>r.driven_km!=null);
+  const totKm=recd.reduce((s,r)=>s+(r.driven_km||0),0);
+  const totDays=recd.reduce((s,r)=>s+(r.days||0),0);
+  const kmPerDay=totDays?Math.round(totKm/totDays):0;
+  const activeVeh=Object.values(veh).filter(v=>v.active).length||Object.keys(veh).length;
+  const nMonths=ym?1:(months.length||1);
+  const kmPerCarMonth=activeVeh?Math.round(totKm/activeVeh/nMonths):0;
+  const byClass={};recd.forEach(r=>{const k=r.vehicle_class||"?";(byClass[k]=byClass[k]||{km:0,n:0,days:0});byClass[k].km+=r.driven_km||0;byClass[k].n++;byClass[k].days+=r.days||0;});
+  const inp={width:78,border:"1px solid #cbd5e1",borderRadius:6,padding:"5px 7px",fontSize:13,textAlign:"right"};
+  const csv=()=>{const h=["予約番号","クラス","車両","利用開始","利用日数","出発メーター","返却メーター","走行km","km/日"];
+    const lines=[h.join(",")].concat(fr.map(r=>[r.id,r.vehicle_class||"",r.vname,r.start_date||"",r.days,r.start_odo??"",r.end_odo??"",r.driven_km??"",(r.driven_km!=null&&r.days)?Math.round(r.driven_km/r.days):""].join(",")));
+    const b=new Blob(["﻿"+lines.join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="走行ログ"+(ym||"全")+".csv";a.click();};
+  const th={padding:"8px 8px",fontSize:11,color:"#475569",textAlign:"left",borderBottom:"1px solid #e2e8f0",whiteSpace:"nowrap"};
+  const td={padding:"7px 8px",fontSize:12.5,borderBottom:"1px solid #f1f5f9"};
+  return <div style={{padding:"14px 14px 40px",maxWidth:1000,margin:"0 auto"}}>
+    <h2 style={{fontSize:17,fontWeight:800,color:"#0F1F45",margin:"0 0 4px"}}>🚗 走行ログ（1予約ごとの走行距離）</h2>
+    <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>出発前洗車で出発メーター／返却で返却メーターを記録＝走行距離を自動算出。グロスで「1台あたり月◯km」も出ます。</div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+      {[["総走行km",totKm.toLocaleString(),"#1e3a8a"],["1台あたり月",kmPerCarMonth.toLocaleString()+"km","#dc2626"],["平均 km/日",kmPerDay.toLocaleString(),"#0891b2"],["記録済/対象",recd.length+"/"+fr.length,"#16a34a"]].map(([l,v,c])=>
+        <div key={l} style={{background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderTop:"3px solid "+c,minWidth:110,flex:1}}>
+          <div style={{fontSize:11,color:"#64748b"}}>{l}</div><div style={{fontSize:20,fontWeight:800}}>{v}</div></div>)}
+    </div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:10}}>
+      <select value={ym} onChange={e=>setYm(e.target.value)} style={{padding:"6px 10px",border:"1px solid #cbd5e1",borderRadius:6}}><option value="">全期間</option>{months.map(m=>{const[y,mm]=m.split("-");return <option key={m} value={m}>{y}年{+mm}月</option>;})}</select>
+      <select value={cls} onChange={e=>setCls(e.target.value)} style={{padding:"6px 10px",border:"1px solid #cbd5e1",borderRadius:6}}><option value="">全クラス</option>{classes.map(c=><option key={c} value={c}>{c}</option>)}</select>
+      <label style={{fontSize:12.5,display:"flex",alignItems:"center",gap:4}}><input type="checkbox" checked={unrec} onChange={e=>setUnrec(e.target.checked)}/>未記録のみ</label>
+      <button onClick={csv} style={{marginLeft:"auto",background:"#0F1F45",color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>CSV出力</button>
+    </div>
+    {Object.keys(byClass).length>0&&<div style={{background:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:"0 1px 5px rgba(0,0,0,.07)"}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#0F1F45",marginBottom:6}}>クラス別 平均走行（1予約あたり）</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{Object.keys(byClass).sort().map(k=>{const b=byClass[k];return <div key={k} style={{background:"#f8fafc",borderRadius:8,padding:"6px 12px",fontSize:12}}><b>{k}</b>：{Math.round(b.km/b.n).toLocaleString()}km/予約 <span style={{color:"#94a3b8"}}>({b.n}件)</span></div>;})}</div></div>}
+    {loading?<div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>読み込み中…</div>:
+     fr.length===0?<div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>該当なし</div>:
+     <div style={{overflowX:"auto",background:"#fff",borderRadius:10,boxShadow:"0 1px 6px rgba(0,0,0,.07)"}}>
+      <table style={{width:"100%",minWidth:720,borderCollapse:"collapse"}}>
+        <thead><tr>{["予約番号","クラス","車両","利用日数","出発メーター","返却メーター","走行km","km/日"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+        <tbody>{fr.map(r=><tr key={r.id}>
+          <td style={{...td,fontFamily:"ui-monospace,monospace",fontSize:11}}>{r.id}<div style={{color:"#94a3b8"}}>{r.start_date}</div></td>
+          <td style={td}>{r.vehicle_class||"-"}</td>
+          <td style={td}>{r.vname||"-"}</td>
+          <td style={{...td,textAlign:"right"}}>{r.days}日</td>
+          <td style={td}><input style={inp} type="number" defaultValue={r.start_odo??""} disabled={busy===r.id+"start_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.start_odo??""))saveOdo(r,"start_odo",e.target.value);}} placeholder="出発"/></td>
+          <td style={td}><input style={inp} type="number" defaultValue={r.end_odo??""} disabled={busy===r.id+"end_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.end_odo??""))saveOdo(r,"end_odo",e.target.value);}} placeholder="返却"/></td>
+          <td style={{...td,textAlign:"right",fontWeight:800,color:r.driven_km!=null?"#1e3a8a":"#cbd5e1"}}>{r.driven_km!=null?r.driven_km.toLocaleString():"—"}</td>
+          <td style={{...td,textAlign:"right",color:"#64748b"}}>{(r.driven_km!=null&&r.days)?Math.round(r.driven_km/r.days):"—"}</td>
+        </tr>)}</tbody>
+      </table></div>}
+  </div>;
 }
 ReactDOM.render(<ErrBoundary><Root/></ErrBoundary>,document.getElementById("root"));
 // ★ React描画完了 → スプラッシュを非表示
