@@ -23591,7 +23591,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.391-BT";
+const APP_VERSION="v1.0.392-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26137,7 +26137,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
 /* 🚗 走行ログ連動：洗車/返却タスクのチェック時にメーター入力→bt_reservationsに記録(共通ヘルパー) */
 async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
   if(!_t||!_t.reservationId||!sb)return;
-  var _isWash=(_t.type==="洗車");
+  var _isWash=(["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_t.type)>=0);
   var _isRet=(["COL","BD","BDB","返却"].indexOf(_t.type)>=0);
   if(!(_isWash||_isRet))return;
   try{
@@ -26160,7 +26160,7 @@ async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
 }
 /* 🚗 距離測定サブタスク：洗車=出発/返却=返却タスクの札に📏行→タップでメーター入力ポップ(予約番号紐づけ) */
 function OdoSub({t,sb,vehicles}){
-  var isWash=(t&&t.type==="洗車");
+  var isWash=(t&&["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(t.type)>=0);
   var isRet=(t&&["COL","BD","BDB","返却"].indexOf(t.type)>=0);
   if(!t||!t.reservationId||!(isWash||isRet))return null;
   var _s=React.useState(null),odo=_s[0],setOdo=_s[1];
