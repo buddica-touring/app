@@ -21673,6 +21673,7 @@ function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
 }
+const _ptCache={},_ptOpen={};/* サマリー展開/読込を再マウント越しに保持 */
 function App(){
   const[data,setData]=useState([]);const[payTarget,setPayTarget]=useState(null);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);const[opsMenu,setOpsMenu]=useState(null);
   React.useEffect(function(){window.__btPayOpen=function(r){setPayTarget(r);};return function(){window.__btPayOpen=null;};},[]);
@@ -22650,12 +22651,12 @@ function App(){
                 const offSymbols=new Set(["公","希","有"]);
                 const onDuty=todayShifts.filter(s=>!offSymbols.has(s.symbol));
                 const PersonalTasks=({dateStr,dateLabel,shiftList})=>{
-                  const[dbTasks,setDbTasks]=useState([]);
-                  const[loaded,setLoaded]=useState(false);
+                  const[dbTasks,setDbTasks]=useState(()=>_ptCache[dateStr]||[]);
+                  const[loaded,setLoaded]=useState(_ptCache[dateStr]!=null);
                   const prevJsonRef=useRef("");
-                  const refetchTasks=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  const refetchTasks=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;_ptCache[dateStr]=t;setDbTasks(t);}}).catch(()=>{});};
                   useEffect(()=>{
-                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;_ptCache[dateStr]=t||[];setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
                     // ★ Realtime購読: OPシートでの完了チェックを即反映
                     let ch=null;
                     if(sb){
@@ -22740,7 +22741,7 @@ function App(){
                       const doneN=sorted.filter(t=>t.done).length;
                       const remN=sorted.length-doneN;
                       const allDone=sorted.length>0&&doneN===sorted.length;
-                      return <details key={name} style={{marginBottom:4}}>
+                      return <details key={name} style={{marginBottom:4}} open={!!_ptOpen[dateStr+"|"+name]} onToggle={e=>{var _k=dateStr+"|"+name;if(e.currentTarget.open){_ptOpen[_k]=1;}else{delete _ptOpen[_k];}}}>
                         <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
                           <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
                           <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
@@ -22768,7 +22769,7 @@ function App(){
                         </div>
                       </details>;
                     })}
-                    {unassigned.length>0&&<details style={{marginTop:4}}>
+                    {unassigned.length>0&&<details style={{marginTop:4}} open={!!_ptOpen[dateStr+"|__un"]} onToggle={e=>{if(e.currentTarget.open){_ptOpen[dateStr+"|__un"]=1;}else{delete _ptOpen[dateStr+"|__un"];}}}>
                       <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
                         <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
                         <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
@@ -22800,12 +22801,12 @@ function App(){
                 const offSymbols2=new Set(["公","希","有"]);
                 const onDuty2=tmrwShifts2.filter(s=>!offSymbols2.has(s.symbol));
                 const PersonalTasks2=({dateStr,shiftList})=>{
-                  const[dbTasks,setDbTasks]=useState([]);
-                  const[loaded,setLoaded]=useState(false);
+                  const[dbTasks,setDbTasks]=useState(()=>_ptCache[dateStr]||[]);
+                  const[loaded,setLoaded]=useState(_ptCache[dateStr]!=null);
                   const prevJsonRef2=useRef("");
-                  const refetchTasks2=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  const refetchTasks2=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;_ptCache[dateStr]=t;setDbTasks(t);}}).catch(()=>{});};
                   useEffect(()=>{
-                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;_ptCache[dateStr]=t||[];setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
                     // ★ Realtime購読: タスク完了を即反映
                     let ch=null;
                     if(sb){
@@ -22886,7 +22887,7 @@ function App(){
                       const doneN=sorted.filter(t=>t.done).length;
                       const remN=sorted.length-doneN;
                       const allDone=sorted.length>0&&doneN===sorted.length;
-                      return <details key={name} style={{marginBottom:4}}>
+                      return <details key={name} style={{marginBottom:4}} open={!!_ptOpen[dateStr+"|"+name]} onToggle={e=>{var _k=dateStr+"|"+name;if(e.currentTarget.open){_ptOpen[_k]=1;}else{delete _ptOpen[_k];}}}>
                         <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
                           <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
                           <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
@@ -22902,7 +22903,7 @@ function App(){
                         </div>
                       </details>;
                     })}
-                    {unassigned.length>0&&<details style={{marginTop:4}}>
+                    {unassigned.length>0&&<details style={{marginTop:4}} open={!!_ptOpen[dateStr+"|__un"]} onToggle={e=>{if(e.currentTarget.open){_ptOpen[dateStr+"|__un"]=1;}else{delete _ptOpen[dateStr+"|__un"];}}}>
                       <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
                         <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
                         <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
@@ -23591,7 +23592,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.399-BT";
+const APP_VERSION="v1.0.400-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
