@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>高松店 月次レポート｜BUDDICA</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Hiragino Sans",sans-serif;background:#f4f6fa;color:#0e1b33;line-height:1.7;padding:0 0 60px}
+  .hd{background:#0a1f44;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+  .hd b{font-size:16px;font-weight:900}.hd .y{color:#f2b600}
+  .hd a{margin-left:auto;font-size:12px;color:#f2b600;text-decoration:none;font-weight:800}
+  .wrap{max-width:940px;margin:0 auto;padding:14px 14px}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  select,input{font-family:inherit;font-size:14px;border:1.5px solid #cdd6e5;border-radius:9px;padding:8px 10px;background:#fff;color:#0e1b33}
+  .btn{background:#0a1f44;color:#fff;border:0;border-radius:9px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer}
+  .btn.y{background:#f2b600;color:#0a1f44}.btn.g{background:#0e9f50;color:#fff}
+  h2{font-size:13px;font-weight:900;color:#33456b;margin:18px 0 8px;display:flex;align-items:center;gap:6px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .card{background:#fff;border:1px solid #e3e8f0;border-radius:14px;padding:13px 14px;box-shadow:0 1px 6px rgba(0,0,0,.04)}
+  .card .lb{font-size:11px;color:#7183a3;font-weight:800}
+  .card .v{font-size:22px;font-weight:900;margin-top:2px}
+  .card .v.y{color:#c8930a}.card .v.g{color:#0e9f50}.card .v.r{color:#dc2626}
+  .card .sub{font-size:11px;color:#8a99b5;margin-top:1px}
+  .pct{display:inline-block;font-size:12px;font-weight:900;padding:1px 8px;border-radius:99px;margin-left:4px}
+  .pct.ok{background:#e6f6ec;color:#0a7d3c}.pct.mid{background:#fef6e6;color:#b45309}.pct.bad{background:#fdecec;color:#b42318}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.04)}
+  th,td{padding:8px 9px;text-align:right;border-bottom:1px solid #eef1f6;white-space:nowrap}
+  th{background:#f0f3f9;color:#5b6b8a;font-weight:800;font-size:11px}
+  td.l,th.l{text-align:left}
+  tr.bad td{background:#fef4f4}
+  .barmini{display:inline-block;width:70px;height:8px;background:#eef1f6;border-radius:99px;overflow:hidden;vertical-align:middle;margin-right:5px}
+  .barmini>span{display:block;height:100%;border-radius:99px}
+  .note{font-size:12px;color:#5b6b8a;margin-top:8px}
+  .sum{background:#fff;border:1px solid #e3e8f0;border-radius:14px;padding:14px 16px;font-size:13.5px;line-height:1.9;margin-top:8px}
+  .sum b{color:#0a1f44}.sum .r{color:#dc2626;font-weight:900}
+  .panel{background:#fff;border:1px dashed #b9c4d8;border-radius:14px;padding:14px;margin-top:10px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .fld{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#5b6b8a;font-weight:700}
+  .fld input{font-size:13px}
+  .msg{font-size:12px;font-weight:800;margin-left:8px}
+  @media(max-width:640px){.cards{grid-template-columns:repeat(3,1fr);gap:6px}.card{padding:9px 8px}.card .v{font-size:16px}.card .lb{font-size:10px}}
+  @media print{.hd a,.bar .btn,#panel,.noprint{display:none!important}body{background:#fff}.hd{position:static}}
+</style>
+</head>
+<body>
+<div class="hd"><b>高松店 <span class="y">月次レポート</span></b><a href="./">← アプリTOP</a></div>
+<div class="wrap">
+  <div class="bar">
+    <select id="ym"></select>
+    <button class="btn" onclick="reload()">更新</button>
+    <button class="btn y noprint" onclick="window.print()">📄 PDF出力</button>
+    <button class="btn noprint" onclick="togglePanel()">⚙️ 目標・単価設定</button>
+    <span class="msg" id="authMsg"></span>
+  </div>
+
+  <div id="panel" class="panel" style="display:none">
+    <h2 style="margin-top:0">⚙️ 目標・クラス別販売単価の設定</h2>
+    <div class="note">年間は月別の合計です。台売上目標＝月間目標÷その月の稼働台数を、クラス別販売単価の比率で重み付けします（単価が全て空なら均等割り）。</div>
+    <div style="font-weight:800;font-size:12px;margin:10px 0 4px;color:#33456b">月別 売上目標（<span id="pyear"></span>年）</div>
+    <div class="grid2" id="mTargets"></div>
+    <div style="font-weight:800;font-size:12px;margin:12px 0 4px;color:#33456b">クラス別 販売単価（1台あたりの想定月商・任意）</div>
+    <div class="grid2" id="cPrices"></div>
+    <div style="margin-top:12px"><button class="btn g" onclick="saveCfg()">💾 保存（全端末共有）</button><span class="msg" id="saveMsg"></span></div>
+  </div>
+
+  <h2>📊 年間 / 月間 サマリー</h2>
+  <div class="cards" id="cardsTop"></div>
+
+  <h2>🚗 台売上目標（その月の運用台数ベース）</h2>
+  <div class="cards" id="cardsUnit"></div>
+
+  <h2>🏷 クラス別 進捗（どのクラスが売れているか）</h2>
+  <div style="overflow-x:auto"><table id="clsTbl"><thead><tr><th class="l">クラス</th><th>稼働台数</th><th>販売単価</th><th>台売上目標</th><th>実績/台</th><th>クラス売上</th><th>進捗率</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>🔧 車両別 進捗（未達＝赤・売れていない順）</h2>
+  <div style="overflow-x:auto"><table id="vehTbl"><thead><tr><th class="l">車両</th><th>クラス</th><th>台売上目標</th><th>実績売上</th><th>進捗率</th><th class="l">判定</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>📝 外部提出用サマリー</h2>
+  <div class="sum" id="sumBox">–</div>
+  <div class="note">※ 売上は「返却月（end_date）」基準・キャンセル除外。運用台数＝配車表の稼働フラグON（月別の除外設定を反映）。</div>
+</div>
+
+<script>
+var BT="https://ggqugvyskyiblxiycpci.supabase.co";
+var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+function tok(){ try{ for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(/^sb-.*-auth-token$/.test(k)){var v=JSON.parse(localStorage.getItem(k)); var t=(v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)))||(Array.isArray(v)&&v[0]); if(t) return t; }}}catch(e){} return null; }
+function H(){ var t=tok(); return {apikey:ANON, Authorization:"Bearer "+(t||ANON)}; }
+async function get(t,qs){ var r=await fetch(BT+"/rest/v1/"+t+"?"+qs,{headers:H()}); if(!r.ok) throw new Error(t+" "+r.status); return r.json(); }
+async function getAll(t,qs){ var out=[],from=0,step=1000; while(true){ var r=await fetch(BT+"/rest/v1/"+t+"?"+qs,{headers:Object.assign({Range:"items="+from+"-"+(from+step-1),"Range-Unit":"items"},H())}); if(!r.ok) throw new Error(t+" "+r.status); var d=await r.json(); out=out.concat(d); if(d.length<step) break; from+=step; if(from>20000) break; } return out; }
+var yen=function(n){ return "¥"+Math.round(n||0).toLocaleString(); };
+function pctCls(p){ return p>=100?"ok":(p>=70?"mid":"bad"); }
+function pctBadge(p){ return '<span class="pct '+pctCls(p)+'">'+Math.round(p)+'%</span>'; }
+function isCancel(s){ s=String(s||"").toLowerCase(); return s.indexOf("cancel")>=0||String(s||"").indexOf("キャンセル")>=0; }
+function revOf(r){ var b=+r.base_price||0,o=+r.option_price||0,d=+r.discount||0,p=+r.price||0; return (b>0||o>0)?(b+o-d):p; }
+
+var DATA={veh:[],res:[],fleet:[],kpi:[],cfg:{targets:{},classUnit:{}}};
+var CLASSES=[];
+
+function curYm(){ return document.getElementById("ym").value; }
+function curYear(){ return curYm().slice(0,4); }
+
+async function loadAll(){
+  var authed=!!tok();
+  document.getElementById("authMsg").innerHTML = authed?'':'<span style="color:#b45309">⚠️ 未ログイン。BUDDICAアプリでログイン後に開くとデータが表示されます。</span>';
+  var y=curYear();
+  var [veh,res,fleet,kpi,cfgRows]=await Promise.all([
+    getAll("bt_vehicles","select=code,name,plate_no,type,active,brand&order=type"),
+    getAll("bt_reservations","select=id,vehicle_class,vehicle_name,plate_no,start_date,end_date,status,base_price,option_price,discount,price&end_date=gte."+y+"-01-01&end_date=lte."+y+"-12-31"),
+    getAll("bt_fleet","select=reservation_id,vehicle_code"),
+    getAll("bt_vehicle_monthly_kpi","select=vehicle_code,year_month,active&year_month=gte."+y+"-01&year_month=lte."+y+"-12"),
+    get("bt_app_settings","select=value&key=eq.bt_monthly_report")
+  ]);
+  DATA.veh=(veh||[]).filter(function(v){return v.active!==false;});
+  DATA.res=res||[]; DATA.fleet=fleet||[]; DATA.kpi=kpi||[];
+  var cfg=(cfgRows&&cfgRows[0]&&cfgRows[0].value)||{};
+  if(typeof cfg==="string"){try{cfg=JSON.parse(cfg);}catch(e){cfg={};}}
+  DATA.cfg={targets:cfg.targets||{}, classUnit:cfg.classUnit||{}};
+  // クラス一覧（運用車両のtype）
+  var cs={}; DATA.veh.forEach(function(v){ if(v.type)cs[v.type]=1; });
+  CLASSES=Object.keys(cs).sort();
+}
+
+// その月に稼働している車両か（月別KPI override → 無ければ現行active）
+function activeInMonth(code,ym){
+  var row=DATA.kpi.find(function(k){return k.vehicle_code===code&&k.year_month===ym;});
+  if(row) return row.active!==false;
+  return true; // DATA.vehは既にactive!==falseで絞済み
+}
+// 予約→車両code（fleet優先→plate/vehicle_nameでフォールバック）
+var _fleetMap=null;
+function fleetMap(){ if(_fleetMap)return _fleetMap; _fleetMap={}; DATA.fleet.forEach(function(f){_fleetMap[f.reservation_id]=f.vehicle_code;}); return _fleetMap; }
+function vehCodeOf(r){
+  var m=fleetMap(); if(m[r.id]) return m[r.id];
+  if(r.plate_no){ var v=DATA.veh.find(function(x){return x.plate_no&&String(x.plate_no)===String(r.plate_no);}); if(v)return v.code; }
+  if(r.vehicle_name){ var v2=DATA.veh.find(function(x){return x.name===r.vehicle_name;}); if(v2)return v2.code; }
+  return null;
+}
+
+function render(){
+  var ym=curYm(), y=curYear();
+  // 実績集計（返却月ベース）
+  var monthByVeh={}, monthByClass={}, monthTotal=0, ytdTotal=0;
+  var annualTarget=0; for(var m=1;m<=12;m++){ var k=y+"-"+("0"+m).slice(-2); annualTarget+=(+DATA.cfg.targets[k]||0); }
+  DATA.res.forEach(function(r){
+    if(isCancel(r.status)) return; if(!r.end_date) return;
+    var rym=String(r.end_date).slice(0,7); if(rym.slice(0,4)!==y) return;
+    var rev=revOf(r);
+    if(rym<=ym) ytdTotal+=rev;               // 年初〜当月の累計
+    if(rym===ym){
+      monthTotal+=rev;
+      var c=vehCodeOf(r); if(c){ monthByVeh[c]=(monthByVeh[c]||0)+rev; }
+      var cl=r.vehicle_class||(c&&(DATA.veh.find(function(v){return v.code===c;})||{}).type)||"?";
+      monthByClass[cl]=(monthByClass[cl]||0)+rev;
+    }
+  });
+  var monthTarget=+DATA.cfg.targets[ym]||0;
+
+  // その月の稼働台数・クラス別台数
+  var activeVeh=DATA.veh.filter(function(v){return activeInMonth(v.code,ym);});
+  var nActive=activeVeh.length;
+  var clsCount={}; activeVeh.forEach(function(v){ clsCount[v.type]=(clsCount[v.type]||0)+1; });
+
+  // 重み（クラス別単価）→ 台売上目標
+  var totalWeight=0; activeVeh.forEach(function(v){ totalWeight+=(+DATA.cfg.classUnit[v.type]||0); });
+  function unitTargetForClass(cl){
+    if(monthTarget<=0||nActive<=0) return 0;
+    if(totalWeight>0){ return monthTarget*(+DATA.cfg.classUnit[cl]||0)/totalWeight; } // 1台あたり
+    return monthTarget/nActive; // 均等
+  }
+  var unitTargetFlat = nActive>0? monthTarget/nActive : 0;
+
+  // ① 年間 ② 進捗 ③ 進捗率 ④ 月間 ⑤ 進捗 ⑥ 進捗率
+  var apct=annualTarget>0?ytdTotal/annualTarget*100:0, mpct=monthTarget>0?monthTotal/monthTarget*100:0;
+  document.getElementById("cardsTop").innerHTML=
+    card("①年間売上目標", yen(annualTarget), "月別目標の合計") +
+    card("②年間進捗（実績累計）", yen(ytdTotal), y+"年 年初〜"+ym.slice(5)+"月") +
+    card("③年間進捗率", Math.round(apct)+"%", "", pctCls(apct)) +
+    card("④月間目標", yen(monthTarget), ym) +
+    card("⑤月間進捗（実績）", yen(monthTotal), ym+" 返却分") +
+    card("⑥月間進捗率", Math.round(mpct)+"%", "", pctCls(mpct));
+
+  // ⑦ 台売上目標
+  var unitActualFlat = nActive>0? monthTotal/nActive : 0;
+  document.getElementById("cardsUnit").innerHTML=
+    card("⑦台売上目標（均等）", yen(unitTargetFlat), "月間目標 ÷ 稼働"+nActive+"台") +
+    card("実績/台（平均）", yen(unitActualFlat), ym) +
+    card("達成率/台", (unitTargetFlat>0?Math.round(unitActualFlat/unitTargetFlat*100):0)+"%","",pctCls(unitTargetFlat>0?unitActualFlat/unitTargetFlat*100:0));
+
+  // ⑧ クラス別
+  var cb=document.getElementById("clsTbl").querySelector("tbody"); cb.innerHTML="";
+  CLASSES.forEach(function(cl){
+    var cnt=clsCount[cl]||0; if(cnt===0 && !(monthByClass[cl]>0)) return;
+    var ut=unitTargetForClass(cl); var actClass=monthByClass[cl]||0; var actPer=cnt>0?actClass/cnt:0;
+    var p=ut>0?actPer/ut*100:0;
+    cb.innerHTML+='<tr><td class="l"><b>'+cl+'</b></td><td>'+cnt+'</td><td>'+(DATA.cfg.classUnit[cl]?yen(DATA.cfg.classUnit[cl]):'—')+'</td><td>'+yen(ut)+'</td><td>'+yen(actPer)+'</td><td>'+yen(actClass)+'</td><td>'+bar(p)+pctBadge(p)+'</td></tr>';
+  });
+
+  // 車両別（未達＝赤・売れていない順）
+  var rows=activeVeh.map(function(v){
+    var t=unitTargetForClass(v.type)||unitTargetFlat; var a=monthByVeh[v.code]||0; var p=t>0?a/t*100:0;
+    return {v:v,t:t,a:a,p:p};
+  }).sort(function(x,y){ return x.p-y.p; });
+  var vb=document.getElementById("vehTbl").querySelector("tbody"); vb.innerHTML="";
+  rows.forEach(function(o){
+    var judge=o.p>=100?'✅ 達成':(o.p>=70?'🟡 あと少し':'🔴 未達（売れていない）');
+    vb.innerHTML+='<tr class="'+(o.p<70?'bad':'')+'"><td class="l">'+esc(o.v.name||o.v.code)+(o.v.plate_no?' <span style="color:#8a99b5">'+esc(o.v.plate_no)+'</span>':'')+'</td><td>'+esc(o.v.type||'')+'</td><td>'+yen(o.t)+'</td><td>'+yen(o.a)+'</td><td>'+bar(o.p)+pctBadge(o.p)+'</td><td class="l">'+judge+'</td></tr>';
+  });
+
+  // 外部提出用サマリー
+  var under=rows.filter(function(o){return o.p<70;});
+  var worstCls=CLASSES.map(function(cl){var cnt=clsCount[cl]||0;var ut=unitTargetForClass(cl);var actPer=cnt>0?(monthByClass[cl]||0)/cnt:0;return {cl:cl,cnt:cnt,p:ut>0?actPer/ut*100:0};}).filter(function(x){return x.cnt>0;}).sort(function(a,b){return a.p-b.p;});
+  var s='<b>'+ym+' 高松店 月次サマリー</b><br>';
+  s+='月間目標 <b>'+yen(monthTarget)+'</b> に対し実績 <b>'+yen(monthTotal)+'</b>（進捗 '+Math.round(mpct)+'%）。';
+  s+='年間は目標 '+yen(annualTarget)+' に対し累計 '+yen(ytdTotal)+'（'+Math.round(apct)+'%）。<br>';
+  s+='運用 '+nActive+'台／台売上目標(均等) '+yen(unitTargetFlat)+'・実績/台 '+yen(unitActualFlat)+'。<br>';
+  if(worstCls.length) s+='クラス別で最も低調なのは <span class="r">'+worstCls[0].cl+'クラス</span>（達成 '+Math.round(worstCls[0].p)+'%）'+(worstCls[1]?'、次いで '+worstCls[1].cl+'（'+Math.round(worstCls[1].p)+'%）':'')+'。<br>';
+  if(under.length){ s+='<span class="r">未達（70%未満）の車両 '+under.length+'台</span>：'+under.slice(0,8).map(function(o){return esc(o.v.name||o.v.code)+'('+Math.round(o.p)+'%)';}).join('、')+(under.length>8?' 他':'')+'。これらの稼働・価格見直しが目標未達の主因。'; }
+  else if(monthTarget>0){ s+='未達車両（70%未満）はありません。'; }
+  document.getElementById("sumBox").innerHTML=s;
+
+  buildPanel();
+}
+function card(lb,v,sub,cls){ return '<div class="card"><div class="lb">'+lb+'</div><div class="v '+(cls==="ok"?"g":cls==="bad"?"r":cls==="mid"?"y":"")+'">'+v+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
+function bar(p){ var w=Math.max(0,Math.min(100,p)); var col=p>=100?"#0e9f50":p>=70?"#f2b600":"#dc2626"; return '<span class="barmini"><span style="width:'+w+'%;background:'+col+'"></span></span>'; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+function buildPanel(){
+  var y=curYear(); document.getElementById("pyear").textContent=y;
+  var mt=document.getElementById("mTargets"); mt.innerHTML="";
+  for(var m=1;m<=12;m++){ var k=y+"-"+("0"+m).slice(-2);
+    mt.innerHTML+='<label class="fld">'+m+'月<input type="number" data-mk="'+k+'" value="'+(DATA.cfg.targets[k]||"")+'" placeholder="0"></label>'; }
+  var cp=document.getElementById("cPrices"); cp.innerHTML="";
+  CLASSES.forEach(function(cl){ cp.innerHTML+='<label class="fld">'+cl+'クラス<input type="number" data-ck="'+cl+'" value="'+(DATA.cfg.classUnit[cl]||"")+'" placeholder="想定月商/台"></label>'; });
+}
+async function saveCfg(){
+  var t=tok(); var sm=document.getElementById("saveMsg");
+  if(!t){ sm.style.color="#b42318"; sm.textContent="⚠️ ログインが必要です（BUDDICAアプリでログイン後に）"; return; }
+  var targets={}; document.querySelectorAll("[data-mk]").forEach(function(i){ var v=+i.value||0; if(v>0)targets[i.getAttribute("data-mk")]=v; });
+  var classUnit={}; document.querySelectorAll("[data-ck]").forEach(function(i){ var v=+i.value||0; if(v>0)classUnit[i.getAttribute("data-ck")]=v; });
+  // 既存の他年月targetも保持
+  var merged=Object.assign({}, DATA.cfg.targets, targets);
+  // 当年の未入力monthは消す（0→削除）
+  for(var m=1;m<=12;m++){var k=curYear()+"-"+("0"+m).slice(-2); if(!targets[k]) delete merged[k];}
+  var val={targets:merged, classUnit:classUnit};
+  try{
+    var r=await fetch(BT+"/rest/v1/bt_app_settings?on_conflict=key",{method:"POST",headers:Object.assign({"Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},H()),body:JSON.stringify({key:"bt_monthly_report",value:val,updated_at:new Date().toISOString()})});
+    if(!r.ok) throw new Error(await r.text());
+    DATA.cfg=val; sm.style.color="#0a7d3c"; sm.textContent="✓ 保存しました"; render(); setTimeout(function(){sm.textContent="";},2000);
+  }catch(e){ sm.style.color="#b42318"; sm.textContent="⚠️ 保存失敗："+e.message; }
+}
+function togglePanel(){ var p=document.getElementById("panel"); p.style.display=p.style.display==="none"?"block":"none"; }
+
+function fillYm(){
+  var sel=document.getElementById("ym"); var now=new Date(); var y=now.getFullYear(), m=now.getMonth()+1;
+  var opts="";
+  for(var yy=y; yy>=y-1; yy--){ for(var mm=12; mm>=1; mm--){ if(yy===y&&mm>m) continue; var k=yy+"-"+("0"+mm).slice(-2); opts+='<option value="'+k+'">'+yy+'年'+mm+'月</option>'; } }
+  sel.innerHTML=opts; sel.value=y+"-"+("0"+m).slice(-2);
+  sel.onchange=reload;
+}
+async function reload(){
+  try{ await loadAll(); render(); }
+  catch(e){ document.getElementById("sumBox").innerHTML='<span style="color:#b42318">⚠️ 読み込み失敗：'+esc(e.message)+'<br>BUDDICAアプリでログインしてから開いてください。</span>'; }
+}
+fillYm(); reload();
+</script>
+</body>
+</html>
