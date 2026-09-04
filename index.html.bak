@@ -23591,7 +23591,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.392-BT";
+const APP_VERSION="v1.0.393-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26209,6 +26209,9 @@ function MileageLogTab({sb}){
   if(ym)fr=fr.filter(r=>(r.start_date||"").slice(0,7)===ym);
   if(cls)fr=fr.filter(r=>r.vehicle_class===cls);
   if(unrec)fr=fr.filter(r=>r.driven_km==null);
+  var _hasOdo=function(r){return r.start_odo!=null||r.end_odo!=null;};
+  fr=fr.slice().sort(function(a,b){return ((_hasOdo(b)?1:0)-(_hasOdo(a)?1:0))||String(b.start_date||"").localeCompare(String(a.start_date||""));});
+  const anyRec=fr.filter(_hasOdo).length;
   const recd=fr.filter(r=>r.driven_km!=null);
   const totKm=recd.reduce((s,r)=>s+(r.driven_km||0),0);
   const totDays=recd.reduce((s,r)=>s+(r.days||0),0);
@@ -26227,7 +26230,7 @@ function MileageLogTab({sb}){
     <h2 style={{fontSize:17,fontWeight:800,color:"#0F1F45",margin:"0 0 4px"}}>🚗 走行ログ（1予約ごとの走行距離）</h2>
     <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>出発前洗車で出発メーター／返却で返却メーターを記録＝走行距離を自動算出。グロスで「1台あたり月◯km」も出ます。</div>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-      {[["総走行km",totKm.toLocaleString(),"#1e3a8a"],["1台あたり月",kmPerCarMonth.toLocaleString()+"km","#dc2626"],["平均 km/日",kmPerDay.toLocaleString(),"#0891b2"],["記録済/対象",recd.length+"/"+fr.length,"#16a34a"]].map(([l,v,c])=>
+      {[["総走行km",totKm.toLocaleString(),"#1e3a8a"],["1台あたり月",kmPerCarMonth.toLocaleString()+"km","#dc2626"],["平均 km/日",kmPerDay.toLocaleString(),"#0891b2"],["記録あり",anyRec+"/"+fr.length,"#16a34a"]].map(([l,v,c])=>
         <div key={l} style={{background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderTop:"3px solid "+c,minWidth:110,flex:1}}>
           <div style={{fontSize:11,color:"#64748b"}}>{l}</div><div style={{fontSize:20,fontWeight:800}}>{v}</div></div>)}
     </div>
@@ -26235,7 +26238,8 @@ function MileageLogTab({sb}){
       <select value={ym} onChange={e=>setYm(e.target.value)} style={{padding:"6px 10px",border:"1px solid #cbd5e1",borderRadius:6}}><option value="">全期間</option>{months.map(m=>{const[y,mm]=m.split("-");return <option key={m} value={m}>{y}年{+mm}月</option>;})}</select>
       <select value={cls} onChange={e=>setCls(e.target.value)} style={{padding:"6px 10px",border:"1px solid #cbd5e1",borderRadius:6}}><option value="">全クラス</option>{classes.map(c=><option key={c} value={c}>{c}</option>)}</select>
       <label style={{fontSize:12.5,display:"flex",alignItems:"center",gap:4}}><input type="checkbox" checked={unrec} onChange={e=>setUnrec(e.target.checked)}/>未記録のみ</label>
-      <button onClick={csv} style={{marginLeft:"auto",background:"#0F1F45",color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>CSV出力</button>
+      <button onClick={load} style={{marginLeft:"auto",background:"#0891b2",color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🔄 更新</button>
+      <button onClick={csv} style={{background:"#0F1F45",color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>CSV出力</button>
     </div>
     {Object.keys(byClass).length>0&&<div style={{background:"#fff",borderRadius:10,padding:"10px 14px",marginBottom:12,boxShadow:"0 1px 5px rgba(0,0,0,.07)"}}>
       <div style={{fontSize:12,fontWeight:700,color:"#0F1F45",marginBottom:6}}>クラス別 平均走行（1予約あたり）</div>
@@ -26250,8 +26254,8 @@ function MileageLogTab({sb}){
           <td style={td}>{r.vehicle_class||"-"}</td>
           <td style={td}>{r.vname||"-"}</td>
           <td style={{...td,textAlign:"right"}}>{r.days}日</td>
-          <td style={td}><input style={inp} type="number" defaultValue={r.start_odo??""} disabled={busy===r.id+"start_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.start_odo??""))saveOdo(r,"start_odo",e.target.value);}} placeholder="出発"/></td>
-          <td style={td}><input style={inp} type="number" defaultValue={r.end_odo??""} disabled={busy===r.id+"end_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.end_odo??""))saveOdo(r,"end_odo",e.target.value);}} placeholder="返却"/></td>
+          <td style={td}><input key={"s"+(r.start_odo??"")} style={inp} type="number" defaultValue={r.start_odo??""} disabled={busy===r.id+"start_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.start_odo??""))saveOdo(r,"start_odo",e.target.value);}} placeholder="出発"/></td>
+          <td style={td}><input key={"e"+(r.end_odo??"")} style={inp} type="number" defaultValue={r.end_odo??""} disabled={busy===r.id+"end_odo"} onBlur={e=>{if(String(e.target.value)!==String(r.end_odo??""))saveOdo(r,"end_odo",e.target.value);}} placeholder="返却"/></td>
           <td style={{...td,textAlign:"right",fontWeight:800,color:r.driven_km!=null?"#1e3a8a":"#cbd5e1"}}>{r.driven_km!=null?r.driven_km.toLocaleString():"—"}</td>
           <td style={{...td,textAlign:"right",color:"#64748b"}}>{(r.driven_km!=null&&r.days)?Math.round(r.driven_km/r.days):"—"}</td>
         </tr>)}</tbody>
