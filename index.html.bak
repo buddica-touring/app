@@ -22690,32 +22690,7 @@ function App(){
                   const _toggleDone=async function(_t){
                     const _newDone=!_t.done;
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
-                    // ★走行ログ連動：出発前洗車=出発メーター/返却系=返却メーターをチェック時に記録
-                    if(_newDone&&_t.reservationId){
-                      var _isWash=(_t.type==="洗車");
-                      var _isRet=(["COL","BD","BDB","返却"].indexOf(_t.type)>=0);
-                      if(_isWash||_isRet){
-                        try{
-                          var _fld=_isWash?"start_odo":"end_odo";
-                          var _cr=await sb.from("bt_reservations").select("start_odo,end_odo").eq("id",_t.reservationId).single();
-                          var _c=(_cr&&_cr.data)||{};
-                          var _hint=(_isRet&&_c.start_odo!=null)?("\n（出発時: "+Number(_c.start_odo).toLocaleString()+"km）"):"";
-                          var _def=(_isWash?_c.start_odo:_c.end_odo);
-                          var _in=window.prompt((_isWash?"🚗 出発メーター(km)":"🚗 返却メーター(km)")+"を入力してください"+_hint,(_def!=null?String(_def):""));
-                          if(_in!==null&&String(_in).trim()!==""){
-                            var _v=parseInt(String(_in).replace(/[^0-9]/g,""));
-                            if(!isNaN(_v)&&_v>=0){
-                              var _s=_isWash?_v:_c.start_odo, _e=_isRet?_v:_c.end_odo;
-                              var _dk=(_s!=null&&_e!=null&&_e>=_s)?(_e-_s):null;
-                              var _p={};_p[_fld]=_v;_p[_isWash?"start_odo_at":"end_odo_at"]=new Date().toISOString();_p.driven_km=_dk;
-                              await sb.from("bt_reservations").update(_p).eq("id",_t.reservationId);
-                              if(_isRet&&_t.assignedVehicle){var _vv=(vehicles||[]).find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v){try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
-                              if(_dk!=null){try{showMsg&&showMsg("走行 "+_dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
-                            }
-                          }
-                        }catch(_eo){console.warn("[odo]",_eo);}
-                      }
-                    }
+                    if(_newDone)await _btOdoCapture(_t,sb,(typeof vehicles!=="undefined"?vehicles:null),(typeof showMsg!=="undefined"?showMsg:null));
                     // 楽観的UI更新
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
@@ -22864,6 +22839,7 @@ function App(){
                   const _toggleDone2=async function(_t){
                     const _newDone=!_t.done;
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
+                    if(_newDone)await _btOdoCapture(_t,sb,(typeof vehicles!=="undefined"?vehicles:null),(typeof showMsg!=="undefined"?showMsg:null));
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
                       await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
@@ -23617,7 +23593,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.389-BT";
+const APP_VERSION="v1.0.390-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26159,6 +26135,30 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       </div>
     </div>
   );
+}
+/* 🚗 走行ログ連動：洗車/返却タスクのチェック時にメーター入力→bt_reservationsに記録(共通ヘルパー) */
+async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
+  if(!_t||!_t.reservationId||!sb)return;
+  var _isWash=(_t.type==="洗車");
+  var _isRet=(["COL","BD","BDB","返却"].indexOf(_t.type)>=0);
+  if(!(_isWash||_isRet))return;
+  try{
+    var _fld=_isWash?"start_odo":"end_odo";
+    var _cr=await sb.from("bt_reservations").select("start_odo,end_odo").eq("id",_t.reservationId).single();
+    var _c=(_cr&&_cr.data)||{};
+    var _hint=(_isRet&&_c.start_odo!=null)?("\n（出発時: "+Number(_c.start_odo).toLocaleString()+"km）"):"";
+    var _def=(_isWash?_c.start_odo:_c.end_odo);
+    var _in=window.prompt((_isWash?"🚗 出発メーター(km)":"🚗 返却メーター(km)")+"を入力してください"+_hint,(_def!=null?String(_def):""));
+    if(_in===null||String(_in).trim()==="")return;
+    var _v=parseInt(String(_in).replace(/[^0-9]/g,""));
+    if(isNaN(_v)||_v<0)return;
+    var _s=_isWash?_v:_c.start_odo,_e=_isRet?_v:_c.end_odo;
+    var _dk=(_s!=null&&_e!=null&&_e>=_s)?(_e-_s):null;
+    var _p={};_p[_fld]=_v;_p[_isWash?"start_odo_at":"end_odo_at"]=new Date().toISOString();_p.driven_km=_dk;
+    await sb.from("bt_reservations").update(_p).eq("id",_t.reservationId);
+    if(_isRet&&_t.assignedVehicle&&vehicles){var _vv=vehicles.find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v){try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
+    if(_dk!=null&&showMsgFn){try{showMsgFn("走行 "+_dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
+  }catch(_eo){console.warn("[odo]",_eo);}
 }
 /* 🚗 走行ログタブ：1予約ごとの走行距離を記録＋グロス分析(1台あたり月◯km) */
 function MileageLogTab({sb}){
