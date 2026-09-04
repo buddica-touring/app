@@ -23591,7 +23591,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.393-BT";
+const APP_VERSION="v1.0.394-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26210,7 +26210,13 @@ function MileageLogTab({sb}){
   if(cls)fr=fr.filter(r=>r.vehicle_class===cls);
   if(unrec)fr=fr.filter(r=>r.driven_km==null);
   var _hasOdo=function(r){return r.start_odo!=null||r.end_odo!=null;};
-  fr=fr.slice().sort(function(a,b){return ((_hasOdo(b)?1:0)-(_hasOdo(a)?1:0))||String(b.start_date||"").localeCompare(String(a.start_date||""));});
+  var _today=new Date().toISOString().slice(0,10);
+  fr=fr.slice().sort(function(a,b){
+    var ro=(_hasOdo(b)?1:0)-(_hasOdo(a)?1:0);if(ro)return ro;
+    var af=(a.start_date||"")>_today, bf=(b.start_date||"")>_today;
+    if(af!==bf)return af?1:-1;
+    return af?String(a.start_date||"").localeCompare(String(b.start_date||"")):String(b.start_date||"").localeCompare(String(a.start_date||""));
+  });
   const anyRec=fr.filter(_hasOdo).length;
   const recd=fr.filter(r=>r.driven_km!=null);
   const totKm=recd.reduce((s,r)=>s+(r.driven_km||0),0);
