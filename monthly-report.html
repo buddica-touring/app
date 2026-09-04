@@ -68,6 +68,9 @@
   <h2>📊 年間 / 月間 サマリー</h2>
   <div class="cards" id="cardsTop"></div>
 
+  <h2>💴 売上内訳（基本料・付帯）</h2>
+  <div class="cards" id="cardsBreak"></div>
+
   <h2>🚗 台売上目標（その月の運用台数ベース）</h2>
   <div class="cards" id="cardsUnit"></div>
 
@@ -142,6 +145,7 @@ function render(){
   var ym=curYm(), y=curYear();
   // 実績集計（返却月ベース）
   var monthByVeh={}, monthByClass={}, monthTotal=0, ytdTotal=0;
+  var mBase=0, mOpt=0, mDisc=0;   // 当月: 基本料 / 付帯(オプション) / 割引
   var annualTarget=0; for(var m=1;m<=12;m++){ var k=y+"-"+("0"+m).slice(-2); annualTarget+=(+DATA.cfg.targets[k]||0); }
   DATA.res.forEach(function(r){
     if(isCancel(r.status)) return; if(!r.end_date) return;
@@ -150,6 +154,9 @@ function render(){
     if(rym<=ym) ytdTotal+=rev;               // 年初〜当月の累計
     if(rym===ym){
       monthTotal+=rev;
+      // 基本料/付帯 内訳（内訳が無い予約=priceのみ は基本料に計上＝合計と一致）
+      var b=+r.base_price||0,o=+r.option_price||0,d=+r.discount||0,p=+r.price||0;
+      if(b>0||o>0){ mBase+=b; mOpt+=o; mDisc+=d; } else { mBase+=p; }
       var c=vehCodeOf(r); if(c){ monthByVeh[c]=(monthByVeh[c]||0)+rev; }
       var cl=r.vehicle_class||(c&&(DATA.veh.find(function(v){return v.code===c;})||{}).type)||"?";
       monthByClass[cl]=(monthByClass[cl]||0)+rev;
@@ -180,6 +187,13 @@ function render(){
     card("④月間目標", yen(monthTarget), ym) +
     card("⑤月間進捗（実績）", yen(monthTotal), ym+" 返却分") +
     card("⑥月間進捗率", Math.round(mpct)+"%", "", pctCls(mpct));
+
+  // 売上内訳（基本料・付帯）
+  var optRate=monthTotal>0?Math.round(mOpt/monthTotal*100):0;
+  document.getElementById("cardsBreak").innerHTML=
+    card("基本料", yen(mBase), ym+" 返却分") +
+    card("付帯（オプション）", yen(mOpt), "付帯比率 "+optRate+"%") +
+    card("割引", "-"+yen(mDisc), "クーポン・ポイント等");
 
   // ⑦ 台売上目標
   var unitActualFlat = nActive>0? monthTotal/nActive : 0;
