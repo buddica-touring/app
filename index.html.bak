@@ -21673,6 +21673,255 @@ function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
 }
+/* 🔒 タスクサマリー安定化: App外に定義=App再描画で子を再マウントさせない(展開/読込状態を保持) */
+                function PersonalTasks({dateStr,dateLabel,shiftList,vehicles,data}){
+                  const[dbTasks,setDbTasks]=useState([]);
+                  const[loaded,setLoaded]=useState(false);
+                  const prevJsonRef=useRef("");
+                  const refetchTasks=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  useEffect(()=>{
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    // ★ Realtime購読: OPシートでの完了チェックを即反映
+                    let ch=null;
+                    if(sb){
+                      ch=sb.channel("top-tasks-"+dateStr).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+dateStr},()=>{refetchTasks();}).subscribe();
+                    }
+                    // フォールバック: Realtime接続できない場合は15秒ポーリング
+                    const iv=setInterval(refetchTasks,15000);
+                    return()=>{clearInterval(iv);if(ch)sb.removeChannel(ch);};
+                  },[dateStr]);
+                  if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
+                  if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録</div>;
+                  const offS=new Set(["公","希","有"]);
+                  const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
+                  const byPerson={};
+                  duty.forEach(n=>{byPerson[n]=[];});
+                  const unassigned=[];
+                  dbTasks.forEach(t=>{
+                    const a=t.assignee||"";
+                    if(a&&byPerson[a]!==undefined){byPerson[a].push(t);}
+                    else if(a&&!duty.includes(a)){if(!byPerson[a])byPerson[a]=[];byPerson[a].push(t);}
+                    else{unassigned.push(t);}
+                  });
+                  const sortT=(a,b)=>{if(a.done!==b.done)return a.done?1:-1;return(a.time||"99:99").localeCompare(b.time||"99:99");};
+                  const tc={DEL:"#dc2626",COL:"#2563eb",PU:"#059669",BD:"#7c3aed","洗車":"#f59e0b"};
+                  // ★ タスク種別内訳を集計
+                  const typeCounts={};dbTasks.forEach(t=>{typeCounts[t.type]=(typeCounts[t.type]||0)+1;});
+                  const ProgressBar=({done,total,color})=>{const pct=total>0?Math.round(done/total*100):0;return <div style={{display:"flex",alignItems:"center",gap:6,width:"100%"}}>
+                    <div style={{flex:1,height:10,borderRadius:5,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:5,background:pct>=100?"#22c55e":pct<50?"#ef4444":color||"#3b82f6",transition:"width .3s"}}></div></div>
+                    <span style={{fontSize:11,fontWeight:800,color:pct>=100?"#22c55e":pct<50?"#ef4444":"#3b82f6",whiteSpace:"nowrap"}}>{pct}%</span>
+                  </div>;};
+                  // ★ 2026-05-10: タスクサマリーのチェックボックス機能実装（旧コードは onClick 欠落）
+                  const _toggleDone=async function(_t){
+                    const _newDone=!_t.done;
+                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
+                    // 楽観的UI更新
+                    setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
+                    try{
+                      await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
+                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
+                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
+                    }catch(_err){
+                      console.error("[ToggleTaskDone]",_err);
+                      // ロールバック
+                      setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_t.done}):_x;});});
+                      try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
+                    }
+                  };
+                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
+                    <span
+                      style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
+                      onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone(t);}}
+                      title={t.done?"クリックで未完了に":"クリックで完了"}
+                    >{t.done?"✅":"⬜"}</span>{typeof OdoSub!=="undefined"&&<OdoSub t={t} sb={(typeof sb!=="undefined"?sb:null)} vehicles={(typeof vehicles!=="undefined"?vehicles:null)}/>}
+                    <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
+                    <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
+                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
+                    <div style={{flexBasis:"100%",height:0}}/>
+                    <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
+                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
+                    {t.type!=="返却後洗車"&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>👶B×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🧒C×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>J×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
+                    {t.type==="その他"&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
+                  </div>;
+                  const doneCount=dbTasks.filter(t=>t.done).length;
+                  const totalWork=dbTasks.length;
+                  const remainCount=totalWork-doneCount;
+                  return <>
+                    <div style={{marginBottom:8,padding:"8px 10px",borderRadius:8,background:remainCount===0?"#f0fdf4":"#fff"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                        <span style={{fontSize:18,fontWeight:900,color:remainCount===0?"#16a34a":"#1e293b"}}>完了 {doneCount}/{totalWork}</span>
+                        <span style={{fontSize:11,fontWeight:800,color:remainCount===0?"#22c55e":"#ef4444"}}>{remainCount===0?"全完了!":"残 "+remainCount+"件"}</span>
+                      </div>
+                      <ProgressBar done={doneCount} total={totalWork}/>
+                      <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                        {Object.entries(typeCounts).map(([type,cnt])=><span key={type} style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700,background:(tc[type]||"#64748b")+"18",color:tc[type]||"#64748b"}}>{type}:{cnt}</span>)}
+                      </div>
+                    </div>
+                    <div style={{fontSize:9,color:"#64748b",marginBottom:6}}>割当済{dbTasks.filter(t=>t.assignee).length}件 / 未割当{unassigned.length}件</div>
+                    {Object.entries(byPerson).map(([name,pts])=>{
+                      const sorted=pts.sort(sortT);
+                      const sh=shiftList.find(s=>s.name===name);
+                      const doneN=sorted.filter(t=>t.done).length;
+                      const remN=sorted.length-doneN;
+                      const allDone=sorted.length>0&&doneN===sorted.length;
+                      return <details key={name} style={{marginBottom:4}}>
+                        <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
+                          <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
+                          <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
+                          <span style={{fontSize:9,color:"#64748b"}}>{sh?((sh.start||"")+"〜"+(sh.end||"")):""}</span>
+                          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+                            {sorted.length>0&&<div style={{width:40,height:5,borderRadius:3,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:(sorted.length>0?Math.round(doneN/sorted.length*100):0)+"%",height:"100%",borderRadius:3,background:allDone?"#22c55e":"#3b82f6"}}></div></div>}
+                            <span style={{fontSize:9,fontWeight:700,color:allDone?"#22c55e":remN>0?"#ef4444":"#94a3b8"}}>{allDone?"完了":remN>0?"残"+remN:"0"}</span>
+                            <span style={{fontSize:10,fontWeight:800,color:sorted.length>0?"#2563eb":"#94a3b8"}}>{sorted.length}件</span>
+                          </div>
+                        </summary>
+                        <div style={{paddingLeft:20,paddingTop:3,paddingBottom:3}}>
+                          {sorted.length>0?sorted.map(rT):<div style={{fontSize:9,color:"#94a3b8",padding:"3px 0"}}>担当タスクなし</div>}
+                          {(()=>{const evs=(topCalEvents||[]).filter(ev=>(ev.assignees||[]).includes(name));if(!evs.length)return null;
+                            const CAT={deadline:'🔴',task:'🟡',hq:'🔵',store:'🟢',other:'⚪'};
+                            return <div style={{marginTop:4,paddingTop:4,borderTop:"1px dashed #e2e8f0"}}>
+                              <div style={{fontSize:8,color:"#94a3b8",marginBottom:2,fontWeight:700}}>📅 カレンダー</div>
+                              {evs.map(ev=><div key={ev.id} style={{fontSize:10,padding:"2px 0",display:"flex",gap:4,alignItems:"center"}}>
+                                <span>{CAT[ev.category]||'📌'}</span>
+                                {ev.start_time&&<span style={{fontSize:9,color:"#64748b",fontFamily:"monospace"}}>{ev.start_time.slice(0,5)}</span>}
+                                <span style={{color:"#1e293b",fontWeight:600}}>{ev.title}</span>
+                                {ev.end_date&&ev.end_date!==ev.event_date&&<span style={{fontSize:8,color:"#94a3b8"}}>〜{ev.end_date.slice(5)}</span>}
+                              </div>)}
+                            </div>;
+                          })()}
+                        </div>
+                      </details>;
+                    })}
+                    {unassigned.length>0&&<details style={{marginTop:4}}>
+                      <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
+                        <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
+                        <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
+                        <span style={{fontSize:10,fontWeight:800,color:"#dc2626",marginLeft:"auto"}}>{unassigned.length}件</span>
+                      </summary>
+                      <div style={{paddingLeft:20,paddingTop:3}}>
+                        {unassigned.sort(sortT).map(rT)}
+                      </div>
+                    </details>}
+                  </>;
+                }
+
+                function PersonalTasks2({dateStr,shiftList,vehicles,data}){
+                  const[dbTasks,setDbTasks]=useState([]);
+                  const[loaded,setLoaded]=useState(false);
+                  const prevJsonRef2=useRef("");
+                  const refetchTasks2=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;setDbTasks(t);}}).catch(()=>{});};
+                  useEffect(()=>{
+                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
+                    // ★ Realtime購読: タスク完了を即反映
+                    let ch=null;
+                    if(sb){
+                      ch=sb.channel("top-tasks2-"+dateStr).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+dateStr},()=>{refetchTasks2();}).subscribe();
+                    }
+                    const iv=setInterval(refetchTasks2,30000);
+                    return()=>{clearInterval(iv);if(ch)sb.removeChannel(ch);};
+                  },[dateStr]);
+                  if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
+                  if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録（OPシートで翌日を開くと自動生成されます）</div>;
+                  const offS=new Set(["公","希","有"]);
+                  const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
+                  const byPerson={};
+                  duty.forEach(n=>{byPerson[n]=[];});
+                  const unassigned=[];
+                  dbTasks.forEach(t=>{
+                    const a=t.assignee||"";
+                    if(a&&byPerson[a]!==undefined){byPerson[a].push(t);}
+                    else if(a&&!duty.includes(a)){if(!byPerson[a])byPerson[a]=[];byPerson[a].push(t);}
+                    else{unassigned.push(t);}
+                  });
+                  const sortT=(a,b)=>{if(a.done!==b.done)return a.done?1:-1;return(a.time||"99:99").localeCompare(b.time||"99:99");};
+                  const tc={DEL:"#dc2626",COL:"#2563eb",PU:"#059669",BD:"#7c3aed","洗車":"#f59e0b"};
+                  const typeCounts2={};dbTasks.forEach(t=>{typeCounts2[t.type]=(typeCounts2[t.type]||0)+1;});
+                  const ProgressBar2=({done,total,color})=>{const pct=total>0?Math.round(done/total*100):0;return <div style={{display:"flex",alignItems:"center",gap:6,width:"100%"}}>
+                    <div style={{flex:1,height:10,borderRadius:5,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:5,background:pct>=100?"#22c55e":pct<50?"#ef4444":color||"#f59e0b",transition:"width .3s"}}></div></div>
+                    <span style={{fontSize:11,fontWeight:800,color:pct>=100?"#22c55e":pct<50?"#ef4444":"#f59e0b",whiteSpace:"nowrap"}}>{pct}%</span>
+                  </div>;};
+                  // ★ 2026-05-10: 翌日タスクサマリーもチェック実装
+                  const _toggleDone2=async function(_t){
+                    const _newDone=!_t.done;
+                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
+                    setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
+                    try{
+                      await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
+                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
+                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
+                    }catch(_err){
+                      console.error("[ToggleTaskDone2]",_err);
+                      setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_t.done}):_x;});});
+                      try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
+                    }
+                  };
+                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
+                    <span
+                      style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
+                      onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone2(t);}}
+                      title={t.done?"クリックで未完了に":"クリックで完了"}
+                    >{t.done?"✅":"⬜"}</span>{typeof OdoSub!=="undefined"&&<OdoSub t={t} sb={(typeof sb!=="undefined"?sb:null)} vehicles={(typeof vehicles!=="undefined"?vehicles:null)}/>}
+                    <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
+                    <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
+                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
+                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
+                    <div style={{flexBasis:"100%",height:0}}/>
+                    <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
+                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
+                    {t.type!=="返却後洗車"&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>👶B×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🧒C×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>J×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
+                    {t.type==="その他"&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
+                  </div>;
+                  const totalWork=dbTasks.length;
+                  const doneCount=dbTasks.filter(t=>t.done).length;
+                  const remainCount=totalWork-doneCount;
+                  return <>
+                    <div style={{marginBottom:8,padding:"8px 10px",borderRadius:8,background:remainCount===0?"#fefce8":"#fff"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                        <span style={{fontSize:18,fontWeight:900,color:remainCount===0?"#16a34a":"#92400e"}}>完了 {doneCount}/{totalWork}</span>
+                        <span style={{fontSize:11,fontWeight:800,color:remainCount===0?"#22c55e":"#ef4444"}}>{remainCount===0?"全完了!":"残 "+remainCount+"件"}</span>
+                      </div>
+                      <ProgressBar2 done={doneCount} total={totalWork}/>
+                      <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                        {Object.entries(typeCounts2).map(([type,cnt])=><span key={type} style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700,background:(tc[type]||"#64748b")+"18",color:tc[type]||"#64748b"}}>{type}:{cnt}</span>)}
+                      </div>
+                    </div>
+                    <div style={{fontSize:9,color:"#64748b",marginBottom:6}}>割当済{dbTasks.filter(t=>t.assignee).length}件 / 未割当{unassigned.length}件</div>
+                    {Object.entries(byPerson).map(([name,pts])=>{
+                      const sorted=pts.sort(sortT);
+                      const sh=shiftList.find(s=>s.name===name);
+                      const doneN=sorted.filter(t=>t.done).length;
+                      const remN=sorted.length-doneN;
+                      const allDone=sorted.length>0&&doneN===sorted.length;
+                      return <details key={name} style={{marginBottom:4}}>
+                        <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
+                          <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
+                          <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
+                          <span style={{fontSize:9,color:"#64748b"}}>{sh?((sh.start||"")+"〜"+(sh.end||"")):""}</span>
+                          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+                            {sorted.length>0&&<div style={{width:40,height:5,borderRadius:3,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:(sorted.length>0?Math.round(doneN/sorted.length*100):0)+"%",height:"100%",borderRadius:3,background:allDone?"#22c55e":"#f59e0b"}}></div></div>}
+                            <span style={{fontSize:9,fontWeight:700,color:allDone?"#22c55e":remN>0?"#ef4444":"#94a3b8"}}>{allDone?"完了":remN>0?"残"+remN:"0"}</span>
+                            <span style={{fontSize:10,fontWeight:800,color:sorted.length>0?"#b45309":"#94a3b8"}}>{sorted.length}件</span>
+                          </div>
+                        </summary>
+                        <div style={{paddingLeft:20,paddingTop:3,paddingBottom:3}}>
+                          {sorted.length>0?sorted.map(rT):<div style={{fontSize:9,color:"#94a3b8",padding:"3px 0"}}>担当タスクなし</div>}
+                        </div>
+                      </details>;
+                    })}
+                    {unassigned.length>0&&<details style={{marginTop:4}}>
+                      <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
+                        <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
+                        <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
+                        <span style={{fontSize:10,fontWeight:800,color:"#dc2626",marginLeft:"auto"}}>{unassigned.length}件</span>
+                      </summary>
+                      <div style={{paddingLeft:20,paddingTop:3}}>
+                        {unassigned.sort(sortT).map(rT)}
+                      </div>
+                    </details>}
+                  </>;
+                }
+
 function App(){
   const[data,setData]=useState([]);const[payTarget,setPayTarget]=useState(null);const[tab,setTab_]=useState("top");const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);const[opsMenu,setOpsMenu]=useState(null);
   React.useEffect(function(){window.__btPayOpen=function(r){setPayTarget(r);};return function(){window.__btPayOpen=null;};},[]);
@@ -22649,137 +22898,6 @@ function App(){
                 const todayShifts=shifts[todayStr]||[];
                 const offSymbols=new Set(["公","希","有"]);
                 const onDuty=todayShifts.filter(s=>!offSymbols.has(s.symbol));
-                const PersonalTasks=({dateStr,dateLabel,shiftList})=>{
-                  const[dbTasks,setDbTasks]=useState([]);
-                  const[loaded,setLoaded]=useState(false);
-                  const prevJsonRef=useRef("");
-                  const refetchTasks=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef.current){prevJsonRef.current=j;setDbTasks(t);}}).catch(()=>{});};
-                  useEffect(()=>{
-                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
-                    // ★ Realtime購読: OPシートでの完了チェックを即反映
-                    let ch=null;
-                    if(sb){
-                      ch=sb.channel("top-tasks-"+dateStr).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+dateStr},()=>{refetchTasks();}).subscribe();
-                    }
-                    // フォールバック: Realtime接続できない場合は15秒ポーリング
-                    const iv=setInterval(refetchTasks,15000);
-                    return()=>{clearInterval(iv);if(ch)sb.removeChannel(ch);};
-                  },[dateStr]);
-                  if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
-                  if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録</div>;
-                  const offS=new Set(["公","希","有"]);
-                  const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
-                  const byPerson={};
-                  duty.forEach(n=>{byPerson[n]=[];});
-                  const unassigned=[];
-                  dbTasks.forEach(t=>{
-                    const a=t.assignee||"";
-                    if(a&&byPerson[a]!==undefined){byPerson[a].push(t);}
-                    else if(a&&!duty.includes(a)){if(!byPerson[a])byPerson[a]=[];byPerson[a].push(t);}
-                    else{unassigned.push(t);}
-                  });
-                  const sortT=(a,b)=>{if(a.done!==b.done)return a.done?1:-1;return(a.time||"99:99").localeCompare(b.time||"99:99");};
-                  const tc={DEL:"#dc2626",COL:"#2563eb",PU:"#059669",BD:"#7c3aed","洗車":"#f59e0b"};
-                  // ★ タスク種別内訳を集計
-                  const typeCounts={};dbTasks.forEach(t=>{typeCounts[t.type]=(typeCounts[t.type]||0)+1;});
-                  const ProgressBar=({done,total,color})=>{const pct=total>0?Math.round(done/total*100):0;return <div style={{display:"flex",alignItems:"center",gap:6,width:"100%"}}>
-                    <div style={{flex:1,height:10,borderRadius:5,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:5,background:pct>=100?"#22c55e":pct<50?"#ef4444":color||"#3b82f6",transition:"width .3s"}}></div></div>
-                    <span style={{fontSize:11,fontWeight:800,color:pct>=100?"#22c55e":pct<50?"#ef4444":"#3b82f6",whiteSpace:"nowrap"}}>{pct}%</span>
-                  </div>;};
-                  // ★ 2026-05-10: タスクサマリーのチェックボックス機能実装（旧コードは onClick 欠落）
-                  const _toggleDone=async function(_t){
-                    const _newDone=!_t.done;
-                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
-                    // 楽観的UI更新
-                    setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
-                    try{
-                      await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
-                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
-                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
-                    }catch(_err){
-                      console.error("[ToggleTaskDone]",_err);
-                      // ロールバック
-                      setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_t.done}):_x;});});
-                      try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
-                    }
-                  };
-                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
-                    <span
-                      style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
-                      onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone(t);}}
-                      title={t.done?"クリックで未完了に":"クリックで完了"}
-                    >{t.done?"✅":"⬜"}</span>{typeof OdoSub!=="undefined"&&<OdoSub t={t} sb={(typeof sb!=="undefined"?sb:null)} vehicles={(typeof vehicles!=="undefined"?vehicles:null)}/>}
-                    <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
-                    <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
-                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
-                    <div style={{flexBasis:"100%",height:0}}/>
-                    <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
-                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
-                    {t.type!=="返却後洗車"&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>👶B×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🧒C×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>J×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
-                    {t.type==="その他"&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
-                  </div>;
-                  const doneCount=dbTasks.filter(t=>t.done).length;
-                  const totalWork=dbTasks.length;
-                  const remainCount=totalWork-doneCount;
-                  return <>
-                    <div style={{marginBottom:8,padding:"8px 10px",borderRadius:8,background:remainCount===0?"#f0fdf4":"#fff"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                        <span style={{fontSize:18,fontWeight:900,color:remainCount===0?"#16a34a":"#1e293b"}}>完了 {doneCount}/{totalWork}</span>
-                        <span style={{fontSize:11,fontWeight:800,color:remainCount===0?"#22c55e":"#ef4444"}}>{remainCount===0?"全完了!":"残 "+remainCount+"件"}</span>
-                      </div>
-                      <ProgressBar done={doneCount} total={totalWork}/>
-                      <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                        {Object.entries(typeCounts).map(([type,cnt])=><span key={type} style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700,background:(tc[type]||"#64748b")+"18",color:tc[type]||"#64748b"}}>{type}:{cnt}</span>)}
-                      </div>
-                    </div>
-                    <div style={{fontSize:9,color:"#64748b",marginBottom:6}}>割当済{dbTasks.filter(t=>t.assignee).length}件 / 未割当{unassigned.length}件</div>
-                    {Object.entries(byPerson).map(([name,pts])=>{
-                      const sorted=pts.sort(sortT);
-                      const sh=shiftList.find(s=>s.name===name);
-                      const doneN=sorted.filter(t=>t.done).length;
-                      const remN=sorted.length-doneN;
-                      const allDone=sorted.length>0&&doneN===sorted.length;
-                      return <details key={name} style={{marginBottom:4}}>
-                        <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
-                          <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
-                          <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
-                          <span style={{fontSize:9,color:"#64748b"}}>{sh?((sh.start||"")+"〜"+(sh.end||"")):""}</span>
-                          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
-                            {sorted.length>0&&<div style={{width:40,height:5,borderRadius:3,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:(sorted.length>0?Math.round(doneN/sorted.length*100):0)+"%",height:"100%",borderRadius:3,background:allDone?"#22c55e":"#3b82f6"}}></div></div>}
-                            <span style={{fontSize:9,fontWeight:700,color:allDone?"#22c55e":remN>0?"#ef4444":"#94a3b8"}}>{allDone?"完了":remN>0?"残"+remN:"0"}</span>
-                            <span style={{fontSize:10,fontWeight:800,color:sorted.length>0?"#2563eb":"#94a3b8"}}>{sorted.length}件</span>
-                          </div>
-                        </summary>
-                        <div style={{paddingLeft:20,paddingTop:3,paddingBottom:3}}>
-                          {sorted.length>0?sorted.map(rT):<div style={{fontSize:9,color:"#94a3b8",padding:"3px 0"}}>担当タスクなし</div>}
-                          {(()=>{const evs=(topCalEvents||[]).filter(ev=>(ev.assignees||[]).includes(name));if(!evs.length)return null;
-                            const CAT={deadline:'🔴',task:'🟡',hq:'🔵',store:'🟢',other:'⚪'};
-                            return <div style={{marginTop:4,paddingTop:4,borderTop:"1px dashed #e2e8f0"}}>
-                              <div style={{fontSize:8,color:"#94a3b8",marginBottom:2,fontWeight:700}}>📅 カレンダー</div>
-                              {evs.map(ev=><div key={ev.id} style={{fontSize:10,padding:"2px 0",display:"flex",gap:4,alignItems:"center"}}>
-                                <span>{CAT[ev.category]||'📌'}</span>
-                                {ev.start_time&&<span style={{fontSize:9,color:"#64748b",fontFamily:"monospace"}}>{ev.start_time.slice(0,5)}</span>}
-                                <span style={{color:"#1e293b",fontWeight:600}}>{ev.title}</span>
-                                {ev.end_date&&ev.end_date!==ev.event_date&&<span style={{fontSize:8,color:"#94a3b8"}}>〜{ev.end_date.slice(5)}</span>}
-                              </div>)}
-                            </div>;
-                          })()}
-                        </div>
-                      </details>;
-                    })}
-                    {unassigned.length>0&&<details style={{marginTop:4}}>
-                      <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
-                        <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
-                        <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
-                        <span style={{fontSize:10,fontWeight:800,color:"#dc2626",marginLeft:"auto"}}>{unassigned.length}件</span>
-                      </summary>
-                      <div style={{paddingLeft:20,paddingTop:3}}>
-                        {unassigned.sort(sortT).map(rT)}
-                      </div>
-                    </details>}
-                  </>;
-                };
                 return <div style={{marginBottom:16,padding:"14px 16px",borderRadius:14,border:"2px solid #f87171",background:"linear-gradient(135deg,#fef2f2,#fee2e2)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div style={{fontSize:14,fontWeight:900,color:"#b91c1c"}}>👤 本日の個人別タスク（{todayLabel}）</div>
@@ -22788,7 +22906,7 @@ function App(){
                   {onDuty.length>0?<div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
                     {onDuty.map((s,i)=><span key={i} style={{padding:"3px 10px",borderRadius:6,background:"#fee2e2",fontSize:10,fontWeight:700,color:"#b91c1c"}}>{s.name}{s.start?" "+s.start+"〜"+s.end:""}</span>)}
                   </div>:<div style={{fontSize:10,color:"#94a3b8",marginBottom:8}}>シフト未登録</div>}
-                  <PersonalTasks dateStr={todayStr} dateLabel={todayLabel} shiftList={todayShifts}/>
+                  <PersonalTasks dateStr={todayStr} dateLabel={todayLabel} shiftList={todayShifts} vehicles={vehicles} data={data}/>
                 </div>;
               })()}
               {/* ===== 翌日 個人別タスクサマリー ===== */}
@@ -22799,121 +22917,6 @@ function App(){
                 const tmrwShifts2=shifts[tmrwStr2]||[];
                 const offSymbols2=new Set(["公","希","有"]);
                 const onDuty2=tmrwShifts2.filter(s=>!offSymbols2.has(s.symbol));
-                const PersonalTasks2=({dateStr,shiftList})=>{
-                  const[dbTasks,setDbTasks]=useState([]);
-                  const[loaded,setLoaded]=useState(false);
-                  const prevJsonRef2=useRef("");
-                  const refetchTasks2=()=>{DB.fetchTasksForDay(dateStr).then(t=>{if(!t)return;const j=JSON.stringify(t);if(j!==prevJsonRef2.current){prevJsonRef2.current=j;setDbTasks(t);}}).catch(()=>{});};
-                  useEffect(()=>{
-                    DB.fetchTasksForDay(dateStr).then(t=>{const j=JSON.stringify(t||[]);prevJsonRef2.current=j;setDbTasks(t||[]);setLoaded(true);}).catch(()=>setLoaded(true));
-                    // ★ Realtime購読: タスク完了を即反映
-                    let ch=null;
-                    if(sb){
-                      ch=sb.channel("top-tasks2-"+dateStr).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+dateStr},()=>{refetchTasks2();}).subscribe();
-                    }
-                    const iv=setInterval(refetchTasks2,30000);
-                    return()=>{clearInterval(iv);if(ch)sb.removeChannel(ch);};
-                  },[dateStr]);
-                  if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
-                  if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録（OPシートで翌日を開くと自動生成されます）</div>;
-                  const offS=new Set(["公","希","有"]);
-                  const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
-                  const byPerson={};
-                  duty.forEach(n=>{byPerson[n]=[];});
-                  const unassigned=[];
-                  dbTasks.forEach(t=>{
-                    const a=t.assignee||"";
-                    if(a&&byPerson[a]!==undefined){byPerson[a].push(t);}
-                    else if(a&&!duty.includes(a)){if(!byPerson[a])byPerson[a]=[];byPerson[a].push(t);}
-                    else{unassigned.push(t);}
-                  });
-                  const sortT=(a,b)=>{if(a.done!==b.done)return a.done?1:-1;return(a.time||"99:99").localeCompare(b.time||"99:99");};
-                  const tc={DEL:"#dc2626",COL:"#2563eb",PU:"#059669",BD:"#7c3aed","洗車":"#f59e0b"};
-                  const typeCounts2={};dbTasks.forEach(t=>{typeCounts2[t.type]=(typeCounts2[t.type]||0)+1;});
-                  const ProgressBar2=({done,total,color})=>{const pct=total>0?Math.round(done/total*100):0;return <div style={{display:"flex",alignItems:"center",gap:6,width:"100%"}}>
-                    <div style={{flex:1,height:10,borderRadius:5,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:5,background:pct>=100?"#22c55e":pct<50?"#ef4444":color||"#f59e0b",transition:"width .3s"}}></div></div>
-                    <span style={{fontSize:11,fontWeight:800,color:pct>=100?"#22c55e":pct<50?"#ef4444":"#f59e0b",whiteSpace:"nowrap"}}>{pct}%</span>
-                  </div>;};
-                  // ★ 2026-05-10: 翌日タスクサマリーもチェック実装
-                  const _toggleDone2=async function(_t){
-                    const _newDone=!_t.done;
-                    if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
-                    setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
-                    try{
-                      await DB.updateTask(Object.assign({},_t,{done:_newDone}),dateStr);
-                      // ★2026-08-21 洗車完了時は最終洗車日を記録(bt_vehicle_wash)＝OPシートupd()と同一処理。これが無いと5日無稼働洗車が翌日再生成される
-                      if(_newDone&&(_t.type==="洗車"||_t.type==="返却後洗車")&&_t.assignedVehicle){DB.recordVehicleWash(_t.assignedVehicle,dateStr);}
-                    }catch(_err){
-                      console.error("[ToggleTaskDone2]",_err);
-                      setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_t.done}):_x;});});
-                      try{alert("完了状態の更新に失敗しました\n"+(_err&&_err.message||""));}catch(_e){}
-                    }
-                  };
-                  const rT=(t,i)=><div key={i} style={{fontSize:10,padding:"6px 9px",border:"1px solid "+(isHdmOta(t.ota)?"#c7d2fe":"#e2e8f0"),borderRadius:8,marginBottom:6,background:t.done?"#f8fafc":(isHdmOta(t.ota)?"#eef2ff":"#fff"),boxShadow:"0 1px 2px rgba(0,0,0,0.04)",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",opacity:t.done?0.45:1}}>
-                    <span
-                      style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
-                      onClick={function(_e){_e.preventDefault();_e.stopPropagation();_toggleDone2(t);}}
-                      title={t.done?"クリックで未完了に":"クリックで完了"}
-                    >{t.done?"✅":"⬜"}</span>{typeof OdoSub!=="undefined"&&<OdoSub t={t} sb={(typeof sb!=="undefined"?sb:null)} vehicles={(typeof vehicles!=="undefined"?vehicles:null)}/>}
-                    <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:(tc[t.type]||"#64748b"),color:"#fff",minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0}}>{legTypeLabel(t.type)}</span>
-                    <span style={{fontWeight:800,fontSize:14,fontFamily:"monospace",color:t.done?"#94a3b8":"#0f172a",minWidth:40,flexShrink:0,textDecoration:t.done?"line-through":"none"}}>{(t.timeChange||t._ssTime||t.time)||"--:--"}</span>
-                    {t.plateNo?(()=>{const _vn=t.assignedVehicle?vehicles.find(v=>v.code===t.assignedVehicle):null;const _nm=_vn?_vn.name:"";return <span style={{display:"inline-flex",alignItems:"center",gap:3,background:"#d1fae5",borderRadius:5,padding:"1px 7px",flexShrink:0}}>🚗{_nm&&<span style={{fontSize:11,fontWeight:800,color:"#047857"}}>{_nm}</span>}<span style={{fontFamily:"monospace",fontSize:13,fontWeight:900,color:"#065f46"}}>{t.plateNo}</span></span>;})():null}{t.type!=="洗車"&&t.type!=="返却後洗車"&&(t.ota||resBrand(data.find(x=>x.id===t.reservationId)))&&<OBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<HdmBadge ota={t.ota} brand={resBrand(data.find(x=>x.id===t.reservationId))}/>}{t.type!=="洗車"&&t.type!=="返却後洗車"&&<PayBadge r={t.reservationId?data.find(x=>x.id===t.reservationId):null}/>}
-                    {t.reservationId?(()=>{var _r=data.find(function(x){return x.id===t.reservationId;});var _tok=_r&&_r.mypageToken;return <React.Fragment>{_tok?<a href={custPageUrl(_tok,(_r&&_r.ota),"&ro=1")} target="_blank" rel="noopener" onClick={function(e){e.stopPropagation();}} title="ご利用ガイド（閲覧専用）" style={{marginLeft:3,fontSize:14,textDecoration:"none"}}>🪪</a>:null}<LicenseBadge resvNo={t.reservationId} size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="terms" size={8} token={_tok} ttype={t.type}/><SignBadge resvNo={t.reservationId} kind="damage" size={8} token={_tok} ttype={t.type}/><ShuttleBadge resvNo={t.reservationId} size={8} token={_tok} pickup={_r&&_r.pickupTime} ttype={t.type}/><JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={8} ttype={t.type}/></React.Fragment>;})():null}
-                    <div style={{flexBasis:"100%",height:0}}/>
-                    <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
-                    {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
-                    {t.type!=="返却後洗車"&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>👶B×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🧒C×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>J×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
-                    {t.type==="その他"&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
-                  </div>;
-                  const totalWork=dbTasks.length;
-                  const doneCount=dbTasks.filter(t=>t.done).length;
-                  const remainCount=totalWork-doneCount;
-                  return <>
-                    <div style={{marginBottom:8,padding:"8px 10px",borderRadius:8,background:remainCount===0?"#fefce8":"#fff"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                        <span style={{fontSize:18,fontWeight:900,color:remainCount===0?"#16a34a":"#92400e"}}>完了 {doneCount}/{totalWork}</span>
-                        <span style={{fontSize:11,fontWeight:800,color:remainCount===0?"#22c55e":"#ef4444"}}>{remainCount===0?"全完了!":"残 "+remainCount+"件"}</span>
-                      </div>
-                      <ProgressBar2 done={doneCount} total={totalWork}/>
-                      <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                        {Object.entries(typeCounts2).map(([type,cnt])=><span key={type} style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:700,background:(tc[type]||"#64748b")+"18",color:tc[type]||"#64748b"}}>{type}:{cnt}</span>)}
-                      </div>
-                    </div>
-                    <div style={{fontSize:9,color:"#64748b",marginBottom:6}}>割当済{dbTasks.filter(t=>t.assignee).length}件 / 未割当{unassigned.length}件</div>
-                    {Object.entries(byPerson).map(([name,pts])=>{
-                      const sorted=pts.sort(sortT);
-                      const sh=shiftList.find(s=>s.name===name);
-                      const doneN=sorted.filter(t=>t.done).length;
-                      const remN=sorted.length-doneN;
-                      const allDone=sorted.length>0&&doneN===sorted.length;
-                      return <details key={name} style={{marginBottom:4}}>
-                        <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:allDone?"#f0fdf4":"#f8fafc",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
-                          <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
-                          <span style={{fontSize:11,fontWeight:700,color:allDone?"#16a34a":"#1e293b"}}>{allDone?"✅ ":""}{name}</span>
-                          <span style={{fontSize:9,color:"#64748b"}}>{sh?((sh.start||"")+"〜"+(sh.end||"")):""}</span>
-                          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
-                            {sorted.length>0&&<div style={{width:40,height:5,borderRadius:3,background:"#e2e8f0",overflow:"hidden"}}><div style={{width:(sorted.length>0?Math.round(doneN/sorted.length*100):0)+"%",height:"100%",borderRadius:3,background:allDone?"#22c55e":"#f59e0b"}}></div></div>}
-                            <span style={{fontSize:9,fontWeight:700,color:allDone?"#22c55e":remN>0?"#ef4444":"#94a3b8"}}>{allDone?"完了":remN>0?"残"+remN:"0"}</span>
-                            <span style={{fontSize:10,fontWeight:800,color:sorted.length>0?"#b45309":"#94a3b8"}}>{sorted.length}件</span>
-                          </div>
-                        </summary>
-                        <div style={{paddingLeft:20,paddingTop:3,paddingBottom:3}}>
-                          {sorted.length>0?sorted.map(rT):<div style={{fontSize:9,color:"#94a3b8",padding:"3px 0"}}>担当タスクなし</div>}
-                        </div>
-                      </details>;
-                    })}
-                    {unassigned.length>0&&<details style={{marginTop:4}}>
-                      <summary style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:6,background:"#fef2f2",cursor:"pointer",listStyle:"none",userSelect:"none"}}>
-                        <span style={{fontSize:9,color:"#94a3b8"}}>▶</span>
-                        <span style={{fontSize:11,fontWeight:700,color:"#dc2626"}}>未割当</span>
-                        <span style={{fontSize:10,fontWeight:800,color:"#dc2626",marginLeft:"auto"}}>{unassigned.length}件</span>
-                      </summary>
-                      <div style={{paddingLeft:20,paddingTop:3}}>
-                        {unassigned.sort(sortT).map(rT)}
-                      </div>
-                    </details>}
-                  </>;
-                };
                 return <div style={{marginBottom:16,padding:"14px 16px",borderRadius:14,border:"2px solid #f59e0b",background:"linear-gradient(135deg,#fffbeb,#fef3c7)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div style={{fontSize:14,fontWeight:900,color:"#92400e"}}>👤 翌日の個人別タスク（{tmrwLabel2}）</div>
@@ -22922,7 +22925,7 @@ function App(){
                   {onDuty2.length>0?<div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
                     {onDuty2.map((s,i)=><span key={i} style={{padding:"3px 10px",borderRadius:6,background:"#fde68a",fontSize:10,fontWeight:700,color:"#92400e"}}>{s.name}{s.start?" "+s.start+"〜"+s.end:""}</span>)}
                   </div>:<div style={{fontSize:10,color:"#94a3b8",marginBottom:8}}>シフト未登録</div>}
-                  <PersonalTasks2 dateStr={tmrwStr2} shiftList={tmrwShifts2}/>
+                  <PersonalTasks2 dateStr={tmrwStr2} shiftList={tmrwShifts2} vehicles={vehicles} data={data}/>
                 </div>;
               })()}
               {/* ===== 翌日業務サマリー（削除済み） ===== */}
@@ -23591,7 +23594,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.397-BT";
+const APP_VERSION="v1.0.398-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
