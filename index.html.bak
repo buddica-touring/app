@@ -549,7 +549,7 @@ const DB = {
     const hasWageCols=data.length>0&&data[0].hasOwnProperty("hourly_wage");
     DB._staffHasWageCols=hasWageCols;
     if(!hasWageCols&&data.length>0)console.warn("[fetchStaff] ⚠️ staffテーブルにhourly_wageカラムなし");
-    const dbStaff=(data||[]).map(s=>({name:s.name,type:s.type,memo:s.memo||"",hourlyWage:s.hourly_wage||0,transportCost:s.transport_cost||0,monthlySalary:s.monthly_salary||0}));
+    const dbStaff=(data||[]).map(s=>({name:s.name,type:s.type,memo:s.memo||"",staffCode:s.staff_code||"",staffPin:s.staff_pin||"",hourlyWage:s.hourly_wage||0,transportCost:s.transport_cost||0,monthlySalary:s.monthly_salary||0}));
     // DB側にhourly_wage等カラムがない場合、localStorageの値をマージ→差異あればDBに自動プッシュ
     const lsStaff=DB._staffLsLoad();
     let needPush=false;
@@ -567,7 +567,7 @@ const DB = {
     return dbStaff;},
   _staffHasWageCols:null, // null=未確認, true=あり, false=なし
   async saveStaff(arr){DB._staffLsSave(arr);if(!sb)return;
-    const rows=arr.map((s,i)=>({name:s.name,type:s.type,memo:s.memo||"",sort_order:i,active:true,hourly_wage:s.hourlyWage||0,transport_cost:s.transportCost||0,monthly_salary:s.monthlySalary||0}));
+    const rows=arr.map((s,i)=>({name:s.name,type:s.type,memo:s.memo||"",sort_order:i,active:true,staff_code:(s.staffCode||"").trim()||null,staff_pin:(s.staffPin||"").trim()||null,hourly_wage:s.hourlyWage||0,transport_cost:s.transportCost||0,monthly_salary:s.monthlySalary||0}));
     const{error}=await sb.from("bt_staff").upsert(rows,{onConflict:"name"});
     if(error){
       dbLog("saveStaff",false,error.message);
@@ -14621,7 +14621,7 @@ function JalanPaymentLegacy({data,jalanPay,onJalanPayChange}){
    ========================================== */
 function StaffManager({staff,onStaffChange,onDeleteStaff}){
   const[editId,setEditId]=useState(null);
-  const[form,setForm]=useState({name:"",type:"アルバイト",memo:"",hourlyWage:1100,transportCost:500,monthlySalary:0});
+  const[form,setForm]=useState({name:"",type:"アルバイト",memo:"",staffCode:"",staffPin:"",hourlyWage:1100,transportCost:500,monthlySalary:0});
   const[adding,setAdding]=useState(false);
   const[editOrigName,setEditOrigName]=useState("");
   const[wageHistory,setWageHistory]=useState([]);
@@ -14644,7 +14644,7 @@ function StaffManager({staff,onStaffChange,onDeleteStaff}){
   const save=()=>{
     if(!form.name.trim())return;
     if(!window.confirm(adding?"新規登録を実行しますか？":"変更を保存しますか？"))return;
-    const entry={name:form.name.trim(),type:form.type,memo:form.memo,hourlyWage:Number(form.hourlyWage)||0,transportCost:Number(form.transportCost)||0,monthlySalary:Number(form.monthlySalary)||0};
+    const entry={name:form.name.trim(),type:form.type,memo:form.memo,staffCode:(form.staffCode||"").trim(),staffPin:(form.staffPin||"").trim(),hourlyWage:Number(form.hourlyWage)||0,transportCost:Number(form.transportCost)||0,monthlySalary:Number(form.monthlySalary)||0};
     if(adding){
       onStaffChange([...staff,entry]);setAdding(false);
     }else if(editId!==null){
@@ -14654,13 +14654,13 @@ function StaffManager({staff,onStaffChange,onDeleteStaff}){
       if(oldName&&oldName!==entry.name&&onDeleteStaff)onDeleteStaff(oldName);
       setEditId(null);setEditOrigName("");
     }
-    setForm({name:"",type:"アルバイト",memo:"",hourlyWage:1100,transportCost:500,monthlySalary:0});
+    setForm({name:"",type:"アルバイト",memo:"",staffCode:"",staffPin:"",hourlyWage:1100,transportCost:500,monthlySalary:0});
   };
 
   const startEdit=(i)=>{setEditId(i);setEditOrigName(staff[i].name);setForm({...staff[i]});setAdding(false);};
-  const startAdd=()=>{setForm({name:"",type:"アルバイト",memo:"",hourlyWage:1100,transportCost:500,monthlySalary:0});setAdding(true);setEditId(null);};
+  const startAdd=()=>{setForm({name:"",type:"アルバイト",memo:"",staffCode:"",staffPin:"",hourlyWage:1100,transportCost:500,monthlySalary:0});setAdding(true);setEditId(null);};
   const remove=(i)=>{if(window.confirm(`${staff[i].name} を削除しますか？`)){const name=staff[i].name;onStaffChange(staff.filter((_,j)=>j!==i));if(onDeleteStaff)onDeleteStaff(name);}};
-  const cancel=()=>{setAdding(false);setEditId(null);setForm({name:"",type:"アルバイト",memo:"",hourlyWage:1100,transportCost:500,monthlySalary:0});};
+  const cancel=()=>{setAdding(false);setEditId(null);setForm({name:"",type:"アルバイト",memo:"",staffCode:"",staffPin:"",hourlyWage:1100,transportCost:500,monthlySalary:0});};
 
   const showModal=adding||editId!==null;
   const cardS={background:"#fff",borderRadius:14,padding:16,border:"1px solid #e2e8f0",marginBottom:10,boxShadow:"0 1px 3px rgba(0,0,0,.05)"};
@@ -14736,6 +14736,21 @@ function StaffManager({staff,onStaffChange,onDeleteStaff}){
         <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #e2e8f0",fontSize:14,background:"#fff"}}>
           <option>アルバイト</option><option>正社員</option>
         </select>
+      </div>
+      {/* 🪪 打刻・給与明細 ID（アルバイト/正社員 共通・出勤退勤打刻/本人確認用） */}
+      <div style={{marginBottom:12,padding:"10px 12px",background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:10}}>
+        <div style={{fontSize:11,fontWeight:800,color:"#0369a1",marginBottom:8}}>🪪 打刻・給与明細 ID（出勤退勤・本人確認）</div>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:1}}>
+            <label style={{fontSize:12,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>ID番号</label>
+            <input value={form.staffCode||""} onChange={e=>setForm(p=>({...p,staffCode:e.target.value}))} placeholder="例: 0111" inputMode="numeric" style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #e2e8f0",fontSize:14,boxSizing:"border-box"}}/>
+          </div>
+          <div style={{flex:1}}>
+            <label style={{fontSize:12,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>暗証番号(PIN)</label>
+            <input value={form.staffPin||""} onChange={e=>setForm(p=>({...p,staffPin:e.target.value}))} placeholder="4桁" inputMode="numeric" style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #e2e8f0",fontSize:14,boxSizing:"border-box"}}/>
+          </div>
+        </div>
+        <div style={{fontSize:10,color:"#64748b",marginTop:6}}>出勤/退勤打刻・本人の給与明細の閲覧に使うID。既存ログイン番号(0111等)を流用可。</div>
       </div>
       {form.type==="アルバイト"&&<>
         <div style={{marginBottom:12}}>
@@ -23595,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.402-BT";
+const APP_VERSION="v1.0.403-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
