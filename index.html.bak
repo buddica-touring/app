@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.413-BT";
+const APP_VERSION="v1.0.414-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25700,6 +25700,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     // ★2026-09-07 ブランド別チャネル名：HDMの自社HP(公式)は ota='HANDYMAN'/'HP'/'オフィシャル'/空 で入る→「自社HP」に統一。OTAコードは正式名称へ。
     const _flowCh=(r)=>{const o=String(r.ota||"").trim();if(o===""||o==="HP"||o==="HANDYMAN"||o==="オフィシャル")return "自社HP";if(o==="SP")return "その他";if(o==="direct")return "直予約";return ({J:"じゃらん",R:"楽天","楽天トラベル":"楽天",S:"スカイチケット",O:"エアトリ",A:"エアトリ",RC:"レンタカードットコム","レンタカー.com":"レンタカードットコム",G:"GOGO OUT",TBR:"たびらい"})[o]||o;};
     const curYM=(norm(date)||"").slice(0,7); // 当月＝レポート月（返却月ベース）
+    const prevYM=(()=>{if(!curYM)return"";let[yy,mm]=curYM.split("-").map(Number);mm--;if(mm<1){mm=12;yy--;}return yy+"-"+String(mm).padStart(2,"0");})(); // ★2026-09-07 前月（前月流通=取込月／前月売上=返却月）
     // ★新規増(流通)用：選択日(当日)に"取込(created_at)"された予約＝返却日/利用月に関係なく今日新しく入った予約
     const curDay=norm(date)||"";
     const prevDay=(()=>{const d=new Date(curDay+"T00:00:00");if(isNaN(d))return"";d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");})();
@@ -25707,6 +25708,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     let dNew={count:0,sales:0};const newBrk={}; // newBrk=本日の流通(新規取込)のチャネル/OTA名別内訳
     const curFlowCh={},curFlowOta={};let curFlowTotal=0; // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別内訳＝チャネル別を流通ベースで揃える
     const curFlowBrand={}; // ★2026-09-07 ブランド別(HDM/BUDDICA)×チャネル名別＝高松2ブランドの内訳を分けて表示
+    let prevFlow={count:0,sales:0}; // ★2026-09-07 前月流通（取込月=created_atが前月）の合算
     const ltHp=[],ltOta=[]; // ★リードタイム(発生→利用開始の日数)＝当月発生・HP(自社=非OTA)/OTA別。最後にグロス(合算)。CPAカードと同じsource基準。負値/一括取込除外
     const cxlByM={},cxlByY={}; // ★キャンセル件数（返却月/年基準・既存キャンセル率推移ウィジェットと同定義）
     // ★取込日(created_at)をJST(+9h)の日付に変換して当日判定（created_atはUTC保存＝生sliceだと日境界で±9hズレる）
@@ -25725,6 +25727,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(_cj.slice(0,7)===curYM){const _lb2=labelOf(r),_ch2=CHof(r),_rv2=revOf(r);if(!curFlowCh[_ch2])curFlowCh[_ch2]={count:0,sales:0};curFlowCh[_ch2].count++;curFlowCh[_ch2].sales+=_rv2;curFlowTotal+=_rv2;if(_ch2==="OTA"){if(!curFlowOta[_lb2])curFlowOta[_lb2]={count:0,sales:0};curFlowOta[_lb2].count++;curFlowOta[_lb2].sales+=_rv2;}
         // ★ブランド別×チャネル名別（HDM=じゃらん/HP/楽天/skyticket等・BUDDICA=自社HP/たびらい/エアトリ/RC等）
         const _br=resBrand(r)||"BUDDICA",_cn=_flowCh(r);if(!curFlowBrand[_br])curFlowBrand[_br]={total:0,count:0,ch:{}};const _cfb=curFlowBrand[_br];if(!_cfb.ch[_cn])_cfb.ch[_cn]={count:0,sales:0};_cfb.ch[_cn].count++;_cfb.ch[_cn].sales+=_rv2;_cfb.total+=_rv2;_cfb.count++;}
+      else if(_cj.slice(0,7)===prevYM){prevFlow.count++;prevFlow.sales+=revOf(r);} // ★前月流通（取込月ベース）
       const code=fl[r.id];if(!code||!codes.has(code))return;
       const rd=norm(r.returnDate)||norm(r.lendDate);if(!rd)return;
       const rev=revOf(r),ym=rd.slice(0,7),y=rd.slice(0,4),ch=CHof(r);
@@ -25747,7 +25750,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const _near=(a)=>a.length?Math.round(a.filter(x=>x<=3).length/a.length*100):0;
     const ltGross=ltHp.concat(ltOta);
     const lead={hp:{n:ltHp.length,med:_med(ltHp),avg:_avg(ltHp),near:_near(ltHp)},ota:{n:ltOta.length,med:_med(ltOta),avg:_avg(ltOta),near:_near(ltOta)},gross:{n:ltGross.length,med:_med(ltGross),avg:_avg(ltGross),near:_near(ltGross)}};
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,byBrand,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowBrand,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,byBrand,total,curYM,prevYM,prevFlow,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowBrand,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25899,6 +25902,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const hp=(repSum.curCh&&repSum.curCh["HP"])||{count:0,sales:0};
         const ota=(repSum.curCh&&repSum.curCh["OTA"])||{count:0,sales:0};
         const oth=(repSum.curCh&&repSum.curCh["その他"])||{count:0,sales:0};
+        const prevM=repSum.byM[repSum.prevYM]||{count:0,sales:0};        // ★前月売上（返却月ベース）
+        const prevFlow=repSum.prevFlow||{count:0,sales:0};               // ★前月流通（取込月ベース）
+        const prevMM=repSum.prevYM?(repSum.prevYM.slice(5)+"月"):"前月";
         const uOf=c=>c.count?Math.round(c.sales/c.count):0;
         const cxlCur=(repSum.cxlByM&&repSum.cxlByM[repSum.curYM])||0; // 当月キャンセル件数（返却月基準）
         const cxlYr=(repSum.cxlByY&&repSum.cxlByY[curYr])||0; // 当年キャンセル件数
@@ -25941,6 +25947,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
                 <div style={{flex:"1 1 160px",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{curYr}年 累計</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{yrD.count}件</div></div>
                 <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月累計（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件{yogai>0?<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>　うち予約外{yen(yogai)}</span>:null}</div></div>
+                <div style={{flex:"1 1 160px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>前月売上（{prevMM}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{prevM.count}件</div></div>
+                <div style={{flex:"1 1 160px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>前月流通（{prevMM}・取込月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevFlow.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{prevFlow.count}件</div></div>
                 <div style={{flex:"1 1 160px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>本日の流通（新規取込）</div><div style={{fontSize:20,fontWeight:900,color:dc.dSales>0?"#166534":"#92400e"}}>{fmtD(dc.dSales,true)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{fmtD(dc.dCount,false)}　<span style={{fontSize:10,color:"#94a3b8"}}>取込日ベース</span></div>
                   {(()=>{const nb=repSum.newBrk||{};const ks=Object.keys(nb).sort((a,b)=>(a==="HP"?-1:b==="HP"?1:a==="その他"?1:b==="その他"?-1:(nb[b].sales-nb[a].sales)));return ks.length?<div style={{fontSize:10.5,color:"#64748b",fontWeight:600,marginTop:4,lineHeight:1.6,borderTop:"1px dashed #fde68a",paddingTop:3}}>{ks.map(k=><div key={k}>└ {k}：{fmtD(nb[k].count,false)} / {fmtD(nb[k].sales,true)}</div>)}</div>:null;})()}</div>
                 <div style={{flex:"1 1 160px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月キャンセル（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#dc2626"}}>{cxlCur}件</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>ｷｬﾝｾﾙ率 {cxlRate}%　<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>{curYr}年 累計{cxlYr}件</span></div></div>
