@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.419-BT";
+const APP_VERSION="v1.0.420-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25856,7 +25856,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
      const _rz={};(data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_cy&&rd>_cy))return;_rz[c]=(_rz[c]||0)+revOf(r);});
      const _uz={};(vr.rows||[]).forEach(r=>{if(r.code)_uz[r.code]=Number(r.utilPct)||0;});
      const _CN={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
-     const _CO=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];const _CT={}; /* クラス別台目標(一旦ブランク) */
+     const _CO=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];const _CT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; /* クラス別台目標(単価×15・AA/K未設定) */
      const _kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===_cy)_kf[k.vehicle_code]=k.active;});const _vb={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vb[v.code]=v;});const _ka=(code)=>{const _v=_vb[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kf[code]!==undefined?_kf[code]:(_v?_v.active!==false:false);};
      const _ag={};(units||[]).forEach(u=>{const t=u.type||"?";if(_CO.indexOf(t)<0||!_ka(u.code))return;if(!_ag[t])_ag[t]={cnt:0,rev:0,util:0};_ag[t].cnt++;_ag[t].rev+=(_rz[u.code]||0);_ag[t].util+=(_uz[u.code]||0);});
      const _rows=Object.keys(_ag).sort((a,b)=>{const ia=_CO.indexOf(a),ib=_CO.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
@@ -25931,7 +25931,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         (data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_curYMr&&rd>_curYMr))return;realizedByCode[c]=(realizedByCode[c]||0)+revOf(r);});
         const CLS_NAME={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
         const CLS_ORDER=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];
-        const CLS_TGT={};                                                 // ★クラス別 台あたり月目標（一旦ブランク・後日オーナー入力→対目標が自動計算）
+        const CLS_TGT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; // ★クラス別 台あたり月目標（単価/日×稼働率50%×30日＝単価×15・AA/Kは未設定=ブランク）
         const utilByCode={};(vr.rows||[]).forEach(r=>{if(r.code)utilByCode[r.code]=Number(r.utilPct)||0;}); // 車両別 稼働率(配車表ルール)＝実績列に使用（未稼働車は0）
         // ★配車表の稼働/未稼働に連動＝FleetTimeline isKpiActive と同一判定（bt_vehicle_monthly_kpi 当月＋保険車除外＋既定active）
         const _kpiYM=repSum.curYM||"";const _kpiFlags={};(rankKpi||[]).forEach(k=>{if(k.year_month===_kpiYM)_kpiFlags[k.vehicle_code]=k.active;});
