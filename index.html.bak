@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.429-BT";
+const APP_VERSION="v1.0.430-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25853,7 +25853,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
      const _rows=Object.keys(_ag).sort((a,b)=>{const ia=_CO.indexOf(a),ib=_CO.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
      if(_rows.length){_rows.forEach(t=>{const g=_ag[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/_mo):0;const tgt=(_CT[t]!=null?Number(_CT[t]):null);const df=(tgt!=null?pm-tgt:null);const ut=g.cnt>0?Math.round(g.util/g.cnt):0;
         L.push(t+" "+(_CN[t]||t)+"（"+g.cnt+"台）");
-        L.push("　予約数(グロス) "+(g.bk||0)+"件　売上累計 "+yen(g.rev)+"　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%");
+        L.push("　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%　｜補足(累計) 予約数(グロス) "+(g.bk||0)+"件・売上累計 "+yen(g.rev));
      });L.push("　※実績=返却月≤当月（未来予約除く）÷台数÷経過"+_mo+"ヶ月・台数は配車表の稼働に連動・クラス別目標は後日入力(ブランク)");}
      else L.push("・実績のあるクラスなし");}
     L.push("━━━━━━━━━━");
@@ -25976,6 +25976,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
               </tbody></table>
               <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
             </div></div>
+            {/* ★クラス別実績（当月対応の下へ移動） */}
+            <div style={sec}><div style={secHd}>■ クラス別実績</div><div style={secBd}>
+              {clsRows.length?<table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                <tr style={{fontSize:9.5}}><td colSpan={6}></td><td colSpan={2} style={{textAlign:"center",background:"#eef2f7",border:"1px solid #cbd5e1",borderBottom:"none",fontWeight:800,color:"#64748b",padding:"3px 6px",borderRadius:"6px 6px 0 0"}}>補足データ（累計・グロス／当月実績ではない）</td></tr>
+                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"5px 6px"}}>クラス</td><td style={{padding:"5px 6px",textAlign:"right"}}>台数</td><td style={{padding:"5px 6px",textAlign:"right"}}>台/月平均売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>クラス別台目標売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>対目標</td><td style={{padding:"5px 6px",textAlign:"right"}}>実績</td><td style={{padding:"5px 6px",textAlign:"right",background:"#f1f5f9",borderLeft:"1px solid #cbd5e1"}}>予約数（グロス）</td><td style={{padding:"5px 6px",textAlign:"right",background:"#f1f5f9",borderRight:"1px solid #cbd5e1"}}>売上累計</td></tr>
+                {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b",fontWeight:600,background:"#f8fafc",borderLeft:"1px solid #e2e8f0"}}>{c.bk||0}件</td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b",fontWeight:600,background:"#f8fafc",borderRight:"1px solid #e2e8f0"}}>{yen(c.rev)}</td></tr>)}
+              </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>実績のあるクラスなし</div>}
+              <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※台/月平均売上＝売上累計÷台数÷経過{rkMonths}ヶ月（当月実績ベースの月商）。対目標＝台/月平均売上−クラス別台目標売上。実績＝稼働率（配車表ルール・未稼働車=0で平均）。台数は配車表の稼働/未稼働に連動。<b>補足データ（予約数グロス・売上累計）は全期間累計＝当月実績ではありません。</b></div>
+            </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
             <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）<span style={{marginLeft:8,fontSize:11,fontWeight:900,background:"#0F1F45",color:"#fff",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>全期間累計</span><span style={{marginLeft:6,fontSize:11,fontWeight:800,background:"#e0e7ff",color:"#1e3a8a",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>高松全体＝HDM＋BUDDICA</span></div><div style={secBd}>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
@@ -26028,14 +26037,6 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※<b>当月発生（予約が入った月）</b>の予約について、利用開始日−予約発生日の日数。中央値／平均／<b>直前率＝リードタイム3日以内の割合</b>。source基準（非OTA=HP自社／OTA=OTA経由）＝CPAと同一。負値(遡及取込)は除外。</div>
               </div></div>;
             })()}
-            {/* ★クラス別ランキング（実績・返却月≤当月）vs 目標13〜15万/台・月 */}
-            <div style={sec}><div style={secHd}>■ クラス別実績</div><div style={secBd}>
-              {clsRows.length?<table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"5px 6px"}}>クラス</td><td style={{padding:"5px 6px",textAlign:"right"}}>台数</td><td style={{padding:"5px 6px",textAlign:"right"}}>予約数（グロス）</td><td style={{padding:"5px 6px",textAlign:"right"}}>売上累計</td><td style={{padding:"5px 6px",textAlign:"right"}}>台/月平均売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>クラス別台目標売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>対目標</td><td style={{padding:"5px 6px",textAlign:"right"}}>実績</td></tr>
-                {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",color:"#334155",fontWeight:700}}>{c.bk||0}件</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:700}}>{yen(c.rev)}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td></tr>)}
-              </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>実績のあるクラスなし</div>}
-              <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※実績＝返却月が当月以前の売上（未来予約は含まない）。台/月平均売上＝売上累計÷台数÷経過{rkMonths}ヶ月。クラス別台目標売上は後日入力（一旦ブランク）→対目標＝台/月平均売上−目標を自動計算。実績＝稼働率（配車表ルール・未稼働車=0で平均）。台数は配車表の稼働/未稼働に連動。</div>
-            </div></div>
           </div>
         </div>;
       })()}
