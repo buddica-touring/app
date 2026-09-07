@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.409-BT";
+const APP_VERSION="v1.0.410-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25703,7 +25703,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     // ★新規増(流通)用：選択日(当日)に"取込(created_at)"された予約＝返却日/利用月に関係なく今日新しく入った予約
     const curDay=norm(date)||"";
     const prevDay=(()=>{const d=new Date(curDay+"T00:00:00");if(isNaN(d))return"";d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");})();
-    const byM={},byY={},byCh={},curCh={},curOta={};let total=0; // curOta=当月返却のOTA名別内訳(OTAグロスを細分化)
+    const byM={},byY={},byCh={},curCh={},curOta={},byBrand={};let total=0; // curOta=当月返却のOTA名別内訳(OTAグロスを細分化)
     let dNew={count:0,sales:0};const newBrk={}; // newBrk=本日の流通(新規取込)のチャネル/OTA名別内訳
     const curFlowCh={},curFlowOta={};let curFlowTotal=0; // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別内訳＝チャネル別を流通ベースで揃える
     const curFlowBrand={}; // ★2026-09-07 ブランド別(HDM/BUDDICA)×チャネル名別＝高松2ブランドの内訳を分けて表示
@@ -25731,6 +25731,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       if(!byM[ym])byM[ym]={count:0,sales:0};byM[ym].count++;byM[ym].sales+=rev;
       if(!byY[y])byY[y]={count:0,sales:0};byY[y].count++;byY[y].sales+=rev;
       if(!byCh[ch])byCh[ch]={count:0,sales:0};byCh[ch].count++;byCh[ch].sales+=rev;total+=rev;
+      {const _b3=resBrand(r)||"BUDDICA";if(!byBrand[_b3])byBrand[_b3]={count:0,sales:0};byBrand[_b3].count++;byBrand[_b3].sales+=rev;} // ★全期間累計のブランド別
       if(ym===curYM){if(!curCh[ch])curCh[ch]={count:0,sales:0};curCh[ch].count++;curCh[ch].sales+=rev;
         if(ch==="OTA"){const on=String(r.ota||"").trim()||"OTA";if(!curOta[on])curOta[on]={count:0,sales:0};curOta[on].count++;curOta[on].sales+=rev;}} // 当月返却のチャネル別(予約単価用)＋OTA名別内訳
     });
@@ -25746,7 +25747,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const _near=(a)=>a.length?Math.round(a.filter(x=>x<=3).length/a.length*100):0;
     const ltGross=ltHp.concat(ltOta);
     const lead={hp:{n:ltHp.length,med:_med(ltHp),avg:_avg(ltHp),near:_near(ltHp)},ota:{n:ltOta.length,med:_med(ltOta),avg:_avg(ltOta),near:_near(ltOta)},gross:{n:ltGross.length,med:_med(ltGross),avg:_avg(ltGross),near:_near(ltGross)}};
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowBrand,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,byBrand,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowBrand,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25943,13 +25944,19 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
               <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
             </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
-            <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）</div><div style={secBd}>
+            <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス・全期間累計／高松全体＝HDM＋BUDDICA）</div><div style={secBd}>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"4px 6px"}}>チャネル</td><td style={{padding:"4px 6px",textAlign:"right"}}>件数</td><td style={{padding:"4px 6px",textAlign:"right"}}>計上額</td><td style={{padding:"4px 6px",textAlign:"right"}}>構成比</td></tr>
                 {["OTA","HP","その他"].map(ch=>chRow(ch,(repSum.byCh&&repSum.byCh[ch])||{count:0,sales:0}))}
                 {(()=>{const _hp=(repSum.byCh&&repSum.byCh["HP"])||{count:0,sales:0};const _ot=(repSum.byCh&&repSum.byCh["その他"])||{count:0,sales:0};const _c=(_hp.count||0)+(_ot.count||0),_s=(_hp.sales||0)+(_ot.sales||0),_p=repSum.total>0?Math.round(_s/repSum.total*100):0;return <tr style={{borderTop:"2px solid #cbd5e1",background:"#f8fafc",fontWeight:800}}><td style={{padding:"5px 6px"}}>🏠 HP＋その他（自社計）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{_c}件</td><td style={{padding:"5px 6px",textAlign:"right"}}>{yen(_s)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed"}}>{_p}%</td></tr>;})()}
                 <tr style={{background:"#0F1F45",color:"#fff",fontWeight:900}}><td style={{padding:"6px"}}>合計</td><td style={{padding:"6px",textAlign:"right"}}>{["OTA","HP","その他"].reduce((s,ch)=>s+(((repSum.byCh&&repSum.byCh[ch])||{}).count||0),0)}件</td><td style={{padding:"6px",textAlign:"right"}}>{yen(repSum.total)}</td><td style={{padding:"6px",textAlign:"right"}}>100%</td></tr>
               </tbody></table>
+              {/* ▼ ブランド別内訳（全期間累計・予約分）＝高松2ブランドの内訳 */}
+              <div style={{fontSize:11,color:"#64748b",fontWeight:800,margin:"10px 2px 4px"}}>▼ ブランド別（全期間累計・予約分）</div>
+              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                {(()=>{const bb=repSum.byBrand||{};const bt=Object.values(bb).reduce((s,g)=>s+(g.sales||0),0);const order=[{k:"BUDDICA",l:"🟢 BUDDICA",bc:"#047857",bg:"#ecfdf5"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bc:"#1e3a8a",bg:"#eef2ff"}];const rows=order.filter(b=>bb[b.k]&&(bb[b.k].count||bb[b.k].sales)).map(b=>{const g=bb[b.k];const p=bt>0?Math.round(g.sales/bt*100):0;return <tr key={b.k} style={{background:b.bg,borderBottom:"1px solid #eef2f7"}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:700}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(g.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{p}%</td></tr>;});return rows.length?rows:<tr><td colSpan={4} style={{padding:"6px",color:"#94a3b8",fontSize:11.5}}>データなし</td></tr>;})()}
+              </tbody></table>
+              <div style={{fontSize:10,color:"#94a3b8",marginTop:4,lineHeight:1.6}}>※このセクションは<b>全期間累計</b>（返却月ベース・年で区切らない）・<b>高松全体＝HDM（じゃらん/自社HP/楽天/skyticket等）＋BUDDICA（たびらい/エアトリ/RC/自社HP等）の両ブランド込み</b>。グロス＝手数料差引前。チャネル：OTA＝OTA経由／HP＝自社HP／その他＝SP・予約外売上。ブランド別は予約分のみ（予約外売上¥は「その他」に含み、ブランド別合計とは一致しません）。</div>
             </div></div>
             {/* ②-2 CPA（グロス／純広告=運用戦略HP・OTA=グロス日次最新） */}
             {(()=>{
