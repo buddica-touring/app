@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.423-BT";
+const APP_VERSION="v1.0.424-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25838,15 +25838,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("■ クラス別ランキング（実績・台あたり月商 vs クラス別目標）");
     {const _cy=repSum.curYM||"";const _mo=Math.max(1,(vr&&vr.months)||1);
      const _rz={};(data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_cy&&rd>_cy))return;_rz[c]=(_rz[c]||0)+revOf(r);});
-     const _uz={};(vr.rows||[]).forEach(r=>{if(r.code)_uz[r.code]=Number(r.utilPct)||0;});
+     const _uz={};const _cz={};(vr.rows||[]).forEach(r=>{if(r.code){_uz[r.code]=Number(r.utilPct)||0;_cz[r.code]=Number(r.cnt)||0;}});
      const _CN={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
      const _CO=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];const _CT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; /* クラス別台目標(単価×15・AA/K未設定) */
      const _kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===_cy)_kf[k.vehicle_code]=k.active;});const _vb={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vb[v.code]=v;});const _ka=(code)=>{const _v=_vb[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kf[code]!==undefined?_kf[code]:(_v?_v.active!==false:false);};
-     const _ag={};(units||[]).forEach(u=>{const t=u.type||"?";if(_CO.indexOf(t)<0||!_ka(u.code))return;if(!_ag[t])_ag[t]={cnt:0,rev:0,util:0};_ag[t].cnt++;_ag[t].rev+=(_rz[u.code]||0);_ag[t].util+=(_uz[u.code]||0);});
+     const _ag={};(units||[]).forEach(u=>{const t=u.type||"?";if(_CO.indexOf(t)<0||!_ka(u.code))return;if(!_ag[t])_ag[t]={cnt:0,rev:0,util:0,bk:0};_ag[t].cnt++;_ag[t].rev+=(_rz[u.code]||0);_ag[t].util+=(_uz[u.code]||0);_ag[t].bk+=(_cz[u.code]||0);});
      const _rows=Object.keys(_ag).sort((a,b)=>{const ia=_CO.indexOf(a),ib=_CO.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
      if(_rows.length){_rows.forEach(t=>{const g=_ag[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/_mo):0;const tgt=(_CT[t]!=null?Number(_CT[t]):null);const df=(tgt!=null?pm-tgt:null);const ut=g.cnt>0?Math.round(g.util/g.cnt):0;
         L.push(t+" "+(_CN[t]||t)+"（"+g.cnt+"台）");
-        L.push("　売上累計 "+yen(g.rev)+"　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%");
+        L.push("　予約数(グロス) "+(g.bk||0)+"件　売上累計 "+yen(g.rev)+"　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%");
      });L.push("　※実績=返却月≤当月（未来予約除く）÷台数÷経過"+_mo+"ヶ月・台数は配車表の稼働に連動・クラス別目標は後日入力(ブランク)");}
      else L.push("・実績のあるクラスなし");}
     L.push("━━━━━━━━━━");
@@ -25919,14 +25919,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const CLS_NAME={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
         const CLS_ORDER=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];
         const CLS_TGT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; // ★クラス別 台あたり月目標（単価/日×稼働率50%×30日＝単価×15・AA/Kは未設定=ブランク）
-        const utilByCode={};(vr.rows||[]).forEach(r=>{if(r.code)utilByCode[r.code]=Number(r.utilPct)||0;}); // 車両別 稼働率(配車表ルール)＝実績列に使用（未稼働車は0）
+        const utilByCode={};const cntByCode={};(vr.rows||[]).forEach(r=>{if(r.code){utilByCode[r.code]=Number(r.utilPct)||0;cntByCode[r.code]=Number(r.cnt)||0;}}); // 車両別 稼働率＋予約数(グロス=全期間・車両ランキングと同一)
         // ★配車表の稼働/未稼働に連動＝FleetTimeline isKpiActive と同一判定（bt_vehicle_monthly_kpi 当月＋保険車除外＋既定active）
         const _kpiYM=repSum.curYM||"";const _kpiFlags={};(rankKpi||[]).forEach(k=>{if(k.year_month===_kpiYM)_kpiFlags[k.vehicle_code]=k.active;});
         const _vById={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vById[v.code]=v;});
         const isKpiActiveR=(code)=>{const _v=_vById[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kpiFlags[code]!==undefined?_kpiFlags[code]:(_v?_v.active!==false:false);};
         const clsAgg={};                                                  // クラス別：台数(配車表で稼働の車のみ)＋実現売上累計＋稼働率合計
-        (units||[]).forEach(u=>{const t=u.type||"?";if(CLS_ORDER.indexOf(t)<0||!isKpiActiveR(u.code))return;/* 送迎等の非レンタル・配車表で未稼働 は除外 */if(!clsAgg[t])clsAgg[t]={cnt:0,rev:0,util:0};clsAgg[t].cnt++;clsAgg[t].rev+=(realizedByCode[u.code]||0);clsAgg[t].util+=(utilByCode[u.code]||0);});
-        const clsRows=Object.keys(clsAgg).sort((a,b)=>{const ia=CLS_ORDER.indexOf(a),ib=CLS_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(b);}).map(t=>{const g=clsAgg[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/rkMonths):0;const tgt=(CLS_TGT[t]!=null?Number(CLS_TGT[t]):null);const df=(tgt!=null?pm-tgt:null);const util=g.cnt>0?Math.round(g.util/g.cnt):0;return {type:t,name:CLS_NAME[t]||t,cnt:g.cnt,rev:g.rev,pm:pm,tgt:tgt,df:df,util:util};});
+        (units||[]).forEach(u=>{const t=u.type||"?";if(CLS_ORDER.indexOf(t)<0||!isKpiActiveR(u.code))return;/* 送迎等の非レンタル・配車表で未稼働 は除外 */if(!clsAgg[t])clsAgg[t]={cnt:0,rev:0,util:0,bk:0};clsAgg[t].cnt++;clsAgg[t].rev+=(realizedByCode[u.code]||0);clsAgg[t].util+=(utilByCode[u.code]||0);clsAgg[t].bk+=(cntByCode[u.code]||0);});
+        const clsRows=Object.keys(clsAgg).sort((a,b)=>{const ia=CLS_ORDER.indexOf(a),ib=CLS_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(b);}).map(t=>{const g=clsAgg[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/rkMonths):0;const tgt=(CLS_TGT[t]!=null?Number(CLS_TGT[t]):null);const df=(tgt!=null?pm-tgt:null);const util=g.cnt>0?Math.round(g.util/g.cnt):0;return {type:t,name:CLS_NAME[t]||t,cnt:g.cnt,rev:g.rev,pm:pm,tgt:tgt,df:df,util:util,bk:g.bk};});
         const clsTgtTotal=clsRows.reduce((s,c)=>s+((c.tgt!=null?c.tgt:0)*c.cnt),0);   // ★当月目標＝Σ(クラス別台目標×稼働台数)
         const clsProg=clsTgtTotal>0?Math.round(curM.sales/clsTgtTotal*100):0;         // ★当月売上(返却)の進捗率
         const sec={marginBottom:14};
@@ -26015,8 +26015,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             {/* ★クラス別ランキング（実績・返却月≤当月）vs 目標13〜15万/台・月 */}
             <div style={sec}><div style={secHd}>■ クラス別ランキング（実績・台あたり月商 vs クラス別目標）</div><div style={secBd}>
               {clsRows.length?<table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"5px 6px"}}>クラス</td><td style={{padding:"5px 6px",textAlign:"right"}}>台数</td><td style={{padding:"5px 6px",textAlign:"right"}}>売上累計</td><td style={{padding:"5px 6px",textAlign:"right"}}>台/月平均売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>クラス別台目標売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>対目標</td><td style={{padding:"5px 6px",textAlign:"right"}}>実績</td></tr>
-                {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:700}}>{yen(c.rev)}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td></tr>)}
+                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"5px 6px"}}>クラス</td><td style={{padding:"5px 6px",textAlign:"right"}}>台数</td><td style={{padding:"5px 6px",textAlign:"right"}}>予約数（グロス）</td><td style={{padding:"5px 6px",textAlign:"right"}}>売上累計</td><td style={{padding:"5px 6px",textAlign:"right"}}>台/月平均売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>クラス別台目標売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>対目標</td><td style={{padding:"5px 6px",textAlign:"right"}}>実績</td></tr>
+                {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",color:"#334155",fontWeight:700}}>{c.bk||0}件</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:700}}>{yen(c.rev)}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td></tr>)}
               </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>実績のあるクラスなし</div>}
               <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※実績＝返却月が当月以前の売上（未来予約は含まない）。台/月平均売上＝売上累計÷台数÷経過{rkMonths}ヶ月。クラス別台目標売上は後日入力（一旦ブランク）→対目標＝台/月平均売上−目標を自動計算。実績＝稼働率（配車表ルール・未稼働車=0で平均）。台数は配車表の稼働/未稼働に連動。</div>
             </div></div>
