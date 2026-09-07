@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.424-BT";
+const APP_VERSION="v1.0.425-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25771,7 +25771,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const mm=repSum.curYM.slice(5)+"月";
     L.push("■ 件数・売上 累計（返却月ベース・実績）");
     L.push("・"+curYr+"累計（返却月）："+yrD.count+"件 / "+yen(yrD.sales));
-    L.push("・当月累計（"+mm+"・返却月）："+curM.count+"件 / "+yen(curM.sales));
+    L.push("・当月売上（"+mm+"・返却月）："+curM.count+"件 / "+yen(curM.sales));
     if(yogai>0)L.push("　└ うち予約外売上（会計）："+yen(yogai));
     {const _pm=repSum.byM[repSum.prevYM]||{count:0,sales:0};const _pf=repSum.prevFlow||{count:0,sales:0};
      const _cf=(()=>{const cfb=repSum.curFlowBrand||{};let c=0,s=0;Object.values(cfb).forEach(g=>{c+=g.count||0;s+=g.total||0;});return{count:c,sales:s};})();
@@ -25782,7 +25782,6 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
      L.push("・当月流通（"+mm+"・取扱高）："+_cf.count+"件 / "+yen(_cf.sales)+"（前月比 "+_sg(_cf.sales-_pf.sales,true)+" / "+_sg(_cf.count-_pf.count,false)+"）");
      L.push("・前月流通（"+_pmm+"・取込月）："+_pf.count+"件 / "+yen(_pf.sales));
      {const _CTt={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500};const _cyt=repSum.curYM||"";const _kft={};(rankKpi||[]).forEach(k=>{if(k.year_month===_cyt)_kft[k.vehicle_code]=k.active;});const _vbt={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vbt[v.code]=v;});const _kat=(code)=>{const _v=_vbt[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kft[code]!==undefined?_kft[code]:(_v?_v.active!==false:false);};let _tt=0;(units||[]).forEach(u=>{if(!_kat(u.code))return;if(_CTt[u.type]!=null)_tt+=_CTt[u.type];});const _pg=_tt>0?Math.round(curM.sales/_tt*100):0;L.push("・当月目標（クラス別×台数）："+yen(_tt)+"（進捗 "+_pg+"%・当月売上"+yen(curM.sales)+"）");}}
-    {const _cxl=(repSum.cxlByM&&repSum.cxlByM[repSum.curYM])||0;const _cxr=(curM.count+_cxl)>0?Math.round(_cxl/(curM.count+_cxl)*100):0;const _cxy=(repSum.cxlByY&&repSum.cxlByY[curYr])||0;L.push("・当月キャンセル（"+mm+"・返却月）："+_cxl+"件（率"+_cxr+"%）／"+curYr+"累計 "+_cxy+"件");}
     {const _ld2=(d)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
      const _cu=(ym)=>{const p=ym.split("-").map(Number),yy=p[0],mo2=p[1];const dim=new Date(yy,mo2,0).getDate();const ms=new Date(yy,mo2-1,1),me=new Date(yy,mo2-1,dim);const kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===ym)kf[k.vehicle_code]=(k.active!==false);});const act=(c)=>kf[c]!==undefined?kf[c]:((vehicles.find(v=>v.code===c)||{}).active!==false);let td=0,ac=0;vehicles.forEach(v=>{if(!act(v.code))return;ac++;const rd=new Set();(data||[]).forEach(r=>{if(fleet[r.id]!==v.code)return;const ld=new Date(norm(r.lendDate)+"T00:00:00"),re=new Date(norm(r.returnDate)+"T00:00:00");if(isNaN(ld)||isNaN(re))return;const s=ld>ms?ld:ms,e=re<me?re:me;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))rd.add(_ld2(d));});td+=rd.size;});const md=ac*dim;return md>0?Math.round(td/md*100):null;};
      const _am=(ym,n)=>{const p=ym.split("-").map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
@@ -25930,6 +25929,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const clsTgtTotal=clsRows.reduce((s,c)=>s+((c.tgt!=null?c.tgt:0)*c.cnt),0);   // ★当月目標＝Σ(クラス別台目標×稼働台数)
         const clsProg=clsTgtTotal>0?Math.round(curM.sales/clsTgtTotal*100):0;         // ★当月売上(返却)の進捗率
         const sec={marginBottom:14};
+        const cardS={flex:"1 1 0",minWidth:0,background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}; // ★均等幅カード
+        const cardL={fontSize:11,color:"#64748b",fontWeight:700};const cardSub={fontSize:12,fontWeight:700,color:"#475569"};
+        const rowS={display:"flex",gap:10,marginBottom:10};
         const secHd={fontSize:13,fontWeight:900,color:"#fff",background:"#0F1F45",padding:"7px 12px",borderRadius:"9px 9px 0 0"};
         const secBd={border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 9px 9px",padding:12,background:"#fff"};
         const chRow=(nm,c)=>{const pct=repSum.total>0?Math.round((c.sales||0)/repSum.total*100):0;return <tr key={nm} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>{nm}</td><td style={{padding:"5px 6px",textAlign:"right"}}>{c.count||0}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(c.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#7c3aed",fontWeight:800}}>{pct}%</td></tr>;};
@@ -25945,14 +25947,15 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             </div>
             {/* ① 件数・売上サマリー */}
             <div style={sec}><div style={secHd}>■ 件数・売上サマリー（累計=返却月／チャネル=流通）</div><div style={secBd}>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
-                <div style={{flex:"1 1 160px",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{curYr}年 累計</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{yrD.count}件</div></div>
-                <div style={{flex:"1 1 160px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月累計（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curM.count}件{yogai>0?<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>　うち予約外{yen(yogai)}</span>:null}</div><div style={{fontSize:10.5,fontWeight:700,marginTop:2,color:dSalesMoM>=0?"#059669":"#dc2626"}}>前月比 {fmtD(dSalesMoM,true)} / {fmtD(dCntMoM,false)}</div></div>
-                <div style={{flex:"1 1 160px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>前月売上（{prevMM}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevM.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{prevM.count}件</div></div>
-                <div style={{flex:"1 1 160px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>前月流通（{prevMM}・取込月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevFlow.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{prevFlow.count}件</div></div>
-                <div style={{flex:"1 1 160px",background:"#eef2ff",border:"1px solid #c7d2fe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月流通（{mm}・取扱高）</div><div style={{fontSize:20,fontWeight:900,color:"#3730a3"}}>{yen(curFlow.sales)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{curFlow.count}件</div><div style={{fontSize:10.5,fontWeight:700,marginTop:2,color:dFlowMoM>=0?"#059669":"#dc2626"}}>前月比 {fmtD(dFlowMoM,true)} / {fmtD(dFlowCntMoM,false)}</div></div>
-                <div style={{flex:"1 1 160px",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月目標（クラス別×台数）</div><div style={{fontSize:20,fontWeight:900,color:"#1e40af"}}>{yen(clsTgtTotal)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>進捗 <span style={{color:clsProg>=100?"#059669":clsProg>=70?"#d97706":"#dc2626",fontWeight:900}}>{clsProg}%</span>　<span style={{fontSize:10,color:"#94a3b8"}}>当月売上{yen(curM.sales)}</span></div></div>
-                <div style={{flex:"1 1 160px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月キャンセル（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#dc2626"}}>{cxlCur}件</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>ｷｬﾝｾﾙ率 {cxlRate}%　<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>{curYr}年 累計{cxlYr}件</span></div></div>
+              <div style={rowS}>
+                <div style={cardS}><div style={cardL}>当月目標（クラス別×台数）</div><div style={{fontSize:20,fontWeight:900,color:"#1e40af"}}>{yen(clsTgtTotal)}</div><div style={cardSub}>進捗 <span style={{color:clsProg>=100?"#059669":clsProg>=70?"#d97706":"#dc2626",fontWeight:900}}>{clsProg}%</span>　<span style={{fontSize:10,color:"#94a3b8"}}>当月売上{yen(curM.sales)}</span></div></div>
+                <div style={cardS}><div style={cardL}>当月売上（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#166534"}}>{yen(curM.sales)}</div><div style={cardSub}>{curM.count}件{yogai>0?<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>　うち予約外{yen(yogai)}</span>:null}</div><div style={{fontSize:10.5,fontWeight:700,marginTop:2,color:dSalesMoM>=0?"#059669":"#dc2626"}}>前月比 {fmtD(dSalesMoM,true)} / {fmtD(dCntMoM,false)}</div></div>
+                <div style={cardS}><div style={cardL}>前月売上（{prevMM}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevM.sales)}</div><div style={cardSub}>{prevM.count}件</div></div>
+              </div>
+              <div style={rowS}>
+                <div style={cardS}><div style={cardL}>当月流通（{mm}・取扱高）</div><div style={{fontSize:20,fontWeight:900,color:"#3730a3"}}>{yen(curFlow.sales)}</div><div style={cardSub}>{curFlow.count}件</div><div style={{fontSize:10.5,fontWeight:700,marginTop:2,color:dFlowMoM>=0?"#059669":"#dc2626"}}>前月比 {fmtD(dFlowMoM,true)} / {fmtD(dFlowCntMoM,false)}</div></div>
+                <div style={cardS}><div style={cardL}>前月流通（{prevMM}・取込月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevFlow.sales)}</div><div style={cardSub}>{prevFlow.count}件</div></div>
+                <div style={cardS}><div style={cardL}>年度累計（{curYr}年）</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={cardSub}>{yrD.count}件</div></div>
               </div>
               <div style={{margin:"6px 2px 4px",padding:"6px 12px",background:"linear-gradient(90deg,#0F1F45,#22345f)",color:"#fff",borderRadius:8,fontSize:14,fontWeight:900,letterSpacing:".03em"}}>📥 当月新規流通（取込月ベース・ブランド別）</div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
