@@ -16412,7 +16412,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
 
   const[isMobile,setIsMobile]=useState(window.innerWidth<=768);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<=768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
-  const COL_W=viewMode==="month"?(isMobile?60:80):viewMode==="week"?(isMobile?100:140):600;const LEFT_W=isMobile?140:260;const ROW_H=30;const CLASS_H=28;
+  const COL_W=viewMode==="month"?(isMobile?60:80):viewMode==="week"?(isMobile?100:140):600;const LEFT_W=isMobile?92:260;const ROW_H=30;const CLASS_H=28;
   const monthLabel=useMemo(()=>{const dt=new Date(baseDate+"T00:00:00");return`${dt.getFullYear()}年${dt.getMonth()+1}月`;},[baseDate]);
   const monthStats=useMemo(()=>{const dt=new Date(baseDate+"T00:00:00");const y=dt.getFullYear(),m=dt.getMonth();const mStart=`${y}-${String(m+1).padStart(2,"0")}-01`;const mEnd=`${y}-${String(m+1).padStart(2,"0")}-${new Date(y,m+1,0).getDate()}`;const active=data.filter(r=>r.status!=="cancelled");const dep=active.filter(r=>r.lendDate>=mStart&&r.lendDate<=mEnd).length;const ret=active.filter(r=>r.returnDate>=mStart&&r.returnDate<=mEnd).length;return{dep,ret};},[data,baseDate]);
 
@@ -16768,7 +16768,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       </div>}
     </div>:null;})()}
 
-    <div ref={scrollRef} style={{flex:1,overflow:"auto",position:"relative"}}>
+    <div ref={scrollRef} style={{flex:1,minWidth:0,overflow:"auto",position:"relative",WebkitOverflowScrolling:"touch",touchAction:"pan-x pan-y"}}>
       <table style={{borderCollapse:"collapse",minWidth:LEFT_W+dates.length*COL_W}}>
         <thead><tr style={{position:"sticky",top:0,zIndex:10}}>
           <th style={{position:"sticky",left:0,zIndex:11,width:LEFT_W,minWidth:LEFT_W,height:44,background:"#f1f5f9",borderBottom:"2px solid #94a3b8",borderRight:"2px solid #94a3b8",padding:"0 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#1e293b"}}>車両</th>
@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.404-BT";
+const APP_VERSION="v1.0.405-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
