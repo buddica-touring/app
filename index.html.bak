@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.425-BT";
+const APP_VERSION="v1.0.426-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25834,7 +25834,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("");
     // ランキング
     const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
-    L.push("■ クラス別ランキング（実績・台あたり月商 vs クラス別目標）");
+    L.push("■ クラス別実績");
     {const _cy=repSum.curYM||"";const _mo=Math.max(1,(vr&&vr.months)||1);
      const _rz={};(data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_cy&&rd>_cy))return;_rz[c]=(_rz[c]||0)+revOf(r);});
      const _uz={};const _cz={};(vr.rows||[]).forEach(r=>{if(r.code){_uz[r.code]=Number(r.utilPct)||0;_cz[r.code]=Number(r.cnt)||0;}});
@@ -26016,7 +26016,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
               </div></div>;
             })()}
             {/* ★クラス別ランキング（実績・返却月≤当月）vs 目標13〜15万/台・月 */}
-            <div style={sec}><div style={secHd}>■ クラス別ランキング（実績・台あたり月商 vs クラス別目標）</div><div style={secBd}>
+            <div style={sec}><div style={secHd}>■ クラス別実績</div><div style={secBd}>
               {clsRows.length?<table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:11}}><td style={{padding:"5px 6px"}}>クラス</td><td style={{padding:"5px 6px",textAlign:"right"}}>台数</td><td style={{padding:"5px 6px",textAlign:"right"}}>予約数（グロス）</td><td style={{padding:"5px 6px",textAlign:"right"}}>売上累計</td><td style={{padding:"5px 6px",textAlign:"right"}}>台/月平均売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>クラス別台目標売上</td><td style={{padding:"5px 6px",textAlign:"right"}}>対目標</td><td style={{padding:"5px 6px",textAlign:"right"}}>実績</td></tr>
                 {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",color:"#334155",fontWeight:700}}>{c.bk||0}件</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:700}}>{yen(c.rev)}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td></tr>)}
