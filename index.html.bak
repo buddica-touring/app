@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.411-BT";
+const APP_VERSION="v1.0.413-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25914,6 +25914,14 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
         const aAA=grpSum(aaU).ms,aOt=grpSum(otherU).ms,aTot=aAA+aOt;
         const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
         const vrows=(vr.rows||[]).filter(r=>(r.cnt||0)>0||(r.revTotal||0)>0);
+        // ★2026-09-07 車両の台あたり(月商=売上÷期間月数)＋目標平均13〜15万＋差分（オーナー要望）
+        const rkMonths=Math.max(1,vr.months||1);
+        const rkFleet=Math.max(1,(activeUnits&&activeUnits.length)||vrows.length||1);
+        const rkTotRev=vrows.reduce((s,r)=>s+(Number(r.revTotal)||0),0);
+        const TGT_LO=130000,TGT_HI=150000,TGT_MID=140000;                 // 目標平均 13〜15万/台・月（差分は中央値14万基準）
+        const perUnitAvg=Math.round(rkTotRev/rkMonths/rkFleet);           // 台あたり平均 月商
+        const perUnitDiff=perUnitAvg-TGT_MID;
+        const perUnitState=perUnitAvg>=TGT_HI?{t:"超過",c:"#059669"}:(perUnitAvg>=TGT_LO?{t:"範囲内",c:"#059669"}:{t:"未達",c:"#dc2626"});
         const sec={marginBottom:14};
         const secHd={fontSize:13,fontWeight:900,color:"#fff",background:"#0F1F45",padding:"7px 12px",borderRadius:"9px 9px 0 0"};
         const secBd={border:"1px solid #e2e8f0",borderTop:"none",borderRadius:"0 0 9px 9px",padding:12,background:"#fff"};
@@ -25936,6 +25944,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <div style={{flex:"1 1 160px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>本日の流通（新規取込）</div><div style={{fontSize:20,fontWeight:900,color:dc.dSales>0?"#166534":"#92400e"}}>{fmtD(dc.dSales,true)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>{fmtD(dc.dCount,false)}　<span style={{fontSize:10,color:"#94a3b8"}}>取込日ベース</span></div>
                   {(()=>{const nb=repSum.newBrk||{};const ks=Object.keys(nb).sort((a,b)=>(a==="HP"?-1:b==="HP"?1:a==="その他"?1:b==="その他"?-1:(nb[b].sales-nb[a].sales)));return ks.length?<div style={{fontSize:10.5,color:"#64748b",fontWeight:600,marginTop:4,lineHeight:1.6,borderTop:"1px dashed #fde68a",paddingTop:3}}>{ks.map(k=><div key={k}>└ {k}：{fmtD(nb[k].count,false)} / {fmtD(nb[k].sales,true)}</div>)}</div>:null;})()}</div>
                 <div style={{flex:"1 1 160px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月キャンセル（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#dc2626"}}>{cxlCur}件</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>ｷｬﾝｾﾙ率 {cxlRate}%　<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>{curYr}年 累計{cxlYr}件</span></div></div>
+                <div style={{flex:"1 1 160px",background:perUnitState.c==="#059669"?"#ecfdf5":"#fef2f2",border:"1px solid "+(perUnitState.c==="#059669"?"#a7f3d0":"#fecaca"),borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>台あたり平均（月商・稼働{rkFleet}台）</div><div style={{fontSize:20,fontWeight:900,color:perUnitState.c}}>{yen(perUnitAvg)}</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}><span style={{color:"#92400e"}}>目標13〜15万</span>　<span style={{color:perUnitState.c}}>{perUnitState.t} {perUnitDiff>=0?"+":"−"}{yen(Math.abs(perUnitDiff))}</span></div></div>
               </div>
               <div style={{margin:"6px 2px 4px",padding:"6px 12px",background:"linear-gradient(90deg,#0F1F45,#22345f)",color:"#fff",borderRadius:8,fontSize:14,fontWeight:900,letterSpacing:".03em",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span>📥 当月新規流通（取込月ベース・ブランド別）</span>{(()=>{const cfb=repSum.curFlowBrand||{};let c=0,s=0;Object.values(cfb).forEach(g=>{c+=g.count||0;s+=g.total||0;});return <span style={{fontSize:13,fontWeight:900}}>合算 {c}件 / {yen(s)}</span>;})()}</div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
@@ -26003,11 +26012,18 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
             </div></div>
             {/* ④ 車両ランキング */}
             <div style={sec}><div style={secHd}>■ 車両ランキング（累計・予約実績あり・稼働率=配車表ルール）</div><div style={secBd}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,padding:"7px 10px",marginBottom:8}}>
+                <span style={{fontSize:11,fontWeight:800,color:"#0F1F45"}}>🎯 台あたり平均</span>
+                <span style={{fontSize:16,fontWeight:900,color:"#0F1F45"}}>{yen(perUnitAvg)}<span style={{fontSize:10,fontWeight:700,color:"#94a3b8"}}> /台・月</span></span>
+                <span style={{fontSize:10,color:"#64748b"}}>（稼働{rkFleet}台・{rkMonths}ヶ月）</span>
+                <span style={{fontSize:11,fontWeight:700,color:"#92400e",background:"#fef9c3",border:"1px solid #fde68a",borderRadius:6,padding:"2px 8px"}}>目標平均 13〜15万</span>
+                <span style={{fontSize:12,fontWeight:900,color:perUnitState.c,background:perUnitState.c==="#059669"?"#ecfdf5":"#fef2f2",border:"1px solid "+(perUnitState.c==="#059669"?"#a7f3d0":"#fecaca"),borderRadius:6,padding:"2px 9px"}}>{perUnitState.t}　差分 {perUnitDiff>=0?"+":"−"}{yen(Math.abs(perUnitDiff))}</span>
+              </div>
               {vrows.length?<table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}><tbody>
-                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:10.5}}><td style={{padding:"4px 5px"}}>#</td><td style={{padding:"4px 5px"}}>車両</td><td style={{padding:"4px 5px",textAlign:"center"}}>評価</td><td style={{padding:"4px 5px",textAlign:"right"}}>売上</td><td style={{padding:"4px 5px",textAlign:"right"}}>粗利</td><td style={{padding:"4px 5px",textAlign:"right"}}>予約</td><td style={{padding:"4px 5px",textAlign:"right"}}>稼働</td></tr>
-                {vrows.map((r,i)=>{const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";return <tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 5px",color:"#94a3b8",fontWeight:800}}>{i+1}</td><td style={{padding:"5px 5px",fontWeight:800}}>{veh}<span style={{color:"#94a3b8",fontWeight:600}}> / {r.type||"-"}</span></td><td style={{padding:"5px 5px",textAlign:"center",fontWeight:900,color:"#7c3aed"}}>{r.rank||"-"}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{yen(Math.round(r.revTotal))}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800,color:r.profit<0?"#dc2626":"#059669"}}>{r.profit<0?"▲":"+"}{yen(Math.abs(Math.round(r.profit)))}</td><td style={{padding:"5px 5px",textAlign:"right"}}>{r.cnt||0}件</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{Math.round(r.utilPct)}%</td></tr>;})}
+                <tr style={{borderBottom:"2px solid #e2e8f0",color:"#64748b",fontSize:10.5}}><td style={{padding:"4px 5px"}}>#</td><td style={{padding:"4px 5px"}}>車両</td><td style={{padding:"4px 5px",textAlign:"center"}}>評価</td><td style={{padding:"4px 5px",textAlign:"right"}}>売上</td><td style={{padding:"4px 5px",textAlign:"right"}}>台/月</td><td style={{padding:"4px 5px",textAlign:"right"}}>対目標</td><td style={{padding:"4px 5px",textAlign:"right"}}>粗利</td><td style={{padding:"4px 5px",textAlign:"right"}}>予約</td><td style={{padding:"4px 5px",textAlign:"right"}}>稼働</td></tr>
+                {vrows.map((r,i)=>{const veh=((r.name||"").trim()+(r.plate?(" "+r.plate):"")).trim()||r.code||"-";return <tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 5px",color:"#94a3b8",fontWeight:800}}>{i+1}</td><td style={{padding:"5px 5px",fontWeight:800}}>{veh}<span style={{color:"#94a3b8",fontWeight:600}}> / {r.type||"-"}</span></td><td style={{padding:"5px 5px",textAlign:"center",fontWeight:900,color:"#7c3aed"}}>{r.rank||"-"}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{yen(Math.round(r.revTotal))}</td>{(()=>{const pu=Math.round((Number(r.revTotal)||0)/rkMonths);const df=pu-TGT_MID;return <React.Fragment><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800,color:pu>=TGT_LO?"#059669":"#dc2626"}}>{yen(pu)}</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:700,color:df>=0?"#059669":"#dc2626"}}>{df>=0?"+":"−"}{yen(Math.abs(df))}</td></React.Fragment>;})()}<td style={{padding:"5px 5px",textAlign:"right",fontWeight:800,color:r.profit<0?"#dc2626":"#059669"}}>{r.profit<0?"▲":"+"}{yen(Math.abs(Math.round(r.profit)))}</td><td style={{padding:"5px 5px",textAlign:"right"}}>{r.cnt||0}件</td><td style={{padding:"5px 5px",textAlign:"right",fontWeight:800}}>{Math.round(r.utilPct)}%</td></tr>;})}
               </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>予約実績のある車両なし</div>}
-              <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※累計・全期間。予約・売上なしの車両は非表示。</div>
+              <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※累計・全期間。予約・売上なしの車両は非表示。台/月＝売上÷期間{rkMonths}ヶ月（1台あたり月商）。対目標＝台/月−14万（目標平均13〜15万の中央値）。台あたり平均は稼働{rkFleet}台で割った全体平均。</div>
             </div></div>
           </div>
         </div>;
