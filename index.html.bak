@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.430-BT";
+const APP_VERSION="v1.0.431-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25804,6 +25804,23 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("① 車両選定は完了しており、順次登録待ちのフェーズに入ってます。");
     L.push("② 楽天／じゃらんは開設済み。販売車両準備中");
     L.push("");
+    // クラス別実績（当月対応の直下）
+    const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
+    L.push("■ クラス別実績");
+    {const _cy=repSum.curYM||"";const _mo=Math.max(1,(vr&&vr.months)||1);
+     const _rz={};(data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_cy&&rd>_cy))return;_rz[c]=(_rz[c]||0)+revOf(r);});
+     const _uz={};const _cz={};(vr.rows||[]).forEach(r=>{if(r.code){_uz[r.code]=Number(r.utilPct)||0;_cz[r.code]=Number(r.cnt)||0;}});
+     const _CN={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
+     const _CO=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];const _CT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; /* クラス別台目標(単価×15・AA/K未設定) */
+     const _kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===_cy)_kf[k.vehicle_code]=k.active;});const _vb={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vb[v.code]=v;});const _ka=(code)=>{const _v=_vb[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kf[code]!==undefined?_kf[code]:(_v?_v.active!==false:false);};
+     const _ag={};(units||[]).forEach(u=>{const t=u.type||"?";if(_CO.indexOf(t)<0||!_ka(u.code))return;if(!_ag[t])_ag[t]={cnt:0,rev:0,util:0,bk:0};_ag[t].cnt++;_ag[t].rev+=(_rz[u.code]||0);_ag[t].util+=(_uz[u.code]||0);_ag[t].bk+=(_cz[u.code]||0);});
+     const _rows=Object.keys(_ag).sort((a,b)=>{const ia=_CO.indexOf(a),ib=_CO.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+     if(_rows.length){_rows.forEach(t=>{const g=_ag[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/_mo):0;const tgt=(_CT[t]!=null?Number(_CT[t]):null);const df=(tgt!=null?pm-tgt:null);const ut=g.cnt>0?Math.round(g.util/g.cnt):0;
+        L.push(t+" "+(_CN[t]||t)+"（"+g.cnt+"台）");
+        L.push("　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%　｜補足(累計) 予約数(グロス) "+(g.bk||0)+"件・売上累計 "+yen(g.rev));
+     });L.push("　※実績=返却月≤当月（未来予約除く）÷台数÷経過"+_mo+"ヶ月・台数は配車表の稼働に連動・クラス別目標は後日入力(ブランク)");}
+     else L.push("・実績のあるクラスなし");}
+    L.push("");
     L.push("■ 当月新規流通（取込月ベース・ブランド別）");
     const _u=(o)=>o&&o.count?Math.round(o.sales/o.count):0;
     const _cfb=repSum.curFlowBrand||{};
@@ -25840,22 +25857,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     _ltL("HP(自社)",_LT.hp);_ltL("OTA",_LT.ota);_ltL("グロス(合算)",_LT.gross);
     L.push("　※直前率＝リードタイム3日以内の割合");
     L.push("");
-    // ランキング
-    const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
-    L.push("■ クラス別実績");
-    {const _cy=repSum.curYM||"";const _mo=Math.max(1,(vr&&vr.months)||1);
-     const _rz={};(data||[]).forEach(r=>{if(isTestResv(r)||isCancel(r.status))return;const c=(fleet||{})[r.id];if(!c)return;const rd=(norm(r.returnDate)||norm(r.lendDate)||"").slice(0,7);if(!rd||(_cy&&rd>_cy))return;_rz[c]=(_rz[c]||0)+revOf(r);});
-     const _uz={};const _cz={};(vr.rows||[]).forEach(r=>{if(r.code){_uz[r.code]=Number(r.utilPct)||0;_cz[r.code]=Number(r.cnt)||0;}});
-     const _CN={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
-     const _CO=["AA","A","B","B2","C","D","E","F","G","H","I","J","K","S"];const _CT={A:195000,B:195000,C:165000,D:127500,E:112500,F:97500,G:82500,H:82500,I:67500,J:67500}; /* クラス別台目標(単価×15・AA/K未設定) */
-     const _kf={};(rankKpi||[]).forEach(k=>{if(k.year_month===_cy)_kf[k.vehicle_code]=k.active;});const _vb={};(vehicles||[]).forEach(v=>{if(v&&v.code)_vb[v.code]=v;});const _ka=(code)=>{const _v=_vb[code];if(_v&&(_v.insuranceVeh||_v.insurance_veh))return false;return _kf[code]!==undefined?_kf[code]:(_v?_v.active!==false:false);};
-     const _ag={};(units||[]).forEach(u=>{const t=u.type||"?";if(_CO.indexOf(t)<0||!_ka(u.code))return;if(!_ag[t])_ag[t]={cnt:0,rev:0,util:0,bk:0};_ag[t].cnt++;_ag[t].rev+=(_rz[u.code]||0);_ag[t].util+=(_uz[u.code]||0);_ag[t].bk+=(_cz[u.code]||0);});
-     const _rows=Object.keys(_ag).sort((a,b)=>{const ia=_CO.indexOf(a),ib=_CO.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
-     if(_rows.length){_rows.forEach(t=>{const g=_ag[t];const pm=g.cnt>0?Math.round(g.rev/g.cnt/_mo):0;const tgt=(_CT[t]!=null?Number(_CT[t]):null);const df=(tgt!=null?pm-tgt:null);const ut=g.cnt>0?Math.round(g.util/g.cnt):0;
-        L.push(t+" "+(_CN[t]||t)+"（"+g.cnt+"台）");
-        L.push("　台/月平均売上 "+yen(pm)+"　クラス別台目標売上 "+(tgt!=null?yen(tgt):"—")+"　対目標 "+(df==null?"—":(df>=0?"+":"−")+yen(Math.abs(df)))+"　稼働 "+ut+"%　｜補足(累計) 予約数(グロス) "+(g.bk||0)+"件・売上累計 "+yen(g.rev));
-     });L.push("　※実績=返却月≤当月（未来予約除く）÷台数÷経過"+_mo+"ヶ月・台数は配車表の稼働に連動・クラス別目標は後日入力(ブランク)");}
-     else L.push("・実績のあるクラスなし");}
+    // （クラス別実績は当月対応の直下へ移動）
     L.push("━━━━━━━━━━");
     return L.join("\n");
   };
@@ -25970,13 +25972,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <div style={{fontSize:12,lineHeight:1.85,color:"#334155",fontWeight:600,marginBottom:6}}>① 運用車両を通常車両メインへのリバランスを月内目安で進める<br/>② 弊社にて大手OTAアカウントで「高松店」を開設し販売を下支えするフローの構築</div>
                 <div style={{fontSize:11,fontWeight:900,color:"#047857",marginBottom:2}}>進捗</div>
                 <div style={{fontSize:12,lineHeight:1.85,color:"#334155",fontWeight:600}}>① 車両選定は完了しており、順次登録待ちのフェーズに入ってます。<br/>② 楽天／じゃらんは開設済み。販売車両準備中</div></div>
-              <div style={{margin:"6px 2px 4px",padding:"6px 12px",background:"linear-gradient(90deg,#0F1F45,#22345f)",color:"#fff",borderRadius:8,fontSize:14,fontWeight:900,letterSpacing:".03em"}}>📥 当月新規流通（取込月ベース・ブランド別）</div>
-              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                {(()=>{const cfb=repSum.curFlowBrand||{};const order=[{k:"BUDDICA",l:"🟢 BUDDICA",bg:"#ecfdf5",bc:"#047857"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bg:"#eef2ff",bc:"#1e3a8a"}];const rows=[];let tc=0,ts=0;Object.values(cfb).forEach(g=>{tc+=g.count||0;ts+=g.total||0;});rows.push(<tr key="_flowtotal" style={{background:"#0F1F45",color:"#fff"}}><td style={{padding:"6px",fontWeight:900}}>💰 合算（新規流通・計）</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{tc}件</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{yen(ts)}</td><td style={{padding:"6px",textAlign:"right",fontSize:11.5}}>単価{yen(tc?Math.round(ts/tc):0)}</td></tr>);order.forEach(b=>{const g=cfb[b.k];if(!g||!(g.count||g.total))return;rows.push(<tr key={b.k+"_h"} style={{background:b.bg,borderTop:"2px solid "+b.bc}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:b.bc}}>{yen(g.total)}</td><td style={{padding:"5px 6px",textAlign:"right",color:b.bc,fontSize:11.5}}>単価{yen(g.count?Math.round(g.total/g.count):0)}</td></tr>);Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{const o=g.ch[cn];rows.push(<tr key={b.k+"_"+cn} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {cn}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>);});});return rows.length?rows:<tr><td colSpan={4} style={{padding:"8px 6px",color:"#94a3b8",fontSize:11.5}}>当月取込の予約はまだありません</td></tr>;})()}
-              </tbody></table>
-              <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
             </div></div>
-            {/* ★クラス別実績（当月対応の下へ移動） */}
+            {/* ★クラス別実績（当月対応の直下） */}
             <div style={sec}><div style={secHd}>■ クラス別実績</div><div style={secBd}>
               {clsRows.length?<table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 <tr style={{fontSize:9.5}}><td colSpan={6}></td><td colSpan={2} style={{textAlign:"center",background:"#eef2f7",border:"1px solid #cbd5e1",borderBottom:"none",fontWeight:800,color:"#64748b",padding:"3px 6px",borderRadius:"6px 6px 0 0"}}>補足データ（累計・グロス／当月実績ではない）</td></tr>
@@ -25984,6 +25981,13 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 {clsRows.map((c,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"6px 6px",fontWeight:800}}>{c.type}<span style={{color:"#94a3b8",fontWeight:600,fontSize:11}}> {c.name}</span></td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b"}}>{c.cnt}台</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:"#1e293b"}}>{yen(c.pm)}</td><td style={{padding:"6px 6px",textAlign:"right",color:c.tgt!=null?"#1e293b":"#cbd5e1",fontWeight:700}}>{c.tgt!=null?yen(c.tgt):"—"}</td><td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:c.df==null?"#cbd5e1":(c.df>=0?"#059669":"#dc2626")}}>{c.df==null?"—":(c.df>=0?"+":"−")+yen(Math.abs(c.df))}</td><td style={{padding:"6px 6px",textAlign:"right",color:"#475569"}}>稼働{c.util}%</td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b",fontWeight:600,background:"#f8fafc",borderLeft:"1px solid #e2e8f0"}}>{c.bk||0}件</td><td style={{padding:"6px 6px",textAlign:"right",color:"#64748b",fontWeight:600,background:"#f8fafc",borderRight:"1px solid #e2e8f0"}}>{yen(c.rev)}</td></tr>)}
               </tbody></table>:<div style={{color:"#94a3b8",fontSize:12,padding:8}}>実績のあるクラスなし</div>}
               <div style={{fontSize:9.5,color:"#94a3b8",marginTop:6}}>※台/月平均売上＝売上累計÷台数÷経過{rkMonths}ヶ月（当月実績ベースの月商）。対目標＝台/月平均売上−クラス別台目標売上。実績＝稼働率（配車表ルール・未稼働車=0で平均）。台数は配車表の稼働/未稼働に連動。<b>補足データ（予約数グロス・売上累計）は全期間累計＝当月実績ではありません。</b></div>
+            </div></div>
+            {/* ★当月新規流通（クラス別実績の下へ移動） */}
+            <div style={sec}><div style={secHd}>■ 当月新規流通（取込月ベース・ブランド別）</div><div style={secBd}>
+              <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
+                {(()=>{const cfb=repSum.curFlowBrand||{};const order=[{k:"BUDDICA",l:"🟢 BUDDICA",bg:"#ecfdf5",bc:"#047857"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bg:"#eef2ff",bc:"#1e3a8a"}];const rows=[];let tc=0,ts=0;Object.values(cfb).forEach(g=>{tc+=g.count||0;ts+=g.total||0;});rows.push(<tr key="_flowtotal" style={{background:"#0F1F45",color:"#fff"}}><td style={{padding:"6px",fontWeight:900}}>💰 合算（新規流通・計）</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{tc}件</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{yen(ts)}</td><td style={{padding:"6px",textAlign:"right",fontSize:11.5}}>単価{yen(tc?Math.round(ts/tc):0)}</td></tr>);order.forEach(b=>{const g=cfb[b.k];if(!g||!(g.count||g.total))return;rows.push(<tr key={b.k+"_h"} style={{background:b.bg,borderTop:"2px solid "+b.bc}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:b.bc}}>{yen(g.total)}</td><td style={{padding:"5px 6px",textAlign:"right",color:b.bc,fontSize:11.5}}>単価{yen(g.count?Math.round(g.total/g.count):0)}</td></tr>);Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{const o=g.ch[cn];rows.push(<tr key={b.k+"_"+cn} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {cn}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>);});});return rows.length?rows:<tr><td colSpan={4} style={{padding:"8px 6px",color:"#94a3b8",fontSize:11.5}}>当月取込の予約はまだありません</td></tr>;})()}
+              </tbody></table>
+              <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
             </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
             <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）<span style={{marginLeft:8,fontSize:11,fontWeight:900,background:"#0F1F45",color:"#fff",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>全期間累計</span><span style={{marginLeft:6,fontSize:11,fontWeight:800,background:"#e0e7ff",color:"#1e3a8a",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>高松全体＝HDM＋BUDDICA</span></div><div style={secBd}>
