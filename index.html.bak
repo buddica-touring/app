@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.428-BT";
+const APP_VERSION="v1.0.429-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25797,9 +25797,12 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
      L.push("　※翌月以降は先行予約分（着地は変動）／稼働率＝配車表と同じ値");}
     L.push("");
     L.push("■ 当月対応");
-    L.push("・運用車両を通常車両メインへのリバランスを月内目安で進めております。");
-    L.push("・車両選定は完了しており、順次登録待ちのフェーズに入ってます。");
-    L.push("・目処がついた車両から販売開始予定としております。");
+    L.push("【アクション】");
+    L.push("① 運用車両を通常車両メインへのリバランスを月内目安で進める");
+    L.push("② 弊社にて大手OTAアカウントで「高松店」を開設し販売を下支えするフローの構築");
+    L.push("【進捗】");
+    L.push("① 車両選定は完了しており、順次登録待ちのフェーズに入ってます。");
+    L.push("② 楽天／じゃらんは開設済み。販売車両準備中");
     L.push("");
     L.push("■ 当月新規流通（取込月ベース・ブランド別）");
     const _u=(o)=>o&&o.count?Math.round(o.sales/o.count):0;
@@ -25962,7 +25965,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 <div style={cardS}><div style={cardL}>前月流通（{prevMM}・取込月）</div><div style={{fontSize:20,fontWeight:900,color:"#334155"}}>{yen(prevFlow.sales)}</div><div style={cardSub}>{prevFlow.count}件</div></div>
                 <div style={cardS}><div style={cardL}>年度累計（{curYr}年）</div><div style={{fontSize:20,fontWeight:900,color:"#0F1F45"}}>{yen(yrD.sales)}</div><div style={cardSub}>{yrD.count}件</div></div>
               </div>
-              <div style={{margin:"2px 0 10px",padding:"9px 12px",background:"#fffdf5",border:"1px solid #fde68a",borderRadius:8}}><div style={{fontSize:12,fontWeight:900,color:"#92400e",marginBottom:3}}>📝 当月対応</div><div style={{fontSize:12,lineHeight:1.9,color:"#334155",fontWeight:600}}>運用車両を通常車両メインへのリバランスを月内目安で進めております。<br/>車両選定は完了しており、順次登録待ちのフェーズに入ってます。<br/>目処がついた車両から販売開始予定としております。</div></div>
+              <div style={{margin:"2px 0 10px",padding:"9px 12px",background:"#fffdf5",border:"1px solid #fde68a",borderRadius:8}}><div style={{fontSize:12,fontWeight:900,color:"#92400e",marginBottom:5}}>📝 当月対応</div>
+                <div style={{fontSize:11,fontWeight:900,color:"#1e40af",marginBottom:2}}>アクション</div>
+                <div style={{fontSize:12,lineHeight:1.85,color:"#334155",fontWeight:600,marginBottom:6}}>① 運用車両を通常車両メインへのリバランスを月内目安で進める<br/>② 弊社にて大手OTAアカウントで「高松店」を開設し販売を下支えするフローの構築</div>
+                <div style={{fontSize:11,fontWeight:900,color:"#047857",marginBottom:2}}>進捗</div>
+                <div style={{fontSize:12,lineHeight:1.85,color:"#334155",fontWeight:600}}>① 車両選定は完了しており、順次登録待ちのフェーズに入ってます。<br/>② 楽天／じゃらんは開設済み。販売車両準備中</div></div>
               <div style={{margin:"6px 2px 4px",padding:"6px 12px",background:"linear-gradient(90deg,#0F1F45,#22345f)",color:"#fff",borderRadius:8,fontSize:14,fontWeight:900,letterSpacing:".03em"}}>📥 当月新規流通（取込月ベース・ブランド別）</div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
                 {(()=>{const cfb=repSum.curFlowBrand||{};const order=[{k:"BUDDICA",l:"🟢 BUDDICA",bg:"#ecfdf5",bc:"#047857"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bg:"#eef2ff",bc:"#1e3a8a"}];const rows=[];let tc=0,ts=0;Object.values(cfb).forEach(g=>{tc+=g.count||0;ts+=g.total||0;});rows.push(<tr key="_flowtotal" style={{background:"#0F1F45",color:"#fff"}}><td style={{padding:"6px",fontWeight:900}}>💰 合算（新規流通・計）</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{tc}件</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{yen(ts)}</td><td style={{padding:"6px",textAlign:"right",fontSize:11.5}}>単価{yen(tc?Math.round(ts/tc):0)}</td></tr>);order.forEach(b=>{const g=cfb[b.k];if(!g||!(g.count||g.total))return;rows.push(<tr key={b.k+"_h"} style={{background:b.bg,borderTop:"2px solid "+b.bc}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:b.bc}}>{yen(g.total)}</td><td style={{padding:"5px 6px",textAlign:"right",color:b.bc,fontSize:11.5}}>単価{yen(g.count?Math.round(g.total/g.count):0)}</td></tr>);Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{const o=g.ch[cn];rows.push(<tr key={b.k+"_"+cn} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {cn}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>);});});return rows.length?rows:<tr><td colSpan={4} style={{padding:"8px 6px",color:"#94a3b8",fontSize:11.5}}>当月取込の予約はまだありません</td></tr>;})()}
