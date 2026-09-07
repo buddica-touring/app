@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.426-BT";
+const APP_VERSION="v1.0.427-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25803,6 +25803,12 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     [{k:"BUDDICA",l:"🟢 BUDDICA"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）"}].forEach(b=>{const g=_cfb[b.k];if(!g||!(g.count||g.total))return;L.push("・"+b.l+"："+g.count+"件 / "+yen(g.total)+"（単価"+yen(g.count?Math.round(g.total/g.count):0)+"）");Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{L.push("　└ "+cn+"："+g.ch[cn].count+"件 / "+yen(g.ch[cn].sales)+"（単価"+yen(_u(g.ch[cn]))+"）");});});
     L.push("　※チャネル別は取込月(流通)ベース・ブランド別。予約外売上は会計(返却月)＝累計に含む");
     L.push("");
+    // 当月対応
+    L.push("■ 当月対応");
+    L.push("・運用車両を通常車両メインへのリバランスを月内目安で進めております。");
+    L.push("・車両選定は完了しており、順次登録待ちのフェーズに入ってます。");
+    L.push("・目処がついた車両から販売開始予定としております。");
+    L.push("");
     // 月別
     L.push("■ 月別 推移");
     const mos=repSum.months;
@@ -25962,6 +25968,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                 {(()=>{const cfb=repSum.curFlowBrand||{};const order=[{k:"BUDDICA",l:"🟢 BUDDICA",bg:"#ecfdf5",bc:"#047857"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bg:"#eef2ff",bc:"#1e3a8a"}];const rows=[];let tc=0,ts=0;Object.values(cfb).forEach(g=>{tc+=g.count||0;ts+=g.total||0;});rows.push(<tr key="_flowtotal" style={{background:"#0F1F45",color:"#fff"}}><td style={{padding:"6px",fontWeight:900}}>💰 合算（新規流通・計）</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{tc}件</td><td style={{padding:"6px",textAlign:"right",fontWeight:900}}>{yen(ts)}</td><td style={{padding:"6px",textAlign:"right",fontSize:11.5}}>単価{yen(tc?Math.round(ts/tc):0)}</td></tr>);order.forEach(b=>{const g=cfb[b.k];if(!g||!(g.count||g.total))return;rows.push(<tr key={b.k+"_h"} style={{background:b.bg,borderTop:"2px solid "+b.bc}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:b.bc}}>{yen(g.total)}</td><td style={{padding:"5px 6px",textAlign:"right",color:b.bc,fontSize:11.5}}>単価{yen(g.count?Math.round(g.total/g.count):0)}</td></tr>);Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{const o=g.ch[cn];rows.push(<tr key={b.k+"_"+cn} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {cn}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>);});});return rows.length?rows:<tr><td colSpan={4} style={{padding:"8px 6px",color:"#94a3b8",fontSize:11.5}}>当月取込の予約はまだありません</td></tr>;})()}
               </tbody></table>
               <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
+            </div></div>
+            {/* ★当月対応（コメント） */}
+            <div style={sec}><div style={secHd}>■ 当月対応</div><div style={secBd}>
+              <div style={{fontSize:12.5,lineHeight:2,color:"#334155",fontWeight:600}}>運用車両を通常車両メインへのリバランスを月内目安で進めております。<br/>車両選定は完了しており、順次登録待ちのフェーズに入ってます。<br/>目処がついた車両から販売開始予定としております。</div>
             </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
             <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）<span style={{marginLeft:8,fontSize:11,fontWeight:900,background:"#0F1F45",color:"#fff",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>全期間累計</span><span style={{marginLeft:6,fontSize:11,fontWeight:800,background:"#e0e7ff",color:"#1e3a8a",borderRadius:6,padding:"2px 10px",verticalAlign:"middle"}}>高松全体＝HDM＋BUDDICA</span></div><div style={secBd}>
