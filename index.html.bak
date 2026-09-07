@@ -23610,7 +23610,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.406-BT";
+const APP_VERSION="v1.0.407-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25697,6 +25697,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const fl=fleet||{};const codes=new Set(units.map(u=>u.code));
     const CHof=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":"OTA");}; // OTA空=HP / SP=その他 / 他=OTA
     const labelOf=(r)=>{const o=String(r.ota||"").trim();return o===""?"HP":(o==="SP"?"その他":o);}; // 細分ラベル: 空=HP / SP=その他 / それ以外=OTA名(じゃらん/楽天/エアトリ/レンタカードットコム等)
+    // ★2026-09-07 ブランド別チャネル名：HDMの自社HP(公式)は ota='HANDYMAN'/'HP'/'オフィシャル'/空 で入る→「自社HP」に統一。OTAコードは正式名称へ。
+    const _flowCh=(r)=>{const o=String(r.ota||"").trim();if(o===""||o==="HP"||o==="HANDYMAN"||o==="オフィシャル")return "自社HP";if(o==="SP")return "その他";if(o==="direct")return "直予約";return ({J:"じゃらん",R:"楽天","楽天トラベル":"楽天",S:"スカイチケット",O:"エアトリ",A:"エアトリ",RC:"レンタカードットコム","レンタカー.com":"レンタカードットコム",G:"GOGO OUT",TBR:"たびらい"})[o]||o;};
     const curYM=(norm(date)||"").slice(0,7); // 当月＝レポート月（返却月ベース）
     // ★新規増(流通)用：選択日(当日)に"取込(created_at)"された予約＝返却日/利用月に関係なく今日新しく入った予約
     const curDay=norm(date)||"";
@@ -25704,6 +25706,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const byM={},byY={},byCh={},curCh={},curOta={};let total=0; // curOta=当月返却のOTA名別内訳(OTAグロスを細分化)
     let dNew={count:0,sales:0};const newBrk={}; // newBrk=本日の流通(新規取込)のチャネル/OTA名別内訳
     const curFlowCh={},curFlowOta={};let curFlowTotal=0; // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別内訳＝チャネル別を流通ベースで揃える
+    const curFlowBrand={}; // ★2026-09-07 ブランド別(HDM/BUDDICA)×チャネル名別＝高松2ブランドの内訳を分けて表示
     const ltHp=[],ltOta=[]; // ★リードタイム(発生→利用開始の日数)＝当月発生・HP(自社=非OTA)/OTA別。最後にグロス(合算)。CPAカードと同じsource基準。負値/一括取込除外
     const cxlByM={},cxlByY={}; // ★キャンセル件数（返却月/年基準・既存キャンセル率推移ウィジェットと同定義）
     // ★取込日(created_at)をJST(+9h)の日付に変換して当日判定（created_atはUTC保存＝生sliceだと日境界で±9hズレる）
@@ -25719,7 +25722,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       const _cj=_createdJst(r); // 取込日(JST)
       if(_cj===curDay){const _lb=labelOf(r),_rv=revOf(r);dNew.count++;dNew.sales+=_rv;if(!newBrk[_lb])newBrk[_lb]={count:0,sales:0};newBrk[_lb].count++;newBrk[_lb].sales+=_rv;}
       // ★当月流通(取込月=created_atが当月)のチャネル/OTA名別（配車前でもカウント）
-      if(_cj.slice(0,7)===curYM){const _lb2=labelOf(r),_ch2=CHof(r),_rv2=revOf(r);if(!curFlowCh[_ch2])curFlowCh[_ch2]={count:0,sales:0};curFlowCh[_ch2].count++;curFlowCh[_ch2].sales+=_rv2;curFlowTotal+=_rv2;if(_ch2==="OTA"){if(!curFlowOta[_lb2])curFlowOta[_lb2]={count:0,sales:0};curFlowOta[_lb2].count++;curFlowOta[_lb2].sales+=_rv2;}}
+      if(_cj.slice(0,7)===curYM){const _lb2=labelOf(r),_ch2=CHof(r),_rv2=revOf(r);if(!curFlowCh[_ch2])curFlowCh[_ch2]={count:0,sales:0};curFlowCh[_ch2].count++;curFlowCh[_ch2].sales+=_rv2;curFlowTotal+=_rv2;if(_ch2==="OTA"){if(!curFlowOta[_lb2])curFlowOta[_lb2]={count:0,sales:0};curFlowOta[_lb2].count++;curFlowOta[_lb2].sales+=_rv2;}
+        // ★ブランド別×チャネル名別（HDM=じゃらん/HP/楽天/skyticket等・BUDDICA=自社HP/たびらい/エアトリ/RC等）
+        const _br=resBrand(r)||"BUDDICA",_cn=_flowCh(r);if(!curFlowBrand[_br])curFlowBrand[_br]={total:0,count:0,ch:{}};const _cfb=curFlowBrand[_br];if(!_cfb.ch[_cn])_cfb.ch[_cn]={count:0,sales:0};_cfb.ch[_cn].count++;_cfb.ch[_cn].sales+=_rv2;_cfb.total+=_rv2;_cfb.count++;}
       const code=fl[r.id];if(!code||!codes.has(code))return;
       const rd=norm(r.returnDate)||norm(r.lendDate);if(!rd)return;
       const rev=revOf(r),ym=rd.slice(0,7),y=rd.slice(0,4),ch=CHof(r);
@@ -25741,7 +25746,7 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const _near=(a)=>a.length?Math.round(a.filter(x=>x<=3).length/a.length*100):0;
     const ltGross=ltHp.concat(ltOta);
     const lead={hp:{n:ltHp.length,med:_med(ltHp),avg:_avg(ltHp),near:_near(ltHp)},ota:{n:ltOta.length,med:_med(ltOta),avg:_avg(ltOta),near:_near(ltOta)},gross:{n:ltGross.length,med:_med(ltGross),avg:_avg(ltGross),near:_near(ltGross)}};
-    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
+    return {months:Object.keys(byM).sort(),byM,years:Object.keys(byY).sort(),byY,byCh,total,curYM,curCh,curOta,newBrk,curFlowCh,curFlowOta,curFlowBrand,curFlowTotal,dayCmp,lead,cxlByM,cxlByY};
   },[data,fleet,units,extraSales,date]);
   // ★ テキスト日報を生成（等幅前提・列を桁揃え）＝Slack/メールに貼れるプレーンテキスト
   const buildDailyText=()=>{
@@ -25795,16 +25800,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const _nbKeys=Object.keys(_nb).sort((a,b)=>(a==="HP"?-1:b==="HP"?1:a==="その他"?1:b==="その他"?-1:(_nb[b].sales-_nb[a].sales)));
     _nbKeys.forEach(k=>{L.push("　└ "+k+"："+fmtD(_nb[k].count,false)+" / "+fmtD(_nb[k].sales,true));});
     L.push("");
-    L.push("■ チャネル別（当月・流通/取込月ベース）");
-    const _fCh=repSum.curFlowCh||{};const _u=(o)=>o&&o.count?Math.round(o.sales/o.count):0;
-    const _fHp=_fCh.HP||{count:0,sales:0},_fOta=_fCh.OTA||{count:0,sales:0},_fOth=_fCh["その他"]||{count:0,sales:0};
-    L.push("・HP："+_fHp.count+"件 / "+yen(_fHp.sales)+"（単価"+yen(_u(_fHp))+"）");
-    // OTAはグロスでなくOTA名別に細分化（売上降順）＋合計を併記
-    L.push("・OTA（計）："+_fOta.count+"件 / "+yen(_fOta.sales)+"（単価"+yen(_u(_fOta))+"）");
-    const _fco=repSum.curFlowOta||{};
-    Object.keys(_fco).sort((a,b)=>_fco[b].sales-_fco[a].sales).forEach(on=>{L.push("　└ "+on+"："+_fco[on].count+"件 / "+yen(_fco[on].sales)+"（単価"+yen(_u(_fco[on]))+"）");});
-    if(_fOth.count||_fOth.sales)L.push("・その他："+_fOth.count+"件 / "+yen(_fOth.sales)+(_fOth.count?"（単価"+yen(_u(_fOth))+"）":""));
-    L.push("　※チャネル別は取込月(流通)ベース。予約外売上は会計(返却月)＝累計に含む");
+    L.push("■ チャネル別（当月・流通/取込月ベース・ブランド別）");
+    const _u=(o)=>o&&o.count?Math.round(o.sales/o.count):0;
+    const _cfb=repSum.curFlowBrand||{};
+    [{k:"HDM",l:"🔵 HDM（HANDYMAN高松）"},{k:"BUDDICA",l:"🟢 BUDDICA"}].forEach(b=>{const g=_cfb[b.k];if(!g||!(g.count||g.total))return;L.push("・"+b.l+"："+g.count+"件 / "+yen(g.total)+"（単価"+yen(g.count?Math.round(g.total/g.count):0)+"）");Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{L.push("　└ "+cn+"："+g.ch[cn].count+"件 / "+yen(g.ch[cn].sales)+"（単価"+yen(_u(g.ch[cn]))+"）");});});
+    L.push("　※チャネル別は取込月(流通)ベース・ブランド別。予約外売上は会計(返却月)＝累計に含む");
     L.push("");
     // 月別
     L.push("■ 月別 推移");
@@ -25935,14 +25935,11 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
                   {(()=>{const nb=repSum.newBrk||{};const ks=Object.keys(nb).sort((a,b)=>(a==="HP"?-1:b==="HP"?1:a==="その他"?1:b==="その他"?-1:(nb[b].sales-nb[a].sales)));return ks.length?<div style={{fontSize:10.5,color:"#64748b",fontWeight:600,marginTop:4,lineHeight:1.6,borderTop:"1px dashed #fde68a",paddingTop:3}}>{ks.map(k=><div key={k}>└ {k}：{fmtD(nb[k].count,false)} / {fmtD(nb[k].sales,true)}</div>)}</div>:null;})()}</div>
                 <div style={{flex:"1 1 160px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:11,color:"#64748b",fontWeight:700}}>当月キャンセル（{mm}・返却月）</div><div style={{fontSize:20,fontWeight:900,color:"#dc2626"}}>{cxlCur}件</div><div style={{fontSize:12,fontWeight:700,color:"#475569"}}>ｷｬﾝｾﾙ率 {cxlRate}%　<span style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>{curYr}年 累計{cxlYr}件</span></div></div>
               </div>
-              <div style={{fontSize:11,color:"#64748b",fontWeight:700,margin:"2px 2px 4px"}}>チャネル別（当月・流通/取込月ベース）</div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:700,margin:"2px 2px 4px"}}>チャネル別（当月・流通/取込月ベース・ブランド別）</div>
               <table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><tbody>
-                <tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>🌐 HP（自社）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{fHp.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(fHp.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(fHp))}</td></tr>
-                <tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>🏢 OTA（計）</td><td style={{padding:"5px 6px",textAlign:"right"}}>{fOta.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(fOta.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(fOta))}</td></tr>
-                {Object.keys(repSum.curFlowOta||{}).sort((a,b)=>repSum.curFlowOta[b].sales-repSum.curFlowOta[a].sales).map(on=>{const o=repSum.curFlowOta[on];return <tr key={on} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {on}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>;})}
-                {(fOth.count||fOth.sales)?<tr style={{borderBottom:"1px solid #f1f5f9"}}><td style={{padding:"5px 6px",fontWeight:800}}>▫️ その他</td><td style={{padding:"5px 6px",textAlign:"right"}}>{fOth.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800}}>{yen(fOth.sales)}</td><td style={{padding:"5px 6px",textAlign:"right",color:"#64748b"}}>単価{yen(uOf(fOth))}</td></tr>:null}
+                {(()=>{const cfb=repSum.curFlowBrand||{};const order=[{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",bg:"#eef2ff",bc:"#1e3a8a"},{k:"BUDDICA",l:"🟢 BUDDICA",bg:"#ecfdf5",bc:"#047857"}];const rows=[];order.forEach(b=>{const g=cfb[b.k];if(!g||!(g.count||g.total))return;rows.push(<tr key={b.k+"_h"} style={{background:b.bg,borderTop:"2px solid "+b.bc}}><td style={{padding:"5px 6px",fontWeight:900,color:b.bc}}>{b.l}</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:800,color:b.bc}}>{g.count}件</td><td style={{padding:"5px 6px",textAlign:"right",fontWeight:900,color:b.bc}}>{yen(g.total)}</td><td style={{padding:"5px 6px",textAlign:"right",color:b.bc,fontSize:11.5}}>単価{yen(g.count?Math.round(g.total/g.count):0)}</td></tr>);Object.keys(g.ch).sort((x,y)=>g.ch[y].sales-g.ch[x].sales).forEach(cn=>{const o=g.ch[cn];rows.push(<tr key={b.k+"_"+cn} style={{borderBottom:"1px solid #f8fafc",background:"#fcfdff"}}><td style={{padding:"3px 6px 3px 22px",color:"#475569",fontSize:11.5}}>└ {cn}</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{o.count}件</td><td style={{padding:"3px 6px",textAlign:"right",fontSize:11.5,color:"#475569"}}>{yen(o.sales)}</td><td style={{padding:"3px 6px",textAlign:"right",color:"#94a3b8",fontSize:11.5}}>単価{yen(o.count?Math.round(o.sales/o.count):0)}</td></tr>);});});return rows.length?rows:<tr><td colSpan={4} style={{padding:"8px 6px",color:"#94a3b8",fontSize:11.5}}>当月取込の予約はまだありません</td></tr>;})()}
               </tbody></table>
-              <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース。予約外売上（会計・返却月）は当月累計に含む。</div>
+              <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>※チャネル別は取込月(流通)ベース・ブランド別（🔵HDM＝じゃらん/自社HP/楽天/skyticket等 ／ 🟢BUDDICA＝自社HP/たびらい/エアトリ/RC等）。予約外売上（会計・返却月）は当月累計に含む。</div>
             </div></div>
             {/* ② チャネル別構成（CVチャネル構成比・グロス） */}
             <div style={sec}><div style={secHd}>■ チャネル別構成（CV構成比・グロス）</div><div style={secBd}>
