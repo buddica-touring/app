@@ -915,8 +915,10 @@ async function boot(){
     var _wrap=document.querySelector('.wrap');if(_wrap){var _db=document.createElement('div');_db.style.cssText='background:#fef3c7;border:1.5px solid #f59e0b;color:#92400e;border-radius:10px;padding:9px 12px;font-weight:800;font-size:12.5px;text-align:center;margin-bottom:10px';_db.textContent='🧪 デモ表示（サンプルデータ）— '+DL.n+' のご利用ガイド全体プレビュー';_wrap.insertBefore(_db,_wrap.firstChild);}
   }else{
     if(!TOKEN){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">URLが正しくありません（予約トークンがありません）</div>';return;}
+    // 通信瞬断で1回失敗しても空っぽ表示にしない：最大3回リトライ（スマホの電波切れ対策）
     d=await rpc('bt_mypage_lookup',{p_token:TOKEN});
-    if(!d){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;">ご予約が見つかりませんでした。<br>スタッフにお問い合わせください。</div>';return;}
+    for(var _rt=0;_rt<2&&!d;_rt++){ await new Promise(function(r){setTimeout(r,900);}); d=await rpc('bt_mypage_lookup',{p_token:TOKEN}); }
+    if(!d){document.querySelector('.wrap').innerHTML='<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#b3411a;font-weight:800;line-height:1.9">読み込みに失敗しました。<br><span style="font-size:13px;color:#64748b;font-weight:600">電波の良い場所で下のボタンを押してください</span><br><button onclick="location.reload()" style="margin-top:14px;padding:12px 22px;border:0;border-radius:10px;background:#ee6a1c;color:#fff;font-weight:800;font-size:15px;cursor:pointer">🔄 再読み込み</button></div>';return;}
     // ★ キャンセル済み予約はご利用ガイドを閉じる（傷チェック・サイン・免許UP等を使わせない）
     var _cst=String(d.status||'').toLowerCase();
     if(_cst==='cancelled'||_cst==='cancel'||_cst==='canceled'||String(d.status||'').indexOf('キャンセル')>=0){
