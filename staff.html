@@ -74,8 +74,28 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.7-bt";
+var VER="staff-v1.8-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
+// ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
+var SUE=(function(){
+  var STORE="bt";
+  var MSB="https://ckrxttbnawkclshczsia.supabase.co";
+  var MANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8";
+  var SID=(function(){try{var v=sessionStorage.getItem("sue_sid");if(!v){v=Date.now().toString(36)+Math.random().toString(36).slice(2,8);sessionStorage.setItem("sue_sid",v);}return v;}catch(e){return "s"+Date.now();}})();
+  var DEV=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||"")?"mobile":"pc";
+  var NAME="",t0=Date.now(),pvSent=false,futSent={};
+  function ev(kind,target,vdate,dwell){try{fetch(MSB+"/rest/v1/staff_url_events",{method:"POST",keepalive:true,headers:{"apikey":MANON,"Authorization":"Bearer "+MANON,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({store:STORE,staff_token:TOKEN||null,staff_name:NAME||null,session_id:SID,kind:kind,target:target||null,viewed_date:vdate||null,dwell_ms:dwell||null,device:DEV,ua:(navigator.userAgent||"").slice(0,180)})}).catch(function(){});}catch(e){}}
+  return {
+    ready:function(name){NAME=String(name||"").replace(/\s*さん\s*$/,"").trim();if(!pvSent){pvSent=true;ev("pv");}},
+    click:function(label){ev("click",String(label||"").slice(0,40));},
+    future:function(vdate){if(vdate&&!futSent[vdate]){futSent[vdate]=1;ev("date_view",null,vdate);}},
+    exit:function(){ev("exit",null,null,Date.now()-t0);}
+  };
+})();
+document.addEventListener("click",function(e){try{var el=e.target.closest&&e.target.closest("button,a,[onclick]");if(!el)return;var lb=(el.getAttribute("data-sue")||el.getAttribute("aria-label")||(el.textContent||"").replace(/\s+/g," ").trim()||el.className||"").slice(0,40);if(lb)SUE.click(lb);}catch(x){}},true);
+window.addEventListener("scroll",function(){try{if(typeof STAB!=="undefined"&&STAB!=="today"&&STAB!=="future")return;if((window.innerHeight+window.scrollY)<(document.body.offsetHeight-120))return;var tk=(typeof LASTD!=="undefined"&&LASTD&&LASTD.tasks)||[];var td=jstToday();var mx="";for(var i=0;i<tk.length;i++){if(tk[i].date>td&&tk[i].date>mx)mx=tk[i].date;}if(mx)SUE.future(mx);}catch(x){}},{passive:true});
+window.addEventListener("pagehide",function(){SUE.exit();});
+document.addEventListener("visibilitychange",function(){if(document.hidden)SUE.exit();});
 var app=document.getElementById("app");
 
 function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
@@ -304,6 +324,7 @@ function load(){
   .then(function(r){return r.json();})
   .then(function(d){clearTimeout(to);
     if(!d||d.ok===false){showErr(d&&d.error==="invalid_token"?"このURLは無効です（担当者へ連絡してください）":"読み込みに失敗しました");return;}
+    try{SUE.ready(d.staff);}catch(e){}
     render(d);})
   .catch(function(e){clearTimeout(to);showErr("通信エラー。電波を確認して再読み込みしてください");});
 }
