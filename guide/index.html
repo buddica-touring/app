@@ -699,6 +699,8 @@ function applyLock(cardId,n,srec,sigimg){
 var BT_URL="https://ggqugvyskyiblxiycpci.supabase.co";
 var BT_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var TOKEN=new URLSearchParams(location.search).get('t');
+// トークンに ** やスペース等のゴミが混入しても正しいUUIDだけ抽出（Slack太字**やコピペ崩れ対策）
+if(TOKEN){var _mm=TOKEN.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);TOKEN=_mm?_mm[0]:TOKEN.replace(/[^0-9a-fA-F-]/g,'');}
 var RO=new URLSearchParams(location.search).get('ro')==='1';
 var STAFF=new URLSearchParams(location.search).get('staff')==='1';
 if(STAFF){document.addEventListener('DOMContentLoaded',function(){var b=document.createElement('div');b.style.cssText='position:sticky;top:0;z-index:9999;background:#b45309;color:#fff;font-weight:800;font-size:12px;padding:8px 10px;display:flex;align-items:center;gap:8px;justify-content:space-between';var back=document.createElement('button');back.type='button';back.textContent='← APPに戻る';back.style.cssText='flex-shrink:0;background:#fff;color:#b45309;border:none;border-radius:8px;font-weight:800;font-size:12px;padding:6px 10px;cursor:pointer';back.onclick=function(){try{if(window.opener&&!window.opener.closed){window.close();return;}}catch(e){}location.href='https://buddica-touring.github.io/app/';};var tx=document.createElement('span');tx.style.cssText='flex:1;text-align:center';tx.textContent='🧑‍🔧 スタッフ代理モード：免許証の撮影登録・約款へのご署名 を取得できます';b.appendChild(back);b.appendChild(tx);document.body.insertBefore(b,document.body.firstChild);});}
