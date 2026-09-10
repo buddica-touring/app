@@ -16958,12 +16958,14 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const[seatEdit,setSeatEdit]=useState({b:5,c:5,j:3});
   useEffect(()=>{if(!sb)return;sb.from("bt_app_settings").select("value").eq("key",SEAT_STOCK_KEY).single().then(({data})=>{if(!data||data.value==null)return;try{const raw=data.value;const v=typeof raw==="string"?JSON.parse(raw):raw;if(v&&typeof v==="object"&&("b" in v||"c" in v||"j" in v)){setSeatStock(v);setSeatEdit(v);}}catch(e){console.error("[seatStock load]",e);}});},[]);
   const saveSeatStock=async(s)=>{setSeatStock(s);setShowSeatCfg(false);if(sb)await sb.from("bt_app_settings").upsert({key:SEAT_STOCK_KEY,value:JSON.stringify(s)},{onConflict:"key"});};
-  // 選択日のシート需要
-  // 「今日シートが必要」= 今日アクティブ + 翌日出発準備（洗車で積み込む分）
-  // ★2026-08-13 返却日もシートを占有（>=）＝返却当日も在庫にカウント[オーナー承認]。EF seat-overflow-alert と一致
+  // 選択日のシート需要（＝その日に物理的に出ているシート数）
+  // ★2026-09-11 [現場要望] 洗車＝翌日出発準備の積込分(旧: lendDate<=tomorrow)を除外。
+  //   「当日足りるか一目で分かる」ため、当日実際に出ているシートだけを集計。
+  //   = 非キャンセルで lendDate<=selDate かつ returnDate>=selDate（当日貸出開始＋継続貸出中・返却当日も占有）。
+  //   継続貸出中(前日以前開始で今日も貸出中)のシートは物理的に出払っているので含める＝総在庫との比較を正しくする。
+  //   ※翌日出発分は当日の在庫判定に含めない（翌日タブで判定）。EF seat-overflow-alert と一致。
   const seatDemand=useMemo(()=>{
-    const tomorrow=dOff(selDate,1);
-    const act=reservations.filter(r=>r.status!=="cancelled"&&norm(r.lendDate)<=tomorrow&&(norm(r.returnDate)>=selDate||norm(r.lendDate)>=selDate));
+    const act=reservations.filter(r=>r.status!=="cancelled"&&norm(r.lendDate)<=selDate&&norm(r.returnDate)>=selDate);
     return{b:act.reduce((s,r)=>s+(+(r.optB||0)),0),c:act.reduce((s,r)=>s+(+(r.optC||0)),0),j:act.reduce((s,r)=>s+(+(r.optJ||0)),0)};
   },[reservations,selDate]);
   // ★ 編集ログ取得
@@ -23610,7 +23612,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.434-BT";
+const APP_VERSION="v1.0.435-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
