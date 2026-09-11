@@ -516,8 +516,9 @@ sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
     else rows.push(nw); }
   else if(eventType==="DELETE"){ rows=rows.filter(r=>r.id!==old.id); }
   rows.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  // 入力中セルは維持（フォーカス中は全再描画しない）
-  if(!document.activeElement||!document.activeElement.classList||!document.activeElement.classList.contains("cell")){render();}
+  // 入力中セルは維持（フォーカス中は全再描画しない）＝メモ/予定日(data-df)も保護し、他人の更新で入力中テキストを消さない
+  const _ae=document.activeElement, _ed=_ae&&_ae.classList&&(_ae.classList.contains("cell")||_ae.hasAttribute("data-df"));
+  if(!_ed){render();}
   else{renderDash();}
 }).subscribe(s=>{ if(s==="SUBSCRIBED")setStatus("リアルタイム接続"); });
 load();
