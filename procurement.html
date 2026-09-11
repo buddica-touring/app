@@ -68,7 +68,20 @@
   a.lnk{color:#2563eb;font-weight:700;text-decoration:none;font-size:12px}
   .refetch{cursor:pointer;font-size:13px;margin-left:2px;opacity:.7}
   .refetch:hover{opacity:1}
-  .mtoggle{display:none}
+  .mtoggle{display:inline-block;cursor:pointer;color:#94a3b8;font-size:13px;margin-left:6px;flex-shrink:0;transition:transform .15s}
+  tr.open .mtoggle{transform:rotate(180deg)}
+  tr.detailrow{display:none}
+  tr.grpRow.open + tr.detailrow{display:table-row}
+  tr.detailrow>td{padding:0;background:#f8fafc;border-left:3px solid var(--cc);border-right:3px solid var(--cc);border-bottom:3px solid var(--cc)}
+  .pdetail{display:flex;flex-wrap:wrap;gap:10px 18px;padding:11px 16px 13px;align-items:flex-end}
+  .pdetail .ptitle{width:100%;font-size:11px;font-weight:900;color:#0f172a;margin-bottom:1px}
+  .pdetail .fld{display:flex;flex-direction:column;gap:3px}
+  .pdetail .fld label{font-size:11px;font-weight:800;color:#475569}
+  .pdetail .fld input[type=date]{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff}
+  .pdetail .memo{flex:1 1 220px;min-width:180px}
+  .pdetail .memo textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;line-height:1.6;resize:vertical;min-height:40px;background:#fff}
+  .opd{font-size:12px;font-weight:800;color:#0f766e}
+  .opd.z{color:#cbd5e1;font-weight:600}
   .del{color:#cbd5e1;cursor:pointer;font-size:15px}
   .del:hover{color:#dc2626}
   .num{width:58px;text-align:right}
@@ -122,6 +135,13 @@
     tr:not(.open) td:not(.keep):not(.noNo){display:none}
     tr:not(.open){padding-bottom:10px}
     td[data-lb="車両URL"]{padding-top:2px}
+    tr.grpRow.open + tr.detailrow{display:block}
+    tr.detailrow{border:1px solid #e2e8f0;border-top:none;margin:-10px 8px 8px;border-radius:0 0 12px 12px;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+    tr.detailrow>td{border:none;padding:0;display:block}
+    tr.detailrow>td:before{content:""}
+    .pdetail{padding:10px 12px}
+    .pdetail .fld,.pdetail .memo{width:100%}
+    .pdetail .fld input[type=date]{width:100%;box-sizing:border-box}
   }
 
 tr.clsgrp td{background:#eef2f7;font-weight:800;color:#0f172a;padding:6px 10px;border-top:3px solid var(--cc);font-size:12px}
@@ -171,7 +191,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
       <thead><tr>
         <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
         <th style="width:82px">カラー</th><th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
-        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:78px">保険</th><th style="width:82px">URL</th><th style="width:30px"></th>
+        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:78px">保険</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -201,6 +221,7 @@ let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRo
 // pending＝保存中の "id:field"。他ユーザーのリアルタイム更新がこのフィールドを勝手に戻さないよう守る（データ整合）
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtMd=s=>{const m=String(s||"").match(/(\d{4})-(\d{2})-(\d{2})/);return m?(+m[2])+"/"+(+m[3]):"";};
 function copyText(t){ t=String(t||""); if(!t){setStatus("コピーする値がありません");return;}
   const done=()=>setStatus("📋 コピーしました: "+t.slice(0,28));
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done));}
@@ -302,7 +323,7 @@ function render(){
   const gkey=r=>isOut(r)?"__OUT__":(r.vclass||"");
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="17"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="17"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="詳細を開閉">▼</span></td>
@@ -318,13 +339,22 @@ function render(){
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="名義"><select class="st ${MEIGICLS[r.pickup]||"meU"}" data-f="pickup">${meigiOpt(r.pickup)}</select></td>
       <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
+      <td data-lb="稼働開始"><span class="opd${r.op_start_date?"":" z"}">${r.op_start_date?fmtMd(r.op_start_date):"—"}</span></td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:7px;width:100%">
         ${r.url
           ?`<span class="cp" data-cp="url" title="URLをコピー">📋</span><a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="font-size:14px;text-decoration:none">🔗</a><span class="refetch" title="URLから再取得" style="font-size:14px">🔄</span>`
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
-    </tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </tr>
+    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="17"><div class="pdetail">
+      <div class="ptitle">📋 進捗予定</div>
+      <div class="fld"><label>整備 完了予定</label><input type="date" data-df="maint_done_date" value="${esc(r.maint_done_date)}"></div>
+      <div class="fld"><label>名義+保険登録 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
+      <div class="fld"><label>引取予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
+      <div class="fld"><label>稼働開始予定</label><input type="date" data-df="op_start_date" value="${esc(r.op_start_date)}"></div>
+      <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
+    </div></td></tr>`;}).join("")||`<tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -342,6 +372,9 @@ function render(){
   });
   $("tb").querySelectorAll(".mtoggle").forEach(el=>{
     el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");});
+  });
+  $("tb").querySelectorAll(".pdetail [data-df]").forEach(el=>{
+    el.addEventListener("change",()=>save(el.closest("tr.detailrow").dataset.id, el.dataset.df, el.value));
   });
   $("tb").querySelectorAll(".refetch").forEach(el=>{
     el.addEventListener("click",async()=>{
@@ -374,6 +407,7 @@ async function save(id,field,val){
   else if(field==="vclass"){render();}      // クラス変更で並び替え・集計が変わる
   else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+(MEIGICLS[val]||"meU");}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
+  else if(field==="op_start_date"){const c=$("tb").querySelector(`tr.grpRow[data-id="${id}"] td[data-lb="稼働開始"] .opd`);if(c){c.textContent=val?fmtMd(val):"—";c.className="opd"+(val?"":" z");}}
   // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
   if(field==="url"&&val.trim()&&/buddica\.jp\/usedcar/.test(val)){
     setStatus("URLから取得中…");
