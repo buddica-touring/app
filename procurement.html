@@ -159,7 +159,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 <div class="wrap">
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
-  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#1e40af;line-height:1.7">💡 各車の <b style="background:#dbeafe;border-radius:999px;padding:1px 8px;white-space:nowrap">📋 予定・メモ ▾</b> をタップすると、その車の <b>整備完了・名義+保険登録・引取・稼働開始</b> の予定日と<b>メモ</b>を入力できます。</div>
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#1e40af;line-height:1.7">💡 各車の <b style="background:#dbeafe;border-radius:999px;padding:1px 8px;white-space:nowrap">📋 予定・メモ ▾</b> をタップすると、その車の <b>整備完了・名義・保険・現場引き取り・稼働開始</b> の予定日と<b>メモ</b>を入力できます。</div>
 
   <details class="help">
     <summary>📖 使い方（タップで開く）</summary>
@@ -169,7 +169,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
       ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → 整備 → 現場引き取り → 保険登録 が順に出現（未対応→確認中→対応中→OK/NG）。<br>
       ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
       ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
-      ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義+保険登録・引取・稼働開始</b> の予定日と<b>メモ</b>を入力できます（一覧の「稼働開始」列にも表示）。<br>
+      ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義・保険・現場引き取り・稼働開始</b> の予定日と<b>メモ</b>を入力できます（一覧の「稼働開始」列にも表示）。<br>
       ⑦ <b>更新</b>：右下の 🔄 で最新に。変更は全員リアルタイム共有。スマホは「車種名＋URL」だけ表示、チップで詳細を展開。
     </div>
   </details>
@@ -196,7 +196,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
       <thead><tr>
         <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
         <th style="width:82px">カラー</th><th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
-        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:78px">保険</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
+        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -328,7 +328,7 @@ function render(){
   const gkey=r=>isOut(r)?"__OUT__":(r.vclass||"");
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="17"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="17"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
@@ -343,7 +343,6 @@ function render(){
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="名義"><select class="st ${MEIGICLS[r.pickup]||"meU"}" data-f="pickup">${meigiOpt(r.pickup)}</select></td>
-      <td data-lb="保険登録">${r.status==="OK"?`<select class="st ${INSCLS[r.insurance||"未対応"]}" data-f="insurance">${insOpt(r.insurance||"未対応")}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="稼働開始"><span class="opd${r.op_start_date?"":" z"}">${r.op_start_date?fmtMd(r.op_start_date):"—"}</span></td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:7px;width:100%">
         ${r.url
@@ -352,14 +351,15 @@ function render(){
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
-    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="17"><div class="pdetail">
+    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
       <div class="fld"><label>整備 完了予定</label><input type="date" data-df="maint_done_date" value="${esc(r.maint_done_date)}"></div>
-      <div class="fld"><label>名義+保険登録 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
-      <div class="fld"><label>引取予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
+      <div class="fld"><label>名義 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
+      <div class="fld"><label>保険 完了予定</label><input type="date" data-df="insurance_done_date" value="${esc(r.insurance_done_date)}"></div>
+      <div class="fld"><label>現場引き取り予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
       <div class="fld"><label>稼働開始予定</label><input type="date" data-df="op_start_date" value="${esc(r.op_start_date)}"></div>
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
-    </div></td></tr>`;}).join("")||`<tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </div></td></tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
