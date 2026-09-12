@@ -43,6 +43,8 @@ h1{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
 .pill.und{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
 .pill.hdm{background:#eef2ff;color:#3730a3;border-color:#c7d2fe}
 .pill.buddica{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+a.mplink{font-size:12px;font-weight:800;padding:5px 11px;border-radius:8px;background:var(--accent);color:#fff;border:1px solid var(--accent);text-decoration:none;white-space:nowrap}
+a.mplink:active{opacity:.8}
 .dbadge{margin-left:auto;font-size:12px;font-weight:800;color:var(--warn)}
 .dbadge.ok{color:var(--ok)}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -92,13 +94,17 @@ const BTSB='https://ggqugvyskyiblxiycpci.supabase.co', BTANON='eyJhbGciOiJIUzI1N
 // 店別マッピング（OP=タスク列／予約=マイページ源）
 const CFG={
   nha:{sb:MAIN,anon:MANON,name:'那覇',res:'nha_reservations',task:'nha_tasks',tkey:'予約番号',jp:true,
-       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'},
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
+       mpLabel:'📱 マイページ',mpUrl:t=>'https://nosh2318.github.io/naha-project/my-nha.html?t='+t+'&ro=1'},
   spk:{sb:MAIN,anon:MANON,name:'札幌',res:'reservations',task:'tasks',tkey:'reservation_id',jp:false,
-       delType:'type',delPlace:'place',delTime:'time',colType:'type',colPlace:'col_place',colTime:'time',ins:'insurance',c:'opt_c',j:'opt_j',b:'opt_b',sdate:'lend_date',edate:'return_date'},
+       delType:'type',delPlace:'place',delTime:'time',colType:'type',colPlace:'col_place',colTime:'time',ins:'insurance',c:'opt_c',j:'opt_j',b:'opt_b',sdate:'lend_date',edate:'return_date',
+       mpLabel:'📱 マイページ',mpUrl:t=>'https://nosh2318.github.io/spk-task/my.html?t='+t+'&ro=1'},
   bt_hdm:{sb:BTSB,anon:BTANON,name:'高松HDM',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'HDM',
-       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'},
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
+       mpLabel:'📱 マイページ',mpUrl:t=>'https://rent-handyman.com/my-tkm.html?t='+t},
   bt_buddica:{sb:BTSB,anon:BTANON,name:'高松BUDDICA',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'BUDDICA',
-       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'}
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
+       mpLabel:'📖 ご利用ガイド',mpUrl:t=>'https://buddica-touring.github.io/app/guide/?t='+t}
 };
 // オリジン別：BTは別Supabase＆別ログイン → BTリポ配信時のみ高松(HDM/BUDDICA)。nosh2318オリジン(那覇/札幌)はmainトークン共有
 const STORES = location.hostname.indexOf('buddica')>=0 ? ['bt_hdm','bt_buddica'] : ['nha','spk'];
@@ -269,6 +275,7 @@ function cardHtml(x){
       <span class="pill">${esc(r[C.sdate]||'')} 〜 ${esc(r[C.edate]||'')}</span>
       ${kindPill}
       <span class="pill rec">推奨: ${recVisit(r.del_place||x.op.delPlace)} / ${recReturn(r.col_place||x.op.colPlace)}</span>
+      ${(C.mpUrl&&r.mypage_token)?`<a class="mplink" href="${C.mpUrl(esc(r.mypage_token))}" target="_blank" rel="noopener">${C.mpLabel}を開く</a>`:''}
       <span class="dbadge ${x.nDiff?'':'ok'}">${x.nDiff?('⚠️ 相違 '+x.nDiff+'項目'):'✅ 一致'}</span>
     </div>
     ${fixbar}
