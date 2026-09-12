@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>情報照会（OP ↔ マイページ）</title>
+<style>
+:root{--bg:#eef2f7;--card:#ffffff;--line:#d7dee8;--txt:#1e293b;--sub:#64748b;--accent:#2563eb;--ok:#16a34a;--warn:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:14px}
+header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line);padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+h1{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg button,.btn{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.tg.on{background:#fee2e2;border-color:var(--warn);color:#b91c1c}
+.meta{color:var(--sub);font-size:12px;margin-left:auto}
+.wrap{padding:10px 10px 60px;max-width:960px;margin:0 auto}
+.moretog{display:block;width:100%;text-align:center;background:#f1f5f9;color:var(--sub);border:none;border-top:1px solid var(--line);padding:9px;font-size:12px;font-weight:700;cursor:pointer}
+.moretog:active{background:#e2e8f0}
+@media(max-width:560px){
+  .wrap{padding:8px 7px 60px}
+  h1{font-size:15px}
+  th{width:72px;font-size:11px;padding:8px 6px}
+  td{padding:8px 6px;font-size:13px}
+  .chead{padding:9px 10px;gap:6px}
+  .rid{font-size:14px}
+  .pill{font-size:10px;padding:3px 6px}
+  .seg button,.btn{padding:9px 12px}
+}
+.legend{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--sub);line-height:1.7;margin-bottom:12px}
+.legend b{color:#1e293b}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card.diff{border-color:#f0a5a5}
+.chead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
+.rid{font-weight:800;font-size:15px}
+.nm{font-weight:700}
+.pill{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;background:#eef2f7;color:#475569;border:1px solid #d7dee8}
+.pill.rec{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.pill.airport{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.pill.deliv{background:#fffbeb;color:#b45309;border-color:#fde68a}
+.pill.und{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.pill.hdm{background:#eef2ff;color:#3730a3;border-color:#c7d2fe}
+.pill.buddica{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+.dbadge{margin-left:auto;font-size:12px;font-weight:800;color:var(--warn)}
+.dbadge.ok{color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{width:94px;color:var(--sub);font-weight:700;background:#f8fafc}
+td.op,td.mp{width:calc((100% - 94px)/2)}
+.colh th,.colh td{font-size:11px;color:var(--sub);font-weight:700;padding:6px 10px;background:#f1f5f9}
+tr.d td{background:#fff7f7}
+tr.d th{color:#b91c1c;background:#fef2f2}
+td.okc{background:#dcfce7 !important;box-shadow:inset 5px 0 0 var(--ok);color:#14532d;font-weight:800}
+td.ngc{background:#fee2e2 !important;box-shadow:inset 5px 0 0 var(--warn);color:#7f1d1d;font-weight:800}
+.tag{display:inline-block;font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;margin-right:6px;vertical-align:1px}
+.tag.ok{background:var(--ok);color:#fff}
+.tag.ng{background:var(--warn);color:#fff}
+tr.rsn td{background:#f8fafc;color:#475569;font-size:11.5px;padding:6px 10px 9px;line-height:1.55}
+.fixbar{background:#fef2f2;border-bottom:2px solid var(--warn);padding:10px 12px;font-size:13px;line-height:1.65;color:#991b1b}
+.fixbar b{color:#b91c1c}.fixbar .g{color:#047857;font-weight:900}
+.val{white-space:pre-wrap;word-break:break-word}
+.empty{color:#94a3b8;font-style:italic}
+.mm{color:var(--warn);font-weight:800}
+.hint{font-size:11px;color:var(--sub);margin-top:2px}
+.note{background:#fff;border:1px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--sub)}
+.count{font-size:12px;color:var(--sub);margin:2px 0 10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 情報照会 <span style="font-size:12px;font-weight:600;color:var(--sub)">OP ↔ マイページ/ご利用ガイド</span></h1>
+  <div class="bar">
+    <div class="seg" id="storeSeg"></div>
+    <button class="btn tg on" id="diffTg" onclick="toggleDiff()">⚠️ 相違のみ</button>
+    <button class="btn" onclick="load()">↻ 更新</button>
+    <span class="meta" id="meta">—</span>
+  </div>
+</header>
+<div class="wrap">
+  <div class="legend">
+    <b>OP</b>＝OPシート（配車表タスク）の値　／　<b>マイページ</b>＝お客様が見る予約情報。両者がズレると「お届けなのに空港送迎」等の誤対応になります。<br>
+    <span class="mm">赤い行＝相違あり</span>。<b>推奨</b>はお届け先(場所)から自動判定（<b>空港→送迎(PUB/BDB)</b>／<b>ホテル等の実場所→お届け(DEL/COL)</b>／<b>空欄→未確定</b>）。どちらが正しいかは、この推奨とお客様の実際のお届け先で判断してください。
+  </div>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+</div>
+<script>
+const MAIN='https://ckrxttbnawkclshczsia.supabase.co', MANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8';
+const BTSB='https://ggqugvyskyiblxiycpci.supabase.co', BTANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+// 店別マッピング（OP=タスク列／予約=マイページ源）
+const CFG={
+  nha:{sb:MAIN,anon:MANON,name:'那覇',res:'nha_reservations',task:'nha_tasks',tkey:'予約番号',jp:true,
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'},
+  spk:{sb:MAIN,anon:MANON,name:'札幌',res:'reservations',task:'tasks',tkey:'reservation_id',jp:false,
+       delType:'type',delPlace:'place',delTime:'time',colType:'type',colPlace:'col_place',colTime:'time',ins:'insurance',c:'opt_c',j:'opt_j',b:'opt_b',sdate:'lend_date',edate:'return_date'},
+  bt_hdm:{sb:BTSB,anon:BTANON,name:'高松HDM',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'HDM',
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'},
+  bt_buddica:{sb:BTSB,anon:BTANON,name:'高松BUDDICA',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'BUDDICA',
+       delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date'}
+};
+// オリジン別：BTは別Supabase＆別ログイン → BTリポ配信時のみ高松(HDM/BUDDICA)。nosh2318オリジン(那覇/札幌)はmainトークン共有
+const STORES = location.hostname.indexOf('buddica')>=0 ? ['bt_hdm','bt_buddica'] : ['nha','spk'];
+let STORE=(new URLSearchParams(location.search).get('store')||STORES[0]).toLowerCase();
+if(STORE==='bt')STORE='bt_hdm'; // 旧リンク互換
+if(STORES.indexOf(STORE)<0)STORE=STORES[0];
+let DIFFONLY=true, C=CFG[STORE];
+
+function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
+async function sel(path){const tok=_sbToken();const H={apikey:C.anon};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/'+path,{headers:H});if(!r.ok)throw new Error(path+' '+r.status);return r.json();}
+function q(s){return encodeURIComponent(s);}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+function buildSeg(){document.getElementById('storeSeg').innerHTML=STORES.map(s=>`<button class="${s===STORE?'on':''}" onclick="setStore('${s}')">${CFG[s].name}</button>`).join('');if(STORES.length<2)document.getElementById('storeSeg').style.display='none';}
+function setStore(s){STORE=s;C=CFG[s];history.replaceState(null,'','?store='+s);buildSeg();load();}
+function toggleDiff(){DIFFONLY=!DIFFONLY;document.getElementById('diffTg').classList.toggle('on',DIFFONLY);render();}
+
+// 場所の種別（空港/実場所/未確定）→ 推奨区分
+function placeKind(p){p=(p||'').trim();if(!p)return'und';if(/空港/.test(p))return'airport';return'deliv';}
+function recVisit(delp){const k=placeKind(delp);return k==='airport'?'送迎(PUB)':k==='deliv'?'お届け(DEL)':'未確定';}
+function recReturn(colp){const k=placeKind(colp);return k==='airport'?'送迎(BDB)':k==='deliv'?'お届け(COL)':'未確定';}
+// 区分の正規化（表記ゆれを吸収して比較）
+function normVt(v){v=(v||'').trim();if(!v)return'';if(/^DEL|delivery|お届け/i.test(v))return'DEL';if(/^PUB|^PU|来店|送迎/i.test(v))return'PU';if(/^COL|回収/i.test(v))return'COL';if(/^BDB|^BD|返却/i.test(v))return'BD';return v;}
+function normPlace(p){return (p||'').replace(/[　\s]/g,'').trim();}
+function normTime(t){return (t||'').trim();}
+function seatN(v){if(v===true)return 1;const n=parseInt(v,10);return isNaN(n)?0:n;}
+
+let ROWS=[];
+async function load(){
+  C=CFG[STORE];
+  const list=document.getElementById('list'); list.innerHTML='<div class="note">読み込み中…</div>';
+  document.getElementById('count').textContent='';
+  const tok=_sbToken();
+  if(!tok){list.innerHTML='<div class="note">🔒 先にアプリ本体にログインしてから、この画面を開いてください。</div>';return;}
+  try{
+    const today=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+    // 未来(利用中〜これから)の予約（BTはブランドで絞る）
+    const bf=C.brand?`&brand=eq.${q(C.brand)}`:'';
+    const res=await sel(`${C.res}?${q(C.edate)}=gte.${today}${bf}&select=*&order=${q(C.sdate)}.asc&limit=400`);
+    const active=res.filter(r=>{const st=(r.status||'').trim();return !['キャンセル','cancelled','cancel'].includes(st);});
+    // タスク(d-/c-)を一括取得
+    const ids=active.map(r=>r.id);
+    let tasks=[];
+    for(let i=0;i<ids.length;i+=80){
+      const chunk=ids.slice(i,i+80);
+      const inl='('+chunk.map(x=>'"'+x.replace(/"/g,'')+'"').join(',')+')';
+      const t=await sel(`${C.task}?${q(C.tkey)}=in.${q(inl)}&deleted=is.false&select=*`);
+      tasks=tasks.concat(t);
+    }
+    const byRid={};
+    tasks.forEach(t=>{const rid=t[C.tkey];const id=(t._id||'');(byRid[rid]=byRid[rid]||{})[id.slice(0,2)]=t;});
+    ROWS=active.map(r=>buildRow(r,byRid[r.id]||{}));
+    document.getElementById('meta').textContent=C.name+'｜'+active.length+'件｜'+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+    render();
+  }catch(e){list.innerHTML='<div class="note">読み込みに失敗しました：'+esc(e.message)+'<br>（アプリのログインが切れている場合は本体を開き直してください）</div>';}
+}
+
+function buildRow(r,tk){
+  const d=tk['d-']||{}, c=tk['c-']||{};
+  // OP側（タスク値）
+  const op={
+    delType:d[C.delType]||'', delPlace:d[C.delPlace]||'', delTime:d[C.delTime]||'',
+    colType:c[C.colType]||'', colPlace:c[C.colPlace]||'', colTime:c[C.colTime]||'',
+    ins:d[C.ins]||c[C.ins]||'', c:seatN(d[C.c]), j:seatN(d[C.j]), b:seatN(d[C.b]),
+    hasTask:!!(tk['d-']||tk['c-'])
+  };
+  // マイページ側（予約値＝お客様が見る）
+  const mp={
+    delType:r.visit_type||'', delPlace:r.del_place||'', delTime:r.del_time||r.lend_time||'',
+    colType:r.return_type||'', colPlace:r.col_place||'', colTime:r.col_time||r.return_time||'',
+    ins:r.insurance||'', c:seatN(r.opt_c), j:seatN(r.opt_j), b:seatN(r.opt_b)
+  };
+  // 区分の正解＝del_place/col_place(正本)から確定
+  const delKind=placeKind(r.del_place||op.delPlace), colKind=placeKind(r.col_place||op.colPlace);
+  const delCorrect=delKind==='deliv'?'DEL':delKind==='airport'?'PU':null; // 正しい区分コード
+  const colCorrect=colKind==='deliv'?'COL':colKind==='airport'?'BD':null;
+  const delLabel=delKind==='deliv'?'お届け(DEL)':delKind==='airport'?'送迎(PUB)':'';
+  const colLabel=colKind==='deliv'?'お届け回収(COL)':colKind==='airport'?'送迎(BDB)':'';
+  const delReason=delKind==='deliv'?('お届け先＝「'+(r.del_place||op.delPlace)+'」＝実場所 → お届け(DEL)が正'):delKind==='airport'?'お届け先＝空港 → 送迎(PUB)が正':'お届け先が未入力 → 区分は未確定（お客様に確認）';
+  const colReason=colKind==='deliv'?('回収先＝「'+(r.col_place||op.colPlace)+'」＝実場所 → お届け回収(COL)が正'):colKind==='airport'?'回収先＝空港 → 送迎(BDB)が正':'回収先が未入力 → 区分は未確定';
+  const CUST='お客様の登録情報（マイページ）が基準';
+  const fields=[
+    {k:'お届け区分',a:op.delType,b:mp.delType,cmp:(x,y)=>normVt(x)===normVt(y),auth:delCorrect,af:normVt,reason:delReason,authLabel:delLabel},
+    {k:'お届け場所',a:op.delPlace,b:mp.delPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
+    {k:'お届け時間',a:op.delTime,b:mp.delTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
+    {k:'回収区分',a:op.colType,b:mp.colType,cmp:(x,y)=>normVt(x)===normVt(y),auth:colCorrect,af:normVt,reason:colReason,authLabel:colLabel},
+    {k:'回収場所',a:op.colPlace,b:mp.colPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
+    {k:'回収時間',a:op.colTime,b:mp.colTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
+    {k:'補償',a:op.ins,b:mp.ins,cmp:(x,y)=>String(x).trim()===String(y).trim(),refMp:true,reason:CUST},
+    {k:'ｼｰﾄCS',a:op.c,b:mp.c,cmp:(x,y)=>x===y,refMp:true,reason:CUST},
+    {k:'ｼｰﾄJS',a:op.j,b:mp.j,cmp:(x,y)=>x===y,refMp:true,reason:CUST},
+    {k:'ｼｰﾄBS',a:op.b,b:mp.b,cmp:(x,y)=>x===y,refMp:true,reason:CUST}
+  ];
+  // 相違＝「真の対立」だけに絞る（OP未生成で片側空＝ノイズは相違にしない）
+  //  ・区分(auth)：OPの区分が お届け先(正本)の正解と矛盾する時だけ相違（お届け先が未入力=判定不能は相違にしない）
+  //  ・場所/時間/補償/シート(refMp)：両方入力済みで食い違う時だけ相違
+  const isEmpty=v=>(v===''||v==null||v===0);
+  fields.forEach(f=>{
+    const g=f.af||(v=>v);
+    f.correct=null;
+    if(f.auth){
+      const oc=g(f.a); // OPの区分
+      f.diff = (!isEmpty(f.a)) && oc!==f.auth; // OPが正解と矛盾
+      if(f.diff){ // 正しい側を判定（mp側が正解に一致すればmp、そうでなければ「どちらも不正=OP修正で正解へ」）
+        f.correct = (g(f.b)===f.auth) ? 'mp' : '_none';
+      }
+    }else{
+      f.diff = (!isEmpty(f.a) && !isEmpty(f.b)) ? !f.cmp(f.a,f.b) : false;
+      if(f.diff && f.refMp) f.correct='mp';
+    }
+  });
+  const nDiff=fields.filter(f=>f.diff).length;
+  return {r,op,mp,fields,nDiff};
+}
+
+function render(){
+  const list=document.getElementById('list');
+  let rows=ROWS.slice();
+  if(DIFFONLY)rows=rows.filter(x=>x.nDiff>0);
+  const total=ROWS.length, diffTotal=ROWS.filter(x=>x.nDiff>0).length;
+  document.getElementById('count').innerHTML=`全 ${total} 件中 <b class="mm">相違 ${diffTotal} 件</b>`+(DIFFONLY?'（相違のみ表示中）':'');
+  if(!rows.length){list.innerHTML='<div class="note">'+(DIFFONLY?'✅ 相違はありません（OPとマイページは一致）':'表示する予約がありません')+'</div>';return;}
+  list.innerHTML=rows.map(cardHtml).join('');
+}
+
+function cellHtml(side,f,raw){
+  const empty=(raw===''||raw==null);
+  const v=empty?'<span class="empty">（空）</span>':esc(raw);
+  if(!f.diff)return `<td class="${side} val">${v}</td>`;
+  let cls=side+' val', tag='';
+  if(f.correct===side){cls+=' okc';tag='<span class="tag ok">正</span>';}
+  else if(f.correct && f.correct!==side && !empty){cls+=' ngc';tag='<span class="tag ng">要修正</span>';} // 値ありで正でない→要修正。空セルは中立
+  return `<td class="${cls}">${tag}${v}</td>`;
+}
+function rowHtml(f){
+  const main=`<tr class="${f.diff?'d':''}"><th>${f.k}${f.diff?' <span class="mm">≠</span>':''}</th>${cellHtml('op',f,f.a)}${cellHtml('mp',f,f.b)}</tr>`;
+  const rsn=(f.diff&&f.reason)?`<tr class="rsn"><th></th><td colspan="2">🧭 ${esc(f.reason)}</td></tr>`:'';
+  return main+rsn;
+}
+let _open={}; // 展開状態（予約IDごと）
+function tglCard(id){_open[id]=!_open[id];render();}
+function cardHtml(x){
+  const r=x.r, kind=placeKind(r.del_place||x.op.delPlace);
+  const kindPill=kind==='airport'?'<span class="pill airport">空港＝送迎</span>':kind==='deliv'?'<span class="pill deliv">実場所＝お届け</span>':'<span class="pill und">お届け先未入力</span>';
+  const diffF=x.fields.filter(f=>f.diff), sameF=x.fields.filter(f=>!f.diff);
+  const open=!!_open[r.id];
+  // 区分の相違＝最重要（お届け⇔空港送迎の取違え）→ 正しい区分と対処を最上部に明示
+  let fixbar='';
+  const kdiff=x.fields.filter(f=>f.diff&&f.auth&&f.correct);
+  if(kdiff.length){
+    fixbar=kdiff.map(f=>{
+      const okv=(f.correct==='op')?f.a:(f.correct==='mp'?f.b:(f.authLabel||f.auth));
+      return `<div>⚠️ <b>${f.k}が不一致</b>：正しくは <span class="g">「${esc(okv)}」</span>（${esc(f.reason)}）。OP側を修正してください。</div>`;
+    }).join('');
+    fixbar=`<div class="fixbar">${fixbar}</div>`;
+  }
+  // 相違ありカード＝相違項目を常時表示・一致項目は折りたたみ。相違なしカード＝全項目は折りたたみ。
+  let bodyRows, moreCount, moreLabel;
+  if(x.nDiff){ bodyRows=diffF.map(rowHtml).join('')+(open?sameF.map(rowHtml).join(''):''); moreCount=sameF.length; moreLabel=open?'一致項目を隠す ▲':('一致項目も表示（'+moreCount+'） ▼'); }
+  else{ bodyRows=open?x.fields.map(rowHtml).join(''):''; moreCount=x.fields.length; moreLabel=open?'閉じる ▲':('全項目を表示（'+moreCount+'） ▼'); }
+  const colh=(x.nDiff||open)?`<tr class="colh"><th></th><td>🚗 OP（配車表）</td><td>📱 マイページ（お客様）</td></tr>`:'';
+  const more=moreCount>0?`<button class="moretog" onclick="tglCard('${esc(r.id).replace(/'/g,"")}')">${moreLabel}</button>`:'';
+  return `<div class="card ${x.nDiff?'diff':''}">
+    <div class="chead">
+      <span class="rid">${esc(r.id)}</span>
+      <span class="nm">${esc(r.name||'')}</span>
+      <span class="pill">${esc(r.ota||'')}</span>
+      <span class="pill">${esc(r[C.sdate]||'')} 〜 ${esc(r[C.edate]||'')}</span>
+      ${kindPill}
+      <span class="pill rec">推奨: ${recVisit(r.del_place||x.op.delPlace)} / ${recReturn(r.col_place||x.op.colPlace)}</span>
+      <span class="dbadge ${x.nDiff?'':'ok'}">${x.nDiff?('⚠️ 相違 '+x.nDiff+'項目'):'✅ 一致'}</span>
+    </div>
+    ${fixbar}
+    ${(bodyRows)?`<table>${colh}${bodyRows}</table>`:''}
+    ${more}
+  </div>`;
+}
+buildSeg();load();
+</script>
+</body>
+</html>
