@@ -60,6 +60,8 @@ td.ngc{background:#fee2e2 !important;box-shadow:inset 5px 0 0 var(--warn);color:
 .tag.ok{background:var(--ok);color:#fff}
 .tag.ng{background:var(--warn);color:#fff}
 tr.rsn td{background:#f8fafc;color:#475569;font-size:11.5px;padding:6px 10px 9px;line-height:1.55}
+tr.act td{background:#fffbeb;color:#7c5a09;font-size:12.5px;padding:8px 10px 9px;line-height:1.6;border-bottom:1px solid #fde68a}
+tr.act b{color:#92400e}
 .fixbar{background:#fef2f2;border-bottom:2px solid var(--warn);padding:10px 12px;font-size:13px;line-height:1.65;color:#991b1b}
 .fixbar b{color:#b91c1c}.fixbar .g{color:#047857;font-weight:900}
 .val{white-space:pre-wrap;word-break:break-word}
@@ -82,8 +84,9 @@ tr.rsn td{background:#f8fafc;color:#475569;font-size:11.5px;padding:6px 10px 9px
 </header>
 <div class="wrap">
   <div class="legend">
-    <b>OP</b>＝OPシート（配車表タスク）の値　／　<b>マイページ</b>＝お客様が見る予約情報。両者がズレると「お届けなのに空港送迎」等の誤対応になります。<br>
-    <span class="mm">赤い行＝相違あり</span>。<b>推奨</b>はお届け先(場所)から自動判定（<b>空港→送迎(PUB/BDB)</b>／<b>ホテル等の実場所→お届け(DEL/COL)</b>／<b>空欄→未確定</b>）。どちらが正しいかは、この推奨とお客様の実際のお届け先で判断してください。
+    <b>この画面で判断すること</b>：<b>OP（配車表）</b>と<b>マイページ（お客様の登録）</b>が食い違う予約だけを表示します。各相違に <b style="color:#92400e">👉 やること</b> を出しています。<br>
+    ・<b>場所/時間/補償/シート</b>＝<span class="g" style="color:#047857">お客様が登録した値（マイページ＝緑「正」）が基準</span>。OP（赤「要修正」）をそれに合わせる。<br>
+    ・<b>お届け/回収の区分</b>＝お届け先で決まる（<b>空港＝送迎</b>／<b>ホテル等＝お届け</b>。空港では受け渡しできません）。紛らわしい時は右上の<b>「マイページ/ご利用ガイドを開く」</b>でお客様の希望を確認して判断。
   </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
@@ -187,10 +190,10 @@ function buildRow(r,tk){
   const colReason=colKind==='deliv'?('回収先＝「'+(r.col_place||op.colPlace)+'」＝実場所 → お届け回収(COL)が正'):colKind==='airport'?'回収先＝空港 → 送迎(BDB)が正':'回収先が未入力 → 区分は未確定';
   const CUST='お客様の登録情報（マイページ）が基準';
   const fields=[
-    {k:'お届け区分',a:op.delType,b:mp.delType,cmp:(x,y)=>normVt(x)===normVt(y),auth:delCorrect,af:normVt,reason:delReason,authLabel:delLabel},
+    {k:'お届け区分',a:op.delType,b:mp.delType,cmp:(x,y)=>normVt(x)===normVt(y),auth:delCorrect,af:normVt,reason:delReason,authLabel:delLabel,placeShown:(r.del_place||op.delPlace||'')},
     {k:'お届け場所',a:op.delPlace,b:mp.delPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
     {k:'お届け時間',a:op.delTime,b:mp.delTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
-    {k:'回収区分',a:op.colType,b:mp.colType,cmp:(x,y)=>normVt(x)===normVt(y),auth:colCorrect,af:normVt,reason:colReason,authLabel:colLabel},
+    {k:'回収区分',a:op.colType,b:mp.colType,cmp:(x,y)=>normVt(x)===normVt(y),auth:colCorrect,af:normVt,reason:colReason,authLabel:colLabel,placeShown:(r.col_place||op.colPlace||'')},
     {k:'回収場所',a:op.colPlace,b:mp.colPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
     {k:'回収時間',a:op.colTime,b:mp.colTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
     {k:'補償',a:op.ins,b:mp.ins,cmp:(x,y)=>String(x).trim()===String(y).trim(),refMp:true,reason:CUST},
@@ -239,10 +242,18 @@ function cellHtml(side,f,raw){
   else if(f.correct && f.correct!==side && !empty){cls+=' ngc';tag='<span class="tag ng">要修正</span>';} // 値ありで正でない→要修正。空セルは中立
   return `<td class="${cls}">${tag}${v}</td>`;
 }
+function actionOf(f){
+  if(!f.diff)return '';
+  if(f.auth){ // 区分＝お届け先で確定するが紛らわしい場合あり→確認導線
+    return `👉 <b>やること</b>：お届け先＝「${esc(f.placeShown||'')}」なので基本は <b>${esc(f.authLabel||f.auth)}</b>（空港では受け渡しできない＝送迎）。OPが違えば直す。空港名でも実際は配達の場合があるので、迷ったら「マイページ」を開いてお客様の希望を確認。`;
+  }
+  const mpv=(f.b===''||f.b==null)?'（空）':esc(f.b);
+  return `👉 <b>やること</b>：OPの${esc(f.k)}を <b>「${mpv}」</b> に直す（お客様が登録した内容＝マイページが正）。`;
+}
 function rowHtml(f){
   const main=`<tr class="${f.diff?'d':''}"><th>${f.k}${f.diff?' <span class="mm">≠</span>':''}</th>${cellHtml('op',f,f.a)}${cellHtml('mp',f,f.b)}</tr>`;
-  const rsn=(f.diff&&f.reason)?`<tr class="rsn"><th></th><td colspan="2">🧭 ${esc(f.reason)}</td></tr>`:'';
-  return main+rsn;
+  const act=f.diff?`<tr class="rsn act"><th></th><td colspan="2">${actionOf(f)}</td></tr>`:'';
+  return main+act;
 }
 let _open={}; // 展開状態（予約IDごと）
 function tglCard(id){_open[id]=!_open[id];render();}
@@ -251,16 +262,7 @@ function cardHtml(x){
   const kindPill=kind==='airport'?'<span class="pill airport">空港＝送迎</span>':kind==='deliv'?'<span class="pill deliv">実場所＝お届け</span>':'<span class="pill und">お届け先未入力</span>';
   const diffF=x.fields.filter(f=>f.diff), sameF=x.fields.filter(f=>!f.diff);
   const open=!!_open[r.id];
-  // 区分の相違＝最重要（お届け⇔空港送迎の取違え）→ 正しい区分と対処を最上部に明示
-  let fixbar='';
-  const kdiff=x.fields.filter(f=>f.diff&&f.auth&&f.correct);
-  if(kdiff.length){
-    fixbar=kdiff.map(f=>{
-      const okv=(f.correct==='op')?f.a:(f.correct==='mp'?f.b:(f.authLabel||f.auth));
-      return `<div>⚠️ <b>${f.k}が不一致</b>：正しくは <span class="g">「${esc(okv)}」</span>（${esc(f.reason)}）。OP側を修正してください。</div>`;
-    }).join('');
-    fixbar=`<div class="fixbar">${fixbar}</div>`;
-  }
+  const fixbar='';
   // 相違ありカード＝相違項目を常時表示・一致項目は折りたたみ。相違なしカード＝全項目は折りたたみ。
   let bodyRows, moreCount, moreLabel;
   if(x.nDiff){ bodyRows=diffF.map(rowHtml).join('')+(open?sameF.map(rowHtml).join(''):''); moreCount=sameF.length; moreLabel=open?'一致項目を隠す ▲':('一致項目も表示（'+moreCount+'） ▼'); }
