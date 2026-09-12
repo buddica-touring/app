@@ -56,9 +56,11 @@ tr.d td{background:#fff7f7}
 tr.d th{color:#b91c1c;background:#fef2f2}
 td.okc{background:#dcfce7 !important;box-shadow:inset 5px 0 0 var(--ok);color:#14532d;font-weight:800}
 td.ngc{background:#fee2e2 !important;box-shadow:inset 5px 0 0 var(--warn);color:#7f1d1d;font-weight:800}
+td.chkc{background:#fef3c7 !important;box-shadow:inset 5px 0 0 #f59e0b;color:#78350f;font-weight:800}
 .tag{display:inline-block;font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;margin-right:6px;vertical-align:1px}
 .tag.ok{background:var(--ok);color:#fff}
 .tag.ng{background:var(--warn);color:#fff}
+.tag.chk{background:#f59e0b;color:#fff}
 tr.rsn td{background:#f8fafc;color:#475569;font-size:11.5px;padding:6px 10px 9px;line-height:1.55}
 tr.act td{background:#fffbeb;color:#7c5a09;font-size:12.5px;padding:8px 10px 9px;line-height:1.6;border-bottom:1px solid #fde68a}
 tr.act b{color:#92400e}
@@ -84,9 +86,8 @@ tr.act b{color:#92400e}
 </header>
 <div class="wrap">
   <div class="legend">
-    <b>この画面で判断すること</b>：<b>OP（配車表）</b>と<b>マイページ（お客様の登録）</b>が食い違う予約だけを表示します。各相違に <b style="color:#92400e">👉 やること</b> を出しています。<br>
-    ・<b>場所/時間/補償/シート</b>＝<span class="g" style="color:#047857">お客様が登録した値（マイページ＝緑「正」）が基準</span>。OP（赤「要修正」）をそれに合わせる。<br>
-    ・<b>お届け/回収の区分</b>＝お届け先で決まる（<b>空港＝送迎</b>／<b>ホテル等＝お届け</b>。空港では受け渡しできません）。紛らわしい時は右上の<b>「マイページ/ご利用ガイドを開く」</b>でお客様の希望を確認して判断。
+    <b>OP（配車表）＝マイページ が一致しているかの監視画面。</b>本来この2つは同じ情報を映すので<b>一致するのが当たり前</b>（＝ほぼ <span style="color:#047857;font-weight:800">✅一致</span>）。<br>
+    <b>⚠️不一致が出たら</b>＝どこかにまだズレが残っている合図。その時は<b>台帳（audit_log）の最終更新</b>で自動判定します：<span class="g" style="color:#047857">新しく書かれた方＝正</span>／<span style="color:#b91c1c;font-weight:800">古い方＝誤（システム側の対応漏れ）</span>。人でなく記録が正誤を決めます。
   </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
@@ -96,16 +97,17 @@ const MAIN='https://ckrxttbnawkclshczsia.supabase.co', MANON='eyJhbGciOiJIUzI1Ni
 const BTSB='https://ggqugvyskyiblxiycpci.supabase.co', BTANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 // 店別マッピング（OP=タスク列／予約=マイページ源）
 const CFG={
-  nha:{sb:MAIN,anon:MANON,name:'那覇',res:'nha_reservations',task:'nha_tasks',tkey:'予約番号',jp:true,
+  // model: 'mixed'(那覇=送迎+お届け・お届け先で判定) / 'delivery'(札幌=お届け専門・常にDEL/COL) / 'shuttle'(高松=空港送迎のみ・常にPUB/BDB)
+  nha:{sb:MAIN,anon:MANON,name:'那覇',model:'mixed',res:'nha_reservations',task:'nha_tasks',tkey:'予約番号',jp:true,
        delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
        mpLabel:'📱 マイページ',mpUrl:t=>'https://nosh2318.github.io/naha-project/my-nha.html?t='+t+'&ro=1'},
-  spk:{sb:MAIN,anon:MANON,name:'札幌',res:'reservations',task:'tasks',tkey:'reservation_id',jp:false,
+  spk:{sb:MAIN,anon:MANON,name:'札幌',model:'delivery',res:'reservations',task:'tasks',tkey:'reservation_id',jp:false,
        delType:'type',delPlace:'place',delTime:'time',colType:'type',colPlace:'col_place',colTime:'time',ins:'insurance',c:'opt_c',j:'opt_j',b:'opt_b',sdate:'lend_date',edate:'return_date',
        mpLabel:'📱 マイページ',mpUrl:t=>'https://nosh2318.github.io/spk-task/my.html?t='+t+'&ro=1'},
-  bt_hdm:{sb:BTSB,anon:BTANON,name:'高松HDM',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'HDM',
+  bt_hdm:{sb:BTSB,anon:BTANON,name:'高松HDM',model:'shuttle',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'HDM',
        delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
        mpLabel:'📱 マイページ',mpUrl:t=>'https://rent-handyman.com/my-tkm.html?t='+t},
-  bt_buddica:{sb:BTSB,anon:BTANON,name:'高松BUDDICA',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'BUDDICA',
+  bt_buddica:{sb:BTSB,anon:BTANON,name:'高松BUDDICA',model:'shuttle',res:'bt_reservations',task:'bt_tasks',tkey:'予約番号',jp:true,brand:'BUDDICA',
        delType:'内容',delPlace:'送迎場所',delTime:'時間',colType:'内容',colPlace:'集客',colTime:'時間',ins:'確定',c:'C',j:'J',b:'B',sdate:'start_date',edate:'end_date',
        mpLabel:'📖 ご利用ガイド',mpUrl:t=>'https://buddica-touring.github.io/app/guide/?t='+t}
 };
@@ -118,6 +120,27 @@ let DIFFONLY=true, C=CFG[STORE];
 
 function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('sb-')===0&&k.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(k));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
 async function sel(path){const tok=_sbToken();const H={apikey:C.anon};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/'+path,{headers:H});if(!r.ok)throw new Error(path+' '+r.status);return r.json();}
+async function rpc(fn,args){const tok=_sbToken();const H={apikey:C.anon,'Content-Type':'application/json'};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/rpc/'+fn,{method:'POST',headers:H,body:JSON.stringify(args||{})});if(!r.ok)throw new Error(fn+' '+r.status);return r.json();}
+// 台帳(audit_log)で各不一致項目の「最終更新時刻」を引き、新しい方=正／古い方=誤 を確定する
+async function applyAudit(rows){
+  const diffRows=rows.filter(x=>x.nDiff>0);
+  if(!diffRows.length)return;
+  const resIds=diffRows.map(x=>x.r.id);
+  const taskIds=[]; diffRows.forEach(x=>{taskIds.push('d-'+x.r.id,'c-'+x.r.id);});
+  let aud=[];
+  try{ aud=await rpc(C.brand?'bt_reconcile_audit':'reconcile_audit',{p_res:resIds,p_tasks:taskIds}); }catch(e){ return; }
+  const M={}; (aud||[]).forEach(a=>{ (M[a.row_id]=M[a.row_id]||{})[a.k]=a.last_at; });
+  diffRows.forEach(x=>{
+    x.fields.forEach(f=>{
+      if(!f.diff||!f.map)return;
+      const opRowId=f.map.opRow+x.r.id;
+      let opAt=null; f.map.op.forEach(col=>{const t=M[opRowId]&&M[opRowId][col]; if(t&&(!opAt||t>opAt))opAt=t;});
+      const mpAt=(M[x.r.id]&&M[x.r.id][f.map.mp])||null;
+      f.opAt=opAt; f.mpAt=mpAt;
+      f.correct=(opAt&&mpAt)?(opAt>mpAt?'op':'mp'):(opAt?'op':(mpAt?'mp':null));
+    });
+  });
+}
 function q(s){return encodeURIComponent(s);}
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
 
@@ -160,6 +183,8 @@ async function load(){
     const byRid={};
     tasks.forEach(t=>{const rid=t[C.tkey];const id=(t._id||'');(byRid[rid]=byRid[rid]||{})[id.slice(0,2)]=t;});
     ROWS=active.map(r=>buildRow(r,byRid[r.id]||{}));
+    render(); // まず一致確認を即表示
+    await applyAudit(ROWS); // 台帳で不一致の正誤(新しい方=正)を確定
     document.getElementById('meta').textContent=C.name+'｜'+active.length+'件｜'+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
     render();
   }catch(e){list.innerHTML='<div class="note">読み込みに失敗しました：'+esc(e.message)+'<br>（アプリのログインが切れている場合は本体を開き直してください）</div>';}
@@ -180,44 +205,55 @@ function buildRow(r,tk){
     colType:r.return_type||'', colPlace:r.col_place||'', colTime:r.col_time||r.return_time||'',
     ins:r.insurance||'', c:seatN(r.opt_c), j:seatN(r.opt_j), b:seatN(r.opt_b)
   };
-  // 区分の正解＝del_place/col_place(正本)から確定
+  // 区分の正解＝店モデルで確定。mixed(那覇)のみお届け先(場所)で判定。delivery(札幌)=常にお届け／shuttle(高松)=常に送迎
+  const model=C.model||'mixed';
   const delKind=placeKind(r.del_place||op.delPlace), colKind=placeKind(r.col_place||op.colPlace);
-  const delCorrect=delKind==='deliv'?'DEL':delKind==='airport'?'PU':null; // 正しい区分コード
-  const colCorrect=colKind==='deliv'?'COL':colKind==='airport'?'BD':null;
-  const delLabel=delKind==='deliv'?'お届け(DEL)':delKind==='airport'?'送迎(PUB)':'';
-  const colLabel=colKind==='deliv'?'お届け回収(COL)':colKind==='airport'?'送迎(BDB)':'';
-  const delReason=delKind==='deliv'?('お届け先＝「'+(r.del_place||op.delPlace)+'」＝実場所 → お届け(DEL)が正'):delKind==='airport'?'お届け先＝空港 → 送迎(PUB)が正':'お届け先が未入力 → 区分は未確定（お客様に確認）';
-  const colReason=colKind==='deliv'?('回収先＝「'+(r.col_place||op.colPlace)+'」＝実場所 → お届け回収(COL)が正'):colKind==='airport'?'回収先＝空港 → 送迎(BDB)が正':'回収先が未入力 → 区分は未確定';
-  const CUST='お客様の登録情報（マイページ）が基準';
+  let delCorrect,colCorrect,delReason,colReason,delLabel,colLabel;
+  if(model==='delivery'){ // 札幌＝デリバリー専門（送迎なし）
+    delCorrect='DEL';colCorrect='COL';delLabel='お届け(DEL)';colLabel='お届け回収(COL)';
+    delReason='札幌はお届け（デリバリー）専門 → お届け(DEL)が正';colReason='札幌はお届け（デリバリー）専門 → お届け回収(COL)が正';
+  }else if(model==='shuttle'){ // 高松＝空港送迎のみ（お届けなし）
+    delCorrect='PU';colCorrect='BD';delLabel='送迎(PUB)';colLabel='送迎(BDB)';
+    delReason='高松は空港送迎のみ → 送迎(PUB)が正';colReason='高松は空港送迎のみ → 送迎(BDB)が正';
+  }else{ // 那覇＝送迎＋お届け（お届け先で判定）
+    delCorrect=delKind==='deliv'?'DEL':delKind==='airport'?'PU':null;
+    colCorrect=colKind==='deliv'?'COL':colKind==='airport'?'BD':null;
+    delLabel=delKind==='deliv'?'お届け(DEL)':delKind==='airport'?'送迎(PUB)':'';
+    colLabel=colKind==='deliv'?'お届け回収(COL)':colKind==='airport'?'送迎(BDB)':'';
+    delReason=delKind==='deliv'?('お届け先＝「'+(r.del_place||op.delPlace)+'」＝実場所 → お届け(DEL)が正'):delKind==='airport'?'お届け先＝空港 → 送迎(PUB)が正':'お届け先が未入力 → 区分は未確定（お客様に確認）';
+    colReason=colKind==='deliv'?('回収先＝「'+(r.col_place||op.colPlace)+'」＝実場所 → お届け回収(COL)が正'):colKind==='airport'?'回収先＝空港 → 送迎(BDB)が正':'回収先が未入力 → 区分は未確定';
+  }
+  // 監査キー: mp=予約(マイページ側)の列 / opRow=OPタスクの行(d-/c-) / op=OPタスク側の列(複数可・最終更新はmax)
+  const TM=C.jp?['変更']:[]; // NHA/BTは時間の手動編集が「変更」列にも入る
+  const A={
+    'お届け区分':{mp:'visit_type',opRow:'d-',op:[C.delType]},
+    'お届け場所':{mp:'del_place',opRow:'d-',op:[C.delPlace]},
+    'お届け時間':{mp:'del_time',opRow:'d-',op:[C.delTime].concat(TM)},
+    '回収区分':{mp:'return_type',opRow:'c-',op:[C.colType]},
+    '回収場所':{mp:'col_place',opRow:'c-',op:[C.colPlace]},
+    '回収時間':{mp:'col_time',opRow:'c-',op:[C.colTime].concat(TM)},
+    '補償':{mp:'insurance',opRow:'d-',op:[C.ins]},
+    'ｼｰﾄCS':{mp:'opt_c',opRow:'d-',op:[C.c]},
+    'ｼｰﾄJS':{mp:'opt_j',opRow:'d-',op:[C.j]},
+    'ｼｰﾄBS':{mp:'opt_b',opRow:'d-',op:[C.b]}
+  };
   const fields=[
-    {k:'お届け区分',a:op.delType,b:mp.delType,cmp:(x,y)=>normVt(x)===normVt(y),auth:delCorrect,af:normVt,reason:delReason,authLabel:delLabel,placeShown:(r.del_place||op.delPlace||'')},
-    {k:'お届け場所',a:op.delPlace,b:mp.delPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
-    {k:'お届け時間',a:op.delTime,b:mp.delTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
-    {k:'回収区分',a:op.colType,b:mp.colType,cmp:(x,y)=>normVt(x)===normVt(y),auth:colCorrect,af:normVt,reason:colReason,authLabel:colLabel,placeShown:(r.col_place||op.colPlace||'')},
-    {k:'回収場所',a:op.colPlace,b:mp.colPlace,cmp:(x,y)=>normPlace(x)===normPlace(y),refMp:true,reason:CUST},
-    {k:'回収時間',a:op.colTime,b:mp.colTime,cmp:(x,y)=>normTime(x)===normTime(y),refMp:true,reason:CUST},
-    {k:'補償',a:op.ins,b:mp.ins,cmp:(x,y)=>String(x).trim()===String(y).trim(),refMp:true,reason:CUST},
-    {k:'ｼｰﾄCS',a:op.c,b:mp.c,cmp:(x,y)=>x===y,refMp:true,reason:CUST},
-    {k:'ｼｰﾄJS',a:op.j,b:mp.j,cmp:(x,y)=>x===y,refMp:true,reason:CUST},
-    {k:'ｼｰﾄBS',a:op.b,b:mp.b,cmp:(x,y)=>x===y,refMp:true,reason:CUST}
+    {k:'お届け区分',a:op.delType,b:mp.delType,cmp:(x,y)=>normVt(x)===normVt(y)},
+    {k:'お届け場所',a:op.delPlace,b:mp.delPlace,cmp:(x,y)=>normPlace(x)===normPlace(y)},
+    {k:'お届け時間',a:op.delTime,b:mp.delTime,cmp:(x,y)=>normTime(x)===normTime(y)},
+    {k:'回収区分',a:op.colType,b:mp.colType,cmp:(x,y)=>normVt(x)===normVt(y)},
+    {k:'回収場所',a:op.colPlace,b:mp.colPlace,cmp:(x,y)=>normPlace(x)===normPlace(y)},
+    {k:'回収時間',a:op.colTime,b:mp.colTime,cmp:(x,y)=>normTime(x)===normTime(y)},
+    {k:'補償',a:op.ins,b:mp.ins,cmp:(x,y)=>String(x).trim()===String(y).trim()},
+    {k:'ｼｰﾄCS',a:op.c,b:mp.c,cmp:(x,y)=>x===y},
+    {k:'ｼｰﾄJS',a:op.j,b:mp.j,cmp:(x,y)=>x===y},
+    {k:'ｼｰﾄBS',a:op.b,b:mp.b,cmp:(x,y)=>x===y}
   ];
-  // 相違＝「真の対立」だけに絞る（OP未生成で片側空＝ノイズは相違にしない）
-  //  ・区分(auth)：OPの区分が お届け先(正本)の正解と矛盾する時だけ相違（お届け先が未入力=判定不能は相違にしない）
-  //  ・場所/時間/補償/シート(refMp)：両方入力済みで食い違う時だけ相違
+  // 不一致＝両方入力済みで食い違う時だけ。正誤は台帳(最終更新)で load() が後から確定する。
   const isEmpty=v=>(v===''||v==null||v===0);
   fields.forEach(f=>{
-    const g=f.af||(v=>v);
-    f.correct=null;
-    if(f.auth){
-      const oc=g(f.a); // OPの区分
-      f.diff = (!isEmpty(f.a)) && oc!==f.auth; // OPが正解と矛盾
-      if(f.diff){ // 正しい側を判定（mp側が正解に一致すればmp、そうでなければ「どちらも不正=OP修正で正解へ」）
-        f.correct = (g(f.b)===f.auth) ? 'mp' : '_none';
-      }
-    }else{
-      f.diff = (!isEmpty(f.a) && !isEmpty(f.b)) ? !f.cmp(f.a,f.b) : false;
-      if(f.diff && f.refMp) f.correct='mp';
-    }
+    f.correct=null; f.map=A[f.k];
+    f.diff=(!isEmpty(f.a)&&!isEmpty(f.b))?!f.cmp(f.a,f.b):false;
   });
   const nDiff=fields.filter(f=>f.diff).length;
   return {r,op,mp,fields,nDiff};
@@ -237,18 +273,21 @@ function cellHtml(side,f,raw){
   const empty=(raw===''||raw==null);
   const v=empty?'<span class="empty">（空）</span>':esc(raw);
   if(!f.diff)return `<td class="${side} val">${v}</td>`;
+  // 台帳で確定：新しい方=正／古い方=誤。台帳が引けない時のみ「不一致」。
   let cls=side+' val', tag='';
-  if(f.correct===side){cls+=' okc';tag='<span class="tag ok">正</span>';}
-  else if(f.correct && f.correct!==side && !empty){cls+=' ngc';tag='<span class="tag ng">要修正</span>';} // 値ありで正でない→要修正。空セルは中立
+  if(f.correct===side){cls+=' okc';tag='<span class="tag ok">正（新）</span>';}
+  else if(f.correct && f.correct!==side && !empty){cls+=' ngc';tag='<span class="tag ng">古い（誤）</span>';}
+  else if(!empty){cls+=' chkc';tag='<span class="tag chk">不一致</span>';}
   return `<td class="${cls}">${tag}${v}</td>`;
 }
 function actionOf(f){
   if(!f.diff)return '';
-  if(f.auth){ // 区分＝お届け先で確定するが紛らわしい場合あり→確認導線
-    return `👉 <b>やること</b>：お届け先＝「${esc(f.placeShown||'')}」なので基本は <b>${esc(f.authLabel||f.auth)}</b>（空港では受け渡しできない＝送迎）。OPが違えば直す。空港名でも実際は配達の場合があるので、迷ったら「マイページ」を開いてお客様の希望を確認。`;
+  if(f.correct==='op'||f.correct==='mp'){
+    const okSide=f.correct==='op'?'OP（配車表）':'マイページ';
+    const at=f.correct==='op'?f.opAt:f.mpAt;
+    return `🧭 台帳の最終更新＝<b>${okSide}が新しい＝正</b>${at?'（'+esc(String(at).replace('T',' ').slice(5,16))+'）':''}。もう片方は古い値。本来は一致するはずの項目で、システム側の対応漏れの合図です。`;
   }
-  const mpv=(f.b===''||f.b==null)?'（空）':esc(f.b);
-  return `👉 <b>やること</b>：OPの${esc(f.k)}を <b>「${mpv}」</b> に直す（お客様が登録した内容＝マイページが正）。`;
+  return `⚠️ ${esc(f.k)}が不一致（台帳で最終更新を特定できず＝要調査）。`;
 }
 function rowHtml(f){
   const main=`<tr class="${f.diff?'d':''}"><th>${f.k}${f.diff?' <span class="mm">≠</span>':''}</th>${cellHtml('op',f,f.a)}${cellHtml('mp',f,f.b)}</tr>`;
