@@ -4194,6 +4194,11 @@ function generateTasks(reservations,date,fleet,vehicles){
   [["店舗清掃","fix-storeclean"],["送迎車清掃","fix-shuttleclean"]].forEach(fx=>{
     tasks.push({_id:fx[1]+"-"+norm(date),type:fx[0],time:"",name:fx[0],people:0,place:"",vehicle:"",insurance:"",flight:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",memo:"",assignedVehicle:"",plateNo:"",insuranceChange:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date),manual:true,fixed:true});
   });
+  // ★2026-09-12 曜日定例タスク（日曜=0/水曜=3にゴミ出し）スタッフ依頼・高松。固定ID fix-gomi-<日付>＝該当曜日に1件・重複なし・担当/済は_mergeUserInputで保持
+  const _gomiWd=new Date(norm(date)+"T00:00:00").getDay();
+  if(_gomiWd===0||_gomiWd===3){
+    tasks.push({_id:"fix-gomi-"+norm(date),type:"ゴミ出し",time:"",name:"ゴミ出し",people:0,place:"",vehicle:"",insurance:"",flight:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",memo:"",assignedVehicle:"",plateNo:"",insuranceChange:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,returnDate:"",returnTime:"",returnType:"",colPlace:"",_taskDate:norm(date),manual:true,fixed:true});
+  }
   // ★2026-08-09 同日同車両に前日洗車(洗車)があれば返却後洗車は出さない(洗車は1回でOK・前日洗車を優先)。前日洗車は絶対に消さない。
   const _washVeh0=new Set(tasks.filter(t=>t.type==="洗車"&&t.assignedVehicle).map(t=>t.assignedVehicle));
   const tasks2=tasks.filter(t=>!(t.type==="返却後洗車"&&t.assignedVehicle&&_washVeh0.has(t.assignedVehicle)));
@@ -18867,6 +18872,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           "入庫":{bg:"#ecfdf5",c:"#047857",border:"#6ee7b7",ico:"🏠"},
           "引取":{bg:"#fff7ed",c:"#c2410c",border:"#fed7aa",ico:"📤"},
           "洗車":{bg:"#FFFDE7",c:"#795548",border:"#FFD54F",ico:"🧽"},
+          "ゴミ出し":{bg:"#f1f5f9",c:"#475569",border:"#cbd5e1",ico:"🗑️"},
           "開店業務":{bg:"#fef9c3",c:"#a16207",border:"#fde68a",ico:"🌅"},
           "閉店業務":{bg:"#e0e7ff",c:"#3730a3",border:"#c7d2fe",ico:"🌙"},
           "休憩":{bg:"#dcfce7",c:"#15803d",border:"#bbf7d0",ico:"☕"},
@@ -23612,7 +23618,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.435-BT";
+const APP_VERSION="v1.0.436-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
