@@ -67,6 +67,7 @@ tr.act b{color:#92400e}
 .fixbar{background:#fef2f2;border-bottom:2px solid var(--warn);padding:10px 12px;font-size:13px;line-height:1.65;color:#991b1b}
 .fixbar b{color:#b91c1c}.fixbar .g{color:#047857;font-weight:900}
 .val{white-space:pre-wrap;word-break:break-word}
+.ts{font-size:10.5px;color:#64748b;font-weight:600;margin-top:3px}
 .empty{color:#94a3b8;font-style:italic}
 .mm{color:var(--warn);font-weight:800}
 .hint{font-size:11px;color:var(--sub);margin-top:2px}
@@ -273,19 +274,21 @@ function cellHtml(side,f,raw){
   const empty=(raw===''||raw==null);
   const v=empty?'<span class="empty">（空）</span>':esc(raw);
   if(!f.diff)return `<td class="${side} val">${v}</td>`;
-  // 台帳で確定：新しい方=正／古い方=誤。台帳が引けない時のみ「不一致」。
+  // 台帳で確定：新しい方=正／古い方=誤。台帳が引けない時のみ「不一致」。各セルに更新日時を表示。
   let cls=side+' val', tag='';
   if(f.correct===side){cls+=' okc';tag='<span class="tag ok">正（新）</span>';}
   else if(f.correct && f.correct!==side && !empty){cls+=' ngc';tag='<span class="tag ng">古い（誤）</span>';}
   else if(!empty){cls+=' chkc';tag='<span class="tag chk">不一致</span>';}
-  return `<td class="${cls}">${tag}${v}</td>`;
+  const at=side==='op'?f.opAt:f.mpAt;
+  const ts=at?`<div class="ts">🕒 ${esc(String(at).replace('T',' ').slice(5,16))} 更新</div>`:'';
+  return `<td class="${cls}">${tag}${v}${ts}</td>`;
 }
+function _ts(t){return t?String(t).replace('T',' ').slice(5,16):'記録なし';}
 function actionOf(f){
   if(!f.diff)return '';
   if(f.correct==='op'||f.correct==='mp'){
     const okSide=f.correct==='op'?'OP（配車表）':'マイページ';
-    const at=f.correct==='op'?f.opAt:f.mpAt;
-    return `🧭 台帳の最終更新＝<b>${okSide}が新しい＝正</b>${at?'（'+esc(String(at).replace('T',' ').slice(5,16))+'）':''}。もう片方は古い値。本来は一致するはずの項目で、システム側の対応漏れの合図です。`;
+    return `🧭 台帳の最終更新：<b>OP＝${esc(_ts(f.opAt))}</b> ／ <b>マイページ＝${esc(_ts(f.mpAt))}</b> → <b>${okSide}が新しい＝正</b>。もう片方は古い値（システム側の対応漏れの合図）。`;
   }
   return `⚠️ ${esc(f.k)}が不一致（台帳で最終更新を特定できず＝要調査）。`;
 }
