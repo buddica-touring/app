@@ -64,6 +64,11 @@ td.chkc{background:#fef3c7 !important;box-shadow:inset 5px 0 0 #f59e0b;color:#78
 tr.rsn td{background:#f8fafc;color:#475569;font-size:11.5px;padding:6px 10px 9px;line-height:1.55}
 tr.act td{background:#fffbeb;color:#7c5a09;font-size:12.5px;padding:8px 10px 9px;line-height:1.6;border-bottom:1px solid #fde68a}
 tr.act b{color:#92400e}
+.cfm{margin-top:7px;padding-top:7px;border-top:1px dashed #fcd34d}
+.cfm>b{display:block;margin-bottom:5px;color:#b45309;font-size:11.5px}
+.cfm button{background:#0e9f50;color:#fff;border:0;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:800;margin:0 6px 6px 0;cursor:pointer}
+.cfm button:active{opacity:.8}
+.cfmn{display:block;color:#78716c;font-size:10.5px;margin-top:2px}
 .fixbar{background:#fef2f2;border-bottom:2px solid var(--warn);padding:10px 12px;font-size:13px;line-height:1.65;color:#991b1b}
 .fixbar b{color:#b91c1c}.fixbar .g{color:#047857;font-weight:900}
 .val{white-space:pre-wrap;word-break:break-word}
@@ -292,10 +297,27 @@ function actionOf(f){
   }
   return `⚠️ ${esc(f.k)}が不一致（台帳で最終更新を特定できず＝要調査）。`;
 }
-function rowHtml(f){
+var _CONFIRMABLE=['お届け場所','回収場所','お届け時間','回収時間','補償'];
+function rowHtml(f,rid){
   const main=`<tr class="${f.diff?'d':''}"><th>${f.k}${f.diff?' <span class="mm">≠</span>':''}</th>${cellHtml('op',f,f.a)}${cellHtml('mp',f,f.b)}</tr>`;
-  const act=f.diff?`<tr class="rsn act"><th></th><td colspan="2">${actionOf(f)}</td></tr>`:'';
+  let btns='';
+  if(f.diff && rid && _CONFIRMABLE.indexOf(f.k)>=0 && STORE.indexOf('bt')<0 && _sbToken()){
+    const va=esc(String(f.a==null?'':f.a)), vb=esc(String(f.b==null?'':f.b));
+    btns=`<div class="cfm"><b>スタッフ確認して確定：</b>`+
+      (String(f.a||'')?`<button onclick="confirmSide('${esc(rid)}','${f.k}','op')">✅ OP「${va}」で確定</button>`:'')+
+      (String(f.b||'')?`<button onclick="confirmSide('${esc(rid)}','${f.k}','mp')">✅ マイページ「${vb}」で確定</button>`:'')+
+      `<span class="cfmn">→ 選んだ値を OP・マイページ両方に反映（人の確定＝固定）</span></div>`;
+  }
+  const act=f.diff?`<tr class="rsn act"><th></th><td colspan="2">${actionOf(f)}${btns}</td></tr>`:'';
   return main+act;
+}
+async function confirmSide(rid,fk,side){
+  const x=ROWS.find(y=>y.r.id===rid); if(!x)return;
+  const f=x.fields.find(z=>z.k===fk); if(!f)return;
+  const val=String((side==='op'?f.a:f.b)||'');
+  if(!confirm(`${fk} を「${val}」で確定し、OP・マイページ両方に反映します。よろしいですか？`))return;
+  try{ await rpc('reconcile_confirm',{p_store:STORE,p_id:rid,p_field:fk,p_value:val}); alert('✅ '+fk+'を「'+val+'」で確定しました'); load(); }
+  catch(e){ alert('確定に失敗しました: '+e.message); }
 }
 let _open={}; // 展開状態（予約IDごと）
 function tglCard(id){_open[id]=!_open[id];render();}
@@ -307,8 +329,8 @@ function cardHtml(x){
   const fixbar='';
   // 相違ありカード＝相違項目を常時表示・一致項目は折りたたみ。相違なしカード＝全項目は折りたたみ。
   let bodyRows, moreCount, moreLabel;
-  if(x.nDiff){ bodyRows=diffF.map(rowHtml).join('')+(open?sameF.map(rowHtml).join(''):''); moreCount=sameF.length; moreLabel=open?'一致項目を隠す ▲':('一致項目も表示（'+moreCount+'） ▼'); }
-  else{ bodyRows=open?x.fields.map(rowHtml).join(''):''; moreCount=x.fields.length; moreLabel=open?'閉じる ▲':('全項目を表示（'+moreCount+'） ▼'); }
+  if(x.nDiff){ bodyRows=diffF.map(f=>rowHtml(f,x.r.id)).join('')+(open?sameF.map(f=>rowHtml(f,x.r.id)).join(''):''); moreCount=sameF.length; moreLabel=open?'一致項目を隠す ▲':('一致項目も表示（'+moreCount+'） ▼'); }
+  else{ bodyRows=open?x.fields.map(f=>rowHtml(f,x.r.id)).join(''):''; moreCount=x.fields.length; moreLabel=open?'閉じる ▲':('全項目を表示（'+moreCount+'） ▼'); }
   const colh=(x.nDiff||open)?`<tr class="colh"><th></th><td>🚗 OP（配車表）</td><td>📱 マイページ（お客様）</td></tr>`:'';
   const more=moreCount>0?`<button class="moretog" onclick="tglCard('${esc(r.id).replace(/'/g,"")}')">${moreLabel}</button>`:'';
   return `<div class="card ${x.nDiff?'diff':''}">
