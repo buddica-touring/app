@@ -196,7 +196,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
       <thead><tr>
         <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
         <th style="width:82px">カラー</th><th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
-        <th style="width:52px">現場<br>希望</th><th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
+        <th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -276,8 +276,6 @@ function renderDash(){
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
    `<div class="card"><div class="lb">⏳ 候補（未決）</div><div class="vv" style="color:#b45309">${pool}<small>台</small></div><small>未対応${un}・確認中${c.確認中||0}・対応中${c.対応中||0}<br>ゴール−候補 ＝ <b style="color:#b45309">あと${Math.max(0,goal-pool)}台</b></small></div>`+
    `<div class="card"><div class="lb">❌ NG（除外）</div><div class="vv" style="color:#94a3b8">${ng}<small>台 ﾉｰｶｳﾝﾄ</small></div></div>`+
-   (()=>{let fr=0,frOk=0;rows.forEach(r=>{if(isSample(r))return;if(r.field_req){fr++;if(r.status==="OK")frOk++;}});
-     return `<div class="card"><div class="lb">🏭 現場希望</div><div class="vv" style="color:#2563eb">${fr}<small>台</small></div><small>うち仕入OK ${frOk}台</small></div>`;})()+
    `<div class="card ${shortfall>0?'need':''}"><div class="lb">${shortfall>0?"🔴 追加ピックアップ必要":"🟢 候補は充足"}</div><div class="vv">${shortfall>0?"あと"+shortfall:"OK"}<small>${shortfall>0?"台 探す":" 目標到達見込み"}</small></div><small>あと確保 ${remain}台 / 候補プール ${ok+pool}台</small></div>`+
    (()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
      return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／確定計${bud+hdm}台</small></div>`;})();
@@ -339,7 +337,6 @@ function render(){
       <td data-lb="カラー"><span class="ro">${esc(r.color)||"—"}</span></td>
       <td data-lb="場所"><span class="ro">${esc(r.location)||"—"}</span></td>
       <td data-lb="問合せ"><div style="display:flex;align-items:center;gap:4px;width:100%"><span style="font-family:monospace;font-size:12px;letter-spacing:.3px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.inquiry)||'<span style="color:#cbd5e1">—</span>'}</span>${r.inquiry?`<span class="cp" data-cp="inquiry" title="コードをコピー">📋</span>`:""}</div></td>
-      <td data-lb="現場希望" style="text-align:center"><input type="checkbox" data-f="field_req" ${r.field_req?"checked":""} title="現場希望" style="width:19px;height:19px;cursor:pointer;accent-color:#2563eb"></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
       <td data-lb="整備">${r.status==="OK"?`<select class="st ${STCLS[r.maint_status]||"stU"}" data-f="maint_status">${opt(r.maint_status)}</select>`:`<span style="color:#cbd5e1;font-size:11px">仕入OK後</span>`}</td>
       <td data-lb="名義"><select class="st ${MEIGICLS[r.pickup]||"meU"}" data-f="pickup">${meigiOpt(r.pickup)}</select></td>
@@ -498,8 +495,8 @@ $("okurls").addEventListener("click",()=>{
   alert("📋 仕入OKの車両URL "+oks.length+"件をコピーしました\n\n"+oks.map(r=>"・"+(r.model||"")+(r.vclass?"("+r.vclass+")":"")+"\n　"+r.url).join("\n\n"));
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","現場希望","仕入ステータス","整備ステータス","名義","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",(r.field_req?"○":""),r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","仕入ステータス","整備ステータス","名義","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",r.status,r.maint_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
