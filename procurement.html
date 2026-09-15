@@ -71,6 +71,7 @@
   @keyframes mtblink{0%,100%{background:#eff6ff;box-shadow:0 0 0 0 rgba(37,99,235,.45);border-color:#bfdbfe}50%{background:#bfdbfe;box-shadow:0 0 0 5px rgba(37,99,235,0);border-color:#60a5fa}}
   .mtoggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:800;margin-top:4px;white-space:nowrap;animation:mtblink 1.5s ease-in-out infinite}
   .mtoggle:hover{background:#dbeafe;animation:none}
+  .memoflag{display:inline-flex;align-items:center;gap:3px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:900;margin-top:4px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .mtoggle b{display:inline-block;font-size:9px;transition:transform .15s}
   tr.open .mtoggle{background:#dbeafe;border-color:#93c5fd;animation:none;box-shadow:none}
   tr.open .mtoggle b{transform:rotate(180deg)}
@@ -329,7 +330,7 @@ function render(){
   $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="15"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="15"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span><span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
+      <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?`<span class="memoflag" title="メモあり：${esc(String(r.memo).trim())}">🚩 メモ</span>`:""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
       <td data-lb="年式"><span class="ro">${esc(r.year)||"—"}</span></td>
       <td data-lb="走行"><span class="ro">${esc(r.mileage)||"—"}</span></td>
@@ -410,6 +411,7 @@ async function save(id,field,val){
   else if(field==="pickup"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="pickup"]`);if(s)s.className="st "+(MEIGICLS[val]||"meU");}
   else if(field==="insurance"){const s=$("tb").querySelector(`tr[data-id="${id}"] select[data-f="insurance"]`);if(s)s.className="st "+INSCLS[val];}
   else if(field==="op_start_date"){const c=$("tb").querySelector(`tr.grpRow[data-id="${id}"] td[data-lb="稼働開始"] .opd`);if(c){c.textContent=val?fmtMd(val):"—";c.className="opd"+(val?"":" z");}}
+  else if(field==="memo"){const td=$("tb").querySelector(`tr.grpRow[data-id="${id}"] td[data-lb="車種"]`);if(td){let fl=td.querySelector(".memoflag");const has=val&&val.trim();if(has){if(!fl){fl=document.createElement("span");fl.className="memoflag";const mt=td.querySelector(".mtoggle");if(mt)mt.insertAdjacentElement("beforebegin",fl);else td.appendChild(fl);}fl.textContent="🚩 メモ";fl.title="メモあり："+val.trim();}else if(fl){fl.remove();}}}
   // ★ URLを貼付/変更したら自動で車種/年式/走行/価格/カラー/展示場所を取得
   if(field==="url"&&val.trim()&&/buddica\.jp\/usedcar/.test(val)){
     setStatus("URLから取得中…");
