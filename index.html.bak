@@ -19008,7 +19008,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           if(!["DEL","来店","PU","PUB","PUB来店","貸出"].includes(t.type))return;
           seen[t.reservationId]=1;
           const r=(reservations||[]).find(x=>x.id===t.reservationId)||{};
-          rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||""});
+          rows.push({id:t.reservationId,name:t.name||r.name||"",mail:((r.mail||t.mail||"")+"").trim(),token:r.mypageToken||"",vehicle:t.vehicle||r.vehicle||"",lend:r.lendDate||"",time:t.time||"",ota:r.ota||"",brand:r.brand||""});
         });
         // 未締結を先頭にソート＋締結状況カウント
         rows.sort((a,b)=>(gStat(a.id).skip?1:0)-(gStat(b.id).skip?1:0));
@@ -19024,12 +19024,16 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           </div>}
           {rows.length===0&&<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>本日の対象予約（引渡し）はありません</div>}
           {rows.map(r=>{
-            const url=GB+"?t="+r.token;
+            // ★2026-09-16 ブランド分岐: HDM(HANDYMAN高松/じゃらん)→my-tkm+HANDYMANブランド / BUDDICA→ご利用ガイド
+            const isHdm=(r.brand==="HDM")||String(r.ota||"").indexOf("じゃらん")>=0||String(r.ota||"").toUpperCase().indexOf("HANDYMAN")>=0;
+            const url=isHdm?("https://nosh2318.github.io/spk-task/my-tkm.html?t="+r.token):(GB+"?t="+r.token);
             const st=gStat(r.id);
             const done=st.skip;
             const stB=st.both?{t:"✅ 傷+約款済 受付スキップ可",bg:"#dcfce7",c:"#15803d"}:st.dmg?{t:"✅ 傷サイン済 受付スキップ可",bg:"#dcfce7",c:"#15803d"}:st.terms?{t:"📄 約款のみ(傷未)",bg:"#fef9c3",c:"#854d0e"}:{t:"🖊 未サイン",bg:"#fee2e2",c:"#dc2626"};
-            const subj="【BUDDICA TOURISM】ご利用ガイド（ご出発前のご確認）";
-            const bodyRaw=r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\nご出発前のご確認を、下記のご利用ガイドページからお願いいたします。\n\n・公式LINEのご登録／お迎え時間のご指定\n・貸渡約款のご確認（サインは不要です）\n・車両の傷チェック（ご出発日の当日に公開されます）\n\n▼ ご利用ガイド\n"+url+"\n\n当日の車両チェックを事前にお済ませいただくと、当日の受付がスムーズです。\n\nBUDDICA TOURISM 高松空港店";
+            const subj=isHdm?"【HANDYMAN高松空港店】マイページ（ご出発前のご確認）":"【BUDDICA TOURISM】ご利用ガイド（ご出発前のご確認）";
+            const bodyRaw=isHdm
+              ?(r.name+" 様\n\nこの度はHANDYMAN高松空港店をご利用いただき誠にありがとうございます。\nご出発前のご確認を、下記のマイページからお願いいたします。\n\n・公式LINEのご登録／お迎え時間のご指定\n・貸渡約款のご確認（サインは不要です）\n・車両の傷チェック（ご出発日の当日に公開されます）\n\n▼ マイページ\n"+url+"\n\n当日の車両チェックを事前にお済ませいただくと、当日の受付がスムーズです。\n\nHANDYMAN 高松空港店")
+              :(r.name+" 様\n\nこの度はBUDDICA TOURISMをご利用いただき誠にありがとうございます。\nご出発前のご確認を、下記のご利用ガイドページからお願いいたします。\n\n・公式LINEのご登録／お迎え時間のご指定\n・貸渡約款のご確認（サインは不要です）\n・車両の傷チェック（ご出発日の当日に公開されます）\n\n▼ ご利用ガイド\n"+url+"\n\n当日の車両チェックを事前にお済ませいただくと、当日の受付がスムーズです。\n\nBUDDICA TOURISM 高松空港店");
             return <div key={r.id} style={{border:"1px solid "+(done?"#bbf7d0":"#fde68a"),borderLeft:"4px solid "+(done?"#0e9f50":"#f59e0b"),borderRadius:10,padding:10,marginBottom:8,background:done?"#fff":"#fffbeb",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
                 <span style={{fontWeight:800,fontSize:14}}>{r.name} 様</span>
@@ -23622,7 +23626,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.444-BT";
+const APP_VERSION="v1.0.445-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
