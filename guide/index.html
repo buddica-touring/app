@@ -208,7 +208,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
     <div class="pu-pick-h" data-t="pu_pick_h2">🚐 空港お迎えのご希望をお選びください</div>
     <div class="pu-pick-sub" data-t="pu_pick_sub2">お迎えをご希望の場合は時間もお選びください（変更も可能です）</div>
     <div class="pu-toggle-row">
-      <button type="button" id="puYes" class="pu-save" onclick="puMode(true)" style="background:#fff;color:#c85a12;border:2px solid #ee6a1c;" data-t="pu_yes">🚐 空港お迎えを希望</button>
+      <button type="button" id="puYes" class="pu-save" onclick="puMode(true)" style="background:#fff;color:#556;border:2px solid #cbd3dc;" data-t="pu_yes">🚐 空港お迎えを希望</button>
       <button type="button" id="puNo" class="pu-save" onclick="puMode(false)" style="background:#fff;color:#556;border:2px solid #cbd3dc;" data-t="pu_no">🏬 店舗へ行く（来店）</button>
     </div>
     <div class="pu-pick-row" id="puTimeRow" style="display:none;margin-top:10px;"><select id="puSel" class="pu-sel"></select><button id="puSave" class="pu-save" onclick="savePickup()" data-t="pu_save">この時間で確定</button></div>
@@ -229,7 +229,7 @@ body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;}
     <div class="pu-pick-h" data-t="rt_h">🚙 返却時の無料送迎（店舗 → 高松空港）</div>
     <div class="pu-pick-sub" data-t="rt_sub">ご返却時に店舗から高松空港まで無料でお送りします。ご希望をお選びください。</div>
     <div class="pu-toggle-row">
-      <button type="button" id="rtYes" class="pu-save" onclick="rtMode(true)" style="background:#fff;color:#c85a12;border:2px solid #ee6a1c;" data-t="rt_yes">🚙 送迎を希望する</button>
+      <button type="button" id="rtYes" class="pu-save" onclick="rtMode(true)" style="background:#fff;color:#556;border:2px solid #cbd3dc;" data-t="rt_yes">🚙 送迎を希望する</button>
       <button type="button" id="rtNo" class="pu-save" onclick="rtMode(false)" style="flex:1;background:#fff;color:#556;border:2px solid #cbd3dc;" data-t="rt_no">🏬 店舗で返却</button>
     </div>
     <div class="pu-pick-row" id="rtTimeRow" style="display:none;margin-top:10px;"><select id="rtSel" class="pu-sel"></select><button id="rtSave" class="pu-save" onclick="saveReturn()" data-t="rt_save">この時間で確定</button></div>
@@ -1063,7 +1063,8 @@ if(RO){document.body.classList.add('ro');var _rb=document.createElement('div');_
 
 /* お迎え時間プルダウン */
 (function(){var sel=document.getElementById("puSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,15,30,45].forEach(function(m){if(h===18&&m===45)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
-function _puActive(yes){var y=document.getElementById("puYes"),n=document.getElementById("puNo");if(!y||!n)return;if(yes===true){y.style.background="#ee6a1c";y.style.color="#fff";n.style.background="#fff";n.style.color="#556";}else if(yes===false){n.style.background="#475569";n.style.color="#fff";y.style.background="#fff";y.style.color="#c85a12";}else{y.style.background="#fff";y.style.color="#c85a12";n.style.background="#fff";n.style.color="#556";}}
+/* ★2026-09-17 未選択/来店選択時は送迎ボタンをオレンジにしない(誤認防止)。選択された側だけ色付け・両方ニュートラルが既定。 */
+function _puActive(yes){var y=document.getElementById("puYes"),n=document.getElementById("puNo");if(!y||!n)return;var NEU=function(el){el.style.background="#fff";el.style.color="#556";el.style.border="2px solid #cbd3dc";};NEU(y);NEU(n);if(yes===true){y.style.background="#ee6a1c";y.style.color="#fff";y.style.border="2px solid #ee6a1c";}else if(yes===false){n.style.background="#475569";n.style.color="#fff";n.style.border="2px solid #475569";}}
 /* ✈️ お迎え便情報（便名＋到着時刻）＝お迎え希望時のみ表示・bt_reservations(del_flight/del_flight_time)へ保存 */
 I18N.pu_flight_h={ja:"✈️ ご搭乗便の情報（お迎えの目安に使います・任意）",en:"✈️ Your flight details (helps us time your pick-up · optional)",zh:"✈️ 您的航班資訊（作為迎接時間參考・非必填）",ko:"✈️ 탑승 항공편 정보 (픽업 시간 참고용·선택)"};
 I18N.pu_flight_ph={ja:"便名（例：GK381）",en:"Flight no. (e.g. GK381)",zh:"航班編號（例：GK381）",ko:"편명 (예: GK381)"};
@@ -1088,7 +1089,8 @@ function renderPickup(){var box=document.querySelector('.pu-pick');if(!box||!RES
 
 /* 🚙 返却送迎（店舗→高松空港）プルダウン生成 */
 (function(){var sel=document.getElementById("rtSel");if(!sel)return;var lbl=(I18N["pu_choose"]?I18N["pu_choose"][LANG]:"-- 選択 --");var o=['<option value="">'+lbl+'</option>'];for(var h=9;h<=18;h++){[0,15,30,45].forEach(function(m){if(h===18&&m===45)return;var hh=("0"+h).slice(-2),mm=("0"+m).slice(-2);o.push('<option value="'+hh+":"+mm+'">'+hh+":"+mm+'</option>');});}o.push('<option value="18:50">18:50</option>');sel.innerHTML=o.join("");})();
-function _rtActive(yes){var y=document.getElementById("rtYes"),n=document.getElementById("rtNo");if(!y||!n)return;if(yes===true){y.style.background="#ee6a1c";y.style.color="#fff";n.style.background="#fff";n.style.color="#556";}else if(yes===false){n.style.background="#475569";n.style.color="#fff";y.style.background="#fff";y.style.color="#c85a12";}else{y.style.background="#fff";y.style.color="#c85a12";n.style.background="#fff";n.style.color="#556";}}
+/* ★2026-09-17 返却送迎も同様：未選択/店舗返却時は送迎ボタンをオレンジにしない。 */
+function _rtActive(yes){var y=document.getElementById("rtYes"),n=document.getElementById("rtNo");if(!y||!n)return;var NEU=function(el){el.style.background="#fff";el.style.color="#556";el.style.border="2px solid #cbd3dc";};NEU(y);NEU(n);if(yes===true){y.style.background="#ee6a1c";y.style.color="#fff";y.style.border="2px solid #ee6a1c";}else if(yes===false){n.style.background="#475569";n.style.color="#fff";n.style.border="2px solid #475569";}}
 function rtMode(want){if(RO){alert('閲覧専用モードです');return;}var row=document.getElementById("rtTimeRow"),cur=document.getElementById("rtCur");if(want){_rtActive(true);if(row)row.style.display="flex";if(cur)cur.style.display="none";var rs=document.getElementById("rtSel");if(rs&&RES&&RES.dropoff_time)rs.value=RES.dropoff_time;}else{if(!_cfAsk("cf_rt_store"))return;doReturn(false,null);}}
 async function saveReturn(){if(RO){alert('閲覧専用モードです');return;}var sel=document.getElementById("rtSel");var t=sel.value;if(!t){alert(I18N["pu_need"]?I18N["pu_need"][LANG]:"時間を選択してください");return;}if(!_cfAsk("cf_rt_go",t))return;doReturn(true,t);}
 async function doReturn(want,t){var btn=document.getElementById("rtSave");if(btn)btn.disabled=true;var r=await rpc("bt_mypage_set_dropoff",{p_token:TOKEN,p_want:want,p_time:want?t:null});if(btn)btn.disabled=false;if(r&&r.ok){logGuideAction('return_save',{want:!!want,dropoff_time:want?t:null,return_type:r.return_type});if(RES){RES.return_type=r.return_type;RES.dropoff_time=r.dropoff_time;}if(want){_rtActive(true);var row=document.getElementById("rtTimeRow");if(row)row.style.display="flex";if(btn)btn.textContent=(I18N["pu_change"]&&I18N["pu_change"][LANG])||"変更する";showRtCur(t,true);}else{_rtActive(false);var row2=document.getElementById("rtTimeRow");if(row2)row2.style.display="none";showRtCur(null,false);}}else{alert("保存に失敗しました");}}
