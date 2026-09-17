@@ -74,7 +74,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.8-bt";
+var VER="staff-v1.9-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -104,7 +104,8 @@ function jstToday(){var n=new Date(Date.now()+9*3600*1000);return n.toISOString(
 function jpWd(d){var p=(d||"").split("-");if(p.length!==3)return"";return "日月火水木金土"[new Date(+p[0],+p[1]-1,+p[2]).getDay()];}
 function addDays(d,n){var p=(d||"").split("-");if(p.length!==3)return d;var dt=new Date(+p[0],+p[1]-1,+p[2]+n);return dt.getFullYear()+"-"+("0"+(dt.getMonth()+1)).slice(-2)+"-"+("0"+dt.getDate()).slice(-2);}
 function dayHead(d,today){var tag=(d===today)?'<span class="ttag">本日</span>':(d===addDays(today,1))?'<span class="ttag" style="background:#0284c7">明日</span>':'';return '<div class="dayhd">📅 '+shortDate(d)+'（'+jpWd(d)+'）'+tag+'</div>';}
-function groupByDate(list,cardFn,today){var by={},order=[];list.forEach(function(x){var d=x.date||"";if(!by[d]){by[d]=[];order.push(d);}by[d].push(x);});order.sort();return order.map(function(d){return dayHead(d,today)+by[d].map(cardFn).join("");}).join("");}
+function _timeSort(a,b){var ta=(a.time||"").trim(),tb=(b.time||"").trim();if(ta&&!tb)return -1;if(!ta&&tb)return 1;if(ta&&tb){var c=ta.localeCompare(tb);if(c)return c;}return (a.sort_order||0)-(b.sort_order||0);}
+function groupByDate(list,cardFn,today){var by={},order=[];list.forEach(function(x){var d=x.date||"";if(!by[d]){by[d]=[];order.push(d);}by[d].push(x);});order.sort();return order.map(function(d){return dayHead(d,today)+by[d].slice().sort(_timeSort).map(cardFn).join("");}).join("");}
 
 /* ★2026-09-17 高松=送迎のみ。OPシートlegTypeLabelと同一の統一表記に：貸出/PU/来店(送迎不要) ・ 返却/BD/返却(送迎不要)。洗車/その他は素通し。 */
 function typeLabel(t){if(t==="PU"||t==="PUB")return"PU";if(t==="BD"||t==="BDB")return"BD";if(t==="来店"||t==="PUB来店")return"来店(送迎不要)";if(t==="返却")return"返却(送迎不要)";if(t==="DEL"||t==="貸出")return"貸出";if(t==="COL"||t==="返却待")return"返却";return t||"";}
