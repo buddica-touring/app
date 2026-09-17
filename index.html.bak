@@ -17761,7 +17761,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     <div style={{padding:"4px 8px",background:"#fff",borderBottom:"1px solid #e5e7eb",display:"flex",gap:4,flexShrink:0,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
       {[
         // ★ バス廃止: 🚌バスタブ削除。ハイエース送迎(PU/BD) は通常タスクとして扱う
-        {k:"summary",l:"📊サマリー",cnt:sortedTasks.filter(t=>["PU","BD","DEL","COL","洗車"].includes(t.type)).length,ac:"#0f172a"},
+        {k:"summary",l:"📊サマリー",cnt:sortedTasks.filter(t=>["PU","BD","DEL","COL","洗車","返却後洗車"].includes(t.type)).length,ac:"#0f172a"},
         {k:"hia",l:"🚐ハイエース送迎",cnt:sortedTasks.filter(t=>t.type==="PU"||t.type==="BD").length,ac:"#546e7a"},
         {k:"tasks",l:"🚗DEL/COL",cnt:sortedTasks.filter(t=>t.type==="DEL"||t.type==="COL").length,ac:"#2563eb"},
         {k:"wash",l:"🧽洗車",cnt:sortedTasks.filter(t=>t.type==="洗車").length,ac:"#64748b"},
@@ -17858,8 +17858,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const bdTasks=sortedTasks.filter(t=>t.type==="BD"||t.type==="BDB");
         const delTasks=sortedTasks.filter(t=>t.type==="DEL");
         const colTasks=sortedTasks.filter(t=>t.type==="COL");
-        const washTasks=sortedTasks.filter(t=>t.type==="洗車");
-        const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.type!=="その他"&&!t.manual&&!String(t._id||"").startsWith("other_")&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
+        const washTasks=sortedTasks.filter(t=>t.type==="洗車"||t.type==="返却後洗車");
+        const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.type!=="返却後洗車"&&t.type!=="その他"&&!t.manual&&!String(t._id||"").startsWith("other_")&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
         const pplSum=(arr)=>arr.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         const doneSum=(arr)=>arr.filter(t=>t.done).length;
         // ★ バス便別集計は廃止
@@ -23631,7 +23631,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.448-BT";
+const APP_VERSION="v1.0.449-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
