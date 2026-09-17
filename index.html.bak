@@ -511,6 +511,8 @@ const DB = {
         delPlace:"del_place",colPlace:"col_place",vehicle:"vehicle_class",insurance:"insurance",
         optB:"opt_b",optC:"opt_c",optJ:"opt_j",optUSB:"opt_usb",visitType:"visit_type",returnType:"return_type",
         lendDate:"start_date",returnDate:"end_date",flight:"del_flight",people:"people",price:"price"};
+      /* ★2026-09-17 OTA予約は送迎未選択(pickup/dropoff時刻なし)ならvisit_type/return_type書き戻し禁止=中立「貸出/返却」を保つ。送迎はマイページ(ご利用ガイド)選択でpickup_time設定時のみPU/BD反映。OP種別同期でOTAがPU化する不具合の根治(武山さん依頼) */
+      if(cur&&cur.source==="ota"){if(!(cur.pickup_time&&String(cur.pickup_time).trim()))delete changes.visitType;if(!(cur.dropoff_time&&String(cur.dropoff_time).trim()))delete changes.returnType;}
       const dbChanges={};
       Object.entries(changes).forEach(([k,v])=>{const col=colMap[k]||k;dbChanges[col]=v;});
       dbChanges.changed_json=JSON.stringify({_src:(source==='op_sheet'?'human':(source==='spreadsheet'?'customer':'system'))});
@@ -23631,7 +23633,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.449-BT";
+const APP_VERSION="v1.0.450-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
