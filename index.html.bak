@@ -16651,6 +16651,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <button onClick={goNext} style={{padding:isMobile?"2px 4px":"4px 8px",background:"#fff",border:"1px solid #d1d5db",borderRadius:4,fontSize:isMobile?10:14,cursor:"pointer"}}>▶</button>
         <span style={{fontSize:isMobile?11:14,fontWeight:700,color:"#1e293b",marginLeft:2}}>{monthLabel}</span>
         <span style={{display:"inline-flex",marginLeft:isMobile?4:10,border:"1px solid #cbd5e1",borderRadius:6,overflow:"hidden",flexShrink:0}} title="配車表を全体/HDM/BTで切替">{[["all","🔀全体"],["HDM","🔵HDM"],["BUDDICA","🟢BT"]].map(([k,lb])=><button key={k} onClick={()=>setBrandView(k)} style={{padding:isMobile?"2px 6px":"3px 10px",fontSize:isMobile?9:11,fontWeight:brandView===k?800:500,border:"none",cursor:"pointer",background:brandView===k?(k==="HDM"?"#1e3a8a":k==="BUDDICA"?"#047857":"#334155"):"#fff",color:brandView===k?"#fff":"#64748b"}}>{lb}</button>)}</span>
+        {(()=>{const cnt=br=>{const l=(vehicles||[]).filter(v=>normBrand(v.brand)===br);const a=l.filter(v=>v.active!==false).length;return{g:l.length,a,i:l.length-a};};const B=cnt("BUDDICA"),H=cnt("HDM");const chip=(bg,lb,c)=><span style={{background:bg,color:"#fff",padding:isMobile?"1px 5px":"2px 7px",borderRadius:4,fontSize:isMobile?8:10,fontWeight:700,whiteSpace:"nowrap"}}>{lb} 計{c.g}（稼働{c.a}/未稼働{c.i}）</span>;return <span style={{display:"inline-flex",gap:4,marginLeft:isMobile?4:8,flexWrap:"wrap"}}>{(brandView==="all"||brandView==="BUDDICA")&&chip("#047857","🟢BT",B)}{(brandView==="all"||brandView==="HDM")&&chip("#1e3a8a","🔵HDM",H)}</span>;})()}
         {viewMode==="month"&&<span style={{display:"inline-flex",gap:isMobile?4:8,marginLeft:isMobile?4:12,fontSize:isMobile?8:11,fontWeight:600}}>
           <span style={{background:"#dbeafe",color:"#1e40af",padding:"2px 6px",borderRadius:4}}>出発 {monthStats.dep}</span>
           <span style={{background:"#fef3c7",color:"#92400e",padding:"2px 6px",borderRadius:4}}>返却 {monthStats.ret}</span>
@@ -23630,7 +23631,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.446-BT";
+const APP_VERSION="v1.0.447-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
