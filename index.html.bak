@@ -3754,7 +3754,11 @@ const TASK_META={PU:{c:"#059669",bg:"#ecfdf5"},BD:{c:"#e11d48",bg:"#fff1f2"},"�
    ① 未選択(visit_type空) → 中立: 貸出 / 返却（内部key: 貸出 / 返却待）
    ② 送迎あり選択 → PU / BD
    ③ 送迎なし選択(来店/返却) → 来店(送迎不要) / 返却(送迎不要) */
-function legTypeLabel(tp){return tp==="来店"?"来店(送迎不要)":tp==="返却"?"返却(送迎不要)":tp==="返却待"?"返却":tp==="貸出"?"貸出":(tp||"");}
+/* ★2026-09-17 高松=送迎のみ(デリバリー無し)。貸出/返却の表記をオーナー仕様に統一：
+   貸出 → OTA/直予約(ガイド未選択)=貸出 / 送迎あり=PU / 来店(送迎なし)=来店(送迎不要)
+   返却 → OTA/直予約(ガイド未選択)=返却 / 送迎あり=BD / 送迎なし=返却(送迎不要)
+   ※DEL/COL/PUB/BDBはOTA取込の名残＝送迎あり(PU/BD)or中立(貸出/返却)に寄せる。洗車/その他は素通し。 */
+function legTypeLabel(tp){if(tp==="PU"||tp==="PUB")return"PU";if(tp==="BD"||tp==="BDB")return"BD";if(tp==="来店"||tp==="PUB来店")return"来店(送迎不要)";if(tp==="返却")return"返却(送迎不要)";if(tp==="DEL"||tp==="貸出")return"貸出";if(tp==="COL"||tp==="返却待")return"返却";return tp||"";}
 /* ★2026-08-16 洗車タスクのカテゴリ導出=内容欄に「返却後洗車/翌日洗車/無稼働洗車/手動カテゴリ」を出しスタッフが何のための洗車か把握できるように。type="洗車"は用途が複数(翌日出発準備/無稼働/手動)あり種別だけでは区別不能→name/memoから導出。非洗車は""を返す(呼出側で従来ラベルにフォールバック)。 */
 function washCat(t){if(!t)return "";if(t.type==="返却後洗車")return "返却後洗車";if(t.type!=="洗車")return "";var nm=String(t.name||"");var mm=String(t.memo||"");var cats=["出発/フル","当日洗車","緊急洗車","引渡前洗車","返却後洗車","内装メンテ/美装","外装メンテ/美装"];for(var i=0;i<cats.length;i++){if(nm.indexOf(cats[i])===0)return cats[i];}if(nm.indexOf("翌日出発")===0)return "翌日洗車";if(nm.indexOf("無稼働")>=0||mm.indexOf("無稼働")>=0)return "無稼働洗車";return "洗車";}
 /* ★2026-08-15 STEP2横展開(区分): leg種別(内容)の正本は予約(visit_type/return_type)。generateTasksと同一マッピングで予約から導出し、
@@ -23626,7 +23630,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.445-BT";
+const APP_VERSION="v1.0.446-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

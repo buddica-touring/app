@@ -106,7 +106,8 @@ function addDays(d,n){var p=(d||"").split("-");if(p.length!==3)return d;var dt=n
 function dayHead(d,today){var tag=(d===today)?'<span class="ttag">本日</span>':(d===addDays(today,1))?'<span class="ttag" style="background:#0284c7">明日</span>':'';return '<div class="dayhd">📅 '+shortDate(d)+'（'+jpWd(d)+'）'+tag+'</div>';}
 function groupByDate(list,cardFn,today){var by={},order=[];list.forEach(function(x){var d=x.date||"";if(!by[d]){by[d]=[];order.push(d);}by[d].push(x);});order.sort();return order.map(function(d){return dayHead(d,today)+by[d].map(cardFn).join("");}).join("");}
 
-function typeLabel(t){var m={DEL:"お届け",PU:"送迎お迎え",PUB:"バスお迎え",COL:"回収",BD:"お見送り",BDB:"バスお見送り","返却":"返却","洗車":"洗車","来店":"来店"};return m[t]||t;}
+/* ★2026-09-17 高松=送迎のみ。OPシートlegTypeLabelと同一の統一表記に：貸出/PU/来店(送迎不要) ・ 返却/BD/返却(送迎不要)。洗車/その他は素通し。 */
+function typeLabel(t){if(t==="PU"||t==="PUB")return"PU";if(t==="BD"||t==="BDB")return"BD";if(t==="来店"||t==="PUB来店")return"来店(送迎不要)";if(t==="返却")return"返却(送迎不要)";if(t==="DEL"||t==="貸出")return"貸出";if(t==="COL"||t==="返却待")return"返却";return t||"";}
 function mypLink(x){return x.mypage?('<a class="myp" href="guide/?t='+encodeURIComponent(x.mypage)+'&ro=1" target="_blank" rel="noopener">📄 ご利用ガイド</a>'):'';}
 
 function otaAbbrS(o){var m={"じゃらん":"JLN","楽天":"RKT","エアトリ":"ART","スカイチケット":"SKT","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","たびらい":"TBR","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","HP":"BDC","direct":"直接","DIRECT":"直接"};var k=String(o==null?"":o).trim();if(!k)return "";return m[k]||k;}
