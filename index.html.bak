@@ -20683,8 +20683,8 @@ function JalanTemplateList({sb}){
   const PAYBLK=(r)=>r.payUrl?("【事前決済のお願い】\n当店ではお待ち時間・待機時間の解消のため事前決済をお願いしております。\nお支払い金額："+yen(r.price)+"\n▼ お支払い（クレジットカード）\n"+r.payUrl+"\n※ ご出発3日前の19:00までにお願いいたします。\n\n"):"";
   const TMPL=[
     {key:"welcome",ico:"🎫",l:"予約確定・ご案内＋事前決済（セット）",trig:"予約確定後すぐ",due:()=>true,
-     build:(r)=>r.name+" 様\n\nこの度は "+HDM+" をご予約いただき誠にありがとうございます。\nご出発前に、下記マイページより次のお手続き・ご確認をお願いいたします。\n　① 運転免許証のご登録（運転される方 全員分）\n　② 貸渡約款のご確認・ご署名\n　③ お迎え時間・お受け取り方法のご確認\n\n▼ マイページ（お客様専用）\n"+MYURL(r.tok)+"\n\n"+PAYBLK(r)+"※ 免許証のご登録と約款へのご署名は、当日スムーズなご出発のため特にお願いしております。"+FOOT},
-    {key:"payremind",ico:"💳",l:"事前決済リマインド",trig:"未入金・出発3日前〜",due:(r)=>!!r.payUrl&&!r.paid&&r.d2s<=3&&r.d2s>=0,
+     build:(r)=>r.name+" 様\n\nこの度は "+HDM+" をご予約いただき誠にありがとうございます。\nご出発前に、下記マイページより次のお手続き・ご確認をお願いいたします。\n　① 運転免許証のご登録（運転される方 全員分）\n　② 貸渡約款のご確認・ご署名\n　③ お迎え時間・お受け取り方法のご確認\n\n▼ マイページ（お客様専用）\n"+MYURL(r.tok)+"\n\n"+(r.ota==="楽天"?"":PAYBLK(r))+"※ 免許証のご登録と約款へのご署名は、当日スムーズなご出発のため特にお願いしております。"+FOOT},
+    {key:"payremind",ico:"💳",l:"事前決済リマインド",trig:"未入金・出発3日前〜",due:(r)=>r.ota!=="楽天"&&!!r.payUrl&&!r.paid&&r.d2s<=3&&r.d2s>=0,
      build:(r)=>r.name+" 様\n\n"+HDM+" です。事前決済がまだ確認できておりません。\nお手数ですが下記より事前決済をお願いいたします。\nお支払い金額："+yen(r.price)+"\n\n▼ お支払い（クレジットカード）\n"+(r.payUrl||"（決済リンク未発行）")+"\n\n※ ご出発3日前の19:00までにお願いいたします。期限を過ぎるとご予約をキャンセルとさせていただく場合がございます。\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
     {key:"pickup",ico:"🚐",l:"送迎（お迎え）時間の確認",trig:"送迎あり・時間未確定",due:(r)=>r.hasPickup&&!r.pickupSet&&r.d2s>=0,
      build:(r)=>r.name+" 様\n\n"+HDM+" です。当日の空港でのお迎えのお時間を確認させてください。\nご到着便・ご希望のお迎え時間を、下記マイページよりご確認・ご登録をお願いいたします。\n\n▼ マイページ\n"+MYURL(r.tok)+FOOT},
@@ -20705,7 +20705,7 @@ function JalanTemplateList({sb}){
     const today=jnow.toISOString().slice(0,10);
     const from=new Date(jnow.getTime()-14*86400*1000).toISOString().slice(0,10);
     const to=new Date(jnow.getTime()+60*86400*1000).toISOString().slice(0,10);
-    const{data}=await sb.from("bt_reservations").select("id,name,mail,tel,ota,status,start_date,start_time,end_date,price,pay_url,paid,mypage_token,visit_type,return_type,pickup_time").eq("ota","じゃらん").gte("start_date",from).lte("start_date",to).order("start_date");
+    const{data}=await sb.from("bt_reservations").select("id,name,mail,tel,ota,status,start_date,start_time,end_date,price,pay_url,paid,mypage_token,visit_type,return_type,pickup_time").in("ota",["じゃらん","楽天"]).gte("start_date",from).lte("start_date",to).order("start_date");
     const alive=(data||[]).filter(r=>!/cancel|キャンセル/i.test(r.status||""));
     const ids=alive.map(r=>r.id);
     let licM={},termM={},payM={},doneSet=new Set();
@@ -20717,7 +20717,7 @@ function JalanTemplateList({sb}){
     }
     const dday=(ds)=>{if(!ds)return null;const d=new Date(ds+"T00:00:00+09:00");const t=new Date(today+"T00:00:00+09:00");return Math.round((d-t)/86400000);};
     setRows(alive.map(r=>{const d2s=dday(r.start_date);const de=dday(r.end_date);const hasPickup=(r.visit_type==="PU"||r.return_type==="BD");
-      return {resv:r.id,name:r.name||"",tok:r.mypage_token||"",mail:r.mail||"",start:r.start_date,end:r.end_date,price:r.price,payUrl:r.pay_url,paid:!!r.paid||payM[r.id]==="paid",licensed:!!licM[r.id],termsSigned:!!termM[r.id],hasPickup:hasPickup,pickupSet:!!r.pickup_time,d2s:(d2s==null?999:d2s),d2e:(de==null?-999:-de),sent:doneSet};}));
+      return {resv:r.id,ota:r.ota||"",name:r.name||"",tok:r.mypage_token||"",mail:r.mail||"",start:r.start_date,end:r.end_date,price:r.price,payUrl:r.pay_url,paid:!!r.paid||payM[r.id]==="paid",licensed:!!licM[r.id],termsSigned:!!termM[r.id],hasPickup:hasPickup,pickupSet:!!r.pickup_time,d2s:(d2s==null?999:d2s),d2e:(de==null?-999:-de),sent:doneSet};}));
   },[sb]);
   React.useEffect(()=>{load();},[load]);
   React.useEffect(()=>{if(!sb)return;(async()=>{try{const{data}=await sb.from("hdm_tkm_templates").select("key,body");const m={};(data||[]).forEach(t=>{m[t.key]=t.body;});setTmpls(m);}catch(e){}})();},[sb]);
@@ -20729,7 +20729,7 @@ function JalanTemplateList({sb}){
   const doSend=async(r,tp)=>{if(busy)return;if(!r.mail){alert("この予約には顧客のメールアドレスが登録されていません。");return;}if(!window.confirm("📤 直接送信\n\n宛先："+r.name+" 様 <"+r.mail+">\n内容：「"+tp.l+"」\n送信元：reserve@rent-handyman.com\n\n実際に顧客へメールを送信します。よろしいですか？"))return;setBusy(true);try{const j=await callEF({action:"send",reservation_id:r.resv,kind:tp.key});if(!j.ok){alert("送信失敗："+(j.error||""));setBusy(false);return;}try{await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"直接送信 rent-handyman.com"});}catch(e){}alert("✅ 送信しました → "+(j.to||r.mail));await load();}catch(e){alert("送信エラー："+e.message);}setBusy(false);};
   const doStatus=async(r)=>{const j=await callEF({action:"status",reservation_id:r.resv});if(j&&j.ok){setOpenMap(m=>Object.assign({},m,{[r.resv]:j.items}));}else{alert("開封状況の取得に失敗："+((j&&j.error)||""));}};
   if(rows===null)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"読み込み中…");
-  if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象のじゃらん予約がありません（出発 -14〜+60日）。");
+  if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象の予約がありません（じゃらん・楽天／出発 -14〜+60日）。");
   const isSent=(r,tp)=>r.sent.has(r.resv+"|"+tp.key);
   const dueOf=(r)=>TMPL.filter(tp=>tp.due(r)&&!isSent(r,tp));
   const sorted=rows.slice().sort((a,b)=>{const da=dueOf(a).length>0?0:1,db=dueOf(b).length>0?0:1;if(da!==db)return da-db;return String(a.start||"").localeCompare(String(b.start||""));});
@@ -20740,8 +20740,8 @@ function JalanTemplateList({sb}){
   const line=(r,tp,hot)=><div key={tp.key} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",borderTop:"1px solid #f1f5f9",background:isSent(r,tp)?"#f0fdf4":(hot?"#fff7ed":"#fff"),flexWrap:"wrap"}}>
     <span style={{fontSize:16,flexShrink:0}}>{tp.ico}</span>
     <div style={{flex:1,minWidth:120}}><div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{hot?"🔴 ":""}{tp.l}</div><div style={{fontSize:10,color:"#94a3b8"}}>{tp.trig}</div></div>
-    <button onClick={()=>doPreview(r,tp)} title="送信内容を確認" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:"#f1f5f9",color:"#334155",border:"1px solid #cbd5e1",cursor:"pointer",flexShrink:0}}>👁</button>
-    <button onClick={()=>doSend(r,tp)} disabled={busy||!r.mail} title={r.mail?("rent-handyman.comから "+r.mail+" へ直接送信"):"顧客メール未登録"} style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:6,background:r.mail?"#dc2626":"#e5e7eb",color:r.mail?"#fff":"#94a3b8",border:"none",cursor:r.mail?"pointer":"not-allowed",flexShrink:0}}>📤送信</button>
+    {r.ota!=="楽天"&&<button onClick={()=>doPreview(r,tp)} title="送信内容を確認" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:"#f1f5f9",color:"#334155",border:"1px solid #cbd5e1",cursor:"pointer",flexShrink:0}}>👁</button>}
+    {r.ota!=="楽天"&&<button onClick={()=>doSend(r,tp)} disabled={busy||!r.mail} title={r.mail?("rent-handyman.comから "+r.mail+" へ直接送信"):"顧客メール未登録"} style={{fontSize:11,fontWeight:800,padding:"6px 10px",borderRadius:6,background:r.mail?"#dc2626":"#e5e7eb",color:r.mail?"#fff":"#94a3b8",border:"none",cursor:r.mail?"pointer":"not-allowed",flexShrink:0}}>📤送信</button>}
     <button onClick={()=>copy(r,tp)} title="テキストをコピー" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",flexShrink:0}}>📋</button>
     <button onClick={()=>check(r,tp,!isSent(r,tp))} title="送信済みチェック(消し込み)" style={{fontSize:11,fontWeight:800,padding:"6px 9px",borderRadius:6,background:isSent(r,tp)?"#16a34a":"#e5e7eb",color:isSent(r,tp)?"#fff":"#475569",border:"none",cursor:"pointer",flexShrink:0}}>{isSent(r,tp)?"✅":"☑"}</button>
   </div>;
@@ -20749,7 +20749,7 @@ function JalanTemplateList({sb}){
     return <div key={r.resv} style={{border:"1px solid #e5e7eb",borderRadius:10,margin:"10px 12px",overflow:"hidden"}}>
       <div onClick={()=>setOpen(isOpen?null:r.resv)} style={{padding:"9px 12px",background:due.length?"#7f1d1d":"#0F1F45",color:"#fff",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",cursor:"pointer"}}>
         <b style={{fontSize:14}}>{r.name} 様</b>
-        <span style={{fontSize:10,background:"#FABE00",color:"#0F1F45",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>JLN {r.resv}</span>
+        <span style={{fontSize:10,background:r.ota==="楽天"?"#bf0000":"#FABE00",color:"#fff",fontWeight:800,borderRadius:5,padding:"1px 6px"}}>{r.ota==="楽天"?"RKT":"JLN"} {r.resv}</span>
         <span style={{fontSize:11,opacity:.9}}>{r.start}〜{r.end}</span>
         {due.length>0?chip("🔴要対応 "+due.length+"："+due[0].l,"#fecaca","#7f1d1d"):chip("✅対応なし","#bbf7d0","#166534")}
         <span style={{marginLeft:"auto",fontSize:14}}>{isOpen?"▲":"▼"}</span>
@@ -22531,7 +22531,7 @@ function App(){
                 {id:"inbound_bt",ico:"🌏",l:"インバウンド案内(BUDDICA)",external:true,url:"inbound-guide.html?store=bt",desc:"訪日客向けご利用ガイド BUDDICA TOURISM高松（多言語・交通ルール/給油/事故対応/送迎/オプション）。お客様に共有するURL"},
                 {id:"inbound_hdmt",ico:"🌏",l:"インバウンド案内(HDM高松)",external:true,url:"inbound-guide.html?store=hdmt",desc:"訪日客向けご利用ガイド HANDYMAN高松空港店（多言語・交通ルール/給油/事故対応/送迎/オプション）。お客様に共有するURL"},
                 {id:"lic_send",ico:"🪪",l:"免許証チェック",desc:"当日〜3日先の出発で免許証未提出のリスト・案内コピー"},
-                {id:"jalan_tmpl",ico:"📧",l:"じゃらん送信テンプレ",desc:"じゃらん(HDM)予約ごとに全テンプレを📋コピー→手動メール→☑消し込み(チェック式)"},
+                {id:"jalan_tmpl",ico:"📧",l:"HDM送信テンプレ",desc:"じゃらん・楽天(HDM)予約ごとに全テンプレを📋コピー→手動メール→☑消し込み(チェック式)。楽天は事前決済済/メール手動"},
                 {id:"fleet",ico:"⏱",l:"配車待ち",desc:"未配車の予約を確認・配車",badge:ltWaiting>0?ltWaiting+"件":null,alert:ltWaiting>0},
                 {id:"fleet",ico:"🚗",l:"配車",desc:"予約の車両配車・タイムライン",badge:data.length>0?data.length+"件":null},
                 {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(オフィシャル/エアトリ/レンカ/じゃらん/たびらい)の在庫を手動で絞る対応管理。車検/点検/修理の入庫は全媒体調整対象",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
@@ -23246,7 +23246,7 @@ function App(){
           {tab==="inventory"&&<BtInventoryTab data={data} sb={sb} store="bt" vehicles={vehicles} maintenance={maintenance} onCancel={cancelReservation}/>}
           {tab==="board"&&<BtAnnouncementBoard sb={sb}/>}
           {tab==="lic_send"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>🪪 免許証チェックリスト</h2><LicenseSendListBT sb={sb}/></div>}
-          {tab==="jalan_tmpl"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>📧 じゃらん送信テンプレ</h2>{(typeof JalanTemplateList!=="undefined")?React.createElement(JalanTemplateList,{sb:sb}):<div style={{padding:20,color:"#b91c1c",fontSize:13}}>テンプレの読み込みに失敗しました。ページを再読み込みしてください。</div>}</div>}
+          {tab==="jalan_tmpl"&&<div style={{padding:"12px",maxWidth:720,margin:"0 auto"}}><h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 8px"}}>📧 HDM送信テンプレ</h2>{(typeof JalanTemplateList!=="undefined")?React.createElement(JalanTemplateList,{sb:sb}):<div style={{padding:20,color:"#b91c1c",fontSize:13}}>テンプレの読み込みに失敗しました。ページを再読み込みしてください。</div>}</div>}
           {tab==="kpi"&&<KpiTab store="tkm" data={data} vehicles={vehicles} fleet={fleet}/>}
           {tab==="analytics"&&<AnalyticsTab data={data} sheetPlaces={sheetPlaces}/>}
           {tab==="foreign"&&<ForeignVisitorAnalysis data={data}/>}
@@ -23633,7 +23633,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.450-BT";
+const APP_VERSION="v1.0.451-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
