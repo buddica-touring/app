@@ -18769,7 +18769,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 </select>
                 <select value={washAddVc} onChange={e=>setWashAddVc(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両を選択</option>
-                  {vehicles.filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
+                  {(vehicles||[]).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}{v.active===false?" ・未稼働":""}</option>)}
                 </select>
                 <select value={washAddTime} onChange={e=>setWashAddTime(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e293b",background:"#fff",width:75,flexShrink:0}}>
                   <option value="">時間</option>
@@ -18913,7 +18913,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <select value={otherAddVc} onChange={e=>setOtherAddVc(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両（任意）</option>
                   <option value="__ALL__">🚗 全車両</option>
-                  {(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
+                  {(vehicles||[]).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}{v.active===false?" ・未稼働":""}</option>)}
                 </select>
                 <select value={otherAddAssignee} onChange={e=>setOtherAddAssignee(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#7c3aed",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">👤 担当（任意）</option>
@@ -18984,7 +18984,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                       <select value={t.vehicle==="全車両"?"__ALL__":(t.assignedVehicle||"")} onChange={e=>{const vc=e.target.value;if(vc==="__ALL__"){updateOtherTask(t._id,{assignedVehicle:"",vehicle:"全車両",plateNo:""});}else{const veh=vc?vehicles.find(v=>v.code===vc):null;updateOtherTask(t._id,{assignedVehicle:vc,vehicle:veh?veh.type:"",plateNo:veh?veh.no:""});}}} style={{border:"1px solid #d1d5db",borderRadius:4,padding:"3px 6px",fontSize:isMob?11:10,flex:1}}>
                         <option value="">車両なし</option>
                         <option value="__ALL__">🚗 全車両</option>
-                        {(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}</option>)}
+                        {(vehicles||[]).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}{v.active===false?" ・未稼働":""}</option>)}
                       </select>
                     </div>
                     {/* 4行目: 場所 */}
@@ -23638,7 +23638,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.454-BT";
+const APP_VERSION="v1.0.455-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
