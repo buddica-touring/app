@@ -22546,7 +22546,7 @@ function App(){
                   {id:"monthly",ico:"📊",l:"予算実績",desc:"予算・実績・予実比較"},
                   {id:"strategy",ico:"📈",l:"運用戦略",desc:"売上予測 / HP新規獲得（HP vs OTA 比較）",external:true,url:"strategy.html"},
                   {id:"vehicle_rank",ico:"🏆",l:"車両ランキング",desc:"全車両の月粗利・稼働率を点数化"},
-                  {id:"mileage",ico:"🚗",l:"走行ログ",desc:"1予約ごとの走行距離を記録・グロス1台あたり月kmを分析"},
+                  {id:"mileage",ico:"🚗",l:"走行ログ",desc:"1予約ごとの走行距離を記録・過去の入力もれもここで更新（未記録のみで絞込）・グロス1台あたり月kmを分析"},
                   {id:"price_master",ico:"💹",l:"価格戦略マスター",desc:"プライシングシステム（①〜⑤統合）",external:true,url:"import-prices.html?area=tkm"},
                   {id:"forecast",ico:"🔮",l:"売上予測",desc:"5KPI×12ヶ月 アンサンブル予測",external:true,url:"forecast.html?store=bt"},
                   {id:"foreign",ico:"🌍",l:"外国人利用率",desc:"外国人利用率の分析・推移"},
@@ -23638,7 +23638,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.458-BT";
+const APP_VERSION="v1.0.459-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25800,9 +25800,10 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
     const _CN={AA:"ハイエンド",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
     const _clsAgg={};(vr.rows||[]).forEach(r=>{const _v=_vbt[r.code]||{};const t=_v.type||r.type||"?";if(!_clsAgg[t])_clsAgg[t]={type:t,units:0,cnt:0,revTotal:0};_clsAgg[t].units++;_clsAgg[t].cnt+=(r.cnt||0);_clsAgg[t].revTotal+=(r.revTotal||0);});
-    const _clsTop=Object.values(_clsAgg).sort((a,b)=>(b.cnt||0)-(a.cnt||0)).slice(0,5);
-    L.push("■ 車両ランキング（クラス別・上位5・予約数順）");
-    if(_clsTop.length){_clsTop.forEach((c,i)=>{const _per=c.units>0?Math.round(c.revTotal/c.units):0;L.push((i+1)+". "+c.type+" "+(_CN[c.type]||"")+"（"+c.units+"台）：予約"+c.cnt+"件 / 累計"+yen(Math.round(c.revTotal))+" / 台あたり累計"+yen(_per));});}
+    const _pb=(c)=>c.units>0?(c.cnt/c.units):0; /* 台あたり予約数 */
+    const _clsTop=Object.values(_clsAgg).sort((a,b)=>_pb(b)-_pb(a)).slice(0,5);
+    L.push("■ 車両ランキング（クラス別・上位5・台あたり予約数順）");
+    if(_clsTop.length){_clsTop.forEach((c,i)=>{const _per=c.units>0?Math.round(c.revTotal/c.units):0;L.push((i+1)+". "+c.type+" "+(_CN[c.type]||"")+"（"+c.units+"台）：台あたり予約"+_pb(c).toFixed(1)+"件 / 台あたり累計"+yen(_per)+" ｜ 予約"+c.cnt+"件・累計"+yen(Math.round(c.revTotal)));});}
     else L.push("・データなし");
     L.push("");
     // ⑤ 当月流通 合算合計＋内訳（BUDDICA：HANDYMAN）
@@ -26256,7 +26257,8 @@ function MileageLogTab({sb}){
   const td={padding:"7px 8px",fontSize:12.5,borderBottom:"1px solid #f1f5f9"};
   return <div style={{padding:"14px 14px 40px",maxWidth:1000,margin:"0 auto"}}>
     <h2 style={{fontSize:17,fontWeight:800,color:"#0F1F45",margin:"0 0 4px"}}>🚗 走行ログ（1予約ごとの走行距離）</h2>
-    <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>出発前洗車で出発メーター／返却で返却メーターを記録＝走行距離を自動算出。グロスで「1台あたり月◯km」も出ます。</div>
+    <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>出発前洗車で出発メーター／返却で返却メーターを記録＝走行距離を自動算出。グロスで「1台あたり月◯km」も出ます。</div>
+    <div style={{fontSize:12,color:"#b45309",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",marginBottom:12,fontWeight:600}}>📌 過去の入力もれもここで更新できます：下の一覧で対象の予約（過去も全部）の「出発メーター／返却メーター」欄に直接入力すればOK。「未記録のみ」にチェックすると入力もれだけ絞り込めます。</div>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
       {[["総走行km",totKm.toLocaleString(),"#1e3a8a"],["1台あたり月",kmPerCarMonth.toLocaleString()+"km","#dc2626"],["平均 km/日",kmPerDay.toLocaleString(),"#0891b2"],["記録あり",anyRec+"/"+fr.length,"#16a34a"]].map(([l,v,c])=>
         <div key={l} style={{background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderTop:"3px solid "+c,minWidth:110,flex:1}}>
