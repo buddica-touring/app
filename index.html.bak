@@ -23638,7 +23638,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.457-BT";
+const APP_VERSION="v1.0.458-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25800,8 +25800,8 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
     const _CN={AA:"ハイエンド",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
     const _clsAgg={};(vr.rows||[]).forEach(r=>{const _v=_vbt[r.code]||{};const t=_v.type||r.type||"?";if(!_clsAgg[t])_clsAgg[t]={type:t,units:0,cnt:0,revTotal:0};_clsAgg[t].units++;_clsAgg[t].cnt+=(r.cnt||0);_clsAgg[t].revTotal+=(r.revTotal||0);});
-    const _clsTop=Object.values(_clsAgg).sort((a,b)=>(b.revTotal||0)-(a.revTotal||0)).slice(0,5);
-    L.push("■ 車両ランキング（クラス別・上位5・累計売上順）");
+    const _clsTop=Object.values(_clsAgg).sort((a,b)=>(b.cnt||0)-(a.cnt||0)).slice(0,5);
+    L.push("■ 車両ランキング（クラス別・上位5・予約数順）");
     if(_clsTop.length){_clsTop.forEach((c,i)=>{const _per=c.units>0?Math.round(c.revTotal/c.units):0;L.push((i+1)+". "+c.type+" "+(_CN[c.type]||"")+"（"+c.units+"台）：予約"+c.cnt+"件 / 累計"+yen(Math.round(c.revTotal))+" / 台あたり累計"+yen(_per));});}
     else L.push("・データなし");
     L.push("");
