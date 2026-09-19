@@ -23638,7 +23638,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.456-BT";
+const APP_VERSION="v1.0.457-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25796,11 +25796,13 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     L.push("■ 当月売上（"+mm+"・返却月）："+yen(curM.sales)+"（"+curM.count+"件）");
     L.push("■ 達成率："+_pg+"%");
     L.push("");
-    // ④ 車両ランキング 上位5（予約本数・売上・累計／累計売上で判断）
+    // ④ 車両ランキング（クラス別・上位5／累計売上で判断・クラスで台数が異なり数字の意味が変わるため台数と台あたり累計を併記）
     const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
-    const _top=(vr.rows||[]).slice().sort((a,b)=>(b.revTotal||0)-(a.revTotal||0)).slice(0,5);
-    L.push("■ 車両ランキング（上位5・累計売上順）");
-    if(_top.length){_top.forEach((r,i)=>{const _v=_vbt[r.code]||{};const _nm=_v.name||r.code;const _ty=_v.type||"";L.push((i+1)+". "+_nm+(_ty?"（"+_ty+"）":"")+"：予約"+(r.cnt||0)+"件 / 売上(月平均)"+yen(Math.round(r.monthlyAvg||0))+" / 累計"+yen(Math.round(r.revTotal||0)));});}
+    const _CN={AA:"ハイエンド",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽自動車",J:"軽自動車",K:"コンパクトミニバン",S:"SUV"};
+    const _clsAgg={};(vr.rows||[]).forEach(r=>{const _v=_vbt[r.code]||{};const t=_v.type||r.type||"?";if(!_clsAgg[t])_clsAgg[t]={type:t,units:0,cnt:0,revTotal:0};_clsAgg[t].units++;_clsAgg[t].cnt+=(r.cnt||0);_clsAgg[t].revTotal+=(r.revTotal||0);});
+    const _clsTop=Object.values(_clsAgg).sort((a,b)=>(b.revTotal||0)-(a.revTotal||0)).slice(0,5);
+    L.push("■ 車両ランキング（クラス別・上位5・累計売上順）");
+    if(_clsTop.length){_clsTop.forEach((c,i)=>{const _per=c.units>0?Math.round(c.revTotal/c.units):0;L.push((i+1)+". "+c.type+" "+(_CN[c.type]||"")+"（"+c.units+"台）：予約"+c.cnt+"件 / 累計"+yen(Math.round(c.revTotal))+" / 台あたり累計"+yen(_per));});}
     else L.push("・データなし");
     L.push("");
     // ⑤ 当月流通 合算合計＋内訳（BUDDICA：HANDYMAN）
@@ -25811,9 +25813,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
     {const _b=_cfb["BUDDICA"]||{count:0,total:0};L.push("　└ BUDDICA："+(_b.count||0)+"件 / "+yen(_b.total||0));}
     {const _h=_cfb["HDM"]||{count:0,total:0};L.push("　└ HANDYMAN："+(_h.count||0)+"件 / "+yen(_h.total||0));}
     L.push("");
-    // ⑥ チャネル別構成（BUDDICA）
-    L.push("■ チャネル別構成（BUDDICA）");
-    {const _b=_cfb["BUDDICA"];if(_b&&_b.ch&&Object.keys(_b.ch).length){Object.keys(_b.ch).sort((x,y)=>_b.ch[y].sales-_b.ch[x].sales).forEach(cn=>{const c=_b.ch[cn];const _pct=(_b.total>0)?Math.round(c.sales/_b.total*100):0;L.push("・"+cn+"："+_pct+"% ｜ "+c.count+"件 / "+yen(c.sales));});}else L.push("・データなし");}
+    // ⑥ チャネル別構成（合算・BUDDICA＋HANDYMAN）
+    L.push("■ チャネル別構成（合算・BUDDICA＋HANDYMAN）");
+    {const _allCh={};Object.values(_cfb).forEach(g=>{if(g&&g.ch){Object.keys(g.ch).forEach(cn=>{if(!_allCh[cn])_allCh[cn]={count:0,sales:0};_allCh[cn].count+=(g.ch[cn].count||0);_allCh[cn].sales+=(g.ch[cn].sales||0);});}});if(Object.keys(_allCh).length){Object.keys(_allCh).sort((x,y)=>_allCh[y].sales-_allCh[x].sales).forEach(cn=>{const c=_allCh[cn];const _pct=(_ts>0)?Math.round(c.sales/_ts*100):0;L.push("・"+cn+"："+_pct+"% ｜ "+c.count+"件 / "+yen(c.sales));});}else L.push("・データなし");}
     L.push("");
     L.push("━━━━━━━━━━");
     return L.join("\n");
