@@ -17252,6 +17252,39 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     // 🛡 protect=true: 万一DBに既存行があってもスタッフ入力(担当/場所/時間)を焼き戻して上書き事故を防止
     if(gen.length)DB.upsertTasks(gen,date,{protect:true});
   },[reservations,vehicles]);
+  /* ★2026-09-20 高松横展開(NHA v3.5.286同型): 定常更新(30秒/タブ復帰)は「DBを映すだけ」＝再生成/全件upsertせず、人入力(担当/時間/場所)を予約由来値に戻さない・タスク抜けを止める。生成が要るのは新規予約/日付変更のみ(loadTasks)。 */
+  const mirrorTasks=React.useCallback(async(date)=>{
+    if(selfUpdatedIds.current.size>0&&Date.now()-Math.max(...selfUpdatedIds.current.values())<3000)return; // 自分の入力直後(3秒)は上書きしない
+    const lsD=DB._lsLoad(date);const lm={};if(lsD)lsD.forEach(x=>{lm[x._id]=x;});
+    const fresh=await DB.fetchTasks(date);
+    if(!fresh||fresh._fetchError)return; // 取得エラー=現状維持(ミラーを壊さない)
+    if(!fresh.length)return;             // DB空はloadTasks(生成)に委ねる。定常ミラーは行を消さない
+    // 孤立/キャンセルのみ表示除外(再生成/並べ替え/追加はしない・DB書込なし)
+    const disp=fresh.filter(t=>{
+      if(!t.reservationId||t.manual)return true;
+      const r=reservations.find(x=>x.id===t.reservationId);
+      if(!r)return false;
+      if(["cancelled","キャンセル","cancel"].includes(String(r.status||"").toLowerCase()))return false;
+      return true;
+    });
+    // 手動変更保護: DB _changedが権威。LSにのみ在るローカル変更のみ補完
+    disp.forEach(t=>{
+      const ls=lm[t._id];const dbChanged=t._changed||{};const lsChanged=(ls&&ls._changed)||{};
+      const merged={...lsChanged,...dbChanged};
+      if(Object.keys(merged).length){
+        t._changed=merged;
+        Object.keys(lsChanged).forEach(f=>{if(lsChanged[f]&&!dbChanged[f]&&ls[f]!==undefined&&ls[f]!==null&&f!=='_changed'&&f!=='opts'&&typeof ls[f]!=='object'){t[f]=ls[f];}});
+      }
+      if(ls){if(ls.place&&!t.place)t.place=ls.place;if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;}
+    });
+    // LSのmanualタスクがDBに無ければ復元(消失防止)
+    const ids=new Set(disp.map(t=>t._id));
+    Object.values(lm).forEach(l=>{if(l.manual&&!ids.has(l._id))disp.push(l);});
+    // 返却後洗車 重複除外(loadTasks/Realtimeと同一・表示のみ)
+    const _wv=new Set(disp.filter(t=>t.type==="洗車"&&t.assignedVehicle).map(t=>t.assignedVehicle));
+    const disp2=disp.filter(t=>!(t.type==="返却後洗車"&&t.assignedVehicle&&_wv.has(t.assignedVehicle)));
+    setTasks(disp2);DB._lsSave(disp,date);
+  },[reservations]);
   useEffect(()=>{loadTasks(selDate,true);},[selDate]);
   /* ★2026-08-19 「翌日対応」洗車オーバーレイ: 前日(selDate-1)の洗車で_nextDayWash=trueのものを取得し、表示上だけ当日(=貸出日)に出す。DBへは一切書かない・日付も動かさない。NHA/SPKと同仕様。 */
   const loadNextDayWashOverlay=React.useCallback(async(date)=>{
@@ -17323,13 +17356,13 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       }).subscribe();
     return()=>{clearTimeout(debounce);sb.removeChannel(ch);};
   },[selDate]);
-  // タブ復帰・画面復帰時+30秒ポーリングでDBから最新データ再取得
+  // ★2026-09-20 タブ復帰+30秒ポーリング → 純粋ミラー(mirrorTasks)。再生成/全件upsertしない＝人入力(担当/時間/場所)が予約由来値に戻る・タスク抜けの根治(NHA v3.5.286同型・A案止血)
   useEffect(()=>{
-    const onVis=()=>{if(document.visibilityState==="visible")loadTasks(selDate);};
+    const onVis=()=>{if(document.visibilityState==="visible")mirrorTasks(selDate);};
     document.addEventListener("visibilitychange",onVis);
-    const timer=setInterval(()=>{if(document.visibilityState==="visible")loadTasks(selDate);},30000);
+    const timer=setInterval(()=>{if(document.visibilityState==="visible")mirrorTasks(selDate);},30000);
     return()=>{document.removeEventListener("visibilitychange",onVis);clearInterval(timer);};
-  },[selDate,loadTasks]);
+  },[selDate,mirrorTasks]);
   const[saveStatus,setSaveStatus]=useState("ok"); // "ok"|"saving"|"error"
   const pendingSaves=React.useRef(0);
   const upd=async(id,t,resFieldChanges)=>{
@@ -23638,7 +23671,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.459-BT";
+const APP_VERSION="v1.0.460-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
