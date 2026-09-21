@@ -9075,6 +9075,7 @@ function ManagementTab({store}){
     let plRev=0,plCnt=0,daysSum=0,daysCnt=0,plBase=0,plOpt=0,plDisc=0;
     const byCh={};         // {ch: rev} 後方互換維持
     const byChBreak={};    // {ch: {rev, base, opt, disc, cnt}} 3分解
+    const byChBrand={};    // {brand(HDM/BUDDICA): {ch: {rev,base,opt,disc,cnt}}} ブランド別OTA内訳
     active.forEach(r=>{
       const rd=r[rdKey];if(!rd||rd.slice(0,7)!==ym)return;
       const ch=DB_OTA_MAP[r.ota]||"その他売上";
@@ -9090,6 +9091,7 @@ function ManagementTab({store}){
       byCh[ch]=(byCh[ch]||0)+rev;
       if(!byChBreak[ch])byChBreak[ch]={rev:0,base:0,opt:0,disc:0,cnt:0};
       byChBreak[ch].rev+=rev;byChBreak[ch].base+=bpAdj;byChBreak[ch].opt+=opAdj;byChBreak[ch].disc+=dcAdj;byChBreak[ch].cnt+=1;
+      {const _br=(resBrand(r)||"BUDDICA");if(!byChBrand[_br])byChBrand[_br]={};if(!byChBrand[_br][ch])byChBrand[_br][ch]={rev:0,base:0,opt:0,disc:0,cnt:0};const _g=byChBrand[_br][ch];_g.rev+=rev;_g.base+=bpAdj;_g.opt+=opAdj;_g.disc+=dcAdj;_g.cnt+=1;}
       const ld=r[ldKey];
       if(ld&&rd){const d0=new Date(ld.slice(0,10)),d1=new Date(rd.slice(0,10));const n=Math.max(1,Math.round((d1-d0)/86400000));daysSum+=n;daysCnt++;}
     });
@@ -9135,7 +9137,7 @@ function ManagementTab({store}){
     }
     // CF入金（当月入金分）
     const cfIn=cfPivot.chs.reduce((a,ch)=>a+((cfPivot.map[ym+"|"+ch]||{}).cash_in||0),0);
-    return{plRev,plCnt,cfIn,byCh,byChBreak,plBase,plOpt,plDisc,avgNights,daysSum,unitPrice,dailyRate,utilDays,utilActiveCount,utilMaxDays,utilPct};
+    return{plRev,plCnt,cfIn,byCh,byChBreak,byChBrand,plBase,plOpt,plDisc,avgNights,daysSum,unitPrice,dailyRate,utilDays,utilActiveCount,utilMaxDays,utilPct};
   },[dbResvs,dbFleet,dbVehs,dbKpi,dbMaint,dbStore,dashYm,cfPivot]);
 
   // ★ ダッシュボード用 予約外売上（じゃらん事前決済除外）
@@ -10426,28 +10428,32 @@ function ManagementTab({store}){
               <th style={{...th,textAlign:"left",minWidth:160}}>構成比</th>
             </tr></thead>
             <tbody>
-            {Object.entries(dashKpi.byChBreak).sort((a,b)=>b[1].rev-a[1].rev).map(([ch,d])=>{
-              const pct=dashKpi.plRev>0?(d.rev/dashKpi.plRev*100):0;
-              return <tr key={ch} style={{borderBottom:"1px solid #f1f5f9"}}>
-                <td style={{...td,fontWeight:700}}>{ch}</td>
-                <td style={{...td,textAlign:"right",color:"#1e40af"}}>{d.base>0?fmtM(d.base):"-"}</td>
-                <td style={{...td,textAlign:"right",color:"#047857"}}>{d.opt>0?fmtM(d.opt):"-"}</td>
-                <td style={{...td,textAlign:"right",color:"#dc2626"}}>{d.disc>0?"-"+fmtM(d.disc):"-"}</td>
-                <td style={{...td,textAlign:"right",color:"#059669",fontWeight:700}}>{fmtM(d.rev)}</td>
-                <td style={{...td,textAlign:"right",color:"#64748b"}}>{d.cnt}</td>
-                <td style={td}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <div style={{flex:1,height:12,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}>
-                      <div style={{width:pct+"%",height:"100%",background:"#3b82f6"}}/>
-                    </div>
-                    <span style={{minWidth:42,textAlign:"right",fontWeight:700,fontSize:10}}>{pct.toFixed(1)}%</span>
-                  </div>
-                </td>
-              </tr>;
-            })}
-            {/* 合計 */}
+            {(()=>{
+              const _brs=[{k:"BUDDICA",l:"🟢 BUDDICA",c:"#047857"},{k:"HDM",l:"🔵 HDM（HANDYMAN高松）",c:"#1e3a8a"}];
+              const _bb=dashKpi.byChBrand||{};const _rows=[];
+              _brs.forEach(br=>{
+                const chs=_bb[br.k];if(!chs||!Object.keys(chs).length)return;
+                let sB=0,sO=0,sD=0,sR=0,sC=0;Object.values(chs).forEach(d=>{sB+=d.base;sO+=d.opt;sD+=d.disc;sR+=d.rev;sC+=d.cnt;});
+                _rows.push(<tr key={"bh-"+br.k} style={{background:br.c}}><td colSpan={7} style={{padding:"7px 8px",color:"#fff",fontWeight:800,fontSize:11}}>{br.l}　<span style={{opacity:.85,fontWeight:600,fontSize:10}}>計 {fmtM(sR)}／{sC}件（構成比 {dashKpi.plRev>0?(sR/dashKpi.plRev*100).toFixed(1):0}%）</span></td></tr>);
+                Object.entries(chs).sort((a,b)=>b[1].rev-a[1].rev).forEach(([ch,d])=>{
+                  const pct=dashKpi.plRev>0?(d.rev/dashKpi.plRev*100):0;
+                  _rows.push(<tr key={br.k+"-"+ch} style={{borderBottom:"1px solid #f1f5f9"}}>
+                    <td style={{...td,fontWeight:700,paddingLeft:18}}>{ch}</td>
+                    <td style={{...td,textAlign:"right",color:"#1e40af"}}>{d.base>0?fmtM(d.base):"-"}</td>
+                    <td style={{...td,textAlign:"right",color:"#047857"}}>{d.opt>0?fmtM(d.opt):"-"}</td>
+                    <td style={{...td,textAlign:"right",color:"#dc2626"}}>{d.disc>0?"-"+fmtM(d.disc):"-"}</td>
+                    <td style={{...td,textAlign:"right",color:"#059669",fontWeight:700}}>{fmtM(d.rev)}</td>
+                    <td style={{...td,textAlign:"right",color:"#64748b"}}>{d.cnt}</td>
+                    <td style={td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{flex:1,height:12,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:br.k==="HDM"?"#1e3a8a":"#10b981"}}/></div><span style={{minWidth:42,textAlign:"right",fontWeight:700,fontSize:10}}>{pct.toFixed(1)}%</span></div></td>
+                  </tr>);
+                });
+                _rows.push(<tr key={"bs-"+br.k} style={{background:"#eef2f6",fontWeight:800}}><td style={{padding:"6px 8px",fontSize:10,color:br.c}}>小計 {br.l.replace(/^\S+ /,"")}</td><td style={{padding:"6px",textAlign:"right",fontSize:10,color:"#1e40af"}}>{fmtM(sB)}</td><td style={{padding:"6px",textAlign:"right",fontSize:10,color:"#047857"}}>{fmtM(sO)}</td><td style={{padding:"6px",textAlign:"right",fontSize:10,color:"#dc2626"}}>{sD>0?"-"+fmtM(sD):"-"}</td><td style={{padding:"6px",textAlign:"right",fontSize:11,color:"#059669"}}>{fmtM(sR)}</td><td style={{padding:"6px",textAlign:"right",fontSize:10}}>{sC}</td><td style={{padding:"6px",textAlign:"right",fontSize:10}}>{dashKpi.plRev>0?(sR/dashKpi.plRev*100).toFixed(1):0}%</td></tr>);
+              });
+              return _rows;
+            })()}
+            {/* グロス合計（BT＋HDM 合算） */}
             <tr style={{background:"#1e293b",color:"#fff",fontWeight:800}}>
-              <td style={{padding:"8px",fontSize:11}}>合計</td>
+              <td style={{padding:"8px",fontSize:11}}>グロス合計（BT＋HDM）</td>
               <td style={{padding:"8px",fontSize:11,textAlign:"right",color:"#93c5fd"}}>{fmtM(dashKpi.plBase)}</td>
               <td style={{padding:"8px",fontSize:11,textAlign:"right",color:"#6ee7b7"}}>{fmtM(dashKpi.plOpt)}</td>
               <td style={{padding:"8px",fontSize:11,textAlign:"right",color:"#fca5a5"}}>{dashKpi.plDisc>0?"-"+fmtM(dashKpi.plDisc):"-"}</td>
@@ -23671,7 +23677,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.460-BT";
+const APP_VERSION="v1.0.461-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
