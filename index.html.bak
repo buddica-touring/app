@@ -9182,6 +9182,7 @@ function ManagementTab({store}){
     const fMap={};dbFleet.forEach(f=>{fMap[f.reservation_id]=f.vehicle_code;});
     const months=[];
     const yearByCh={}; // {channel: {1:rev, 2:rev, ..., total:rev, base, opt, disc}}
+    const yearByChBrand={}; // ★ブランド×チャネル年集計 {brand:{ch:{total,base,opt,disc,cnt}}}
     for(let m=1;m<=12;m++){
       const ym=year+"-"+String(m).padStart(2,"0");
       let plRev=0,plCnt=0,daysSum=0,daysCnt=0,plBase=0,plOpt=0,plDisc=0;
@@ -9202,6 +9203,12 @@ function ManagementTab({store}){
         yearByCh[ch]["c"+m]=(yearByCh[ch]["c"+m]||0)+1;
         yearByCh[ch].total+=rev;
         yearByCh[ch].base+=bpAdj;yearByCh[ch].opt+=opAdj;yearByCh[ch].disc+=dcAdj;yearByCh[ch].cnt+=1;
+        // ★ブランド別(HDM/BUDDICA)にも集計
+        {const _br=(resBrand(r)||"BUDDICA");
+         if(!yearByChBrand[_br])yearByChBrand[_br]={};
+         if(!yearByChBrand[_br][ch])yearByChBrand[_br][ch]={total:0,base:0,opt:0,disc:0,cnt:0};
+         const _g=yearByChBrand[_br][ch];
+         _g.total+=rev;_g.base+=bpAdj;_g.opt+=opAdj;_g.disc+=dcAdj;_g.cnt+=1;}
         const ld=r[ldKey];
         if(ld&&rd){const d0=new Date(ld.slice(0,10)),d1=new Date(rd.slice(0,10));const n=Math.max(1,Math.round((d1-d0)/86400000));daysSum+=n;daysCnt++;}
       });
@@ -9247,7 +9254,7 @@ function ManagementTab({store}){
       months.push({ym,mo,plRev,plCnt,extraRev,totalRev:plRev+extraRev,cfIn,unitPrice,dailyRate,avgNights,daysSum,utilPct,utilDays,utilMaxDays,utilActiveCount,byCh,plBase,plOpt,plDisc});
     }
     const total=months.reduce((a,m)=>({plRev:a.plRev+m.plRev,plCnt:a.plCnt+m.plCnt,extraRev:a.extraRev+m.extraRev,totalRev:a.totalRev+m.totalRev,cfIn:a.cfIn+m.cfIn,daysSum:a.daysSum+m.daysSum,plBase:a.plBase+m.plBase,plOpt:a.plOpt+m.plOpt,plDisc:a.plDisc+m.plDisc}),{plRev:0,plCnt:0,extraRev:0,totalRev:0,cfIn:0,daysSum:0,plBase:0,plOpt:0,plDisc:0});
-    return{year,months,total,yearByCh};
+    return{year,months,total,yearByCh,yearByChBrand};
   },[dbResvs,dbFleet,dbVehs,dbKpi,dbMaint,dbStore,dashYm,cfPivot,dashYearlyExtra]);
 
   // ★ 月/年切替対応の派生KPI: dashPeriod="month" → dashSummary相当 / "year" → dashYearly.total から加重平均で再計算
@@ -9270,6 +9277,14 @@ function ManagementTab({store}){
       byCh[ch]=v.total;
       byChBreak[ch]={rev:v.total,base:v.base,opt:v.opt,disc:v.disc,cnt:v.cnt||0};
     });
+    // ★ブランド別内訳(月別と同じ形式)を年集計から組み立て
+    const byChBrand={};
+    Object.entries(y.yearByChBrand||{}).forEach(([brand,chs])=>{
+      byChBrand[brand]={};
+      Object.entries(chs).forEach(([ch,d])=>{
+        byChBrand[brand][ch]={rev:d.total,base:d.base,opt:d.opt,disc:d.disc,cnt:d.cnt||0};
+      });
+    });
     return{
       plRev:t.plRev,plCnt:t.plCnt,
       plBase:t.plBase,plOpt:t.plOpt,plDisc:t.plDisc,
@@ -9279,7 +9294,7 @@ function ManagementTab({store}){
       dailyRate:t.daysSum>0?(t.plRev/t.daysSum):0,
       avgNights:t.plCnt>0?(t.daysSum/t.plCnt):0,
       utilDays,utilMaxDays,utilActiveCount,utilPct,
-      byCh,byChBreak,
+      byCh,byChBreak,byChBrand,
       periodLabel:y.year+"年"
     };
   },[dashPeriod,dashSummary,dashYearly,dashExtraRev,dashYm]);
@@ -10414,8 +10429,8 @@ function ManagementTab({store}){
           <div style={{fontSize:14,fontWeight:900}}>チャネル別構成 ({dashKpi.periodLabel})</div>
           <div style={{fontSize:10,color:"#94a3b8"}}>※ ヘッダーの月/年トグルに連動</div>
         </div>
-        {/* 月ビュー: 3分解対応 */}
-        {dashPeriod==="month"&&(Object.keys(dashKpi.byChBreak).length===0?<div style={{fontSize:11,color:"#94a3b8"}}>データなし</div>:
+        {/* ブランド別内訳＋グロス（月/年 共通・3分解対応） */}
+        {(Object.keys(dashKpi.byChBrand||{}).length===0?<div style={{fontSize:11,color:"#94a3b8"}}>データなし</div>:
           <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:720}}>
             <thead><tr style={{background:"#f8fafc"}}>
@@ -10465,7 +10480,8 @@ function ManagementTab({store}){
           </table>
           </div>
         )}
-        {/* 年ビュー: チャネル × 月 マトリクス */}
+        {/* 年ビュー追加: チャネル × 月 マトリクス（月次内訳詳細） */}
+        {dashPeriod==="year"&&<div style={{fontSize:12,fontWeight:800,color:"#475569",margin:"16px 0 6px"}}>📅 月次内訳（{dashYearly.year}年・チャネル別）</div>}
         {dashPeriod==="year"&&(()=>{
           const chEntries=Object.entries(dashYearly.yearByCh).sort((a,b)=>b[1].total-a[1].total);
           const yearTotal=chEntries.reduce((s,[,d])=>s+d.total,0);
@@ -23677,7 +23693,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.461-BT";
+const APP_VERSION="v1.0.462-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
