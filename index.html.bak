@@ -23496,10 +23496,15 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       monthlyAvg:c.totalRev/n_months,
       utilPct:c.totalCapDays?(c.totalDays/c.totalCapDays*100):0,
       monthlyProfit:c.totalProfit/n_months,
-      perCnt:c.count?c.totalCnt/c.count:0,
-      perRev:c.count?c.totalRev/c.count:0,
+      perCnt:(c.count&&n_months)?c.totalCnt/c.count/n_months:0,
+      perRev:(c.count&&n_months)?c.totalRev/c.count/n_months:0,
       best:c.vehicles[0],
-    })).sort((a,b)=>b.perRev-a.perRev);
+    }));
+    // 順位づけ＝予約件数(台あたり)と稼働率を優先（両方を正規化して合算・0〜2点）
+    const _mxCnt=Math.max(1,...classRows.map(c=>c.perCnt));
+    const _mxUtil=Math.max(1,...classRows.map(c=>c.utilPct));
+    classRows.forEach(c=>{c.rankScore=(c.perCnt/_mxCnt)+(c.utilPct/_mxUtil);});
+    classRows.sort((a,b)=>b.rankScore-a.rankScore||b.perCnt-a.perCnt);
     return{rows,classRows,period:`${effectiveStart} 〜 ${todayYM}`,months:n_months,empty:false};
 }
 
@@ -23551,7 +23556,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
       <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
     </div>
     <div style={{marginBottom:20}}>
-      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス集計（台あたり売上順）</div>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス集計（予約件数・稼働率順）</div>
       <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
@@ -23560,8 +23565,8 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
                 <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
                 <th style={{padding:"10px 8px",textAlign:"center",width:60}}>クラス</th>
                 <th style={{padding:"10px 8px",textAlign:"center",width:60}}>台数</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数(月平均)</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上(月平均)</th>
                 <th style={{padding:"10px 8px",textAlign:"right"}}>稼働率</th>
               </tr>
             </thead>
@@ -23580,7 +23585,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
           </table>
         </div>
       </div>
-      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり＝クラス合計÷台数（期間累計）。稼働率＝稼働日÷稼働可能日。</div>
+      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり予約件数・台あたり売上とも<b>月平均</b>（クラス合計÷台数÷月数）／稼働率＝稼働日÷稼働可能日（<b>クラスグロス</b>）。順位＝予約件数・稼働率を優先（両方を正規化して合算）。</div>
     </div>
     {/* 📋 予約数ランキング（シンプル） */}
     <div style={{marginBottom:20}}>
@@ -23683,7 +23688,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.463-BT";
+const APP_VERSION="v1.0.464-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
