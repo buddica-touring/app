@@ -23481,13 +23481,14 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
     const byClass={};
     rows.forEach(r=>{
       const c=r.type||"?";
-      if(!byClass[c])byClass[c]={class:c,vehicles:[],totalRev:0,totalProfit:0,totalFixed:0,totalDays:0,totalCapDays:0,count:0};
+      if(!byClass[c])byClass[c]={class:c,vehicles:[],totalRev:0,totalProfit:0,totalFixed:0,totalDays:0,totalCapDays:0,totalCnt:0,count:0};
       byClass[c].vehicles.push(r);
       byClass[c].totalRev+=r.revTotal;
       byClass[c].totalProfit+=r.profit;
       byClass[c].totalFixed+=r.fixedTotal;
       byClass[c].totalDays+=r.usedDays;
       byClass[c].totalCapDays+=r.capDays;
+      byClass[c].totalCnt+=(r.cnt||0);
       byClass[c].count+=1;
     });
     const classRows=Object.values(byClass).map(c=>({
@@ -23495,8 +23496,10 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       monthlyAvg:c.totalRev/n_months,
       utilPct:c.totalCapDays?(c.totalDays/c.totalCapDays*100):0,
       monthlyProfit:c.totalProfit/n_months,
+      perCnt:c.count?c.totalCnt/c.count:0,
+      perRev:c.count?c.totalRev/c.count:0,
       best:c.vehicles[0],
-    })).sort((a,b)=>b.totalProfit-a.totalProfit);
+    })).sort((a,b)=>b.perRev-a.perRev);
     return{rows,classRows,period:`${effectiveStart} 〜 ${todayYM}`,months:n_months,empty:false};
 }
 
@@ -23548,22 +23551,18 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
       <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
     </div>
     <div style={{marginBottom:20}}>
-      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス別ランキング（粗利順）</div>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス集計（台あたり売上順）</div>
       <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1100}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
             <thead>
               <tr style={{background:"#0f172a",color:"#fff"}}>
                 <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
                 <th style={{padding:"10px 8px",textAlign:"center",width:60}}>クラス</th>
                 <th style={{padding:"10px 8px",textAlign:"center",width:60}}>台数</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>①合計売上</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>②月平均</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>③稼働率</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>④固定費合計</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>⑤予想粗利</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>月平均粗利</th>
-                <th style={{padding:"10px 8px",textAlign:"left"}}>1位車両</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上</th>
+                <th style={{padding:"10px 8px",textAlign:"right"}}>稼働率</th>
               </tr>
             </thead>
             <tbody>
@@ -23572,25 +23571,16 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
                   <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
                   <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
                   <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>¥{Math.round(c.totalRev).toLocaleString()}</td>
-                  <td style={{padding:"8px",textAlign:"right"}}>¥{Math.round(c.monthlyAvg).toLocaleString()}</td>
-                  <td style={{padding:"8px",textAlign:"right",color:c.utilPct>=40?"#059669":c.utilPct>=20?"#d97706":"#dc2626"}}>{c.utilPct.toFixed(1)}%</td>
-                  <td style={{padding:"8px",textAlign:"right",color:"#64748b"}}>¥{Math.round(c.totalFixed).toLocaleString()}</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:c.totalProfit>=0?"#059669":"#dc2626"}}>
-                    {c.totalProfit>=0?"+":""}¥{Math.round(c.totalProfit).toLocaleString()}
-                  </td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:600,color:c.monthlyProfit>=0?"#059669":"#dc2626"}}>
-                    {c.monthlyProfit>=0?"+":""}¥{Math.round(c.monthlyProfit).toLocaleString()}
-                  </td>
-                  <td style={{padding:"8px",fontSize:11,color:"#64748b"}}>
-                    {c.best?<><span style={{fontWeight:700,color:"#1e293b"}}>{c.best.name}</span> {c.best.plate} <span style={{color:rankColors[c.best.rank],fontWeight:800,marginLeft:4}}>{c.best.rank}</span></>:"-"}
-                  </td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:c.utilPct>=40?"#059669":c.utilPct>=20?"#d97706":"#dc2626"}}>{c.utilPct.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり＝クラス合計÷台数（期間累計）。稼働率＝稼働日÷稼働可能日。</div>
     </div>
     {/* 📋 予約数ランキング（シンプル） */}
     <div style={{marginBottom:20}}>
@@ -23693,7 +23683,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.462-BT";
+const APP_VERSION="v1.0.463-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
