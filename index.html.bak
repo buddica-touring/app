@@ -6666,6 +6666,8 @@ function OdometerManager({vehicles}){
   const[odoResv,setOdoResv]=useState({}); // {vehicle_code:[予約...]}
   const[indivVc,setIndivVc]=useState(null); // 個別記録モーダルの対象車両code
   const[indivMonth,setIndivMonth]=useState(new Date().toISOString().slice(0,7));
+  const[indivEdit,setIndivEdit]=useState(null); // 編集中の予約id(走行距離)
+  const[edSO,setEdSO]=useState(""),[edEO,setEdEO]=useState("");
 
   const loadData=async()=>{
     setLoading(true);
@@ -6800,6 +6802,11 @@ function OdometerManager({vehicles}){
       const shiftM=d=>{const dt=new Date(indivMonth+"-01T00:00:00");dt.setMonth(dt.getMonth()+d);setIndivMonth(dt.toISOString().slice(0,7));};
       const hS={padding:"7px 8px",fontSize:10,fontWeight:700,color:"#475569",background:"#f8fafc",textAlign:"right",borderBottom:"1px solid #e2e8f0",whiteSpace:"nowrap"};
       const tS={padding:"6px 8px",fontSize:11,textAlign:"right",borderBottom:"1px solid #eef2f7",whiteSpace:"nowrap"};
+      const edI={width:78,padding:"2px 4px",border:"1px solid #cbd5e1",borderRadius:4,fontSize:11,textAlign:"right"};
+      const saveOdo=async(r)=>{const so=String(edSO).trim()===""?null:Number(edSO),eo=String(edEO).trim()===""?null:Number(edEO);
+        if(so!=null&&!isFinite(so)){alert("貸出時距離が数値ではありません");return;}if(eo!=null&&!isFinite(eo)){alert("返却時距離が数値ではありません");return;}
+        const dk=(so!=null&&eo!=null)?(eo-so):null;if(dk!=null&&dk<0&&!window.confirm("返却時距離が貸出時より小さいです。このまま保存しますか？"))return;
+        try{await sb.from("bt_reservations").update({start_odo:so,end_odo:eo,driven_km:dk}).eq("id",r.id);setIndivEdit(null);await loadData();}catch(e){alert("保存に失敗しました");}};
       return <div onClick={()=>setIndivVc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
         <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,maxWidth:960,width:"100%",maxHeight:"88vh",overflow:"auto",padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
@@ -6815,23 +6822,24 @@ function OdometerManager({vehicles}){
           <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr>
-              <th style={hS}>貸出年月日</th><th style={hS}>貸出時(洗車)距離</th><th style={hS}>返却年月日</th><th style={hS}>返却時距離</th><th style={hS}>総距離数</th><th style={{...hS,color:"#0d9488"}}>走行距離数</th><th style={{...hS,textAlign:"left"}}>予約者名</th><th style={{...hS,textAlign:"left"}}>予約番号</th>
+              <th style={hS}>貸出年月日</th><th style={hS}>貸出時(洗車)距離</th><th style={hS}>返却年月日</th><th style={hS}>返却時距離</th><th style={hS}>総距離数</th><th style={{...hS,color:"#0d9488"}}>走行距離数</th><th style={{...hS,textAlign:"left"}}>予約者名</th><th style={{...hS,textAlign:"left"}}>予約番号</th><th style={{...hS,textAlign:"center"}}>編集</th>
             </tr></thead>
             <tbody>
-            {mrecs.length===0?<tr><td colSpan={8} style={{...tS,textAlign:"center",color:"#94a3b8",padding:"18px"}}>この月の記録はありません</td></tr>:mrecs.map(r=><tr key={r.id}>
+            {mrecs.length===0?<tr><td colSpan={9} style={{...tS,textAlign:"center",color:"#94a3b8",padding:"18px"}}>この月の記録はありません</td></tr>:mrecs.map(r=>{const ed=indivEdit===r.id;return <tr key={r.id} style={ed?{background:"#eff6ff"}:undefined}>
               <td style={tS}>{r.start_date||"-"}</td>
-              <td style={tS}>{km(r.start_odo)}</td>
+              <td style={tS}>{ed?<input value={edSO} onChange={e=>setEdSO(e.target.value)} inputMode="numeric" placeholder="km" style={edI}/>:km(r.start_odo)}</td>
               <td style={tS}>{r.end_date||"-"}</td>
-              <td style={tS}>{km(r.end_odo)}</td>
-              <td style={tS}>{km(r.end_odo)}</td>
-              <td style={{...tS,fontWeight:800,color:"#0d9488"}}>{drv(r)==null?"-":drv(r).toLocaleString()+"km"}</td>
+              <td style={tS}>{ed?<input value={edEO} onChange={e=>setEdEO(e.target.value)} inputMode="numeric" placeholder="km" style={edI}/>:km(r.end_odo)}</td>
+              <td style={tS}>{ed?km(String(edEO).trim()===""?null:Number(edEO)):km(r.end_odo)}</td>
+              <td style={{...tS,fontWeight:800,color:"#0d9488"}}>{ed?((String(edSO).trim()!==""&&String(edEO).trim()!=="")?(Number(edEO)-Number(edSO)).toLocaleString()+"km":"-"):(drv(r)==null?"-":drv(r).toLocaleString()+"km")}</td>
               <td style={{...tS,textAlign:"left"}}>{r.name||"-"}</td>
               <td style={{...tS,textAlign:"left",fontFamily:"monospace",fontSize:10}}>{r.id}</td>
-            </tr>)}
+              <td style={{...tS,textAlign:"center"}}>{ed?<span style={{display:"inline-flex",gap:4}}><button onClick={()=>saveOdo(r)} style={{fontSize:9,padding:"3px 9px",background:"#0d9488",color:"#fff",border:"none",borderRadius:5,cursor:"pointer",fontWeight:700}}>保存</button><button onClick={()=>setIndivEdit(null)} style={{fontSize:9,padding:"3px 7px",background:"#fff",color:"#64748b",border:"1px solid #cbd5e1",borderRadius:5,cursor:"pointer"}}>取消</button></span>:<button onClick={()=>{setIndivEdit(r.id);setEdSO(r.start_odo!=null?String(r.start_odo):"");setEdEO(r.end_odo!=null?String(r.end_odo):"");}} style={{fontSize:9,padding:"3px 10px",background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:5,cursor:"pointer",fontWeight:700}}>✏️編集</button>}</td>
+            </tr>;})}
             </tbody>
           </table>
           </div>
-          <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>※ 貸出時距離＝貸出/洗車時に記録したメーター値／返却時距離＝総距離数＝返却時のメーター値／走行距離数＝返却−貸出。月毎（貸出月）にページ切替。総走行距離・平均はその月の合計/平均。</div>
+          <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>※ 貸出時距離＝貸出/洗車時のメーター値／返却時距離＝総距離数＝返却時のメーター値／走行距離数＝返却−貸出。<b>✏️編集</b>で入力もれの過去データも更新できます（走行距離は自動再計算）。月毎（貸出月）にページ切替。</div>
         </div>
       </div>;
     })()}
@@ -23799,7 +23807,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.468-BT";
+const APP_VERSION="v1.0.469-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
