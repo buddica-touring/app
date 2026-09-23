@@ -145,6 +145,10 @@ function taskCard(x){
   }
   var btns='<div class="r3">';
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
+  if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
+    var _hc=HO_MAP[x.resv]||0;
+    btns+='<button class="abtn" style="'+(_hc>0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0')+'" onclick="saHandover(\''+esc(x.resv)+'\')">📌 引継'+(_hc>0?' '+_hc:'')+'</button>';
+  }
   btns+='</div>';
   return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(x.done?' done':'')+'">'
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t))+'</span>'
@@ -326,10 +330,59 @@ function load(){
   .then(function(r){return r.json();})
   .then(function(d){clearTimeout(to);
     if(!d||d.ok===false){showErr(d&&d.error==="invalid_token"?"このURLは無効です（担当者へ連絡してください）":"読み込みに失敗しました");return;}
+    try{CUR_STAFF=(d.staff&&d.staff.name)?d.staff.name:(typeof d.staff==="string"?d.staff:"");}catch(e){}
     try{SUE.ready(d.staff);}catch(e){}
-    render(d);})
+    saLoadHO(function(){render(d);});})
   .catch(function(e){clearTimeout(to);showErr("通信エラー。電波を確認して再読み込みしてください");});
 }
+/* ★2026-09-23 引き継ぎ(申し送り) */
+var HO_MAP={}, CUR_STAFF="";
+function saLoadHO(cb){
+  fetch(SB+"/rest/v1/bt_handover?select=reservation_id",{headers:{apikey:ANON,Authorization:"Bearer "+ANON}})
+   .then(function(r){return r.json();})
+   .then(function(rows){HO_MAP={};(rows||[]).forEach(function(x){HO_MAP[x.reservation_id]=(HO_MAP[x.reservation_id]||0)+1;});cb&&cb();})
+   .catch(function(){cb&&cb();});
+}
+window.saHandover=function(resv){
+  if(!resv){alert("予約情報が取得できませんでした");return;}
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:14px";
+  function close(){document.body.removeChild(ov);}
+  function esc2(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  var recs=[], editId=null;
+  function fetchRecs(cb){fetch(SB+"/rest/v1/bt_handover?reservation_id=eq."+encodeURIComponent(resv)+"&select=*&order=created_at.desc",{headers:{apikey:ANON,Authorization:"Bearer "+ANON}}).then(function(r){return r.json();}).then(function(rows){recs=rows||[];cb&&cb();}).catch(function(){cb&&cb();});}
+  function draw(){
+    var list = recs.length? recs.map(function(r){return '<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:10px;color:#92400e;font-weight:700">'+esc2(r.rec_date||"")+'</span>'+(r.staff?'<span style="font-size:10px;font-weight:700;color:#374151">👤'+esc2(r.staff)+'</span>':'')
+        +'<button data-e="'+r.id+'" style="margin-left:auto;font-size:11px;color:#2563eb;background:none;border:none">編集</button><button data-d="'+r.id+'" style="font-size:11px;color:#dc2626;background:none;border:none">削除</button></div>'
+        +'<div style="font-size:13px;color:#1f2937;white-space:pre-wrap">'+esc2(r.note||"")+'</div></div>';}).join('') : '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:12px">記録はまだありません</div>';
+    var editing = editId? recs.filter(function(r){return r.id===editId;})[0] : null;
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:440px;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)">'
+      +'<div style="background:linear-gradient(135deg,#0f172a,#0d9488);color:#fff;padding:14px 16px;display:flex;align-items:center"><div><div style="font-size:15px;font-weight:900">📌 引き継ぎ・申し送り</div><div style="font-size:11px;opacity:.85">'+esc2(resv)+'</div></div><button id="hclose" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800">✕</button></div>'
+      +'<div style="padding:14px">'
+      +'<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:12px;background:#f8fafc">'
+      +'<div style="font-size:11px;font-weight:700;margin-bottom:6px">'+(editing?"✏️ 記録を編集":"➕ 新しい記録")+'</div>'
+      +'<input id="hstaff" placeholder="担当（あなたの名前）" value="'+esc2(editing?editing.staff:CUR_STAFF)+'" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;margin-bottom:6px;box-sizing:border-box">'
+      +'<textarea id="hnote" placeholder="内容（例: 返却時間が早まる可能性・決済残あり・VIP 等）" rows="3" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical">'+esc2(editing?editing.note:"")+'</textarea>'
+      +'<div style="display:flex;gap:6px;margin-top:6px"><button id="hsave" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:13px">💾 '+(editing?"更新":"記録する")+'</button>'+(editing?'<button id="hcancel" style="border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;background:#fff;font-size:13px">キャンセル</button>':'')+'</div></div>'
+      +list+'</div></div>';
+    ov.querySelector("#hclose").onclick=close;
+    var hc=ov.querySelector("#hcancel"); if(hc)hc.onclick=function(){editId=null;draw();};
+    ov.querySelector("#hsave").onclick=function(){
+      var note=(ov.querySelector("#hnote").value||"").trim(), staff=(ov.querySelector("#hstaff").value||"").trim();
+      if(!note){alert("内容を入力してください");return;}
+      var url=SB+"/rest/v1/bt_handover", opt;
+      if(editId){opt={method:"PATCH",headers:{apikey:ANON,Authorization:"Bearer "+ANON,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify({staff:staff,note:note,updated_at:new Date().toISOString()})};url+="?id=eq."+editId;}
+      else{opt={method:"POST",headers:{apikey:ANON,Authorization:"Bearer "+ANON,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify({reservation_id:resv,staff:staff,note:note})};}
+      fetch(url,opt).then(function(r){if(!r.ok)throw 0;editId=null;fetchRecs(function(){saLoadHO(function(){try{if(MODE==="tasks")load();}catch(e){}});draw();});}).catch(function(){alert("保存に失敗しました");});
+    };
+    Array.prototype.forEach.call(ov.querySelectorAll("[data-e]"),function(b){b.onclick=function(){editId=b.getAttribute("data-e");draw();};});
+    Array.prototype.forEach.call(ov.querySelectorAll("[data-d]"),function(b){b.onclick=function(){if(!confirm("この記録を削除しますか？"))return;fetch(SB+"/rest/v1/bt_handover?id=eq."+b.getAttribute("data-d"),{method:"DELETE",headers:{apikey:ANON,Authorization:"Bearer "+ANON,Prefer:"return=minimal"}}).then(function(){fetchRecs(function(){saLoadHO();draw();});});};});
+  }
+  ov.onclick=function(e){if(e.target===ov)close();};
+  document.body.appendChild(ov);
+  fetchRecs(draw);
+};
 window.saPay=function(resv,amount,cust){
   if(!resv){alert("予約情報が取得できませんでした");return;}
   var amt=Number(amount)||0;
