@@ -127,7 +127,7 @@ const sbAuthPromise = (async () => {
 })();
 
 /* ===== Auth UI (ログイン画面) =====
-   ユーザー名 → Email マッピングテーブル（v1.0.29-BT）
+   ユーザー名 → Email マッピングテーブル（v1.0.30-BT）
    スタッフはユーザー名と4桁パスコードでログイン → 内部で Supabase Auth (email) に変換 */
 const BT_USER_MAP = {
   'oshita':    'oshita@bt.hdm',
@@ -7905,7 +7905,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   // 返却月だけでなく、月中に稼働した全予約（月をまたぐ予約も含む）でカウント
   var daysInM=new Date(parseInt(yrStr),parseInt(moStr),0).getDate();
   var monthKpi=kpiF[repYm]||{};
-  var activeVehs=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in monthKpi)||monthKpi[v.code]);});
+  var activeVehs=(allVehs||[]).filter(function(v){return ((v.code in monthKpi)?monthKpi[v.code]:(v.active!==false));});
   var utilMaxDays=activeVehs.length*daysInM;
   var mStart=new Date(repYm+"-01T00:00:00");
   var mEnd=new Date(yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")+"T23:59:59");
@@ -8065,7 +8065,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
   var clsMonth={};
   var mS2=new Date(repYm+"-01T00:00:00"),mE2=new Date(yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0")+"T23:59:59");
   var lastDayStr=yrStr+"-"+String(moStr).padStart(2,"0")+"-"+String(daysInM).padStart(2,"0");
-  (allVehs||[]).filter(function(v){return v.active&&(!(v.code in monthKpi)||monthKpi[v.code]);}).forEach(function(v){
+  (allVehs||[]).filter(function(v){return ((v.code in monthKpi)?monthKpi[v.code]:(v.active!==false));}).forEach(function(v){
     var c=v.type||v.vehicle_class||"?";
     if(!clsMonth[c])clsMonth[c]={count:0,capDays:0,usedDays:0,rev:0};
     clsMonth[c].count++;clsMonth[c].capDays+=daysInM;
@@ -8336,7 +8336,7 @@ function openFullMonthlyReport_(dbStore,repYm,allResvs,allVehs,allFleetArr,allKp
         var pb=0,po=0,pd=0,pr=0,dS=0;
         ret.forEach(function(r){var bp=Number(r.base_price)||0,op=Number(r.option_price)||0,dc=Number(r.discount)||0;var rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);var ld=r[ldKey],rd=r[rdKey];var n=ld&&rd?Math.max(0,Math.round((new Date(rd)-new Date(ld))/86400000)):0;pb+=((bp>0||op>0)?bp:(Number(r.price)||0));po+=op;pd+=dc;pr+=rev;dS+=n;});
         var ex=(extraByM||{})[ym]||0;
-        var kpiM=kpiF[ym]||{};var actV=(allVehs||[]).filter(function(v){return v.active&&(!(v.code in kpiM)||kpiM[v.code]);});
+        var kpiM=kpiF[ym]||{};var actV=(allVehs||[]).filter(function(v){return ((v.code in kpiM)?kpiM[v.code]:(v.active!==false));});
         var maxD=actV.length*dIM;var uD=0;
         active.filter(function(r){var ld=r[ldKey],rd=r[rdKey];return ld&&rd&&ld<=ym+"-"+String(dIM).padStart(2,"0")&&rd>=ym+"-01";}).forEach(function(r){var vc=fMap[r.id];if(!vc)return;var mS=new Date(ym+"-01T00:00:00"),mE=new Date(ym+"-"+String(dIM).padStart(2,"0")+"T23:59:59");var ld2=new Date(r[ldKey]+"T00:00:00"),rd2=new Date(r[rdKey]+"T00:00:00");var s=ld2<mS?mS:ld2,e=rd2>mE?mE:rd2;uD+=Math.max(0,Math.round((e-s)/86400000));});
         mData[ym]={plBase:pb,plOpt:po,plDisc:pd,plRev:pr,extraRev:ex,grand:pr+ex,cnt:ret.length,unitPrice:ret.length?Math.round(pr/ret.length):0,avgNights:ret.length?dS/ret.length:0,dailyRate:uD?Math.round(pr/uD):0,utilPct:maxD?Math.round(uD/maxD*100):0};
@@ -11215,7 +11215,7 @@ function ManagementTab({store}){
       </div>;
     })()}
 
-    {/* --- 価格戦略は TOP > データ・分析 へ移動済（v1.0.29-BT） --- */}
+    {/* --- 価格戦略は TOP > データ・分析 へ移動済（v1.0.30-BT） --- */}
 
     {/* --- 投資回転率 --- */}
     {sub==="roi"&&(()=>{
@@ -23536,8 +23536,7 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       const ms=new Date(yy,mm-1,1),me=new Date(yy,mm-1,dim);
       const monthKpi=kpiByMonth[ym]||{};
       (vehicles||[]).forEach(v=>{
-        if(!v.active)return;
-        const isActive=v.code in monthKpi?monthKpi[v.code]:true;
+        const isActive=v.code in monthKpi?monthKpi[v.code]:(v.active!==false); // ★月次フラグが全体activeを上書き(フラグtrueなら全体active=falseでも稼働)
         if(!isActive)return;
         const allM=maintDaysByVeh[v.code]||null;
         const mSet=new Set();
@@ -23556,7 +23555,8 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
         usedByVeh[v.code]=(usedByVeh[v.code]||0)+days.size;
       });
     });
-    const rows=(vehicles||[]).filter(v=>v.active).map(v=>{
+    const _rkMk=kpiByMonth[todayYM]||{};
+    const rows=(vehicles||[]).filter(v=>v.code in _rkMk?_rkMk[v.code]:(v.active!==false)).map(v=>{
       const s=vehStat[v.code]||{cnt:0,rev:0,days:0};
       const lease=Number(v.leaseMonthly||v.lease_monthly)||0;
       const ins=Number(v.insuranceAnnual||v.insurance_annual)||0;
@@ -23573,7 +23573,7 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       const monthlyProfit=profit/n_months;
       const isActiveNow=(()=>{
         const monthKpi=kpiByMonth[todayYM]||{};
-        return v.code in monthKpi?monthKpi[v.code]:true;
+        return v.code in monthKpi?monthKpi[v.code]:(v.active!==false);
       })();
       return{...v,plate:v.no||v.plate_no||"",
         cnt:s.cnt,usedDays:usedDaysReal,capDays,
