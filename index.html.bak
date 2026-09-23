@@ -6677,7 +6677,7 @@ function OdometerManager({vehicles}){
           sb.from("bt_vehicle_maintenance").select("*").eq("type","走行距離").order("completed_date",{ascending:false}),
           sb.from("bt_vehicle_maintenance").select("*").eq("type","オイル交換").order("completed_date",{ascending:false}),
           sb.from("vehicle_twins").select("id,odometer").eq("store","takamatsu"),
-          sb.from("bt_reservations").select("id,name,assigned_vehicle,plate_no,start_date,end_date,start_odo,end_odo,driven_km").not("start_odo","is",null).order("start_date",{ascending:false})
+          sb.from("bt_reservations").select("id,name,assigned_vehicle,plate_no,start_date,end_date,start_odo,end_odo,driven_km,status").not("start_odo","is",null).order("start_date",{ascending:false})
         ]);
         const om={},oil={};
         (odoRes.data||[]).forEach(r=>{if(!om[r.vehicle_code])om[r.vehicle_code]=[];om[r.vehicle_code].push(r);});
@@ -6685,7 +6685,7 @@ function OdometerManager({vehicles}){
         setOdoRecs(om);setOilRecs(oil);
         const tw={};(twRes.data||[]).forEach(t=>{if(t.odometer)tw[t.id]=t.odometer;});setTwins(tw);
         // 個別記録: 予約を配車車両code(assigned_vehicle)ごとにまとめる
-        const rv={};(rvRes.data||[]).forEach(r=>{const vc=r.assigned_vehicle||"";if(!vc)return;if(!rv[vc])rv[vc]=[];rv[vc].push(r);});setOdoResv(rv);
+        const rv={};(rvRes.data||[]).forEach(r=>{const st=String(r.status||"");if(/キャンセル|cancel/i.test(st))return;const vc=r.assigned_vehicle||"";if(!vc)return;if(!rv[vc])rv[vc]=[];rv[vc].push(r);});setOdoResv(rv);
       }
     }finally{setLoading(false);}
   };
@@ -23807,7 +23807,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.469-BT";
+const APP_VERSION="v1.0.470-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
