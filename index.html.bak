@@ -6612,21 +6612,28 @@ function OdometerManager({vehicles}){
   const[openCls,setOpenCls]=useState({});
   const toggleCls2=(tp)=>setOpenCls(p=>({...p,[tp]:!p[tp]}));
   const today=new Date().toISOString().slice(0,10);
+  // ★2026-09-23 個別記録（予約ごとの貸出/返却時の走行距離リスト・月別）
+  const[odoResv,setOdoResv]=useState({}); // {vehicle_code:[予約...]}
+  const[indivVc,setIndivVc]=useState(null); // 個別記録モーダルの対象車両code
+  const[indivMonth,setIndivMonth]=useState(new Date().toISOString().slice(0,7));
 
   const loadData=async()=>{
     setLoading(true);
     try{
       if(sb){
-        const[odoRes,oilRes,twRes]=await Promise.all([
+        const[odoRes,oilRes,twRes,rvRes]=await Promise.all([
           sb.from("bt_vehicle_maintenance").select("*").eq("type","走行距離").order("completed_date",{ascending:false}),
           sb.from("bt_vehicle_maintenance").select("*").eq("type","オイル交換").order("completed_date",{ascending:false}),
-          sb.from("vehicle_twins").select("id,odometer").eq("store","takamatsu")
+          sb.from("vehicle_twins").select("id,odometer").eq("store","takamatsu"),
+          sb.from("bt_reservations").select("id,name,assigned_vehicle,plate_no,start_date,end_date,start_odo,end_odo,driven_km").not("start_odo","is",null).order("start_date",{ascending:false})
         ]);
         const om={},oil={};
         (odoRes.data||[]).forEach(r=>{if(!om[r.vehicle_code])om[r.vehicle_code]=[];om[r.vehicle_code].push(r);});
         (oilRes.data||[]).forEach(r=>{if(!oil[r.vehicle_code])oil[r.vehicle_code]=[];oil[r.vehicle_code].push(r);});
         setOdoRecs(om);setOilRecs(oil);
         const tw={};(twRes.data||[]).forEach(t=>{if(t.odometer)tw[t.id]=t.odometer;});setTwins(tw);
+        // 個別記録: 予約を配車車両code(assigned_vehicle)ごとにまとめる
+        const rv={};(rvRes.data||[]).forEach(r=>{const vc=r.assigned_vehicle||"";if(!vc)return;if(!rv[vc])rv[vc]=[];rv[vc].push(r);});setOdoResv(rv);
       }
     }finally{setLoading(false);}
   };
@@ -6731,6 +6738,53 @@ function OdometerManager({vehicles}){
   const warnCnt=(vehicles||[]).filter(v=>getOilStatus(v.code).level==="warn").length;
 
   return <div style={{maxWidth:1080,margin:"0 auto"}}>
+    {/* ★個別記録モーダル（予約ごとの走行距離・月別） */}
+    {indivVc&&(()=>{
+      const veh=(vehicles||[]).find(x=>x.code===indivVc)||{};
+      const recs=odoResv[indivVc]||[];
+      const mrecs=recs.filter(r=>(r.start_date||"").slice(0,7)===indivMonth).sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
+      const drv=r=>{if(r.driven_km!=null&&r.driven_km!=="")return Number(r.driven_km);if(r.end_odo!=null&&r.start_odo!=null)return Number(r.end_odo)-Number(r.start_odo);return null;};
+      const totDrv=mrecs.reduce((s,r)=>s+(drv(r)||0),0);
+      const cntDrv=mrecs.filter(r=>drv(r)!=null).length;
+      const km=n=>(n==null||n==="")?"-":Number(n).toLocaleString()+"km";
+      const shiftM=d=>{const dt=new Date(indivMonth+"-01T00:00:00");dt.setMonth(dt.getMonth()+d);setIndivMonth(dt.toISOString().slice(0,7));};
+      const hS={padding:"7px 8px",fontSize:10,fontWeight:700,color:"#475569",background:"#f8fafc",textAlign:"right",borderBottom:"1px solid #e2e8f0",whiteSpace:"nowrap"};
+      const tS={padding:"6px 8px",fontSize:11,textAlign:"right",borderBottom:"1px solid #eef2f7",whiteSpace:"nowrap"};
+      return <div onClick={()=>setIndivVc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,maxWidth:960,width:"100%",maxHeight:"88vh",overflow:"auto",padding:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <div style={{fontSize:15,fontWeight:800}}>📋 個別記録 — {veh.name||veh.code}{veh.no?" ("+veh.no+")":""}</div>
+            <button onClick={()=>setIndivVc(null)} style={{marginLeft:"auto",fontSize:12,padding:"5px 14px",border:"1px solid #e2e8f0",borderRadius:8,background:"#f8fafc",cursor:"pointer",fontWeight:700}}>✕ 閉じる</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+            <button onClick={()=>shiftM(-1)} style={{padding:"5px 12px",border:"1px solid #cbd5e1",borderRadius:6,background:"#fff",cursor:"pointer",fontWeight:800}}>◀</button>
+            <b style={{fontSize:15,minWidth:84,textAlign:"center"}}>{indivMonth}</b>
+            <button onClick={()=>shiftM(1)} style={{padding:"5px 12px",border:"1px solid #cbd5e1",borderRadius:6,background:"#fff",cursor:"pointer",fontWeight:800}}>▶</button>
+            <span style={{marginLeft:10,fontSize:12}}>月間 総走行距離 <b style={{color:"#0d9488",fontSize:14}}>{totDrv.toLocaleString()}km</b> ／ 平均 <b>{cntDrv?Math.round(totDrv/cntDrv).toLocaleString():"-"}km</b>（{mrecs.length}件）</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              <th style={hS}>貸出年月日</th><th style={hS}>貸出時(洗車)距離</th><th style={hS}>返却年月日</th><th style={hS}>返却時距離</th><th style={hS}>総距離数</th><th style={{...hS,color:"#0d9488"}}>走行距離数</th><th style={{...hS,textAlign:"left"}}>予約者名</th><th style={{...hS,textAlign:"left"}}>予約番号</th>
+            </tr></thead>
+            <tbody>
+            {mrecs.length===0?<tr><td colSpan={8} style={{...tS,textAlign:"center",color:"#94a3b8",padding:"18px"}}>この月の記録はありません</td></tr>:mrecs.map(r=><tr key={r.id}>
+              <td style={tS}>{r.start_date||"-"}</td>
+              <td style={tS}>{km(r.start_odo)}</td>
+              <td style={tS}>{r.end_date||"-"}</td>
+              <td style={tS}>{km(r.end_odo)}</td>
+              <td style={tS}>{km(r.end_odo)}</td>
+              <td style={{...tS,fontWeight:800,color:"#0d9488"}}>{drv(r)==null?"-":drv(r).toLocaleString()+"km"}</td>
+              <td style={{...tS,textAlign:"left"}}>{r.name||"-"}</td>
+              <td style={{...tS,textAlign:"left",fontFamily:"monospace",fontSize:10}}>{r.id}</td>
+            </tr>)}
+            </tbody>
+          </table>
+          </div>
+          <div style={{fontSize:10,color:"#94a3b8",marginTop:8}}>※ 貸出時距離＝貸出/洗車時に記録したメーター値／返却時距離＝総距離数＝返却時のメーター値／走行距離数＝返却−貸出。月毎（貸出月）にページ切替。総走行距離・平均はその月の合計/平均。</div>
+        </div>
+      </div>;
+    })()}
     {/* ヘッダー */}
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
       <h3 style={{fontSize:15,fontWeight:800,margin:0}}>🚗 距離管理</h3>
@@ -6757,6 +6811,7 @@ function OdometerManager({vehicles}){
         <th style={{...thS,background:"#fff7ed",color:"#92400e"}}>最終OIL交換</th>
         <th style={{...thS,background:"#fff7ed",textAlign:"right"}}>次回目安</th>
         <th style={{...thS,background:"#fff7ed"}}>アラート</th>
+        <th style={{...thS,textAlign:"center"}}>個別記録</th>
         <th style={{...thS,textAlign:"center"}}>操作</th>
       </tr></thead>;
       return grpOrder.map(tp=>{
@@ -6814,6 +6869,10 @@ function OdometerManager({vehicles}){
                     {oilSt.level==="danger"?"🔴":oilSt.level==="warn"?"🟡":oilSt.level==="ok"?"🟢":"⚪"} {oilSt.label}
                   </span>
                 </td>
+                {/* 個別記録 */}
+                <td style={{...tdS,textAlign:"center"}}>
+                  <button onClick={()=>{setIndivVc(v.code);setIndivMonth(new Date().toISOString().slice(0,7));}} style={{fontSize:9,padding:"3px 10px",background:"#f0fdfa",color:"#0d9488",border:"1px solid #5eead4",borderRadius:5,cursor:"pointer",fontWeight:700}} title="この車両の予約ごとの距離記録(月別)">📋 記録{(odoResv[v.code]||[]).length?" "+(odoResv[v.code]||[]).length:""}</button>
+                </td>
                 {/* 操作 */}
                 <td style={{...tdS,textAlign:"center"}}>
                   <div style={{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap"}}>
@@ -6824,7 +6883,7 @@ function OdometerManager({vehicles}){
                 </td>
               </tr>
               {/* 走行距離入力 */}
-              {isOdoOpen&&<tr style={{background:"#eff6ff"}}><td colSpan={7} style={{padding:"10px 14px"}}>
+              {isOdoOpen&&<tr style={{background:"#eff6ff"}}><td colSpan={8} style={{padding:"10px 14px"}}>
                 <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
                   <span style={{fontSize:11,fontWeight:700,color:"#1e40af",flexShrink:0}}>🚗 走行距離更新</span>
                   <div><div style={{fontSize:9,color:"#64748b",fontWeight:700,marginBottom:2}}>現在km</div><input type="number" value={odoKm} onChange={e=>setOdoKm(e.target.value)} style={{width:110,border:"1px solid #93c5fd",borderRadius:6,padding:"4px 7px",fontSize:12,fontWeight:700}} placeholder="例: 48000" autoFocus/></div>
@@ -6835,7 +6894,7 @@ function OdometerManager({vehicles}){
                 {prev&&<div style={{marginTop:4,fontSize:9,color:"#64748b"}}>前回: {Number(prev.odometer_km).toLocaleString()}km（{prev.completed_date}）</div>}
               </td></tr>}
               {/* OIL交換入力 */}
-              {isOilOpen&&<tr style={{background:"#fff7ed"}}><td colSpan={7} style={{padding:"10px 14px"}}>
+              {isOilOpen&&<tr style={{background:"#fff7ed"}}><td colSpan={8} style={{padding:"10px 14px"}}>
                 <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
                   <span style={{fontSize:11,fontWeight:700,color:"#ea580c",flexShrink:0}}>🔧 OIL交換記録</span>
                   <div><div style={{fontSize:9,color:"#64748b",fontWeight:700,marginBottom:2}}>交換時km★</div><input type="number" value={oilKm} onChange={e=>setOilKm(e.target.value)} style={{width:110,border:"1px solid #fed7aa",borderRadius:6,padding:"4px 7px",fontSize:12,fontWeight:700}} placeholder="例: 45000" autoFocus/></div>
@@ -6851,12 +6910,12 @@ function OdometerManager({vehicles}){
                 <td colSpan={2} style={{...tdS,paddingLeft:20,color:"#94a3b8",fontSize:10}}>前回走行距離</td>
                 <td style={{...tdS,textAlign:"right",color:"#64748b",fontSize:10,fontWeight:600}}>{Number(prev.odometer_km).toLocaleString()} km</td>
                 <td style={{...tdS,color:"#94a3b8",fontSize:10}}>{prev.completed_date}</td>
-                <td colSpan={3} style={{...tdS,color:"#94a3b8",fontSize:10}}>{prev.notes}</td>
+                <td colSpan={4} style={{...tdS,color:"#94a3b8",fontSize:10}}>{prev.notes}</td>
               </tr>}
               {isExp&&oilHistory.map((r,i)=><tr key={r.id||i} style={{background:"#fff7ed"}}>
                 <td colSpan={3} style={{...tdS,paddingLeft:20,color:"#92400e",fontSize:10}}>OIL履歴 {r.completed_date}</td>
                 <td style={{...tdS,color:"#92400e",fontSize:10,fontWeight:600}}>@ {Number(r.odometer_km).toLocaleString()}km</td>
-                <td colSpan={3} style={{...tdS,color:"#94a3b8",fontSize:10}}>{r.notes}</td>
+                <td colSpan={4} style={{...tdS,color:"#94a3b8",fontSize:10}}>{r.notes}</td>
               </tr>)}
             </React.Fragment>;
           })}
@@ -23690,7 +23749,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.465-BT";
+const APP_VERSION="v1.0.466-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
