@@ -4560,6 +4560,7 @@ function VehDetailList({vehicles,vehicleClasses,maintenance,onEdit}){
     (vehicles||[]).forEach(v=>{if(!seen[v.id])out.push(v);});
     return out;
   },[vehicles,vehicleClasses]);
+  const[sortKey,setSortKey]=useState(null);const[sortDir,setSortDir]=useState(1);
   const maintCost=(code)=>(maintenance||[]).filter(m=>(m.vehicleCode||m.vehicle_code)===code).reduce((s,m)=>s+Number(m.actualCost||m.cost||0),0);
   const monthlyCost=(v)=>Number(v.insuranceAnnual||0)+(v.leaseMonthly||0)+Math.round((v.shakenCost||0)/12)+Math.round((v.tenkenCost||0)/6)+Math.round((v.carTax||0)/12);
   const S=v=>(v&&typeof v.specs==="object")?v.specs:{};
@@ -4569,14 +4570,32 @@ function VehDetailList({vehicles,vehicleClasses,maintenance,onEdit}){
   const stickyTh={...th,left:0,zIndex:3,textAlign:"left",boxShadow:"2px 0 0 #e2e8f0"};
   const stickyTd=(bg)=>({...td,position:"sticky",left:0,background:bg,textAlign:"left",zIndex:1,boxShadow:"2px 0 0 #e2e8f0"});
   const cols=["グレード","油種","タイヤ","ETC位置","ドラレコ","USB","BT","バックカメラ","リアモニター","ナビ言語","ハンドル","AT/MT","定員","年式","カラー","型式","車体番号","車検満了","車検予定","点検期限","点検予定","保険/月","リース/月","整備実費","月次原価"];
+  // ★2026-09-25 項目ごとソート（武山要望）
+  const NUMCOL={"定員":1,"年式":1,"保険/月":1,"リース/月":1,"整備実費":1,"月次原価":1};
+  const colVal=(v,c)=>{const s=S(v);switch(c){
+    case"クラス":{const gi=(vehicleClasses||[]).findIndex(x=>x.type===v.type);return String(gi<0?999:gi).padStart(3,"0")+"|"+(v.type||"")+"|"+(s.abbr||v.name||"");}
+    case"グレード":return v.grade||"";case"油種":return s.fuel||"";case"タイヤ":return s.tire||"";case"ETC位置":return s.etc_location||"";
+    case"ドラレコ":return s.dashcam?1:0;case"USB":return s.usb?1:0;case"BT":return s.bluetooth?1:0;case"バックカメラ":return s.backcam?1:0;case"リアモニター":return s.rearmonitor?1:0;
+    case"ナビ言語":return [s.nav_en&&"EN",s.nav_zh&&"中",s.nav_ko&&"韓"].filter(Boolean).join(" ");
+    case"ハンドル":return s.handle||"";case"AT/MT":return s.transmission||"";case"定員":return Number(v.seats)||0;case"年式":return v.year||"";case"カラー":return v.color||"";
+    case"型式":return s.model_code||"";case"車体番号":return s.shatai_no||"";
+    case"車検満了":return v.inspectionDueDate||"";case"車検予定":return v.inspectionNextDate||"";case"点検期限":return v.tenkenDueDate||"";case"点検予定":return v.tenkenNextDate||"";
+    case"保険/月":return Number(v.insuranceAnnual)||0;case"リース/月":return Number(v.leaseMonthly)||0;case"整備実費":return maintCost(v.code)||0;case"月次原価":return monthlyCost(v)||0;
+    default:return "";}};
+  const onSort=(c)=>{if(sortKey===c)setSortDir(d=>-d);else{setSortKey(c);setSortDir(1);}};
+  const arrow=(c)=>sortKey===c?(sortDir>0?" ▲":" ▼"):"";
+  const dispRows=sortKey?rows.slice().sort((a,b)=>{const num=!!NUMCOL[sortKey];let x=colVal(a,sortKey),y=colVal(b,sortKey);
+    if(num)return((Number(x)||0)-(Number(y)||0))*sortDir;
+    const ex=(x===""||x==null),ey=(y===""||y==null);if(ex&&!ey)return 1;if(!ex&&ey)return -1;
+    return String(x).localeCompare(String(y),"ja")*sortDir;}):rows;
   return <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"auto",maxHeight:"72vh"}}>
     <table style={{borderCollapse:"collapse",fontSize:11,minWidth:1400,width:"100%"}}>
       <thead><tr>
-        <th style={stickyTh}>車両（クラス / 略称 / ナンバー）</th>
-        {cols.map((c,i)=><th key={i} style={th}>{c}</th>)}
+        <th style={{...stickyTh,cursor:"pointer"}} onClick={()=>onSort("クラス")} title="タップで並び替え">車両（クラス / 略称 / ナンバー）{arrow("クラス")}</th>
+        {cols.map((c,i)=><th key={i} style={{...th,cursor:"pointer"}} onClick={()=>onSort(c)} title="タップで並び替え">{c}{arrow(c)}</th>)}
         <th style={th}>編集</th>
       </tr></thead>
-      <tbody>{rows.map((v,i)=>{const s=S(v);const bg=i%2===0?"#fff":"#fafbfc";const langs=[s.nav_en&&"EN",s.nav_zh&&"中",s.nav_ko&&"韓"].filter(Boolean).join(" ");return <tr key={v.id} style={{background:bg}} onClick={()=>onEdit&&onEdit(v)} title="タップで編集">
+      <tbody>{dispRows.map((v,i)=>{const s=S(v);const bg=i%2===0?"#fff":"#fafbfc";const langs=[s.nav_en&&"EN",s.nav_zh&&"中",s.nav_ko&&"韓"].filter(Boolean).join(" ");return <tr key={v.id} style={{background:bg}} onClick={()=>onEdit&&onEdit(v)} title="タップで編集">
         <td style={stickyTd(bg)}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <span style={{fontSize:10,fontWeight:900,padding:"1px 6px",borderRadius:5,background:v.type==="AA"?"#fef3c7":"#dbeafe",color:v.type==="AA"?"#92400e":"#1e40af"}}>{v.type}</span>
@@ -4611,7 +4630,7 @@ function VehDetailList({vehicles,vehicleClasses,maintenance,onEdit}){
         <td style={td}><button onClick={e=>{e.stopPropagation();onEdit&&onEdit(v);}} style={{fontSize:10,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>編集</button></td>
       </tr>;})}</tbody>
     </table>
-    <div style={{padding:"8px 12px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #eef2f7"}}>{rows.length}台 ／ 横スクロールで全項目 ／ 行タップで編集 ／ 🛡️保険事業車 ⏸未稼働 ／ 保険・リースは月額 ／ 月次原価＝保険+リース+車検/12+点検/6+税/12</div>
+    <div style={{padding:"8px 12px",fontSize:10,color:"#94a3b8",borderTop:"1px solid #eef2f7"}}>{rows.length}台 ／ 横スクロールで全項目 ／ <b>見出しタップで並び替え（再タップで昇順↔降順）</b> ／ 行タップで編集 ／ 🛡️保険事業車 ⏸未稼働 ／ 保険・リースは月額 ／ 月次原価＝保険+リース+車検/12+点検/6+税/12</div>
   </div>;
 }
 function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicle,highlightVehicle,maintenance}){
@@ -20878,8 +20897,8 @@ function JalanTemplateList({sb}){
     const from=new Date(jnow.getTime()-14*86400*1000).toISOString().slice(0,10);
     const to=new Date(jnow.getTime()+60*86400*1000).toISOString().slice(0,10);
     const SEL="id,name,mail,tel,ota,status,start_date,start_time,end_date,price,pay_url,paid,mypage_token,visit_type,return_type,pickup_time";
-    // じゃらん=出発-14〜+60日（近い出発のみ）／楽天=出発-14日以降・上限なし（事前決済済＝予約後すぐ手動メールを送れるよう全未来を表示）
-    const jaRes=await sb.from("bt_reservations").select(SEL).eq("ota","じゃらん").gte("start_date",from).lte("start_date",to);
+    // じゃらん・楽天とも 出発-14日以降・上限なし（事前決済＝予約後すぐ初動welcome+決済リンクを送る運用のため全未来を表示。じゃらんの遠い予約が窓外で漏れるのを解消 2026-09-25）
+    const jaRes=await sb.from("bt_reservations").select(SEL).eq("ota","じゃらん").gte("start_date",from);
     const rkRes=await sb.from("bt_reservations").select(SEL).eq("ota","楽天").gte("start_date",from);
     const data=[...(jaRes.data||[]),...(rkRes.data||[])].sort((a,b)=>String(a.start_date||"").localeCompare(String(b.start_date||"")));
     const alive=(data||[]).filter(r=>!/cancel|キャンセル/i.test(r.status||""));
@@ -20905,7 +20924,7 @@ function JalanTemplateList({sb}){
   const doSend=async(r,tp)=>{if(busy)return;if(!r.mail){alert("この予約には顧客のメールアドレスが登録されていません。");return;}if(!window.confirm("📤 直接送信\n\n宛先："+r.name+" 様 <"+r.mail+">\n内容：「"+tp.l+"」\n送信元：reserve@rent-handyman.com\n\n実際に顧客へメールを送信します。よろしいですか？"))return;setBusy(true);try{const j=await callEF({action:"send",reservation_id:r.resv,kind:tp.key});if(!j.ok){alert("送信失敗："+(j.error||""));setBusy(false);return;}try{await sb.from("bt_line_sends").insert({resv_no:r.resv,action:"tmpl:"+tp.key,status:"manual_done",message:"直接送信 rent-handyman.com"});}catch(e){}alert("✅ 送信しました → "+(j.to||r.mail));await load();}catch(e){alert("送信エラー："+e.message);}setBusy(false);};
   const doStatus=async(r)=>{const j=await callEF({action:"status",reservation_id:r.resv});if(j&&j.ok){setOpenMap(m=>Object.assign({},m,{[r.resv]:j.items}));}else{alert("開封状況の取得に失敗："+((j&&j.error)||""));}};
   if(rows===null)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"読み込み中…");
-  if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象の予約がありません（じゃらん=出発-14〜+60日／楽天=全ての未来予約）。");
+  if(!rows.length)return React.createElement("div",{style:{padding:20,color:"#64748b"}},"対象の予約がありません（じゃらん・楽天=出発-14日以降の全ての未来予約）。");
   const isSent=(r,tp)=>r.sent.has(r.resv+"|"+tp.key);
   const dueOf=(r)=>TMPL.filter(tp=>tp.due(r)&&!isSent(r,tp));
   const sorted=rows.slice().sort((a,b)=>{const da=dueOf(a).length>0?0:1,db=dueOf(b).length>0?0:1;if(da!==db)return da-db;return String(a.start||"").localeCompare(String(b.start||""));});
@@ -23807,7 +23826,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.473-BT";
+const APP_VERSION="v1.0.474-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
