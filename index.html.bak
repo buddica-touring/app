@@ -4377,7 +4377,7 @@ function normBrand(b){const s=String(b||"").trim().toUpperCase();if(s==="HDM"||s
 function BrandBadge({brand,size}){const b=normBrand(brand);if(!b)return null;const st=b==="HDM"?{bg:"#1e3a8a",c:"#fff",t:"HDM"}:{bg:"#047857",c:"#fff",t:"BT"};const fs=size==="sm"?9:10;return <span title={b==="HDM"?"HANDYMAN高松 運用車":"BUDDICA 運用車"} style={{background:st.bg,color:st.c,padding:"1px 6px",borderRadius:4,fontSize:fs,fontWeight:800,letterSpacing:.3,lineHeight:1.4,display:"inline-block"}}>{st.t}</span>;}
 /* ★2026-08-08 お客様ページURL：じゃらん(HDM)はHANDYMANマイページ(my-tkm)/それ以外はBUDDICAご利用ガイド。
    ota不明時はwindow._resOtaMap[resvNo]で解決(バッジ用)。suffix例 "&ro=1"(スタッフ閲覧)/"&staff=1"。 */
-function custPageUrl(token,ota,suffix){ if(!token)return""; const o=String(ota||""); const hdm=o.indexOf("じゃらん")>=0||o.toUpperCase().indexOf("HANDYMAN")>=0; const base=hdm?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
+function custPageUrl(token,ota,suffix,brand){ if(!token)return""; const o=String(ota||""); const ou=o.toUpperCase(); const hdm=(String(brand||"").toUpperCase()==="HDM")||o.indexOf("じゃらん")>=0||o.indexOf("楽天")>=0||o.indexOf("スカイチケット")>=0||ou.indexOf("SKY")>=0||ou.indexOf("HANDYMAN")>=0; const base=hdm?"https://nosh2318.github.io/spk-task/my-tkm.html?t=":"https://buddica-touring.github.io/app/guide/?t="; return base+encodeURIComponent(token)+(suffix||""); }
 function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{})[resvNo]; return custPageUrl(token,ota,suffix); }
 function OBadge({ota,brand}){const k=OTA_NORM[ota]||(ota==="A"?"O":ota);let o=OTA[k];const lbl=otaAbbr(ota,brand);if(!o&&(!lbl||lbl==="-"))return null;if(!o&&(ota==null||ota==="")){const b=String(brand||"").trim().toUpperCase();if(b==="HDM")o={bg:"#e0e7ff",c:"#1e3a8a"};else if(b==="BUDDICA")o=OTA["HP"];}const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 /* ★2026-08-10 HANDYMAN(じゃらん)予約の識別：送迎プラカード・問合せ・決済ツールが異なるため要注意。紺バッジ＋薄紺背景で警告。BUDDICAは無印。 */
@@ -23852,7 +23852,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.476-BT";
+const APP_VERSION="v1.0.477-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -24957,7 +24957,7 @@ function LicenseSendListBT({sb}){
   const [open,setOpen]=React.useState(true);
   const [ver,setVer]=React.useState(0);
   const days=React.useMemo(()=>{const a=[];for(let i=0;i<=3;i++){const d=new Date();d.setDate(d.getDate()+i);a.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return a;},[ver]);
-  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const url=r.mytoken?custPageUrl(r.mytoken,r.ota,""):"https://buddica-touring.github.io/app/guide/";return "この度はBUDDICA TOURINGをご利用頂きまして誠にありがとうございます。\n\n【BUDDICA TOURING】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記ご利用ガイドからご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
+  const buildMsg=(r)=>{const cn=(r.name||"")+"様";const o=String(r.ota||"");const isHdm=o.indexOf("じゃらん")>=0||o.indexOf("楽天")>=0||o.indexOf("スカイチケット")>=0||o.toUpperCase().indexOf("SKY")>=0||o.toUpperCase().indexOf("HANDYMAN")>=0;const bn=isHdm?"HANDYMAN高松空港店":"BUDDICA TOURING";const pg=isHdm?"マイページ":"ご利用ガイド";const url=r.mytoken?custPageUrl(r.mytoken,r.ota,""):(isHdm?"https://nosh2318.github.io/spk-task/my-tkm.html":"https://buddica-touring.github.io/app/guide/");return "この度は"+bn+"をご利用頂きまして誠にありがとうございます。\n\n【"+bn+"】ご出発前に 運転免許証のご提出をお願いいたします。\n"+cn+"\n運転される方 全員分の運転免許証（表面）を、下記"+pg+"からご登録ください（アプリ不要・スマホで撮影→送信）。\n"+url+"\n※ご提出が確認できない場合、当日の貸渡ができないことがございます。ご協力をお願いいたします。";};
   const load=React.useCallback(async()=>{
     if(!sb)return;
     try{

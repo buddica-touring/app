@@ -50,7 +50,8 @@ var BT_URL="https://ggqugvyskyiblxiycpci.supabase.co";
 var BT_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var BASE=location.origin+location.pathname.replace(/list\/.*/,"");
 var DATA=[];
-function urlOf(t){return BASE+"?t="+t;}
+/* ★2026-09-26 ブランド分岐: 高松HDM(楽天/じゃらん/skyticket/公式)→my-tkm / BUDDICA→ご利用ガイド。楽天がguide(誤)で読み込み失敗だった根治。 */
+function urlOf(d){var o=String((d&&d.ota)||"");var ou=o.toUpperCase();var hdm=(String((d&&d.brand)||"").toUpperCase()==="HDM")||o.indexOf("じゃらん")>=0||o.indexOf("楽天")>=0||o.indexOf("スカイチケット")>=0||ou.indexOf("SKY")>=0||ou.indexOf("HANDYMAN")>=0;return hdm?("https://nosh2318.github.io/spk-task/my-tkm.html?t="+(d&&d.token)):(BASE+"?t="+(d&&d.token));}
 async function load(){
   try{var r=await fetch(BT_URL+"/rest/v1/rpc/bt_mypage_list",{method:"POST",headers:{"apikey":BT_ANON,"Authorization":"Bearer "+BT_ANON,"Content-Type":"application/json"},body:"{}"});DATA=await r.json()||[];}catch(e){DATA=[];}
   render();
@@ -63,7 +64,7 @@ function render(){
   if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="empty">該当する予約がありません</td></tr>';return;}
   tb.innerHTML=rows.map(function(d){
     var sc=d.signs||0;var st=sc>=2?'<span class="st done">締結済</span>':sc===1?'<span class="st part">1/2</span>':'<span class="st none">未</span>';
-    var u=urlOf(d.token);
+    var u=urlOf(d);
     return '<tr class="row" onclick="if(!/BUTTON|A/.test(event.target.tagName))window.open(\''+u+'\',\'_blank\')">'
       +'<td class="date">'+(d.start_date||"")+'</td>'
       +'<td class="rid">'+(d.id||"")+'</td>'
