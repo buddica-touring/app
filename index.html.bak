@@ -23670,7 +23670,7 @@ function computeMonthlyBrandClass(vehicles,data,fleet,kpiAll,maintenance){
     const isAct=v=>v.code in mk?mk[v.code]:(v.active!==false);
     const brands={};
     ["BUDDICA","HDM"].forEach(B=>{
-      const vs=vehicles.filter(v=>normBrand(v.brand)===B&&isAct(v));
+      const vs=vehicles.filter(v=>normBrand(v.brand)===B&&isAct(v)&&(v.type||"")!=="送迎");
       const byCls={};
       vs.forEach(v=>{const c=v.type||"?";const o=byCls[c]||(byCls[c]={class:c,count:0,names:new Set(),cnt:0,rev:0,used:0,cap:0});o.count++;if(v.name)o.names.add(v.name);
         const mset=new Set();(maintByVeh[v.code]||new Set()).forEach(dd=>{const dt=new Date(dd+"T00:00:00");if(dt>=ms&&dt<=me)mset.add(dd);});
@@ -23765,36 +23765,47 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
           const brandBlock=(B,label,ac,bg)=>{
             const bd=m.brands[B]||{rows:[],total:0,cnt:0,rev:0};
             const mp={};bd.rows.forEach(r=>{mp[r.class]=r;});
-            return <div style={{flex:"1 1 470px",minWidth:0}}>
+            const tot=bd.rows.reduce((a,r)=>({count:a.count+r.count,cnt:a.cnt+r.cnt,rev:a.rev+r.rev,used:a.used+(r.used||0),cap:a.cap+(r.cap||0)}),{count:0,cnt:0,rev:0,used:0,cap:0});
+            return <div style={{flex:"1 1 520px",minWidth:0}}>
               <div style={{fontSize:12.5,fontWeight:800,color:ac,marginBottom:4}}>{label} <span style={{fontWeight:600,color:"#64748b",fontSize:11}}>稼働{bd.total}台 / 予約{bd.cnt}件 / 売上¥{Math.round(bd.rev).toLocaleString()}</span></div>
               <div style={{background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid "+ac+"33"}}><div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:440}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:520}}>
                   <thead><tr style={{background:bg}}>
                     <th style={{padding:"6px",textAlign:"center",width:44,color:ac}}>クラス</th>
-                    <th style={{padding:"6px",textAlign:"left",width:92,color:ac}}>クラス名</th>
+                    <th style={{padding:"6px",textAlign:"left",width:88,color:ac}}>クラス名</th>
                     <th style={{padding:"6px",textAlign:"left",color:ac}}>車種名</th>
-                    <th style={{padding:"6px",textAlign:"center",width:42,color:ac}}>台数</th>
-                    <th style={{padding:"6px",textAlign:"right",width:64,color:ac}}>台/予約</th>
-                    <th style={{padding:"6px",textAlign:"right",width:82,color:ac}}>台/売上</th>
-                    <th style={{padding:"6px",textAlign:"right",width:56,color:ac}}>稼働率</th>
+                    <th style={{padding:"6px",textAlign:"center",width:40,color:ac}}>台数</th>
+                    <th style={{padding:"6px",textAlign:"right",width:84,color:ac}}>売上合計</th>
+                    <th style={{padding:"6px",textAlign:"right",width:56,color:ac}}>台/予約</th>
+                    <th style={{padding:"6px",textAlign:"right",width:78,color:ac}}>台/売上</th>
+                    <th style={{padding:"6px",textAlign:"right",width:52,color:ac}}>稼働率</th>
                   </tr></thead>
                   <tbody>
-                    {allCls.length===0?<tr><td colSpan={7} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:allCls.map((cls,i)=>{const c=mp[cls];const blank=!c;return (
+                    {allCls.length===0?<tr><td colSpan={8} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:allCls.map((cls,i)=>{const c=mp[cls];const blank=!c;return (
                       <tr key={cls} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #eef2f7",opacity:blank?0.5:1}}>
                         <td style={{padding:"6px",textAlign:"center",fontWeight:800,color:blank?"#cbd5e1":"#1e40af"}}>{cls}</td>
                         <td style={{padding:"6px",fontSize:10.5,color:blank?"#cbd5e1":"#475569"}}>{CLS_LABEL[cls]||"-"}</td>
                         <td style={{padding:"6px",fontSize:10.5,color:"#475569"}}>{blank?"":(c.names||"-")}</td>
                         <td style={{padding:"6px",textAlign:"center",color:blank?"#cbd5e1":"inherit"}}>{blank?"−":c.count+"台"}</td>
+                        <td style={{padding:"6px",textAlign:"right",fontWeight:700,color:blank?"#cbd5e1":"#0f172a"}}>{blank?"":"¥"+Math.round(c.rev).toLocaleString()}</td>
                         <td style={{padding:"6px",textAlign:"right",fontWeight:600}}>{blank?"":c.perCnt.toFixed(1)+"件"}</td>
                         <td style={{padding:"6px",textAlign:"right",fontWeight:700}}>{blank?"":"¥"+Math.round(c.perRev).toLocaleString()}</td>
                         <td style={{padding:"6px",textAlign:"right",fontWeight:700,color:blank?"#cbd5e1":uColor(c.util)}}>{blank?"":c.util.toFixed(1)+"%"}</td>
                       </tr>
                     );})}
+                    {tot.count>0&&<tr style={{background:bg,borderTop:"2px solid "+ac}}>
+                      <td colSpan={3} style={{padding:"6px",fontWeight:800,color:ac}}>合計 / 台平均</td>
+                      <td style={{padding:"6px",textAlign:"center",fontWeight:800}}>{tot.count}台</td>
+                      <td style={{padding:"6px",textAlign:"right",fontWeight:800,color:"#0f172a"}}>¥{Math.round(tot.rev).toLocaleString()}</td>
+                      <td style={{padding:"6px",textAlign:"right",fontWeight:800}}>{(tot.count?tot.cnt/tot.count:0).toFixed(1)}件</td>
+                      <td style={{padding:"6px",textAlign:"right",fontWeight:800}}>¥{Math.round(tot.count?tot.rev/tot.count:0).toLocaleString()}</td>
+                      <td style={{padding:"6px",textAlign:"right",fontWeight:800,color:uColor(tot.cap?tot.used/tot.cap*100:0)}}>{(tot.cap?tot.used/tot.cap*100:0).toFixed(1)}%</td>
+                    </tr>}
                   </tbody>
                 </table>
               </div></div>
             </div>;
-          };
+                    };
           return <div key={m.ym} style={{marginBottom:18}}>
             <div style={{fontSize:15,fontWeight:900,color:"#0f172a",padding:"6px 12px",background:"#e2e8f0",borderRadius:8,marginBottom:8}}>▼ {m.ym}</div>
             <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
@@ -23811,33 +23822,43 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         {monthly.months.map(m=>{
           const bt=(m.brands.BUDDICA||{rows:[]}).rows,hd=(m.brands.HDM||{rows:[]}).rows;
           const g={};[].concat(bt,hd).forEach(r=>{const o=g[r.class]||(g[r.class]={class:r.class,count:0,cnt:0,rev:0,used:0,cap:0,names:new Set()});o.count+=r.count;o.cnt+=r.cnt;o.rev+=r.rev;o.used+=(r.used||0);o.cap+=(r.cap||0);(r._names||[]).forEach(n=>o.names.add(n));});
-          const rows=Object.values(g).map(o=>({class:o.class,count:o.count,names:[...o.names].join("・"),cnt:o.cnt,rev:o.rev,perCnt:o.count?o.cnt/o.count:0,perRev:o.count?o.rev/o.count:0,util:o.cap?o.used/o.cap*100:0})).sort((a,b)=>(CLS_ORD.indexOf(a.class)<0?99:CLS_ORD.indexOf(a.class))-(CLS_ORD.indexOf(b.class)<0?99:CLS_ORD.indexOf(b.class)));
-          const tN=rows.reduce((a,c)=>a+c.count,0),tC=rows.reduce((a,c)=>a+c.cnt,0),tR=rows.reduce((a,c)=>a+c.rev,0);
+          const rows=Object.values(g).map(o=>({class:o.class,count:o.count,names:[...o.names].join("・"),cnt:o.cnt,rev:o.rev,used:o.used,cap:o.cap,perCnt:o.count?o.cnt/o.count:0,perRev:o.count?o.rev/o.count:0,util:o.cap?o.used/o.cap*100:0})).sort((a,b)=>(CLS_ORD.indexOf(a.class)<0?99:CLS_ORD.indexOf(a.class))-(CLS_ORD.indexOf(b.class)<0?99:CLS_ORD.indexOf(b.class)));
+          const tN=rows.reduce((a,c)=>a+c.count,0),tC=rows.reduce((a,c)=>a+c.cnt,0),tR=rows.reduce((a,c)=>a+c.rev,0),tU=rows.reduce((a,c)=>a+(c.used||0),0),tP=rows.reduce((a,c)=>a+(c.cap||0),0);
           return <div key={m.ym} style={{marginBottom:18}}>
             <div style={{fontSize:14,fontWeight:900,padding:"7px 12px",background:"#0f172a",color:"#fff",borderRadius:8,marginBottom:8}}>▼ {m.ym}（グロス）<span style={{fontSize:11,fontWeight:600,marginLeft:8,opacity:0.85}}>稼働{tN}台 / 予約{tC}件 / 売上¥{Math.round(tR).toLocaleString()}</span></div>
             <div style={{background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:460}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
                 <thead><tr style={{background:"#1e293b",color:"#fff"}}>
                   <th style={{padding:"7px",textAlign:"center",width:48}}>クラス</th>
-                  <th style={{padding:"7px",textAlign:"left",width:110}}>クラス名</th>
+                  <th style={{padding:"7px",textAlign:"left",width:104}}>クラス名</th>
                   <th style={{padding:"7px",textAlign:"left"}}>車種名</th>
-                  <th style={{padding:"7px",textAlign:"center",width:48}}>台数</th>
-                  <th style={{padding:"7px",textAlign:"right",width:70}}>台/予約</th>
-                  <th style={{padding:"7px",textAlign:"right",width:90}}>台/売上</th>
-                  <th style={{padding:"7px",textAlign:"right",width:60}}>稼働率</th>
+                  <th style={{padding:"7px",textAlign:"center",width:44}}>台数</th>
+                  <th style={{padding:"7px",textAlign:"right",width:90}}>売上合計</th>
+                  <th style={{padding:"7px",textAlign:"right",width:62}}>台/予約</th>
+                  <th style={{padding:"7px",textAlign:"right",width:82}}>台/売上</th>
+                  <th style={{padding:"7px",textAlign:"right",width:56}}>稼働率</th>
                 </tr></thead>
                 <tbody>
-                  {rows.length===0?<tr><td colSpan={7} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:rows.map((c,i)=>(
+                  {rows.length===0?<tr><td colSpan={8} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:rows.map((c,i)=>(
                     <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
                       <td style={{padding:"7px",textAlign:"center",fontWeight:800,color:"#1e40af"}}>{c.class}</td>
                       <td style={{padding:"7px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
                       <td style={{padding:"7px",fontSize:11,color:"#475569"}}>{c.names||"-"}</td>
                       <td style={{padding:"7px",textAlign:"center"}}>{c.count}台</td>
+                      <td style={{padding:"7px",textAlign:"right",fontWeight:700,color:"#0f172a"}}>¥{Math.round(c.rev).toLocaleString()}</td>
                       <td style={{padding:"7px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
                       <td style={{padding:"7px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
                       <td style={{padding:"7px",textAlign:"right",fontWeight:700,color:uColor(c.util)}}>{c.util.toFixed(1)}%</td>
                     </tr>
                   ))}
+                  {tN>0&&<tr style={{background:"#e2e8f0",borderTop:"2px solid #0f172a"}}>
+                    <td colSpan={3} style={{padding:"7px",fontWeight:900,color:"#0f172a"}}>合計 / 台平均（グロス）</td>
+                    <td style={{padding:"7px",textAlign:"center",fontWeight:900}}>{tN}台</td>
+                    <td style={{padding:"7px",textAlign:"right",fontWeight:900,color:"#0f172a"}}>¥{Math.round(tR).toLocaleString()}</td>
+                    <td style={{padding:"7px",textAlign:"right",fontWeight:900}}>{(tN?tC/tN:0).toFixed(1)}件</td>
+                    <td style={{padding:"7px",textAlign:"right",fontWeight:900}}>¥{Math.round(tN?tR/tN:0).toLocaleString()}</td>
+                    <td style={{padding:"7px",textAlign:"right",fontWeight:900,color:uColor(tP?tU/tP*100:0)}}>{(tP?tU/tP*100:0).toFixed(1)}%</td>
+                  </tr>}
                 </tbody>
               </table>
             </div></div>
@@ -23863,7 +23884,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.480-BT";
+const APP_VERSION="v1.0.481-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
