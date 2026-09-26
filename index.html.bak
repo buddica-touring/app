@@ -23681,7 +23681,7 @@ function computeMonthlyBrandClass(vehicles,data,fleet,kpiAll,maintenance){
           const lD=new Date(ld+"T00:00:00"),rD=new Date(rd+"T00:00:00");const s=lD>ms?lD:ms,e=rD<me?rD:me;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))days.add(d.toISOString().slice(0,10));});
         mset.forEach(dd=>days.delete(dd));o.used+=days.size;
       });
-      const rowsC=Object.values(byCls).map(o=>({class:o.class,count:o.count,names:[...o.names].join("・"),cnt:o.cnt,rev:o.rev,perCnt:o.count?o.cnt/o.count:0,perRev:o.count?o.rev/o.count:0,util:o.cap?o.used/o.cap*100:0}));
+      const rowsC=Object.values(byCls).map(o=>({class:o.class,count:o.count,names:[...o.names].join("・"),_names:[...o.names],cnt:o.cnt,rev:o.rev,used:o.used,cap:o.cap,perCnt:o.count?o.cnt/o.count:0,perRev:o.count?o.rev/o.count:0,util:o.cap?o.used/o.cap*100:0}));
       brands[B]={rows:rowsC,total:vs.length,cnt:rowsC.reduce((a,c)=>a+c.cnt,0),rev:rowsC.reduce((a,c)=>a+c.rev,0)};
     });
     return {ym,brands};
@@ -23805,94 +23805,47 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         })}
       </div>
     )}
-    {subView==="gross"&&st==="bt"&&(()=>{const G=brandSum(ranking),B=brandSum(rankBT),H=brandSum(rankHDM);
-      const card=(title,ac,bg,s)=>(<div style={{flex:"1 1 210px",background:bg,border:"1px solid "+ac+"33",borderRadius:12,padding:"12px 14px"}}>
-        <div style={{fontSize:13,fontWeight:900,color:ac,marginBottom:8}}>{title}</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 10px",fontSize:12}}>
-          <div><span style={{color:"#64748b"}}>台数 </span><b>{s.n}台</b></div>
-          <div><span style={{color:"#64748b"}}>予約 </span><b>{s.cnt}件</b></div>
-          <div><span style={{color:"#64748b"}}>売上 </span><b>¥{Math.round(s.rev).toLocaleString()}</b></div>
-          <div><span style={{color:"#64748b"}}>稼働 </span><b style={{color:s.util>=40?"#059669":s.util>=20?"#d97706":"#dc2626"}}>{s.util.toFixed(1)}%</b></div>
-          <div style={{gridColumn:"1 / -1"}}><span style={{color:"#64748b"}}>粗利 </span><b style={{color:s.profit>=0?"#059669":"#dc2626"}}>¥{Math.round(s.profit).toLocaleString()}</b></div>
-        </div></div>);
-      return <div style={{marginBottom:20}}>
-        <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🏷 ブランド別サマリー</div>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-          {card("グロス（BT+HDM 合算）","#1e293b","#f8fafc",G)}
-          {card("BT（BUDDICA運用車）","#047857","#ecfdf5",B)}
-          {card("HDM（HANDYMAN運用車）","#1e3a8a","#eff6ff",H)}
-        </div>
-        <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 稼働率＝稼働日÷稼働可能日（各ブランドのグロス）／粗利＝売上−固定費。期間 {ranking.period}。</div>
-      </div>;
-    })()}
-    {subView==="gross"&&<div style={{marginBottom:20}}>
-      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>① クラス集計（クラス順）</div>
-      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:640}}>
-          <thead><tr style={{background:"#0f172a",color:"#fff"}}>
-            <th style={{padding:"10px 8px",textAlign:"center",width:54}}>クラス</th>
-            <th style={{padding:"10px 8px",textAlign:"left",width:110}}>クラス名</th>
-            <th style={{padding:"10px 8px",textAlign:"left"}}>車種名</th>
-            <th style={{padding:"10px 8px",textAlign:"center",width:50}}>台数</th>
-            <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数(月平均)</th>
-            <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上(月平均)</th>
-            <th style={{padding:"10px 8px",textAlign:"right"}}>稼働率(月平均)</th>
-          </tr></thead>
-          <tbody>
-            {clsByOrder.map((c,i)=>(
-              <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-                <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
-                <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
-                <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{[...new Set((c.vehicles||[]).map(v=>v.name).filter(Boolean))].join("・")||"-"}</td>
-                <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:uColor(c.utilPct)}}>{c.utilPct.toFixed(1)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
-      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり予約件数・売上とも月平均（クラス合計÷台数÷月数）／稼働率＝稼働日÷稼働可能日／台数＝保有台数。期間 {ranking.period}。</div>
-    </div>}
-    {subView==="gross"&&(()=>{
-      const rankTbl=(title,ic,list,valLabel,valFn,valColor)=>(
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>{ic} {title}</div>
-          <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:560}}>
-              <thead><tr style={{background:"#0f172a",color:"#fff"}}>
-                <th style={{padding:"10px 8px",textAlign:"center",width:40}}>#</th>
-                <th style={{padding:"10px 8px",textAlign:"center",width:54}}>クラス</th>
-                <th style={{padding:"10px 8px",textAlign:"left",width:110}}>クラス名</th>
-                <th style={{padding:"10px 8px",textAlign:"left"}}>車種名</th>
-                <th style={{padding:"10px 8px",textAlign:"center",width:50}}>台数</th>
-                <th style={{padding:"10px 8px",textAlign:"right",width:140}}>{valLabel}</th>
-              </tr></thead>
-              <tbody>
-                {list.map((c,i)=>(
-                  <tr key={c.class} style={{background:i===0?"#fffbeb":i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-                    <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:i===0?"#d97706":"#64748b"}}>{i+1}</td>
-                    <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
-                    <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
-                    <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{[...new Set((c.vehicles||[]).map(v=>v.name).filter(Boolean))].join("・")||"-"}</td>
-                    <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
-                    <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:valColor?valColor(c):"#1e293b",fontSize:14}}>{valFn(c)}</td>
-                  </tr>
-                ))}
-                {list.length===0&&<tr><td colSpan={6} style={{padding:16,textAlign:"center",color:"#94a3b8"}}>データなし</td></tr>}
-              </tbody>
-            </table>
-          </div></div>
-        </div>
-      );
-      return <div>
-        {rankTbl("② 予約数ランキング（クラス単位・件数順）","📋",clsByCnt,"予約件数(合計)",c=>c.totalCnt+"件")}
-        {rankTbl("③ 売上ランキング（クラス単位・売上順）","💰",clsByRev,"売上(合計)",c=>"¥"+Math.round(c.totalRev).toLocaleString(),()=>"#059669")}
-        {rankTbl("④ 稼働率ランキング（クラス単位）","📈",clsByUtil,"稼働率",c=>c.utilPct.toFixed(1)+"%",c=>uColor(c.utilPct))}
-      </div>;
-    })()}
-    <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
+    {subView==="gross"&&(monthly.months.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>予約データがありません</div>:
+      <div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.7}}>※ <b>合算(グロス)＝BT+HDMを同じクラスで合算</b>した各月の最終値。台数＝その月の稼働台数(BT+HDM)／台あたり予約・売上＝クラス合計÷台数／稼働率＝(BT+HDM)稼働日÷稼働可能日。</div>
+        {monthly.months.map(m=>{
+          const bt=(m.brands.BUDDICA||{rows:[]}).rows,hd=(m.brands.HDM||{rows:[]}).rows;
+          const g={};[].concat(bt,hd).forEach(r=>{const o=g[r.class]||(g[r.class]={class:r.class,count:0,cnt:0,rev:0,used:0,cap:0,names:new Set()});o.count+=r.count;o.cnt+=r.cnt;o.rev+=r.rev;o.used+=(r.used||0);o.cap+=(r.cap||0);(r._names||[]).forEach(n=>o.names.add(n));});
+          const rows=Object.values(g).map(o=>({class:o.class,count:o.count,names:[...o.names].join("・"),cnt:o.cnt,rev:o.rev,perCnt:o.count?o.cnt/o.count:0,perRev:o.count?o.rev/o.count:0,util:o.cap?o.used/o.cap*100:0})).sort((a,b)=>(CLS_ORD.indexOf(a.class)<0?99:CLS_ORD.indexOf(a.class))-(CLS_ORD.indexOf(b.class)<0?99:CLS_ORD.indexOf(b.class)));
+          const tN=rows.reduce((a,c)=>a+c.count,0),tC=rows.reduce((a,c)=>a+c.cnt,0),tR=rows.reduce((a,c)=>a+c.rev,0);
+          return <div key={m.ym} style={{marginBottom:18}}>
+            <div style={{fontSize:14,fontWeight:900,padding:"7px 12px",background:"#0f172a",color:"#fff",borderRadius:8,marginBottom:8}}>▼ {m.ym}（グロス）<span style={{fontSize:11,fontWeight:600,marginLeft:8,opacity:0.85}}>稼働{tN}台 / 予約{tC}件 / 売上¥{Math.round(tR).toLocaleString()}</span></div>
+            <div style={{background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:460}}>
+                <thead><tr style={{background:"#1e293b",color:"#fff"}}>
+                  <th style={{padding:"7px",textAlign:"center",width:48}}>クラス</th>
+                  <th style={{padding:"7px",textAlign:"left",width:110}}>クラス名</th>
+                  <th style={{padding:"7px",textAlign:"left"}}>車種名</th>
+                  <th style={{padding:"7px",textAlign:"center",width:48}}>台数</th>
+                  <th style={{padding:"7px",textAlign:"right",width:70}}>台/予約</th>
+                  <th style={{padding:"7px",textAlign:"right",width:90}}>台/売上</th>
+                  <th style={{padding:"7px",textAlign:"right",width:60}}>稼働率</th>
+                </tr></thead>
+                <tbody>
+                  {rows.length===0?<tr><td colSpan={7} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:rows.map((c,i)=>(
+                    <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
+                      <td style={{padding:"7px",textAlign:"center",fontWeight:800,color:"#1e40af"}}>{c.class}</td>
+                      <td style={{padding:"7px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
+                      <td style={{padding:"7px",fontSize:11,color:"#475569"}}>{c.names||"-"}</td>
+                      <td style={{padding:"7px",textAlign:"center"}}>{c.count}台</td>
+                      <td style={{padding:"7px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
+                      <td style={{padding:"7px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
+                      <td style={{padding:"7px",textAlign:"right",fontWeight:700,color:uColor(c.util)}}>{c.util.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div></div>
+          </div>;
+        })}
+      </div>
+    )}
+        <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
       <summary style={{cursor:"pointer",fontWeight:700,padding:"6px 0"}}>📋 計算定義（オーナー定義 v4）</summary>
       <div style={{padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginTop:6,lineHeight:1.8}}>
         <div><strong>期間</strong>: BUDDICAは予約データの最初の月〜当月（予約が入ったら動く）</div>
@@ -23910,7 +23863,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.479-BT";
+const APP_VERSION="v1.0.480-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
