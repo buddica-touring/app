@@ -127,7 +127,7 @@ const sbAuthPromise = (async () => {
 })();
 
 /* ===== Auth UI (ログイン画面) =====
-   ユーザー名 → Email マッピングテーブル（v1.0.29-BT）
+   ユーザー名 → Email マッピングテーブル（v1.0.30-BT）
    スタッフはユーザー名と4桁パスコードでログイン → 内部で Supabase Auth (email) に変換 */
 const BT_USER_MAP = {
   'oshita':    'oshita@bt.hdm',
@@ -11234,7 +11234,7 @@ function ManagementTab({store}){
       </div>;
     })()}
 
-    {/* --- 価格戦略は TOP > データ・分析 へ移動済（v1.0.29-BT） --- */}
+    {/* --- 価格戦略は TOP > データ・分析 へ移動済（v1.0.30-BT） --- */}
 
     {/* --- 投資回転率 --- */}
     {sub==="roi"&&(()=>{
@@ -20909,6 +20909,8 @@ function JalanTemplateList({sb}){
       const tk=await sb.from("bt_tasks").select("予約番号,約款,deleted").in("予約番号",ids); (tk.data||[]).forEach(x=>{if(!x.deleted&&x["予約番号"]&&String(x["約款"]||"").indexOf("同意")>=0)termM[x["予約番号"]]=1;});
       const jp=await sb.from("bt_jalan_payments").select("reservation_id,status").in("reservation_id",ids); (jp.data||[]).forEach(x=>{payM[x.reservation_id]=x.status;});
       const sd=await sb.from("bt_line_sends").select("resv_no,action,status").in("resv_no",ids).like("action","tmpl:%"); (sd.data||[]).forEach(x=>{if(x.status==="manual_done")doneSet.add(x.resv_no+"|"+String(x.action).slice(5));});
+      // ★2026-09-27 welcome/payment を実送信済み(hdm_tkm_notifications sent=true)なら「予約確定・ご案内＋事前決済」を自動消し込み＝手動チェック不要(対応済みが要対応で残るのを解消)。
+      const wn=await sb.from("hdm_tkm_notifications").select("reservation_id,kind,sent").in("reservation_id",ids); (wn.data||[]).forEach(x=>{if(x.sent&&(x.kind==="welcome"||x.kind==="payment"))doneSet.add(x.reservation_id+"|welcome");});
     }
     const dday=(ds)=>{if(!ds)return null;const d=new Date(ds+"T00:00:00+09:00");const t=new Date(today+"T00:00:00+09:00");return Math.round((d-t)/86400000);};
     setRows(alive.map(r=>{const d2s=dday(r.start_date);const de=dday(r.end_date);const hasPickup=(r.visit_type==="PU"||r.return_type==="BD");
