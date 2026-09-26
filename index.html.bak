@@ -23736,17 +23736,9 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
         <span style={{fontSize:28}}>🏆</span>
         <div>
-          <div style={{fontSize:18,fontWeight:800}}>車両ランキング（5項目評価）</div>
+          <div style={{fontSize:18,fontWeight:800}}>車両ランキング</div>
           <div style={{fontSize:11,opacity:0.9}}>期間: {ranking.period}（{ranking.months}ヶ月）</div>
         </div>
-      </div>
-      <div style={{fontSize:11,opacity:0.85,marginTop:8}}>①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35 = 100点</div>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🔍 OTAフィルタ:</span>
-        {[{k:"ALL",l:"全て"},{k:"HP",l:"HP直販"},{k:"J",l:"じゃらん"},{k:"R",l:"楽天"},{k:"S",l:"スカイ"},{k:"O",l:"エアトリ"},{k:"RC",l:"RC"},{k:"G",l:"GoGoOut"},{k:"SP",l:"Slack"},{k:"direct",l:"手動"}].map(o=>(
-          <button key={o.k} onClick={()=>setOtaFilter(o.k)} style={{padding:"3px 10px",fontSize:11,borderRadius:6,border:"1px solid rgba(255,255,255,0.3)",background:otaFilter===o.k?"#fbbf24":"rgba(255,255,255,0.1)",color:otaFilter===o.k?"#1e293b":"#fff",fontWeight:otaFilter===o.k?700:500,cursor:"pointer"}}>{o.l}</button>
-        ))}
-        {otaFilter!=="ALL"&&<span style={{fontSize:10,opacity:0.7,marginLeft:6}}>({otaFilter}のみ表示中)</span>}
       </div>
       <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
     </div>
@@ -23914,25 +23906,10 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         </div></div>
       </div>;
     })()}
-    <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
-      <summary style={{cursor:"pointer",fontWeight:700,padding:"6px 0"}}>📋 計算定義（オーナー定義 v4）</summary>
-      <div style={{padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginTop:6,lineHeight:1.8}}>
-        <div><strong>期間</strong>: BUDDICAは予約データの最初の月〜当月（予約が入ったら動く）</div>
-        <div><strong>① 合計売上</strong> = 期間内の予約price合計</div>
-        <div><strong>② 月平均売上</strong> = ① ÷ 期間月数</div>
-        <div><strong>③ 平均稼働率</strong> = 期間稼働日数 ÷ active月の暦日数 × 100%</div>
-        <div><strong>④ 固定費合計</strong> = (リース + 保険 + 車検/24 + 点検/6) × 期間月数 ※自動車税は除外</div>
-        <div><strong>⑤ 予想粗利</strong> = ① − ④</div>
-        <div><strong>月平均粗利</strong> = ⑤ ÷ 期間月数</div>
-        <div style={{marginTop:8}}><strong>点数化（合計100点）</strong>: ①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35</div>
-        <div><strong>ランク</strong>: S(80+) / A(60+) / B(40+) / C(20+) / D(&lt;20)</div>
-        <div style={{marginTop:6,fontSize:10,color:"#94a3b8"}}>※ オーナー定義 2026-05-14 / 計算式は HANDYMAN_KPI_MASTER.md 経由でのみ変更</div>
-      </div>
-    </details>
   </div>;
 }
 
-const APP_VERSION="v1.0.482-BT";
+const APP_VERSION="v1.0.483-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25871,9 +25848,9 @@ function DailyReportTab({data,vehicles,fleet,maintenance}){
       // --- 🏆 全車両ランキング（車両ランキングタブと同一計算をそのまま反映）---
       {
         const vr=computeVehicleRanking(vehicles,(data||[]).filter(r=>!isTestResv(r)),fleet,rankKpi,"bt","ALL",maintenance);
-        secHead("🏆 全車両ランキング（5項目評価）");
+        secHead("🏆 全車両ランキング");
         ctx.fillStyle="#64748b";ctx.font=S(11)+"px sans-serif";
-        ctx.fillText("期間: "+(vr.period||"-")+"（"+vr.months+"ヶ月）　①売上25+②月平均15+③稼働25+⑤粗利35=100点",M,y);y+=S(22);
+        ctx.fillText("期間: "+(vr.period||"-")+"（"+vr.months+"ヶ月）",M,y);y+=S(22);
         if(vr.rows&&vr.rows.length){
           const rk=[
             {t:"順位",w:0.05,a:"center"},{t:"評価",w:0.05,a:"center"},{t:"クラス",w:0.06,a:"center"},{t:"車両",w:0.20,a:"left"},
