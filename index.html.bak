@@ -23494,10 +23494,13 @@ function App(){
 const KPI_PERIOD_START={spk:"2026-02",nha:"2026-04",bt:"2026-05"};
 const KPI_TABLE_MAP={spk:"vehicle_monthly_kpi",nha:"nha_vehicle_monthly_kpi",bt:"bt_vehicle_monthly_kpi"};
 // 全車両ランキング 計算（VehicleRankingTab と 日報PDF で共用＝そのまま反映）
-function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance){
+function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,brandFilter){
   const PERIOD_START=KPI_PERIOD_START[st]||"2026-02";
   otaFilter=otaFilter||"ALL";
+  brandFilter=brandFilter||"ALL";
     if(!vehicles||!vehicles.length)return{rows:[],classRows:[],period:"",months:0,empty:false};
+    // ★2026-09-26 ブランド絞込(グロス/BT/HDM)：高松は運用車がBUDDICA(BT)とHDMで分かれる→車両ランキングをブランド別に見られるように。グロス(ALL)=全車。
+    if(brandFilter!=="ALL"){vehicles=(vehicles||[]).filter(v=>normBrand(v.brand)===brandFilter);if(!vehicles.length)return{rows:[],classRows:[],period:"",months:0,empty:false};}
     const today=new Date();
     const todayYM=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}`;
     let effectiveStart=PERIOD_START;
@@ -23652,6 +23655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   const [loading,setLoading]=useState(true);
   const [lastUpdate,setLastUpdate]=useState(new Date());
   const [otaFilter,setOtaFilter]=useState("ALL");
+  const [brandF,setBrandF]=useState("ALL"); // ★2026-09-26 ブランド絞込 グロス(ALL)/BUDDICA/HDM
   useEffect(()=>{
     let alive=true;
     const load=async()=>{
@@ -23667,7 +23671,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
     const iv=setInterval(load,5*60*1000);
     return()=>{alive=false;clearInterval(iv);};
   },[KPI_TABLE]);
-  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter,maintenance]);
+  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,brandF),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter,maintenance,brandF]);
   const rankColors={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
   const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
   if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
@@ -23682,6 +23686,13 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         </div>
       </div>
       <div style={{fontSize:11,opacity:0.85,marginTop:8}}>①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35 = 100点</div>
+      {st==="bt"&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🏷 ブランド:</span>
+        {[{k:"ALL",l:"グロス（全体）",ac:"#1e293b"},{k:"BUDDICA",l:"BT（BUDDICA）",ac:"#047857"},{k:"HDM",l:"HDM（HANDYMAN）",ac:"#1e3a8a"}].map(b=>(
+          <button key={b.k} onClick={()=>setBrandF(b.k)} style={{padding:"5px 14px",fontSize:12,borderRadius:7,border:"1px solid rgba(255,255,255,0.35)",background:brandF===b.k?"#fff":"rgba(255,255,255,0.12)",color:brandF===b.k?b.ac:"#fff",fontWeight:brandF===b.k?800:600,cursor:"pointer"}}>{b.l}</button>
+        ))}
+        <span style={{fontSize:10,opacity:0.75,marginLeft:4}}>{brandF==="ALL"?"BT+HDM 合算":brandF==="BUDDICA"?"BUDDICA運用車のみ":"HANDYMAN運用車のみ"}</span>
+      </div>}
       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
         <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🔍 OTAフィルタ:</span>
         {[{k:"ALL",l:"全て"},{k:"HP",l:"HP直販"},{k:"J",l:"じゃらん"},{k:"R",l:"楽天"},{k:"S",l:"スカイ"},{k:"O",l:"エアトリ"},{k:"RC",l:"RC"},{k:"G",l:"GoGoOut"},{k:"SP",l:"Slack"},{k:"direct",l:"手動"}].map(o=>(
@@ -23746,7 +23757,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
                 <tr key={r.code} style={{borderBottom:"1px solid #e2e8f0",background:i%2===0?"#fff":"#f8fafc"}}>
                   <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
                   <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#1e40af"}}>{r.type}</td>
-                  <td style={{padding:"8px",fontWeight:600}}>{r.name||"-"}</td>
+                  <td style={{padding:"8px",fontWeight:600}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}>{typeof BrandBadge!=="undefined"&&normBrand(r.brand)?<BrandBadge brand={r.brand} size="sm"/>:null}{r.name||"-"}</span></td>
                   <td style={{padding:"8px",color:"#64748b",fontSize:11}}>{r.plate||"-"}</td>
                   <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:"#1e293b",fontSize:14}}>{r.cnt}件</td>
                   <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:"#059669"}}>¥{Math.round(r.revTotal).toLocaleString()}</td>
@@ -23826,7 +23837,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.474-BT";
+const APP_VERSION="v1.0.475-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
