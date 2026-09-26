@@ -23760,9 +23760,11 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
       <div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.7}}>※ 各月の<b>台数＝その月の配車表「稼働」台数</b>（毎月の稼働フラグ連動で変わる）。台あたり予約・売上＝その月のクラス合計÷台数。稼働率＝その月の稼働日÷稼働可能日。</div>
         {monthly.months.map(m=>{
+          // ★両ブランド共通のクラス行(和集合・クラス順)＝BT/HDMで同じクラスが同じ行に並ぶ。無いクラスはブランク。
+          const allCls=[...new Set([].concat((m.brands.BUDDICA||{rows:[]}).rows,(m.brands.HDM||{rows:[]}).rows).map(r=>r.class))].sort((a,b)=>(CLS_ORD.indexOf(a)<0?99:CLS_ORD.indexOf(a))-(CLS_ORD.indexOf(b)<0?99:CLS_ORD.indexOf(b)));
           const brandBlock=(B,label,ac,bg)=>{
             const bd=m.brands[B]||{rows:[],total:0,cnt:0,rev:0};
-            const brows=[...bd.rows].sort((a,b)=>(CLS_ORD.indexOf(a.class)<0?99:CLS_ORD.indexOf(a.class))-(CLS_ORD.indexOf(b.class)<0?99:CLS_ORD.indexOf(b.class)));
+            const mp={};bd.rows.forEach(r=>{mp[r.class]=r;});
             return <div style={{flex:"1 1 470px",minWidth:0}}>
               <div style={{fontSize:12.5,fontWeight:800,color:ac,marginBottom:4}}>{label} <span style={{fontWeight:600,color:"#64748b",fontSize:11}}>稼働{bd.total}台 / 予約{bd.cnt}件 / 売上¥{Math.round(bd.rev).toLocaleString()}</span></div>
               <div style={{background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid "+ac+"33"}}><div style={{overflowX:"auto"}}>
@@ -23777,17 +23779,17 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
                     <th style={{padding:"6px",textAlign:"right",width:56,color:ac}}>稼働率</th>
                   </tr></thead>
                   <tbody>
-                    {brows.length===0?<tr><td colSpan={7} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:brows.map((c,i)=>(
-                      <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #eef2f7"}}>
-                        <td style={{padding:"6px",textAlign:"center",fontWeight:800,color:"#1e40af"}}>{c.class}</td>
-                        <td style={{padding:"6px",fontSize:10.5,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
-                        <td style={{padding:"6px",fontSize:10.5,color:"#475569"}}>{c.names||"-"}</td>
-                        <td style={{padding:"6px",textAlign:"center"}}>{c.count}台</td>
-                        <td style={{padding:"6px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
-                        <td style={{padding:"6px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
-                        <td style={{padding:"6px",textAlign:"right",fontWeight:700,color:uColor(c.util)}}>{c.util.toFixed(1)}%</td>
+                    {allCls.length===0?<tr><td colSpan={7} style={{padding:12,textAlign:"center",color:"#cbd5e1"}}>この月の稼働なし</td></tr>:allCls.map((cls,i)=>{const c=mp[cls];const blank=!c;return (
+                      <tr key={cls} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #eef2f7",opacity:blank?0.5:1}}>
+                        <td style={{padding:"6px",textAlign:"center",fontWeight:800,color:blank?"#cbd5e1":"#1e40af"}}>{cls}</td>
+                        <td style={{padding:"6px",fontSize:10.5,color:blank?"#cbd5e1":"#475569"}}>{CLS_LABEL[cls]||"-"}</td>
+                        <td style={{padding:"6px",fontSize:10.5,color:"#475569"}}>{blank?"":(c.names||"-")}</td>
+                        <td style={{padding:"6px",textAlign:"center",color:blank?"#cbd5e1":"inherit"}}>{blank?"−":c.count+"台"}</td>
+                        <td style={{padding:"6px",textAlign:"right",fontWeight:600}}>{blank?"":c.perCnt.toFixed(1)+"件"}</td>
+                        <td style={{padding:"6px",textAlign:"right",fontWeight:700}}>{blank?"":"¥"+Math.round(c.perRev).toLocaleString()}</td>
+                        <td style={{padding:"6px",textAlign:"right",fontWeight:700,color:blank?"#cbd5e1":uColor(c.util)}}>{blank?"":c.util.toFixed(1)+"%"}</td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div></div>
@@ -23795,7 +23797,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
           };
           return <div key={m.ym} style={{marginBottom:18}}>
             <div style={{fontSize:15,fontWeight:900,color:"#0f172a",padding:"6px 12px",background:"#e2e8f0",borderRadius:8,marginBottom:8}}>▼ {m.ym}</div>
-            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
               {brandBlock("BUDDICA","🟢 BT（BUDDICA）","#047857","#ecfdf5")}
               {brandBlock("HDM","🔵 HDM（HANDYMAN）","#1e3a8a","#eff6ff")}
             </div>
@@ -23908,7 +23910,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.478-BT";
+const APP_VERSION="v1.0.479-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
