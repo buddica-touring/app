@@ -23578,7 +23578,8 @@ function computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenan
       });
     });
     const _rkMk=kpiByMonth[todayYM]||{};
-    const rows=(vehicles||[]).filter(v=>v.code in _rkMk?_rkMk[v.code]:(v.active!==false)).map(v=>{
+    // ★2026-09-26 台数=保有台数(bt_vehicles active)。当月KPIで稼働OFFの新クラス車(I/J/K等)が台数から丸ごと消える不具合の根治。稼働率は各月KPIで別途算出。
+    const rows=(vehicles||[]).filter(v=>v.active!==false).map(v=>{
       const s=vehStat[v.code]||{cnt:0,rev:0,days:0};
       const lease=Number(v.leaseMonthly||v.lease_monthly)||0;
       const ins=Number(v.insuranceAnnual||v.insurance_annual)||0;
@@ -23678,6 +23679,16 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
   if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
   if(ranking.empty)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}><div style={{fontSize:48,marginBottom:12}}>🏆</div><div style={{fontSize:18,fontWeight:700,marginBottom:8}}>車両ランキング</div><div>予約データが入ると自動で集計を開始します</div></div>;
+  // ★2026-09-26 クラス単位ランキング用: クラス名ラベル＋並び順
+  const CLS_LABEL={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクト",I:"軽自動車",J:"コンパクト",K:"コンパクトミニバン","送迎":"送迎車"};
+  const CLS_ORD=["AA","A","B","C","D","E","F","G","H","I","J","K","送迎"];
+  const _cr=ranking.classRows||[];
+  const _oi=c=>{const i=CLS_ORD.indexOf(c);return i<0?99:i;};
+  const clsByOrder=[..._cr].sort((a,b)=>_oi(a.class)-_oi(b.class));
+  const clsByCnt=[..._cr].filter(c=>c.totalCnt>0).sort((a,b)=>b.totalCnt-a.totalCnt||b.utilPct-a.utilPct);
+  const clsByRev=[..._cr].filter(c=>c.totalRev>0).sort((a,b)=>b.totalRev-a.totalRev);
+  const clsByUtil=[..._cr].sort((a,b)=>b.utilPct-a.utilPct);
+  const uColor=p=>p>=40?"#059669":p>=20?"#d97706":"#dc2626";
   return <div style={{padding:"0 4px 24px"}}>
     <div style={{background:"linear-gradient(135deg,#1e3a8a,#1e40af)",color:"#fff",padding:"16px 20px",borderRadius:12,marginBottom:16}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
@@ -23717,123 +23728,73 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 稼働率＝稼働日÷稼働可能日（各ブランドのグロス）／粗利＝売上−固定費。期間 {ranking.period}。</div>
       </div>;
     })()}
+    {/* ① クラス集計（クラス順 A→K） */}
     <div style={{marginBottom:20}}>
-      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス集計（予約件数・稼働率順）</div>
-      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
-            <thead>
-              <tr style={{background:"#0f172a",color:"#fff"}}>
-                <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
-                <th style={{padding:"10px 8px",textAlign:"center",width:60}}>クラス</th>
-                <th style={{padding:"10px 8px",textAlign:"center",width:60}}>台数</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数(月平均)</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上(月平均)</th>
-                <th style={{padding:"10px 8px",textAlign:"right"}}>稼働率</th>
-                <th style={{padding:"10px 8px",textAlign:"left"}}>車両</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ranking.classRows.map((c,i)=>(
-                <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
-                  <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
-                  <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:c.utilPct>=40?"#059669":c.utilPct>=20?"#d97706":"#dc2626"}}>{c.utilPct.toFixed(1)}%</td>
-                  <td style={{padding:"8px",fontSize:11,color:"#475569",textAlign:"left"}}>{(c.vehicles||[]).map(v=>v.name).filter(Boolean).join("・")||"-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり予約件数・台あたり売上とも<b>月平均</b>（クラス合計÷台数÷月数）／稼働率＝稼働日÷稼働可能日（<b>クラスグロス</b>）。順位＝予約件数・稼働率を優先（両方を正規化して合算）。</div>
-    </div>
-    {/* 📋 予約数ランキング（シンプル） */}
-    <div style={{marginBottom:20}}>
-      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📋 予約数ランキング（{otaFilter==="ALL"?"全OTA":otaFilter==="HP"?"HP直販":otaFilter==="J"?"じゃらん":otaFilter==="R"?"楽天":otaFilter==="S"?"スカイ":otaFilter==="O"?"エアトリ":otaFilter==="RC"?"RC":otaFilter==="G"?"GoGoOut":otaFilter==="SP"?"Slack":otaFilter==="direct"?"手動":otaFilter}・件数順）</div>
-      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
-            <thead>
-              <tr style={{background:"#0f172a",color:"#fff"}}>
-                <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
-                <th style={{padding:"10px 8px",textAlign:"center",width:48}}>クラス</th>
-                <th style={{padding:"10px 8px",textAlign:"left"}}>車両名</th>
-                <th style={{padding:"10px 8px",textAlign:"left",width:80}}>ナンバー</th>
-                <th style={{padding:"10px 8px",textAlign:"right",width:60}}>予約数</th>
-                <th style={{padding:"10px 8px",textAlign:"right",width:110}}>売上合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...ranking.rows].sort((a,b)=>b.cnt-a.cnt||b.revTotal-a.revTotal).filter(r=>r.cnt>0).map((r,i)=>(
-                <tr key={r.code} style={{borderBottom:"1px solid #e2e8f0",background:i%2===0?"#fff":"#f8fafc"}}>
-                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
-                  <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#1e40af"}}>{r.type}</td>
-                  <td style={{padding:"8px",fontWeight:600}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}>{typeof BrandBadge!=="undefined"&&normBrand(r.brand)?<BrandBadge brand={r.brand} size="sm"/>:null}{r.name||"-"}</span></td>
-                  <td style={{padding:"8px",color:"#64748b",fontSize:11}}>{r.plate||"-"}</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:"#1e293b",fontSize:14}}>{r.cnt}件</td>
-                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:"#059669"}}>¥{Math.round(r.revTotal).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🚗 全車両ランキング（点数評価）</div>
-    <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1300}}>
-          <thead>
-            <tr style={{background:"#1e293b",color:"#fff"}}>
-              <th style={{padding:"10px 8px",textAlign:"center",width:36}}>#</th>
-              <th style={{padding:"10px 8px",textAlign:"center",width:48}}>ﾗﾝｸ</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:56}}>点数</th>
-              <th style={{padding:"10px 8px",textAlign:"center",width:40}}>ｸﾗｽ</th>
-              <th style={{padding:"10px 8px",textAlign:"left"}}>車両名</th>
-              <th style={{padding:"10px 8px",textAlign:"left",width:80}}>ﾅﾝﾊﾞｰ</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:70}}>予約件数</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>①合計売上</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:100}}>②月平均</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:80}}>③稼働率</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>④固定費合計</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:110}}>⑤予想粗利</th>
-              <th style={{padding:"10px 8px",textAlign:"right",width:100}}>月平均粗利</th>
-              <th style={{padding:"10px 8px",textAlign:"center",width:60}}>稼働中</th>
-            </tr>
-          </thead>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>① クラス集計（クラス順）</div>
+      <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:640}}>
+          <thead><tr style={{background:"#0f172a",color:"#fff"}}>
+            <th style={{padding:"10px 8px",textAlign:"center",width:54}}>クラス</th>
+            <th style={{padding:"10px 8px",textAlign:"left",width:128}}>クラス名</th>
+            <th style={{padding:"10px 8px",textAlign:"center",width:50}}>台数</th>
+            <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり予約件数(月平均)</th>
+            <th style={{padding:"10px 8px",textAlign:"right"}}>台あたり売上(月平均)</th>
+            <th style={{padding:"10px 8px",textAlign:"right"}}>稼働率(月平均)</th>
+            <th style={{padding:"10px 8px",textAlign:"left"}}>車種名</th>
+          </tr></thead>
           <tbody>
-            {ranking.rows.map((r,i)=>(
-              <tr key={r.code} style={{background:rankBg[r.rank],borderBottom:"1px solid #e2e8f0"}}>
-                <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#64748b"}}>{i+1}</td>
-                <td style={{padding:"8px",textAlign:"center"}}>
-                  <span style={{display:"inline-block",padding:"2px 10px",borderRadius:12,background:rankColors[r.rank],color:"#fff",fontWeight:800,fontSize:13}}>{r.rank}</span>
-                </td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>{r.totalScore}</td>
-                <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#1e40af"}}>{r.type}</td>
-                <td style={{padding:"8px",fontWeight:600}}>{r.name||"-"}</td>
-                <td style={{padding:"8px",color:"#64748b",fontSize:11}}>{r.plate||"-"}</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:"#0f172a"}}>{r.cnt||0}件</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>¥{Math.round(r.revTotal).toLocaleString()}</td>
-                <td style={{padding:"8px",textAlign:"right"}}>¥{Math.round(r.monthlyAvg).toLocaleString()}</td>
-                <td style={{padding:"8px",textAlign:"right",color:r.utilPct>=40?"#059669":r.utilPct>=20?"#d97706":"#dc2626"}}>{r.utilPct.toFixed(1)}%</td>
-                <td style={{padding:"8px",textAlign:"right",color:"#64748b"}}>¥{Math.round(r.fixedTotal).toLocaleString()}</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:r.profit>=0?"#059669":"#dc2626"}}>
-                  {r.profit>=0?"+":""}¥{Math.round(r.profit).toLocaleString()}
-                </td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.monthlyProfit>=0?"#059669":"#dc2626"}}>
-                  {r.monthlyProfit>=0?"+":""}¥{Math.round(r.monthlyProfit).toLocaleString()}
-                </td>
-                <td style={{padding:"8px",textAlign:"center"}}>{r.isActiveNow?<span style={{color:"#059669"}}>○</span>:<span style={{color:"#cbd5e1"}}>✕</span>}</td>
+            {clsByOrder.map((c,i)=>(
+              <tr key={c.class} style={{background:i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
+                <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
+                <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
+                <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:uColor(c.utilPct)}}>{c.utilPct.toFixed(1)}%</td>
+                <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{[...new Set((c.vehicles||[]).map(v=>v.name).filter(Boolean))].join("・")||"-"}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </div></div>
+      <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 台あたり予約件数・売上とも月平均（クラス合計÷台数÷月数）／稼働率＝稼働日÷稼働可能日／台数＝保有台数。期間 {ranking.period}。</div>
     </div>
+    {/* ②③④ クラス単位ランキング */}
+    {(()=>{
+      const rankTbl=(title,ic,list,valLabel,valFn,valColor)=>(
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>{ic} {title}</div>
+          <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:480}}>
+              <thead><tr style={{background:"#0f172a",color:"#fff"}}>
+                <th style={{padding:"10px 8px",textAlign:"center",width:40}}>#</th>
+                <th style={{padding:"10px 8px",textAlign:"center",width:54}}>クラス</th>
+                <th style={{padding:"10px 8px",textAlign:"left"}}>クラス名</th>
+                <th style={{padding:"10px 8px",textAlign:"center",width:50}}>台数</th>
+                <th style={{padding:"10px 8px",textAlign:"right",width:140}}>{valLabel}</th>
+              </tr></thead>
+              <tbody>
+                {list.map((c,i)=>(
+                  <tr key={c.class} style={{background:i===0?"#fffbeb":i%2===0?"#fff":"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
+                    <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:i===0?"#d97706":"#64748b"}}>{i+1}</td>
+                    <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
+                    <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
+                    <td style={{padding:"8px",textAlign:"center"}}>{c.count}台</td>
+                    <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:valColor?valColor(c):"#1e293b",fontSize:14}}>{valFn(c)}</td>
+                  </tr>
+                ))}
+                {list.length===0&&<tr><td colSpan={5} style={{padding:16,textAlign:"center",color:"#94a3b8"}}>データなし</td></tr>}
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+      );
+      return <div>
+        {rankTbl("② 予約数ランキング（クラス単位・件数順）","📋",clsByCnt,"予約件数(合計)",c=>c.totalCnt+"件")}
+        {rankTbl("③ 売上ランキング（クラス単位・売上順）","💰",clsByRev,"売上(合計)",c=>"¥"+Math.round(c.totalRev).toLocaleString(),()=>"#059669")}
+        {rankTbl("④ 稼働率ランキング（クラス単位）","📈",clsByUtil,"稼働率",c=>c.utilPct.toFixed(1)+"%",c=>uColor(c.utilPct))}
+      </div>;
+    })()}
     <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
       <summary style={{cursor:"pointer",fontWeight:700,padding:"6px 0"}}>📋 計算定義（オーナー定義 v4）</summary>
       <div style={{padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginTop:6,lineHeight:1.8}}>
