@@ -23752,7 +23752,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
     </div>
     {/* ★2026-09-26 サブタブ: 月別(BT/HDM別) / 合算サマリ */}
     <div style={{display:"flex",gap:8,marginBottom:14}}>
-      {[{k:"monthly",l:"📅 月別（BT / HDM 別）"},{k:"gross",l:"📊 合算サマリ"}].map(x=>(
+      {[{k:"monthly",l:"📅 月別（BT / HDM 別）"},{k:"gross",l:"📊 月別合算"},{k:"total",l:"🏆 総合ランキング"}].map(x=>(
         <button key={x.k} onClick={()=>setSubView(x.k)} style={{padding:"8px 16px",fontSize:13,fontWeight:800,borderRadius:9,border:"1px solid "+(subView===x.k?"#1e40af":"#cbd5e1"),background:subView===x.k?"#1e40af":"#fff",color:subView===x.k?"#fff":"#475569",cursor:"pointer"}}>{x.l}</button>
       ))}
     </div>
@@ -23866,7 +23866,55 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         })}
       </div>
     )}
-        <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
+        {subView==="total"&&(()=>{
+      const g={};
+      monthly.months.forEach(m=>{[].concat((m.brands.BUDDICA||{rows:[]}).rows,(m.brands.HDM||{rows:[]}).rows).forEach(r=>{const o=g[r.class]||(g[r.class]={class:r.class,count:0,cnt:0,rev:0,used:0,cap:0,names:new Set()});o.count+=r.count;o.cnt+=r.cnt;o.rev+=r.rev;o.used+=(r.used||0);o.cap+=(r.cap||0);(r._names||[]).forEach(n=>o.names.add(n));});});
+      let arr=Object.values(g).map(o=>({class:o.class,names:[...o.names].join("・"),count:o.count,cnt:o.cnt,rev:o.rev,util:o.cap?o.used/o.cap*100:0,perRev:o.count?o.rev/o.count:0,perCnt:o.count?o.cnt/o.count:0}));
+      if(arr.length===0)return <div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>データがありません</div>;
+      const mx=k=>Math.max(1,...arr.map(x=>x[k]||0));
+      const mRev=mx("rev"),mUtil=mx("util"),mPR=mx("perRev"),mPC=mx("perCnt");
+      arr.forEach(x=>{x.score=Math.round((x.rev/mRev*40+x.util/mUtil*30+x.perRev/mPR*20+x.perCnt/mPC*10)*10)/10;x.rank=x.score>=80?"S":x.score>=60?"A":x.score>=40?"B":x.score>=20?"C":"D";});
+      arr.sort((a,b)=>b.score-a.score);
+      const rc={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
+      const rbg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f8fafc",D:"#fef2f2"};
+      return <div>
+        <div style={{fontSize:14,fontWeight:800,marginBottom:6,color:"#1e293b"}}>🏆 総合クラスランキング（全期間・BT+HDM合算）</div>
+        <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.7}}>※ <b>総合スコア(100点)＝売上合計40 + 稼働率30 + 台あたり売上20 + 台あたり予約10</b>（各項目を最大クラスで正規化）。全期間・BT+HDM合算・送迎車除く。どのクラスが総合的に稼いでいるかを判断。</div>
+        <div style={{background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid #e2e8f0"}}><div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:640}}>
+            <thead><tr style={{background:"#1e293b",color:"#fff"}}>
+              <th style={{padding:"8px",textAlign:"center",width:36}}>#</th>
+              <th style={{padding:"8px",textAlign:"center",width:46}}>ﾗﾝｸ</th>
+              <th style={{padding:"8px",textAlign:"right",width:54}}>ｽｺｱ</th>
+              <th style={{padding:"8px",textAlign:"center",width:46}}>クラス</th>
+              <th style={{padding:"8px",textAlign:"left",width:104}}>クラス名</th>
+              <th style={{padding:"8px",textAlign:"left"}}>車種名</th>
+              <th style={{padding:"8px",textAlign:"right",width:96}}>売上合計</th>
+              <th style={{padding:"8px",textAlign:"right",width:60}}>稼働率</th>
+              <th style={{padding:"8px",textAlign:"right",width:82}}>台/売上</th>
+              <th style={{padding:"8px",textAlign:"right",width:60}}>台/予約</th>
+            </tr></thead>
+            <tbody>
+              {arr.map((c,i)=>(
+                <tr key={c.class} style={{background:rbg[c.rank],borderBottom:"1px solid #e2e8f0"}}>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:i===0?"#d97706":"#64748b"}}>{i+1}</td>
+                  <td style={{padding:"8px",textAlign:"center"}}><span style={{display:"inline-block",padding:"2px 9px",borderRadius:12,background:rc[c.rank],color:"#fff",fontWeight:800}}>{c.rank}</span></td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:800}}>{c.score}</td>
+                  <td style={{padding:"8px",textAlign:"center",fontWeight:800,color:"#1e40af",fontSize:14}}>{c.class}</td>
+                  <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{CLS_LABEL[c.class]||"-"}</td>
+                  <td style={{padding:"8px",fontSize:11,color:"#475569"}}>{c.names||"-"}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:800,color:"#0f172a"}}>¥{Math.round(c.rev).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:uColor(c.util)}}>{c.util.toFixed(1)}%</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700}}>¥{Math.round(c.perRev).toLocaleString()}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{c.perCnt.toFixed(1)}件</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div></div>
+      </div>;
+    })()}
+    <details style={{marginTop:16,fontSize:11,color:"#64748b"}}>
       <summary style={{cursor:"pointer",fontWeight:700,padding:"6px 0"}}>📋 計算定義（オーナー定義 v4）</summary>
       <div style={{padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginTop:6,lineHeight:1.8}}>
         <div><strong>期間</strong>: BUDDICAは予約データの最初の月〜当月（予約が入ったら動く）</div>
@@ -23884,7 +23932,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.481-BT";
+const APP_VERSION="v1.0.482-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
