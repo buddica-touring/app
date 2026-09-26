@@ -23655,7 +23655,6 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   const [loading,setLoading]=useState(true);
   const [lastUpdate,setLastUpdate]=useState(new Date());
   const [otaFilter,setOtaFilter]=useState("ALL");
-  const [brandF,setBrandF]=useState("ALL"); // ★2026-09-26 ブランド絞込 グロス(ALL)/BUDDICA/HDM
   useEffect(()=>{
     let alive=true;
     const load=async()=>{
@@ -23671,7 +23670,10 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
     const iv=setInterval(load,5*60*1000);
     return()=>{alive=false;clearInterval(iv);};
   },[KPI_TABLE]);
-  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,brandF),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter,maintenance,brandF]);
+  const ranking=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,"ALL"),[vehicles,data,fleet,kpiAll,st,PERIOD_START,otaFilter,maintenance]);
+  const rankBT=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,"BUDDICA"),[vehicles,data,fleet,kpiAll,st,otaFilter,maintenance]);
+  const rankHDM=useMemo(()=>computeVehicleRanking(vehicles,data,fleet,kpiAll,st,otaFilter,maintenance,"HDM"),[vehicles,data,fleet,kpiAll,st,otaFilter,maintenance]);
+  const brandSum=(rk)=>{const rs=(rk&&rk.rows)||[];let rev=0,used=0,cap=0,pf=0,cnt=0;rs.forEach(r=>{rev+=r.revTotal||0;used+=r.usedDays||0;cap+=r.capDays||0;pf+=r.profit||0;cnt+=r.cnt||0;});return{n:rs.length,cnt,rev,util:cap?used/cap*100:0,profit:pf};};
   const rankColors={S:"#fbbf24",A:"#10b981",B:"#3b82f6",C:"#64748b",D:"#dc2626"};
   const rankBg={S:"#fffbeb",A:"#ecfdf5",B:"#eff6ff",C:"#f1f5f9",D:"#fef2f2"};
   if(loading)return <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>計算中...</div>;
@@ -23686,13 +23688,6 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
         </div>
       </div>
       <div style={{fontSize:11,opacity:0.85,marginTop:8}}>①売上25 + ②月平均15 + ③稼働率25 + ⑤粗利35 = 100点</div>
-      {st==="bt"&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🏷 ブランド:</span>
-        {[{k:"ALL",l:"グロス（全体）",ac:"#1e293b"},{k:"BUDDICA",l:"BT（BUDDICA）",ac:"#047857"},{k:"HDM",l:"HDM（HANDYMAN）",ac:"#1e3a8a"}].map(b=>(
-          <button key={b.k} onClick={()=>setBrandF(b.k)} style={{padding:"5px 14px",fontSize:12,borderRadius:7,border:"1px solid rgba(255,255,255,0.35)",background:brandF===b.k?"#fff":"rgba(255,255,255,0.12)",color:brandF===b.k?b.ac:"#fff",fontWeight:brandF===b.k?800:600,cursor:"pointer"}}>{b.l}</button>
-        ))}
-        <span style={{fontSize:10,opacity:0.75,marginLeft:4}}>{brandF==="ALL"?"BT+HDM 合算":brandF==="BUDDICA"?"BUDDICA運用車のみ":"HANDYMAN運用車のみ"}</span>
-      </div>}
       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,flexWrap:"wrap"}}>
         <span style={{fontSize:11,opacity:0.9,marginRight:4}}>🔍 OTAフィルタ:</span>
         {[{k:"ALL",l:"全て"},{k:"HP",l:"HP直販"},{k:"J",l:"じゃらん"},{k:"R",l:"楽天"},{k:"S",l:"スカイ"},{k:"O",l:"エアトリ"},{k:"RC",l:"RC"},{k:"G",l:"GoGoOut"},{k:"SP",l:"Slack"},{k:"direct",l:"手動"}].map(o=>(
@@ -23702,6 +23697,26 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
       </div>
       <div style={{fontSize:10,opacity:0.7,marginTop:4}}>最終更新: {lastUpdate.toLocaleTimeString()} | 5分毎自動更新</div>
     </div>
+    {st==="bt"&&(()=>{const G=brandSum(ranking),B=brandSum(rankBT),H=brandSum(rankHDM);
+      const card=(title,ac,bg,s)=>(<div style={{flex:"1 1 210px",background:bg,border:"1px solid "+ac+"33",borderRadius:12,padding:"12px 14px"}}>
+        <div style={{fontSize:13,fontWeight:900,color:ac,marginBottom:8}}>{title}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 10px",fontSize:12}}>
+          <div><span style={{color:"#64748b"}}>台数 </span><b>{s.n}台</b></div>
+          <div><span style={{color:"#64748b"}}>予約 </span><b>{s.cnt}件</b></div>
+          <div><span style={{color:"#64748b"}}>売上 </span><b>¥{Math.round(s.rev).toLocaleString()}</b></div>
+          <div><span style={{color:"#64748b"}}>稼働 </span><b style={{color:s.util>=40?"#059669":s.util>=20?"#d97706":"#dc2626"}}>{s.util.toFixed(1)}%</b></div>
+          <div style={{gridColumn:"1 / -1"}}><span style={{color:"#64748b"}}>粗利 </span><b style={{color:s.profit>=0?"#059669":"#dc2626"}}>¥{Math.round(s.profit).toLocaleString()}</b></div>
+        </div></div>);
+      return <div style={{marginBottom:20}}>
+        <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>🏷 ブランド別サマリー</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          {card("グロス（BT+HDM 合算）","#1e293b","#f8fafc",G)}
+          {card("BT（BUDDICA運用車）","#047857","#ecfdf5",B)}
+          {card("HDM（HANDYMAN運用車）","#1e3a8a","#eff6ff",H)}
+        </div>
+        <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>※ 稼働率＝稼働日÷稼働可能日（各ブランドのグロス）／粗利＝売上−固定費。期間 {ranking.period}。</div>
+      </div>;
+    })()}
     <div style={{marginBottom:20}}>
       <div style={{fontSize:14,fontWeight:800,marginBottom:8,color:"#1e293b"}}>📊 クラス集計（予約件数・稼働率順）</div>
       <div style={{background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
@@ -23837,7 +23852,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.475-BT";
+const APP_VERSION="v1.0.476-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
