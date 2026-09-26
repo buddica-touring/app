@@ -221,7 +221,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
+        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:74px">ナンバー</th><th style="width:44px">クラス</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:80px">本体価格</th>
         <th style="width:82px">カラー</th><th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
         <th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:78px">引取</th><th style="width:78px">準備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
@@ -364,10 +364,11 @@ function render(){
   const gkey=r=>isOut(r)?"__OUT__":(r.vclass||"");
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="17"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="17"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(CLSCOLOR[c]||"#94a3b8");const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="18"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="18"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;return `<span class="memoflag" title="メモ：${esc(m)}">🚩 ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
+      <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
       <td data-lb="クラス"><select class="st" data-f="vclass" style="font-weight:900;color:#1e3a8a">${clsOpt(r.vclass)}</select></td>
       <td data-lb="年式"><span class="ro">${esc(r.year)||"—"}</span></td>
       <td data-lb="走行"><span class="ro">${esc(r.mileage)||"—"}</span></td>
@@ -388,7 +389,7 @@ function render(){
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
-    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="17"><div class="pdetail">
+    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="18"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
       <div class="fld"><label>整備 完了予定</label><input type="date" data-df="maint_done_date" value="${esc(r.maint_done_date)}"></div>
       <div class="fld"><label>名義 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
@@ -396,7 +397,7 @@ function render(){
       <div class="fld"><label>現場引き取り予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
       <div class="fld"><label>稼働開始予定</label><input type="date" data-df="op_start_date" value="${esc(r.op_start_date)}"></div>
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
-    </div></td></tr>`;}).join("")||`<tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </div></td></tr>`;}).join("")||`<tr><td colspan="18" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
@@ -537,8 +538,8 @@ $("okurls").addEventListener("click",()=>{
   alert("📋 仕入OKの車両URL "+oks.length+"件をコピーしました\n\n"+oks.map(r=>"・"+(r.model||"")+(r.vclass?"("+r.vclass+")":"")+"\n　"+r.url).join("\n\n"));
 });
 $("csv").addEventListener("click",()=>{
-  const head=["No","車種","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","仕入ステータス","整備ステータス","引取(移動完了)","準備完了","名義","保険登録","URL"];
-  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",r.status,r.maint_status||"未対応",r.pickup_status||"未対応",r.prep_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
+  const head=["No","車種","ナンバー","クラス","年式","走行","本体価格","カラー","展示場所","お問合せコード","仕入ステータス","整備ステータス","引取(移動完了)","準備完了","名義","保険登録","URL"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.no,r.model,r.plate||"",r.vclass||"",r.year,r.mileage,r.price,r.color,r.location,r.inquiry||"",r.status,r.maint_status||"未対応",r.pickup_status||"未対応",r.prep_status||"未対応",r.pickup||"未対応",r.insurance||"未対応",r.url].map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="仕入進捗_"+new Date().toISOString().slice(0,10)+".csv";a.click();
 });
