@@ -210,7 +210,14 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 .m-cnt{font-weight:800;color:#334155;font-size:13px}
 .m-mc{color:#d97706;font-weight:700;font-size:12px}
 .m-tog{color:#94a3b8;font-weight:800;font-size:12px;width:14px;text-align:center}
-.m-specrow td{background:#fcfdff;border-top:none!important;padding:3px 8px 8px!important}
+tr.m-specrow{display:none}
+tr.vrow.open + tr.m-specrow{display:table-row}
+tr.vrow{cursor:pointer}
+tr.vrow:hover{background:#f8fafc}
+tr.vrow.open{background:#eff6ff}
+.vtog{display:inline-block;color:#94a3b8;font-weight:800;font-size:10px;transition:transform .12s;margin-right:2px}
+tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
+.m-specrow td{background:#fcfdff;border-top:none!important;padding:3px 8px 10px!important}
 .m-specs{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .m-spec{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:11px;color:#334155;font-weight:600;line-height:1.5}
 .m-spec b{color:#94a3b8;font-weight:800;font-size:10px}
@@ -660,7 +667,7 @@ function renderMaster(){
       html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
       arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
         const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=v.active!==false&&v.status!=="inactive", bd=isHdm(v);
-        html+='<tr><td class="plate">'+g(v.plate_no)+'</td><td>'+fesc(v.name||"")+'</td><td><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td>'+g(v.year)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td>¥'+insOf(v).toLocaleString()+'</td><td>¥'+leaseOf(v).toLocaleString()+'</td><td class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
+        html+='<tr class="vrow"><td class="plate"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td>'+fesc(v.name||"")+'</td><td><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td>'+g(v.year)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td>¥'+insOf(v).toLocaleString()+'</td><td>¥'+leaseOf(v).toLocaleString()+'</td><td class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
       });
       html+='</tbody></table></div>';
     }
@@ -714,6 +721,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
 $("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
+$("masterBody")&&$("masterBody").addEventListener("click",function(e){var r=e.target.closest("tr.vrow");if(r)r.classList.toggle("open");});
 document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventListener("click",()=>{
   document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(x=>x.classList.remove("on"));c.classList.add("on");
   fleetBrand=c.dataset.fb;renderFleet();
