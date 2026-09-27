@@ -58,6 +58,7 @@
   .car{font-weight:800}
   .car small{color:#64748b;font-weight:600}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
+  textarea.autg{min-height:36px;overflow:hidden}
   .cell:focus{border-color:#93c5fd;background:#fff;outline:none}
   .ro{display:block;padding:3px 5px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a}
   .cp{cursor:pointer;font-size:13px;opacity:.7}
@@ -394,7 +395,7 @@ function render(){
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
     </div></td></tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
-  const _autg=t=>{t.style.height="auto";t.style.height=(t.scrollHeight+2)+"px";};
+  const _autg=t=>{t.style.height="auto";const _h=t.scrollHeight;if(_h>4)t.style.height=(_h+2)+"px";};
   $("tb").querySelectorAll("input.cell,select.st,textarea.cell").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
     el.addEventListener("change",()=>save(id,f,el.value));
@@ -410,7 +411,7 @@ function render(){
     el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id,f=el.dataset.cp,r=rows.find(x=>x.id===id);if(r)copyText(r[f]);});
   });
   $("tb").querySelectorAll(".mtoggle").forEach(el=>{
-    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");});
+    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");if(tr.classList.contains("open")){setTimeout(()=>{tr.querySelectorAll("textarea.autg").forEach(t=>{t.style.height="auto";const h=t.scrollHeight;if(h>4)t.style.height=(h+2)+"px";});},0);}});
   });
   $("tb").querySelectorAll(".pdetail [data-df]").forEach(el=>{
     el.addEventListener("change",()=>save(el.closest("tr.detailrow").dataset.id, el.dataset.df, el.value));
