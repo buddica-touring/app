@@ -206,7 +206,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:74px">ナンバー</th><th style="width:76px">走行</th><th style="width:130px">車両状態</th>
+        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:74px">ナンバー</th><th style="width:76px">走行</th><th style="width:200px">車両状態</th>
         <th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
         <th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:88px">店舗回収</th><th style="width:78px">準備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
@@ -346,7 +346,7 @@ function render(){
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;return `<span class="memoflag" title="メモ：${esc(m)}">🚩 ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
       <td data-lb="走行"><span class="ro">${esc(r.mileage)||"—"}</span></td>
-      <td data-lb="車両状態">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<input class="cell" data-f="condition" value="${esc(r.condition)}" placeholder="状態を入力…" style="min-width:0;width:100%;font-size:13px;color:#0f172a;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px">`}</td>
+      <td data-lb="車両状態">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<textarea class="cell" data-f="condition" rows="1" placeholder="状態を入力…" style="min-width:0;width:100%;font-size:13px;color:#0f172a;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px;resize:vertical;line-height:1.45;font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.condition)}</textarea>`}</td>
       <td data-lb="場所"><span class="ro">${esc(r.location)||"—"}</span></td>
       <td data-lb="問合せ"><div style="display:flex;align-items:center;gap:4px;width:100%"><span style="font-family:monospace;font-size:12px;letter-spacing:.3px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.inquiry)||'<span style="color:#cbd5e1">—</span>'}</span>${r.inquiry?`<span class="cp" data-cp="inquiry" title="コードをコピー">📋</span>`:""}</div></td>
       <td data-lb="仕入"><select class="st ${STCLS[r.status]||"stC"}" data-f="status">${opt(r.status)}</select></td>
@@ -372,7 +372,7 @@ function render(){
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
     </div></td></tr>`;}).join("")||`<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
-  $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
+  $("tb").querySelectorAll("input.cell,select.st,textarea.cell").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
     const ev=el.tagName==="SELECT"?"change":"change";
     el.addEventListener(ev,()=>save(id,f,el.value));
