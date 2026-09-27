@@ -196,6 +196,11 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 #viewFleet .chip{cursor:pointer}
 #viewFleet .chip.on{background:#0f172a;color:#fff;border-color:#0f172a}
 .flnote{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:6px 0 12px;font-size:12px;color:#92400e;line-height:1.6}
+.fl-sumbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
+.fl-total{font-weight:900;font-size:15px;color:#0f172a;margin-right:4px}
+.fl-total b{color:#16a34a;font-size:18px}
+.fl-sc{display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;color:#475569}
+.fl-sc b{font-size:13px}
 .fltblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:760px){.fltbl{min-width:0;font-size:11px}.fltbl th,.fltbl td{padding:4px 5px}}
 </style>
@@ -591,11 +596,14 @@ function renderFleet(){
   const plate=r=>{const p=String(r.plate||"");if(!p)return'<span class="flmiss">-</span>';const m=p.match(/(\d{2,4})\s*$/);return m?m[1]:fesc(p);};
   const meigi=r=>r.pickup==="HDM"?'<span style="background:#2563eb;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">HDM</span>':(r.pickup==="BD"?'<span style="background:#f97316;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">BD</span>':'<span class="flmiss">未定</span>');
   const sale=r=>{const s=r.sale_status||"未対応";return '<span style="color:'+(FL_STCOL[STCLS[s]]||"#64748b")+';font-weight:800;font-size:12px">'+fesc(s)+'</span>';};
-  let html='<div class="sub" style="margin-bottom:10px">仕入・整備ともに <b style="color:#16a34a">OK</b> の確保車両 <b>'+total+'台</b> をクラス別にまとめています。</div>';
+  let html='<div class="sub" style="margin-bottom:8px">仕入・整備ともに <b style="color:#16a34a">OK</b> の確保車両をクラス別にまとめています。</div>';
   if(!total){$("fleetBody").innerHTML=html+'<div style="color:#94a3b8;padding:16px;text-align:center">仕入・整備ともにOKの車両はまだありません。</div>';return;}
   const order=CLASSES.slice(1);  // A..K
   const grp={}; order.forEach(c=>grp[c]=[]); const misc=[];
   list.forEach(r=>{ if(r.vclass&&grp[r.vclass])grp[r.vclass].push(r); else misc.push(r); });
+  let sumChips=''; order.forEach(c=>{ if(grp[c].length) sumChips+='<span class="fl-sc"><b style="color:'+(FL_CLSCOLOR[c]||"#334155")+'">'+c+'</b> '+grp[c].length+'台</span>'; });
+  if(misc.length) sumChips+='<span class="fl-sc">未設定 '+misc.length+'台</span>';
+  html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span>'+sumChips+'</div>';
   const sect=(c,arr)=>{
     if(!arr.length)return;
     const col=FL_CLSCOLOR[c]||"#94a3b8", lbl=FL_CLSLBL[c]||"クラス未設定";
