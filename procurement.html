@@ -308,11 +308,15 @@ function counts(){
   return c;
 }
 const priceNum=s=>{const m=String(s||"").match(/([\d.]+)\s*万円/);return m?parseFloat(m[1]):0;};
+// 予算(申請・概算)を万円換算：「◯万」→◯万円 / 「◯円」→÷1万 / 数字のみ→万円扱い
+const budgetNum=s=>{s=String(s||"");let m=s.match(/([\d.]+)\s*万/);if(m)return parseFloat(m[1])||0;m=s.match(/([\d,]+)\s*円/);if(m)return (parseFloat(m[1].replace(/,/g,""))||0)/10000;m=s.match(/([\d,.]+)/);return m?(parseFloat(m[1].replace(/,/g,""))||0):0;};
 function renderDash(){
   const c=counts();
   const ok=c.OK||0;   // 仕入OK
   let secured=0, okSum=0, securedSum=0, piOk=0;
   rows.forEach(r=>{if(isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++; if(r.maint_status==="OK"){secured++; securedSum+=priceNum(r.price);}}}); // 確保=仕入OK&整備OK / 確定価格=仕入OK&整備OKの本体価格合計 / 店舗回収済み数
+  let budgetSum=0, budgetCnt=0; rows.forEach(r=>{if(isSample(r))return;const bn=budgetNum(r.budget);if(bn>0){budgetSum+=bn;budgetCnt++;}}); // 申請予算(概算)合計
+  const budgetSumTxt=budgetSum?budgetSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
   const waiting=rows.filter(r=>!isSample(r)&&isWait(r)).length;  // 待機＝整備が対応中/確認中
   const runnable=rows.filter(r=>!isSample(r)&&r.status==="OK"&&r.maint_status==="OK"&&r.pickup_status==="OK"&&r.prep_status==="OK").length;  // 稼働可能＝仕入・整備・引取・準備すべてOK
   const pct=Math.min(100,Math.round(secured/goal*100));
@@ -323,6 +327,7 @@ function renderDash(){
   $("dash").innerHTML=
    `<div class="card"><div class="lb">✅ 確保（仕入・整備OK）</div><div class="vv" style="color:#16a34a">${secured}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div><small>ゴール−確保 ＝ <b style="color:#dc2626">あと${Math.max(0,goal-secured)}台</b></small></div>`+
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${securedSumTxt}<small>万円</small></div><small>仕入・整備OK ${secured}台の本体価格合計</small></div>`+
+   `<div class="card" style="border-color:#fcd34d;background:#fffbeb"><div class="lb">💴 申請予算（概算）</div><div class="vv" style="color:#b45309">${budgetSumTxt}<small>万円</small></div><small>対応コストの合算（あくまで申請・概算）／ 入力 ${budgetCnt}台</small></div>`+
    meigiCard+
    `<div class="card" style="border-color:#c7d2fe;background:#eef2ff"><div class="lb">⏳ 待機（整備中）</div><div class="vv" style="color:#4f46e5">${waiting}<small>台</small></div><small>整備が対応中・確認中の車</small></div>`+
    `<div class="card"><div class="lb">🚚 店舗回収済み</div><div class="vv" style="color:#2563eb">${piOk}<small> / ${secured}台</small></div><small>店舗から回収済み ／ 確保 ${secured}台中</small></div>`+
