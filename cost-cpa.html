@@ -99,6 +99,7 @@ function isTest(r){const id=String(r.id||'');if(/^(ZZ|DEMO|KD-DEMO|TEST|DEMOMYPA
 function isCxl(r){return /キャンセル|cancel|canceled|cancelled/i.test(String(r.status||''));}
 function rev(r){const b=+r.base_price||0,o=+r.option_price||0,d=+r.discount||0;return (b>0||o>0)?(b+o-d):(+r.price||0);}
 async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{apikey:ANON,Authorization:'Bearer '+ANON}});if(!r.ok)throw new Error(r.status);return r.json();}
+async function sbPost(path,body){const r=await fetch(SB+'/rest/v1/'+path,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(r.status);return r.json();}
 async function fetchAllResv(){
   let out=[],from=0,step=1000;
   for(let i=0;i<20;i++){
@@ -114,10 +115,10 @@ function nowYM(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 async function load(){
   setSt('読み込み中…');
   try{
-    const [resv,st]=await Promise.all([fetchAllResv(),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt')]);
+    const [agg,st]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt')]);
     try{AD=st&&st[0]?JSON.parse(st[0].value||'{}'):{};}catch(e){AD={};}
     const g={};
-    resv.forEach(r=>{ if(isTest(r)||isCxl(r))return; const m=ym(r.end_date); if(!/^\d{4}-\d{2}$/.test(m))return; (g[m]=g[m]||{rev:0,cnt:0}); g[m].rev+=rev(r); g[m].cnt++; });
+    (agg||[]).forEach(r=>{ const m=String(r.ym||''); if(!/^\d{4}-\d{2}$/.test(m))return; g[m]={rev:+r.rev||0,cnt:+r.cnt||0}; });
     // 売上のある月＋広告費のある月を対象（時系列）
     const keys=Array.from(new Set(Object.keys(g).concat(Object.keys(AD)))).filter(m=>/^\d{4}-\d{2}$/.test(m)).sort();
     MONTHS=keys.map(m=>{const rv=(g[m]&&g[m].rev)||0,cnt=(g[m]&&g[m].cnt)||0,fee=Math.round(rv*FEE),ad=+AD[m]||0,cost=fee+ad,cpa=cnt?Math.round(cost/cnt):0,net=rv-cost,roas=cost?rv/cost:0;return {m,rev:rv,cnt,fee,ad,cost,cpa,net,roas};});
