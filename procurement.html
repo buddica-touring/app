@@ -114,38 +114,46 @@
   #reload:active{transform:scale(.93)}
   #reload.spin{animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  @media(max-width:680px){
+  @media(max-width:760px){
     .wrap{padding:8px}
+    h1{font-size:16px}
     .card{flex-basis:calc(50% - 4px);padding:8px 10px}
     .card .vv{font-size:20px}
     .who{margin-left:0;width:100%;justify-content:flex-end}
     .who input{width:110px}
-    table{min-width:0}
+    /* 横スクロール不要＝各行をカード化。全項目をラベル付きで縦表示 */
+    .tblwrap{overflow-x:visible;border:none;background:transparent;border-radius:0}
+    table{min-width:0!important;table-layout:auto}
     thead{display:none}
     tbody,tr,td{display:block}
-    tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px;padding:8px 10px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.05)}
-    td{border:none;padding:4px 0;display:flex;align-items:center;gap:8px}
-    td:before{content:attr(data-lb);font-size:11px;color:#94a3b8;font-weight:800;min-width:48px;flex-shrink:0}
-    td.noNo{position:absolute;top:8px;right:12px;padding:0;font-size:15px;color:#94a3b8;font-weight:800}
+    tr.grpRow{border:1px solid #e2e8f0;border-left:5px solid var(--cc)!important;border-radius:12px;margin:0 0 10px;padding:6px 12px 10px;position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    tr.grpRow td{border:none!important;padding:5px 0;display:flex;align-items:center;gap:10px;min-height:32px}
+    tr.grpRow td:before{content:attr(data-lb);font-size:11px;color:#64748b;font-weight:800;flex:0 0 76px}
+    /* 車種＝カード見出し（大・ラベルなし・区切り線） */
+    td[data-lb="車種"]{font-size:15px;font-weight:800;border-bottom:1px solid #eef2f7!important;padding:4px 40px 8px 0!important;margin-bottom:2px}
+    td[data-lb="車種"]:before{display:none}
+    td.noNo{position:absolute;top:8px;right:12px;padding:0!important;min-height:0!important;font-size:14px;color:#94a3b8;font-weight:800;display:block}
     td.noNo:before{content:""}
-    td.delc{justify-content:flex-end}
-    td.delc .del{font-size:20px}
-    .cell{border:1px solid #e2e8f0;background:#fff;padding:6px 8px}
-    select.st{width:100%}
-    .cell{width:100%}
-    .car{padding-right:36px}
-    /* 折りたたみ：既定は車種名+URLだけ。▼タップで詳細を展開 */
-    .mtoggle{margin-left:auto;flex-shrink:0}
-    tr:not(.open) td:not(.keep):not(.noNo){display:none}
-    tr:not(.open){padding-bottom:10px}
-    td[data-lb="車両URL"]{padding-top:2px}
+    /* 幅広の入力は縦フル幅 */
+    td[data-lb="車両状態"],td[data-lb="対応概要"]{flex-direction:column;align-items:stretch;gap:4px}
+    td[data-lb="車両状態"]:before,td[data-lb="対応概要"]:before{flex:none}
+    .cell{border:1px solid #cbd5e1;background:#fff;padding:7px 9px;width:100%}
+    select.st{width:100%;flex:1}
+    td .ro{flex:1;text-align:right}
+    td.delc{justify-content:flex-end;padding-top:8px!important}
+    td.delc:before{content:"";flex:0}
+    td.delc .del{font-size:22px}
+    td[data-lb="車両URL"] .keep,td[data-lb="車両URL"]>div{flex:1;justify-content:flex-end}
+    .mtoggle{margin:2px 0 0;flex-shrink:0}
+    /* 進捗予定（日付）は▼で開閉 */
     tr.grpRow.open + tr.detailrow{display:block}
-    tr.detailrow{border:1px solid #e2e8f0;border-top:none;margin:-10px 8px 8px;border-radius:0 0 12px 12px;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+    tr.detailrow{border:1px solid #e2e8f0;border-top:none;margin:-10px 0 10px;border-radius:0 0 12px 12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     tr.detailrow>td{border:none;padding:0;display:block}
     tr.detailrow>td:before{content:""}
     .pdetail{padding:10px 12px}
     .pdetail .fld,.pdetail .memo{width:100%}
     .pdetail .fld input[type=date]{width:100%;box-sizing:border-box}
+    tr.clsgrp td{font-size:12px;padding:8px 10px}
   }
 
 tr.clsgrp td{background:#eef2f7;font-weight:800;color:#0f172a;padding:6px 10px;border-top:3px solid var(--cc);font-size:12px}
