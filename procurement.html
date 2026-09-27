@@ -117,26 +117,37 @@
   #reload.spin{animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   @media(max-width:760px){
-    .wrap{padding:8px}
+    html,body{overflow-x:hidden;max-width:100%}
+    .wrap{padding:8px;overflow-x:hidden;max-width:100%}
     h1{font-size:16px}
     .card{flex-basis:calc(50% - 4px);padding:8px 10px}
     .card .vv{font-size:20px}
     .who{margin-left:0;width:100%;justify-content:flex-end}
     .who input{width:110px}
-    /* 横スクロール不要＝各行をカード化。全項目をラベル付きで縦表示 */
-    .tblwrap{overflow-x:visible;border:none;background:transparent;border-radius:0}
-    table{min-width:0!important;table-layout:auto}
+    /* 横スクロール不要＝各行をカード化（既定は折りたたみ＝最低限のみ） */
+    .tblwrap{overflow-x:hidden;border:none;background:transparent;border-radius:0;max-width:100%}
+    table{min-width:0!important;width:100%!important;table-layout:auto}
     thead{display:none}
-    tbody,tr,td{display:block}
-    tr.grpRow{border:1px solid #e2e8f0;border-left:5px solid var(--cc)!important;border-radius:12px;margin:0 0 10px;padding:6px 12px 10px;position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-    tr.grpRow td{border:none!important;padding:5px 0;display:flex;align-items:center;gap:10px;min-height:32px}
-    tr.grpRow td:before{content:attr(data-lb);font-size:11px;color:#64748b;font-weight:800;flex:0 0 76px}
-    /* 車種＝カード見出し（大・ラベルなし・区切り線） */
-    td[data-lb="車種"]{font-size:15px;font-weight:800;border-bottom:1px solid #eef2f7!important;padding:4px 40px 8px 0!important;margin-bottom:2px}
+    tbody,tr,td{display:block;max-width:100%;box-sizing:border-box}
+    .cell,textarea.cell,select.st{max-width:100%;box-sizing:border-box}
+    tr.grpRow{border:1px solid #e2e8f0;border-left:5px solid var(--cc)!important;border-radius:12px;margin:0 0 8px;padding:8px 12px;position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    tr.grpRow td{border:none!important;padding:4px 0;display:flex;align-items:center;gap:10px;min-height:30px}
+    tr.grpRow td:before{content:attr(data-lb);font-size:11px;color:#64748b;font-weight:800;flex:0 0 74px}
+    /* 車種＝見出し（大・ラベルなし） */
+    td[data-lb="車種"]{font-size:15px;font-weight:800;padding:2px 40px 4px 0!important;min-height:28px}
     td[data-lb="車種"]:before{display:none}
-    td.noNo{position:absolute;top:8px;right:12px;padding:0!important;min-height:0!important;font-size:14px;color:#94a3b8;font-weight:800;display:block}
+    td.noNo{position:absolute;top:9px;right:12px;padding:0!important;min-height:0!important;font-size:14px;color:#94a3b8;font-weight:800;display:block}
     td.noNo:before{content:""}
-    /* 幅広の入力は縦フル幅 */
+    .mtoggle{margin-left:auto;flex-shrink:0}
+    /* ▼折りたたみ：既定は 車種＋進捗(仕入/整備/回収/準備) だけ。タップで全項目 */
+    tr.grpRow:not(.open) td{display:none}
+    tr.grpRow:not(.open) td[data-lb="車種"],
+    tr.grpRow:not(.open) td[data-lb="仕入"],
+    tr.grpRow:not(.open) td[data-lb="整備"],
+    tr.grpRow:not(.open) td[data-lb="店舗回収"],
+    tr.grpRow:not(.open) td[data-lb="準備"]{display:flex}
+    tr.grpRow td[data-lb="車種"]{border-bottom:1px solid #eef2f7!important;margin-bottom:3px;padding-bottom:6px!important}
+    /* 展開時：幅広入力は縦フル幅 */
     td[data-lb="車両状態"],td[data-lb="対応概要"]{flex-direction:column;align-items:stretch;gap:4px}
     td[data-lb="車両状態"]:before,td[data-lb="対応概要"]:before{flex:none}
     .cell{border:1px solid #cbd5e1;background:#fff;padding:7px 9px;width:100%}
@@ -145,12 +156,11 @@
     td.delc{justify-content:flex-end;padding-top:8px!important}
     td.delc:before{content:"";flex:0}
     td.delc .del{font-size:22px}
-    td[data-lb="車両URL"] .keep,td[data-lb="車両URL"]>div{flex:1;justify-content:flex-end}
-    .mtoggle{margin:2px 0 0;flex-shrink:0}
-    /* 進捗予定（日付）は▼で開閉 */
+    td[data-lb="車両URL"]>div{flex:1;justify-content:flex-end}
+    /* 進捗予定（日付）は展開時に表示 */
     tr.grpRow.open + tr.detailrow{display:block}
-    tr.detailrow{border:1px solid #e2e8f0;border-top:none;margin:-10px 0 10px;border-radius:0 0 12px 12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-    tr.detailrow>td{border:none;padding:0;display:block}
+    tr.detailrow{border:1px solid #e2e8f0;border-top:none;margin:-8px 0 8px;border-radius:0 0 12px 12px;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    tr.detailrow>td{border:none;padding:0;display:block;max-width:100%}
     tr.detailrow>td:before{content:""}
     .pdetail{padding:10px 12px}
     .pdetail .fld,.pdetail .memo{width:100%}
