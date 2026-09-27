@@ -201,6 +201,16 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 .fl-total b{color:#16a34a;font-size:18px}
 .fl-sc{display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;color:#475569}
 .fl-sc b{font-size:13px}
+.m-clsrow{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+.m-clsrow:hover{background:#f8fafc}
+.m-badge{color:#fff;font-weight:900;border-radius:6px;padding:2px 9px;font-size:13px;min-width:26px;text-align:center}
+.m-lbl{font-weight:800;color:#0f172a;font-size:13.5px;flex:1;min-width:0}
+.m-brands{display:flex;gap:4px}
+.m-bt{background:#dcfce7;color:#047857;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px}
+.m-hdm{background:#dbeafe;color:#1d4ed8;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px}
+.m-cnt{font-weight:800;color:#334155;font-size:13px}
+.m-mc{color:#d97706;font-weight:700;font-size:12px}
+.m-tog{color:#94a3b8;font-weight:800;font-size:12px;width:14px;text-align:center}
 .fltblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:760px){.fltbl{min-width:0;font-size:11px}.fltbl th,.fltbl td{padding:4px 5px}}
 </style>
@@ -211,6 +221,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   <div class="tabs">
     <button class="tabbtn on" data-v="proc">🛒 仕入候補</button>
     <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保：仕入・整備OK）</button>
+    <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
   </div>
   <div id="viewProc">
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
@@ -253,6 +264,13 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
       <button class="btn" id="reloadFleet" style="margin-left:auto">🔄 最新に更新</button>
     </div>
     <div id="fleetBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+  </div>
+
+  <div id="viewMaster" style="display:none">
+    <div class="tb" style="margin-bottom:6px">
+      <button class="btn" id="reloadMaster" style="margin-left:auto">🔄 最新に更新</button>
+    </div>
+    <div id="masterBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
   </div>
 <button id="reload" title="最新に更新">🔄</button>
 <div id="st">接続中…</div>
@@ -583,6 +601,43 @@ const CLASS_ORDER=["A","AA","B","C","D","E","F","G","H","I","J","K","送迎"];
 function nbrand(b){return String(b||"").toUpperCase()==="HDM"?"HDM":"BUDDICA";}
 function fesc(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 async function loadFleet(){ await load(); renderFleet(); }
+// マスター＝BTアプリの車両登録マスター(bt_vehicles)をクラス別に表示
+let MASTER=null; const openMaster=new Set();
+const M_ORDER=["AA","A","B","C","D","E","F","G","H","I","J","K","送迎"];
+const M_CLSLBL={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン","送迎":"送迎車"};
+const M_CLSCOLOR={AA:"#0f172a",A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d","送迎":"#64748b"};
+const mcOf=v=>(Number(v.insurance_annual)||0)+(Number(v.lease_monthly)||0)+Math.round((Number(v.shaken_cost)||0)/12)+Math.round((Number(v.tenken_cost)||0)/6)+Math.round((Number(v.car_tax)||0)/12);
+const isHdm=v=>String(v.brand||"").toUpperCase()==="HDM";
+async function loadMaster(){
+  $("masterBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
+  const {data,error}=await sb.from("bt_vehicles").select("*");
+  if(error){$("masterBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(error.message)+'</div>';return;}
+  MASTER=data||[]; renderMaster();
+}
+function renderMaster(){
+  if(!MASTER){loadMaster();return;}
+  const g=x=>x?fesc(x):'<span class="flmiss">-</span>';
+  const grp={}; MASTER.forEach(v=>{const t=v.type||"?";(grp[t]=grp[t]||[]).push(v);});
+  const order=M_ORDER.filter(c=>grp[c]).concat(Object.keys(grp).filter(c=>M_ORDER.indexOf(c)<0));
+  const total=MASTER.length, totHDM=MASTER.filter(isHdm).length, totBT=total-totHDM, totMc=MASTER.reduce((s,v)=>s+mcOf(v),0);
+  let html='<div class="sub" style="margin-bottom:8px">高松の車両マスター（BTアプリの車両登録データ）をクラス別に表示します。<b>行をタップで車両一覧を展開</b>。</div>';
+  html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span><span class="fl-sc"><b style="color:#047857">BT</b> '+totBT+'台</span><span class="fl-sc"><b style="color:#1d4ed8">HDM</b> '+totHDM+'台</span>'+(totMc>0?'<span class="fl-sc">原価 ¥'+totMc.toLocaleString()+'/月</span>':'')+'</div>';
+  order.forEach(c=>{
+    const arr=grp[c]; if(!arr||!arr.length)return;
+    const col=M_CLSCOLOR[c]||"#94a3b8", lbl=M_CLSLBL[c]||"", hdm=arr.filter(isHdm).length, bt=arr.length-hdm, mc=arr.reduce((s,v)=>s+mcOf(v),0), op=openMaster.has(c);
+    html+='<div class="m-clsrow" data-mc="'+fesc(c)+'"><span class="m-badge" style="background:'+col+'">'+fesc(c)+'</span><span class="m-lbl">'+fesc(lbl)+'</span><span class="m-brands">'+(bt?'<span class="m-bt">BT'+bt+'</span>':'')+(hdm?'<span class="m-hdm">HDM'+hdm+'</span>':'')+'</span><span class="m-cnt">'+arr.length+'台</span>'+(mc>0?'<span class="m-mc">原価¥'+mc.toLocaleString()+'/月</span>':'')+'<span class="m-tog">'+(op?"▲":"▼")+'</span></div>';
+    if(op){
+      html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>カラー</th><th>車検満了</th><th>点検</th><th>走行km</th><th>原価/月</th><th>稼働</th></tr></thead><tbody>';
+      arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
+        const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=v.active!==false&&v.status!=="inactive", bd=isHdm(v);
+        html+='<tr><td class="plate">'+g(v.plate_no)+'</td><td>'+fesc(v.name||"")+'</td><td><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td>'+g(v.year)+'</td><td>'+g(v.color)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td>¥'+mcOf(v).toLocaleString()+'</td><td class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+    }
+  });
+  $("masterBody").innerHTML=html;
+  $("masterBody").querySelectorAll(".m-clsrow").forEach(el=>el.addEventListener("click",()=>{const c=el.dataset.mc;if(openMaster.has(c))openMaster.delete(c);else openMaster.add(c);renderMaster();}));
+}
 // 車両リスト＝仕入OK＋整備OK（確保）の車両だけをクラス別にまとめて表示（読み取り専用サマリー）
 const FL_CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
 const FL_CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
@@ -623,9 +678,12 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   const v=b.dataset.v;
   $("viewProc").style.display=v==="proc"?"":"none";
   $("viewFleet").style.display=v==="fleet"?"":"none";
+  $("viewMaster").style.display=v==="master"?"":"none";
   if(v==="fleet")renderFleet();
+  if(v==="master")renderMaster();
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
+$("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
 document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventListener("click",()=>{
   document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(x=>x.classList.remove("on"));c.classList.add("on");
   fleetBrand=c.dataset.fb;renderFleet();
