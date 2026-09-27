@@ -53,6 +53,8 @@
   .soldbadge{display:inline-block;background:#dc2626;color:#fff;font-weight:900;font-size:11px;letter-spacing:.5px;padding:4px 9px;border-radius:6px;box-shadow:0 1px 3px rgba(220,38,38,.4)}
   tr[data-st="確認中"]{background:#fffbeb}
   tr[data-st="対応中"]{background:#eff6ff}
+  tr.waitrow{background:#eef2ff!important;box-shadow:inset 5px 0 0 #4f46e5!important}
+  tr.waitrow td:first-child{color:#4f46e5!important}
   .car{font-weight:800}
   .car small{color:#64748b;font-weight:600}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
@@ -309,7 +311,7 @@ function renderDash(){
    `<div class="card"><div class="lb">✅ 確保（仕入・整備OK）</div><div class="vv" style="color:#16a34a">${secured}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div><small>ゴール−確保 ＝ <b style="color:#dc2626">あと${Math.max(0,goal-secured)}台</b></small></div>`+
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
    meigiCard+
-   `<div class="card"><div class="lb">⏳ 待機（整備中）</div><div class="vv" style="color:#4f46e5">${waiting}<small>台</small></div><small>整備が対応中・確認中の車</small></div>`+
+   `<div class="card" style="border-color:#c7d2fe;background:#eef2ff"><div class="lb">⏳ 待機（整備中）</div><div class="vv" style="color:#4f46e5">${waiting}<small>台</small></div><small>整備が対応中・確認中の車</small></div>`+
    `<div class="card"><div class="lb">🚚 店舗回収済み</div><div class="vv" style="color:#2563eb">${piOk}<small> / ${secured}台</small></div><small>店舗から回収済み ／ 確保 ${secured}台中</small></div>`+
    `<div class="card" style="border-color:#86efac;background:#f0fdf4"><div class="lb">🟢 稼働可能</div><div class="vv" style="color:#15803d">${runnable}<small>台</small></div><small>仕入・整備・引取・準備すべてOK</small></div>`;
 }
@@ -348,8 +350,8 @@ function render(){
   const gkey=r=>isOut(r)?"__OUT__":(isWait(r)?"__WAIT__":(r.vclass||""));
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(g==="__WAIT__"?"#4f46e5":(CLSCOLOR[c]||"#94a3b8"));const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else if(g==="__WAIT__"){hdr=`<tr class="clsgrp" style="--cc:#4f46e5"><td colspan="16"><span class="cbadge" style="background:#4f46e5">待機</span>⏳ 整備中（対応中・確認中）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(g==="__WAIT__"?"#4f46e5":(CLSCOLOR[c]||"#94a3b8"));const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else if(g==="__WAIT__"){hdr=`<tr class="clsgrp" style="--cc:#4f46e5"><td colspan="16" style="background:#eef2ff"><span class="cbadge" style="background:#4f46e5">待機</span>⏳ 整備中（対応中・確認中）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}${isWait(r)?" waitrow":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;return `<span class="memoflag" title="メモ：${esc(m)}">🚩 ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
