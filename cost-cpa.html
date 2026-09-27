@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<title>💸 OTA手数料・広告費・CPA（月別）</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:12px}
+  h1{font-size:17px;margin:4px 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h1 a{color:#64748b;font-size:11px;font-weight:700;text-decoration:none;margin-left:auto}
+  .sub{font-size:11.5px;color:#64748b;line-height:1.7;margin-bottom:10px}
+  .sub b{color:#334155}
+  .kpis{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .kpi{flex:1;min-width:132px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .kpi .l{font-size:11px;color:#64748b;font-weight:800}
+  .kpi .v{font-size:22px;font-weight:900;line-height:1.1;margin-top:2px}
+  .kpi small{font-size:11px;font-weight:700;color:#94a3b8}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{font-size:14px;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card h2 .rt{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer;color:#334155}
+  .btn.g{background:#16a34a;color:#fff;border-color:#16a34a}
+  .msg{font-size:11px;font-weight:800;color:#16a34a}
+  /* chart */
+  .chart{display:flex;align-items:flex-end;gap:10px;height:220px;padding:6px 4px 0;overflow-x:auto}
+  .col{flex:0 0 auto;width:52px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
+  .bars{width:100%;display:flex;flex-direction:column-reverse;justify-content:flex-start;border-radius:5px 5px 0 0;overflow:hidden;position:relative}
+  .b-fee{background:#f97316}
+  .b-ad{background:#2563eb}
+  .col .cpa{font-size:10px;font-weight:900;color:#0f172a;margin-bottom:3px;white-space:nowrap}
+  .col .mlbl{font-size:10.5px;color:#475569;font-weight:800;margin-top:5px;white-space:nowrap}
+  .col .tot{font-size:9.5px;color:#94a3b8;font-weight:700}
+  .legend{display:flex;gap:12px;font-size:11px;font-weight:800;margin:2px 0 8px}
+  .legend span{display:inline-flex;align-items:center;gap:4px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  /* table */
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:640px;font-size:12.5px}
+  th,td{padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap}
+  th{background:#f8fafc;color:#475569;font-size:11px;font-weight:800;position:sticky;top:0}
+  th:first-child,td:first-child{text-align:left}
+  td.m{font-weight:800;color:#0f172a}
+  input.ad{width:92px;border:1px solid #cbd5e1;border-radius:7px;padding:5px 7px;font-size:12.5px;text-align:right;font-family:inherit}
+  .neg{color:#dc2626;font-weight:800}.pos{color:#16a34a;font-weight:800}
+  .fee{color:#c2410c;font-weight:800}.ad{color:#1d4ed8;font-weight:800}
+  tr.now td{background:#eff6ff}
+  tfoot td{border-top:2px solid #e2e8f0;font-weight:900;background:#f8fafc}
+  #st{position:fixed;left:12px;bottom:12px;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
+  @media(max-width:640px){.col{width:44px}.chart{height:190px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💸 OTA手数料・広告費・CPA <span style="font-size:11px;color:#64748b">🚐高松店・月別</span> <a href="index.html">🏠 管理APP</a></h1>
+  <div class="sub">
+    <b>OTA手数料 ＝ その月の売上 × 18%</b>（返却月ベース・キャンセル/テスト除外）。<b>広告費</b>は手動入力（保存で全端末共有）。<br>
+    フォーカスするコスト＝<b class="fee">OTA手数料</b>＋<b class="ad">広告費</b>。<b>CPA ＝（手数料＋広告費）÷ 件数</b>＝1件を獲得するのにかかった総コスト。<br>
+    <b>手取り ＝ 売上（グロス）− 手数料 − 広告費</b>／<b>ROAS ＝ 売上 ÷ コスト</b>。
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>📊 月別 OTA手数料 ＋ 広告費（コストの可視化）
+      <span class="rt"><span class="msg" id="msg2"></span></span>
+    </h2>
+    <div class="legend"><span><i class="dot b-fee"></i>OTA手数料(18%)</span><span><i class="dot b-ad"></i>広告費</span><span>上の数字＝<b>CPA</b></span></div>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 月別テーブル（コスト → CPA → グロス）
+      <span class="rt"><button class="btn g" onclick="saveAd()">💾 広告費を保存</button><span class="msg" id="msg"></span></span>
+    </h2>
+    <div class="tw">
+      <table>
+        <thead><tr>
+          <th>月</th><th>売上（グロス）</th><th>件数</th><th>OTA手数料(18%)</th><th>広告費</th><th>コスト計</th><th>CPA</th><th>手取り</th><th>ROAS</th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+        <tfoot id="tf"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="st">接続中…</div>
+<script>
+const SB='https://ggqugvyskyiblxiycpci.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const FEE=0.18;
+const $=id=>document.getElementById(id);
+const yen=n=>'¥'+Math.round(n||0).toLocaleString();
+const yk=n=>'¥'+Math.round((n||0)/10000).toLocaleString()+'万';
+function setSt(t){$('st').textContent=t;}
+// テスト/キャンセル除外＋売上式（日報と同一）
+function isTest(r){const id=String(r.id||'');if(/^(ZZ|DEMO|KD-DEMO|TEST|DEMOMYPAGE)/i.test(id))return true;const n=String(r.name||'');if(!n.trim())return true;return /テスト|デモ|test|大下|おおした|オオシタ/i.test(n);}
+function isCxl(r){return /キャンセル|cancel|canceled|cancelled/i.test(String(r.status||''));}
+function rev(r){const b=+r.base_price||0,o=+r.option_price||0,d=+r.discount||0;return (b>0||o>0)?(b+o-d):(+r.price||0);}
+async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{apikey:ANON,Authorization:'Bearer '+ANON}});if(!r.ok)throw new Error(r.status);return r.json();}
+async function fetchAllResv(){
+  let out=[],from=0,step=1000;
+  for(let i=0;i<20;i++){
+    const r=await fetch(SB+'/rest/v1/bt_reservations?select=end_date,base_price,option_price,discount,price,status,id,name&order=end_date.asc',{headers:{apikey:ANON,Authorization:'Bearer '+ANON,Range:from+'-'+(from+step-1)}});
+    const d=await r.json(); if(!Array.isArray(d)||!d.length)break; out=out.concat(d); if(d.length<step)break; from+=step;
+  }
+  return out;
+}
+let AD={};      // {YM:広告費}
+let MONTHS=[];  // 集計結果
+function ym(d){return String(d||'').slice(0,7);}
+function nowYM(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+async function load(){
+  setSt('読み込み中…');
+  try{
+    const [resv,st]=await Promise.all([fetchAllResv(),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt')]);
+    try{AD=st&&st[0]?JSON.parse(st[0].value||'{}'):{};}catch(e){AD={};}
+    const g={};
+    resv.forEach(r=>{ if(isTest(r)||isCxl(r))return; const m=ym(r.end_date); if(!/^\d{4}-\d{2}$/.test(m))return; (g[m]=g[m]||{rev:0,cnt:0}); g[m].rev+=rev(r); g[m].cnt++; });
+    // 売上のある月＋広告費のある月を対象（時系列）
+    const keys=Array.from(new Set(Object.keys(g).concat(Object.keys(AD)))).filter(m=>/^\d{4}-\d{2}$/.test(m)).sort();
+    MONTHS=keys.map(m=>{const rv=(g[m]&&g[m].rev)||0,cnt=(g[m]&&g[m].cnt)||0,fee=Math.round(rv*FEE),ad=+AD[m]||0,cost=fee+ad,cpa=cnt?Math.round(cost/cnt):0,net=rv-cost,roas=cost?rv/cost:0;return {m,rev:rv,cnt,fee,ad,cost,cpa,net,roas};});
+    render();
+    setSt('更新OK '+new Date().toLocaleTimeString('ja-JP').slice(0,5));
+  }catch(e){setSt('読込エラー：'+e.message);}
+}
+function render(){
+  const nm=nowYM();
+  // KPI（累計＝データのある全月）
+  const T=MONTHS.reduce((a,x)=>{a.rev+=x.rev;a.cnt+=x.cnt;a.fee+=x.fee;a.ad+=x.ad;return a;},{rev:0,cnt:0,fee:0,ad:0});
+  const Tcost=T.fee+T.ad, Tcpa=T.cnt?Math.round(Tcost/T.cnt):0, Tnet=T.rev-Tcost, Troas=Tcost?T.rev/Tcost:0;
+  $('kpis').innerHTML=
+    '<div class="kpi"><div class="l">売上（グロス）累計</div><div class="v" style="color:#0f766e">'+yk(T.rev)+'</div><small>'+T.cnt+'件</small></div>'+
+    '<div class="kpi"><div class="l">OTA手数料 累計(18%)</div><div class="v fee">'+yk(T.fee)+'</div><small>売上×18%</small></div>'+
+    '<div class="kpi"><div class="l">広告費 累計</div><div class="v ad">'+yk(T.ad)+'</div><small>手動入力</small></div>'+
+    '<div class="kpi"><div class="l">CPA（手数料＋広告費÷件数）</div><div class="v" style="color:#b45309">'+yen(Tcpa)+'</div><small>コスト計 '+yk(Tcost)+'</small></div>'+
+    '<div class="kpi"><div class="l">手取り（グロス−コスト）</div><div class="v '+(Tnet>=0?'pos':'neg')+'">'+yk(Tnet)+'</div><small>ROAS '+Troas.toFixed(2)+'x</small></div>';
+  // チャート（手数料＋広告費をスタック・高さは最大コスト基準）
+  const maxCost=Math.max(1,...MONTHS.map(x=>x.cost));
+  $('chart').innerHTML=MONTHS.map(x=>{
+    const H=190; const hf=Math.round(x.fee/maxCost*H), ha=Math.round(x.ad/maxCost*H);
+    return '<div class="col" title="'+x.m+'　手数料'+yen(x.fee)+' / 広告費'+yen(x.ad)+'"><div class="cpa">'+(x.cpa?yen(x.cpa):'—')+'</div>'+
+      '<div class="bars" style="height:'+(hf+ha)+'px">'+
+      '<div class="b-fee" style="height:'+hf+'px"></div><div class="b-ad" style="height:'+ha+'px"></div></div>'+
+      '<div class="mlbl">'+x.m.slice(5)+'月</div><div class="tot">'+yk(x.cost)+'</div></div>';
+  }).join('')||'<div style="color:#94a3b8;padding:20px">データなし</div>';
+  // テーブル
+  $('tb').innerHTML=MONTHS.map(x=>{
+    return '<tr class="'+(x.m===nm?'now':'')+'"><td class="m">'+x.m+'</td><td>'+yen(x.rev)+'</td><td>'+x.cnt+'</td><td class="fee">'+yen(x.fee)+'</td>'+
+      '<td><input class="ad" type="number" data-m="'+x.m+'" value="'+(x.ad||'')+'" placeholder="0"></td>'+
+      '<td>'+yen(x.cost)+'</td><td style="color:#b45309;font-weight:800">'+(x.cpa?yen(x.cpa):'—')+'</td>'+
+      '<td class="'+(x.net>=0?'pos':'neg')+'">'+yen(x.net)+'</td><td>'+(x.roas?x.roas.toFixed(2)+'x':'—')+'</td></tr>';
+  }).join('');
+  $('tf').innerHTML='<tr><td>累計</td><td>'+yen(T.rev)+'</td><td>'+T.cnt+'</td><td class="fee">'+yen(T.fee)+'</td><td class="ad">'+yen(T.ad)+'</td><td>'+yen(Tcost)+'</td><td style="color:#b45309">'+yen(Tcpa)+'</td><td class="'+(Tnet>=0?'pos':'neg')+'">'+yen(Tnet)+'</td><td>'+(Troas?Troas.toFixed(2)+'x':'—')+'</td></tr>';
+  // 広告費 入力→即再計算（保存は別）
+  $('tb').querySelectorAll('input.ad').forEach(el=>el.addEventListener('input',()=>{
+    const m=el.dataset.m; AD[m]=+el.value||0;
+    const x=MONTHS.find(o=>o.m===m); if(x){x.ad=+el.value||0;x.cost=x.fee+x.ad;x.cpa=x.cnt?Math.round(x.cost/x.cnt):0;x.net=x.rev-x.cost;x.roas=x.cost?x.rev/x.cost:0;}
+    rerenderLite();
+    $('msg2').textContent='未保存'; $('msg').textContent='未保存';
+  }));
+}
+function rerenderLite(){ // 入力中はチャート/KPI/合計だけ更新（入力欄は触らない）
+  const nm=nowYM();
+  const T=MONTHS.reduce((a,x)=>{a.rev+=x.rev;a.cnt+=x.cnt;a.fee+=x.fee;a.ad+=x.ad;return a;},{rev:0,cnt:0,fee:0,ad:0});
+  const Tcost=T.fee+T.ad, Tcpa=T.cnt?Math.round(Tcost/T.cnt):0, Tnet=T.rev-Tcost, Troas=Tcost?T.rev/Tcost:0;
+  $('kpis').children[3].querySelector('.v').textContent=yen(Tcpa);
+  $('kpis').children[3].querySelector('small').textContent='コスト計 '+yk(Tcost);
+  $('kpis').children[2].querySelector('.v').textContent=yk(T.ad);
+  $('kpis').children[4].querySelector('.v').textContent=yk(Tnet);
+  $('kpis').children[4].querySelector('.v').className='v '+(Tnet>=0?'pos':'neg');
+  $('kpis').children[4].querySelector('small').textContent='ROAS '+Troas.toFixed(2)+'x';
+  const maxCost=Math.max(1,...MONTHS.map(x=>x.cost));
+  $('chart').innerHTML=MONTHS.map(x=>{const hf=Math.round(x.fee/maxCost*190),ha=Math.round(x.ad/maxCost*190);return '<div class="col" title="'+x.m+'"><div class="cpa">'+(x.cpa?yen(x.cpa):'—')+'</div><div class="bars" style="height:'+(hf+ha)+'px"><div class="b-fee" style="height:'+hf+'px"></div><div class="b-ad" style="height:'+ha+'px"></div></div><div class="mlbl">'+x.m.slice(5)+'月</div><div class="tot">'+yk(x.cost)+'</div></div>';}).join('');
+  // 合計行のコスト/CPA/手取りも更新
+  $('tf').innerHTML='<tr><td>累計</td><td>'+yen(T.rev)+'</td><td>'+T.cnt+'</td><td class="fee">'+yen(T.fee)+'</td><td class="ad">'+yen(T.ad)+'</td><td>'+yen(Tcost)+'</td><td style="color:#b45309">'+yen(Tcpa)+'</td><td class="'+(Tnet>=0?'pos':'neg')+'">'+yen(Tnet)+'</td><td>'+(Troas?Troas.toFixed(2)+'x':'—')+'</td></tr>';
+}
+async function saveAd(){
+  setSt('保存中…'); $('msg').textContent='';
+  const clean={}; Object.keys(AD).forEach(k=>{if(+AD[k]>0)clean[k]=+AD[k];});
+  const body={key:'hp_adspend_bt',value:JSON.stringify(clean)};
+  try{
+    // upsert（存在すればPATCH、なければPOST）
+    let r=await fetch(SB+'/rest/v1/bt_app_settings?key=eq.hp_adspend_bt',{method:'PATCH',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({value:body.value})});
+    let d=await r.json();
+    if(!Array.isArray(d)||!d.length){ r=await fetch(SB+'/rest/v1/bt_app_settings',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    if(r.ok){$('msg').textContent='✅ 保存しました';$('msg2').textContent='保存済';setSt('保存OK');setTimeout(()=>{$('msg').textContent='';$('msg2').textContent='';},2500);}
+    else{$('msg').textContent='保存失敗';setSt('保存失敗 '+r.status);}
+  }catch(e){$('msg').textContent='保存失敗';setSt('保存失敗 '+e.message);}
+}
+load();
+</script>
+</body>
+</html>
