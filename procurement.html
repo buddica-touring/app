@@ -299,14 +299,15 @@ function counts(){
 const priceNum=s=>{const m=String(s||"").match(/([\d.]+)\s*万円/);return m?parseFloat(m[1]):0;};
 function renderDash(){
   const c=counts();
-  const ok=c.OK||0;
-  const pct=Math.min(100,Math.round(ok/goal*100));
-  let okSum=0, piOk=0; rows.forEach(r=>{if(isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++;}}); // 仕入OK車両の本体価格合計(万円)・引取OK数
+  const ok=c.OK||0;   // 仕入OK
+  let secured=0, okSum=0, piOk=0;
+  rows.forEach(r=>{if(isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++; if(r.maint_status==="OK")secured++;}}); // 確保=仕入OK&整備OK / 本体価格合計(万円) / 引取OK数
+  const pct=Math.min(100,Math.round(secured/goal*100));
   const okSumTxt=okSum?okSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
   $("dash").innerHTML=
-   `<div class="card"><div class="lb">✅ 確保（仕入OK）</div><div class="vv" style="color:#16a34a">${ok}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div><small>ゴール−確保 ＝ <b style="color:#dc2626">あと${Math.max(0,goal-ok)}台</b></small></div>`+
+   `<div class="card"><div class="lb">✅ 確保（仕入・整備OK）</div><div class="vv" style="color:#16a34a">${secured}<small> / ${goal}台</small></div><div class="bar"><i style="width:${pct}%"></i></div><small>ゴール−確保 ＝ <b style="color:#dc2626">あと${Math.max(0,goal-secured)}台</b></small></div>`+
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${okSumTxt}<small>万円</small></div><small>仕入OK ${ok}台の本体価格合計</small></div>`+
-   `<div class="card"><div class="lb">🚚 引取OK</div><div class="vv" style="color:#2563eb">${piOk}<small> / ${ok}台</small></div><small>現場引き取り完了 ／ 仕入OK ${ok}台中</small></div>`+
+   `<div class="card"><div class="lb">🚚 引取OK</div><div class="vv" style="color:#2563eb">${piOk}<small> / ${secured}台</small></div><small>現場引き取り完了 ／ 確保 ${secured}台中</small></div>`+
    (()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(!(r.status==="OK"&&r.maint_status==="OK"))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
      return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／仕入・整備ともにOK ${bud+hdm}台</small></div>`;})();
 }
