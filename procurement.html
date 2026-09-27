@@ -205,7 +205,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
   <div class="tabs">
     <button class="tabbtn on" data-v="proc">🛒 仕入候補</button>
-    <button class="tabbtn" data-v="fleet">🗂 車両リスト（HDM / BUDDICA）</button>
+    <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保：仕入・整備OK）</button>
   </div>
   <div id="viewProc">
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
@@ -240,7 +240,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   </div><!--/viewProc-->
 
   <div id="viewFleet" style="display:none">
-    <div class="sub" style="margin-bottom:8px">高松の車両マスター（APPの車両データ）を <b>HDM（HANDYMAN高松）</b> と <b>BUDDICA</b> に分けて表示します。</div>
+    <div class="sub" style="margin-bottom:8px">仕入・整備ともにOKの<b>確保車両</b>をクラス別にまとめた一覧です（名義で絞り込み可）。</div>
     <div class="tb" style="margin-bottom:6px">
       <span class="chip on" data-fb="all">全体</span>
       <span class="chip" data-fb="HDM">🔵 HDM</span>
@@ -569,6 +569,7 @@ sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   const _ae=document.activeElement, _ed=_ae&&_ae.classList&&(_ae.classList.contains("cell")||_ae.hasAttribute("data-df"));
   if(!_ed){render();}
   else{renderDash();}
+  if($("viewFleet")&&$("viewFleet").style.display!=="none")renderFleet();
 }).subscribe(s=>{ if(s==="SUBSCRIBED")setStatus("リアルタイム接続"); });
 
 // ===== 車両リスト（HDM / BUDDICA）=====
@@ -576,39 +577,37 @@ let FLEET=null, fleetBrand="all";
 const CLASS_ORDER=["A","AA","B","C","D","E","F","G","H","I","J","K","送迎"];
 function nbrand(b){return String(b||"").toUpperCase()==="HDM"?"HDM":"BUDDICA";}
 function fesc(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
-async function loadFleet(){
-  $("fleetBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  const {data,error}=await sb.from("bt_vehicles").select("*");
-  if(error){$("fleetBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(error.message)+'</div>';return;}
-  FLEET=data||[]; renderFleet();
-}
+async function loadFleet(){ await load(); renderFleet(); }
+// 車両リスト＝仕入OK＋整備OK（確保）の車両だけをクラス別にまとめて表示（読み取り専用サマリー）
+const FL_CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
+const FL_CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
+const FL_STCOL={stU:"#64748b",stC:"#b45309",stO:"#166534",stN:"#b91c1c",stX:"#1d4ed8"};
 function renderFleet(){
-  if(!FLEET)return;
-  const brands=fleetBrand==="all"?["HDM","BUDDICA"]:[fleetBrand];
-  const ordf=v=>{const i=CLASS_ORDER.indexOf(v.type);return i<0?99:i;};
   const g=x=>x?fesc(x):'<span class="flmiss">-</span>';
-  let html="";
-  brands.forEach(br=>{
-    const list=FLEET.filter(v=>nbrand(v.brand)===br);
-    const col=br==="HDM"?"#1e3a8a":"#047857";
-    const lbl=br==="HDM"?"🔵 HDM（HANDYMAN高松）":"🟢 BUDDICA";
-    const act=list.filter(v=>v.active!==false&&v.status!=="inactive").length;
-    html+=`<div class="brandhead" style="background:${col}">${lbl}<span class="bc">計${list.length}台（稼働${act}）</span></div>`;
-    if(!list.length){html+='<div style="color:#94a3b8;padding:8px">登録なし</div>';return;}
-    list.sort((a,b)=>ordf(a)-ordf(b)||String(a.name||"").localeCompare(String(b.name||"")));
-    html+='<div class="fltblwrap"><table class="fltbl"><thead><tr>'+
-      '<th>クラス</th><th>ナンバー</th><th>車種</th><th>年式</th><th>カラー</th><th>定員</th><th>燃料</th><th>ﾊﾝﾄﾞﾙ</th><th>ETC位置</th><th>グレード</th><th>車検満了</th><th>点検</th><th>走行km</th><th>稼働</th></tr></thead><tbody>';
-    let prev=null;
-    list.forEach(v=>{
-      const sp=v.specs||{};
-      const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>';
-      const on=v.active!==false&&v.status!=="inactive";
-      const clsCell=(v.type!==prev)?'<span class="cls">'+fesc(v.type)+'</span>':"";prev=v.type;
-      html+='<tr><td>'+clsCell+'</td><td class="plate">'+g(v.plate_no)+'</td><td>'+fesc(v.name)+'</td><td>'+g(v.year)+'</td><td>'+g(v.color)+'</td><td>'+g(v.seats)+'</td><td>'+g(sp.fuel)+'</td><td>'+g(sp.handle)+'</td><td title="'+fesc(sp.etc_location||"")+'">'+g(sp.etc_location)+'</td><td title="'+fesc(v.grade||"")+'">'+g(v.grade)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td class="'+(on?'fl-act':'fl-off')+'">'+(on?'稼働':'除外')+'</td></tr>';
+  let list=rows.filter(r=>!isSample(r)&&r.status==="OK"&&r.maint_status==="OK");  // 確保＝仕入OK＋整備OK
+  if(fleetBrand==="HDM")list=list.filter(r=>r.pickup==="HDM");
+  else if(fleetBrand==="BUDDICA")list=list.filter(r=>r.pickup==="BD");
+  const total=list.length;
+  const plate=r=>{const p=String(r.plate||"");if(!p)return'<span class="flmiss">-</span>';const m=p.match(/(\d{2,4})\s*$/);return m?m[1]:fesc(p);};
+  const meigi=r=>r.pickup==="HDM"?'<span style="background:#2563eb;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">HDM</span>':(r.pickup==="BD"?'<span style="background:#f97316;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">BD</span>':'<span class="flmiss">未定</span>');
+  const sale=r=>{const s=r.sale_status||"未対応";return '<span style="color:'+(FL_STCOL[STCLS[s]]||"#64748b")+';font-weight:800;font-size:12px">'+fesc(s)+'</span>';};
+  let html='<div class="sub" style="margin-bottom:10px">仕入・整備ともに <b style="color:#16a34a">OK</b> の確保車両 <b>'+total+'台</b> をクラス別にまとめています。</div>';
+  if(!total){$("fleetBody").innerHTML=html+'<div style="color:#94a3b8;padding:16px;text-align:center">仕入・整備ともにOKの車両はまだありません。</div>';return;}
+  const order=CLASSES.slice(1);  // A..K
+  const grp={}; order.forEach(c=>grp[c]=[]); const misc=[];
+  list.forEach(r=>{ if(r.vclass&&grp[r.vclass])grp[r.vclass].push(r); else misc.push(r); });
+  const sect=(c,arr)=>{
+    if(!arr.length)return;
+    const col=FL_CLSCOLOR[c]||"#94a3b8", lbl=FL_CLSLBL[c]||"クラス未設定";
+    html+='<div class="brandhead" style="background:'+col+'"><span style="background:rgba(255,255,255,.25);border-radius:5px;padding:1px 9px;font-weight:900">'+(c||"—")+'</span> '+lbl+'<span class="bc">'+arr.length+'台</span></div>';
+    html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:32%">車種</th><th style="width:76px">ナンバー</th><th>車両状態</th><th style="width:60px">名義</th><th style="width:80px">販売開始</th></tr></thead><tbody>';
+    arr.forEach(r=>{
+      html+='<tr><td><b>'+fesc(r.model||"車種未取得")+'</b></td><td class="plate">'+plate(r)+'</td><td style="white-space:normal">'+(r.condition?fesc(r.condition):'<span class="flmiss">-</span>')+'</td><td>'+meigi(r)+'</td><td>'+sale(r)+'</td></tr>';
     });
     html+='</tbody></table></div>';
-  });
-  html+='<div class="flnote">※ HDMはクラス枠のみ登録の車両があり、ナンバー・年式・車検日などが空欄です（今後 車両APPで入力すると自動反映されます）。BUDDICAは実車マスターです。車両情報の編集は各アプリの車両管理から。</div>';
+  };
+  order.forEach(c=>sect(c,grp[c]));
+  if(misc.length)sect("",misc);
   $("fleetBody").innerHTML=html;
 }
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
@@ -616,7 +615,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   const v=b.dataset.v;
   $("viewProc").style.display=v==="proc"?"":"none";
   $("viewFleet").style.display=v==="fleet"?"":"none";
-  if(v==="fleet"&&FLEET===null)loadFleet();
+  if(v==="fleet")renderFleet();
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
 document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventListener("click",()=>{
