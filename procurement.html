@@ -210,6 +210,10 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 .m-cnt{font-weight:800;color:#334155;font-size:13px}
 .m-mc{color:#d97706;font-weight:700;font-size:12px}
 .m-tog{color:#94a3b8;font-weight:800;font-size:12px;width:14px;text-align:center}
+.m-specrow td{background:#fcfdff;border-top:none!important;padding:3px 8px 8px!important}
+.m-specs{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.m-spec{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:11px;color:#334155;font-weight:600;line-height:1.5}
+.m-spec b{color:#94a3b8;font-weight:800;font-size:10px}
 .fltblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:760px){.fltbl{min-width:0;font-size:11px}.fltbl th,.fltbl td{padding:4px 5px}}
 </style>
@@ -608,6 +612,32 @@ const M_CLSCOLOR={AA:"#0f172a",A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E
 const insOf=v=>Number(v.insurance_annual)||0;
 const leaseOf=v=>Number(v.lease_monthly)||0;
 const isHdm=v=>String(v.brand||"").toUpperCase()==="HDM";
+function mSpecLine(v){
+  const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};
+  const chip=(t,val)=>val?'<span class="m-spec">'+(t?'<b>'+t+'</b> ':'')+fesc(val)+'</span>':'';
+  const on=(k,label,col)=>sp[k]?'<span class="m-spec" style="background:'+col+';border-color:'+col+';color:#fff;font-weight:800">'+label+'</span>':'';
+  const navs=[]; if(sp.nav_en)navs.push("英"); if(sp.nav_zh)navs.push("中"); if(sp.nav_ko)navs.push("韓");
+  let h='';
+  h+=chip("型式",sp.model_code);
+  h+=chip("車体番号",sp.shatai_no);
+  h+=chip("グレード",v.grade);
+  h+=(v.seats?'<span class="m-spec"><b>座席</b> '+fesc(v.seats)+'人</span>':'');
+  h+=chip("ハンドル",sp.handle);
+  h+=chip("",sp.transmission);
+  h+=chip("タイヤ",sp.tire);
+  h+=chip("燃料",sp.fuel);
+  if(navs.length)h+='<span class="m-spec" style="background:#eef2ff;border-color:#c7d2fe;color:#3730a3"><b>🌐ナビ</b> '+navs.join("/")+'</span>';
+  h+=chip("ETC位置",sp.etc_location);
+  h+=(sp.etc_image?'<a class="m-spec" href="'+fesc(sp.etc_image)+'" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none">🖼 ETC画像</a>':'');
+  h+=on("dashcam","🎥ドラレコ","#0891b2");
+  h+=on("usb","🔌USB","#0891b2");
+  h+=on("bluetooth","📶Bluetooth","#16a34a");
+  h+=on("backcam","📷バックカメラ","#16a34a");
+  h+=on("rearmonitor","🖥リアモニター","#16a34a");
+  h+=(v.equip?'<span class="m-spec" style="background:#fffbeb;border-color:#fde68a;color:#92400e"><b>装備</b> '+fesc(v.equip)+'</span>':'');
+  h+=(v.memo?'<span class="m-spec" style="background:#f8fafc"><b>メモ</b> '+fesc(v.memo)+'</span>':'');
+  return h||'<span style="color:#cbd5e1;font-size:11px">装備情報なし</span>';
+}
 async function loadMaster(){
   $("masterBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
   const {data,error}=await sb.from("bt_vehicles").select("*");
@@ -630,7 +660,7 @@ function renderMaster(){
       html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
       arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
         const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=v.active!==false&&v.status!=="inactive", bd=isHdm(v);
-        html+='<tr><td class="plate">'+g(v.plate_no)+'</td><td>'+fesc(v.name||"")+'</td><td><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td>'+g(v.year)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td>¥'+insOf(v).toLocaleString()+'</td><td>¥'+leaseOf(v).toLocaleString()+'</td><td class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr>';
+        html+='<tr><td class="plate">'+g(v.plate_no)+'</td><td>'+fesc(v.name||"")+'</td><td><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td>'+g(v.year)+'</td><td>'+g(v.inspection_due_date)+'</td><td>'+g(v.tenken_due_date)+'</td><td>'+mi+'</td><td>¥'+insOf(v).toLocaleString()+'</td><td>¥'+leaseOf(v).toLocaleString()+'</td><td class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
       });
       html+='</tbody></table></div>';
     }
