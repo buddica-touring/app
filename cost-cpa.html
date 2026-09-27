@@ -34,7 +34,7 @@
   .legend span{display:inline-flex;align-items:center;gap:4px}
   .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
   .tw{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:960px;font-size:12px}
+  table{width:100%;border-collapse:collapse;min-width:1080px;font-size:12px}
   th,td{padding:6px 7px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap}
   th{background:#f8fafc;color:#475569;font-size:10.5px;font-weight:800;position:sticky;top:0}
   th.g1{background:#fff7ed;color:#c2410c}th.g2{background:#eff6ff;color:#1d4ed8}th.g3{background:#fefce8;color:#a16207}
@@ -76,7 +76,7 @@
       <table>
         <thead>
           <tr>
-            <th rowspan="2">月</th>
+            <th rowspan="2">月</th><th rowspan="2">総売上<br>(グロス)</th><th rowspan="2">構成比<br>🟧OTA/🟦HP</th>
             <th class="g1" colspan="4">🟧 OTA</th>
             <th class="g2" colspan="4">🟦 HP（自社）</th>
             <th class="g3" colspan="4">🟨 合算</th>
@@ -101,6 +101,7 @@ const FEE=0.18;
 const $=id=>document.getElementById(id);
 const yen=n=>'¥'+Math.round(n||0).toLocaleString();
 const yk=n=>'¥'+Math.round((n||0)/10000).toLocaleString()+'万';
+function ratioCell(o,h){const t=(o||0)+(h||0);if(!t)return '<span style="color:#cbd5e1">—</span>';const op=Math.round(o/t*100),hp=100-op;return '<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end"><div style="width:54px;height:9px;border-radius:5px;overflow:hidden;display:flex;background:#e2e8f0"><div style="width:'+op+'%;background:#f97316"></div><div style="width:'+hp+'%;background:#2563eb"></div></div><span style="font-size:10.5px;font-weight:800"><span class="fee">'+op+'</span>/<span class="adc">'+hp+'</span></span></div>';}
 function setSt(t){$('st').textContent=t;}
 async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{apikey:ANON,Authorization:'Bearer '+ANON}});if(!r.ok)throw new Error(r.status);return r.json();}
 async function sbPost(path,body){const r=await fetch(SB+'/rest/v1/'+path,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(r.status);return r.json();}
@@ -154,7 +155,7 @@ function renderKpisChartFoot(){
   $('chart').innerHTML=MONTHS.map(x=>{const hf=Math.round(x.fee/mx*190),ha=Math.round(x.ad/mx*190);
     return '<div class="col" title="'+x.m+'\n手数料'+yen(x.fee)+' / 広告費'+yen(x.ad)+'\nOTA-CPA'+yen(x.otaCpa)+' / HP-CPA'+yen(x.hpCpa)+' / 合算'+yen(x.allCpa)+'"><div class="cpa">'+(x.allCpa?yen(x.allCpa):'—')+'</div><div class="bars" style="height:'+(hf+ha)+'px"><div class="b-fee" style="height:'+hf+'px"></div><div class="b-ad" style="height:'+ha+'px"></div></div><div class="mlbl">'+x.m.slice(5)+'月</div><div class="tot">'+yk(x.cost)+'</div></div>';
   }).join('')||'<div style="color:#94a3b8;padding:20px">データなし</div>';
-  $('tf').innerHTML='<tr><td>累計</td>'+
+  $('tf').innerHTML='<tr><td>累計</td><td>'+yen(T.rev)+'</td><td>'+ratioCell(T.otaRev,T.hpRev)+'</td>'+
     '<td class="g1">'+T.otaCnt+'</td><td class="g1">'+yen(T.otaRev)+'</td><td class="g1 fee">'+yen(T.fee)+'</td><td class="g1 cpa">'+yen(T.otaCpa)+'</td>'+
     '<td class="g2">'+T.hpCnt+'</td><td class="g2">'+yen(T.hpRev)+'</td><td class="g2 adc">'+yen(T.ad)+'</td><td class="g2 cpa">'+yen(T.hpCpa)+'</td>'+
     '<td class="g3">'+T.cnt+'</td><td class="g3">'+yen(T.rev)+'</td><td class="g3">'+yen(T.cost)+'</td><td class="g3 cpa">'+yen(T.allCpa)+'</td></tr>';
@@ -162,7 +163,7 @@ function renderKpisChartFoot(){
 function render(){
   const nm=nowYM();
   $('tb').innerHTML=MONTHS.map(x=>
-    '<tr class="'+(x.m===nm?'now':'')+'"><td class="m">'+x.m+'</td>'+
+    '<tr class="'+(x.m===nm?'now':'')+'"><td class="m">'+x.m+'</td><td>'+yen(x.rev)+'</td><td>'+ratioCell(x.otaRev,x.hpRev)+'</td>'+
     '<td class="g1">'+x.otaCnt+'</td><td class="g1">'+yen(x.otaRev)+'</td><td class="g1 fee">'+yen(x.fee)+'</td><td class="g1 cpa">'+(x.otaCnt?yen(x.otaCpa):'—')+'</td>'+
     '<td class="g2">'+x.hpCnt+'</td><td class="g2">'+yen(x.hpRev)+'</td><td class="g2"><input class="ad" type="number" data-m="'+x.m+'" value="'+(x.ad||'')+'" placeholder="0"></td><td class="g2 cpa">'+(x.hpCnt&&x.ad?yen(x.hpCpa):'—')+'</td>'+
     '<td class="g3">'+x.cnt+'</td><td class="g3">'+yen(x.rev)+'</td><td class="g3">'+yen(x.cost)+'</td><td class="g3 cpa">'+(x.cnt?yen(x.allCpa):'—')+'</td></tr>'
@@ -173,9 +174,9 @@ function render(){
     const i=MONTHS.findIndex(o=>o.m===m); if(i>=0)MONTHS[i]=calc(MONTHS[i]);
     // 該当行の再計算セルだけ更新（入力欄は触らない）
     const x=MONTHS[i], tr=el.closest('tr'), td=tr.querySelectorAll('td');
-    td[8].textContent=(x.hpCnt&&x.ad?yen(x.hpCpa):'—');   // HP-CPA
-    td[11].textContent=yen(x.cost);                       // 合算コスト
-    td[12].textContent=(x.cnt?yen(x.allCpa):'—');         // 合算CPA
+    td[10].textContent=(x.hpCnt&&x.ad?yen(x.hpCpa):'—');  // HP-CPA
+    td[13].textContent=yen(x.cost);                       // 合算コスト
+    td[14].textContent=(x.cnt?yen(x.allCpa):'—');         // 合算CPA
     renderKpisChartFoot();
     $('msg').textContent='未保存';
   }));
