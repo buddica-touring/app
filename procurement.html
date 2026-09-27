@@ -202,10 +202,6 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   </details>
 
   <div class="dash" id="dash"></div>
-  <details class="clswrap" id="clswrap">
-    <summary id="clsummary">クラス別 ピック / 確定</summary>
-    <div class="clsum" id="clsum"></div>
-  </details>
 
   <div class="tb">
     <button class="btn p" id="add">＋ URLで追加（自動取得）</button>
@@ -221,7 +217,7 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:74px">ナンバー</th><th style="width:44px">年式</th><th style="width:76px">走行</th><th style="width:130px">車両状態</th>
+        <th style="width:28px">No</th><th style="width:116px">車種</th><th style="width:74px">ナンバー</th><th style="width:76px">走行</th><th style="width:130px">車両状態</th>
         <th style="width:98px">展示場所</th><th style="width:98px">問合せ<br>コード</th>
         <th style="width:78px">仕入</th><th style="width:78px">整備</th><th style="width:78px">引取</th><th style="width:78px">準備</th><th style="width:82px">名義</th><th style="width:74px">稼働<br>開始</th><th style="width:82px">URL</th><th style="width:30px"></th>
       </tr></thead>
@@ -315,15 +311,6 @@ function renderDash(){
      return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／仕入・整備ともにOK ${bud+hdm}台</small></div>`;})();
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
-// クラス別 ピック数（そのクラスで拾った総数）と 確定数（仕入OKのみ）
-function renderClassSummary(){
-  const pk={},ok={};CLASSES.slice(1).forEach(c=>{pk[c]=0;ok[c]=0;});
-  rows.forEach(r=>{if(isSample(r))return;if(r.vclass){pk[r.vclass]=(pk[r.vclass]||0)+1;if(r.status==="OK")ok[r.vclass]=(ok[r.vclass]||0)+1;}});
-  const tPk=Object.values(pk).reduce((a,b)=>a+b,0), tOk=Object.values(ok).reduce((a,b)=>a+b,0);
-  const shown=CLASSES.slice(1).filter(c=>pk[c]>0);
-  $("clsummary").innerHTML=`📊 クラス別　ピック <b style="color:#334155">${tPk}</b> / 確定(仕入OK) <b style="color:#166534">${tOk}</b> <span style="color:#94a3b8;font-weight:600">（タップで内訳）</span>`;
-  $("clsum").innerHTML=shown.length?shown.map(c=>`<span class="cc"><span style="color:#0f172a">${c}</span> <span class="pk" title="ピック数">📌${pk[c]}</span> <b title="確定(仕入OK)">✓${ok[c]}</b></span>`).join(""):`<span class="cc z">クラス未設定</span>`;
-}
 function renderFilterBar(){
   const real=rows.filter(r=>!isSample(r));
   const cAll=real.length;
@@ -342,7 +329,6 @@ function renderFilterBar(){
 }
 function render(){
   renderDash();
-  renderClassSummary();
   renderFilterBar();
   const list=rows.filter(r=>{
     if(filter==="all")return true;
@@ -360,12 +346,11 @@ function render(){
   const gkey=r=>isOut(r)?"__OUT__":(isWait(r)?"__WAIT__":(r.vclass||""));
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(g==="__WAIT__"?"#b45309":(CLSCOLOR[c]||"#94a3b8"));const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else if(g==="__WAIT__"){hdr=`<tr class="clsgrp" style="--cc:#b45309"><td colspan="16"><span class="cbadge" style="background:#b45309">待機</span>⏳ 整備中（対応中・確認中）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(g==="__WAIT__"?"#b45309":(CLSCOLOR[c]||"#94a3b8"));const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="15"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else if(g==="__WAIT__"){hdr=`<tr class="clsgrp" style="--cc:#b45309"><td colspan="15"><span class="cbadge" style="background:#b45309">待機</span>⏳ 整備中（対応中・確認中）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="15"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;return `<span class="memoflag" title="メモ：${esc(m)}">🚩 ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
-      <td data-lb="年式"><span class="ro">${esc(r.year)||"—"}</span></td>
       <td data-lb="走行"><span class="ro">${esc(r.mileage)||"—"}</span></td>
       <td data-lb="車両状態">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<input class="cell" data-f="condition" value="${esc(r.condition)}" placeholder="状態を入力…" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1">`}</td>
       <td data-lb="場所"><span class="ro">${esc(r.location)||"—"}</span></td>
@@ -383,7 +368,7 @@ function render(){
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
-    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
+    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="15"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
       <div class="fld"><label>整備 完了予定</label><input type="date" data-df="maint_done_date" value="${esc(r.maint_done_date)}"></div>
       <div class="fld"><label>名義 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
@@ -391,7 +376,7 @@ function render(){
       <div class="fld"><label>現場引き取り予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
       <div class="fld"><label>稼働開始予定</label><input type="date" data-df="op_start_date" value="${esc(r.op_start_date)}"></div>
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
-    </div></td></tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </div></td></tr>`;}).join("")||`<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
   // wire
   $("tb").querySelectorAll("input.cell,select.st").forEach(el=>{
     const id=el.closest("tr").dataset.id, f=el.dataset.f;
