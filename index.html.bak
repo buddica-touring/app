@@ -25390,17 +25390,18 @@ function btInvTodoCount(data,stat,maintenance,vehicles){
   const chOf=(r)=>brandOf(r)==="HDM"?CH_HDM:CH_BUDDICA;
   const originKey=(r)=>{if(r._intake)return"";const br=brandOf(r);const o=String(r.ota||"").trim();if(br==="HDM"){if(o==="J"||o==="じゃらん")return"adj_jalan";if(o==="R"||o==="楽天"||o==="楽天トラベル")return"adj_rakuten";return"adj_official_hdm";}if(o==="O"||o==="A"||o==="エアトリ")return"adj_airtrip";if(o==="RC"||o==="レンタカードットコム"||o==="レンタカー.com")return"adj_rentacom";if(o==="TBR"||o==="たびらい")return"adj_tabirai";return"adj_official";};
   const isCxl=(r)=>r.status==="cancelled";
-  const sOf=(r)=>{const s=stat[r.id]||{};const ok=originKey(r);return{...s,[ok]:true};};
-  // 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）
-  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&s[c.key]);};
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&!s[c.key]);};
+  const AUTO_KEY="adj_official_hdm";// ★2026-09-28 HDM公式は配車表連動で自動調整＝常に済扱い（BtInventoryTabと同一ルール）
+  const sOf=(r)=>{const s=stat[r.id]||{};const ok=originKey(r);return{...s,[ok]:true,[AUTO_KEY]:true};};
+  // 発生元・HDM公式(自動)以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&c.key!==AUTO_KEY&&s[c.key]);};
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&c.key!==AUTO_KEY&&!s[c.key]);};
   // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放(旧stock_released済みは除外)
   const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=(data||[]).filter(r=>{const d=r.returnDate||r.lendDate;if(!d||d<today)return false;return isCxl(r)?cxNeedRel(r):(r.lendDate&&r.lendDate>=today);});
   let cnt=rows.filter(isTodo).length;
   // ★2026-08-17/2026-09-02 入庫(車検/点検/修理)=車両ブランドの媒体だけ調整対象。未チェックが残れば未対応
   const IL=["車検","半年点検","修理"];
-  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};const ch=chOf({_intake:true,vehicleCode:m.vehicleCode});if(ch.some(c=>!s[c.key]))cnt++;});
+  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};const ch=chOf({_intake:true,vehicleCode:m.vehicleCode});if(ch.some(c=>c.key!==AUTO_KEY&&!s[c.key]))cnt++;});
   return cnt;
 }
 
@@ -25450,12 +25451,14 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   },[sb]);
   // 既定：発生元だけ自動で済（true）、残りは未（要）
   const ALL_KEYS=["adj_airtrip","adj_official","adj_rentacom","adj_jalan","adj_tabirai","adj_official_hdm","adj_rakuten"];
-  const defOf=(r)=>{const ok=originKey(r);const o={stock_released:false};ALL_KEYS.forEach(k=>o[k]=(k===ok));return o;};
-  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元は常に済扱いにマージ */const ok=originKey(r);return{...base,...s,[ok]:true};};
-  // ★2026-08-11/2026-09-02 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）
-  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&s[c.key]);};
-  // 未対応＝発生元以外のチャネルに未チェックが残っている（キャンセルは「減らした媒体の解放が残る」）
-  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&!s[c.key]);};
+  // ★2026-09-28 HDM公式(adj_official_hdm)は配車表と連動し自動で在庫調整される＝常に「済」扱い（手作業不要）。JLN/RTTは手動のまま。
+  const AUTO_KEY="adj_official_hdm";
+  const defOf=(r)=>{const ok=originKey(r);const o={stock_released:false};ALL_KEYS.forEach(k=>o[k]=(k===ok));o[AUTO_KEY]=true;return o;};
+  const sOf=(r)=>{const base=defOf(r);const s=stat[r.id];if(!s)return base;/* 保存値があっても発生元・HDM公式(自動)は常に済扱いにマージ */const ok=originKey(r);return{...base,...s,[ok]:true,[AUTO_KEY]:true};};
+  // ★2026-08-11/2026-09-02 発生元以外で「実際に在庫を減らした(=解放が必要な)」チャネルが残っているか（ブランド内のみ）。HDM公式は自動連動なので除外。
+  const stillReduced=(r)=>{const s=sOf(r),ok=originKey(r);return chOf(r).some(c=>c.key!==ok&&c.key!==AUTO_KEY&&s[c.key]);};
+  // 未対応＝発生元・HDM公式(自動)以外のチャネルに未チェックが残っている（キャンセルは「減らした媒体の解放が残る」）
+  const isTodo=(r)=>{const s=sOf(r);const ok=originKey(r);return isCxl(r)?stillReduced(r):chOf(r).some(c=>c.key!==ok&&c.key!==AUTO_KEY&&!s[c.key]);};
   // キャンセル解放待ち＝調整済み(減らした媒体が残る)かつ未解放。未調整キャンセルは相殺で表示しない。旧stock_released済みは除外。
   const cxNeedRel=(r)=>isCxl(r)&&!sOf(r).stock_released&&stillReduced(r);
   const rows=React.useMemo(()=>{
@@ -25467,7 +25470,7 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):filt==="brandBT"?brandOf(r)==="BUDDICA":filt==="brandHDM"?brandOf(r)==="HDM":FILT_CH[filt]?originKey(r)===FILT_CH[filt]:r.ota===filt);
   const cntTodo=rows.filter(isTodo).length, cntNew=rows.filter(r=>isNew(r)&&isTodo(r)).length, cntCxl=rows.filter(cxNeedRel).length, cntDone=rows.length-cntTodo;
   const toggle=async(r,key)=>{
-    const ok=originKey(r);if(key===ok)return;/* 発生元は操作不可 */
+    const ok=originKey(r);if(key===ok||key===AUTO_KEY)return;/* 発生元・HDM公式(自動連動)は操作不可 */
     const cur=sOf(r);const next={...cur,[key]:!cur[key],[ok]:true};
     setStat(s=>({...s,[r.id]:next}));
     if(sb){const base={id:r.id,adj_airtrip:next.adj_airtrip,adj_official:next.adj_official,adj_rentacom:next.adj_rentacom,adj_jalan:next.adj_jalan,adj_tabirai:next.adj_tabirai,adj_official_hdm:next.adj_official_hdm,adj_rakuten:next.adj_rakuten,updated_by:(window.sbCurrentUser&&window.sbCurrentUser.email)||"",updated_at:new Date().toISOString()};
@@ -25491,16 +25494,16 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   const chip=(k,l)=>(<span onClick={()=>setFilt(k)} style={{fontSize:12,padding:"6px 12px",borderRadius:999,cursor:"pointer",border:"1px solid "+(filt===k?"#0f172a":"#e2e8f0"),background:filt===k?"#0f172a":"#fff",color:filt===k?"#fff":"#0f172a"}}>{l}</span>);
   const doCancel=async(r)=>{if(!onCancel)return;if(!window.confirm("この予約をキャンセル扱いにします。\n\n"+(r.name||"")+" / "+(OTA_L[r.ota]||r.ota)+"\n"+r.id+"\n"+fmtD(r.lendDate)+"〜"+fmtD(r.returnDate)+"\n\n配車も自動で解除されます。よろしいですか？"))return;const a=window.prompt("確認のため予約番号を入力してください:\n"+r.id);if(a==null)return;if(String(a).trim()!==String(r.id).trim()){alert("予約番号が一致しません。中止しました。");return;}try{await onCancel(r.id);}catch(e){alert("キャンセルに失敗しました。");}};
   // 個別在庫調整セル（発生元=済(灰・操作不可) / それ以外=要→チェックで緑）
-  const AdjCell=(r,c)=>{const s=sOf(r);const ok=originKey(r);const isOrigin=(c.key===ok);const on=s[c.key];
-    if(isOrigin)return(<div style={{textAlign:"center",userSelect:"none"}}><div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid #cbd5e1",background:"#e2e8f0",color:"#94a3b8",fontWeight:900,lineHeight:"20px",fontSize:13}}>済</div><div style={{fontSize:8,color:"#94a3b8",marginTop:1}}>自媒体</div></div>);
+  const AdjCell=(r,c)=>{const s=sOf(r);const ok=originKey(r);const isAuto=(c.key===AUTO_KEY&&c.key!==ok);const isOrigin=(c.key===ok||isAuto);const on=s[c.key];
+    if(isOrigin)return(<div style={{textAlign:"center",userSelect:"none"}}><div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid #cbd5e1",background:"#e2e8f0",color:"#94a3b8",fontWeight:900,lineHeight:"20px",fontSize:13}}>済</div><div style={{fontSize:8,color:"#94a3b8",marginTop:1}}>{isAuto?"自動":"自媒体"}</div></div>);
     return(<div onClick={()=>toggle(r,c.key)} style={{textAlign:"center",cursor:"pointer",userSelect:"none"}}>
       <div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid "+(on?"#059669":"#dc2626"),background:on?"#059669":"#fff",color:"#fff",fontWeight:900,lineHeight:"20px",fontSize:15}}>{on?"✓":""}</div>
       {!on&&<div style={{fontSize:9,color:"#dc2626",fontWeight:700,marginTop:1}}>要</div>}
     </div>);
   };
   // ★2026-08-11 キャンセル行の媒体別「解放」セル：発生元=自媒体(操作不可)／減らした媒体=🟣要開放(押すと戻す)／減らしていない媒体=—
-  const RelCell=(r,c)=>{const s=sOf(r);const ok=originKey(r);const isOrigin=(c.key===ok);const reduced=s[c.key];
-    if(isOrigin)return(<div style={{textAlign:"center",userSelect:"none"}}><div style={{fontSize:11,color:"#94a3b8",lineHeight:"24px"}}>自媒体</div></div>);
+  const RelCell=(r,c)=>{const s=sOf(r);const ok=originKey(r);const isAuto=(c.key===AUTO_KEY&&c.key!==ok);const isOrigin=(c.key===ok||isAuto);const reduced=s[c.key];
+    if(isOrigin)return(<div style={{textAlign:"center",userSelect:"none"}}><div style={{fontSize:11,color:"#94a3b8",lineHeight:"24px"}}>{isAuto?"自動":"自媒体"}</div></div>);
     if(!reduced)return(<div style={{textAlign:"center",color:"#cbd5e1"}}>—</div>);
     return(<div onClick={()=>releaseCh(r,c.key)} style={{textAlign:"center",cursor:"pointer",userSelect:"none"}}>
       <div style={{width:24,height:24,margin:"0 auto",borderRadius:6,border:"2px solid #7c3aed",background:"#fff",color:"#7c3aed",fontWeight:900,lineHeight:"20px",fontSize:13}}>戻</div>
@@ -25509,7 +25512,7 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   };
   return(<div style={{maxWidth:1100,margin:"0 auto",padding:"4px 2px"}}>
     <h2 style={{fontSize:18,margin:"6px 4px 4px"}}>📦 在庫調整 <span style={{fontSize:12,color:"#64748b",fontWeight:400}}>これからの貸出のみ</span></h2>
-    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。<br/><b style={{color:"#047857"}}>🟢 BUDDICA</b>＝BDC(公式)/ART/RDC/TBR ／ <b style={{color:"#1e3a8a"}}>🔵 HANDYMAN</b>＝HDM(公式)/JLN/RTT(楽天)。<b>車検証使用者(会社)が物理的に別＝在庫はブランド内でのみ調整</b>、ブランドをまたいで絞りません（BUDDICA車の予約→BUDDICA媒体だけ／HANDYMAN車の予約→HANDYMAN媒体だけ「要」）。<br/><b style={{color:"#7c3aed"}}>キャンセル時</b>＝在庫を絞った予約だけ<b>絞った媒体を1つずつ「戻」（解放）</b>。<span style={{color:"#94a3b8"}}>まだ絞っていない予約は相殺で消えるだけ＝解放不要（水増し解放を防止）。</span><br/><span style={{color:"#92400e"}}><b>🏭入庫（車検/点検/修理）</b>＝発生元媒体が無いため<b>その車両ブランドの全媒体が「要」</b>（BUDDICA車=4媒体／HANDYMAN車=3媒体）。入庫予定は「🔧車両→車検/点検/修理」または配車表から登録すると自動でここに出ます。</span></p>
+    <p style={{fontSize:11.5,color:"#64748b",margin:"0 4px 12px",lineHeight:1.6}}>高松はOTA一括連動が無いため、<b>予約が入ったら発生元以外の各OTAで在庫を手動で絞り</b>、絞ったチェックを付けます。<span style={{color:"#94a3b8"}}>灰「済」＝発生元（自動）</span>／<span style={{color:"#dc2626"}}>赤「要」＝在庫を絞る操作が必要</span>。<br/><b style={{color:"#047857"}}>🟢 BUDDICA</b>＝BDC(公式)/ART/RDC/TBR ／ <b style={{color:"#1e3a8a"}}>🔵 HANDYMAN</b>＝HDM(公式)/JLN/RTT(楽天)。<span style={{color:"#1e3a8a"}}><b>HDM(公式)は配車表と連動して自動で在庫調整＝常に「済」（手作業不要）</b>。手動が要るのはJLN/RTTのみ。</span> <b>車検証使用者(会社)が物理的に別＝在庫はブランド内でのみ調整</b>、ブランドをまたいで絞りません（BUDDICA車の予約→BUDDICA媒体だけ／HANDYMAN車の予約→JLN/RTTだけ「要」）。<br/><b style={{color:"#7c3aed"}}>キャンセル時</b>＝在庫を絞った予約だけ<b>絞った媒体を1つずつ「戻」（解放）</b>。<span style={{color:"#94a3b8"}}>まだ絞っていない予約は相殺で消えるだけ＝解放不要（水増し解放を防止）。</span><br/><span style={{color:"#92400e"}}><b>🏭入庫（車検/点検/修理）</b>＝発生元媒体が無いため<b>その車両ブランドの全媒体が「要」</b>（BUDDICA車=4媒体／HANDYMAN車=3媒体）。入庫予定は「🔧車両→車検/点検/修理」または配車表から登録すると自動でここに出ます。</span></p>
     <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{cntTodo}</div><div style={{fontSize:11,color:"#64748b"}}>🔴 未対応{cntNew>0?"（新規"+cntNew+"）":""}</div></div>
       <div style={card}><div style={{fontSize:22,fontWeight:700,color:"#7c3aed"}}>{cntCxl}</div><div style={{fontSize:11,color:"#64748b"}}>🟣 在庫解放待ち(キャンセル)</div></div>
