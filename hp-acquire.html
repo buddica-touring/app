@@ -138,8 +138,10 @@ function nights(r){const a=r[C.lend],b=r[C.ret];if(!a||!b)return null;const d=Ma
 const FEE=0.18; // OTA手数料
 const OTA_CODES=['J','R','S','O','RC','G'];
 const OTANAME={J:'じゃらん',R:'楽天トラベル',S:'skyticket',O:'エアトリ',RC:'レンタカードットコム',G:'GoGoOut'};
-function isHP(r){return C.hpMode==='source'?(String(r.source||'')!=='ota'):(r.ota==='HP'||r.ota==='SP'||r.ota==='KEYDROP'||r.ota==='direct');}  // 自社獲得＝HP直販+SP+KEYDROP(自社ブランド)+direct(手動)。OTA(J/R/S/O/RC/G)以外の自社流入を計上(2026-08-12 KEYDROP/direct取りこぼし修正)
-function isOTA(r){return C.hpMode==='source'?(String(r.source||'')==='ota'):(OTA_CODES.indexOf(r.ota)>=0);}
+// ★2026-09-29 source欠落でもOTAを取りこぼさない: ota名リストでも判定(RPC bt_cost_cpaと同基準)。source未設定の楽天等をHP自社に誤計上する相違を根治。
+const OTA_NAMES=['じゃらん','楽天','skyticket','スカイチケット','たびらい','エアトリ','エアトリプラス','レンタカードットコム','GoGoOut','ゴーゴーアウト'];
+function isOTA(r){return C.hpMode==='source'?(String(r.source||'')==='ota'||OTA_NAMES.indexOf(String(r.ota||''))>=0):(OTA_CODES.indexOf(r.ota)>=0);}
+function isHP(r){return C.hpMode==='source'?(!isOTA(r)):(r.ota==='HP'||r.ota==='SP'||r.ota==='KEYDROP'||r.ota==='direct');}  // 自社獲得＝HP直販+SP+KEYDROP(自社ブランド)+direct(手動)。OTA(source=ota または ota名リスト)以外の自社流入を計上
 function chOf(r){return C.hpMode==='source'?(r.ota||'その他'):(OTANAME[r.ota]||r.ota||'その他');}
 let VIEW=(()=>{try{return localStorage.getItem('hp_view_'+STORE)==='ota'?'ota':'hp';}catch(e){return 'hp';}})();
 let AD={}, ROWS=[], BUILT=null, EXTRA=0;
