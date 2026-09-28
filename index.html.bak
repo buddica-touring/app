@@ -5310,6 +5310,9 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
   const isMob=useMobile();
   const[icTab,setIcTab]=useState("master"); // "master"|"budget"|"inspection"
   const[year,setYear]=useState(nowY);
+  // 次回予定一覧: 列ヘッダークリックでソート（既定=残日数順=urgency）
+  const[insSortKey,setInsSortKey]=useState("urgency"); // urgency|name|type|insDue|insNext|tenDue|tenNext
+  const[insSortDir,setInsSortDir]=useState(1); // 1=昇順 / -1=降順
   const MONTHS=Array.from({length:12},(_,i)=>i+1);
   const TYPES=["車検","半年点検","修理"];
   const TC={"車検":{bg:"#dbeafe",color:"#1e40af",bar:"#2563eb"},"半年点検":{bg:"#dcfce7",color:"#166534",bar:"#16a34a"},"修理":{bg:"#fef2f2",color:"#991b1b",bar:"#dc2626"}};
@@ -5656,7 +5659,20 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
           const urgs=[insDue,insNext,tenDue,tenNext].filter(x=>x!==null);
           const urgency=urgs.length?Math.min(...urgs):999;
           return{v,insDueDate,insNextDate,tenDueDate,tenNextDate,insNextRec,tenNextRec,insDue,insNext,tenDue,tenNext,urgency};
-        }).sort((a,b)=>a.urgency-b.urgency);
+        });
+        // 列ヘッダークリックによるソート（既定=残日数順=urgency）
+        const _isStr=(insSortKey==="name"||insSortKey==="type");
+        const _sv=(r)=>{switch(insSortKey){case"name":return r.v.name||"";case"type":return r.v.type||"";case"insDue":return r.insDue;case"insNext":return r.insNext;case"tenDue":return r.tenDue;case"tenNext":return r.tenNext;default:return r.urgency;}};
+        rows.sort((a,b)=>{
+          let x=_sv(a),y=_sv(b);
+          if(_isStr)return String(x).localeCompare(String(y),"ja")*insSortDir;
+          const xn=(x===null||x===undefined),yn=(y===null||y===undefined);
+          if(xn&&yn)return 0;if(xn)return 1;if(yn)return -1; // 未登録は常に末尾
+          return (x-y)*insSortDir;
+        });
+        const sortArrow=(k)=>insSortKey===k?(insSortDir>0?" ▲":" ▼"):"";
+        const onHdr=(k)=>{if(insSortKey===k)setInsSortDir(d=>-d);else{setInsSortKey(k);setInsSortDir(1);}};
+        const hdrStyleExtra={cursor:"pointer",userSelect:"none"};
         const summary={expired:0,critical:0,warning:0,notRegistered:0};
         rows.forEach(r=>{
           if([r.insDue,r.tenDue].some(d=>d!==null&&d<0))summary.expired++;
@@ -5677,7 +5693,7 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
         return <div style={{marginTop:32}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
             <h3 style={{fontSize:14,fontWeight:800,margin:0}}>📋 全車両 車検/点検 次回予定</h3>
-            <span style={{fontSize:11,color:"#64748b"}}>{rows.length}台 — 残日数順 / 満了日=マスター入力 / 次回予定=配車表メンテブロック</span>
+            <span style={{fontSize:11,color:"#64748b"}}>{rows.length}台 — 列見出しをタップで並び替え（既定=残日数順）/ 満了日=マスター入力 / 次回予定=配車表メンテブロック</span>
           </div>
           <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
             <div style={{padding:"8px 14px",background:summary.expired>0?"#1e293b":"#f8fafc",color:summary.expired>0?"#fff":"#94a3b8",borderRadius:8,fontSize:11,fontWeight:700}}>⚫ 切れ {summary.expired}台</div>
@@ -5688,12 +5704,12 @@ function InspectionCalendar({vehicles,maintenance,onMaintenanceChange,hmLogs}){
           <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"auto"}}>
             <table style={{width:"100%",minWidth:920,borderCollapse:"collapse",fontSize:11}}>
               <thead><tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b",position:"sticky",left:0,background:"#f8fafc",zIndex:2}}>車両</th>
-                <th style={{padding:"8px 10px",textAlign:"center",fontSize:10,fontWeight:700,color:"#64748b",width:60}}>クラス</th>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#dc2626",borderLeft:"3px solid #fee2e2"}}>🚗 車検満了日</th>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b"}}>次回車検予定<br/><span style={{fontSize:8,fontWeight:400}}>(配車表)</span></th>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#16a34a",borderLeft:"3px solid #dcfce7"}}>🔧 半年点検期限</th>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b"}}>次回点検予定<br/><span style={{fontSize:8,fontWeight:400}}>(配車表)</span></th>
+                <th onClick={()=>onHdr("name")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b",position:"sticky",left:0,background:"#f8fafc",zIndex:2,...hdrStyleExtra}}>車両{sortArrow("name")}</th>
+                <th onClick={()=>onHdr("type")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"center",fontSize:10,fontWeight:700,color:"#64748b",width:60,...hdrStyleExtra}}>クラス{sortArrow("type")}</th>
+                <th onClick={()=>onHdr("insDue")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#dc2626",borderLeft:"3px solid #fee2e2",...hdrStyleExtra}}>🚗 車検満了日{sortArrow("insDue")}</th>
+                <th onClick={()=>onHdr("insNext")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b",...hdrStyleExtra}}>次回車検予定{sortArrow("insNext")}<br/><span style={{fontSize:8,fontWeight:400}}>(配車表)</span></th>
+                <th onClick={()=>onHdr("tenDue")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#16a34a",borderLeft:"3px solid #dcfce7",...hdrStyleExtra}}>🔧 半年点検期限{sortArrow("tenDue")}</th>
+                <th onClick={()=>onHdr("tenNext")} title="クリックで並び替え" style={{padding:"8px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:"#64748b",...hdrStyleExtra}}>次回点検予定{sortArrow("tenNext")}<br/><span style={{fontSize:8,fontWeight:400}}>(配車表)</span></th>
               </tr></thead>
               <tbody>
                 {rows.map((r,i)=>{
@@ -16811,7 +16827,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <button onClick={goNext} style={{padding:isMobile?"2px 4px":"4px 8px",background:"#fff",border:"1px solid #d1d5db",borderRadius:4,fontSize:isMobile?10:14,cursor:"pointer"}}>▶</button>
         <span style={{fontSize:isMobile?11:14,fontWeight:700,color:"#1e293b",marginLeft:2}}>{monthLabel}</span>
         <span style={{display:"inline-flex",marginLeft:isMobile?4:10,border:"1px solid #cbd5e1",borderRadius:6,overflow:"hidden",flexShrink:0}} title="配車表を全体/HDM/BTで切替">{[["all","🔀全体"],["HDM","🔵HDM"],["BUDDICA","🟢BT"]].map(([k,lb])=><button key={k} onClick={()=>setBrandView(k)} style={{padding:isMobile?"2px 6px":"3px 10px",fontSize:isMobile?9:11,fontWeight:brandView===k?800:500,border:"none",cursor:"pointer",background:brandView===k?(k==="HDM"?"#1e3a8a":k==="BUDDICA"?"#047857":"#334155"):"#fff",color:brandView===k?"#fff":"#64748b"}}>{lb}</button>)}</span>
-        {(()=>{const _ct=new Set((vehicleClasses||[]).map(vc=>vc.type));const cnt=br=>{const l=(vehicles||[]).filter(v=>{const b=normBrand(v.brand);const bok=br==="BUDDICA"?(b==="BUDDICA"||b===""):b===br;return bok&&_ct.has(v.type)&&!hiddenVeh.includes(v.code);});const a=l.filter(v=>v.active!==false).length;return{g:l.length,a,i:l.length-a};};const B=cnt("BUDDICA"),H=cnt("HDM");const chip=(bg,lb,c)=><span style={{background:bg,color:"#fff",padding:isMobile?"1px 5px":"2px 7px",borderRadius:4,fontSize:isMobile?8:10,fontWeight:700,whiteSpace:"nowrap"}}>{lb} 計{c.g}（稼働{c.a}/未稼働{c.i}）</span>;return <span style={{display:"inline-flex",gap:4,marginLeft:isMobile?4:8,flexWrap:"wrap"}}>{(brandView==="all"||brandView==="BUDDICA")&&chip("#047857","🟢BT",B)}{(brandView==="all"||brandView==="HDM")&&chip("#1e3a8a","🔵HDM",H)}</span>;})()}
+        {(()=>{const _ct=new Set((vehicleClasses||[]).map(vc=>vc.type));const cnt=br=>{const l=(vehicles||[]).filter(v=>{const b=normBrand(v.brand);const bok=br==="BUDDICA"?(b==="BUDDICA"||b===""):b===br;return bok&&_ct.has(v.type)&&!hiddenVeh.includes(v.code);});const a=l.filter(v=>isKpiActive(v.code)).length;return{g:l.length,a,i:l.length-a};};const B=cnt("BUDDICA"),H=cnt("HDM");const chip=(bg,lb,c)=><span style={{background:bg,color:"#fff",padding:isMobile?"1px 5px":"2px 7px",borderRadius:4,fontSize:isMobile?8:10,fontWeight:700,whiteSpace:"nowrap"}}>{lb} 計{c.g}（稼働{c.a}/未稼働{c.i}）</span>;return <span style={{display:"inline-flex",gap:4,marginLeft:isMobile?4:8,flexWrap:"wrap"}}>{(brandView==="all"||brandView==="BUDDICA")&&chip("#047857","🟢BT",B)}{(brandView==="all"||brandView==="HDM")&&chip("#1e3a8a","🔵HDM",H)}</span>;})()}
         {viewMode==="month"&&<span style={{display:"inline-flex",gap:isMobile?4:8,marginLeft:isMobile?4:12,fontSize:isMobile?8:11,fontWeight:600}}>
           <span style={{background:"#dbeafe",color:"#1e40af",padding:"2px 6px",borderRadius:4}}>出発 {monthStats.dep}</span>
           <span style={{background:"#fef3c7",color:"#92400e",padding:"2px 6px",borderRadius:4}}>返却 {monthStats.ret}</span>
@@ -23911,7 +23927,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.485-BT";
+const APP_VERSION="v1.0.487-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
