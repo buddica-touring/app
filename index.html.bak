@@ -19087,7 +19087,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");setOtherAddAssignee("");
         };
         const deleteOtherTask=(id)=>{if(!window.confirm("このタスクを削除しますか？"))return;setTasks(ts=>{const next=ts.filter(x=>x._id!==id);try{DB.deleteTask&&DB.deleteTask(id,selDate);}catch(e){}return next;});};
-        const updateOtherTask=(id,updates)=>{setTasks(ts=>{const _p=ts.find(t=>t._id===id);if(_p&&updates&&updates.done&&!_p.done){setTimeout(function(){celebrateDone();},0);}if(_p&&updates&&updates.assignee&&updates.assignee!==_p.assignee){setTimeout(function(){celebrateAssign(updates.assignee);},0);}const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);
+        const updateOtherTask=(id,updates)=>{selfUpdatedIds.current.set(id,Date.now());/* ★2026-09-29 その他タスクも編集を自己更新登録=30秒ミラー/Realtime/直近20s保護の対象に。無いと保存反映前にミラーが即上書き＝場所が消せない/すぐリセットになっていた。 */setTasks(ts=>{const _p=ts.find(t=>t._id===id);if(_p&&updates&&updates.done&&!_p.done){setTimeout(function(){celebrateDone();},0);}if(_p&&updates&&updates.assignee&&updates.assignee!==_p.assignee){setTimeout(function(){celebrateAssign(updates.assignee);},0);}const next=ts.map(t=>t._id===id?{...t,...updates}:t);try{const upd=next.find(t=>t._id===id);
           /* ★2026-08-25 その他タスク(洗車)を車両設定して完了→その車両の最終洗車日を記録=5日無稼働洗車カウンタをリセット(既存の洗車/返却後洗車と同一処理・洗車typeかつ車両ありのみ) */
           if(_p&&upd&&updates&&updates.done&&!_p.done&&upd.type==="洗車"&&upd.assignedVehicle){DB.recordVehicleWash(upd.assignedVehicle,selDate);}
           if(upd&&DB.updateTask)DB.updateTask(upd,selDate);else DB.upsertTasks(next,selDate);}catch(e){}return next;});};
@@ -23940,7 +23940,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.489-BT";
+const APP_VERSION="v1.0.490-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
