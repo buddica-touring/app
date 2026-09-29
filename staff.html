@@ -74,7 +74,7 @@ a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v1.9-bt";
+var VER="staff-v2.0-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -143,6 +143,13 @@ function taskCard(x){
     if(+(x.opt_usb||0)>0)op.push('<span style="'+os+';background:#dcfce7;color:#166534">🔌×'+(+x.opt_usb)+'</span>');
     if(op.length)opStr='<div class="r2" style="margin-top:5px">'+op.join('')+'</div>';
   }
+  /* 📏 距離登録（洗車=出発 / 返却=返却）— メインAPPのOdoSubと同等。予約に紐づくもののみ */
+  var odoRow='';
+  if(x.resv&&(saIsWash(t)||saIsRet(t))){
+    var _ow=saIsWash(t);var _cur=_ow?x.start_odo:x.end_odo;var _orec=(_cur!=null);
+    var _dk=(x.driven_km!=null)?('／走行'+Number(x.driven_km).toLocaleString()):'';
+    odoRow='<div class="r2" style="margin-top:5px"><span onclick="saOdo(\''+tid+'\','+(_ow?1:0)+')" title="タップでメーター入力" style="display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;background:'+(_orec?'#dcfce7':'#fef9c3')+';color:'+(_orec?'#166534':'#854d0e')+';border:1px solid '+(_orec?'#86efac':'#fde047')+'">📏 '+(_ow?'出発':'返却')+(_orec?' '+Number(_cur).toLocaleString()+'km'+_dk:' 未記録')+'</span></div>';
+  }
   var btns='<div class="r3">';
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
@@ -155,8 +162,10 @@ function taskCard(x){
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'
     +opStr
-    +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
+    +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+odoRow+btns+'</div>';
 }
+function saIsWash(t){return t==='洗車';}
+function saIsRet(t){return ['COL','BD','BDB','返却','返却待'].indexOf(t)>=0;}
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
 window.openHistory=function(ym){
   MODE="history";
@@ -194,12 +203,41 @@ function renderHistory(d){
   app.innerHTML=h;
 }
 function saCelebrate(){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span class="ic">✅</span><span>お疲れ様 Good Job !!!</span><span class="ic">🎉</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1650);}catch(e){}}
+/* 📏 距離登録（洗車=出発 / 返却=返却）— サーバRPC経由でbt_reservationsに記録 */
+function saFindTask(tid){var a=(LASTD&&LASTD.tasks)||[];for(var i=0;i<a.length;i++){if(String(a[i]._id)===String(tid))return a[i];}return null;}
+window.saOdo=function(tid,isWash){
+  var tk=saFindTask(tid);if(!tk){alert("タスク情報が取得できませんでした");return;}
+  var cur=isWash?tk.start_odo:tk.end_odo;
+  var hint=(!isWash&&tk.start_odo!=null)?("\n（出発時: "+Number(tk.start_odo).toLocaleString()+"km）"):"";
+  var inp=window.prompt((isWash?"🚗 出発メーター(km)":"🚗 返却メーター(km)")+"を入力してください"+hint,(cur!=null?String(cur):""));
+  if(inp===null||String(inp).trim()==="")return;
+  var v=parseInt(String(inp).replace(/[^0-9]/g,""),10);
+  if(isNaN(v)||v<0){alert("数字を入力してください");return;}
+  fetch(SB+"/rest/v1/rpc/bt_staff_odo",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:tid,p_value:v})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d||d.ok===false){alert("⚠️ 距離を登録できませんでした（"+((d&&d.error)||"エラー")+"）");return;}
+      /* 同じ予約の全タスク（出発/返却）に反映してから再描画 */
+      var arr=(LASTD&&LASTD.tasks)||[];arr.forEach(function(x){if(x.resv===tk.resv){x.start_odo=d.start_odo;x.end_odo=d.end_odo;x.driven_km=d.driven_km;}});
+      if(LASTD)render(LASTD);
+    })
+    .catch(function(){alert("⚠️ 通信エラー。電波を確認してください");});
+};
 window.saDone=function(tid){
+  /* ② 距離未登録ガード：洗車=出発 / 返却=返却 が未記録なら完了不可 */
+  var tk=saFindTask(tid);
+  if(tk&&tk.resv){
+    if(saIsWash(tk.type)&&tk.start_odo==null){alert("先に「📏 出発」の距離（出発メーター）を登録してください");return;}
+    if(saIsRet(tk.type)&&tk.end_odo==null){alert("先に「📏 返却」の距離（返却メーター）を登録してください");return;}
+  }
   if(!confirm("このタスクを完了にしますか？"))return;
   fetch(SB+"/rest/v1/rpc/bt_staff_done",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:tid})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(!d||d.ok===false){alert("⚠️ 完了にできませんでした（"+((d&&d.error)||"エラー")+"）");return;}
+      if(!d||d.ok===false){
+        if(d&&d.error==="odo_required"){alert("先に「📏 "+(d.need==="end"?"返却":"出発")+"」の距離を登録してください");load();return;}
+        alert("⚠️ 完了にできませんでした（"+((d&&d.error)||"エラー")+"）");return;
+      }
       saCelebrate();
       setTimeout(load,900);
     })
