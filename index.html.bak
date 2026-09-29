@@ -21262,6 +21262,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     {h:"予約番号",w:120,k:"id"},
     {h:"OTA",w:44,k:"ota"},
     {h:"TEL",w:84,k:"tel"},
+    {h:"引継",w:70,k:null},
   ];
 
   return <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
@@ -21413,6 +21414,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
               <td onClick={e=>copyResvId(r.id,e)} title="クリックで予約番号をコピー" style={{...cellR(26),fontFamily:"monospace",fontSize:7,cursor:r.id?"copy":"default",color:copiedId===r.id?"#059669":"#1d4ed8",textDecoration:r.id?"underline":"none",fontWeight:copiedId===r.id?800:400,userSelect:"all"}}>{copiedId===r.id?"✓ "+r.id:(r.id||"")}</td>
               <td onClick={()=>{if(!isCxl&&onOpenReservation)onOpenReservation(r.id,r.lendDate);}} style={{...cellR(27),textAlign:"center"}}><span style={{display:"inline-flex",gap:3,alignItems:"center",justifyContent:"center"}}><BrandBadge brand={resBrand(r)} size="sm"/>{(r.ota||resBrand(r))?<OBadge ota={r.ota} brand={resBrand(r)}/>:""}</span></td>
               <td style={cellR(28)}>{r.tel||""}</td>
+              <td onClick={e=>e.stopPropagation()} style={{...cellR(29),textAlign:"center"}}><HandoverBtn rid={r.id} compact={true}/></td>
             </tr>;
           })}
           {list.length===0&&<tr><td colSpan={cols.length} style={{textAlign:"center",padding:20,color:"#94a3b8",fontSize:11}}>該当する予約がありません</td></tr>}
@@ -23940,7 +23942,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.490-BT";
+const APP_VERSION="v1.0.491-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
