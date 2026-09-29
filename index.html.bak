@@ -4225,6 +4225,9 @@ function generateTasks(reservations,date,fleet,vehicles){
 const IDLE_WASH_DAYS=5;
 function genIdleWash(date,reservations,fleet,vehicles,washMap,tomb,existing){
   const out=[];
+  // ★2026-09-29 5日間無稼働 洗車を廃止(オーナー確定)。タスク数増で時間が割けない/5日以上の空きが今後減る見込みのため。
+  //   翌日出発洗車・返却後洗車には影響なし。復活時はこのreturnを外す。
+  return out;
   const todayJst=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
   if(norm(date)!==todayJst)return out; // 洗車推奨は当日のみ
   const today=todayJst;
@@ -23942,7 +23945,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.491-BT";
+const APP_VERSION="v1.0.492-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
