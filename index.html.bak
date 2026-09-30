@@ -284,7 +284,7 @@ const DB = {
   async upsertReservations(arr){if(!sb||!arr.length)return;const rows=arr.map(DB._toDbRes);const{error}=await sb.from("bt_reservations").upsert(rows,{onConflict:"id"});if(error)dbLog("upsertRes",false,error.message);else dbLog("upsertRes",true,arr.length+"件保存");},
   async deleteReservations(ids){if(!sb||!ids.length)return;const{error}=await sb.from("bt_reservations").delete().in("id",ids);if(error)dbLog("deleteRes",false,error.message);else dbLog("deleteRes",true,ids.length+"件削除");/* ★2026-07-26 予約削除時は紐づくタスク(d-/c-/w-等)も墓標化=孤児タスク残存を防ぐ */try{await sb.from("bt_tasks").update({deleted:true}).in("予約番号",ids);}catch(e){dbLog("deleteRes_tasks",false,String(e));}},
   _toDbRes(r){return{id:r.id,ota:r.ota,name:r.name,start_date:r.lendDate,start_time:r.lendTime,end_date:r.returnDate,end_time:r.returnTime,people:r.people,vehicle_class:r.vehicle,vehicle_name:r.preferVc||"",insurance:r.insurance,tel:r.tel,mail:r.mail,price:r.price,final_price:r.finalPrice||0,base_price:r.basePrice||0,option_price:r.optionPrice||0,discount:r.discount||0,status:r.status,visit_type:r.visitType,return_type:r.returnType,del_time:r.delTime||"",del_place:r.delPlace||"",col_time:r.colTime||"",col_place:r.colPlace||"",del_flight:r.flight||"",col_flight:r.colFlight||"",opt_b:+(r.optB||0),opt_c:+(r.optC||0),opt_j:+(r.optJ||0),opt_usb:+(r.optUSB||0),prefecture:r.prefecture||"",changed_json:JSON.stringify({_src:'system'})};},
-  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,paid:!!d.paid,payment:d.payment||"",basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:normResStatus(d.status),visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,colFlight:d.col_flight||"",optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",bookedAt:norm(d.booked_at||d.created_at)||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||"",source:d.source||"",brand:d.brand||""};},
+  _fromDbRes(d){return{id:d.id,ota:d.ota,name:d.name,lendDate:norm(d.start_date),lendTime:d.start_time,returnDate:norm(d.end_date),returnTime:d.end_time,people:d.people,vehicle:d.vehicle_class,preferVc:d.vehicle_name||"",insurance:d.insurance,tel:d.tel,mail:d.mail,price:Number(d.price)||0,finalPrice:Number(d.final_price)||0,paid:!!d.paid,payment:d.payment||"",payUrl:d.pay_url||"",basePrice:Number(d.base_price)||0,optionPrice:Number(d.option_price)||0,discount:Number(d.discount)||0,status:normResStatus(d.status),visitType:d.visit_type,returnType:d.return_type,delTime:d.del_time,delPlace:d.del_place,colTime:d.col_time,colPlace:d.col_place,flight:d.del_flight,colFlight:d.col_flight||"",optB:+(d.opt_b||0),optC:+(d.opt_c||0),optJ:+(d.opt_j||0),optUSB:+(d.opt_usb||0),prefecture:d.prefecture||"",createdAt:d.created_at||"",bookedAt:norm(d.booked_at||d.created_at)||"",mypageToken:d.mypage_token||"",pickupTime:d.pickup_time||"",source:d.source||"",brand:d.brand||""};},
   // --- 配車（LS併用で車両変更保護） ---
   _fleetLsKey:"bt_fleet",
   _fleetLsSave(f){try{const cnt=Object.keys(f).filter(k=>k!=="_unassignedReasons").length;if(cnt>=10){localStorage.setItem("bt_fleet_backup",JSON.stringify({data:f,ts:Date.now(),count:cnt}));}localStorage.setItem(DB._fleetLsKey,JSON.stringify(f));}catch(e){}},
@@ -21099,6 +21099,26 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
       }
     }catch(err){}
   };
+  // ★ 2026-09-30 じゃらん決済リンクをコピー（決済列の右隣ボタン）
+  const[copiedPay,setCopiedPay]=useState("");
+  const copyPayLink=(url,rid,e)=>{
+    if(e)e.stopPropagation();
+    if(!url)return;
+    const ok=()=>{setCopiedPay(rid);setTimeout(()=>setCopiedPay(c=>c===rid?"":c),1400);};
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(ok).catch(()=>{
+          const ta=document.createElement("textarea");ta.value=url;document.body.appendChild(ta);ta.select();
+          try{document.execCommand("copy");ok();}catch(err){}
+          document.body.removeChild(ta);
+        });
+      }else{
+        const ta=document.createElement("textarea");ta.value=url;document.body.appendChild(ta);ta.select();
+        try{document.execCommand("copy");ok();}catch(err){}
+        document.body.removeChild(ta);
+      }
+    }catch(err){}
+  };
 
   // ★ 利用可能な月・年を算出
   const{months,years}=useMemo(()=>{
@@ -21264,7 +21284,7 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
     {h:"COL場所",w:110,k:null},
     {h:"送迎(帰)",w:100,k:null},
     {h:"料金",w:70,k:"price"},
-    {h:"決済",w:44,k:null},
+    {h:"決済",w:78,k:null},
     {h:"便名",w:56,k:"flight"},
     {h:"予約番号",w:120,k:"id"},
     {h:"OTA",w:44,k:"ota"},
@@ -21408,9 +21428,9 @@ function DataTable({data,fleet,vehicles,sheetPlaces,onUpdatePlaces,onOpenReserva
                 </>;
               })()}
               <td style={{...cellR(23),fontWeight:700,color:"#1e293b",textAlign:"right"}}>{r.price?"¥"+(r.price||0).toLocaleString():"-"}</td>
-              <td style={{...cellR(24),textAlign:"center"}}>{(()=>{/* ★ 2026-09-30 決済列はチャネル基準。予約=決済完了のOTA(BDC官方/HDM官方/エアトリ/たびらい/レンタカードットコム/楽天/スカイチケット)は必ず事前。じゃらん(J)だけ入金確認が条件付き(paid=事前/未入金=現地)。SP・現地決済のみ現地。 */const njp=nhaJpMap[r.id];const pm=String(r.payment||"");const o=String(r.ota||"");const isJalan=o==="J"||o.indexOf("じゃらん")>=0;const isOnsite=o==="SP"||pm==="現地決済";const paidEvidence=!!r.paid||(njp&&njp.status==="paid")||/事前|支払済|支払い済|決済済|決済完了/.test(pm);const isPrepaid=isJalan?paidEvidence:(isOnsite?false:true);return isPrepaid
+              <td style={{...cellR(24),textAlign:"center"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:3}}>{(()=>{/* ★ 2026-09-30 決済列はチャネル基準。予約=決済完了のOTA(BDC官方/HDM官方/エアトリ/たびらい/レンタカードットコム/楽天/スカイチケット)は必ず事前。じゃらん(J)だけ入金確認が条件付き(paid=事前/未入金=現地)。SP・現地決済のみ現地。 */const njp=nhaJpMap[r.id];const pm=String(r.payment||"");const o=String(r.ota||"");const isJalan=o==="J"||o.indexOf("じゃらん")>=0;const isOnsite=o==="SP"||pm==="現地決済";const paidEvidence=!!r.paid||(njp&&njp.status==="paid")||/事前|支払済|支払い済|決済済|決済完了/.test(pm);const isPrepaid=isJalan?paidEvidence:(isOnsite?false:true);return isPrepaid
                 ?<span style={{fontSize:8,fontWeight:800,color:"#059669",background:"#dcfce7",border:"1px solid #86efac",borderRadius:3,padding:"1px 4px"}}>事前</span>
-                :<span style={{fontSize:8,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1px solid #fde68a",borderRadius:3,padding:"1px 4px"}}>現地</span>;})()}</td>
+                :<span style={{fontSize:8,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1px solid #fde68a",borderRadius:3,padding:"1px 4px"}}>現地</span>;})()}{(()=>{/* ★ 2026-09-30 決済リンクコピー: 現状じゃらん(J)のみ想定。pay_url発行済のみ表示。 */const o=String(r.ota||"");const isJalan=o==="J"||o.indexOf("じゃらん")>=0;if(!isJalan)return null;const url=r.payUrl||((window._btPayMap&&window._btPayMap[r.id]&&window._btPayMap[r.id].payUrl)||"");if(!url)return null;const done=copiedPay===r.id;return <button onClick={e=>copyPayLink(url,r.id,e)} title="じゃらん決済リンクをコピー" style={{fontSize:8,fontWeight:800,color:done?"#059669":"#7c3aed",background:done?"#dcfce7":"#f5f3ff",border:"1px solid "+(done?"#86efac":"#ddd6fe"),borderRadius:3,padding:"1px 4px",cursor:"pointer",whiteSpace:"nowrap"}}>{done?"✓済":"🔗"}</button>;})()}</div></td>
               <td style={{...cellR(25),color:"#2563eb",fontSize:9}}>{(()=>{
                 /* ★ 2026-05-02 v3.4.28 デバッグ: 実値を可視化 */
                 if(r.flight===undefined)return <span style={{color:"#dc2626"}}>?undef</span>;
@@ -23949,7 +23969,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.496-BT";
+const APP_VERSION="v1.0.497-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
