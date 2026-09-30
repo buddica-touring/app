@@ -670,11 +670,19 @@ function mSpecLine(v){
   h+=(v.memo?'<span class="m-spec" style="background:#f8fafc"><b>メモ</b> '+fesc(v.memo)+'</span>':'');
   return h||'<span style="color:#cbd5e1;font-size:11px">装備情報なし</span>';
 }
+let KPIFLAGS={}, KPI_YM="";
+// 稼働＝当月配車表(bt_vehicle_monthly_kpi)と一致。KPI未設定の車はマスタの静的activeにフォールバック。保険事業車は未稼働。
+function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.code]; return f!==undefined ? f!==false : (v.active!==false && v.status!=="inactive"); }
 async function loadMaster(){
   $("masterBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  const {data,error}=await sb.from("bt_vehicles").select("*");
-  if(error){$("masterBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(error.message)+'</div>';return;}
-  MASTER=data||[]; renderMaster();
+  KPI_YM=new Date().toISOString().slice(0,7);
+  const [vres,kres]=await Promise.all([
+    sb.from("bt_vehicles").select("*"),
+    sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,active").eq("year_month",KPI_YM)
+  ]);
+  if(vres.error){$("masterBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(vres.error.message)+'</div>';return;}
+  KPIFLAGS={}; (kres.data||[]).forEach(k=>{KPIFLAGS[k.vehicle_code]=k.active;});
+  MASTER=vres.data||[]; renderMaster();
 }
 function renderMaster(){
   if(!MASTER){loadMaster();return;}
@@ -682,7 +690,7 @@ function renderMaster(){
   const grp={}; MASTER.forEach(v=>{const t=v.type||"?";(grp[t]=grp[t]||[]).push(v);});
   const order=M_ORDER.filter(c=>grp[c]).concat(Object.keys(grp).filter(c=>M_ORDER.indexOf(c)<0));
   const total=MASTER.length, totHDM=MASTER.filter(isHdm).length, totBT=total-totHDM, totIns=MASTER.reduce((s,v)=>s+insOf(v),0), totLease=MASTER.reduce((s,v)=>s+leaseOf(v),0);
-  let html='<div class="sub" style="margin-bottom:8px">高松の車両マスター（BTアプリの車両登録データ）をクラス別に、全車両を展開して表示します。</div>';
+  let html='<div class="sub" style="margin-bottom:8px">高松の車両マスター（BTアプリの車両登録データ）をクラス別に、全車両を展開して表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>（bt_vehicle_monthly_kpi）。</div>';
   html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span><span class="fl-sc"><b style="color:#047857">BT</b> '+totBT+'台</span><span class="fl-sc"><b style="color:#1d4ed8">HDM</b> '+totHDM+'台</span>'+(totIns>0?'<span class="fl-sc">保険 ¥'+totIns.toLocaleString()+'/月</span>':'')+(totLease>0?'<span class="fl-sc">リース ¥'+totLease.toLocaleString()+'/月</span>':'')+'</div>';
   order.forEach(c=>{
     const arr=grp[c]; if(!arr||!arr.length)return;
@@ -691,8 +699,8 @@ function renderMaster(){
     {
       html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
       arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
-        const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=v.active!==false&&v.status!=="inactive", bd=isHdm(v);
-        html+='<tr class="vrow"><td class="plate" data-lb="ナンバー"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td data-lb="車種">'+fesc(v.name||"")+'</td><td data-lb="ブランド"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td data-lb="年式">'+g(v.year)+'</td><td data-lb="車検満了">'+g(v.inspection_due_date)+'</td><td data-lb="点検">'+g(v.tenken_due_date)+'</td><td data-lb="走行km">'+mi+'</td><td data-lb="保険/月">¥'+insOf(v).toLocaleString()+'</td><td data-lb="リース/月">¥'+leaseOf(v).toLocaleString()+'</td><td data-lb="稼働" class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"除外")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
+        const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=isKpiActive(v), bd=isHdm(v);
+        html+='<tr class="vrow"><td class="plate" data-lb="ナンバー"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td data-lb="車種">'+fesc(v.name||"")+'</td><td data-lb="ブランド"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td data-lb="年式">'+g(v.year)+'</td><td data-lb="車検満了">'+g(v.inspection_due_date)+'</td><td data-lb="点検">'+g(v.tenken_due_date)+'</td><td data-lb="走行km">'+mi+'</td><td data-lb="保険/月">¥'+insOf(v).toLocaleString()+'</td><td data-lb="リース/月">¥'+leaseOf(v).toLocaleString()+'</td><td data-lb="稼働" class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"未稼働")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
       });
       html+='</tbody></table></div>';
     }
