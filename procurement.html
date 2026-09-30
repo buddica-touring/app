@@ -675,7 +675,7 @@ let KPIFLAGS={}, KPI_YM="";
 function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.code]; return f!==undefined ? f!==false : (v.active!==false && v.status!=="inactive"); }
 async function loadMaster(){
   $("masterBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  KPI_YM=new Date().toISOString().slice(0,7);
+  KPI_YM=new Date(Date.now()+9*3600*1000).toISOString().slice(0,7); // JST基準の当月(配車表と一致・UTCだと月境界でズレる)
   const [vres,kres]=await Promise.all([
     sb.from("bt_vehicles").select("*"),
     sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,active").eq("year_month",KPI_YM)
