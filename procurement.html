@@ -257,6 +257,8 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <button class="tabbtn on" data-v="proc">🛒 仕入候補</button>
     <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保：仕入・整備OK）</button>
     <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
+    <button class="tabbtn" data-v="bt">🟢 BT車両のみ</button>
+    <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
   </div>
   <div id="viewProc">
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
@@ -306,6 +308,14 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
       <button class="btn" id="reloadMaster" style="margin-left:auto">🔄 最新に更新</button>
     </div>
     <div id="masterBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+  </div>
+  <div id="viewBt" style="display:none">
+    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadBt" style="margin-left:auto">🔄 最新に更新</button></div>
+    <div id="btBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+  </div>
+  <div id="viewHdm" style="display:none">
+    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadHdm" style="margin-left:auto">🔄 最新に更新</button></div>
+    <div id="hdmBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
   </div>
 <button id="reload" title="最新に更新">🔄</button>
 <div id="st">接続中…</div>
@@ -682,16 +692,16 @@ async function loadMaster(){
   ]);
   if(vres.error){$("masterBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(vres.error.message)+'</div>';return;}
   KPIFLAGS={}; (kres.data||[]).forEach(k=>{KPIFLAGS[k.vehicle_code]=k.active;});
-  MASTER=vres.data||[]; renderMaster();
+  MASTER=vres.data||[]; renderActiveMaster();
 }
-function renderMaster(){
-  if(!MASTER){loadMaster();return;}
+function masterHtml(list, subtitle){
   const g=x=>x?fesc(x):'<span class="flmiss">-</span>';
-  const grp={}; MASTER.forEach(v=>{const t=v.type||"?";(grp[t]=grp[t]||[]).push(v);});
+  const grp={}; list.forEach(v=>{const t=v.type||"?";(grp[t]=grp[t]||[]).push(v);});
   const order=M_ORDER.filter(c=>grp[c]).concat(Object.keys(grp).filter(c=>M_ORDER.indexOf(c)<0));
-  const total=MASTER.length, totHDM=MASTER.filter(isHdm).length, totBT=total-totHDM, totIns=MASTER.reduce((s,v)=>s+insOf(v),0), totLease=MASTER.reduce((s,v)=>s+leaseOf(v),0);
-  let html='<div class="sub" style="margin-bottom:8px">高松の車両マスター（BTアプリの車両登録データ）をクラス別に、全車両を展開して表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>（bt_vehicle_monthly_kpi）。</div>';
+  const total=list.length, totHDM=list.filter(isHdm).length, totBT=total-totHDM, totIns=list.reduce((s,v)=>s+insOf(v),0), totLease=list.reduce((s,v)=>s+leaseOf(v),0);
+  let html='<div class="sub" style="margin-bottom:8px">'+subtitle+'</div>';
   html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span><span class="fl-sc"><b style="color:#047857">BT</b> '+totBT+'台</span><span class="fl-sc"><b style="color:#1d4ed8">HDM</b> '+totHDM+'台</span>'+(totIns>0?'<span class="fl-sc">保険 ¥'+totIns.toLocaleString()+'/月</span>':'')+(totLease>0?'<span class="fl-sc">リース ¥'+totLease.toLocaleString()+'/月</span>':'')+'</div>';
+  if(!total){return html+'<div style="color:#94a3b8;padding:16px;text-align:center">該当する車両はありません。</div>';}
   order.forEach(c=>{
     const arr=grp[c]; if(!arr||!arr.length)return;
     const col=M_CLSCOLOR[c]||"#94a3b8", lbl=M_CLSLBL[c]||"", hdm=arr.filter(isHdm).length, bt=arr.length-hdm, ins=arr.reduce((s,v)=>s+insOf(v),0), lease=arr.reduce((s,v)=>s+leaseOf(v),0);
@@ -705,8 +715,24 @@ function renderMaster(){
       html+='</tbody></table></div>';
     }
   });
-  $("masterBody").innerHTML=html;
-
+  return html;
+}
+function renderActiveMaster(){
+  if($("viewBt")&&$("viewBt").style.display!=="none")renderBt();
+  else if($("viewHdm")&&$("viewHdm").style.display!=="none")renderHdm();
+  else renderMaster();
+}
+function renderMaster(){
+  if(!MASTER){loadMaster();return;}
+  $("masterBody").innerHTML=masterHtml(MASTER,'高松の車両マスター（BTアプリの車両登録データ）をクラス別に、全車両を展開して表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>（bt_vehicle_monthly_kpi）。');
+}
+function renderBt(){
+  if(!MASTER){loadMaster();return;}
+  $("btBody").innerHTML=masterHtml(MASTER.filter(v=>!isHdm(v)),'🟢 <b>BT（BUDDICA）名義の車両のみ</b>をクラス別に表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>。');
+}
+function renderHdm(){
+  if(!MASTER){loadMaster();return;}
+  $("hdmBody").innerHTML=masterHtml(MASTER.filter(isHdm),'🔵 <b>HDM（HANDYMAN）名義の車両のみ</b>をクラス別に表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>。');
 }
 // 車両リスト＝仕入OK＋整備OK（確保）の車両だけをクラス別にまとめて表示（読み取り専用サマリー）
 const FL_CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
@@ -749,11 +775,17 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewProc").style.display=v==="proc"?"":"none";
   $("viewFleet").style.display=v==="fleet"?"":"none";
   $("viewMaster").style.display=v==="master"?"":"none";
+  $("viewBt").style.display=v==="bt"?"":"none";
+  $("viewHdm").style.display=v==="hdm"?"":"none";
   if(v==="fleet")renderFleet();
   if(v==="master")renderMaster();
+  if(v==="bt")renderBt();
+  if(v==="hdm")renderHdm();
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
 $("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
+$("reloadBt")&&$("reloadBt").addEventListener("click",loadMaster);
+$("reloadHdm")&&$("reloadHdm").addEventListener("click",loadMaster);
 $("masterBody")&&$("masterBody").addEventListener("click",function(e){var r=e.target.closest("tr.vrow");if(r)r.classList.toggle("open");});
 document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventListener("click",()=>{
   document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(x=>x.classList.remove("on"));c.classList.add("on");
