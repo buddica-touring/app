@@ -678,6 +678,11 @@ function mSpecLine(v){
   h+=on("rearmonitor","🖥リアモニター","#16a34a");
   h+=(v.equip?'<span class="m-spec" style="background:#fffbeb;border-color:#fde68a;color:#92400e"><b>装備</b> '+fesc(v.equip)+'</span>':'');
   h+=(v.memo?'<span class="m-spec" style="background:#f8fafc"><b>メモ</b> '+fesc(v.memo)+'</span>':'');
+  if(v.insurance_company||v.insurance_policy_no){
+    var per=v.insurance_start?('（'+fesc(v.insurance_start)+'〜'+fesc(v.insurance_end||'')+'）'):'';
+    h+='<span class="m-spec" style="background:#ecfeff;border-color:#a5f3fc;color:#155e75"><b>🛡保険</b> '+fesc(v.insurance_company||'')+(v.insurance_policy_no?' 証券'+fesc(v.insurance_policy_no):'')+per+'</span>';
+  }
+  h+=chip("車台番号",v.chassis_no);
   return h||'<span style="color:#cbd5e1;font-size:11px">装備情報なし</span>';
 }
 let KPIFLAGS={}, KPI_YM="";
@@ -707,10 +712,10 @@ function masterHtml(list, subtitle){
     const col=M_CLSCOLOR[c]||"#94a3b8", lbl=M_CLSLBL[c]||"", hdm=arr.filter(isHdm).length, bt=arr.length-hdm, ins=arr.reduce((s,v)=>s+insOf(v),0), lease=arr.reduce((s,v)=>s+leaseOf(v),0);
     html+='<div class="m-clsrow" data-mc="'+fesc(c)+'"><span class="m-badge" style="background:'+col+'">'+fesc(c)+'</span><span class="m-lbl">'+fesc(lbl)+'</span><span class="m-brands">'+(bt?'<span class="m-bt">BT'+bt+'</span>':'')+(hdm?'<span class="m-hdm">HDM'+hdm+'</span>':'')+'</span><span class="m-cnt">'+arr.length+'台</span>'+(ins>0?'<span class="m-mc">保険¥'+ins.toLocaleString()+'</span>':'')+(lease>0?'<span class="m-mc" style="color:#2563eb">リース¥'+lease.toLocaleString()+'</span>':'')+'</div>';
     {
-      html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
+      html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車台番号</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
       arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
         const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=isKpiActive(v), bd=isHdm(v);
-        html+='<tr class="vrow"><td class="plate" data-lb="ナンバー"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td data-lb="車種">'+fesc(v.name||"")+'</td><td data-lb="ブランド"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td data-lb="年式">'+g(v.year)+'</td><td data-lb="車検満了">'+g(v.inspection_due_date)+'</td><td data-lb="点検">'+g(v.tenken_due_date)+'</td><td data-lb="走行km">'+mi+'</td><td data-lb="保険/月">¥'+insOf(v).toLocaleString()+'</td><td data-lb="リース/月">¥'+leaseOf(v).toLocaleString()+'</td><td data-lb="稼働" class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"未稼働")+'</td></tr><tr class="m-specrow"><td colspan="10"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
+        html+='<tr class="vrow"><td class="plate" data-lb="ナンバー"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td data-lb="車種">'+fesc(v.name||"")+'</td><td data-lb="ブランド"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td data-lb="年式">'+g(v.year)+'</td><td data-lb="車台番号" style="font-size:11px;color:#475569">'+g(v.chassis_no)+'</td><td data-lb="車検満了">'+g(v.inspection_due_date)+'</td><td data-lb="点検">'+g(v.tenken_due_date)+'</td><td data-lb="走行km">'+mi+'</td><td data-lb="保険/月">¥'+insOf(v).toLocaleString()+'</td><td data-lb="リース/月">¥'+leaseOf(v).toLocaleString()+'</td><td data-lb="稼働" class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"未稼働")+'</td></tr><tr class="m-specrow"><td colspan="11"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
       });
       html+='</tbody></table></div>';
     }
