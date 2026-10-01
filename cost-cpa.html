@@ -77,13 +77,13 @@ async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{api
 async function sbPost(path,body){const r=await fetch(SB+'/rest/v1/'+path,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(r.status);return r.json();}
 function nowYM(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 let AD={}, MONTHS=[], HPACQ=[], TAB='cpa', HPRET={};
-// ②流通/返却CPA：返却月ごとに、その月に返るHP予約の「獲得原価(成立月CPA)」の平均。{返却月:CPA}
-function hpRetCpaMap(){
+// ②流通/返却：返却月ごとに、その月に返るHP予約の件数・獲得原価合計・平均CPA。{返却月:{cnt,cost,cpa}}
+function hpRetAgg(){
   const cntYm={}; HPACQ.forEach(r=>{if(r.ym)cntYm[r.ym]=(cntYm[r.ym]||0)+1;});
   const cpaYm=m=>{const c=cntYm[m]||0,ad=+AD[m]||0;return c?ad/c:0;};
-  const agg={}; HPACQ.forEach(r=>{if(!r.ret_ym)return;const a=agg[r.ret_ym]=agg[r.ret_ym]||{c:0,s:0};a.c++;a.s+=cpaYm(r.ym);});
-  const out={}; Object.keys(agg).forEach(m=>{out[m]=agg[m].c?Math.round(agg[m].s/agg[m].c):0;});
-  return out;
+  const agg={}; HPACQ.forEach(r=>{if(!r.ret_ym)return;const a=agg[r.ret_ym]=agg[r.ret_ym]||{cnt:0,cost:0};a.cnt++;a.cost+=cpaYm(r.ym);});
+  Object.keys(agg).forEach(m=>{agg[m].cpa=agg[m].cnt?Math.round(agg[m].cost/agg[m].cnt):0;agg[m].cost=Math.round(agg[m].cost);});
+  return agg;
 }
 function calc(m){
   const otaRev=m.otaRev||0,otaCnt=m.otaCnt||0,hpRev=m.hpRev||0,hpCnt=m.hpCnt||0;
@@ -130,9 +130,14 @@ function cardHTML(x){
     '<div class="mhd"><span class="mym">'+x.m+'</span><span class="mtot">'+yen(x.rev)+' <small>'+x.cnt+'件</small></span>'+
       '<span class="mrat"><span class="fee">OTA '+(x.rev?orat:'—')+'%</span> / <span class="adc">HP '+(x.rev?hrat:'—')+'%</span></span></div>'+
     '<div class="mrow"><div class="rl r-ota">🟧 OTA<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却=売上</span></div>'+cellK('件数',x.otaCnt)+cellK('売上',yen(x.otaRev))+cellK('手数料18%',yen(x.fee))+cellK('CPA',(x.otaCnt?yen(x.otaCpa):'—'),' cpa')+'</div>'+
-    '<div class="mrow"><div class="rl r-hp">🟦 HP<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">当月流通</span></div>'+cellK('件数',x.hpCnt)+cellK('売上',yen(x.hpRev))+
+    '<div class="mrow"><div class="rl r-hp">🟦 HP獲得<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">成立月＝新規獲得</span></div>'+cellK('件数',x.hpCnt)+cellK('売上',yen(x.hpRev))+
       '<div class="cell"><span class="k">広告費</span><input class="ad" type="number" data-m="'+x.m+'" value="'+(x.ad||'')+'" placeholder="0"></div>'+
-      '<div class="cell cpa"><span class="k">CPA 獲得/流通</span><b data-r="hpcpa">'+(x.hpCnt&&x.ad?yen(x.hpCpa):'—')+'</b><b data-r="hpretcpa" data-m="'+x.m+'" style="display:block;font-size:11px;color:#7c3aed;margin-top:1px;font-weight:800">'+(HPRET[x.m]?'流'+yen(HPRET[x.m]):'')+'</b></div></div>'+
+      '<div class="cell cpa"><span class="k">獲得CPA</span><b data-r="hpcpa">'+(x.hpCnt&&x.ad?yen(x.hpCpa):'—')+'</b></div></div>'+
+    '<div class="mrow"><div class="rl" style="color:#7c3aed;font-weight:800">🟪 HP流通<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却月＝今月動く分</span></div>'+
+      '<div class="cell"><span class="k">件数(返却)</span><b data-r="hpretcnt" data-m="'+x.m+'">'+(HPRET[x.m]?HPRET[x.m].cnt+'件':'—')+'</b></div>'+
+      '<div class="cell"><span class="k">獲得原価計</span><b data-r="hpretcost" data-m="'+x.m+'">'+(HPRET[x.m]?yen(HPRET[x.m].cost):'—')+'</b></div>'+
+      '<div class="cell"></div>'+
+      '<div class="cell cpa"><span class="k">流通CPA</span><b data-r="hpretcpa" data-m="'+x.m+'" style="color:#7c3aed">'+(HPRET[x.m]?yen(HPRET[x.m].cpa):'—')+'</b></div></div>'+
     '<div class="mrow"><div class="rl r-all">🟨 合算</div>'+cellK('件数',x.cnt)+cellK('売上',yen(x.rev))+
       '<div class="cell"><span class="k">コスト</span><b data-r="cost">'+yen(x.cost)+'</b></div>'+
       '<div class="cell cpa"><span class="k">CPA</span><b data-r="allcpa">'+(x.cnt?yen(x.allCpa):'—')+'</b></div></div>'+
@@ -140,7 +145,7 @@ function cardHTML(x){
 }
 function render(){
   renderKpis();
-  HPRET=hpRetCpaMap();
+  HPRET=hpRetAgg();
   $('tb').innerHTML=MONTHS.map(cardHTML).join('')||'<div style="color:#94a3b8;padding:20px;text-align:center">データなし</div>';
   $('tb').querySelectorAll('input.ad').forEach(el=>el.addEventListener('input',()=>{
     const m=el.dataset.m; AD[m]=+el.value||0;
@@ -149,8 +154,9 @@ function render(){
     card.querySelector('[data-r=hpcpa]').textContent=(x.hpCnt&&x.ad?yen(x.hpCpa):'—');
     card.querySelector('[data-r=cost]').textContent=yen(x.cost);
     card.querySelector('[data-r=allcpa]').textContent=(x.cnt?yen(x.allCpa):'—');
-    HPRET=hpRetCpaMap(); // ②流通CPAは全返却月に波及するので全カード更新
-    document.querySelectorAll('[data-r=hpretcpa]').forEach(el=>{el.textContent=HPRET[el.dataset.m]?'流'+yen(HPRET[el.dataset.m]):'';});
+    HPRET=hpRetAgg(); // ②流通は全返却月に波及するので全カード更新
+    document.querySelectorAll('[data-r=hpretcpa]').forEach(el=>{el.textContent=HPRET[el.dataset.m]?yen(HPRET[el.dataset.m].cpa):'—';});
+    document.querySelectorAll('[data-r=hpretcost]').forEach(el=>{el.textContent=HPRET[el.dataset.m]?yen(HPRET[el.dataset.m].cost):'—';});
     renderKpis(); $('msg').textContent='未保存';
   }));
 }
