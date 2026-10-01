@@ -56,7 +56,12 @@
 
   <div class="bar"><button class="btn g" onclick="saveAd()">💾 広告費を保存</button><span class="msg" id="msg"></span><span style="font-size:11px;color:#94a3b8;margin-left:auto">🟧OTA ／ 🟦HP ／ 🟨合算</span></div>
 
+  <div id="tabbar" style="display:flex;gap:6px;margin-bottom:12px">
+    <button id="tabCpa" onclick="switchTab('cpa')" style="flex:1;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#1e293b;color:#fff;font-weight:800;font-size:13px;cursor:pointer">📊 月別CPA</button>
+    <button id="tabHp" onclick="switchTab('hp')" style="flex:1;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#64748b;font-weight:800;font-size:13px;cursor:pointer">🧾 HP/SP獲得リスト</button>
+  </div>
   <div id="tb"></div>
+  <div id="hplist" style="display:none"></div>
 </div>
 <div id="st">接続中…</div>
 <script>
@@ -70,7 +75,7 @@ function setSt(t){$('st').textContent=t;}
 async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{apikey:ANON,Authorization:'Bearer '+ANON}});if(!r.ok)throw new Error(r.status);return r.json();}
 async function sbPost(path,body){const r=await fetch(SB+'/rest/v1/'+path,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(r.status);return r.json();}
 function nowYM(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
-let AD={}, MONTHS=[];
+let AD={}, MONTHS=[], HPACQ=[], TAB='cpa';
 function calc(m){
   const otaRev=m.otaRev||0,otaCnt=m.otaCnt||0,hpRev=m.hpRev||0,hpCnt=m.hpCnt||0;
   const rev=otaRev+hpRev,cnt=otaCnt+hpCnt;
@@ -82,7 +87,8 @@ function calc(m){
 async function load(){
   setSt('読み込み中…');
   try{
-    const [agg,st]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt')]);
+    const [agg,st,hpa]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt'),sbPost('rpc/bt_hp_acq',{})]);
+    HPACQ=Array.isArray(hpa)?hpa:[];
     try{AD=st&&st[0]?JSON.parse(st[0].value||'{}'):{};}catch(e){AD={};}
     const base={};
     (agg||[]).forEach(r=>{const m=String(r.ym||'');if(!/^\d{4}-\d{2}$/.test(m))return;base[m]={m,otaRev:+r.ota_rev||0,otaCnt:+r.ota_cnt||0,hpRev:+r.hp_rev||0,hpCnt:+r.hp_cnt||0};});
@@ -135,6 +141,36 @@ function render(){
     card.querySelector('[data-r=allcpa]').textContent=(x.cnt?yen(x.allCpa):'—');
     renderKpis(); $('msg').textContent='未保存';
   }));
+}
+function switchTab(t){
+  TAB=t;
+  $('tabCpa').style.background=t==='cpa'?'#1e293b':'#fff'; $('tabCpa').style.color=t==='cpa'?'#fff':'#64748b';
+  $('tabHp').style.background=t==='hp'?'#1e293b':'#fff'; $('tabHp').style.color=t==='hp'?'#fff':'#64748b';
+  $('tb').style.display=t==='cpa'?'':'none'; $('hplist').style.display=t==='hp'?'':'none';
+  $('kpis').style.display=t==='cpa'?'':'none'; document.querySelector('.bar').style.display=t==='cpa'?'':'none';
+  if(t==='hp')renderHpList();
+}
+function renderHpList(){
+  const by={}; HPACQ.forEach(r=>{const m=r.ym||'不明';(by[m]=by[m]||[]).push(r);});
+  const months=Object.keys(by).filter(m=>m!=='不明').sort().reverse();
+  const cpaOf=m=>{const c=(by[m]||[]).length, ad=+AD[m]||0; return c?Math.round(ad/c):0;};
+  let h='<div class="sub" style="margin-bottom:10px">🧾 <b>HP/SP（自社獲得）予約を「予約月＝成立（広告が効いた月）」で集計</b>。<b>CPA＝その月の広告費 ÷ 成立件数＝各予約の“獲得原価”</b>。利用（返却）が先の予約も、獲得原価は成立月で確定。キャンセル/テスト除外。</div>';
+  // 月別サマリー
+  h+='<div style="overflow-x:auto;margin-bottom:14px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#1e293b;color:#fff"><th style="padding:6px 8px;text-align:left">予約月</th><th style="padding:6px 8px;text-align:right">広告費</th><th style="padding:6px 8px;text-align:right">成立件数</th><th style="padding:6px 8px;text-align:right">CPA(原価/件)</th></tr></thead><tbody>';
+  months.forEach(m=>{const c=by[m].length,ad=+AD[m]||0;h+='<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:6px 8px;font-weight:800">'+m+'</td><td style="padding:6px 8px;text-align:right">'+yen(ad)+'</td><td style="padding:6px 8px;text-align:right">'+c+'件</td><td style="padding:6px 8px;text-align:right;font-weight:800;color:#1d4ed8">'+(c&&ad?yen(cpaOf(m)):'—')+'</td></tr>';});
+  h+='</tbody></table></div>';
+  // 予約リスト（予約月ごと）
+  months.forEach(m=>{
+    const cpa=cpaOf(m),ad=+AD[m]||0;
+    h+='<div style="margin:12px 0 4px;font-weight:800;color:#1e293b">📅 予約月 '+m+' <span style="font-size:12px;color:#64748b;font-weight:700">／ '+by[m].length+'件 ・ 獲得原価 '+(ad?yen(cpa):'広告費未入力')+'/件</span></div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f1f5f9;color:#475569"><th style="padding:5px 8px;text-align:left">予約番号</th><th style="padding:5px 8px;text-align:left">お名前</th><th style="padding:5px 8px;text-align:center">返却月</th><th style="padding:5px 8px;text-align:right">売上</th><th style="padding:5px 8px;text-align:right">獲得原価</th></tr></thead><tbody>';
+    by[m].slice().sort((a,b)=>String(a.ret_ym||'').localeCompare(String(b.ret_ym||''))).forEach(r=>{
+      h+='<tr style="border-bottom:1px solid #eef2f7"><td style="padding:5px 8px;font-family:monospace;font-size:11px">'+(r.id||'')+'</td><td style="padding:5px 8px">'+(r.name||'')+'</td><td style="padding:5px 8px;text-align:center">'+(r.ret_ym||'—')+'</td><td style="padding:5px 8px;text-align:right">'+yen(+r.rev||0)+'</td><td style="padding:5px 8px;text-align:right;color:#1d4ed8;font-weight:700">'+(ad?yen(cpa):'—')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  });
+  if(by['不明']&&by['不明'].length){h+='<div style="margin-top:10px;font-size:12px;color:#b45309">⚠️ 予約月(成立日)不明 '+by['不明'].length+'件＝原価算定不可（booked_at/created_at欠損）</div>';}
+  $('hplist').innerHTML=h||'<div style="color:#94a3b8;padding:20px;text-align:center">データなし</div>';
 }
 async function saveAd(){
   setSt('保存中…'); $('msg').textContent='';
