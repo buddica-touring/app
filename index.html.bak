@@ -2791,6 +2791,10 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     const ms=new Date(y,mo-1,1),me=new Date(y,mo-1,dim);
     let totalDays=0,activeCount=0,totalRevenue=0,totalAvail=0;
     const nowYMVal=viewYM;
+    // ★ BT/HDM分割集計（稼働=車両brand / 売上=予約brand。HDM以外=BT(BUDDICA)）
+    const vBrand=(v)=>String(v.brand||"")==="HDM"?"HDM":"BT";
+    const rBrand=(r)=>String(r.brand||"")==="HDM"?"HDM":"BT";
+    const bAgg={BT:{days:0,avail:0,cnt:0,rev:0,base:0,opt:0,disc:0},HDM:{days:0,avail:0,cnt:0,rev:0,base:0,opt:0,disc:0}};
     const active=data.filter(r=>r.status!=="cancelled");
     // ★2026-07 稼働率 新統一式：メンテ/車検/点検/その他の日を分母から除く（実稼働ベース）。maintは app state=camelCase
     const maintByVeh={};
@@ -2810,6 +2814,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
       const availV=dim-mSet.size;
       if(availV<=0)return;// 丸ごとメンテ＝分母に入れない
       activeCount++;totalAvail+=availV;
+      const _vb=vBrand(v);bAgg[_vb].cnt++;bAgg[_vb].avail+=availV;
       const rentalDays=new Set();let vRev=0;
       active.forEach(r=>{if(fleet[r.id]!==v.code)return;
         const ld=new Date(norm(r.lendDate)+"T00:00:00"),rd=new Date(norm(r.returnDate)+"T00:00:00");
@@ -2820,6 +2825,7 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
       mSet.forEach(dd=>rentalDays.delete(dd));// メンテ重複を実稼働から除外
       const vDays=rentalDays.size;
       totalDays+=vDays;totalRevenue+=vRev;
+      bAgg[_vb].days+=vDays;
       const tp=v.type||"?";
       if(!byClass[tp]){const cl=INIT_CLASSES.find(c=>c.type===tp);byClass[tp]={label:cl?cl.label:tp,color:CLASS_C[tp]||"#64748b",count:0,days:0,maxDays:0,revenue:0,vehicles:[]};}
       byClass[tp].count++;
@@ -2834,20 +2840,25 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     active.forEach(r=>{
       if(r.returnDate&&r.returnDate.slice(0,7)===nowYMVal){
         const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;
-        totalRevenue+=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
+        const _rev=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);
+        const _bse=(bp>0||op>0)?bp:(Number(r.price)||0);
+        totalRevenue+=_rev;
         // ★ 売上内訳（基本料金＋付帯＝合計、discountは基本料金側から引く）
-        totalBase+=((bp>0||op>0)?bp:(Number(r.price)||0));
+        totalBase+=_bse;
         totalOption+=op;
         totalDiscount+=dc;
+        const _rb=rBrand(r);bAgg[_rb].rev+=_rev;bAgg[_rb].base+=_bse;bAgg[_rb].opt+=op;bAgg[_rb].disc+=dc;
       }
     });
     totalBase-=totalDiscount;
+    bAgg.BT.base-=bAgg.BT.disc;bAgg.HDM.base-=bAgg.HDM.disc;
     Object.values(byClass).forEach(c=>{c.pct=c.maxDays>0?Math.round(c.days/c.maxDays*100):0;c.revpacd=c.maxDays>0?Math.round(c.revenue/c.maxDays):0;c.vehicles.sort((a,b)=>b.pct-a.pct);});
     const classOrder=INIT_CLASSES.map(c=>c.type).filter(t=>byClass[t]);
     const maxDays=totalAvail;
     const revpacd=maxDays>0?Math.round(totalRevenue/maxDays):0;
     const perVehicleRevenue=activeCount>0?Math.round(totalRevenue/activeCount):0;
-    return{totalDays,activeCount,maxDays,pct:maxDays>0?Math.round(totalDays/maxDays*100):0,dim,byClass,classOrder,totalRevenue,totalBase,totalOption,revpacd,perVehicleRevenue};
+    const mkB=(a)=>({activeCount:a.cnt,maxDays:a.avail,totalDays:a.days,pct:a.avail>0?Math.round(a.days/a.avail*100):0,totalRevenue:a.rev,totalBase:a.base,totalOption:a.opt,revpacd:a.avail>0?Math.round(a.rev/a.avail):0,perVehicleRevenue:a.cnt>0?Math.round(a.rev/a.cnt):0});
+    return{totalDays,activeCount,maxDays,pct:maxDays>0?Math.round(totalDays/maxDays*100):0,dim,byClass,classOrder,totalRevenue,totalBase,totalOption,revpacd,perVehicleRevenue,bt:mkB(bAgg.BT),hdm:mkB(bAgg.HDM)};
   },[data,vehicles,fleet,kpiFlags,maintenance,viewYM]);
   // ★ クラス別売上ウィジェットの計算結果をグローバルに保存（レポートがそのまま読む）
   useEffect(()=>{
@@ -2864,25 +2875,35 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
     if(!data||data.length===0)return null;
     const nowYM=viewYM;
     const active=data.filter(r=>r.status!=="cancelled");
-    // ★ 起点 = 当月返却の全予約（returnDate基準 = 会計基準）
-    const tmRet=active.filter(r=>r.returnDate&&r.returnDate.slice(0,7)===nowYM);
-    const tmTotal=tmRet.length;
-    if(tmTotal===0)return null;
-    // 当月返却のうち、当月に予約発生
-    const tmSame=tmRet.filter(r=>r.createdAt&&r.createdAt.slice(0,7)===nowYM);
-    const tmSameCount=tmSame.length;
-    const tmSamePct=Math.round(tmSameCount/tmTotal*100);
-    // ★ 当月発生売上 = 当月予約(当月返却かつ当月発生)の売上合計
-    let tmSameRev=0;
-    tmSame.forEach(r=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;tmSameRev+=(bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);});
-    // ★ 当月デリバリ利用率（当月返却ベース）
-    // ※ 判定ソース: bt_tasks に DEL / COL タスクが紐づく予約
-    //   1予約に最大2タスク（DEL+COL）あるが Set で重複排除。OPシート上の手動変更も反映
-    //   delResIdSet が null（フェッチ未完）の間は 0% 表示
+    // ★ 判定ヘルパー（デリバリ=bt_tasksにDEL/COL紐づく予約 / 売上=基本+付帯-割引）
     const isDeliveryRes=(r)=>delResIdSet?delResIdSet.has(r.id):false;
-    const tmDelCnt=tmRet.filter(isDeliveryRes).length;
-    const tmDelPct=tmTotal>0?Math.round(tmDelCnt/tmTotal*100):0;
-    // OTA別 当月予約率（当月返却ベース）+ デリバリ件数/率
+    const revOfR=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
+    // ★ 指標を予約サブセット単位で計算（グロス=全体 / BT=非HDM(BUDDICA) / HDM）。基準=当月返却(returnDate=会計基準)
+    const calc=(act)=>{
+      const tmRet=act.filter(r=>r.returnDate&&r.returnDate.slice(0,7)===nowYM);
+      const tmTotal=tmRet.length;
+      const tmSame=tmRet.filter(r=>r.createdAt&&r.createdAt.slice(0,7)===nowYM);
+      const tmSameCount=tmSame.length;
+      const tmSamePct=tmTotal>0?Math.round(tmSameCount/tmTotal*100):0;
+      let tmSameRev=0;tmSame.forEach(r=>{tmSameRev+=revOfR(r);});
+      const tmDelCnt=tmRet.filter(isDeliveryRes).length;
+      const tmDelPct=tmTotal>0?Math.round(tmDelCnt/tmTotal*100):0;
+      let hpN=0,hpR=0,otaN=0,otaR=0;
+      tmRet.forEach(r=>{const o=String(r.ota||"").trim();if(o===""){hpN++;hpR+=revOfR(r);}else if(o!=="SP"){otaN++;otaR+=revOfR(r);}});
+      const hpUnit=hpN>0?Math.round(hpR/hpN):0,otaUnit=otaN>0?Math.round(otaR/otaN):0;
+      let acqN=0,acqR=0;
+      act.forEach(r=>{if(!r.createdAt||r.createdAt.slice(0,7)!==nowYM)return;const o=String(r.ota||"").trim();if(o===""||o==="SP"){acqN++;acqR+=revOfR(r);}});
+      const acqUnit=acqN>0?Math.round(acqR/acqN):0;
+      return{tmTotal,tmSameCount,tmSamePct,tmSameRev,tmDelCnt,tmDelPct,hpN,hpR,hpUnit,otaN,otaR,otaUnit,acqN,acqR,acqUnit};
+    };
+    // ★ BT/HDM分割（HDM=brand==='HDM' / BT=それ以外=BUDDICA）＝BT+HDM=グロス
+    const isHDM=(r)=>String(r.brand||"")==="HDM";
+    const g=calc(active);
+    if(g.tmTotal===0)return null;
+    const bt=calc(active.filter(r=>!isHDM(r)));
+    const hdm=calc(active.filter(r=>isHDM(r)));
+    // ★ byOta / last10（グロス・分割なし）
+    const tmRet=active.filter(r=>r.returnDate&&r.returnDate.slice(0,7)===nowYM);
     const otaMap={};
     tmRet.forEach(r=>{const k=r.ota||"?";if(!otaMap[k])otaMap[k]=[];otaMap[k].push(r);});
     const byOta=Object.entries(otaMap).map(([k,arr])=>{
@@ -2890,21 +2911,10 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
       const del=arr.filter(isDeliveryRes);
       return{ota:k,total:arr.length,same:same.length,pct:arr.length>0?Math.round(same.length/arr.length*100):0,delCnt:del.length,delPct:arr.length>0?Math.round(del.length/arr.length*100):0};
     }).sort((a,b)=>b.total-a.total);
-    // 直近の新規予約（当月返却 & 当月created、created_at降順）
-    const last10=[...tmSame].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).slice(0,10).map(r=>({
+    const last10=tmRet.filter(r=>r.createdAt&&r.createdAt.slice(0,7)===nowYM).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).slice(0,10).map(r=>({
       id:r.id,ota:r.ota,name:r.name,lendDate:r.lendDate,returnDate:r.returnDate,createdAt:(r.createdAt||"").slice(0,10)
     }));
-    // ★ HP/OTA 予約単価（当月返却ベース・予約外は含めない）
-    //   HP = ota欄が空（直販/公式）／ OTA = ota名称（じゃらん/エアトリ/楽天/スカイ/RC等・空でもSPでもない）／ SP=その他は除外
-    const revOfR=(r)=>{const bp=Number(r.basePrice)||0,op=Number(r.optionPrice)||0,dc=Number(r.discount)||0;return (bp>0||op>0)?(bp+op-dc):(Number(r.price)||0);};
-    let hpN=0,hpR=0,otaN=0,otaR=0;
-    tmRet.forEach(r=>{const o=String(r.ota||"").trim();if(o===""){hpN++;hpR+=revOfR(r);}else if(o!=="SP"){otaN++;otaR+=revOfR(r);}});
-    const hpUnit=hpN>0?Math.round(hpR/hpN):0,otaUnit=otaN>0?Math.round(otaR/otaN):0;
-    // ★ 当月 新規獲得（発生月ベース＝当月created・返却月は問わない）／直販系 HP+SP（ota空 or SP）
-    let acqN=0,acqR=0;
-    active.forEach(r=>{if(!r.createdAt||r.createdAt.slice(0,7)!==nowYM)return;const o=String(r.ota||"").trim();if(o===""||o==="SP"){acqN++;acqR+=revOfR(r);}});
-    const acqUnit=acqN>0?Math.round(acqR/acqN):0;
-    return{tmTotal,tmSameCount,tmSamePct,tmSameRev,tmDelCnt,tmDelPct,byOta,last10,nowYM,hpN,hpR,hpUnit,otaN,otaR,otaUnit,acqN,acqR,acqUnit};
+    return{...g,bt,hdm,byOta,last10,nowYM};
   },[data,delResIdSet,viewYM]);
   // ★ 月次スナップショット自動保存（前月分を自動記録）
   useEffect(()=>{
@@ -2928,6 +2938,16 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
   const moLabel=viewYM.split("-")[1].replace(/^0/,"")+"月";
   const isCurrentMonth=viewYM===nowYMForKpi;
   const navBtnS={fontSize:14,lineHeight:1,padding:"2px 8px",borderRadius:6,border:"1px solid #fde68a",background:"#fffbeb",color:"#92400e",cursor:"pointer",fontWeight:700,flexShrink:0};
+  // ★ BT/HDM/グロス 3列KPI行（BT=緑/HDM=青/グロス=オレンジ・右端）
+  const _man=(v)=>"¥"+(Number(v)/10000).toFixed(1)+"万";
+  const _yen=(v)=>"¥"+Math.round(Number(v)||0).toLocaleString();
+  const row3=(icon,label,sub,bt,hdm,gross)=> <div style={{display:"flex",alignItems:"baseline",gap:3,fontSize:9.5}}>
+    <span style={{fontSize:11,width:15,flexShrink:0}}>{icon}</span>
+    <span style={{color:"#64748b",fontWeight:700,width:62,flexShrink:0,lineHeight:1.05}}>{label}{sub?<span style={{fontSize:7.5,color:"#94a3b8",fontWeight:600}}> {sub}</span>:null}</span>
+    <span style={{flex:1,textAlign:"right",whiteSpace:"nowrap"}}><span style={{color:"#94a3b8",fontSize:7.5}}>BT</span> <b style={{color:"#166534"}}>{bt}</b></span>
+    <span style={{flex:1,textAlign:"right",whiteSpace:"nowrap"}}><span style={{color:"#94a3b8",fontSize:7.5}}>HDM</span> <b style={{color:"#1e40af"}}>{hdm}</b></span>
+    <span style={{flex:1.15,textAlign:"right",whiteSpace:"nowrap",borderLeft:"1px solid #fde68a",paddingLeft:4,marginLeft:2}}><span style={{color:"#94a3b8",fontSize:7.5}}>グロス</span> <b style={{color:"#b45309"}}>{gross}</b></span>
+  </div>;
   if(!stats)return <div style={{marginBottom:8}}>
     <div style={{padding:"10px 14px",borderRadius:12,background:"linear-gradient(135deg,#fffbeb,#fef3c7)",border:"1px solid #fde68a",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -2984,6 +3004,11 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
                 <span style={{flex:1,fontSize:9,color:"#94a3b8",textAlign:"center",fontStyle:"italic"}}>基本＋付帯</span>
                 <span style={{width:30}}/>
               </div>
+              {utilStats.bt&&<div style={{display:"flex",alignItems:"center",gap:4,fontSize:9,paddingLeft:44}}>
+                <span style={{flex:1,textAlign:"right",color:"#94a3b8"}}>BT <b style={{color:"#166534"}}>¥{(utilStats.bt.totalRevenue/10000).toFixed(1)}万</b></span>
+                <span style={{flex:1,textAlign:"right",color:"#94a3b8"}}>HDM <b style={{color:"#1e40af"}}>¥{(utilStats.hdm.totalRevenue/10000).toFixed(1)}万</b></span>
+                <span style={{width:30}}/>
+              </div>}
               <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11}}>
                 <span style={{width:44,color:"#64748b"}}>予約外</span>
                 <span style={{width:72,textAlign:"right",color:"#1e293b",fontWeight:700}}>¥{(extraSalesRev/10000).toFixed(1)}万</span>
@@ -2997,66 +3022,17 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
         })()}
         {/* 右: KPIリスト */}
         <div style={{flex:"1 1 200px",minWidth:180,display:"flex",flexDirection:"column",justifyContent:"space-around",gap:8,paddingLeft:10,borderLeft:"1px dashed #fde68a"}}>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>📊</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月予約率</span>
-            <span style={{fontSize:20,fontWeight:900,color:"#d97706",lineHeight:1}}>{stats.tmSamePct}<span style={{fontSize:11,fontWeight:600}}>%</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>({stats.tmSameCount}/{stats.tmTotal})</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>🔢</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月予約数</span>
-            <span style={{fontSize:20,fontWeight:900,color:"#0284c7",lineHeight:1}}>{stats.tmSameCount}<span style={{fontSize:11,fontWeight:600}}>件</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>新規(当月発生)</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>🆕</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月発生売上</span>
-            <span style={{fontSize:16,fontWeight:900,color:"#059669",lineHeight:1}}>¥{(stats.tmSameRev/10000).toFixed(1)}<span style={{fontSize:11,fontWeight:600}}>万</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>{stats.tmSameCount}件</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>🏠</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>HP予約単価</span>
-            <span style={{fontSize:16,fontWeight:900,color:"#0284c7",lineHeight:1}}>¥{stats.hpUnit.toLocaleString()}</span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>当月返却{stats.hpN}件</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>🌐</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>OTA予約単価</span>
-            <span style={{fontSize:16,fontWeight:900,color:"#d97706",lineHeight:1}}>¥{stats.otaUnit.toLocaleString()}</span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>当月返却{stats.otaN}件</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6,paddingTop:4,borderTop:"1px dashed #fde68a"}}>
-            <span style={{fontSize:12,width:18}}>🎯</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>当月獲得<span style={{fontSize:8,color:"#94a3b8",fontWeight:600}}> HP+SP</span></span>
-            <span style={{fontSize:20,fontWeight:900,color:"#7c3aed",lineHeight:1}}>{stats.acqN}<span style={{fontSize:11,fontWeight:600}}>件</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>発生月・返却問わず</span>
-          </div>
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>💴</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>獲得流通額</span>
-            <span style={{fontSize:16,fontWeight:900,color:"#059669",lineHeight:1}}>¥{(stats.acqR/10000).toFixed(1)}<span style={{fontSize:11,fontWeight:600}}>万</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>単価 ¥{stats.acqUnit.toLocaleString()}</span>
-          </div>
-          {utilStats&&<div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>⚙️</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>稼働率</span>
-            <span style={{fontSize:20,fontWeight:900,color:"#059669",lineHeight:1}}>{utilStats.pct}<span style={{fontSize:11,fontWeight:600}}>%</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>({utilStats.totalDays}/{utilStats.maxDays}日)</span>
-          </div>}
-          {utilStats&&<div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>💵</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>RevPACD</span>
-            <span style={{fontSize:16,fontWeight:900,color:"#0284c7",lineHeight:1}}>¥{utilStats.revpacd.toLocaleString()}</span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>{utilStats.activeCount}台</span>
-          </div>}
-          <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-            <span style={{fontSize:12,width:18}}>🚚</span>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:700,flex:1}}>デリバリ</span>
-            <span style={{fontSize:20,fontWeight:900,color:"#7c3aed",lineHeight:1}}>{stats.tmDelPct}<span style={{fontSize:11,fontWeight:600}}>%</span></span>
-            <span style={{fontSize:9,color:"#94a3b8",width:72,textAlign:"right"}}>({stats.tmDelCnt}/{stats.tmTotal})</span>
-          </div>
+          {row3("📊","当月予約率",`(${stats.tmSameCount}/${stats.tmTotal})`,stats.bt.tmSamePct+"%",stats.hdm.tmSamePct+"%",stats.tmSamePct+"%")}
+          {row3("🔢","当月予約数","新規",stats.bt.tmSameCount+"件",stats.hdm.tmSameCount+"件",stats.tmSameCount+"件")}
+          {row3("🆕","当月発生売上","",_man(stats.bt.tmSameRev),_man(stats.hdm.tmSameRev),_man(stats.tmSameRev))}
+          {row3("🏠","HP予約単価",`${stats.hpN}件`,stats.bt.hpN?_yen(stats.bt.hpUnit):"―",stats.hdm.hpN?_yen(stats.hdm.hpUnit):"―",stats.hpN?_yen(stats.hpUnit):"―")}
+          {row3("🌐","OTA予約単価",`${stats.otaN}件`,stats.bt.otaN?_yen(stats.bt.otaUnit):"―",stats.hdm.otaN?_yen(stats.hdm.otaUnit):"―",stats.otaN?_yen(stats.otaUnit):"―")}
+          <div style={{borderTop:"1px dashed #fde68a",margin:"2px 0"}}/>
+          {row3("🎯","当月獲得","HP+SP",stats.bt.acqN+"件",stats.hdm.acqN+"件",stats.acqN+"件")}
+          {row3("💴","獲得流通額","",_man(stats.bt.acqR),_man(stats.hdm.acqR),_man(stats.acqR))}
+          {utilStats&&utilStats.bt&&row3("⚙️","稼働率","",utilStats.bt.pct+"%",utilStats.hdm.pct+"%",utilStats.pct+"%")}
+          {utilStats&&utilStats.bt&&row3("💵","RevPACD","",_yen(utilStats.bt.revpacd),_yen(utilStats.hdm.revpacd),_yen(utilStats.revpacd))}
+          {row3("🚚","デリバリ","",stats.bt.tmDelPct+"%",stats.hdm.tmDelPct+"%",stats.tmDelPct+"%")}
         </div>
       </div>
       {/* フッター: 台あたり進捗 */}
@@ -3069,6 +3045,12 @@ function LeadTimeWidget({data,vehicles,fleet,maintenance}){
           <div style={{height:"100%",width:Math.min(100,Math.round(utilStats.perVehicleRevenue/perVehTarget*100))+"%",background:utilStats.perVehicleRevenue>=perVehTarget?"#059669":utilStats.perVehicleRevenue>=perVehTarget*0.7?"#f59e0b":"#dc2626",borderRadius:4,transition:"width .3s"}}/>
         </div>
         <span style={{fontSize:13,fontWeight:900,color:utilStats.perVehicleRevenue>=perVehTarget?"#059669":utilStats.perVehicleRevenue>=perVehTarget*0.7?"#d97706":"#dc2626"}}>{Math.round(utilStats.perVehicleRevenue/perVehTarget*100)}%</span>
+      </div>}
+      {utilStats&&utilStats.bt&&<div style={{marginTop:3,display:"flex",gap:8,fontSize:9,color:"#94a3b8",justifyContent:"flex-end",flexWrap:"wrap"}}>
+        <span>台あたり</span>
+        <span>BT <b style={{color:"#166534"}}>¥{(utilStats.bt.perVehicleRevenue/10000).toFixed(1)}万</b> <span style={{fontSize:8}}>({utilStats.bt.activeCount}台)</span></span>
+        <span>HDM <b style={{color:"#1e40af"}}>¥{(utilStats.hdm.perVehicleRevenue/10000).toFixed(1)}万</b> <span style={{fontSize:8}}>({utilStats.hdm.activeCount}台)</span></span>
+        <span style={{borderLeft:"1px solid #fde68a",paddingLeft:8}}>グロス <b style={{color:"#b45309"}}>¥{(utilStats.perVehicleRevenue/10000).toFixed(1)}万</b></span>
       </div>}
     </div>
     {open&&<div style={{marginTop:4,padding:"12px 14px",borderRadius:12,background:"#fff",border:"1px solid #e2e8f0",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
@@ -23970,7 +23952,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.499-BT";
+const APP_VERSION="v1.0.500-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
