@@ -89,7 +89,7 @@ function setSt(t){$('st').textContent=t;}
 async function sbGet(path){const r=await fetch(SB+'/rest/v1/'+path,{headers:{apikey:ANON,Authorization:'Bearer '+ANON}});if(!r.ok)throw new Error(r.status);return r.json();}
 async function sbPost(path,body){const r=await fetch(SB+'/rest/v1/'+path,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(r.status);return r.json();}
 function nowYM(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
-let AD={}, MONTHS=[], HPACQ=[], TAB='cpa', HPRET={};
+let AD={}, MONTHS=[], HPACQ=[], TAB='cpa', HPRET={}, OTASPLIT={};
 // ②流通/返却：返却月ごとに、その月に返るHP予約の件数・獲得原価合計・平均CPA。{返却月:{cnt,cost,cpa}}
 function hpRetAgg(){
   const cntYm={}; HPACQ.forEach(r=>{if(r.ym)cntYm[r.ym]=(cntYm[r.ym]||0)+1;});
@@ -109,8 +109,9 @@ function calc(m){
 async function load(){
   setSt('読み込み中…');
   try{
-    const [agg,st,hpa]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt'),sbPost('rpc/bt_hp_acq',{})]);
+    const [agg,st,hpa,osp]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt'),sbPost('rpc/bt_hp_acq',{}),sbPost('rpc/bt_ota_brand_split',{}).catch(()=>[])]);
     HPACQ=Array.isArray(hpa)?hpa:[];
+    OTASPLIT={};(Array.isArray(osp)?osp:[]).forEach(r=>{const m=String(r.ym||'');if(/^\d{4}-\d{2}$/.test(m))OTASPLIT[m]={hdm:+r.hdm_cnt||0,bud:+r.bud_cnt||0};});
     try{AD=st&&st[0]?JSON.parse(st[0].value||'{}'):{};}catch(e){AD={};}
     const base={};
     (agg||[]).forEach(r=>{const m=String(r.ym||'');if(!/^\d{4}-\d{2}$/.test(m))return;base[m]={m,otaRev:+r.ota_rev||0,otaCnt:+r.ota_cnt||0,hpRev:+r.hp_rev||0,hpCnt:+r.hp_cnt||0};});
@@ -142,7 +143,7 @@ function cardHTML(x){
   return '<div class="mcard'+(x.m===nm?' now':'')+'" data-m="'+x.m+'">'+
     '<div class="mhd"><span class="mym">'+x.m+'</span><span class="mtot">'+yen(x.rev)+' <small>'+x.cnt+'件</small></span>'+
       '<span class="mrat"><span class="fee">OTA '+(x.rev?orat:'—')+'%</span> / <span class="adc">HP '+(x.rev?hrat:'—')+'%</span></span></div>'+
-    '<div class="mrow"><div class="rl r-ota">🟧 OTA<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却=売上</span></div>'+cellK('件数',x.otaCnt)+cellK('売上',yen(x.otaRev))+cellK('手数料18%',yen(x.fee))+cellK('CPA',(x.otaCnt?yen(x.otaCpa):'—'),' cpa')+'</div>'+
+    '<div class="mrow"><div class="rl r-ota">🟧 OTA<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却=売上</span></div>'+'<div class="cell"><span class="k">件数</span><b>'+x.otaCnt+(OTASPLIT[x.m]?' <span style="font-size:9px;color:#94a3b8;font-weight:700">(B'+OTASPLIT[x.m].bud+'/H'+OTASPLIT[x.m].hdm+')</span>':'')+'</b></div>'+cellK('売上',yen(x.otaRev))+cellK('手数料18%',yen(x.fee))+cellK('CPA',(x.otaCnt?yen(x.otaCpa):'—'),' cpa')+'</div>'+
     '<div class="mrow"><div class="rl r-hp">🟦 HP獲得<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">成立月＝新規獲得</span></div>'+cellK('件数',x.hpCnt)+cellK('売上',yen(x.hpRev))+
       '<div class="cell"><span class="k">広告費</span><input class="ad" type="number" data-m="'+x.m+'" value="'+(x.ad||'')+'" placeholder="0"></div>'+
       '<div class="cell cpa"><span class="k">獲得CPA</span><b data-r="hpcpa">'+(x.hpCnt&&x.ad?yen(x.hpCpa):'—')+'</b></div></div>'+
