@@ -121,7 +121,9 @@ const CFG={
   bt: {sb:BT_SB,anon:BT_ANON, resv:'bt_reservations', lend:'start_date',ret:'end_date',   occ:['booked_at','created_at'], st:'bt_app_settings', adk:'hp_adspend_bt', lbl:'🚐高松店',hpMode:'source',acct:'bt_accounting'},
 };
 // hpMode: 'ota'＝ota in(HP,SP)で公式判定（札幌/那覇）／'source'＝OTA以外(source≠ota)を公式扱い（高松＝公式siteはota空・SPも含む）
-const STORE=(new URLSearchParams(location.search).get('store')||'spk').toLowerCase();
+// ★2026-10-03 store未指定時はログイン中プロジェクトから店を自動判定(BTドメインはBTトークンのみ→高松)。従来の既定spk固定だと、BTドメインでMAIN(札幌/那覇)をanon参照しRLSで0件=空表示になる事故を解消。?store指定が常に優先。
+function _detectStore(){try{const map={'ckrxttbnawkclshczsia':'spk','ggqugvyskyiblxiycpci':'bt'};for(let i=0;i<localStorage.length;i++){const m=(localStorage.key(i)||'').match(/^sb-([a-z0-9]+)-auth-token$/);if(m&&map[m[1]])return map[m[1]];}}catch(e){}return 'spk';}
+const STORE=((new URLSearchParams(location.search).get('store'))||_detectStore()).toLowerCase();
 const C=CFG[STORE]||CFG.spk;
 const START='2026-02';
 document.getElementById('storelbl').textContent=C.lbl;
