@@ -34,7 +34,8 @@ button{cursor:pointer;background:#22346a;font-weight:600}button.on{background:#F
 const MAIN='https://ckrxttbnawkclshczsia.supabase.co', MANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8';
 const BTSB='https://ggqugvyskyiblxiycpci.supabase.co', BTANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
 const CFG={spk:{sb:MAIN,anon:MANON,store:'spk',name:'札幌'},nha:{sb:MAIN,anon:MANON,store:'nha',name:'那覇'},bt:{sb:BTSB,anon:BTANON,store:null,name:'BUDDICA'}};
-const STORE=(new URLSearchParams(location.search).get('store')||'spk').toLowerCase();
+// ★2026-10-03 既定店はドメインで決定(BUDDICAドメイン=高松bt / その他=spk)。?store指定は優先。BUDDICAドメインでspk固定だとMAINをanon参照しRLSで空表示になる事故を解消。
+const STORE=(new URLSearchParams(location.search).get('store')||(location.hostname.indexOf('buddica')>=0?'bt':'spk')).toLowerCase();
 const C=CFG[STORE]||CFG.spk;
 document.getElementById('ttl').textContent='📒 台帳（'+C.name+'）';
 // テーブル日本語化
