@@ -220,17 +220,16 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const DB_KEY='shift_sim_state_bt';
 // bt_app_settings は authenticated でないと読み書き不可（anon=401/[]）。
 // 同一オリジンの本体APPログイントークン(localStorage sb-*-auth-token)を再利用する。未ログインならDBはスキップ。
+// ★2026-10-03 プロジェクト整合: SB_URL のref(sb-<ref>-auth-token)に一致するトークンだけ使う(別プロジェクトのトークンをBearer送信→401事故を根治)。不一致/未ログインはnull→DBスキップ。
 function _sbToken(){
   try{
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k&&k.indexOf('sb-')===0&&k.indexOf('-auth-token')>0){
-        let v=JSON.parse(localStorage.getItem(k));
-        if(Array.isArray(v))v=v[0];
-        const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)||(v.session&&v.session.access_token));
-        if(t)return t;
-      }
-    }
+    const ref=(new URL(SB_URL).host.split('.')[0]||'');
+    if(!ref)return null;
+    let v=JSON.parse(localStorage.getItem('sb-'+ref+'-auth-token'));
+    if(!v)return null;
+    if(Array.isArray(v))v=v[0];
+    const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token)||(v.session&&v.session.access_token));
+    if(t)return t;
   }catch(e){}
   return null;
 }

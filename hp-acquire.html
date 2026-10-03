@@ -127,7 +127,8 @@ const START='2026-02';
 document.getElementById('storelbl').textContent=C.lbl;
 document.title='🌐 HP新規獲得 '+C.lbl;
 
-function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.indexOf('sb-')===0&&key.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(key));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
+// ★2026-10-03 プロジェクト整合: C.sb のref(sb-<ref>-auth-token)に一致するトークンだけ使う。別プロジェクトにログイン中(例:BTドメインでspk/MAINを見る)に他プロジェクトのトークンをBearerで送ると401になる事故を根治。不一致/未ログイン時はnull→anonで取得。
+function _sbToken(){try{const ref=(new URL(C.sb).host.split('.')[0]||'');if(!ref)return null;const v=JSON.parse(localStorage.getItem('sb-'+ref+'-auth-token'));if(!v)return null;const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);return t||null;}catch(e){return null;}}
 function H(){const t=_sbToken();return {apikey:C.anon,Authorization:'Bearer '+(t||C.anon),'Content-Type':'application/json'};}
 const yen=n=>'¥'+Math.round(+n||0).toLocaleString();
 const ym=s=>s?String(s).slice(0,7):'';

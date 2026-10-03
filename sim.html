@@ -420,7 +420,8 @@ function rebalance(){
 function copyResult(){navigator.clipboard.writeText(LAST).then(()=>alert('結果をコピーしました'));}
 /* ===== 実績ライブ自動取得（正本箱: monthly_snapshots.class_detail。平均泊のみ予約から算出） ===== */
 const LIVECFG={sb:'https://ggqugvyskyiblxiycpci.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18',store:'tkm',resv:'bt_reservations',clsCol:'vehicle_class',lend:'start_date',ret:'end_date'};
-function _sbToken(){try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.indexOf('sb-')===0&&key.indexOf('auth-token')>=0){let v=null;try{v=JSON.parse(localStorage.getItem(key));}catch(e){continue;}const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);if(t)return t;}}}catch(e){}return null;}
+// ★2026-10-03 プロジェクト整合: LIVECFG.sb のref(sb-<ref>-auth-token)に一致するトークンだけ使う(別プロジェクトのトークンをBearer送信→401事故を根治)。不一致/未ログインはnull→埋込スナップショットにフォールバック。
+function _sbToken(){try{const ref=(new URL(LIVECFG.sb).host.split('.')[0]||'');if(!ref)return null;const v=JSON.parse(localStorage.getItem('sb-'+ref+'-auth-token'));if(!v)return null;const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);return t||null;}catch(e){return null;}}
 async function loadActuals(){
  const st=document.getElementById('live_status');
  const tok=_sbToken();
