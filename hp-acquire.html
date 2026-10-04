@@ -129,7 +129,24 @@ document.getElementById('storelbl').textContent=C.lbl;
 document.title='🌐 HP新規獲得 '+C.lbl;
 
 // ★2026-10-03 プロジェクト整合: C.sb のref(sb-<ref>-auth-token)に一致するトークンだけ使う。別プロジェクトにログイン中(例:BTドメインでspk/MAINを見る)に他プロジェクトのトークンをBearerで送ると401になる事故を根治。不一致/未ログイン時はnull→anonで取得。
-function _sbToken(){try{const ref=(new URL(C.sb).host.split('.')[0]||'');if(!ref)return null;const v=JSON.parse(localStorage.getItem('sb-'+ref+'-auth-token'));if(!v)return null;const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);return t||null;}catch(e){return null;}}
+function _sbKey(){try{const ref=(new URL(C.sb).host.split('.')[0]||'');return ref?('sb-'+ref+'-auth-token'):null;}catch(e){return null;}}
+function _sbTokenOf(v){const t=(v&&v.access_token)||(v&&v.currentSession&&v.currentSession.access_token)||(v&&v.session&&v.session.access_token)||(Array.isArray(v)&&typeof v[0]==='string'?v[0]:null);return t||null;}
+function _jwtExp(t){try{return JSON.parse(atob(t.split('.')[1])).exp||0;}catch(e){return 0;}}
+// 2026-10-05 失効したaccess_tokenはnullを返す=失効BearerをDBへ送って401になる事故を根絶。失効時は未ログイン扱い→案内文/anonへ。
+function _sbToken(){try{const k=_sbKey();if(!k)return null;const v=JSON.parse(localStorage.getItem(k));if(!v)return null;const t=_sbTokenOf(v);if(!t)return null;const exp=_jwtExp(t);if(exp && exp<=Math.floor(Date.now()/1000)+10)return null;return t;}catch(e){return null;}}
+// 2026-10-05 このページは生トークンを使うだけで自動更新しなかった=約1時間でトークン失効→開くと401(BTはanonでRLS0件)。ロード前にrefresh_tokenで更新し書き戻す。本体APPと同じく失効を跨いでも開ける。
+async function ensureFreshToken(){try{
+  const k=_sbKey();if(!k)return;const raw=localStorage.getItem(k);if(!raw)return;
+  const v=JSON.parse(raw);const t=_sbTokenOf(v);if(!t)return;
+  const exp=_jwtExp(t);if(exp && exp>Math.floor(Date.now()/1000)+60)return; // まだ60秒以上有効なら何もしない
+  const sess=v.currentSession||v.session||v;const rt=sess&&sess.refresh_token;if(!rt)return;
+  const r=await fetch(C.sb+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:C.anon,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:rt})});
+  if(!r.ok)return;const nd=await r.json();if(!nd||!nd.access_token)return;
+  if(v.currentSession)v.currentSession=Object.assign({},v.currentSession,nd);
+  else if(v.session)v.session=Object.assign({},v.session,nd);
+  else Object.assign(v,nd);
+  localStorage.setItem(k,JSON.stringify(v));
+}catch(e){}}
 function H(){const t=_sbToken();return {apikey:C.anon,Authorization:'Bearer '+(t||C.anon),'Content-Type':'application/json'};}
 const yen=n=>'¥'+Math.round(+n||0).toLocaleString();
 const ym=s=>s?String(s).slice(0,7):'';
@@ -284,6 +301,7 @@ function renderLT(elId,Md,occMonths){
 }
 (async function(){
   const st=document.getElementById('status');
+  await ensureFreshToken();
   if(!_sbToken()){st.style.display='block';st.textContent='⚠️ 管理APPにログインしてからこのページを開いてください（データはログイン必須）。';return;}
   try{await loadAd();await fetchExtra();const resv=await fetchAll();ROWS=resv;BUILT=build(resv);render();
     if(new URLSearchParams(location.search).get('print')){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},500);}}
