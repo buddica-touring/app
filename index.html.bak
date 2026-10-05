@@ -9907,6 +9907,17 @@ function ManagementTab({store}){
 
     {/* --- 予実比較 --- */}
     {sub==="yojitsu"&&(()=>{
+      // === 高松(TKM)は BUDDICA TOURISM KPI管理レポート(bt-mtg) を埋め込み表示。札幌(SPK)は従来の自前テーブル ===
+      if(dbStore==="tkm"){
+        return <div>
+          <div style={{fontSize:14,fontWeight:900,marginBottom:4}}>🎯 KPI管理表 — {storeLabel}</div>
+          <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>BUDDICA TOURISM KPI管理（ライブ）— 売上 / 予約数 / 台あたり / 稼働率 / クラス別 / チャネル別</div>
+          <div style={{display:"flex",gap:6,marginBottom:8}}>
+            {["tkm","spk"].map(s=>{const sel=dbStore===s;return <button key={s} onClick={()=>setDbStore(s)} style={{padding:"6px 14px",fontSize:12,fontWeight:700,borderRadius:6,border:"none",cursor:"pointer",background:sel?"#1e40af":"#e2e8f0",color:sel?"#fff":"#334155"}}>{s==="tkm"?"高松":"札幌"}</button>;})}
+          </div>
+          <iframe src="https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html" style={{width:"100%",height:"80vh",border:"1px solid #e2e8f0",borderRadius:8}} title="BUDDICA TOURISM KPI管理"/>
+        </div>;
+      }
       // === KPI管理表（TKM: 売上/予約数/稼働率/予約単価） ===
       const today=new Date();
       const yjMonths=[];
@@ -23973,7 +23984,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.507-BT";
+const APP_VERSION="v1.0.508-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
