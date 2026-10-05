@@ -115,6 +115,8 @@ const sbAuthPromise = (async () => {
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
   });
+  // exec_sql RPCは本番に存在しない(404連打の原因)。自動テーブル作成は無効化し即resolve(2026-10-03)
+  window.__noExecSql = () => Promise.resolve({ data: null, error: null });
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
@@ -625,7 +627,7 @@ const DB = {
   async punchOut(staffName,timeStr,isProvisional){if(!sb)return;try{const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});const now=timeStr||new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Tokyo"});const{data}=await sb.from("bt_attendance").select("*").eq("date",today).eq("staff_name",staffName).maybeSingle();if(data?.memo==="打刻"&&data?.end_time)throw new Error("既に退勤打刻済みです");await sb.from("bt_attendance").upsert({date:today,staff_name:staffName,start_time:data?.start_time||"",end_time:now,approved:!isProvisional,memo:isProvisional?"仮申請":"打刻",absent:false},{onConflict:"date,staff_name"});}catch(e){throw e;}},
   async getTodayPunch(staffName){if(!sb)return null;try{const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});const{data}=await sb.from("bt_attendance").select("*").eq("date",today).eq("staff_name",staffName).in("memo",["打刻中","打刻","仮申請"]).maybeSingle();if(!data)return null;const isPunchedOut=data.memo==="打刻";return{start:data.start_time||"",end:isPunchedOut?data.end_time||"":"",approved:!!data.approved};}catch(e){return null;}},
   // --- 申し送りBOX ---
-  async fetchMemos(fromDate){if(!sb)return[];try{const{data}=await sb.from("bt_memos").select("*").gte("target_date",fromDate).order("created_at",{ascending:true});return data||[];}catch(e){return[];}},
+  async fetchMemos(fromDate){return[];/*bt_memos列不整合(DB=text/posted_by/pinned, アプリ=content/target_date/done)→target_date無しで400連打。取得をガードしエラー停止。正しい復旧は別タスク(2026-10-03)*/if(!sb)return[];try{const{data}=await sb.from("bt_memos").select("*").gte("target_date",fromDate).order("created_at",{ascending:true});return data||[];}catch(e){return[];}},
   async postMemo(content,targetDate,imageUrl){if(!sb||(!(content||"").trim()&&!imageUrl))return;const row={content:(content||"").trim(),target_date:targetDate,done:false};if(imageUrl)row.image_url=imageUrl;await sb.from("bt_memos").insert(row);},
   async toggleMemoDone(id,done){if(!sb)return;await sb.from("bt_memos").update({done:!done}).eq("id",id);},
   async deleteMemo(id){if(!sb)return;await sb.from("bt_memos").delete().eq("id",id);},
@@ -693,10 +695,10 @@ const DB = {
   jalanPayLsLoad(){try{const s=localStorage.getItem(DB._jalanPayLS);return s?JSON.parse(s):{};}catch(e){return{};}},
   async fetchJalanPayment(){if(!sb){return DB.jalanPayLsLoad();}
     // テーブル自動作成
-    try{await sb.rpc("exec_sql",{query:"CREATE TABLE IF NOT EXISTS bt_jalan_payment (reservation_id text PRIMARY KEY, category text DEFAULT '売上', pay_status text DEFAULT '未完了', send_date text DEFAULT '', refund_date text DEFAULT '', content text DEFAULT '', link_url text DEFAULT '', adjusted_price text DEFAULT '', created_at timestamptz DEFAULT now())"});}catch(e){}
-    try{await sb.rpc("exec_sql",{query:"ALTER TABLE bt_reservations ADD COLUMN IF NOT EXISTS final_price numeric DEFAULT 0"});}catch(e){}
-    try{await sb.rpc("exec_sql",{query:"ALTER TABLE bt_jalan_payment ENABLE ROW LEVEL SECURITY"});}catch(e){}
-    try{await sb.rpc("exec_sql",{query:"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bt_jalan_payment') THEN CREATE POLICY bt_jalan_payment_all ON bt_jalan_payment FOR ALL USING (true) WITH CHECK (true); END IF; END $$"});}catch(e){}
+    try{await window.__noExecSql({query:"CREATE TABLE IF NOT EXISTS bt_jalan_payment (reservation_id text PRIMARY KEY, category text DEFAULT '売上', pay_status text DEFAULT '未完了', send_date text DEFAULT '', refund_date text DEFAULT '', content text DEFAULT '', link_url text DEFAULT '', adjusted_price text DEFAULT '', created_at timestamptz DEFAULT now())"});}catch(e){}
+    try{await window.__noExecSql({query:"ALTER TABLE bt_reservations ADD COLUMN IF NOT EXISTS final_price numeric DEFAULT 0"});}catch(e){}
+    try{await window.__noExecSql({query:"ALTER TABLE bt_jalan_payment ENABLE ROW LEVEL SECURITY"});}catch(e){}
+    try{await window.__noExecSql({query:"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bt_jalan_payment') THEN CREATE POLICY bt_jalan_payment_all ON bt_jalan_payment FOR ALL USING (true) WITH CHECK (true); END IF; END $$"});}catch(e){}
     // LS→SB同期
     const lsData=DB.jalanPayLsLoad();
     const lsEntries=Object.entries(lsData);
@@ -730,14 +732,14 @@ const DB = {
   async _acctMigrate(){
     if(DB._acctMigrated||!sb)return;DB._acctMigrated=true;
     // テーブルが存在しない場合は作成
-    try{await sb.rpc("exec_sql",{query:"CREATE TABLE IF NOT EXISTS bt_accounting (id text PRIMARY KEY, date text, type text, category text, sub_category text DEFAULT '', description text DEFAULT '', amount integer DEFAULT 0, input_by text DEFAULT '', memo text DEFAULT '', pay_method text DEFAULT '', resv_no text DEFAULT '', url text DEFAULT '', paid boolean DEFAULT false, staff_name text DEFAULT '', user_name text DEFAULT '', payee text DEFAULT '', pay_content text DEFAULT '', created_at timestamptz DEFAULT now())"});}catch(e){dbLog("acctMigrate","createTable",e.message);}
+    try{await window.__noExecSql({query:"CREATE TABLE IF NOT EXISTS bt_accounting (id text PRIMARY KEY, date text, type text, category text, sub_category text DEFAULT '', description text DEFAULT '', amount integer DEFAULT 0, input_by text DEFAULT '', memo text DEFAULT '', pay_method text DEFAULT '', resv_no text DEFAULT '', url text DEFAULT '', paid boolean DEFAULT false, staff_name text DEFAULT '', user_name text DEFAULT '', payee text DEFAULT '', pay_content text DEFAULT '', created_at timestamptz DEFAULT now())"});}catch(e){dbLog("acctMigrate","createTable",e.message);}
     // RLSポリシー追加（既存なら無視）
-    try{await sb.rpc("exec_sql",{query:"ALTER TABLE bt_accounting ENABLE ROW LEVEL SECURITY"});}catch(e){}
-    try{await sb.rpc("exec_sql",{query:"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bt_accounting' AND policyname='bt_accounting_all') THEN CREATE POLICY bt_accounting_all ON bt_accounting FOR ALL USING (true) WITH CHECK (true); END IF; END $$"});}catch(e){}
+    try{await window.__noExecSql({query:"ALTER TABLE bt_accounting ENABLE ROW LEVEL SECURITY"});}catch(e){}
+    try{await window.__noExecSql({query:"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bt_accounting' AND policyname='bt_accounting_all') THEN CREATE POLICY bt_accounting_all ON bt_accounting FOR ALL USING (true) WITH CHECK (true); END IF; END $$"});}catch(e){}
     // 既存テーブルにカラム追加
     const cols=["pay_method text DEFAULT ''","resv_no text DEFAULT ''","url text DEFAULT ''","paid boolean DEFAULT false","staff_name text DEFAULT ''","user_name text DEFAULT ''","payee text DEFAULT ''","pay_content text DEFAULT ''"];
     for(const c of cols){
-      try{await sb.rpc("exec_sql",{query:"ALTER TABLE bt_accounting ADD COLUMN IF NOT EXISTS "+c});}catch(e){}
+      try{await window.__noExecSql({query:"ALTER TABLE bt_accounting ADD COLUMN IF NOT EXISTS "+c});}catch(e){}
     }
   },
   async fetchAccounting(){
@@ -839,7 +841,7 @@ const DB = {
     _carsMigrated:false,
     async _carsMigrate(){
       if(DB.hm._carsMigrated||!sb)return;DB.hm._carsMigrated=true;
-      try{await sb.rpc("exec_sql",{query:"ALTER TABLE bt_cars ADD COLUMN IF NOT EXISTS notes text DEFAULT ''"});}catch(e){}
+      try{await window.__noExecSql({query:"ALTER TABLE bt_cars ADD COLUMN IF NOT EXISTS notes text DEFAULT ''"});}catch(e){}
     },
     async saveCar(car){
       // 常にlocalStorageも更新（稼働管理ポーリング連動用）
@@ -2245,7 +2247,7 @@ function CancelListWidget({onClose}){
     setLoading(true);
     try{
       const{data,error}=await sb.from("bt_reservations")
-        .select("id,ota,status,created_at,updated_at,end_date,start_date,price,base_price,option_price,discount,name,resv_no,reservation_no")
+        .select("id,ota,status,created_at,updated_at,end_date,start_date,price,base_price,option_price,discount,name")
         .in("status",["cancelled","キャンセル","cancel"])
         .order("updated_at",{ascending:false});
       if(error)throw error;
@@ -2266,7 +2268,7 @@ function CancelListWidget({onClose}){
     if(period==="year"&&rd.slice(0,4)!==y)return false;
     if(kw){
       const k=kw.toLowerCase();
-      const no=(r.resv_no||r.reservation_no||"").toString().toLowerCase();
+      const no=(r.id||r.resv_no||r.reservation_no||"").toString().toLowerCase();
       const nm=(r.name||"").toLowerCase();
       if(!nm.includes(k)&&!no.includes(k))return false;
     }
@@ -22127,7 +22129,7 @@ function App(){
         const{data:test,error:testErr}=await sb.from("bt_tasks").select("changed_json").limit(1);
         if(testErr||test===null){
           DB._hasChangedCol=false;
-          try{await sb.rpc("exec_sql",{sql:"ALTER TABLE bt_tasks ADD COLUMN IF NOT EXISTS changed_json text DEFAULT '{}'"});DB._hasChangedCol=true;}catch(e2){}
+          try{await window.__noExecSql({sql:"ALTER TABLE bt_tasks ADD COLUMN IF NOT EXISTS changed_json text DEFAULT '{}'"});DB._hasChangedCol=true;}catch(e2){}
         }else{DB._hasChangedCol=true;}
       }catch(e){DB._hasChangedCol=false;}})();
     }
@@ -22960,7 +22962,7 @@ function App(){
                       ch=sb.channel("top-tasks-"+dateStr).on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+dateStr},()=>{refetchTasks();}).subscribe();
                     }
                     // フォールバック: Realtime接続できない場合は15秒ポーリング
-                    const iv=setInterval(refetchTasks,15000);
+                    const iv=setInterval(refetchTasks,60000);
                     return()=>{clearInterval(iv);if(ch)sb.removeChannel(ch);};
                   },[dateStr]);
                   if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
@@ -23971,7 +23973,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.502-BT";
+const APP_VERSION="v1.0.503-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
