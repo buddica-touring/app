@@ -304,7 +304,7 @@ const DB = {
   _fleetBackupLoad(){try{const s=localStorage.getItem("bt_fleet_backup");return s?JSON.parse(s):null;}catch(e){return null;}},
   async fetchFleet(){if(!sb){return DB._fleetLsLoad();}const data=await fetchAllRows("bt_fleet");if(!data.length){const ls=DB._fleetLsLoad();const lsCount=Object.keys(ls).filter(k=>k!=="_unassignedReasons").length;if(lsCount>0){console.warn("[fetchFleet] DB空だがlocalStorage有り("+lsCount+"件) → LS使用");}if(lsCount===0){const backup=DB._fleetBackupLoad();if(backup&&backup.count>0){console.warn("[fetchFleet] DB空+LS空 → バックアップ復元("+backup.count+"件)");return backup.data;}}return ls;}const f={};data.forEach(r=>f[r.reservation_id]=r.vehicle_code);dbLog("fetchFleet",true,Object.keys(f).length+"件");DB._fleetLsSave(f);return f;},
   async upsertFleet(fleet){DB._fleetLsSave(fleet);if(!sb)return;const rows=Object.entries(fleet).filter(([k,v])=>k!=="_unassignedReasons"&&typeof v==="string").map(([k,v])=>({reservation_id:k,vehicle_code:v}));if(rows.length){for(let i=0;i<rows.length;i+=500){const chunk=rows.slice(i,i+500);const{error}=await sb.from("bt_fleet").upsert(chunk,{onConflict:"reservation_id"});if(error){dbLog("upsertFleet",false,error.message);return;}}dbLog("upsertFleet",true,rows.length+"件");}},
-  async updateFleetOne(resId,code){if(!sb)return;const{error}=await sb.from("bt_fleet").upsert({reservation_id:resId,vehicle_code:code,manual:true},{onConflict:"reservation_id"});if(error)dbLog("updateFleet1",false,error.message);},  /* ★2026-10-05 manual:true＝人の手動配車印。DB検問トリガーはこの印の無い自動配車だけを異ブランド拒否する(手動は自由) */
+  async updateFleetOne(resId,code){if(!sb)return;const{error}=await sb.from("bt_fleet").upsert({reservation_id:resId,vehicle_code:code},{onConflict:"reservation_id"});if(error)dbLog("updateFleet1",false,error.message);},  /* ★2026-10-05 manual:true は bt_fleet.manual 列作成後に再投入(列未作成のまま送ると手動配車が400で全失敗するため一旦戻した) */
   async deleteFleetOne(resId){if(!sb)return;const{error}=await sb.from("bt_fleet").delete().eq("reservation_id",resId);if(error)dbLog("deleteFleet1",false,error.message);},
   // --- Broadcast（CSV取込ロック通知） ---
   _broadcastCh: null,
@@ -23973,7 +23973,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.505-BT";
+const APP_VERSION="v1.0.506-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
