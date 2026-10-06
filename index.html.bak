@@ -1333,6 +1333,7 @@ const ACCT_CASH_CATEGORIES={
 };
 const ACCT_EXTRA_CATEGORIES=["延長料金","追加オプション","免責補償","サイト外紹介","現地飛込み","法人直接","電話予約","その他"];
 const ACCT_CARD_CATEGORIES=["燃料費","車両整備費","車検費","点検費","修理費","保険料","駐車場代","消耗品費","広告宣伝費","通信費","水道光熱費","旅費交通費","外注費","支払手数料","租税公課","雑費","その他"];
+const ACCT_MISC_CATEGORIES=["NOC補償料","保険金受取","解約手数料","キャンセル料","遅延損害金","買取・売却益","受取利息","その他雑所得"];
 const ACCT_PAYMENT_METHODS=["現金","クレジットカード","電子マネー","QRコード決済","銀行振込","決済リンク","その他"];
 
 // ── 国内/海外ユーザー判定 ──
@@ -1482,7 +1483,7 @@ function AccountingPanel({staff,onSynced}){
       lineOf=r=>[r.date||"",(r.type==="cash_in"?"入金":"出金"),esc(r.category),esc(r.payee),esc(r.description),r.amount||0,esc(r.inputBy)];
     }else{ // その他タブ（予約外/立替/個人立替）は汎用
       header=["日付","区分","科目","補助科目","摘要","決済方法","金額","入力者","備考"];
-      lineOf=r=>{const type=r.type==="cash_in"?"入金":r.type==="cash_out"?"出金":r.type==="card_pay"?"カード":r.type==="advance"?"立替":"予約外売上";return [r.date||"",type,esc(r.category),esc(r.subCategory),esc(r.description),esc(r.payMethod),r.amount||0,esc(r.inputBy),esc(r.memo)];};
+      lineOf=r=>{const type=r.type==="cash_in"?"入金":r.type==="cash_out"?"出金":r.type==="card_pay"?"カード":r.type==="advance"?"立替":r.type==="misc_income"?"雑所得":"予約外売上";return [r.date||"",type,esc(r.category),esc(r.subCategory),esc(r.description),esc(r.payMethod),r.amount||0,esc(r.inputBy),esc(r.memo)];};
     }
     const lines=[header.join(",")];
     rows.forEach(r=>lines.push(lineOf(r).join(",")));
@@ -1499,6 +1500,7 @@ function AccountingPanel({staff,onSynced}){
       else if(acctTab==="advance"){if(r.type!=="advance")return false;}
       else if(acctTab==="card_pay"){if(r.type!=="card_pay")return false;}
       else if(acctTab==="personal_adv"){if(r.type!=="personal_adv")return false;}
+      else if(acctTab==="misc_income"){if(r.type!=="misc_income")return false;}
       else return true;
       if(viewPeriod==="monthly")return r.date&&r.date.startsWith(selectedYM);
       return r.date&&r.date.startsWith(selectedYear);
@@ -1539,6 +1541,8 @@ function AccountingPanel({staff,onSynced}){
       filtered.forEach(r=>{if(r.type==="cash_in"){totalIn+=r.amount;if(r.category==="現金売上"&&r.paid)cashCollected+=r.amount;}else if(r.type==="cash_out")totalOut+=r.amount;});
     } else if(acctTab==="extra"){
       filtered.forEach(r=>{if(r.type==="extra_sales")totalIn+=r.amount;});
+    } else if(acctTab==="misc_income"){
+      filtered.forEach(r=>{if(r.type==="misc_income")totalIn+=r.amount;});
     } else if(acctTab==="advance"||acctTab==="card_pay"||acctTab==="personal_adv"){
       filtered.forEach(r=>{totalIn+=r.amount;});
     }
@@ -1562,6 +1566,7 @@ function AccountingPanel({staff,onSynced}){
       }
       else if(r.type==="cash_out")cashOut+=r.amount;
       else if(r.type==="extra_sales"){salesTotal+=r.amount;if(r.payMethod==="現金")cashIn+=r.amount;}
+      else if(r.type==="misc_income"){salesTotal+=r.amount;if(r.payMethod==="現金")cashIn+=r.amount;}
       else if(r.type==="advance"){advanceTotal+=r.amount;if(r.paid)advancePaid+=r.amount;else advanceUnpaid+=r.amount;}
       else if(r.type==="card_pay"){cardPayTotal+=r.amount;if(r.paid)cardPayPaid+=r.amount;}
       else if(r.type==="personal_adv"){padvAllTotal+=r.amount;if(r.paid)padvAllPaid+=r.amount;}
@@ -1579,6 +1584,7 @@ function AccountingPanel({staff,onSynced}){
       if(r.type==="cash_in"){ym[m].cashIn+=r.amount;if(r.category==="現金売上"||r.category==="雑収入")ym[m].salesTotal+=r.amount;}
       else if(r.type==="cash_out")ym[m].cashOut+=r.amount;
       else if(r.type==="extra_sales"){ym[m].salesTotal+=r.amount;if(r.payMethod==="現金")ym[m].cashIn+=r.amount;}
+      else if(r.type==="misc_income"){ym[m].salesTotal+=r.amount;if(r.payMethod==="現金")ym[m].cashIn+=r.amount;}
       else if(r.type==="advance"){ym[m].advTotal+=r.amount;if(r.paid)ym[m].advPaid+=r.amount;}
       else if(r.type==="card_pay"){ym[m].cardTotal+=r.amount;if(r.paid)ym[m].cardPaid+=r.amount;}
       else if(r.type==="personal_adv"){ym[m].padvTotal+=r.amount;if(r.paid)ym[m].padvPaid+=r.amount;}
@@ -1600,7 +1606,7 @@ function AccountingPanel({staff,onSynced}){
   return <div style={{maxWidth:900,margin:"0 auto"}}>
     {/* ヘッダー */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{tBtn("cash","💰 出納帳")}{tBtn("extra","📝 予約外")}{tBtn("advance","🧾 立替金")}{tBtn("card_pay","💳 カード")}{tBtn("personal_adv","👤 個人立替")}{tBtn("summary","📊 集計")}{tBtn("square","🔗 回収管理")}</div>
+      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{tBtn("cash","💰 出納帳")}{tBtn("extra","📝 予約外")}{tBtn("advance","🧾 立替金")}{tBtn("card_pay","💳 カード")}{tBtn("personal_adv","👤 個人立替")}{tBtn("misc_income","💴 雑所得")}{tBtn("summary","📊 集計")}{tBtn("square","🔗 回収管理")}</div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         <select value={viewPeriod} onChange={e=>setViewPeriod(e.target.value)} style={sel}>
           <option value="monthly">月次</option><option value="yearly">年次</option>
@@ -1646,6 +1652,14 @@ function AccountingPanel({staff,onSynced}){
       <div style={{padding:"10px 14px",borderRadius:10,background:"#f5f3ff",border:"1px solid #ddd6fe"}}>
         <div style={{fontSize:9,color:"#5b21b6",fontWeight:600}}>予約外売上合計</div>
         <div style={{fontSize:18,fontWeight:800,color:"#7c3aed"}}>¥{summary.totalIn.toLocaleString()}</div>
+      </div>
+    </div>}
+    {/* 集計バー — 雑所得 */}
+    {acctTab==="misc_income"&&<div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:12,maxWidth:300}}>
+      <div style={{padding:"10px 14px",borderRadius:10,background:"#ecfeff",border:"1px solid #a5f3fc"}}>
+        <div style={{fontSize:9,color:"#155e75",fontWeight:600}}>雑所得合計</div>
+        <div style={{fontSize:18,fontWeight:800,color:"#0891b2"}}>¥{summary.totalIn.toLocaleString()}</div>
+        <div style={{fontSize:8,color:"#94a3b8",marginTop:2}}>NOC補償料・保険金など（売上に計上）</div>
       </div>
     </div>}
     {/* 集計バー — 立替金 */}
@@ -1721,7 +1735,7 @@ function AccountingPanel({staff,onSynced}){
         <div style={{padding:"14px 16px",borderRadius:12,background:"#fff",border:"1px solid #e2e8f0",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
           <div style={{fontSize:10,color:"#64748b",fontWeight:700,letterSpacing:.5,marginBottom:4}}>売上</div>
           <div style={{fontSize:22,fontWeight:800,color:"#0f172a",lineHeight:1.2}}>¥{summary.salesTotal.toLocaleString()}</div>
-          <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>現金売上＋雑収入＋予約外</div>
+          <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>現金売上＋雑収入＋予約外＋雑所得</div>
         </div>
         <div style={{padding:"14px 16px",borderRadius:12,background:"#fff",border:"1px solid #e2e8f0",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
           <div style={{fontSize:10,color:"#64748b",fontWeight:700,letterSpacing:.5,marginBottom:4}}>支出</div>
@@ -1745,7 +1759,7 @@ function AccountingPanel({staff,onSynced}){
 
     {/* CSVダウンロード + 明細テーブル */}
     {acctTab!=="summary"&&acctTab!=="square"&&filtered.length>0&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
-      <button type="button" onClick={()=>{const label={cash:"出納帳",extra:"予約外売上",advance:"立替金",card_pay:"カード出納帳",personal_adv:"個人立替"}[acctTab]||"会計";const period=viewPeriod==="monthly"?selectedYM:selectedYear;downloadCSV(filtered,"BUDDICA_"+label+"_"+period+".csv");}} style={{fontSize:9,padding:"3px 10px",borderRadius:5,border:"1px solid #d1d5db",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600}}>📥 CSV出力</button>
+      <button type="button" onClick={()=>{const label={cash:"出納帳",extra:"予約外売上",advance:"立替金",card_pay:"カード出納帳",personal_adv:"個人立替",misc_income:"雑所得"}[acctTab]||"会計";const period=viewPeriod==="monthly"?selectedYM:selectedYear;downloadCSV(filtered,"BUDDICA_"+label+"_"+period+".csv");}} style={{fontSize:9,padding:"3px 10px",borderRadius:5,border:"1px solid #d1d5db",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600}}>📥 CSV出力</button>
     </div>}
     {acctTab!=="summary"&&acctTab!=="square"&&<table style={{width:"100%",fontSize:10,borderCollapse:"collapse",marginBottom:12}}>
       {acctTab==="cash"&&<thead><tr style={{background:"#f1f5f9"}}>{["日付","区分","科目","予約番号","ユーザー","摘要","金額","入力者","回収",""].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i===6?"right":"left",fontWeight:600,fontSize:9,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>}
@@ -1753,6 +1767,7 @@ function AccountingPanel({staff,onSynced}){
       {acctTab==="advance"&&<thead><tr style={{background:"#f1f5f9"}}>{["日付","科目","予約番号","ユーザー","摘要","金額","担当","支払","発行URL",""].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i===5?"right":"left",fontWeight:600,fontSize:9,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>}
       {acctTab==="card_pay"&&<thead><tr style={{background:"#f1f5f9"}}>{["日付","科目","支払先","内容","予約番号","金額","処理","URL","入力者",""].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i===5?"right":"left",fontWeight:600,fontSize:9,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>}
       {acctTab==="personal_adv"&&<thead><tr style={{background:"#f1f5f9"}}>{["日付","科目","支払先","内容","予約番号","金額","立替者","精算","URL",""].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i===5?"right":"left",fontWeight:600,fontSize:9,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>}
+      {acctTab==="misc_income"&&<thead><tr style={{background:"#f1f5f9"}}>{["日付","科目","予約番号","ユーザー","摘要","受領方法","金額","入力者",""].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i===6?"right":"left",fontWeight:600,fontSize:9,borderBottom:"1px solid #e2e8f0"}}>{h}</th>)}</tr></thead>}
       <tbody>{(acctTab==="personal_adv"?padvFiltered:filtered).map((r,i)=>{
         const bg=i%2===0?"#fff":"#f9fafb";
         const editDel=<td style={{padding:"4px 6px"}}>
@@ -1821,6 +1836,17 @@ function AccountingPanel({staff,onSynced}){
           <td style={{padding:"4px 6px",fontSize:9}}>{r.url?<a href={r.url} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb"}}>URL</a>:"-"}</td>
           {editDel}
         </tr>;
+        if(acctTab==="misc_income")return <tr key={r.id} style={{background:bg,borderBottom:"1px solid #f1f5f9"}}>
+          <td style={{padding:"4px 6px"}}>{r.date}</td>
+          <td style={{padding:"4px 6px",fontWeight:600}}>{r.category}</td>
+          <td style={{padding:"4px 6px",fontSize:9}}>{r.resvNo||"-"}</td>
+          <td style={{padding:"4px 6px",fontSize:9}}>{r.userName||"-"}</td>
+          <td style={{padding:"4px 6px",color:"#64748b",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.description||"-"}</td>
+          <td style={{padding:"4px 6px",fontSize:9}}>{r.payMethod||"-"}</td>
+          <td style={{padding:"4px 6px",textAlign:"right",fontWeight:700,color:"#0891b2"}}>¥{(r.amount||0).toLocaleString()}</td>
+          <td style={{padding:"4px 6px",fontSize:9}}>{r.inputBy||"-"}</td>
+          {editDel}
+        </tr>;
         return null;
       })}</tbody>
     </table>}
@@ -1828,14 +1854,14 @@ function AccountingPanel({staff,onSynced}){
 
     {/* 新規登録ボタン（出納帳・予約外売上のみ）*/}
     {acctTab!=="summary"&&acctTab!=="square"&&!showForm&&<div style={{textAlign:"center",marginBottom:10}}>
-      <button type="button" onClick={function(){const m={cash:"cash_in",extra:"extra_sales",advance:"advance",card_pay:"card_pay",personal_adv:"personal_adv"};openNew(m[acctTab]||"cash_in");}} style={{padding:"8px 24px",borderRadius:8,border:"1px dashed #94a3b8",background:"#fff",color:"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>+ 新規登録</button>
+      <button type="button" onClick={function(){const m={cash:"cash_in",extra:"extra_sales",advance:"advance",card_pay:"card_pay",personal_adv:"personal_adv",misc_income:"misc_income"};openNew(m[acctTab]||"cash_in");}} style={{padding:"8px 24px",borderRadius:8,border:"1px dashed #94a3b8",background:"#fff",color:"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>+ 新規登録</button>
     </div>}
 
     {/* 入力フォーム（集計タブでは非表示） — モーダル化（v3.2.79: 一覧の下ではなく画面中央にオーバーレイ表示。長い一覧でも編集フォームが画面外に行かない） */}
     {showForm&&acctTab!=="summary"&&acctTab!=="square"&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"40px 12px",overflowY:"auto"}} onClick={(e)=>{if(e.target===e.currentTarget)cancelForm();}}>
     <div style={{background:"#fff",borderRadius:14,boxShadow:"0 24px 60px rgba(0,0,0,.25)",width:"100%",maxWidth:640,padding:18,maxHeight:"90vh",overflowY:"auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{editRec?"📝 編集":"➕ 新規登録"} <span style={{fontSize:10,color:"#94a3b8",fontWeight:600,marginLeft:6}}>{acctTab==="cash"?"出納帳":acctTab==="extra"?"予約外売上":acctTab==="advance"?"立替金":acctTab==="card_pay"?"カード支払":"個人立替"}</span></div>
+        <div style={{fontSize:14,fontWeight:800,color:"#1e293b"}}>{editRec?"📝 編集":"➕ 新規登録"} <span style={{fontSize:10,color:"#94a3b8",fontWeight:600,marginLeft:6}}>{acctTab==="cash"?"出納帳":acctTab==="extra"?"予約外売上":acctTab==="advance"?"立替金":acctTab==="card_pay"?"カード支払":acctTab==="misc_income"?"雑所得":"個人立替"}</span></div>
         {acctTab==="cash"&&!editRec&&<div style={{display:"flex",gap:4}}>
           <button type="button" onClick={()=>setFType("cash_in")} style={{padding:"4px 12px",borderRadius:6,border:"1px solid "+(fType==="cash_in"?"#059669":"#d1d5db"),background:fType==="cash_in"?"#f0fdf4":"#fff",color:fType==="cash_in"?"#059669":"#6b7280",fontSize:10,fontWeight:600,cursor:"pointer"}}>入金</button>
           <button type="button" onClick={()=>setFType("cash_out")} style={{padding:"4px 12px",borderRadius:6,border:"1px solid "+(fType==="cash_out"?"#dc2626":"#d1d5db"),background:fType==="cash_out"?"#fef2f2":"#fff",color:fType==="cash_out"?"#dc2626":"#6b7280",fontSize:10,fontWeight:600,cursor:"pointer"}}>出金</button>
@@ -1850,7 +1876,7 @@ function AccountingPanel({staff,onSynced}){
         </select></div>
         {/* 科目: 立替金・個人立替は手動入力、カード・出納帳はプルダウン */}
         {(()=>{
-          const presetList=fType==="cash_in"?ACCT_CASH_CATEGORIES.income:fType==="cash_out"?ACCT_CASH_CATEGORIES.expense:fType==="extra_sales"?ACCT_EXTRA_CATEGORIES:fType==="card_pay"?ACCT_CARD_CATEGORIES:null;
+          const presetList=fType==="cash_in"?ACCT_CASH_CATEGORIES.income:fType==="cash_out"?ACCT_CASH_CATEGORIES.expense:fType==="extra_sales"?ACCT_EXTRA_CATEGORIES:fType==="card_pay"?ACCT_CARD_CATEGORIES:fType==="misc_income"?ACCT_MISC_CATEGORIES:null;
           // advance/personal_adv は手動入力。それ以外で既存値が候補に無いものも手動入力に切替（Square自動「予約外売上」等を編集できるように）
           const useText=(fType==="advance"||fType==="personal_adv")||(presetList&&fCategory&&!presetList.includes(fCategory));
           if(useText)return <div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>科目 *</label><input value={fCategory} onChange={e=>setFCategory(e.target.value)} placeholder="科目を入力" style={inp}/></div>;
@@ -1860,7 +1886,7 @@ function AccountingPanel({staff,onSynced}){
           </select></div>;
         })()}
         <div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>金額 *</label><input type="number" value={fAmount} onChange={e=>setFAmount(e.target.value)} placeholder="0" style={inp}/></div>
-        {fType==="extra_sales"&&<div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>決済方法</label><select value={fPayMethod} onChange={e=>setFPayMethod(e.target.value)} style={{...inp}}>
+        {(fType==="extra_sales"||fType==="misc_income")&&<div><label style={{fontSize:9,color:"#64748b",fontWeight:600}}>{fType==="misc_income"?"受領方法":"決済方法"}</label><select value={fPayMethod} onChange={e=>setFPayMethod(e.target.value)} style={{...inp}}>
           {ACCT_PAYMENT_METHODS.map(m=><option key={m}>{m}</option>)}
           {fPayMethod&&!ACCT_PAYMENT_METHODS.includes(fPayMethod)&&<option value={fPayMethod}>{fPayMethod}</option>}
         </select></div>}
@@ -1914,10 +1940,10 @@ function AccountingPanel({staff,onSynced}){
       const catEntries=Object.entries(catMap).sort((a,b)=>b[1].amount-a[1].amount);
       const grandTotal=expRecs.reduce((s,r)=>s+r.amount,0);
       // 収入科目別
-      const incRecs=periodRecs.filter(r=>r.type==="cash_in"||r.type==="extra_sales");
+      const incRecs=periodRecs.filter(r=>r.type==="cash_in"||r.type==="extra_sales"||r.type==="misc_income");
       const incMap={};
       incRecs.forEach(r=>{
-        const prefix=r.type==="cash_in"?"[現金] ":"[予約外] ";
+        const prefix=r.type==="cash_in"?"[現金] ":r.type==="misc_income"?"[雑所得] ":"[予約外] ";
         const k=prefix+(r.category||"未分類");
         if(!incMap[k])incMap[k]={amount:0,count:0};
         incMap[k].amount+=r.amount;incMap[k].count++;
@@ -23983,7 +24009,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.514-BT";
+const APP_VERSION="v1.0.515-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
