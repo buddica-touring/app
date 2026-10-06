@@ -9504,11 +9504,11 @@ function ManagementTab({store}){
   const btn=(c)=>({padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:6,border:"none",cursor:"pointer",background:c||"#1e40af",color:"#fff"});
 
   return <div>
-    <h2 style={{fontSize:18,fontWeight:900,marginBottom:6}}>💼 {storeLabel} 経営管理</h2>
-    <p style={{fontSize:11,color:"#64748b",marginBottom:12}}>Excel「売上入力」タブの代替。売上入力→PL/CF/ダッシュボードが自動連動。</p>
+    {sub!=="yojitsu"&&<h2 style={{fontSize:18,fontWeight:900,marginBottom:6}}>💼 {storeLabel} 経営管理</h2>}
+    {sub!=="yojitsu"&&<p style={{fontSize:11,color:"#64748b",marginBottom:12}}>Excel「売上入力」タブの代替。売上入力→PL/CF/ダッシュボードが自動連動。</p>}
 
     {/* サブタブ */}
-    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,borderBottom:"1px solid #e2e8f0",paddingBottom:8}}>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:sub==="yojitsu"?6:12,borderBottom:"1px solid #e2e8f0",paddingBottom:sub==="yojitsu"?6:8}}>
       {subTabs.map(t=>{
         const sel=sub===t.id;
         return <button key={t.id} onClick={()=>setSub(t.id)} style={{padding:"6px 12px",fontSize:12,fontWeight:700,borderRadius:8,border:"none",cursor:"pointer",background:sel?"#1e40af":"#f1f5f9",color:sel?"#fff":"#334155"}}>{t.l}</button>;
@@ -9910,7 +9910,7 @@ function ManagementTab({store}){
       // === KPI管理表 = BUDDICA TOURISM KPI管理レポート(bt-mtg) を常時埋め込み表示(高松/BT専用・札幌切替は廃止 2026-10-06) ===
       // 重複見出しを撤去しiframeを最大高に(KPI表の縦幅を確保 2026-10-06)
       return <div>
-        <iframe src="https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?embed=1" style={{width:"100%",height:"calc(100vh - 118px)",minHeight:520,border:"1px solid #e2e8f0",borderRadius:8,display:"block"}} title="BUDDICA TOURISM KPI管理"/>
+        <iframe src="https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?embed=1" style={{width:"100%",height:"calc(100vh - 86px)",minHeight:560,border:"1px solid #e2e8f0",borderRadius:8,display:"block"}} title="BUDDICA TOURISM KPI管理"/>
       </div>;
       // ↓↓↓ 以下は旧・自前KPIテーブル(札幌用)。札幌切替廃止により到達しない(残置) ↓↓↓
       // === KPI管理表（TKM: 売上/予約数/稼働率/予約単価） ===
@@ -23979,7 +23979,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.510-BT";
+const APP_VERSION="v1.0.511-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
