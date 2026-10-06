@@ -14050,13 +14050,13 @@ function TopSectionTitle({icon,title,sub}){
     <div style={{flex:1,height:1,background:"linear-gradient(to right,#e2e8f0,transparent)",marginLeft:6}}/>
   </div>;
 }
-function TopIcon({icon,label,badge,amount,subText,color,alert,active,onClick}){
-  // alert=赤強調 / active=展開中
-  const bg=alert?"linear-gradient(135deg,#fef2f2,#fee2e2)":(active?"linear-gradient(135deg,#eff6ff,#dbeafe)":"#fff");
-  const border=alert?"1.5px solid #fca5a5":(active?"1.5px solid #93c5fd":"1px solid #e5e7eb");
+function TopIcon({icon,label,badge,amount,subText,color,alert,active,emphasis,onClick}){
+  // alert=赤強調 / active=展開中 / emphasis=太線で強調
+  const bg=alert?"linear-gradient(135deg,#fef2f2,#fee2e2)":(active?"linear-gradient(135deg,#eff6ff,#dbeafe)":(emphasis?"linear-gradient(135deg,#eff6ff,#dbeafe)":"#fff"));
+  const border=alert?"1.5px solid #fca5a5":(active?"1.5px solid #93c5fd":(emphasis?"3px solid #2563eb":"1px solid #e5e7eb"));
   return <div onClick={onClick} style={{
-    background:bg,border:border,borderRadius:18,padding:"10px 4px",cursor:"pointer",
-    boxShadow:active?"0 4px 12px rgba(59,130,246,.15)":"0 2px 5px rgba(0,0,0,.05)",
+    background:bg,border:border,borderRadius:18,padding:emphasis?"8px 4px":"10px 4px",cursor:"pointer",
+    boxShadow:emphasis?"0 4px 14px rgba(37,99,235,.30)":(active?"0 4px 12px rgba(59,130,246,.15)":"0 2px 5px rgba(0,0,0,.05)"),
     textAlign:"center",position:"relative",minHeight:88,
     transition:"all .15s",userSelect:"none"
   }}>
@@ -22802,7 +22802,7 @@ function App(){
                 {id:"inventory",ico:"📦",l:"在庫調整",desc:"新規予約ごとに発生元以外のOTA(オフィシャル/エアトリ/レンカ/じゃらん/たびらい)の在庫を手動で絞る対応管理。車検/点検/修理の入庫は全媒体調整対象",badge:invTodo>0?invTodo+"件未対応":null,alert:invTodo>0},
               ]},
               {title:"管理メニュー",color:"#4c1d95",items:[
-                {id:"kpi_report",ico:"🎯",l:"KPI",desc:"BUDDICA TOURISM KPI管理（売上/予約数/台あたり/稼働率/クラス別/チャネル別・PDF出力）",external:true,url:"https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?fresh=0924l"},
+                {id:"kpi_report",ico:"🎯",l:"KPI",desc:"BUDDICA TOURISM KPI管理（売上/予約数/台あたり/稼働率/クラス別/チャネル別・PDF出力）",external:true,url:"https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?fresh=0924l",emphasis:true},
                 {id:"ops",ico:"🏛",l:"運営",desc:"経営 / 予算実績 / 運用戦略 / 車両ランキング / 価格戦略マスター / 売上予測 / 外国人 / 日報",menu:[
                   {id:"dashboard",ico:"🔒",l:"経営",desc:"売上・稼働率（オーナー専用）"},
                   {id:"monthly",ico:"📊",l:"予算実績",desc:"予算・実績・予実比較"},
@@ -23428,6 +23428,7 @@ function App(){
                         badge={badgeN}
                         color={isAlert?"#dc2626":sec.color}
                         alert={isAlert&&badgeN>0}
+                        emphasis={item.emphasis}
                         onClick={function(){if(item.menu){setOpsMenu({ico:item.ico,title:item.l,items:item.menu});}else if(item.external){var _u=item.url||"license.html";window.open(_u+(_u.indexOf("?")>=0?"&":"?")+"_v="+Date.now(),"_blank");}else{setTab(item.id);}}}
                       />;
                     })}
@@ -23980,7 +23981,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.512-BT";
+const APP_VERSION="v1.0.513-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
