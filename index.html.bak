@@ -499,9 +499,25 @@ const DB = {
       }
     }
     if (!Object.keys(dbChanges).length) return;
-    const { error } = await sb.from("bt_tasks").update(dbChanges).eq("_id", taskId);
-    if (error) dbLog("updateTaskFields", false, error.message);
-    else dbLog("updateTaskFields", true, taskId + " " + Object.keys(dbChanges).join(","));
+    /* ★2026-10-07 保存ロスト根治(問題#2): 1項目編集はUPDATEのみだった為、DBに当該_id行が未だ無い
+       (生成直後の洗車/返却後洗車タスク等)と0件更新=無言で保存されず→10秒後ミラーで旧値に戻っていた。
+       .select()で更新件数を確認し、0件(行が無い)ならLSの全行をupsert=挿入して確実に永続化する。 */
+    const { data: _upd, error } = await sb.from("bt_tasks").update(dbChanges).eq("_id", taskId).select("_id");
+    if (error) {
+      dbLog("updateTaskFields", false, error.message); DB._dbSaveOk = false;
+      const _ls = DB._lsLoad(date); const _t = _ls ? _ls.find(x => x._id === taskId) : null;
+      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-err-upsert"); }
+      return;
+    }
+    if (!_upd || !_upd.length) {
+      // 行が存在しない=UPDATE 0件 → フル行をupsert(挿入)して保存を確定
+      const _ls = DB._lsLoad(date); const _t = _ls ? _ls.find(x => x._id === taskId) : null;
+      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-insert"); dbLog("updateTaskFields", true, taskId + " (insert)"); }
+      else { DB._dbSaveOk = false; dbLog("updateTaskFields", false, taskId + " 行なし&LSなし"); }
+      return;
+    }
+    DB._dbSaveOk = true;
+    dbLog("updateTaskFields", true, taskId + " " + Object.keys(dbChanges).join(","));
   },
   async deleteTasks(date){try{localStorage.removeItem(DB._lsKey(date));}catch(e){} if(!sb)return;const{error}=await sb.from("bt_tasks").delete().eq("date",date);if(error)dbLog("deleteTasks",false,error.message);},
   async deleteTask(id,date){if(!sb)return;/* ★2026-07-04 墓標方式: 物理削除せず deleted=true。復活不能。 */const{error}=await sb.from("bt_tasks").update({deleted:true}).eq("_id",id);if(error)dbLog("deleteTask",false,error.message);else dbLog("deleteTask",true,id);try{const ls=DB._lsLoad(date);if(ls){const next=ls.filter(t=>t._id!==id);localStorage.setItem(DB._lsKey(date),JSON.stringify(next));}}catch(e){}},
@@ -17546,7 +17562,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       .on("postgres_changes",{event:"*",schema:"public",table:"bt_tasks",filter:"date=eq."+selDate},(payload)=>{
         const evtId=payload.new&&payload.new._id;
         if(evtId&&selfUpdatedIds.current.has(evtId)&&Date.now()-selfUpdatedIds.current.get(evtId)<3000){return;}
-        selfUpdatedIds.current.forEach((ts,k)=>{if(Date.now()-ts>10000)selfUpdatedIds.current.delete(k);});
+        selfUpdatedIds.current.forEach((ts,k)=>{if(Date.now()-ts>20000)selfUpdatedIds.current.delete(k);});/* ★2026-10-07 10秒→20秒: 直近編集セルの保護窓(≤20s・17447/17504/17576)より先にIDを消すと保存反映前に旧値へ戻る為、窓と一致させる */
         clearTimeout(debounce);
         debounce=setTimeout(async()=>{
           // ★ DB取得前にLS読み取り（fetchTasksがLSを上書きする前に保持）
@@ -19360,6 +19376,9 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             const storedOpts=!resOptsDirect&&t.reservationId&&resOpts?resOpts[t.reservationId]:null;
             const liveOpts=resOptsDirect||storedOpts||t.opts||{};
             const isCXL=t.type==="CXL";
+            /* ★2026-10-07 問題#1: 洗車/返却後洗車は、同じ車両が本日「返却」予定ならその時刻以降しか洗えない。
+               同一車両の本日の返却系タスク(COL/BD/BDB/返却/返却待)の最遅時刻を求め、担当/時間振り分け時の制約として表示する。 */
+            const washGate=(t.type==="洗車"||t.type==="返却後洗車")&&t.assignedVehicle?(()=>{let rt="";sortedTasks.forEach(x=>{if(!x.assignedVehicle||x.assignedVehicle!==t.assignedVehicle)return;if(["COL","BD","BDB","返却","返却待"].indexOf(x.type)<0)return;const xt=x.timeChange||x._ssTime||x.time||x.returnTime||"";if(xt&&/^\d{1,2}:\d{2}/.test(xt)&&(!rt||xt>rt))rt=xt;});return rt;})():"";
             const isNextDayDeferred=(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown;/* ★2026-08-22 翌日対応にした洗車=当日はグレーアウト＆read-only表示(担当/時間は見えるが操作不可・「戻す」ボタンのみ操作可) */
             const rowBg=isCXL?"#e5e7eb":isNextDayDeferred?"#eef2f7":t.done?"#f9fafb":ri%2===0?"#fff":"#fafbfc";
             const ch=t._changed||{};
@@ -19371,7 +19390,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <td style={{...cellR(2),textAlign:"center",fontWeight:700,color:resolvedT?"#1e293b":"#dc2626",background:missingTime?"#fef2f2":(resolvedT&&resolvedT!==t.time)?"#f5f3ff":cellR(2).background,padding:isTimeEdit?0:cellR(2).padding}} onClick={e=>{if(isTimeEdit)e.stopPropagation();}}>{isTimeEdit?<select value={t.time||""} onChange={e=>{e.stopPropagation();const v=e.target.value;if(!window.confirm((isWash?"洗車時間":"時間")+"を「"+(v||"クリア")+"」に変更しますか？")){return;}const u=mark({...t,time:v},"time");upd(t._id,u);}} style={{width:"100%",border:"none",background:"transparent",fontSize:9,fontWeight:700,color:t.time?"#1e293b":"#ccc",padding:"2px",cursor:"pointer",appearance:"none",WebkitAppearance:"none",textAlign:"center"}}><option value="">-</option>{TIME_OPTS.filter(o=>o).map(o=><option key={o} value={o}>{o}</option>)}</select>:missingTime?<span style={{color:"#dc2626",fontSize:8}}>⚠未</span>:<React.Fragment>{resolvedT||"-"}{resolvedT&&resolvedT!==t.time&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>←{t.time||"空"}</div>}</React.Fragment>}</td>
               <td style={{...cellR(3),textAlign:"center",fontWeight:800,fontSize:9,whiteSpace:"nowrap",color:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#fff":"#cbd5e1",background:(srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店"))?"#ee6a1c":cellR(3).background}}>{srcRes&&srcRes.pickupTime&&(t.type==="PU"||t.type==="PUB"||t.type==="DEL"||t.type==="来店")?"🚐"+srcRes.pickupTime:"-"}</td>
               <td style={{...cellR(3),fontWeight:700,color:tm.c,background:t.typeChange?"#f5f3ff":cellR(3).background}}>{washCat(t)||t.type||"-"}{t.typeChange&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>{t.typeChange}</div>}</td>
-              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWashShown&&<span title="翌日対応に切り替えた洗車" style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:3,padding:"1px 4px",marginRight:3}}>{t.type==="返却後洗車"?"🚿翌日返却後洗車":"🚿当日貸出洗車"}</span>}{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown&&<span title={t.type==="返却後洗車"?"翌日に切り替え済み・当日は行いません":"翌日（貸出当日）に切り替え済み・当日は行いません"} style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:3,padding:"1px 4px",marginRight:3}}>→翌日対応</span>}{t.name||"-"}{(t.type==="洗車"||t.type==="返却後洗車")&&<button onClick={e=>{e.stopPropagation();toggleNextDayWash(t);}} title={t._nextDayWash?(t.type==="返却後洗車"?"当日対応に戻す":"前日対応に戻す"):(t.type==="返却後洗車"?"翌日対応に切り替え":"翌日（貸出当日）対応に切り替え＝当日貸出洗車")} style={{display:"inline-block",marginLeft:4,fontSize:7,fontWeight:700,padding:"1px 5px",borderRadius:4,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer",pointerEvents:"auto"}}>{t._nextDayWash?(t.type==="返却後洗車"?"当日に戻す":"前日に戻す"):"翌日対応"}</button>}{srcRes&&srcRes.mypageToken&&<a href={custPageUrl(srcRes.mypageToken,srcRes.ota,"&staff=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（スタッフ代理）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9} ttype={t.type}/>:null}{t.reservationId&&HO_TASK_TYPES.includes(t.type)&&<HandoverBtn rid={t.reservationId} compact={true}/>}</td>
+              <td style={{...cellR(4),fontWeight:600,color:"#0f172a"}}>{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWashShown&&<span title="翌日対応に切り替えた洗車" style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#2563eb",borderRadius:3,padding:"1px 4px",marginRight:3}}>{t.type==="返却後洗車"?"🚿翌日返却後洗車":"🚿当日貸出洗車"}</span>}{(t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown&&<span title={t.type==="返却後洗車"?"翌日に切り替え済み・当日は行いません":"翌日（貸出当日）に切り替え済み・当日は行いません"} style={{display:"inline-block",fontSize:7,fontWeight:800,color:"#fff",background:"#94a3b8",borderRadius:3,padding:"1px 4px",marginRight:3}}>→翌日対応</span>}{washGate&&<span title={"この車両は本日 "+washGate+" に返却予定。洗車はそれ以降しかできません"} style={{display:"inline-block",fontSize:8,fontWeight:900,color:"#fff",background:"#dc2626",borderRadius:3,padding:"1px 5px",marginRight:3}}>🕒{washGate}以降</span>}{t.name||"-"}{(t.type==="洗車"||t.type==="返却後洗車")&&<button onClick={e=>{e.stopPropagation();toggleNextDayWash(t);}} title={t._nextDayWash?(t.type==="返却後洗車"?"当日対応に戻す":"前日対応に戻す"):(t.type==="返却後洗車"?"翌日対応に切り替え":"翌日（貸出当日）対応に切り替え＝当日貸出洗車")} style={{display:"inline-block",marginLeft:4,fontSize:7,fontWeight:700,padding:"1px 5px",borderRadius:4,background:t._nextDayWash?"#dbeafe":"#f1f5f9",color:t._nextDayWash?"#1d4ed8":"#475569",border:"1px solid "+(t._nextDayWash?"#93c5fd":"#cbd5e1"),cursor:"pointer",pointerEvents:"auto"}}>{t._nextDayWash?(t.type==="返却後洗車"?"当日に戻す":"前日に戻す"):"翌日対応"}</button>}{srcRes&&srcRes.mypageToken&&<a href={custPageUrl(srcRes.mypageToken,srcRes.ota,"&staff=1")} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="ご利用ガイド（スタッフ代理）" style={{marginLeft:5,fontSize:11,textDecoration:"none"}}>🪪</a>}{t.reservationId?<LicenseBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<SignBadge resvNo={t.reservationId} kind="terms" size={9} token={srcRes&&srcRes.mypageToken} ttype={t.type}/>:null}{t.reservationId?<ShuttleBadge resvNo={t.reservationId} size={9} token={srcRes&&srcRes.mypageToken} pickup={srcRes&&srcRes.pickupTime} ttype={t.type}/>:null}{t.reservationId?<JalanPayBadge resvNo={t.reservationId} ota={t.ota} size={9} ttype={t.type}/>:null}{t.reservationId&&HO_TASK_TYPES.includes(t.type)&&<HandoverBtn rid={t.reservationId} compact={true}/>}</td>
               <td onClick={e=>{
                 e.stopPropagation();
                 if(!t.reservationId)return;
@@ -24009,7 +24028,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.515-BT";
+const APP_VERSION="v1.0.516-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
