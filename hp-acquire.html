@@ -124,8 +124,12 @@ const CFG={
 // ★2026-10-03 既定店はドメインで決定(BUDDICAドメイン=高松bt / その他=spk)。?store指定は常に優先。従来のspk固定だとBUDDICAドメインでMAIN(札幌/那覇)をanon参照しRLSで0件=空表示になる事故を解消。info-reconcileと同じドメイン判定の流儀に統一。
 const STORE=((new URLSearchParams(location.search).get('store'))||(location.hostname.indexOf('buddica')>=0?'bt':'spk')).toLowerCase();
 const C=CFG[STORE]||CFG.spk;
+// ★2026-10-08 高松を rent-handyman.com(HANDYMANブランド) のみに絞る: ?scope=hdm の時だけ brand=HDM に限定。
+//   目的=HANDYMANの獲得ハブ(hp-acquire-hub)でBUDDICA公式site(brand=BUDDICA・71件)がHPに混入するのを除外。指定なし=従来通り全ブランド。
+const SCOPE=((new URLSearchParams(location.search).get('scope'))||'').toLowerCase();
+const HDMONLY=(STORE==='bt'&&SCOPE==='hdm');
 const START='2026-02';
-document.getElementById('storelbl').textContent=C.lbl;
+document.getElementById('storelbl').textContent=C.lbl+(HDMONLY?'（rent-handyman.com・HANDYMANのみ）':'');
 document.title='🌐 HP新規獲得 '+C.lbl;
 
 // ★2026-10-03 プロジェクト整合: C.sb のref(sb-<ref>-auth-token)に一致するトークンだけ使う。別プロジェクトにログイン中(例:BTドメインでspk/MAINを見る)に他プロジェクトのトークンをBearerで送ると401になる事故を根治。不一致/未ログイン時はnull→anonで取得。
@@ -176,7 +180,7 @@ async function fetchExtra(){
 }
 async function fetchAll(){
   let out=[],off=0;
-  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+','+C.ret+',status'+(C.hpMode==='source'?',source':'');
+  const cols='id,ota,base_price,option_price,discount,price,'+C.occ.join(',')+','+C.lend+','+C.ret+',status'+(C.hpMode==='source'?',source':'')+(HDMONLY?',brand':'');
   // 全件取得→クライアントでHP(自社)/OTAを分類。取消は英/日ともクライアント除外
   let q='select='+cols+'&order=id';
   while(true){
@@ -208,6 +212,7 @@ function build(resv){
   let depMin=curYM,depMax=START;
   resv.forEach(r=>{
     if(/cancel|キャンセル/i.test(r.status||''))return;               // 取消(英/日)は除外
+    if(HDMONLY && String(r.brand||'').toUpperCase()!=='HDM')return;  // rent-handyman.com(HANDYMAN)高松のみ＝BUDDICAブランドを除外
     if(!r.booked_at && String(r.created_at||'').slice(0,10)==='2026-03-29')return; // 一括取込(発生月不明)除外
     const o=occYM(r);if(!o||o<START)return;
     const rev=revOf(r),dm=ym(r[C.lend])||'—',nt=nights(r);
