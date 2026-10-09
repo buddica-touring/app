@@ -24028,7 +24028,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.517-BT";
+const APP_VERSION="v1.0.518-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26575,11 +26575,11 @@ async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
     if(_dk!=null&&showMsgFn){try{showMsgFn("走行 "+_dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
   }catch(_eo){console.warn("[odo]",_eo);}
 }
-/* 🚗 ★2026-10-09 距離未入力ではチェック不可（洗車=出発／BD=返却）。未入力でチェック→注意→入力ポップ→DBで記録確認できた時だけtrue */
+/* 🚗 ★2026-10-09 距離未入力ではチェック不可（洗車=出発／BD・返却・COL=返却）。未入力でチェック→注意→入力ポップ→DBで記録確認できた時だけtrue */
 async function _btOdoGate(_t, sb, vehicles){
   try{
     if(!_t||_t.done||!_t.reservationId||!sb)return true;
-    var _isWash=(_t.type==="洗車"),_isBD=(["BD","BDB"].indexOf(_t.type)>=0);
+    var _isWash=(_t.type==="洗車"),_isBD=(["COL","BD","BDB","返却","返却待"].indexOf(_t.type)>=0); // ★10-09 返却系も対象(📏返却 未記録と同じ範囲)
     if(!(_isWash||_isBD))return true;
     var _f=_isWash?"start_odo":"end_odo";
     var _r=await sb.from("bt_reservations").select("start_odo,end_odo").eq("id",_t.reservationId).single();
