@@ -14160,7 +14160,7 @@ function PaymentSection({sqfRefreshKey,onOpenSqFailed,setTab}){
     {expanded==="jalan"&&<div style={{marginTop:6}}><NhaJalanPaymentWidget onGoJalan={()=>setTab&&setTab("jalanpay")}/></div>}
   </div>;
 }
-function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,onOpenIntake}){
+function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,onOpenIntake,onOpenMypage}){
   const[expanded,setExpanded]=useState(null);
   const[oilAlertCnt,setOilAlertCnt]=useState(0);
   useEffect(()=>{
@@ -14231,6 +14231,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
   const toggle=(k)=>setExpanded(e=>e===k?null:k);
   return <div style={{marginBottom:8}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+      <MypageTodayIcon data={data} onOpen={onOpenMypage}/>
       <TopIcon icon="📡" label="直近24h" badge={recCount.n} subText={"CXL "+recCount.c} color="#0891b2" active={expanded==="rec"} onClick={()=>toggle("rec")}/>
       <a href="https://handyman-inquiry.vercel.app/" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
         <TopIcon icon="📬" label="問い合わせ" subText="↗ 開く" color="#0ea5e9" onClick={()=>{}}/>
@@ -22022,6 +22023,65 @@ function ShuttleBadge({resvNo,size,token,pickup,ttype}){
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"お迎え時間 未選択 → クリックでガイドを開き選択",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🚐送迎必要");
 }
+// ★ 2026-10-10 v1.0.519-BT 本日出発のマイページ一覧（約款サイン・免許証などの毎日の対応用）。ログイン中スタッフの権限でAPP内データ(data)＋免許/署名マップを読むだけ（DB書込なし）。
+function _mtYmd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function _mtNeed(r){const L=window._licenseMap||{},S=window._signMap||{};const s=S[r.id]||{};return {lic:!L[r.id],terms:!s.terms,dmg:!s.damage};}
+function useMtTick(){const[,setT]=React.useState(0);React.useEffect(()=>{const f=()=>setT(x=>x+1);window.addEventListener("licenseUpdate",f);window.addEventListener("signUpdate",f);return()=>{window.removeEventListener("licenseUpdate",f);window.removeEventListener("signUpdate",f);};},[]);}
+function mtRowsFor(data,ymd){return (data||[]).filter(r=>r&&r.lendDate===ymd&&r.status!=="cancelled").sort((a,b)=>String(a.pickupTime||a.lendTime||"").localeCompare(String(b.pickupTime||b.lendTime||"")));}
+function MypageTodayList({data}){
+  useMtTick();
+  const today=_mtYmd(new Date());const tmr=_mtYmd(new Date(Date.now()+86400000));
+  const[ymd,setYmd]=React.useState(today);const[q,setQ]=React.useState("");const[onlyNeed,setOnlyNeed]=React.useState(false);const[copied,setCopied]=React.useState("");
+  const all=mtRowsFor(data,ymd);
+  const needCnt=all.filter(r=>{const n=_mtNeed(r);return n.lic||n.terms;}).length;
+  const licCnt=all.filter(r=>_mtNeed(r).lic).length, termsCnt=all.filter(r=>_mtNeed(r).terms).length, noTok=all.filter(r=>!r.mypageToken).length;
+  const rows=all.filter(r=>{if(onlyNeed){const n=_mtNeed(r);if(!(n.lic||n.terms))return false;}const k=(r.id+" "+(r.name||"")+" "+(r.preferVc||"")+" "+(r.ota||"")).toLowerCase();return !q||k.indexOf(q.toLowerCase())>=0;});
+  const copy=(u,id)=>{try{navigator.clipboard.writeText(u).then(()=>{setCopied(id);setTimeout(()=>setCopied(""),1200);});}catch(e){}};
+  const bBtn=(on)=>({padding:"6px 12px",borderRadius:8,border:"1px solid "+(on?"#1e40af":"#cbd5e1"),background:on?"#1e40af":"#fff",color:on?"#fff":"#334155",fontSize:12,fontWeight:800,cursor:"pointer"});
+  const th={padding:"7px 6px",fontSize:11,fontWeight:800,color:"#475569",background:"#f1f5f9",borderBottom:"2px solid #e2e8f0",textAlign:"left",whiteSpace:"nowrap"};
+  const td={padding:"8px 6px",fontSize:12,borderBottom:"1px solid #f1f5f9",verticalAlign:"middle"};
+  return <div style={{maxWidth:1100,margin:"0 auto",padding:"4px 4px 24px"}}>
+    <h2 style={{fontSize:16,fontWeight:800,margin:"4px 0 6px"}}>🪪 本日出発のマイページ一覧</h2>
+    <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>出発日のお客様のご利用ガイド（マイページ）。免許証・約款サイン・傷確認・お迎え時間の未対応を確認し、「開く」でスタッフ代理対応、「URL」でお客様へ送付できます。</div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
+      <button style={bBtn(ymd===today)} onClick={()=>setYmd(today)}>今日</button>
+      <button style={bBtn(ymd===tmr)} onClick={()=>setYmd(tmr)}>明日</button>
+      <input type="date" value={ymd} onChange={e=>e.target.value&&setYmd(e.target.value)} style={{padding:"5px 8px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:12}}/>
+      <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"flex",alignItems:"center",gap:4,marginLeft:4}}><input type="checkbox" checked={onlyNeed} onChange={e=>setOnlyNeed(e.target.checked)}/>未対応のみ</label>
+      <input placeholder="🔍 予約番号・お名前・車種" value={q} onChange={e=>setQ(e.target.value)} style={{flex:"1 1 160px",padding:"6px 10px",border:"1px solid #cbd5e1",borderRadius:8,fontSize:12}}/>
+    </div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8,fontSize:12,fontWeight:800}}>
+      <span style={{padding:"4px 10px",borderRadius:8,background:"#eef2ff",color:"#3730a3"}}>出発 {all.length}件</span>
+      <span style={{padding:"4px 10px",borderRadius:8,background:needCnt?"#fee2e2":"#dcfce7",color:needCnt?"#b91c1c":"#15803d"}}>免許・約款 未対応 {needCnt}件</span>
+      <span style={{padding:"4px 10px",borderRadius:8,background:"#f8fafc",color:"#475569"}}>🪪免許 未 {licCnt}</span>
+      <span style={{padding:"4px 10px",borderRadius:8,background:"#f8fafc",color:"#475569"}}>📝約款 未 {termsCnt}</span>
+      {noTok>0&&<span style={{padding:"4px 10px",borderRadius:8,background:"#fff7ed",color:"#9a3412"}}>マイページ未発行 {noTok}</span>}
+    </div>
+    <div style={{background:"#fff",borderRadius:10,boxShadow:"0 1px 3px rgba(0,0,0,.08)",overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>
+        <th style={th}>出発</th><th style={th}>予約番号</th><th style={th}>お名前</th><th style={th}>ブランド・経路</th><th style={th}>車種</th><th style={th}>対応状況</th><th style={th}>操作</th>
+      </tr></thead><tbody>
+      {rows.length===0&&<tr><td colSpan={7} style={{...td,textAlign:"center",color:"#94a3b8",padding:28}}>{all.length?"該当する予約はありません":"この日に出発する予約はありません"}</td></tr>}
+      {rows.map(r=>{const tok=r.mypageToken;const staffU=tok?custPageUrl(tok,r.ota,"&staff=1",r.brand):"";const custU=tok?custPageUrl(tok,r.ota,"",r.brand):"";const isH=String(r.brand||"").toUpperCase()==="HDM";
+        return <tr key={r.id}>
+          <td style={{...td,fontWeight:800,whiteSpace:"nowrap"}}>{r.pickupTime?("🚐"+r.pickupTime):(r.lendTime||"—")}</td>
+          <td style={{...td,fontFamily:"monospace",fontWeight:700,whiteSpace:"nowrap"}}>{r.id}</td>
+          <td style={{...td,fontWeight:700}}>{r.name||"—"}</td>
+          <td style={{...td,whiteSpace:"nowrap"}}><span style={{fontSize:10,fontWeight:800,padding:"1px 6px",borderRadius:4,background:isH?"#e0f2fe":"#fff7ed",color:isH?"#0369a1":"#c2410c",marginRight:4}}>{isH?"HANDYMAN":"BUDDICA"}</span>{(!r.ota||String(r.ota).toUpperCase()==="HANDYMAN")?"公式HP":r.ota}</td>
+          <td style={{...td,whiteSpace:"nowrap"}}>{r.preferVc||r.vehicle||"—"}</td>
+          <td style={{...td}}>{tok?<span style={{display:"inline-flex",flexWrap:"wrap",gap:2}}><LicenseBadge resvNo={r.id} token={tok} ttype="貸出" size={11}/><SignBadge resvNo={r.id} kind="terms" token={tok} ttype="貸出" size={11}/><SignBadge resvNo={r.id} kind="damage" token={tok} ttype="貸出" size={11}/><ShuttleBadge resvNo={r.id} token={tok} pickup={r.pickupTime} ttype="貸出" size={11}/></span>:<span style={{fontSize:11,color:"#9a3412",fontWeight:700}}>マイページ未発行</span>}</td>
+          <td style={{...td,whiteSpace:"nowrap"}}>{tok?<span style={{display:"inline-flex",gap:4}}>
+            <a href={staffU} target="_blank" rel="noopener" style={{fontSize:12,fontWeight:800,padding:"5px 10px",borderRadius:7,background:"#ea580c",color:"#fff",textDecoration:"none"}}>開く</a>
+            <button onClick={()=>copy(custU,r.id)} title="お客様用URLをコピー" style={{fontSize:12,fontWeight:800,padding:"5px 10px",borderRadius:7,border:"none",background:"#e2e8f0",color:"#334155",cursor:"pointer"}}>{copied===r.id?"✓コピー":"URL"}</button>
+          </span>:"—"}</td>
+        </tr>;})}
+      </tbody></table>
+    </div>
+    <div style={{fontSize:10,color:"#94a3b8",marginTop:6}}>※「開く」はスタッフ代理モード（お客様の操作記録とは区別されます）。「URL」はお客様にそのまま送れるURLです。状況は3分ごとに自動更新。</div>
+  </div>;
+}
+function MypageTodayIcon({data,onOpen}){useMtTick();const rs=mtRowsFor(data,_mtYmd(new Date()));const need=rs.filter(r=>{const n=_mtNeed(r);return n.lic||n.terms;}).length;
+  return <TopIcon icon="🪪" label="本日マイページ" badge={need} subText={rs.length?("出発"+rs.length+"件"):"出発なし"} color="#ea580c" alert={need>0} onClick={()=>onOpen&&onOpen()}/>;}
 const _ptCache={},_ptOpen={};/* サマリー展開/読込を再マウント越しに保持 */
 function App(){
   const[data,setData]=useState([]);const[payTarget,setPayTarget]=useState(null);const[tab,setTab_]=useState(()=>{try{return new URLSearchParams(location.search).get("tab")||"top";}catch(e){return "top";}});const[tabHistory,setTabHistory]=useState([]);const[taskSumOpen,setTaskSumOpen]=useState(false);const[tomSumOpen,setTomSumOpen]=useState(false);const[topSchedOpen,setTopSchedOpen]=useState(false);const[topCalEvents,setTopCalEvents]=useState([]);const[opsMenu,setOpsMenu]=useState(null);
@@ -22772,7 +22832,7 @@ function App(){
   },[data]);
 
   const oc=useMemo(()=>{const c={};data.forEach(t=>{c[t.ota]=(c[t.ota]||0)+1;});return c;},[data]);
-  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"jalan_tmpl",ico:"📧",l:"じゃらんテンプレ"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"mileage",ico:"🚗",l:"走行ログ"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"board",ico:"📢",l:"お知らせ"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
+  const navItems=[{id:"top",ico:"🏠",l:"TOP"},{id:"mypage_today",ico:"🪪",l:"本日マイページ"},{id:"import",ico:"📁",l:"CSV"},{id:"staff",ico:"👥",l:"スタッフ"},{id:"shift",ico:"📅",l:"出勤簿"},{id:"attendance",ico:"⏰",l:"給与"},{id:"kintai",ico:"📋",l:"勤怠管理",external:true,url:"kintai.html"},{id:"fleet",ico:"🚗",l:"配車"},{id:"jalanpay",ico:"💳",l:"決済"},{id:"jalan_tmpl",ico:"📧",l:"じゃらんテンプレ"},{id:"inventory",ico:"📦",l:"在庫調整"},{id:"vehicle",ico:"🔧",l:"車両"},{id:"vehicle_rank",ico:"🏆",l:"車両ランキング"},{id:"mileage",ico:"🚗",l:"走行ログ"},{id:"intake",ico:"🏭",l:"入庫"},{id:"parking",ico:"🅿️",l:"駐車場"},{id:"accounting",ico:"🧾",l:"会計"},{id:"recv_invoice",ico:"📥",l:"受領請求書"},{id:"monthly",ico:"📊",l:"予算実績"},{id:"customer",ico:"👑",l:"顧客"},{id:"board",ico:"📢",l:"お知らせ"},{id:"todo",ico:"✅",l:"タスク管理"},{id:"daily_report",ico:"📋",l:"日報"},{id:"license",ico:"🪪",l:"免許証",external:true},{id:"data",ico:"📋",l:"データ"},{id:"history",ico:"📜",l:"過去"},{id:"foreign",ico:"🌍",l:"外国人"}];
 
   const repeaterInfo=useMemo(()=>buildRepeaterMap(data),[data]);
 
@@ -23455,7 +23515,7 @@ function App(){
               <PaymentSection sqfRefreshKey={sqFailedRefreshKey} onOpenSqFailed={()=>setShowSqFailed(true)} setTab={setTab}/>
               {/* ===== 📊 業務 / 関連APP（4アイコン） ===== */}
               <TopSectionTitle icon="📊" title="業務 / 関連APP"/>
-              <BusinessSection data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")}/>
+              <BusinessSection onOpenMypage={()=>setTab("mypage_today")} data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")}/>
               {/* ===== 🛠 日常業務以下 アイコングリッド統一 ===== */}
               {sections.map(function(sec){
                 const sectionIco={"運営":"🏛","日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
@@ -23555,6 +23615,7 @@ function App(){
               })()}
             </div>;
           })()}
+          {tab==="mypage_today"&&<MypageTodayList data={data}/>}
           {tab==="customer"&&<CustomerList data={data}/>}
           {tab==="todo"&&window.TodoTab&&React.createElement(window.TodoTab,{store:"bt",sb:sb,label:"高松店",hostStaff:staff,hostShifts:shifts})}
           {tab==="daily_report"&&<DailyReportTab data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance}/>}
@@ -24028,7 +24089,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.518-BT";
+const APP_VERSION="v1.0.519-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
