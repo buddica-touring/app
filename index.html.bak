@@ -19416,7 +19416,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <td style={{...cellR(9),fontWeight:700,color:t.assignedVehicle?"#1e40af":"#dc2626"}}>{(()=>{const vn=vehicles.find(x=>x.code===t.assignedVehicle);return vn?vn.name:"未配車";})()}</td>
               <td style={{...cellR(10),fontFamily:"monospace",fontWeight:700,color:t.plateNo?"#2563eb":"#ccc"}}>{t.plateNo||"-"}</td>
               <td style={{...cellR(6),textAlign:"center"}}>{t.people||""}</td>
-              {["b","c","j","usb"].map((k,ki)=><td key={k} style={{...cellR(11+ki),textAlign:"center",fontWeight:700,color:+(liveOpts[k]||0)>0?"#2563eb":"#ddd"}}>{(isLend||isWash)?(+(liveOpts[k]||0)||"-"):""}</td>)}
+              {["b","c","j","usb"].map((k,ki)=><td key={k} style={{...cellR(11+ki),textAlign:"center",fontWeight:700,color:+(liveOpts[k]||0)>0?"#2563eb":"#ddd"}}>{(isLend||isWash||t.type==="貸出"||t.type==="来店"||t.type==="PUB来店")?(+(liveOpts[k]||0)||"-"):""}</td>)}
               <td style={{...cellR(15),fontWeight:600,color:t.insurance==="フル"?"#b45309":"#64748b"}}>{t.insurance||"-"}</td>
               <td style={{...cellR(16),color:"#475569",minWidth:80}} onClick={e=>e.stopPropagation()}>
                 <input key={t._id+"m"+(t.memo||"")} defaultValue={t.memo||""} onBlur={e=>{const v=e.target.value;if(v!==(t.memo||""))upd(t._id,mark({...t,memo:v},"memo"));}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape"){e.target.value=t.memo||"";e.target.blur();}}} placeholder="メモ入力..." style={{border:"none",background:"transparent",fontSize:9,width:"100%",padding:0,color:t.memo?"#475569":"#94a3b8",cursor:"text",outline:"none"}}/>
@@ -24093,7 +24093,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.520-BT";
+const APP_VERSION="v1.0.521-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
