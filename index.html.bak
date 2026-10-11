@@ -21982,13 +21982,13 @@ function ReceivedInvoicesTab({sb,store,vehicles}){
 }
 
 function LicenseBadge({resvNo,size,token,ttype}){
-  const [n,setN]=React.useState(0);
-  React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
+  const [n,setN]=React.useState(0); const [dn,setDn]=React.useState(0);
+  React.useEffect(()=>{ const update=()=>{ const m=window._licenseMap||{}, dm=window._licenseDrvMap||{}; setN(resvNo&&m[resvNo]?m[resvNo]:0); setDn(resvNo&&dm[resvNo]?dm[resvNo]:0); }; update(); window.addEventListener("licenseUpdate",update); return ()=>window.removeEventListener("licenseUpdate",update); },[resvNo]);
   // 🪪免許証は貸出系タスク(PU/PUB/DEL/来店)のみ表示。BD/COL/洗車等には出さない
   if(!(ttype==="PU"||ttype==="PUB"||ttype==="DEL"||ttype==="来店"||ttype==="貸出"))return null;
   const st={fontSize:(size||9),fontWeight:800,padding:"1px 5px",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",marginLeft:3,display:"inline-block"};
   const gurl=custPageUrlByResv(token,resvNo,"&staff=1");
-  if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚）",style:okst}, "🪪免許OK");}
+  if(n){const okst={...st,background:"#e0e7ff",color:"#4338ca",border:"1px solid #a5b4fc"};return token?React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:"免許証アップ済み（"+n+"枚"+(dn?"・"+dn+"名":"")+"）・クリックでガイドを開く",style:{...okst,textDecoration:"none",cursor:"pointer"}}, "🪪免許OK"+(dn?" "+dn+"名":"")):React.createElement("span",{title:"免許証アップロード済み（"+n+"枚"+(dn?"・"+dn+"名":"")+"）",style:okst}, "🪪免許OK"+(dn?" "+dn+"名":""));}
   if(!token)return null;
   return React.createElement("a",{href:gurl,target:"_blank",rel:"noopener",className:"needbadge",onClick:e=>e.stopPropagation(),title:"免許証 未アップロード → クリックでガイドを開き撮影",style:{...st,background:"#fee2e2",color:"#b91c1c",border:"1px solid #f87171"}}, "🪪免許必要");
 }
@@ -22156,7 +22156,7 @@ function App(){
   const hmReload=async()=>{const[c,cd,l,cl]=await Promise.all([DB.hm.fetchCars(vehicles),DB.hm.fetchCarData(),DB.hm.fetchLogs(),DB.hm.fetchClasses()]);setHmCars(c);setHmCarData(cd);setHmLogs(l);setHmClasses(cl);markDbSync("hmCars");};
   // Supabase未接続時もBUDDICA TOURISMデータをロード
   useEffect(()=>{if(!SB_ENABLED)hmReload().catch(e=>console.warn("[HM local]",e));},[]);
-  useEffect(()=>{ if(!sb)return; const fetchLic=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("license_uploads").select("reservation_id,cnt").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.reservation_id]=r.cnt||1; }); window._licenseMap=m; window.dispatchEvent(new Event("licenseUpdate")); }catch(e){} }; fetchLic(); const t=setInterval(()=>{ if(document.visibilityState==="visible")fetchLic(); }, 3*60*1000); return ()=>clearInterval(t); },[]);
+  useEffect(()=>{ if(!sb)return; const fetchLic=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("license_uploads").select("reservation_id,cnt,drivers").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={},dm={}; all.forEach(r=>{ m[r.reservation_id]=r.cnt||1; dm[r.reservation_id]=r.drivers||0; }); window._licenseMap=m; window._licenseDrvMap=dm; window.dispatchEvent(new Event("licenseUpdate")); }catch(e){} }; fetchLic(); const t=setInterval(()=>{ if(document.visibilityState==="visible")fetchLic(); }, 3*60*1000); return ()=>clearInterval(t); },[]);
   // ★じゃらん決済状況(bt_reservations: ota=じゃらん の paid/pay_url) → window._btPayMap（決済バッジ用・3分毎）
   useEffect(()=>{ if(!sb)return; const fetchPay=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("bt_reservations").select("id,paid,pay_url,ota").not("pay_url","is",null).range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.id]={paid:!!r.paid,payUrl:r.pay_url||""}; }); window._btPayMap=m; window.dispatchEvent(new Event("btPayUpdate")); }catch(e){} }; fetchPay(); const tp=setInterval(()=>{ if(document.visibilityState==="visible")fetchPay(); }, 3*60*1000); return ()=>clearInterval(tp); },[]);
   useEffect(()=>{ if(!sb)return; const fetchSign=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("handover_signatures").select("reservation_id,sign_type").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ if(!m[r.reservation_id])m[r.reservation_id]={}; if(r.sign_type==="terms_agree")m[r.reservation_id].terms=true; if(r.sign_type==="damage_approval")m[r.reservation_id].damage=true; }); window._signMap=m; window.dispatchEvent(new Event("signUpdate")); }catch(e){} }; fetchSign(); const t2=setInterval(()=>{ if(document.visibilityState==="visible")fetchSign(); }, 3*60*1000); return ()=>clearInterval(t2); },[]);
@@ -24093,7 +24093,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.521-BT";
+const APP_VERSION="v1.0.522-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

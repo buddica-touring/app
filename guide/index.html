@@ -922,7 +922,11 @@ async function licUpload(){
     }catch(e){}
   }
   if(ok>0){
-    try{ await fetch(BT_URL+'/rest/v1/license_uploads?on_conflict=reservation_id',{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({reservation_id:(typeof RES!=='undefined'&&RES&&RES.id)||'',store:'bt',cnt:ok,drivers:Math.max(1,drvN),last_at:new Date().toISOString()})}); }catch(e){}
+    // ★2026-10-11 追加アップは既存の枚数・人数に積み上げ(旧: 毎回上書き＝後から1名追加すると1名に戻った)
+    var _rid=(typeof RES!=='undefined'&&RES&&RES.id)||'', _pc=0, _pd=0;
+    try{ var _pr=await fetch(BT_URL+'/rest/v1/license_uploads?reservation_id=eq.'+encodeURIComponent(_rid)+'&select=cnt,drivers',{headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON}}); var _pj=await _pr.json(); if(_pj&&_pj[0]){_pc=+_pj[0].cnt||0;_pd=+_pj[0].drivers||0;} }catch(e){}
+    var _nc=_pc+ok, _nd=_pd+Math.max(1,drvN);
+    try{ await fetch(BT_URL+'/rest/v1/license_uploads?on_conflict=reservation_id',{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({reservation_id:_rid,store:'bt',cnt:_nc,drivers:_nd,last_at:new Date().toISOString()})}); LIC_CNT=_nc; LIC_DRV=_nd; }catch(e){}
     logGuideAction('license_upload',{count:ok,drivers:Math.max(1,drvN)});
     msg.innerHTML='<span style="color:#15803d;font-weight:800">'+T.okmsg+'</span>';
     btn.textContent=T.uped; document.getElementById('licCard').classList.add('signed'); var _c=document.getElementById('licDoneChip'); if(_c){_c.textContent=T.chip;_c.style.display='inline-block';}
