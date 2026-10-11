@@ -22159,7 +22159,7 @@ function App(){
   useEffect(()=>{ if(!sb)return; const fetchLic=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("license_uploads").select("reservation_id,cnt,drivers").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={},dm={}; all.forEach(r=>{ m[r.reservation_id]=r.cnt||1; dm[r.reservation_id]=r.drivers||0; }); window._licenseMap=m; window._licenseDrvMap=dm; window.dispatchEvent(new Event("licenseUpdate")); }catch(e){} }; fetchLic(); const t=setInterval(()=>{ if(document.visibilityState==="visible")fetchLic(); }, 3*60*1000); return ()=>clearInterval(t); },[]);
   // ★じゃらん決済状況(bt_reservations: ota=じゃらん の paid/pay_url) → window._btPayMap（決済バッジ用・3分毎）
   useEffect(()=>{ if(!sb)return; const fetchPay=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("bt_reservations").select("id,paid,pay_url,ota").not("pay_url","is",null).range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ m[r.id]={paid:!!r.paid,payUrl:r.pay_url||""}; }); window._btPayMap=m; window.dispatchEvent(new Event("btPayUpdate")); }catch(e){} }; fetchPay(); const tp=setInterval(()=>{ if(document.visibilityState==="visible")fetchPay(); }, 3*60*1000); return ()=>clearInterval(tp); },[]);
-  useEffect(()=>{ if(!sb)return; const fetchSign=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("handover_signatures").select("reservation_id,sign_type").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ if(!m[r.reservation_id])m[r.reservation_id]={}; if(r.sign_type==="terms_agree")m[r.reservation_id].terms=true; if(r.sign_type==="damage_approval")m[r.reservation_id].damage=true; }); window._signMap=m; window.dispatchEvent(new Event("signUpdate")); }catch(e){} }; fetchSign(); const t2=setInterval(()=>{ if(document.visibilityState==="visible")fetchSign(); }, 3*60*1000); return ()=>clearInterval(t2); },[]);
+  useEffect(()=>{ if(!sb)return; const fetchSign=async()=>{ try{ let all=[],from=0; while(true){ const rr=await sb.from("handover_signatures").select("reservation_id,sign_type").range(from,from+999); if(rr.error)break; (rr.data||[]).forEach(r=>{if(r.reservation_id)all.push(r);}); if(!rr.data||rr.data.length<1000)break; from+=1000; } const m={}; all.forEach(r=>{ if(!m[r.reservation_id])m[r.reservation_id]={}; if(r.sign_type==="terms_agree")m[r.reservation_id].terms=true; if(r.sign_type==="damage_approval"||r.sign_type==="damage_approve")m[r.reservation_id].damage=true; /* ★2026-10-11 HDM高松マイページ(handyman-mypage-tkm EF)は damage_approve で保存＝両方を承認済みとして扱う */ }); window._signMap=m; window.dispatchEvent(new Event("signUpdate")); }catch(e){} }; fetchSign(); const t2=setInterval(()=>{ if(document.visibilityState==="visible")fetchSign(); }, 3*60*1000); return ()=>clearInterval(t2); },[]);
   // ★ チームカレンダーイベントをタスクサマリーに表示するため定期取得
   useEffect(()=>{
     const fetchCal=async()=>{
@@ -24093,7 +24093,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.522-BT";
+const APP_VERSION="v1.0.523-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
