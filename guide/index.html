@@ -859,23 +859,56 @@ function renderLicCard(cnt,drv){
   body.innerHTML=(done
       ?'<div style="background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;padding:11px 13px;margin-bottom:10px;color:#15803d;font-weight:800;font-size:14px">'+T.done+(LIC_DRV>0?'<div style="font-weight:800;font-size:13px;margin-top:4px;color:#166534">'+({ja:'登録人数：'+LIC_DRV+'名',en:'Registered drivers: '+LIC_DRV,zh:'已登記人數：'+LIC_DRV+'名',ko:'등록 인원: '+LIC_DRV+'명'}[LANG]||('登録人数：'+LIC_DRV+'名'))+'</div>':'')+'<div style="font-weight:600;font-size:12px;margin-top:3px">'+T.done2+'</div></div>'
       :'<div style="font-size:13px;color:#444;margin-bottom:10px;line-height:1.6">'+T.desc+'</div>')
-    +'<div id="licRows">'+rows+'</div>'
+    +'<div id="licRegBox"></div><div id="licRows">'+rows+'</div>'
     +'<button type="button" id="licAddBtn" onclick="licAddRow()" style="background:none;border:none;color:#2563eb;font-weight:800;font-size:13px;cursor:pointer;padding:4px 0">'+T.add+'</button>'
     +'<button type="button" id="licUpBtn" onclick="licUpload()" style="display:block;width:100%;margin-top:10px;background:#0F1F45;color:#fff;font-weight:800;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer">'+T.upbtn+'</button>'
     +'<div id="licMsg" style="font-size:12px;margin-top:8px;text-align:center"></div>'
     +'<div style="font-size:11px;color:#8a94a0;margin-top:8px">'+T.note+'</div>';
+  if(LIC_REG===null)licLoadReg(); else licRenderReg();
 }
 function _licRowHTML(i){
   var T=_lict();
   var backLabel={ja:'（免許証 裏面／任意）',en:'(License — Back / optional)',zh:'（駕照 背面／選填）',ko:'（면허증 뒷면／선택）'}[LANG]||'（免許証 裏面／任意）';
   var mynaNote={ja:'マイナ免許証の方は、スマホ内の画像・スクリーンショット・PDFを添付できます（裏面は任意）。',en:'My Number (digital) license: attach a saved photo, screenshot, or PDF (back optional).',zh:'My Number數位駕照：可附加圖片、截圖或PDF（背面選填）。',ko:'마이나 면허증: 사진·스크린샷·PDF 첨부 가능(뒷면 선택).'}[LANG]||'マイナ免許証の方は、スマホ内の画像・スクリーンショット・PDFを添付できます（裏面は任意）。';
   return '<div style="margin-bottom:14px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px">'
-    +'<div style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+T.driver+(i+1)+'</div>'
+    +'<div class="licDrvNo" data-i="'+i+'" style="font-size:13px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+T.driver+(licRegBase()+i+1)+'</div>'
     +'<div style="font-size:11px;color:#64748b;margin-bottom:7px">'+mynaNote+'</div>'
     +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+T.front+'</div>'
     +'<input type="file" accept="image/*,application/pdf" id="licf'+i+'" style="width:100%;font-size:14px;margin-bottom:9px">'
     +'<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:3px">'+backLabel+'</div>'
-    +'<input type="file" accept="image/*,application/pdf" id="licb'+i+'" style="width:100%;font-size:14px"></div>';
+    +'<input type="file" accept="image/*,application/pdf" id="licb'+i+'" style="width:100%;font-size:14px">'
+    +_licAcqHTML(i)+'</div>';
+}
+// ★2026-10-12 免許の取得年月日（免許証左下・普通免許は「他」欄）を運転者ごとに必須入力→記録・6か月以内の判定・各店オペへの通知はDB関数 lic_report_acquired
+var LIC_ACQ_T={lab:{ja:'免許の取得年月日（必須）',en:'Date you obtained your license (required)',zh:'駕照取得日期（必填）',ko:'면허 취득일 (필수)'},
+  hint:{ja:'免許証の左下の日付です。普通免許は「他」の欄を入力してください。',en:'On a Japanese license: the date in the 「他」 box at the bottom left. Other licenses: the date first issued.',zh:'日本駕照左下「他」欄的日期；其他駕照請填首次發照日期。',ko:'일본 면허증 왼쪽 아래 「他」란의 날짜. 그 외 면허는 최초 발급일.'},
+  fg:{ja:'外国の免許証・国際免許（取得日の欄がない）',en:'Foreign license / International Driving Permit (no license date on it)',zh:'外國駕照・國際駕照（沒有取得日期欄）',ko:'외국 면허증·국제운전면허증 (취득일 칸 없음)'},
+  fgs:{ja:'外国の免許証・国際免許',en:'Foreign license / IDP',zh:'外國駕照・國際駕照',ko:'외국 면허증·국제면허'},
+  need:{ja:'運転者全員の「免許の取得年月日」を入力してください',en:'Please enter the license date for every driver',zh:'請填寫每位駕駛人的駕照取得日期',ko:'모든 운전자의 면허 취득일을 입력해 주세요'}};
+// 運転者ごとの取得日 {"1":"YYYY-MM-DD",...}。新しくアップする人は登録済みの続きの番号、登録済みの人は一覧で訂正できる
+var LIC_REG=null;
+function licAcqCall(fn,body){return fetch(BT_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({p_token:TOKEN,p_store:'bt'},body||{}))}).then(function(r){return r.json();});}
+function licRegBase(){var m=0;Object.keys(LIC_REG||{}).forEach(function(k){m=Math.max(m,parseInt(k,10)||0);});return m;}
+var LIC_REG_T={ttl:{ja:'登録済みの免許の取得年月日（間違いがあれば直して保存）',en:'Registered license dates (correct and save if wrong)',zh:'已登記的駕照取得日期（如有錯誤請修改後儲存）',ko:'등록된 면허 취득일 (틀렸으면 수정 후 저장)'},save:{ja:'取得日を保存',en:'Save dates',zh:'儲存日期',ko:'날짜 저장'},saved:{ja:'保存しました',en:'Saved',zh:'已儲存',ko:'저장했습니다'}};
+function licRenderReg(){
+  var box=document.getElementById('licRegBox'); if(!box)return;
+  var T=_lict(), ks=Object.keys(LIC_REG||{}).sort(function(a,b){return a-b;});
+  box.innerHTML=!ks.length?'':'<div style="margin-bottom:12px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px;background:#f8fafc"><div style="font-size:12px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+(LIC_REG_T.ttl[LANG]||LIC_REG_T.ttl.ja)+'</div>'
+    +ks.map(function(k){return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#475569;min-width:64px">'+T.driver+k+'</span>'+(LIC_REG[k]==='foreign'?'<span style="font-size:11.5px;color:#475569">'+(LIC_ACQ_T.fgs[LANG]||LIC_ACQ_T.fgs.ja)+'</span>':'')+'<input type="date" class="licRegIn" data-k="'+k+'" value="'+(LIC_REG[k]==='foreign'?'':LIC_REG[k])+'" style="flex:1;padding:8px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff"></div>';}).join('')
+    +'<button type="button" onclick="licRegSave()" style="width:100%;background:#fff;color:#0F1F45;border:1.5px solid #0F1F45;border-radius:9px;padding:9px;font-size:13px;font-weight:800;cursor:pointer">'+(LIC_REG_T.save[LANG]||LIC_REG_T.save.ja)+'</button><div id="licRegMsg" style="font-size:12px;font-weight:700;margin-top:6px;color:#15803d"></div></div>';
+  var base=licRegBase(); document.querySelectorAll('.licDrvNo').forEach(function(el){ el.textContent=T.driver+(base+(+el.getAttribute('data-i'))+1); });
+}
+function licRegSave(){
+  var map={}; document.querySelectorAll('.licRegIn').forEach(function(el){var k=el.getAttribute('data-k'); if(el.value&&el.value!==LIC_REG[k])map[k]=el.value;});
+  if(!Object.keys(map).length)return;
+  licAcqCall('lic_report_acquired',{p_drivers:map}).then(function(j){ if(j&&j.ok&&j.drivers){LIC_REG=j.drivers;licRenderReg(); var m=document.getElementById('licRegMsg'); if(m)m.textContent=(LIC_REG_T.saved[LANG]||LIC_REG_T.saved.ja);} }).catch(function(e){console.error('lic reg save',e);});
+}
+function licLoadReg(){ if(!TOKEN)return Promise.resolve(); return licAcqCall('lic_get_acquired').then(function(j){LIC_REG=(j&&j.ok&&j.drivers)||{};licRenderReg();}).catch(function(){LIC_REG={};}); }
+function _licAcqHTML(i){
+  return '<div style="font-size:12px;font-weight:700;color:#475569;margin:9px 0 3px">'+(LIC_ACQ_T.lab[LANG]||LIC_ACQ_T.lab.ja)+'</div>'
+    +'<input type="date" id="lica'+i+'" max="'+jstToday()+'" style="width:100%;padding:9px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:15px;background:#fff">'
+    +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:700;color:#334155;cursor:pointer;line-height:1.4"><input type="checkbox" id="licaf'+i+'" onchange="var a=document.getElementById(\'lica'+i+'\');if(a){a.disabled=this.checked;if(this.checked)a.value=\'\';}" style="width:20px;height:20px;flex-shrink:0">'+(LIC_ACQ_T.fg[LANG]||LIC_ACQ_T.fg.ja)+'</label>'
+    +'<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.5">'+(LIC_ACQ_T.hint[LANG]||LIC_ACQ_T.hint.ja)+'</div>';
 }
 // 選択済みファイルを消さずに運転者行だけ追記（全体再描画しない）
 function licAddRow(){
@@ -890,13 +923,13 @@ async function licUpload(){
   var T=_lict();
   if(RO){ alert(T.ro); return; }
   if(!GAS_LICENSE_URL){ alert('準備中 / Coming soon'); return; }
-  var files=[]; var msg=document.getElementById('licMsg'); var drvN=0;
+  var files=[]; var msg=document.getElementById('licMsg'); var drvN=0; var acqDates=[];
   for(var i=0;i<LIC_ROWS;i++){
     var fEl=document.getElementById('licf'+i), bEl=document.getElementById('licb'+i);
     var hasF=fEl&&fEl.files&&fEl.files[0], hasB=bEl&&bEl.files&&bEl.files[0];
     if(hasF){ files.push({f:fEl.files[0],label:'driver'+(i+1)+'_front'}); }
     if(hasB){ files.push({f:bEl.files[0],label:'driver'+(i+1)+'_back'}); }
-    if(hasF||hasB)drvN++;  // ★2026-10-11 人数=画像を選んだ運転者の行数(旧: 枚数÷2＝表面のみ2名が1名と記録された)
+    if(hasF||hasB){ drvN++; var aEl=document.getElementById('lica'+i), fEl=document.getElementById('licaf'+i), av=(fEl&&fEl.checked)?'foreign':(aEl&&aEl.value);  /* ★2026-10-12 外国の免許証・国際免許＝'foreign'（取得日の入力を省ける・配車表は「要目視確認」） */ if(!av){ msg.innerHTML='<span style="color:#dc2626;font-weight:700">'+(LIC_ACQ_T.need[LANG]||LIC_ACQ_T.need.ja)+'</span>'; return; } acqDates.push(av); }  // ★2026-10-11 人数=画像を選んだ運転者の行数(旧: 枚数÷2＝表面のみ2名が1名と記録された)
   }
   if(!files.length){ msg.innerHTML='<span style="color:#dc2626;font-weight:700">'+T.need+'</span>'; return; }
   var btn=document.getElementById('licUpBtn'); btn.disabled=true; btn.textContent=T.uploading; msg.innerHTML='';
@@ -927,6 +960,7 @@ async function licUpload(){
     try{ var _pr=await fetch(BT_URL+'/rest/v1/license_uploads?reservation_id=eq.'+encodeURIComponent(_rid)+'&select=cnt,drivers',{headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON}}); var _pj=await _pr.json(); if(_pj&&_pj[0]){_pc=+_pj[0].cnt||0;_pd=+_pj[0].drivers||0;} }catch(e){}
     var _nc=_pc+ok, _nd=_pd+Math.max(1,drvN);
     try{ await fetch(BT_URL+'/rest/v1/license_uploads?on_conflict=reservation_id',{method:'POST',headers:{'apikey':BT_ANON,'Authorization':'Bearer '+BT_ANON,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({reservation_id:_rid,store:'bt',cnt:_nc,drivers:_nd,last_at:new Date().toISOString()})}); LIC_CNT=_nc; LIC_DRV=_nd; }catch(e){}
+    try{ (LIC_REG===null?licLoadReg():Promise.resolve()).then(function(){ var base=licRegBase(), map={}; acqDates.forEach(function(d,i){map[String(base+i+1)]=d;}); return licAcqCall('lic_report_acquired',{p_drivers:map}); }).then(function(j){ if(j&&j.ok&&j.drivers){LIC_REG=j.drivers;licRenderReg();} }).catch(function(e){console.error('lic acq',e);}); }catch(e){}
     logGuideAction('license_upload',{count:ok,drivers:Math.max(1,drvN)});
     msg.innerHTML='<span style="color:#15803d;font-weight:800">'+T.okmsg+'</span>';
     btn.textContent=T.uped; document.getElementById('licCard').classList.add('signed'); var _c=document.getElementById('licDoneChip'); if(_c){_c.textContent=T.chip;_c.style.display='inline-block';}
