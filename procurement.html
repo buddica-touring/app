@@ -269,7 +269,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
       ① <b>登録</b>：「＋ URLで追加」に buddica.jp の車両URLを貼付（複数は改行区切りで一括）→ 車種・年式・走行・展示場所を自動取得。<br>
       ② <b>車両状態</b>：各車の「車両状態」欄に、個体ごとの状況（例：傷あり・書類待ち・要洗車 等）を<b>手動入力</b>できます。<br>
       ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → <b>整備 → 店舗回収（回収完了）→ 準備（準備完了）</b> の列が横並びで出現（未対応→確認中→対応中→OK/NG）。一覧はクラス別に並びます（クラス未設定は最後）。<br>
-      ④ <b>SOLD OUT</b>：売り切れは一覧に表示しません（仕入ステータスは自動で NG）。<br>
+      ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
       ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
       ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。<br>
       ⑦ <b>更新</b>：右下の 🔄 で最新に。変更は全員リアルタイム共有。スマホは「車種名＋URL」だけ表示、チップで詳細を展開。
@@ -334,6 +334,7 @@ const MEIGI=["未定","BD","HDM"];   // 名義プルダウン（BD=BUDDICA / HDM
 const MEIGICLS={"未定":"meU","BD":"meBD","HDM":"meHDM"};   // ハイライト背景: BD=オレンジ / HDM=青
 function meigiOpt(sel){return MEIGI.map(m=>`<option value="${m}" ${m===(sel||"未定")?"selected":""}>${m}</option>`).join("");}
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
+const HIDE_SOLD_20261014=new Set("3f5e2ab5-315b-4267-a84f-35199fad8b75 7ac3cfdf-264a-473d-a531-d448a95084a1 9cfb7f71-1368-4e5f-9029-25eac1f333b5 5c2afcc6-e5a3-4d95-bd4c-5a0048413be8 a772d346-5b2b-4eec-a176-0c714a8866a8 19352bb4-0b8b-4e87-8771-33a9bbc37c2f 011b222d-e502-46d6-917a-d319fddcf5dd 662fddfb-5a21-4f06-bcb5-7f921e2075e3 42a8ade6-9cdf-4565-ba9b-2ac15a98b3dd 159c3c7a-1fb6-4eaf-afdc-7c678e016363 b9ec8f84-f634-4445-bab1-84c92c893467 5dcf5bad-f718-4927-acda-736ada3635d8".split(" "));   // 10/14時点で売り切れだった車（No.2,3,4,6,10,13,19,21,27,32,33,39）
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
@@ -419,7 +420,7 @@ function renderFilterBar(){
 function render(){
   renderDash();
   const list=rows.filter(r=>{
-    if(/SOLD/i.test(r.price||""))return false;   // 売り切れは一覧に出さない（データは残す・重複チェックには使う）
+    if(HIDE_SOLD_20261014.has(r.id))return false;   // 2026-10-14時点の売り切れ12台だけ非表示（以後の売り切れは表示・データは残す）
     if(filter==="all")return true;
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
