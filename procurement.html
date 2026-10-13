@@ -269,7 +269,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
       ① <b>登録</b>：「＋ URLで追加」に buddica.jp の車両URLを貼付（複数は改行区切りで一括）→ 車種・年式・走行・展示場所を自動取得。<br>
       ② <b>車両状態</b>：各車の「車両状態」欄に、個体ごとの状況（例：傷あり・書類待ち・要洗車 等）を<b>手動入力</b>できます。<br>
       ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → <b>整備 → 店舗回収（回収完了）→ 準備（準備完了）</b> の列が横並びで出現（未対応→確認中→対応中→OK/NG）。一覧はクラス別に並びます（クラス未設定は最後）。<br>
-      ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
+      ④ <b>SOLD OUT</b>：売り切れは一覧に表示しません（仕入ステータスは自動で NG）。<br>
       ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
       ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。<br>
       ⑦ <b>更新</b>：右下の 🔄 で最新に。変更は全員リアルタイム共有。スマホは「車種名＋URL」だけ表示、チップで詳細を展開。
@@ -419,6 +419,7 @@ function renderFilterBar(){
 function render(){
   renderDash();
   const list=rows.filter(r=>{
+    if(/SOLD/i.test(r.price||""))return false;   // 売り切れは一覧に出さない（データは残す・重複チェックには使う）
     if(filter==="all")return true;
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
