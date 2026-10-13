@@ -19414,7 +19414,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               <td style={{...cellR(7),background:missingPlace?"#fef2f2":(t._placeSource==="manual"&&resolvedP!==t.place)?"#f5f3ff":cellR(7).background}}>{t.type==="PUB"?<span style={{color:"#059669",fontSize:9,fontWeight:600}}>高松空港-ヤード</span>:t.type==="BDB"?<span style={{color:"#be123c",fontSize:9,fontWeight:600}}>ヤード-高松空港</span>:resolvedP?<React.Fragment><a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("香川 "+resolvedP)} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",textDecoration:"underline",fontSize:9}}>{resolvedP}</a>{t._placeSource==="manual"&&t.place&&resolvedP!==t.place&&<div style={{fontSize:7,color:"#7c3aed",fontWeight:600,lineHeight:1}}>←{t.place}</div>}</React.Fragment>:(missingPlace?<span style={{color:"#dc2626",fontSize:8}}>⚠場所未選択</span>:<span style={{color:"#ccc"}}>-</span>)}</td>
               <td style={{...cellR(8),textAlign:"center",color:"#64748b",fontWeight:700}}>{t.vehicle||"-"}</td>
               <td style={{...cellR(9),fontWeight:700,color:t.assignedVehicle?"#1e40af":"#dc2626"}}>{(()=>{const vn=vehicles.find(x=>x.code===t.assignedVehicle);return vn?vn.name:"未配車";})()}</td>
-              <td style={{...cellR(10),fontFamily:"monospace",fontWeight:700,color:t.plateNo?"#2563eb":"#ccc"}}>{t.plateNo||"-"}</td>
+              {(()=>{/* ★2026-10-13 現場要望: 洗車行のNo.を翌日の貸出時間で色分け(〜12時=赤/12〜15時=黄/15時〜=緑)＝午前出発の車から優先洗車。表示のみ・DB書込なし。時刻は予約(del_time||lend_time)から導出 */const _lt=isWash&&srcRes?String(srcRes.delTime||srcRes.lendTime||"").trim():"";const _m=_lt.match(/^(\d{1,2})[:：]?(\d{2})?/);const _h=_m?(+_m[1])+((+(_m[2]||0))/60):null;const _wc=_h==null?null:_h<12?{bg:"#fecaca",fg:"#991b1b"}:_h<15?{bg:"#fef08a",fg:"#854d0e"}:{bg:"#bbf7d0",fg:"#166534"};return <td title={_wc?("翌日貸出 "+_lt):undefined} style={{...cellR(10),fontFamily:"monospace",fontWeight:700,color:_wc?_wc.fg:(t.plateNo?"#2563eb":"#ccc"),...(_wc?{background:_wc.bg}:{})}}>{t.plateNo||"-"}</td>;})()}
               <td style={{...cellR(6),textAlign:"center"}}>{t.people||""}</td>
               {["b","c","j","usb"].map((k,ki)=><td key={k} style={{...cellR(11+ki),textAlign:"center",fontWeight:700,color:+(liveOpts[k]||0)>0?"#2563eb":"#ddd"}}>{(isLend||isWash||t.type==="貸出"||t.type==="来店"||t.type==="PUB来店")?(+(liveOpts[k]||0)||"-"):""}</td>)}
               <td style={{...cellR(15),fontWeight:600,color:t.insurance==="フル"?"#b45309":"#64748b"}}>{t.insurance||"-"}</td>
@@ -24101,7 +24101,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.524-BT";
+const APP_VERSION="v1.0.525-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
