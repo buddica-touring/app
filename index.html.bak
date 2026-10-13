@@ -24101,7 +24101,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.525-BT";
+const APP_VERSION="v1.0.526-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25640,6 +25640,16 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
     return resv.concat(intakeRows).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   },[data,today,stat,intakeRows]);
   const isNew=(r)=>!stat[r.id]&&!isCxl(r);
+  // ★2026-10-13 たびらいは1予約番号で複数台予約が可能(例137069167=2台)。予約DBは1行のため、生メール台帳(bt_reservation_emails)の
+  //   「台数：N台」(日本語)/「（台数）：N」(中文/韓文)から台数を導出し、2台以上の時だけ「複数台：N」を表示（読めない時は何も出さない・DB書込なし）。
+  const [unitCnt,setUnitCnt]=React.useState({});
+  const tbrIds=rows.filter(r=>!r._intake&&originKey(r)==="adj_tabirai").map(r=>String(r.id)).sort().join(",");
+  React.useEffect(()=>{
+    if(!sb||!tbrIds)return;let on=true;
+    (async()=>{try{const{data:em}=await sb.from("bt_reservation_emails").select("reservation_id,raw_body").in("reservation_id",tbrIds.split(","));
+      if(!on||!em)return;const m={};em.forEach(e=>{const mt=String(e.raw_body||"").match(/台数）?：\s*(\d+)/);const n=mt?parseInt(mt[1],10):0;if(n>=2)m[e.reservation_id]=Math.max(m[e.reservation_id]||0,n);});setUnitCnt(m);}catch(e){}})();
+    return()=>{on=false;};
+  },[sb,tbrIds]);
   const FILT_CH={BDC:"adj_official",ART:"adj_airtrip",RDC:"adj_rentacom",TBR:"adj_tabirai",HDM:"adj_official_hdm",JLN:"adj_jalan",RTT:"adj_rakuten"};/* ★媒体絞り込みは発生元キーで判定（ブランド別・2026-09-02） */
   const shown=rows.filter(r=>filt==="all"?true:filt==="todo"?isTodo(r):filt==="cxl"?isCxl(r):filt==="brandBT"?brandOf(r)==="BUDDICA":filt==="brandHDM"?brandOf(r)==="HDM":FILT_CH[filt]?originKey(r)===FILT_CH[filt]:r.ota===filt);
   const cntTodo=rows.filter(isTodo).length, cntNew=rows.filter(r=>isNew(r)&&isTodo(r)).length, cntCxl=rows.filter(cxNeedRel).length, cntDone=rows.length-cntTodo;
@@ -25716,7 +25726,7 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
           <td style={{...td,borderRadius:"10px 0 0 10px",whiteSpace:"nowrap"}}>{fmtDt(r.createdAt)}{nw&&<span style={{fontSize:9,fontWeight:700,color:"#dc2626",border:"1px solid #dc2626",borderRadius:4,padding:"0 4px",marginLeft:5}}>NEW</span>}{cx&&<span style={{fontSize:9,fontWeight:700,color:"#fff",background:"#7c3aed",borderRadius:4,padding:"1px 5px",marginLeft:5}}>キャンセル</span>}</td>
           <td style={td}><span style={{display:"inline-flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}><BrandBadge brand={brandOf(r)} size="sm"/>{r._intake?<span style={{fontSize:11,fontWeight:800,padding:"3px 8px",borderRadius:6,color:"#92400e",whiteSpace:"nowrap",background:"#fde68a"}}>🏭{r.label}</span>:<span style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:6,color:"#fff",whiteSpace:"nowrap",background:OTA_C[r.ota]||"#94a3b8"}}>{OTA_L[r.ota]||r.ota||"直販"}</span>}</span></td>
           <td style={{...td,fontWeight:600,textDecoration:cx?"line-through":"none",color:cx?"#94a3b8":"inherit"}}>{r.name||"-"}{r._intake&&<span style={{fontSize:9,fontWeight:800,color:"#92400e",background:"#fef3c7",borderRadius:4,padding:"1px 5px",marginLeft:5}}>入庫（{brandOf(r)==="HDM"?"JLN/RTT":"BT全媒体"}）</span>}</td>
-          <td style={{...td,fontSize:11,color:"#475569"}}>{r._intake?"—":r.id}{!cx&&!r._intake&&onCancel&&<button onClick={()=>doCancel(r)} style={{marginLeft:6,fontSize:9,color:"#dc2626",border:"1px solid #fecaca",background:"#fff",borderRadius:5,padding:"1px 5px",cursor:"pointer"}}>✕取消</button>}</td>
+          <td style={{...td,fontSize:11,color:"#475569"}}>{r._intake?"—":r.id}{!cx&&!r._intake&&onCancel&&<button onClick={()=>doCancel(r)} style={{marginLeft:6,fontSize:9,color:"#dc2626",border:"1px solid #fecaca",background:"#fff",borderRadius:5,padding:"1px 5px",cursor:"pointer"}}>✕取消</button>}{!r._intake&&unitCnt[r.id]>=2&&<div style={{fontSize:12,fontWeight:800,color:"#b91c1c",marginTop:2}}>複数台：{unitCnt[r.id]}</div>}</td>
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.lendDate)}</td>
           <td style={{...td,whiteSpace:"nowrap"}}>{fmtD(r.returnDate)}</td>
           <td style={{...td,fontWeight:700}}>{r.vehicle||"-"}</td>
