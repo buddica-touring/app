@@ -53,8 +53,6 @@
   .soldbadge{display:inline-block;background:#dc2626;color:#fff;font-weight:900;font-size:11px;letter-spacing:.5px;padding:4px 9px;border-radius:6px;box-shadow:0 1px 3px rgba(220,38,38,.4)}
   tr[data-st="確認中"]{background:#fffbeb}
   tr[data-st="対応中"]{background:#eff6ff}
-  tr.waitrow{background:#eef2ff!important;box-shadow:inset 5px 0 0 #4f46e5!important}
-  tr.waitrow td:first-child{color:#4f46e5!important}
   .car{font-weight:800}
   .car small{color:#64748b;font-weight:600}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
@@ -262,7 +260,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
   </div>
   <div id="viewProc">
-  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント（除外）。</div>
+  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント。</div>
   <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#1e40af;line-height:1.7">💡 各車の <b style="background:#dbeafe;border-radius:999px;padding:1px 8px;white-space:nowrap">📋 予定・メモ ▾</b> をタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。</div>
 
   <details class="help">
@@ -270,7 +268,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <div class="hbody">
       ① <b>登録</b>：「＋ URLで追加」に buddica.jp の車両URLを貼付（複数は改行区切りで一括）→ 車種・年式・走行・展示場所を自動取得。<br>
       ② <b>車両状態</b>：各車の「車両状態」欄に、個体ごとの状況（例：傷あり・書類待ち・要洗車 等）を<b>手動入力</b>できます。<br>
-      ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → <b>整備 → 店舗回収（回収完了）→ 準備（準備完了）</b> の列が横並びで出現（未対応→確認中→対応中→OK/NG）。<b>整備が対応中・確認中の車は「⏳待機」ゾーン</b>に、NG/SOLD OUTは「❌除外」ゾーンに分かれて並びます。<br>
+      ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → <b>整備 → 店舗回収（回収完了）→ 準備（準備完了）</b> の列が横並びで出現（未対応→確認中→対応中→OK/NG）。一覧はクラス別に並びます（クラス未設定は最後）。<br>
       ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
       ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
       ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。<br>
@@ -279,6 +277,8 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   </details>
 
   <div class="dash" id="dash"></div>
+
+  <div class="tb"><button class="btn p" id="add">＋ URLで追加（自動取得）</button></div>
 
   <div class="tblwrap">
     <table>
@@ -334,8 +334,6 @@ const MEIGI=["未定","BD","HDM"];   // 名義プルダウン（BD=BUDDICA / HDM
 const MEIGICLS={"未定":"meU","BD":"meBD","HDM":"meHDM"};   // ハイライト背景: BD=オレンジ / HDM=青
 function meigiOpt(sel){return MEIGI.map(m=>`<option value="${m}" ${m===(sel||"未定")?"selected":""}>${m}</option>`).join("");}
 const isSample=r=>/^\s*🔰|サンプル/.test(r.model||"");   // 🔰サンプル行は集計に数えない
-const isOut=r=>(r&&(r.status==="NG"||/SOLD/i.test(r.price||"")));  // NG・SOLD OUT＝候補外（消さず最下部にまとめる）
-const isWait=r=>(r&&!isOut(r)&&(r.maint_status==="対応中"||r.maint_status==="確認中"));  // 整備が対応中/確認中＝待機ゾーン（除外とは別）
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
@@ -387,7 +385,6 @@ function renderDash(){
   rows.forEach(r=>{if(isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++; if(r.maint_status==="OK"){secured++; securedSum+=priceNum(r.price);}}}); // 確保=仕入OK&整備OK / 確定価格=仕入OK&整備OKの本体価格合計 / 店舗回収済み数
   let budgetSum=0, budgetCnt=0; rows.forEach(r=>{if(isSample(r))return;const bn=budgetNum(r.budget);if(bn>0){budgetSum+=bn;budgetCnt++;}}); // 申請予算(概算)合計
   const budgetSumTxt=budgetSum?budgetSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
-  const waiting=rows.filter(r=>!isSample(r)&&isWait(r)).length;  // 待機＝整備が対応中/確認中
   const runnable=rows.filter(r=>!isSample(r)&&r.status==="OK"&&r.maint_status==="OK"&&r.pickup_status==="OK"&&r.prep_status==="OK").length;  // 稼働可能＝仕入・整備・引取・準備すべてOK
   const pct=Math.min(100,Math.round(secured/goal*100));
   const okSumTxt=okSum?okSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
@@ -399,7 +396,6 @@ function renderDash(){
    `<div class="card"><div class="lb">💰 確定 本体価格合計</div><div class="vv" style="color:#0f766e">${securedSumTxt}<small>万円</small></div><small>仕入・整備OK ${secured}台の本体価格合計</small></div>`+
    `<div class="card" style="border-color:#fcd34d;background:#fffbeb"><div class="lb">💴 申請予算（概算）</div><div class="vv" style="color:#b45309">${budgetSumTxt}<small>万円</small></div><small>対応コストの合算（あくまで申請・概算）／ 入力 ${budgetCnt}台</small></div>`+
    meigiCard+
-   `<div class="card" style="border-color:#c7d2fe;background:#eef2ff"><div class="lb">⏳ 待機（整備中）</div><div class="vv" style="color:#4f46e5">${waiting}<small>台</small></div><small>整備が対応中・確認中の車</small></div>`+
    `<div class="card"><div class="lb">🚚 店舗回収済み</div><div class="vv" style="color:#2563eb">${piOk}<small> / ${secured}台</small></div><small>店舗から回収済み ／ 確保 ${secured}台中</small></div>`+
    `<div class="card" style="border-color:#86efac;background:#f0fdf4"><div class="lb">🟢 稼働可能</div><div class="vv" style="color:#15803d">${runnable}<small>台</small></div><small>仕入・整備・引取・準備すべてOK</small></div>`;
 }
@@ -427,19 +423,17 @@ function render(){
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
   }).slice().sort((a,b)=>{
-    const za=isOut(a)?2:(isWait(a)?1:0), zb=isOut(b)?2:(isWait(b)?1:0);   // 0=通常 / 1=待機(整備中) / 2=除外(NG/SOLD) の順に並べる
-    if(za!==zb)return za-zb;
-    if(za===0){const ca=a.vclass||"~", cb=b.vclass||"~";  // 通常はクラス別にグループ化、未設定は末尾
-      if(ca!==cb)return ca<cb?-1:1;}
+    const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス別にグループ化、未設定(新規追加分)は末尾
+    if(ca!==cb)return ca<cb?-1:1;
     return (a.sort_order||0)-(b.sort_order||0);
   });
   const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
   const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-  const gkey=r=>isOut(r)?"__OUT__":(isWait(r)?"__WAIT__":(r.vclass||""));
+  const gkey=r=>(r.vclass||"");
   const gcount={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=g==="__OUT__"?"#94a3b8":(g==="__WAIT__"?"#4f46e5":(CLSCOLOR[c]||"#94a3b8"));const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;if(g==="__OUT__"){hdr=`<tr class="clsgrp" style="--cc:#94a3b8"><td colspan="16"><span class="cbadge" style="background:#94a3b8">除外</span>❌ NG ・ 🔴 SOLD OUT（候補外）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else if(g==="__WAIT__"){hdr=`<tr class="clsgrp" style="--cc:#4f46e5"><td colspan="16" style="background:#eef2ff"><span class="cbadge" style="background:#4f46e5">待機</span>⏳ 整備中（対応中・確認中）<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}${isWait(r)?" waitrow":""}">
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
       <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;const ok=/OK/.test(m);return `<span class="memoflag${ok?" ok":""}" title="メモ：${esc(m)}">${ok?"✅":"🚩"} ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
