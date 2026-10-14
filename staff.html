@@ -40,7 +40,10 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .veh.nov{background:#fef2f2;border-color:#fecaca;color:#991b1b}
 .otab{font-weight:800;font-size:11px;border-radius:5px;padding:2px 7px;margin-left:6px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
 .hdmb{font-weight:800;font-size:11px;border-radius:5px;padding:2px 7px;margin-left:4px;background:#1e3a8a;color:#fff;border:1px solid #1e3a8a;letter-spacing:.3px}
-.card.hdm{background:#eef2ff;border-color:#c7d2fe}
+.card.hdm{background:#eef2ff}
+/* ★2026-10-14 HDM予約の強調（案1）：紺の太枠＋上部帯（左の種別色は残す）。洗車系は淡い紺背景のみ */
+.card.hdmx{border-top:2px solid #1e3a8a;border-right:2px solid #1e3a8a;border-bottom:2px solid #1e3a8a}
+.hdmrib{margin:-11px -12px 8px;background:#1e3a8a;color:#fff;font-size:11px;font-weight:800;letter-spacing:.5px;padding:3px 12px;border-radius:0 9px 0 0}
 .chk{font-weight:800;font-size:11px;border-radius:5px;padding:2px 6px;margin-left:5px;display:inline-block}
 .chk.ok{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
 .chk.no{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
@@ -75,7 +78,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.4-bt";
+var VER="staff-v2.5-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -164,7 +167,9 @@ function taskCard(x){
     btns+='<button class="abtn" style="'+(_hc>0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0')+'" onclick="saHandover(\''+esc(x.resv)+'\')">📌 引継'+(_hc>0?' '+_hc:'')+'</button>';
   }
   btns+='</div>';
-  return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(x.done?' done':'')+'">'
+  var _hx=isHdmS(x.ota)&&t!=='洗車'&&t!=='返却後洗車';
+  return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'">'
+    +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'
