@@ -786,20 +786,21 @@ function renderFleet(){
 let ETC_V=null, ETC={};
 async function loadEtc(){
   $("etcBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  const [vres,eres]=await Promise.all([sb.from("bt_vehicles").select("code,name,plate_no,brand"),sb.from("bt_etc_setup").select("*")]);
+  const [vres,eres]=await Promise.all([sb.from("bt_vehicles").select("code,name,plate_no,brand,type"),sb.from("bt_etc_setup").select("*")]);
   if(vres.error||eres.error){$("etcBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc((vres.error||eres.error).message)+'</div>';return;}
   ETC_V=vres.data||[]; ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;}); renderEtc();
 }
 function renderEtc(){
   if(!ETC_V){loadEtc();return;}
   if(!ETC_V.length){$("etcBody").innerHTML='<div style="color:#94a3b8;padding:16px;text-align:center">車両が読めません。BTアプリにログインした端末で開いてください。</div>';return;}
-  const list=ETC_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||String(a.name||"").localeCompare(String(b.name||""),"ja")||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス(M_ORDER順)→車種→ナンバー
+  const list=ETC_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.name||"").localeCompare(String(b.name||""),"ja")||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const done=list.filter(v=>ETC[v.code]&&ETC[v.code].done).length;
   let html='<div class="fl-sumbar"><span class="fl-total">セットアップ済 <b>'+done+'</b> / '+list.length+' 台</span><span class="fl-sc">未 '+(list.length-done)+'台</span></div>';
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:80px">BTC/HDM</th><th>車種</th><th style="width:110px">ナンバー</th><th style="width:90px">セットアップ</th><th>備考</th></tr></thead><tbody>';
   list.forEach(v=>{
     const e=ETC[v.code]||{}, bd=isHdm(v);
-    html+='<tr'+(e.done?' style="background:#f0fdf4"':'')+'><td data-lb="BTC/HDM"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BTC")+'</span></td><td data-lb="車種"><b>'+fesc(v.name||"")+'</b></td><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td><td data-lb="セットアップ"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-done="'+fesc(v.code)+'"'+(e.done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="備考" style="white-space:normal"><input type="text" data-etc-memo="'+fesc(v.code)+'" value="'+fesc(e.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
+    html+='<tr'+(e.done?' style="background:#f0fdf4"':'')+'><td data-lb="BTC/HDM"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BTC")+'</span></td><td data-lb="車種"><span style="font-size:10px;color:#fff;background:'+(M_CLSCOLOR[v.type]||"#94a3b8")+';border-radius:4px;padding:1px 6px;font-weight:800;margin-right:6px">'+fesc(v.type||"?")+'</span><b>'+fesc(v.name||"")+'</b></td><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td><td data-lb="セットアップ"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-done="'+fesc(v.code)+'"'+(e.done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="備考" style="white-space:normal"><input type="text" data-etc-memo="'+fesc(v.code)+'" value="'+fesc(e.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
   });
   $("etcBody").innerHTML=html+'</tbody></table></div>';
 }
