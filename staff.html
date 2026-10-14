@@ -75,7 +75,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.3-bt";
+var VER="staff-v2.4-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -115,13 +115,14 @@ function _mypIsHdm(x){var o=String(x.ota==null?"":x.ota);var ou=o.toUpperCase();
 function mypLink(x){if(!x.mypage)return '';var u=_mypIsHdm(x)?('https://nosh2318.github.io/spk-task/my-tkm.html?t='+encodeURIComponent(x.mypage)+'&staff=1'):('guide/?t='+encodeURIComponent(x.mypage)+'&staff=1');var h=_mypIsHdm(x);return h?('<a class="myp hdm" href="'+u+'" target="_blank" rel="noopener" title="HANDYMAN のお客様マイページ">📄 マイページ</a>'):('<a class="myp" href="'+u+'" target="_blank" rel="noopener" title="BUDDICA のお客様ご利用ガイド">📄 ご利用ガイド</a>');}
 
 function otaAbbrS(o){var m={"じゃらん":"JLN","楽天":"RKT","エアトリ":"ART","スカイチケット":"SKT","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","たびらい":"TBR","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","HP":"BDC","direct":"直接","DIRECT":"直接"};var k=String(o==null?"":o).trim();if(!k)return "";return m[k]||k;}
-function isHdmS(o){var k=String(o==null?"":o).trim();return k==="J"||k==="じゃらん"||k.indexOf("じゃらん")>=0;}
+/* ★2026-10-14 HDM判定をじゃらんのみ→じゃらん/楽天/スカイ/HANDYMAN公式（本体APP isHdmOta と同一） */
+function isHdmS(o){var k=String(o==null?"":o).trim();var ku=k.toUpperCase();return k==="J"||k.indexOf("じゃらん")>=0||k.indexOf("楽天")>=0||k.indexOf("スカイチケット")>=0||ku.indexOf("SKY")>=0||ku.indexOf("HANDYMAN")>=0;}
 function taskCard(x){
   var t=x.type||"";
   var plate=x.plate?(" "+x.plate):"";
   var veh=x.vehicle?('<span class="veh">🚗 '+esc(x.vehicle)+esc(plate)+'</span>'):'<span class="veh nov">未配車</span>';
   var ab=otaAbbrS(x.ota);var otaB=ab?('<span class="otab" title="予約媒体">'+esc(ab)+'</span>'):'';
-  var hdmB=isHdmS(x.ota)?('<span class="hdmb" title="HANDYMAN予約（じゃらん）— 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HDM</span>'):'';
+  var hdmB=isHdmS(x.ota)?('<span class="hdmb" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HDM</span>'):'';
   var tm=x.time||"";
   var pl=x.place?('<a class="place" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(x.place)+'" target="_blank" rel="noopener">📍 '+esc(x.place)+'</a>'):'';
   var cust=x.customer?('<span class="cust">'+esc(x.customer)+'</span>'):'';
