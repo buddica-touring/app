@@ -258,6 +258,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
     <button class="tabbtn" data-v="bt">🟢 BT車両のみ</button>
     <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
+    <button class="tabbtn" data-v="etc">📡 ETCセットアップ</button>
   </div>
   <div id="viewProc">
   <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント。</div>
@@ -317,6 +318,10 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   <div id="viewHdm" style="display:none">
     <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadHdm" style="margin-left:auto">🔄 最新に更新</button></div>
     <div id="hdmBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+  </div>
+  <div id="viewEtc" style="display:none">
+    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadEtc" style="margin-left:auto">🔄 最新に更新</button></div>
+    <div id="etcBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
   </div>
 <button id="reload" title="最新に更新">🔄</button>
 <div id="st">接続中…</div>
@@ -777,6 +782,44 @@ function renderFleet(){
   if(misc.length)sect("",misc);
   $("fleetBody").innerHTML=html;
 }
+// ===== ETCセットアップ＝全車両(bt_vehicles・読むだけ)の進捗。保存先は bt_etc_setup（1車1項目だけ upsert）=====
+let ETC_V=null, ETC={};
+async function loadEtc(){
+  $("etcBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
+  const [vres,eres]=await Promise.all([sb.from("bt_vehicles").select("code,name,plate_no,brand"),sb.from("bt_etc_setup").select("*")]);
+  if(vres.error||eres.error){$("etcBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc((vres.error||eres.error).message)+'</div>';return;}
+  ETC_V=vres.data||[]; ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;}); renderEtc();
+}
+function renderEtc(){
+  if(!ETC_V){loadEtc();return;}
+  if(!ETC_V.length){$("etcBody").innerHTML='<div style="color:#94a3b8;padding:16px;text-align:center">車両が読めません。BTアプリにログインした端末で開いてください。</div>';return;}
+  const list=ETC_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||String(a.name||"").localeCompare(String(b.name||""),"ja")||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const done=list.filter(v=>ETC[v.code]&&ETC[v.code].done).length;
+  let html='<div class="fl-sumbar"><span class="fl-total">セットアップ済 <b>'+done+'</b> / '+list.length+' 台</span><span class="fl-sc">未 '+(list.length-done)+'台</span></div>';
+  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:80px">BTC/HDM</th><th>車種</th><th style="width:110px">ナンバー</th><th style="width:90px">セットアップ</th><th>備考</th></tr></thead><tbody>';
+  list.forEach(v=>{
+    const e=ETC[v.code]||{}, bd=isHdm(v);
+    html+='<tr'+(e.done?' style="background:#f0fdf4"':'')+'><td data-lb="BTC/HDM"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BTC")+'</span></td><td data-lb="車種"><b>'+fesc(v.name||"")+'</b></td><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td><td data-lb="セットアップ"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-done="'+fesc(v.code)+'"'+(e.done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="備考" style="white-space:normal"><input type="text" data-etc-memo="'+fesc(v.code)+'" value="'+fesc(e.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
+  });
+  $("etcBody").innerHTML=html+'</tbody></table></div>';
+}
+async function saveEtc(code,patch){
+  const {data,error}=await sb.from("bt_etc_setup").upsert(Object.assign({code},patch,{updated_at:new Date().toISOString()}),{onConflict:"code"}).select();
+  if(error){alert("保存できませんでした："+error.message);loadEtc();return;}
+  if(data&&data[0])ETC[code]=data[0];
+}
+$("etcBody").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.etcDone){ saveEtc(t.dataset.etcDone,{done:t.checked}).then(()=>{ if(document.activeElement===t||!document.activeElement||!document.activeElement.dataset||!document.activeElement.dataset.etcMemo)renderEtc(); }); }
+  else if(t.dataset.etcMemo){ saveEtc(t.dataset.etcMemo,{memo:String(t.value||"")}); }
+});
+$("reloadEtc").addEventListener("click",loadEtc);
+sb.channel("etc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_etc_setup"},p=>{
+  const nw=p.new; if(!nw||!nw.code)return; ETC[nw.code]=nw;
+  if($("viewEtc").style.display==="none")return;
+  const ae=document.activeElement; if(ae&&ae.dataset&&ae.dataset.etcMemo)return;   // 備考入力中は再描画しない（入力中の文字を消さない）
+  renderEtc();
+}).subscribe();
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
@@ -785,10 +828,12 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewMaster").style.display=v==="master"?"":"none";
   $("viewBt").style.display=v==="bt"?"":"none";
   $("viewHdm").style.display=v==="hdm"?"":"none";
+  $("viewEtc").style.display=v==="etc"?"":"none";
   if(v==="fleet")renderFleet();
   if(v==="master")renderMaster();
   if(v==="bt")renderBt();
   if(v==="hdm")renderHdm();
+  if(v==="etc")renderEtc();
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
 $("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
