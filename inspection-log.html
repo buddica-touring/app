@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>点検記録 | BUDDICA 高松</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+.wrap{max-width:900px;margin:0 auto;padding:12px 12px 60px}
+h1{font-size:18px;margin:4px 0 2px}
+.sub{font-size:11.5px;color:#64748b;margin-bottom:10px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.bar select,.bar input{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:14px;background:#fff;font-family:inherit}
+.bar input[type=search]{flex:1;min-width:140px}
+.seg{display:flex;gap:4px}
+.seg button{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:800;color:#475569;cursor:pointer}
+.seg button.on{background:#0f172a;color:#fff;border-color:#0f172a}
+.sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sum div{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:800;color:#475569}
+.sum b{font-size:16px;color:#0f172a;margin-left:4px}
+.day{font-size:13px;font-weight:900;margin:14px 2px 6px}
+.card{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #94a3b8;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.card.done{border-left-color:#16a34a}.card.part{border-left-color:#f59e0b}
+.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tm{font-weight:900;font-size:15px;min-width:46px}
+.kd{font-size:11px;font-weight:900;border-radius:6px;padding:2px 8px;color:#fff}
+.kd.pre{background:#2563eb}.kd.post{background:#7c3aed}
+.car{font-weight:800;font-size:14.5px}
+.meta{font-size:11.5px;color:#64748b;margin-top:3px}
+.pg{margin-left:auto;font-size:12px;font-weight:900;border-radius:999px;padding:3px 10px;background:#f1f5f9;color:#475569}
+.card.done .pg{background:#16a34a;color:#fff}.card.part .pg{background:#fef3c7;color:#92400e}
+.ng{margin-top:6px;font-size:12px;color:#b91c1c;font-weight:700}
+.memo{margin-top:6px;font-size:13px;background:#f8fafc;border-radius:8px;padding:6px 9px;white-space:pre-wrap}
+.ph{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ph a{display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:#e2e8f0}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.warn{margin-top:6px;font-size:12px;color:#b91c1c;font-weight:800}
+.empty,.loading{color:#94a3b8;padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔧 点検記録</h1>
+  <div class="sub">点検ページ（車両進捗管理 →「🔧 点検」）でスタッフがチェックした記録です。この画面は見るだけです。</div>
+  <div class="bar">
+    <select id="per"><option value="7">直近7日</option><option value="14">直近14日</option><option value="31">直近31日</option></select>
+    <div class="seg" id="kind"><button data-k="all" class="on">すべて</button><button data-k="pre">出発前</button><button data-k="post">返却後</button></div>
+    <input type="search" id="q" placeholder="車両名・ナンバー・予約番号・お客様名">
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="list" class="loading">読み込み中…</div>
+</div>
+<script>
+const SB_URL='https://ggqugvyskyiblxiycpci.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
+const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+// 項目名は procurement.html の INSP_ITEMS と同じキー（項目を増減したら両方を揃える）。キーが無い古い項目はキー名のまま表示。
+const ITEMS={
+  pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
+  post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["washer","ウォッシャー液"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"],["mileage","走行距離（メモに記入）"]]
+};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let REC=[],KIND="all";
+async function load(){
+  $("list").className="loading";$("list").textContent="読み込み中…";
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){$("list").innerHTML='⚠️ 本体APPでログインしてから開いてください（同じブラウザでAPPにログイン済みなら自動で繋がります）';return;}
+  const since=new Date(Date.now()-(+$("per").value)*864e5).toISOString();
+  const [cr,pr]=await Promise.all([
+    sb.from("bt_inspection_checks").select("*").gte("updated_at",since).order("updated_at",{ascending:false}).limit(5000),
+    sb.from("bt_inspection_photos").select("*").eq("deleted",false).gte("created_at",since).order("created_at").limit(2000)]);
+  if(cr.error||pr.error){$("list").innerHTML='取得失敗：'+esc((cr.error||pr.error).message);return;}
+  const g={};const key=(r,k)=>r+"|"+k;
+  (cr.data||[]).forEach(c=>{const kk=key(c.reservation_id,c.kind);(g[kk]=g[kk]||{rid:c.reservation_id,kind:c.kind,checks:{},photos:[],last:null});g[kk].checks[c.item_key]=c;if(!g[kk].last||c.updated_at>g[kk].last)g[kk].last=c.updated_at;});
+  (pr.data||[]).forEach(p=>{const kk=key(p.reservation_id,p.kind);(g[kk]=g[kk]||{rid:p.reservation_id,kind:p.kind,checks:{},photos:[],last:null});g[kk].photos.push(p);if(!g[kk].last||p.created_at>g[kk].last)g[kk].last=p.created_at;});
+  const ids=[...new Set(Object.values(g).map(x=>x.rid))];
+  const resv={},veh={};
+  for(let i=0;i<ids.length;i+=200){
+    const {data}=await sb.from("bt_reservations").select("id,name,start_date,start_time,end_date,end_time,ota,assigned_vehicle").in("id",ids.slice(i,i+200));
+    (data||[]).forEach(r=>resv[r.id]=r);
+  }
+  const {data:vs}=await sb.from("bt_vehicles").select("code,name,plate_no");(vs||[]).forEach(v=>veh[v.code]=v);
+  const paths=[];Object.values(g).forEach(x=>x.photos.forEach(p=>paths.push(p.path)));
+  const urls={};
+  for(let i=0;i<paths.length;i+=100){const {data}=await sb.storage.from("bt-inspections").createSignedUrls(paths.slice(i,i+100),3600);(data||[]).forEach(d=>{if(d.signedUrl)urls[d.path]=d.signedUrl;});}
+  REC=Object.values(g).map(x=>{const r=resv[x.rid]||{};const items=ITEMS[x.kind]||[];const vc=(Object.values(x.checks).map(c=>c.vehicle_code).find(Boolean))||(x.photos[0]&&x.photos[0].vehicle_code)||r.assigned_vehicle||"";const v=veh[vc]||{};
+    const n=items.filter(([k])=>x.checks[k]&&x.checks[k].checked).length;
+    return Object.assign(x,{r,v,vc,n,t:items.length,ng:items.filter(([k])=>!(x.checks[k]&&x.checks[k].checked)).map(([,l])=>l),memo:(x.checks._memo&&x.checks._memo.note)||"",
+      date:(x.kind==="pre"?r.start_date:r.end_date)||String(x.last||"").slice(0,10),time:(x.kind==="pre"?r.start_time:r.end_time)||"",urls});});
+  render();
+}
+function render(){
+  const q=$("q").value.trim().toLowerCase();
+  const list=REC.filter(x=>(KIND==="all"||x.kind===KIND)&&(!q||[x.v.name,x.v.plate_no,x.rid,x.r.name,x.vc].join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.time).localeCompare(String(a.time)));
+  const done=list.filter(x=>x.n===x.t).length;
+  $("sum").innerHTML='<div>記録<b>'+list.length+'</b></div><div>完了<b style="color:#16a34a">'+done+'</b></div><div>途中<b style="color:#b45309">'+(list.length-done)+'</b></div>';
+  if(!list.length){$("list").className="empty";$("list").textContent="この期間の点検記録はありません";return;}
+  $("list").className="";
+  let html="",prev="";const WD="日月火水木金土";
+  list.forEach(x=>{
+    if(x.date!==prev){prev=x.date;html+='<div class="day">'+(+String(x.date).slice(5,7))+'/'+(+String(x.date).slice(8,10))+'（'+WD[new Date(x.date+"T00:00:00Z").getUTCDay()]+'）</div>';}
+    const st=x.n===x.t?"done":(x.n>0?"part":"");
+    html+='<div class="card '+st+'"><div class="hd"><span class="tm">'+esc(x.time||"--:--")+'</span><span class="kd '+x.kind+'">'+(x.kind==="pre"?"出発前":"返却後")+'</span><span class="car">'+esc(x.v.name||x.vc||"車両不明")+' '+esc(x.v.plate_no||"")+'</span><span class="pg">'+(x.n===x.t?"✅ 完了":x.n+" / "+x.t)+'</span></div>'+
+      '<div class="meta">予約 '+esc(x.rid)+(x.r.name?'・'+esc(x.r.name)+' 様':'')+(x.r.ota?'・'+esc(x.r.ota):'')+'・最終更新 '+new Date(x.last).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div>'+
+      (x.n<x.t?'<div class="ng">未チェック：'+x.ng.map(esc).join("・")+'</div>':'')+
+      (x.memo?'<div class="memo">'+esc(x.memo)+'</div>':'')+
+      (x.photos.length?'<div class="ph">'+x.photos.map(p=>x.urls[p.path]?'<a href="'+esc(x.urls[p.path])+'" target="_blank" rel="noopener"><img src="'+esc(x.urls[p.path])+'" loading="lazy" alt=""></a>':'').join("")+'</div>':'')+
+    '</div>';
+  });
+  $("list").innerHTML=html;
+}
+$("per").addEventListener("change",load);
+$("q").addEventListener("input",render);
+$("kind").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;KIND=b.dataset.k;document.querySelectorAll("#kind button").forEach(x=>x.classList.toggle("on",x===b));render();});
+load();
+</script>
+</body>
+</html>
