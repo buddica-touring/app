@@ -1045,7 +1045,10 @@ document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventList
 }));
 
 load();
-renderInsp();   // 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）
+// 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
+(function(){let t="";try{t=new URLSearchParams(location.search).get("tab")||"";}catch(e){}
+  const b=t&&document.querySelector('.tabbtn[data-v="'+t.replace(/[^a-z]/g,"")+'"]');
+  if(b&&t!=="insp")b.click(); else renderInsp();})();
 setInterval(()=>{ if(!document.activeElement||document.activeElement.tagName==="BODY")load(); },60000);
 </script>
 </body>
