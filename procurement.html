@@ -1042,7 +1042,7 @@ $("viewInsp").addEventListener("change",async e=>{
 $("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="none"){INSP.resv=null;renderInsp();} });
 // ===== 🛞 タイヤチェック（ETCセットアップと同じ作り・ログイン不要）=====
 // 車両＝bt_etc_vehicles()（ナンバーだけ表示）。保存＝bt_tire_check（1車1行・1項目だけ upsert）／写真＝bt_tire_photos（1枚1行・外すは墓標）＋storage bt-tires。
-// 画像必須：写真が1枚も無い車はステータスを選べない（DB の with check でも止める）。
+// ステータス＝未確認／確認済／交換（写真の有無に関係なく選べる・オーナー指示 2026-10-15）。
 let TIRE_V=null, TIRE={}, TIRE_PH={}, TIRE_URL={}, TIRE_TARGET=null;
 async function loadTire(){
   $("tireBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
@@ -1064,18 +1064,19 @@ function renderTire(){
   if(!TIRE_V){loadTire();return;}
   const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス→ナンバー（ETCと同じ並び）
   const list=TIRE_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
-  const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="取替").length;
-  let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">取替 '+chg+'台</span><span class="fl-sc">未 '+(list.length-ok-chg)+'台</span></div>';
-  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:90px">ナンバー</th><th style="width:230px">写真（必須）</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
+  const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="交換").length;
+  let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">交換 '+chg+'台</span><span class="fl-sc">未確認 '+(list.length-ok-chg)+'台</span></div>';
+  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:90px">ナンバー</th><th style="width:230px">写真</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
   const paths=[];
   list.forEach(v=>{
     const t=TIRE[v.code]||{}, ph=TIRE_PH[v.code]||[], has=ph.length>0, c=fesc(v.code);
-    const bg=t.status==="確認済"?' style="background:#f0fdf4"':(t.status==="取替"?' style="background:#fef2f2"':'');
+    const bg=t.status==="確認済"?' style="background:#f0fdf4"':(t.status==="交換"?' style="background:#fef2f2"':'');
     const phHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+ph.map(p=>{paths.push(p.path);const u=TIRE_URL[p.path];return '<span style="position:relative;display:inline-block;width:56px;height:56px;border-radius:8px;overflow:hidden;background:#e2e8f0">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(u)+'" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" alt=""></a>':'')+'<button data-tire-del="'+fesc(p.id)+'" title="写真を外す" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:12px;line-height:22px;padding:0;cursor:pointer">✕</button></span>';}).join("")+
-      '<button data-tire-add="'+c+'" style="width:56px;height:56px;border:2px dashed '+(has?'#93c5fd':'#f87171')+';border-radius:8px;background:'+(has?'#eff6ff':'#fef2f2')+';color:'+(has?'#1d4ed8':'#b91c1c')+';font-size:11px;font-weight:900;cursor:pointer;line-height:1.2">📷<br>'+(has?'追加':'必須')+'</button></div>';
-    const sel='<select data-tire-st="'+c+'"'+(has?'':' disabled title="写真を入れると選べます"')+' style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;font-size:14px;font-weight:800;color:'+(t.status==="取替"?'#b91c1c':t.status==="確認済"?'#166534':'#64748b')+'"><option value="">'+(has?'未選択':'写真が先')+'</option><option'+(t.status==="確認済"?' selected':'')+'>確認済</option><option'+(t.status==="取替"?' selected':'')+'>取替</option></select>';
+      '<button data-tire-add="'+c+'" style="width:56px;height:56px;border:2px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;cursor:pointer;line-height:1.2">📷<br>写真</button></div>';
+    const st=t.status||"未確認";
+    const sel='<select data-tire-st="'+c+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;font-size:14px;font-weight:800;color:'+(st==="交換"?'#b91c1c':st==="確認済"?'#166534':'#64748b')+'">'+["未確認","確認済","交換"].map(o=>'<option'+(st===o?' selected':'')+'>'+o+'</option>').join("")+'</select>';
     html+='<tr'+bg+'><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td>'+
-      '<td data-lb="写真（必須）" style="white-space:normal">'+phHtml+'</td>'+
+      '<td data-lb="写真" style="white-space:normal">'+phHtml+'</td>'+
       '<td data-lb="ステータス">'+sel+'</td>'+
       '<td data-lb="交換予定日"><input type="date" data-tire-plan="'+c+'" value="'+fesc(t.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td>'+
       '<td data-lb="入庫先"><input type="text" data-tire-dest="'+c+'" value="'+fesc(t.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" maxlength="200" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td>'+
@@ -1092,7 +1093,7 @@ async function saveTire(code,patch){
 }
 $("tireBody").addEventListener("change",e=>{
   const t=e.target;
-  if(t.dataset.tireSt!==undefined){ if(!(TIRE_PH[t.dataset.tireSt]||[]).length){alert("先に写真を入れてください（写真は必須です）");renderTire();return;} saveTire(t.dataset.tireSt,{status:t.value||null}).then(ok=>{if(ok)renderTire();}); }
+  if(t.dataset.tireSt!==undefined){ saveTire(t.dataset.tireSt,{status:t.value||"未確認"}).then(ok=>{if(ok)renderTire();}); }
   else if(t.dataset.tirePlan){ saveTire(t.dataset.tirePlan,{plan_date:t.value||null}); }
   else if(t.dataset.tireDest){ saveTire(t.dataset.tireDest,{dest:String(t.value||"")}); }
   else if(t.dataset.tireMemo){ saveTire(t.dataset.tireMemo,{memo:String(t.value||"")}); }
@@ -1100,9 +1101,8 @@ $("tireBody").addEventListener("change",e=>{
 $("tireBody").addEventListener("click",async e=>{
   const add=e.target.closest("[data-tire-add]"); if(add){TIRE_TARGET=add.dataset.tireAdd;$("tireFile").click();return;}
   const del=e.target.closest("[data-tire-del]"); if(del){e.preventDefault();
-    const pid=del.dataset.tireDel, code=Object.keys(TIRE_PH).find(k=>TIRE_PH[k].some(p=>p.id===pid)), last=code&&TIRE_PH[code].length===1&&TIRE[code]&&TIRE[code].status;
-    if(!confirm(last?"これが最後の写真です。外すとステータスは「未選択」に戻ります。外しますか？":"この写真を外しますか？"))return;
-    if(last&&!(await saveTire(code,{status:null})))return;   // 写真0枚でステータス付きのままだと以後その車を保存できなくなるため、先に未選択へ
+    const pid=del.dataset.tireDel;
+    if(!confirm("この写真を外しますか？"))return;
     const {error}=await sb.from("bt_tire_photos").update({deleted:true}).eq("id",pid);
     if(error){alert("外せませんでした："+error.message);return;}
     Object.keys(TIRE_PH).forEach(k=>{TIRE_PH[k]=TIRE_PH[k].filter(p=>p.id!==del.dataset.tireDel);}); renderTire();}
