@@ -1044,6 +1044,7 @@ $("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="non
 // 車両＝bt_etc_vehicles()（ナンバーだけ表示）。保存＝bt_tire_check（1車1行・1項目だけ upsert）／写真＝bt_tire_photos（1枚1行・外すは墓標）＋storage bt-tires。
 // ステータス＝未確認／確認済／交換（写真の有無に関係なく選べる・オーナー指示 2026-10-15）。
 let TIRE_V=null, TIRE={}, TIRE_PH={}, TIRE_URL={}, TIRE_TARGET=null;
+const TIRE_EXCLUDE=new Set(["ポルシqs4p"]);   // 10/15 オーナー指示：911(1716)はタイヤチェックの一覧・台数から外す（データは触らない）
 async function loadTire(){
   $("tireBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
   const [vres,tres,pres,nres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_tire_check").select("*"),sb.from("bt_tire_photos").select("*").eq("deleted",false).order("created_at"),sb.rpc("bt_company_vehicles")]);
@@ -1052,7 +1053,7 @@ async function loadTire(){
   const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});   // 車両名＝既存の公開関数 bt_company_vehicles（稼働車のナンバー→車両名）。稼働外の車は名前なし
   const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);   // 仕入候補の読込がまだなら直接読む
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};   // 稼働前の車は仕入候補（bt_procurement）の車種名で補う
-  TIRE_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)}));
+  TIRE_V=(vres.data||[]).filter(v=>!TIRE_EXCLUDE.has(v.code)).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)}));
   TIRE={};(tres.data||[]).forEach(t=>TIRE[t.code]=t);
   TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
   renderTire();
