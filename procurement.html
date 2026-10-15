@@ -191,6 +191,15 @@
     tr.grpRow .cell{min-height:40px;font-size:16px}
     tr.grpRow td.delc .del{padding:6px}
     tr.detailrow .pdetail .fld input[type=date],tr.detailrow .pdetail .memo textarea{min-height:42px;font-size:16px}
+    /* 進捗段階グループ（折りたたみ） */
+    tr.grpRow.gHide,tr.detailrow.gHide{display:none!important}
+    tr.clsgrp.stg{margin:10px 0 8px;cursor:pointer}
+    tr.clsgrp.stg td{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-left:6px solid var(--cc);border-top:1px solid #e2e8f0;border-radius:12px;padding:13px 12px;font-size:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    tr.clsgrp.stg.sopen td{background:#f8fafc}
+    tr.clsgrp.stg .cbadge{padding:2px 6px;margin-right:0;background:transparent!important;font-size:16px}
+    tr.clsgrp.stg .ccount{margin-left:2px;font-size:14px;color:#0f172a;font-weight:900}
+    tr.clsgrp.stg .stog{margin-left:auto;font-size:12px;font-weight:800;color:#2563eb;white-space:nowrap}
+    .mcls{display:inline-block;color:#fff;font-weight:900;font-size:11px;border-radius:5px;padding:1px 7px;flex:0 0 auto}
     /* タブ：1行で横スクロール（文字が縦に折れない） */
     .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:8px -8px 12px;padding:0 8px}
     .tabs::-webkit-scrollbar{display:none}
@@ -410,6 +419,25 @@ const HIDE_SOLD_20261014=new Set("3f5e2ab5-315b-4267-a84f-35199fad8b75 7ac3cfdf-
 const hasPlate=r=>!!String(r.plate||"").trim();
 const isSecured=r=>!!r&&!isSample(r)&&!HIDE_SOLD_20261014.has(r.id)&&r.status==="OK"&&r.maint_status==="OK"&&hasPlate(r);
 const isRunnable=r=>isSecured(r)&&r.pickup_status==="OK"&&r.prep_status==="OK";
+// ★スマホ＝進捗段階ごとのグループ（折りたたみ）。段階＝仕入→整備→店舗回収→準備 のうち最初にOKでない所。PCは従来どおりクラス別
+let MOB=window.matchMedia("(max-width:760px)").matches;
+const STAGES=[
+  {k:"run",ic:"🟢",lb:"稼働可能（準備まで完了）",col:"#16a34a"},
+  {k:"prep",ic:"🧹",lb:"準備（店舗回収OK・準備まだ）",col:"#0891b2"},
+  {k:"pick",ic:"🚚",lb:"店舗回収（整備OK・回収まだ）",col:"#2563eb"},
+  {k:"maint",ic:"🔧",lb:"整備（仕入OK・整備まだ）",col:"#ea580c"},
+  {k:"proc",ic:"🛒",lb:"仕入（未対応・確認中・対応中）",col:"#64748b"},
+  {k:"ng",ic:"❌",lb:"NG・SOLD OUT",col:"#94a3b8"}];
+function stageIdx(r){
+  if(/SOLD/i.test(r.price||"")||r.status==="NG")return 5;
+  if(isRunnable(r))return 0;
+  if(r.status!=="OK")return 4;
+  if(r.maint_status!=="OK")return 3;
+  if(r.pickup_status!=="OK")return 2;
+  return 1;   // 準備まだ（またはナンバー未入力）
+}
+let STAGE_OPEN={}; try{STAGE_OPEN=JSON.parse(localStorage.getItem("proc_stage_open")||"{}")||{};}catch(e){STAGE_OPEN={};}   // 既定＝全部たたむ。開いた状態はこの端末だけ記憶
+const stageClosed=k=>!STAGE_OPEN[k];
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
@@ -445,6 +473,8 @@ async function load(){
   setStatus("更新OK ("+rows.length+"台) "+new Date().toLocaleTimeString("ja-JP").slice(0,5));
 }
 $("reload").addEventListener("click",()=>load());
+$("tb").addEventListener("click",e=>{const h=e.target.closest("tr.stg");if(!h)return;const k=h.dataset.g;if(STAGE_OPEN[k])delete STAGE_OPEN[k];else STAGE_OPEN[k]=1;try{localStorage.setItem("proc_stage_open",JSON.stringify(STAGE_OPEN));}catch(_){}render();});
+window.matchMedia("(max-width:760px)").addEventListener("change",e=>{MOB=e.matches;render();});
 $("fbar")&&$("fbar").addEventListener("click",e=>{const c=e.target.closest(".chip[data-f]");if(!c)return;filter=c.dataset.f;render();});
 function counts(){
   const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
@@ -500,19 +530,22 @@ function render(){
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
   }).slice().sort((a,b)=>{
+    if(MOB){const sa=stageIdx(a),sb2=stageIdx(b);if(sa!==sb2)return sa-sb2;}   // スマホ＝進捗段階ごと → その中はクラス順
     const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス別にグループ化、未設定(新規追加分)は末尾
     if(ca!==cb)return ca<cb?-1:1;
     return (a.sort_order||0)-(b.sort_order||0);
   });
   const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
   const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-  const gkey=r=>(r.vclass||"");
+  const gkey=r=>MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
   const gcount={},gsec={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;if(isSecured(x))gsec[g]=(gsec[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);let hdr="";if(g!==_prevG){_prevG=g;{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
-    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=MOB&&stageClosed(g)?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
+      if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
+      else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
+    <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""}${hid} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car keep"><span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;const ok=/OK/.test(m);return `<span class="memoflag${ok?" ok":""}" title="メモ：${esc(m)}">${ok?"✅":"🚩"} ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
+      <td data-lb="車種" class="car keep">${MOB&&c?`<span class="mcls" style="background:${col}">${c}</span>`:""}<span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;const ok=/OK/.test(m);return `<span class="memoflag${ok?" ok":""}" title="メモ：${esc(m)}">${ok?"✅":"🚩"} ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
       <td data-lb="車両状態">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<textarea class="cell autg" data-f="condition" rows="1" placeholder="状態を入力…" style="min-width:0;width:100%;font-size:13px;color:#000;font-weight:700;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px;resize:vertical;line-height:1.45;font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.condition)}</textarea>`}</td>
       <td data-lb="対応概要"><textarea class="cell autg" data-f="action_summary" rows="1" placeholder="対応内容…" style="min-width:0;width:100%;font-size:13px;color:#0f172a;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px;resize:vertical;line-height:1.45;font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.action_summary)}</textarea></td>
@@ -532,7 +565,7 @@ function render(){
       </div></td>
       <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
-    <tr class="detailrow" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
+    <tr class="detailrow${hid}" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
       <div class="fld"><label>整備 完了予定</label><input type="date" data-df="maint_done_date" value="${esc(r.maint_done_date)}"></div>
       <div class="fld"><label>名義 完了予定</label><input type="date" data-df="reg_done_date" value="${esc(r.reg_done_date)}"></div>
