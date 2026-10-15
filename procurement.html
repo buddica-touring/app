@@ -212,8 +212,9 @@
     .wrap .tabs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin:8px 0 14px;border-bottom:none;overflow:visible;touch-action:manipulation}
     .wrap .tabbtn{margin:0;grid-column:span 3;order:5;border:1px solid #e2e8f0;border-radius:8px;padding:5px 2px;font-size:10.5px;font-weight:700;color:#64748b;background:#f8fafc;line-height:1.2;white-space:normal;text-align:center;word-break:keep-all;overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center;justify-content:center}
     /* 主役タブ＝点検・仕入候補・ETC：上段に大きく */
-    .wrap .tabbtn[data-v="insp"],.wrap .tabbtn[data-v="proc"],.wrap .tabbtn[data-v="etc"]{grid-column:span 4;min-height:52px;font-size:14px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-    .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="proc"]{order:2}.wrap .tabbtn[data-v="etc"]{order:3}
+    .wrap .tabbtn[data-v="insp"],.wrap .tabbtn[data-v="proc"],.wrap .tabbtn[data-v="etc"],.wrap .tabbtn[data-v="tire"]{grid-column:span 3;min-height:52px;font-size:12.5px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .wrap .tabbtn .tl-l{display:none}.wrap .tabbtn .tl-s{display:inline}
+    .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="tire"]{order:2}.wrap .tabbtn[data-v="proc"]{order:3}.wrap .tabbtn[data-v="etc"]{order:4}
     .wrap .tabbtn.on{background:#0f172a!important;color:#fff!important;border-color:#0f172a!important}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .card small{font-size:10.5px;line-height:1.45}
@@ -291,6 +292,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   .m-badge{order:1}.m-brands{order:2}.m-cnt{order:3}.m-mc{order:8}
 }
 .dashsum{display:none}
+.tl-s{display:none}
 /* 🔧 点検（スマホ前提） */
 #viewInsp{max-width:720px;margin:0 auto}
 .ins-seg{display:flex;gap:6px;margin:0 0 10px}
@@ -333,12 +335,13 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
   <div class="tabs">
     <button class="tabbtn on" data-v="insp">🔧 点検</button>
+    <button class="tabbtn" data-v="tire">🛞 <span class="tl-l">タイヤチェック</span><span class="tl-s">タイヤ</span></button>
     <button class="tabbtn" data-v="proc">🛒 仕入候補</button>
     <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保）</button>
     <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
     <button class="tabbtn" data-v="bt">🟢 BT車両のみ</button>
     <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
-    <button class="tabbtn" data-v="etc">📡 ETCセットアップ</button>
+    <button class="tabbtn" data-v="etc">📡 <span class="tl-l">ETCセットアップ</span><span class="tl-s">ETC</span></button>
   </div>
   <div id="viewProc" style="display:none">
   <button class="dashsum" id="dashsum" type="button"></button>
@@ -387,6 +390,11 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   <div id="viewEtc" style="display:none">
     <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadEtc" style="margin-left:auto">🔄 最新に更新</button></div>
     <div id="etcBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+  </div>
+  <div id="viewTire" style="display:none">
+    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadTire" style="margin-left:auto">🔄 最新に更新</button></div>
+    <div id="tireBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+    <input type="file" id="tireFile" accept="image/*" multiple style="display:none">
   </div>
   <div id="viewInsp">
     <div class="ins-seg"><button class="ins-kb on" data-k="pre">🚗 出発前点検</button><button class="ins-kb" data-k="post">🔙 返却後点検</button></div>
@@ -1032,6 +1040,103 @@ $("viewInsp").addEventListener("change",async e=>{
 });
 // 他の人のチェックは 🔄（右下）か タブの切替で最新に（ログイン不要のためリアルタイム購読はしない）
 $("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="none"){INSP.resv=null;renderInsp();} });
+// ===== 🛞 タイヤチェック（ETCセットアップと同じ作り・ログイン不要）=====
+// 車両＝bt_etc_vehicles()（ナンバーだけ表示）。保存＝bt_tire_check（1車1行・1項目だけ upsert）／写真＝bt_tire_photos（1枚1行・外すは墓標）＋storage bt-tires。
+// 画像必須：写真が1枚も無い車はステータスを選べない（DB の with check でも止める）。
+let TIRE_V=null, TIRE={}, TIRE_PH={}, TIRE_URL={}, TIRE_TARGET=null;
+async function loadTire(){
+  $("tireBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
+  const [vres,tres,pres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_tire_check").select("*"),sb.from("bt_tire_photos").select("*").eq("deleted",false).order("created_at")]);
+  const er=vres.error||tres.error||pres.error;
+  if(er){$("tireBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(er.message)+'</div>';return;}
+  TIRE_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype}));
+  TIRE={};(tres.data||[]).forEach(t=>TIRE[t.code]=t);
+  TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
+  renderTire();
+}
+async function tireSignUrls(paths){
+  const need=paths.filter(p=>!TIRE_URL[p]); if(!need.length)return 0;
+  const {data}=await sb.storage.from("bt-tires").createSignedUrls(need,3600);
+  let n=0;(data||[]).forEach(d=>{if(d.signedUrl&&d.path){TIRE_URL[d.path]=d.signedUrl;n++;}});
+  return n;
+}
+function renderTire(){
+  if(!TIRE_V){loadTire();return;}
+  const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス→ナンバー（ETCと同じ並び）
+  const list=TIRE_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="取替").length;
+  let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">取替 '+chg+'台</span><span class="fl-sc">未 '+(list.length-ok-chg)+'台</span></div>';
+  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:90px">ナンバー</th><th style="width:230px">写真（必須）</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
+  const paths=[];
+  list.forEach(v=>{
+    const t=TIRE[v.code]||{}, ph=TIRE_PH[v.code]||[], has=ph.length>0, c=fesc(v.code);
+    const bg=t.status==="確認済"?' style="background:#f0fdf4"':(t.status==="取替"?' style="background:#fef2f2"':'');
+    const phHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+ph.map(p=>{paths.push(p.path);const u=TIRE_URL[p.path];return '<span style="position:relative;display:inline-block;width:56px;height:56px;border-radius:8px;overflow:hidden;background:#e2e8f0">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(u)+'" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" alt=""></a>':'')+'<button data-tire-del="'+fesc(p.id)+'" title="写真を外す" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:12px;line-height:22px;padding:0;cursor:pointer">✕</button></span>';}).join("")+
+      '<button data-tire-add="'+c+'" style="width:56px;height:56px;border:2px dashed '+(has?'#93c5fd':'#f87171')+';border-radius:8px;background:'+(has?'#eff6ff':'#fef2f2')+';color:'+(has?'#1d4ed8':'#b91c1c')+';font-size:11px;font-weight:900;cursor:pointer;line-height:1.2">📷<br>'+(has?'追加':'必須')+'</button></div>';
+    const sel='<select data-tire-st="'+c+'"'+(has?'':' disabled title="写真を入れると選べます"')+' style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;font-size:14px;font-weight:800;color:'+(t.status==="取替"?'#b91c1c':t.status==="確認済"?'#166534':'#64748b')+'"><option value="">'+(has?'未選択':'写真が先')+'</option><option'+(t.status==="確認済"?' selected':'')+'>確認済</option><option'+(t.status==="取替"?' selected':'')+'>取替</option></select>';
+    html+='<tr'+bg+'><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td>'+
+      '<td data-lb="写真（必須）" style="white-space:normal">'+phHtml+'</td>'+
+      '<td data-lb="ステータス">'+sel+'</td>'+
+      '<td data-lb="交換予定日"><input type="date" data-tire-plan="'+c+'" value="'+fesc(t.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td>'+
+      '<td data-lb="入庫先"><input type="text" data-tire-dest="'+c+'" value="'+fesc(t.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" maxlength="200" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td>'+
+      '<td data-lb="備考" style="white-space:normal"><input type="text" data-tire-memo="'+c+'" value="'+fesc(t.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" maxlength="500" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
+  });
+  $("tireBody").innerHTML=html+'</tbody></table></div>';
+  if(paths.some(p=>!TIRE_URL[p]))tireSignUrls(paths).then(n=>{const ae=document.activeElement;if(n>0&&!(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tireDest||ae.dataset.tirePlan)))renderTire();});
+}
+async function saveTire(code,patch){
+  const {data,error}=await sb.from("bt_tire_check").upsert(Object.assign({code},patch,{updated_at:new Date().toISOString()}),{onConflict:"code"}).select();
+  if(error){alert("保存できませんでした："+error.message);loadTire();return false;}
+  if(data&&data[0])TIRE[code]=data[0];
+  return true;
+}
+$("tireBody").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.tireSt!==undefined){ if(!(TIRE_PH[t.dataset.tireSt]||[]).length){alert("先に写真を入れてください（写真は必須です）");renderTire();return;} saveTire(t.dataset.tireSt,{status:t.value||null}).then(ok=>{if(ok)renderTire();}); }
+  else if(t.dataset.tirePlan){ saveTire(t.dataset.tirePlan,{plan_date:t.value||null}); }
+  else if(t.dataset.tireDest){ saveTire(t.dataset.tireDest,{dest:String(t.value||"")}); }
+  else if(t.dataset.tireMemo){ saveTire(t.dataset.tireMemo,{memo:String(t.value||"")}); }
+});
+$("tireBody").addEventListener("click",async e=>{
+  const add=e.target.closest("[data-tire-add]"); if(add){TIRE_TARGET=add.dataset.tireAdd;$("tireFile").click();return;}
+  const del=e.target.closest("[data-tire-del]"); if(del){e.preventDefault();
+    const pid=del.dataset.tireDel, code=Object.keys(TIRE_PH).find(k=>TIRE_PH[k].some(p=>p.id===pid)), last=code&&TIRE_PH[code].length===1&&TIRE[code]&&TIRE[code].status;
+    if(!confirm(last?"これが最後の写真です。外すとステータスは「未選択」に戻ります。外しますか？":"この写真を外しますか？"))return;
+    if(last&&!(await saveTire(code,{status:null})))return;   // 写真0枚でステータス付きのままだと以後その車を保存できなくなるため、先に未選択へ
+    const {error}=await sb.from("bt_tire_photos").update({deleted:true}).eq("id",pid);
+    if(error){alert("外せませんでした："+error.message);return;}
+    Object.keys(TIRE_PH).forEach(k=>{TIRE_PH[k]=TIRE_PH[k].filter(p=>p.id!==del.dataset.tireDel);}); renderTire();}
+});
+$("tireFile").addEventListener("change",async e=>{
+  const files=[...(e.target.files||[])]; e.target.value=""; const code=TIRE_TARGET; if(!code||!files.length)return;
+  let ok=0;
+  for(let i=0;i<files.length;i++){
+    setStatus("写真を保存中… "+(i+1)+"/"+files.length);
+    const blob=await inspShrink(files[i]);   // 点検と同じ縮小（長辺1600px JPEG）
+    if(blob===files[i]&&!/^image\/(jpeg|png|webp)$/.test(files[i].type||"")){alert("この形式の写真は保存できません（JPEG/PNGで撮り直してください）");continue;}
+    const ext=blob.type==="image/png"?"png":blob.type==="image/webp"?"webp":"jpg";
+    const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"00000000-0000-4000-8000-"+Date.now().toString(16).padStart(12,"0").slice(-12);
+    const path=uid+"."+ext;
+    const up=await sb.storage.from("bt-tires").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:false});
+    if(up.error){alert("写真を保存できませんでした："+up.error.message);continue;}
+    const {data,error}=await sb.from("bt_tire_photos").insert({code,path}).select();
+    if(error){alert("写真の記録に失敗しました："+error.message);continue;}
+    if(data&&data[0])(TIRE_PH[code]=TIRE_PH[code]||[]).push(data[0]); ok++;
+  }
+  setStatus("写真 "+ok+"枚を保存しました"); renderTire();
+});
+$("reloadTire").addEventListener("click",loadTire);
+sb.channel("tire-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_tire_check"},p=>{
+  const nw=p.new; if(!nw||!nw.code)return; TIRE[nw.code]=nw;
+  if($("viewTire").style.display==="none")return;
+  const ae=document.activeElement; if(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tirePlan||ae.dataset.tireDest))return;
+  renderTire();
+}).on("postgres_changes",{event:"*",schema:"public",table:"bt_tire_photos"},p=>{
+  const nw=p.new; if(!nw||!nw.code)return; let arr=(TIRE_PH[nw.code]||[]).filter(x=>x.id!==nw.id); if(!nw.deleted)arr.push(nw); TIRE_PH[nw.code]=arr;
+  if($("viewTire").style.display==="none")return;
+  const ae=document.activeElement; if(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tirePlan||ae.dataset.tireDest))return;
+  renderTire();
+}).subscribe();
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
@@ -1041,6 +1146,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewBt").style.display=v==="bt"?"":"none";
   $("viewHdm").style.display=v==="hdm"?"":"none";
   $("viewEtc").style.display=v==="etc"?"":"none";
+  $("viewTire").style.display=v==="tire"?"":"none";
   $("viewInsp").style.display=v==="insp"?"":"none";
   if(v==="insp"){INSP.resv=null;renderInsp();}
   if(v==="fleet")renderFleet();
@@ -1048,6 +1154,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   if(v==="bt")renderBt();
   if(v==="hdm")renderHdm();
   if(v==="etc")renderEtc();
+  if(v==="tire"){TIRE_V=null;renderTire();}
 }));
 $("reloadFleet").addEventListener("click",loadFleet);
 $("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
