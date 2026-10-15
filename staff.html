@@ -78,7 +78,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.5-bt";
+var VER="staff-v2.6-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -241,6 +241,13 @@ window.saDone=function(tid){
   if(tk&&tk.resv){
     if(saIsWash(tk.type)&&tk.start_odo==null){alert("先に「📏 出発」の距離（出発メーター）を登録してください");return;}
     if(saIsRet(tk.type)&&tk.end_odo==null){alert("先に「📏 返却」の距離（返却メーター）を登録してください");return;}
+  }
+  /* ③ 決済未完了ガード（2026-10-16）：貸出/PU/来店/返却/BD/返却(送迎不要) は決済完了まで完了不可。洗車は対象外 */
+  if(tk&&tk.resv&&!tk.paid&&['DEL','貸出','PU','PUB','来店','PUB来店','COL','返却待','BD','BDB','返却'].indexOf(tk.type)>=0&&(tk.ota==='じゃらん'||tk.ota==='J'||tk.ota==='SP'||tk.payment==='現地決済')){
+    var _pa=Number(tk.price)||0;
+    alert("💳 決済が未完了です"+(_pa>0?"（¥"+_pa.toLocaleString()+"）":"")+"。\n先に「決済完了」を押してください。\n決済完了が確認できたらチェックできます。");
+    saPay(tk.resv,_pa,String(tk.customer||'').replace(/\x27/g,''));
+    return;
   }
   if(!confirm("このタスクを完了にしますか？"))return;
   fetch(SB+"/rest/v1/rpc/bt_staff_done",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:tid})})
