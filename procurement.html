@@ -1046,10 +1046,13 @@ $("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="non
 let TIRE_V=null, TIRE={}, TIRE_PH={}, TIRE_URL={}, TIRE_TARGET=null;
 async function loadTire(){
   $("tireBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  const [vres,tres,pres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_tire_check").select("*"),sb.from("bt_tire_photos").select("*").eq("deleted",false).order("created_at")]);
+  const [vres,tres,pres,nres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_tire_check").select("*"),sb.from("bt_tire_photos").select("*").eq("deleted",false).order("created_at"),sb.rpc("bt_company_vehicles")]);
   const er=vres.error||tres.error||pres.error;
   if(er){$("tireBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(er.message)+'</div>';return;}
-  TIRE_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype}));
+  const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});   // 車両名＝既存の公開関数 bt_company_vehicles（稼働車のナンバー→車両名）。稼働外の車は名前なし
+  const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);   // 仕入候補の読込がまだなら直接読む
+  const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};   // 稼働前の車は仕入候補（bt_procurement）の車種名で補う
+  TIRE_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)}));
   TIRE={};(tres.data||[]).forEach(t=>TIRE[t.code]=t);
   TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
   renderTire();
@@ -1066,7 +1069,7 @@ function renderTire(){
   const list=TIRE_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="交換").length;
   let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">交換 '+chg+'台</span><span class="fl-sc">未確認 '+(list.length-ok-chg)+'台</span></div>';
-  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:90px">ナンバー</th><th style="width:230px">写真</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
+  html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:170px">車両</th><th style="width:230px">写真</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
   const paths=[];
   list.forEach(v=>{
     const t=TIRE[v.code]||{}, ph=TIRE_PH[v.code]||[], has=ph.length>0, c=fesc(v.code);
@@ -1075,7 +1078,7 @@ function renderTire(){
       '<button data-tire-add="'+c+'" style="width:56px;height:56px;border:2px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;cursor:pointer;line-height:1.2">📷<br>写真</button></div>';
     const st=t.status||"未確認";
     const sel='<select data-tire-st="'+c+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;font-size:14px;font-weight:800;color:'+(st==="交換"?'#b91c1c':st==="確認済"?'#166534':'#64748b')+'">'+["未確認","確認済","交換"].map(o=>'<option'+(st===o?' selected':'')+'>'+o+'</option>').join("")+'</select>';
-    html+='<tr'+bg+'><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td>'+
+    html+='<tr'+bg+'><td class="plate" data-lb="車両">'+(v.name?'<span style="font-weight:800">'+fesc(v.name)+'</span> ':'')+(v.plate_no?'<b>'+fesc(v.plate_no)+'</b>':'<span class="flmiss">-</span>')+'</td>'+
       '<td data-lb="写真" style="white-space:normal">'+phHtml+'</td>'+
       '<td data-lb="ステータス">'+sel+'</td>'+
       '<td data-lb="交換予定日"><input type="date" data-tire-plan="'+c+'" value="'+fesc(t.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td>'+
