@@ -200,10 +200,10 @@
     tr.clsgrp.stg .ccount{margin-left:2px;font-size:14px;color:#0f172a;font-weight:900}
     tr.clsgrp.stg .stog{margin-left:auto;font-size:12px;font-weight:800;color:#2563eb;white-space:nowrap}
     .mcls{display:inline-block;color:#fff;font-weight:900;font-size:11px;border-radius:5px;padding:1px 7px;flex:0 0 auto}
-    /* タブ：1行で横スクロール（文字が縦に折れない） */
-    .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:8px -8px 12px;padding:0 8px}
-    .tabs::-webkit-scrollbar{display:none}
-    .tabbtn{white-space:nowrap;flex:0 0 auto;padding:9px 13px;font-size:13px}
+    /* タブ：横スクロールせず4列のボタンで固定（指でぶれない） */
+    html,body{overscroll-behavior-x:none}
+    .wrap .tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:8px 0 12px;border-bottom:none;overflow:visible;touch-action:manipulation}
+    .wrap .tabbtn{margin:0;border:1px solid #cbd5e1;border-radius:9px;padding:8px 2px;font-size:11.5px;line-height:1.25;white-space:normal;text-align:center;word-break:keep-all;overflow-wrap:anywhere;min-height:44px;display:flex;align-items:center;justify-content:center}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .card small{font-size:10.5px;line-height:1.45}
   }
@@ -320,31 +320,15 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 <div class="wrap">
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
   <div class="tabs">
+    <button class="tabbtn" data-v="insp">🔧 点検</button>
     <button class="tabbtn on" data-v="proc">🛒 仕入候補</button>
     <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保）</button>
     <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
     <button class="tabbtn" data-v="bt">🟢 BT車両のみ</button>
     <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
     <button class="tabbtn" data-v="etc">📡 ETCセットアップ</button>
-    <button class="tabbtn" data-v="insp">🔧 点検</button>
   </div>
   <div id="viewProc">
-  <div class="sub">複数人で同時に使えます（変更は即共有）。目標 <b id="goalTxt">30</b> 台を「仕入OK」で確保。NG＝ノーカウント。</div>
-  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#1e40af;line-height:1.7">💡 各車の <b style="background:#dbeafe;border-radius:999px;padding:1px 8px;white-space:nowrap">📋 予定・メモ ▾</b> をタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。</div>
-
-  <details class="help">
-    <summary>📖 使い方（タップで開く）</summary>
-    <div class="hbody">
-      ① <b>登録</b>：「＋ URLで追加」に buddica.jp の車両URLを貼付（複数は改行区切りで一括）→ 車種・年式・走行・展示場所を自動取得。<br>
-      ② <b>車両状態</b>：各車の「車両状態」欄に、個体ごとの状況（例：傷あり・書類待ち・要洗車 等）を<b>手動入力</b>できます。<br>
-      ③ <b>進捗</b>：仕入ステータスを <b>OK</b> にすると → <b>整備 → 店舗回収（回収完了）→ 準備（準備完了）</b> の列が横並びで出現（未対応→確認中→対応中→OK/NG）。一覧はクラス別に並びます（クラス未設定は最後）。<br>
-      ④ <b>SOLD OUT</b>：売り切れは赤く表示され、仕入ステータスは自動で NG に。<br>
-      ⑤ <b>パトロール</b>：6時間ごとに自動で全URLを再チェックし SOLD OUT を検知→NG（今すぐは🚨ボタン）。<br>
-      ⑥ <b>📋 予定・メモ</b>：各車の「📋 予定・メモ ▾」チップをタップすると、その車の <b>整備完了・名義・保険・現場引き取り・販売開始</b> の予定日と<b>メモ</b>を入力できます。<br>
-      ⑦ <b>更新</b>：右下の 🔄 で最新に。変更は全員リアルタイム共有。スマホは「車種名＋URL」だけ表示、チップで詳細を展開。
-    </div>
-  </details>
-
   <div class="dash" id="dash"></div>
 
   <div class="tb"><button class="btn p" id="add">＋ URLで追加（自動取得）</button></div>
@@ -922,49 +906,27 @@ sb.channel("etc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_
   const ae=document.activeElement; if(ae&&ae.dataset&&(ae.dataset.etcMemo||ae.dataset.etcPlan||ae.dataset.etcDest))return;   // 備考入力中は再描画しない（入力中の文字を消さない）
   renderEtc();
 }).subscribe();
-// ===== 🔧 点検（出発前点検／返却後点検）=====
-// 読むだけ：bt_reservations（出発/返却の日付で絞る）・bt_fleet・bt_vehicles。
-// 書くのは新表だけ：bt_inspection_checks（1チェック＝1行 upsert）／bt_inspection_photos（写真1枚＝1行・削除は墓標）／storage bt-inspections。
+// ===== 🔧 点検（出発前点検／返却後点検）・ログイン不要 =====
+// 予約番号は画面にもやり取りにも出さない。サーバが予約ごとに作る推測できない鍵 k だけで読み書きする（オーナー指示 2026-10-15）。
+// 読む＝bt_inspection_targets（日時・車両名・ナンバー・チェック・写真だけ）／書く＝bt_inspection_set（1チェック＝1行）・bt_inspection_photo_add／外す＝bt_inspection_photo_del（墓標）
 const INSP_ITEMS={
   pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["wiper","ワイパー作動"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["etc","ETC車載器"],["docs","車検証・自賠責・取扱説明書"]],
   post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["washer","ウォッシャー液"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"],["mileage","走行距離（メモに記入）"]]
 };
-let INSP={kind:"pre",resv:null,fleet:{},veh:{},checks:{},photos:{},urls:{},open:new Set(),email:"",target:null};
+let INSP={kind:"pre",resv:null,urls:{},open:new Set(),target:null};
 const jstDate=(off)=>{const d=new Date(Date.now()+9*3600e3+(off||0)*864e5);return d.toISOString().slice(0,10);};
-const inspIsTest=r=>/^(ZZ|DEMO|KD-DEMO|TEST|DEMOMYPAGE)/.test(r.id||"")||/(テスト|デモ|test|ZZPTEST|大下|おおした|オオシタ)/i.test(r.name||"")||!String(r.name||"").trim();
-const inspCk=(id,k,item)=>id+"|"+k+"|"+item;
 async function loadInsp(){
   $("inspBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  const {data:ss}=await sb.auth.getSession(); INSP.email=(ss&&ss.session&&ss.session.user&&ss.session.user.email)||"";
-  if(!(ss&&ss.session)){INSP.resv=null;$("inspBody").innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:12px;padding:16px;text-align:center;font-weight:800;line-height:1.7">点検はスタッフ専用です。<br>この端末で BTアプリ にログインしてから開いてください。</div>';return;}
-  const t0=jstDate(0), cols="id,name,start_date,start_time,end_date,end_time,status,assigned_vehicle,vehicle_name,vehicle_class,brand,ota";
-  const [pr,po,vr]=await Promise.all([
-    sb.from("bt_reservations").select(cols).gte("start_date",t0).lte("start_date",jstDate(6)),
-    sb.from("bt_reservations").select(cols).gte("end_date",jstDate(-1)).lte("end_date",jstDate(6)),
-    sb.from("bt_vehicles").select("code,name,plate_no,type,brand")]);
-  const err=pr.error||po.error||vr.error;
+  const [pr,po]=await Promise.all([
+    sb.rpc("bt_inspection_targets",{p_kind:"pre",p_from:jstDate(0),p_to:jstDate(6)}),
+    sb.rpc("bt_inspection_targets",{p_kind:"post",p_from:jstDate(-1),p_to:jstDate(6)})]);
+  const err=pr.error||po.error;
   if(err){$("inspBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(err.message)+'</div>';return;}
-  const ok=r=>!/^(キャンセル|cancelled|canceled)$/i.test(r.status||"")&&!inspIsTest(r);
-  INSP.resv={pre:(pr.data||[]).filter(ok),post:(po.data||[]).filter(ok)};
-  INSP.veh={};(vr.data||[]).forEach(v=>INSP.veh[v.code]=v);
-  const ids=[...new Set([...INSP.resv.pre,...INSP.resv.post].map(r=>r.id))];
-  INSP.fleet={};INSP.checks={};INSP.photos={};
-  for(let i=0;i<ids.length;i+=200){
-    const ch=ids.slice(i,i+200);
-    const [fr,cr,phr]=await Promise.all([
-      sb.from("bt_fleet").select("reservation_id,vehicle_code").in("reservation_id",ch),
-      sb.from("bt_inspection_checks").select("*").in("reservation_id",ch),
-      sb.from("bt_inspection_photos").select("*").in("reservation_id",ch).eq("deleted",false).order("created_at")]);
-    const e2=fr.error||cr.error||phr.error;
-    if(e2){$("inspBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(e2.message)+'</div>';return;}
-    (fr.data||[]).forEach(f=>INSP.fleet[f.reservation_id]=f.vehicle_code);
-    (cr.data||[]).forEach(c=>INSP.checks[inspCk(c.reservation_id,c.kind,c.item_key)]=c);
-    (phr.data||[]).forEach(p=>{const k=p.reservation_id+"|"+p.kind;(INSP.photos[k]=INSP.photos[k]||[]).push(p);});
-  }
+  INSP.resv={pre:pr.data||[],post:po.data||[]};
   renderInsp();
 }
-function inspVeh(r){const code=INSP.fleet[r.id]||r.assigned_vehicle||"";return {code,v:INSP.veh[code]||null};}
-function inspProg(r,k){const items=INSP_ITEMS[k];let n=0;items.forEach(([key])=>{const c=INSP.checks[inspCk(r.id,k,key)];if(c&&c.checked)n++;});return {n,t:items.length};}
+function inspRow(k,kind){return (INSP.resv&&INSP.resv[kind]||[]).find(x=>x.k===k);}
+function inspProg(r){const items=INSP_ITEMS[INSP.kind];let n=0;items.forEach(([key])=>{const c=(r.checks||{})[key];if(c&&c.checked)n++;});return {n,t:items.length};}
 async function inspSignUrls(paths){
   const need=paths.filter(p=>!INSP.urls[p]); if(!need.length)return 0;
   const {data}=await sb.storage.from("bt-inspections").createSignedUrls(need,3600);
@@ -977,34 +939,29 @@ function renderInsp(){
   const k=INSP.kind, dk=k==="pre"?"start_date":"end_date", tk=k==="pre"?"start_time":"end_time";
   document.querySelectorAll(".ins-kb").forEach(b=>b.classList.toggle("on",b.dataset.k===k));
   const list=INSP.resv[k].slice().sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")));
-  const done=list.filter(r=>{const p=inspProg(r,k);return p.n===p.t;}).length;
+  const done=list.filter(r=>{const p=inspProg(r);return p.n===p.t;}).length;
   const t0=jstDate(0),t1=jstDate(1),tm=jstDate(-1), WD="日月火水木金土";
-  let html='<div class="ins-sum"><span>'+(k==="pre"?"出発 今日〜7日間":"返却 昨日〜7日間")+'</span><span>完了 <b>'+done+'</b> / '+list.length+' 台</span></div>';
-  if(!list.length)html+='<div style="color:#94a3b8;padding:20px;text-align:center">対象の予約はありません</div>';
+  let html='<div class="ins-sum"><span>'+(k==="pre"?"🕘 出発順（今日〜7日間）":"🕘 返却順（昨日〜7日間）")+'</span><span>完了 <b>'+done+'</b> / '+list.length+' 台</span></div>';
+  if(!list.length)html+='<div style="color:#94a3b8;padding:20px;text-align:center">対象の車両はありません</div>';
   let prev="";const paths=[];
   list.forEach(r=>{
     const d=r[dk]||"";
     if(d!==prev){prev=d;const tg=d===t0?"今日":d===t1?"明日":d===tm?"昨日":"";html+='<div class="ins-day">'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'（'+WD[new Date(d+"T00:00:00Z").getUTCDay()]+'）'+(tg?'<span class="tg">'+tg+'</span>':'')+'</div>';}
-    const {code,v}=inspVeh(r), p=inspProg(r,k), open=INSP.open.has(r.id+"|"+k);
-    const st=p.n===p.t?"done":(p.n>0?"part":"");
-    const nm=v?(v.name||code):(r.vehicle_name||"未配車");
-    const plate=v&&v.plate_no?v.plate_no:"";
-    const cls=(v&&v.type)||r.vehicle_class||"";
-    const hdm=String((v&&v.brand)||r.brand||"").toUpperCase()==="HDM";
-    html+='<div class="ins-card '+st+(open?" open":"")+'" data-r="'+fesc(r.id)+'"><div class="ins-hd"><div class="ins-tm">'+fesc(r[tk]||"--:--")+'</div><div class="ins-car"><div class="nm">'+fesc(nm)+(plate?' <span style="font-weight:900">'+fesc(plate)+'</span>':'')+'</div><div class="sb">'+(cls?'<span class="ins-cb" style="background:'+((typeof M_CLSCOLOR!=="undefined"&&M_CLSCOLOR[cls])||"#64748b")+'">'+fesc(cls)+'</span>':'')+'<span class="ins-cb" style="background:'+(hdm?"#1d4ed8":"#047857")+'">'+(hdm?"HDM":"BTC")+'</span>'+fesc(r.id)+'</div></div><span class="ins-pg">'+(p.n===p.t?"✅ 完了":p.n+" / "+p.t)+'</span></div>';
+    const p=inspProg(r), open=INSP.open.has(r.k+"|"+k), st=p.n===p.t?"done":(p.n>0?"part":"");
+    const cls=r.vtype||"", hdm=String(r.brand||"").toUpperCase()==="HDM";
+    html+='<div class="ins-card '+st+(open?" open":"")+'" data-r="'+fesc(r.k)+'"><div class="ins-hd"><div class="ins-tm">'+fesc(r[tk]||"--:--")+'</div><div class="ins-car"><div class="nm">'+fesc(r.vehicle_name||"未配車")+(r.plate_no?' <span style="font-weight:900">'+fesc(r.plate_no)+'</span>':'')+'</div><div class="sb">'+(cls?'<span class="ins-cb" style="background:'+((typeof M_CLSCOLOR!=="undefined"&&M_CLSCOLOR[cls])||"#64748b")+'">'+fesc(cls)+'</span>':'')+'<span class="ins-cb" style="background:'+(hdm?"#1d4ed8":"#047857")+'">'+(hdm?"HDM":"BTC")+'</span></div></div><span class="ins-pg">'+(p.n===p.t?"✅ 完了":p.n+" / "+p.t)+'</span></div>';
     if(open){
       html+='<div class="ins-bd">';
-      const vcs=INSP_ITEMS[k].map(([key])=>INSP.checks[inspCk(r.id,k,key)]).filter(c=>c&&c.checked&&c.vehicle_code&&c.vehicle_code!==code);
-      if(vcs.length)html+='<div class="ins-warn">⚠️ 点検後に配車が変わりました（点検した車：'+fesc((INSP.veh[vcs[0].vehicle_code]||{}).name||vcs[0].vehicle_code)+' '+fesc((INSP.veh[vcs[0].vehicle_code]||{}).plate_no||"")+'）</div>';
-      if(!code)html+='<div class="ins-warn">未配車です。配車後に点検してください。</div>';
-      INSP_ITEMS[k].forEach(([key,lb])=>{const c=INSP.checks[inspCk(r.id,k,key)];const on=!!(c&&c.checked);
+      const chg=INSP_ITEMS[k].map(([key])=>(r.checks||{})[key]).find(c=>c&&c.checked&&c.vehicle_code&&r.vehicle_code&&c.vehicle_code!==r.vehicle_code);
+      if(chg)html+='<div class="ins-warn">⚠️ 点検後に配車が変わりました（点検した車：'+fesc(chg.vehicle_code)+'）</div>';
+      if(!r.vehicle_code)html+='<div class="ins-warn">未配車です。配車後に点検してください。</div>';
+      INSP_ITEMS[k].forEach(([key,lb])=>{const c=(r.checks||{})[key];const on=!!(c&&c.checked);
         html+='<label class="ins-it'+(on?" on":"")+'"><input type="checkbox" data-ik="'+key+'"'+(on?" checked":"")+'>'+fesc(lb)+'</label>';});
-      const phs=INSP.photos[r.id+"|"+k]||[];
-      html+='<div class="ins-ph">'+phs.map(ph=>{paths.push(ph.path);const u=INSP.urls[ph.path];return '<div class="th">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(u)+'" alt="" loading="lazy"></a>':'')+'<button class="x" data-del="'+ph.id+'" title="写真を外す">✕</button></div>';}).join("")+'<button class="ins-add" data-add="1"><span>📷</span>写真</button></div>';
-      const memo=INSP.checks[inspCk(r.id,k,"_memo")];
+      html+='<div class="ins-ph">'+(r.photos||[]).map(ph=>{paths.push(ph.path);const u=INSP.urls[ph.path];return '<div class="th">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(u)+'" alt="" loading="lazy"></a>':'')+'<button class="x" data-del="'+fesc(ph.id)+'" title="写真を外す">✕</button></div>';}).join("")+'<button class="ins-add" data-add="1"><span>📷</span>写真</button></div>';
+      const memo=(r.checks||{})._memo;
       html+='<textarea class="ins-memo" data-memo="1" rows="2" placeholder="メモ（気づいた点・走行距離など）">'+fesc(memo&&memo.note||"")+'</textarea>';
-      const last=INSP_ITEMS[k].map(([key])=>INSP.checks[inspCk(r.id,k,key)]).filter(Boolean).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)))[0];
-      if(last)html+='<div class="ins-who">最終更新 '+fesc(String(last.checked_by||"").split("@")[0])+' '+new Date(last.updated_at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div>';
+      const last=Object.values(r.checks||{}).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)))[0];
+      if(last)html+='<div class="ins-who">最終更新 '+new Date(last.updated_at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div>';
       html+='</div>';
     }
     html+='</div>';
@@ -1012,19 +969,16 @@ function renderInsp(){
   $("inspBody").innerHTML=html;
   if(paths.some(p=>!INSP.urls[p]))inspSignUrls(paths).then(n=>{const ae=document.activeElement;if(n>0&&!(ae&&ae.dataset&&ae.dataset.memo))renderInsp();});   // 写真の表示用URL（1時間有効）を取ってから描き直す
 }
-async function inspSave(rid,k,item,patch){
-  const code=inspVeh({id:rid,assigned_vehicle:((INSP.resv[k]||[]).find(x=>x.id===rid)||{}).assigned_vehicle}).code||null;
-  const row=Object.assign({reservation_id:rid,kind:k,item_key:item,vehicle_code:code,checked_by:INSP.email||null,updated_at:new Date().toISOString()},patch);
-  const {data,error}=await sb.from("bt_inspection_checks").upsert(row,{onConflict:"reservation_id,kind,item_key"}).select();
+async function inspSave(key,kind,item,checked,note){
+  const {data,error}=await sb.rpc("bt_inspection_set",{p_k:key,p_kind:kind,p_item:item,p_checked:checked,p_note:note});
   if(error){alert("保存できませんでした："+error.message);return false;}
-  if(data&&data[0])INSP.checks[inspCk(rid,k,item)]=data[0];
+  const r=inspRow(key,kind); if(r&&data){r.checks=r.checks||{};r.checks[item]=data;}
   return true;
 }
 // 画像は長辺1600pxのJPEGに縮小してから保存（通信量・容量を抑える）。縮小できない形式はそのまま。
 function inspShrink(file){return new Promise(res=>{try{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const m=1600,s=Math.min(1,m/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>res(b||file),"image/jpeg",0.82);};img.onerror=()=>{URL.revokeObjectURL(u);res(file);};img.src=u;}catch(e){res(file);}});}
 $("inspFile").addEventListener("change",async e=>{
   const files=[...(e.target.files||[])]; e.target.value=""; const tg=INSP.target; if(!tg||!files.length)return;
-  const code=inspVeh({id:tg.rid,assigned_vehicle:((INSP.resv[tg.k]||[]).find(x=>x.id===tg.rid)||{}).assigned_vehicle}).code||null;
   let ok=0;
   for(let i=0;i<files.length;i++){
     setStatus("写真を保存中… "+(i+1)+"/"+files.length);
@@ -1032,41 +986,36 @@ $("inspFile").addEventListener("change",async e=>{
     if(blob===files[i]&&!/^image\/(jpeg|png|webp)$/.test(files[i].type||"")){alert("この形式の写真は保存できません（JPEG/PNGで撮り直してください）");continue;}   // HEIC等を縮小できない端末では保存しない（他端末で表示できないため）
     const ext=blob.type==="image/png"?"png":blob.type==="image/webp"?"webp":"jpg";
     const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+"_"+Math.random().toString(36).slice(2,10));
-    const path=tg.rid+"/"+tg.k+"/"+uid+"."+ext;
+    const path=tg.k+"/"+tg.kind+"/"+uid+"."+ext;
     const up=await sb.storage.from("bt-inspections").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:false});
     if(up.error){alert("写真を保存できませんでした："+up.error.message);continue;}
-    const {data,error}=await sb.from("bt_inspection_photos").insert({reservation_id:tg.rid,kind:tg.k,vehicle_code:code,path,uploaded_by:INSP.email||null}).select();
+    const {data,error}=await sb.rpc("bt_inspection_photo_add",{p_k:tg.k,p_kind:tg.kind,p_path:path});
     if(error){alert("写真の記録に失敗しました："+error.message);continue;}
-    const key=tg.rid+"|"+tg.k; if(data&&data[0]&&!(INSP.photos[key]||[]).some(p=>p.id===data[0].id))(INSP.photos[key]=INSP.photos[key]||[]).push(data[0]); ok++;
+    const r=inspRow(tg.k,tg.kind); if(r){r.photos=r.photos||[];r.photos.push({id:data,path});} ok++;
   }
   setStatus("写真 "+ok+"枚を保存しました"); renderInsp();
 });
 $("viewInsp").addEventListener("click",async e=>{
   const kb=e.target.closest(".ins-kb"); if(kb){INSP.kind=kb.dataset.k;renderInsp();return;}
-  const card=e.target.closest(".ins-card"); if(!card)return; const rid=card.dataset.r, k=INSP.kind, key=rid+"|"+k;
-  if(e.target.closest(".ins-hd")){if(INSP.open.has(key))INSP.open.delete(key);else INSP.open.add(key);renderInsp();return;}
-  const add=e.target.closest("[data-add]"); if(add){INSP.target={rid,k};$("inspFile").click();return;}
+  const card=e.target.closest(".ins-card"); if(!card)return; const key=card.dataset.r, kind=INSP.kind, ok=key+"|"+kind;
+  if(e.target.closest(".ins-hd")){if(INSP.open.has(ok))INSP.open.delete(ok);else INSP.open.add(ok);renderInsp();return;}
+  const add=e.target.closest("[data-add]"); if(add){INSP.target={k:key,kind};$("inspFile").click();return;}
   const del=e.target.closest("[data-del]"); if(del){e.preventDefault();if(!confirm("この写真を外しますか？"))return;
-    const {error}=await sb.from("bt_inspection_photos").update({deleted:true}).eq("id",del.dataset.del);
+    const {error}=await sb.rpc("bt_inspection_photo_del",{p_k:key,p_photo:del.dataset.del});
     if(error){alert("外せませんでした："+error.message);return;}
-    INSP.photos[key]=(INSP.photos[key]||[]).filter(p=>p.id!==del.dataset.del); renderInsp(); return;}
+    const r=inspRow(key,kind); if(r)r.photos=(r.photos||[]).filter(p=>p.id!==del.dataset.del); renderInsp(); return;}
 });
 $("viewInsp").addEventListener("change",async e=>{
-  const t=e.target, card=t.closest(".ins-card"); if(!card)return; const rid=card.dataset.r, k=INSP.kind;
+  const t=e.target, card=t.closest(".ins-card"); if(!card)return; const key=card.dataset.r, kind=INSP.kind;
   if(t.dataset.ik){const lb=t.closest(".ins-it");lb.classList.toggle("on",t.checked);
-    if(!(await inspSave(rid,k,t.dataset.ik,{checked:t.checked}))){t.checked=!t.checked;lb.classList.toggle("on",t.checked);return;}
-    const p=inspProg({id:rid},k);const pg=card.querySelector(".ins-pg");if(pg)pg.textContent=p.n===p.t?"✅ 完了":p.n+" / "+p.t;
+    if(!(await inspSave(key,kind,t.dataset.ik,t.checked,null))){t.checked=!t.checked;lb.classList.toggle("on",t.checked);return;}
+    const r=inspRow(key,kind), p=inspProg(r); const pg=card.querySelector(".ins-pg"); if(pg)pg.textContent=p.n===p.t?"✅ 完了":p.n+" / "+p.t;
     card.classList.toggle("done",p.n===p.t);card.classList.toggle("part",p.n>0&&p.n<p.t);
-    const sm=$("inspBody").querySelector(".ins-sum b");if(sm)sm.textContent=INSP.resv[k].filter(r=>{const q=inspProg(r,k);return q.n===q.t;}).length;
-  } else if(t.dataset.memo){ inspSave(rid,k,"_memo",{note:String(t.value||"")}).then(ok=>{if(ok)setStatus("メモを保存しました");}); }
+    const sm=$("inspBody").querySelector(".ins-sum b");if(sm)sm.textContent=INSP.resv[kind].filter(x=>{const q=inspProg(x);return q.n===q.t;}).length;
+  } else if(t.dataset.memo){ inspSave(key,kind,"_memo",null,String(t.value||"")).then(ok=>{if(ok)setStatus("メモを保存しました");}); }
 });
-sb.channel("insp-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_inspection_checks"},p=>{
-  const nw=p.new; if(!nw||!nw.reservation_id)return; INSP.checks[inspCk(nw.reservation_id,nw.kind,nw.item_key)]=nw;
-  if($("viewInsp").style.display==="none"||!INSP.resv)return; const ae=document.activeElement; if(ae&&ae.dataset&&ae.dataset.memo)return; renderInsp();
-}).on("postgres_changes",{event:"*",schema:"public",table:"bt_inspection_photos"},p=>{
-  const nw=p.new; if(!nw||!nw.reservation_id)return; const key=nw.reservation_id+"|"+nw.kind; let arr=(INSP.photos[key]||[]).filter(x=>x.id!==nw.id); if(!nw.deleted)arr.push(nw); INSP.photos[key]=arr;
-  if($("viewInsp").style.display==="none"||!INSP.resv)return; const ae=document.activeElement; if(ae&&ae.dataset&&ae.dataset.memo)return; renderInsp();
-}).subscribe();
+// 他の人のチェックは 🔄（右下）か タブの切替で最新に（ログイン不要のためリアルタイム購読はしない）
+$("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="none"){INSP.resv=null;renderInsp();} });
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
