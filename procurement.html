@@ -936,7 +936,7 @@ sb.channel("etc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_
 // 読む＝bt_inspection_targets（日時・車両名・ナンバー・チェック・写真だけ）／書く＝bt_inspection_set（1チェック＝1行）・bt_inspection_photo_add／外す＝bt_inspection_photo_del（墓標）
 const INSP_ITEMS={
   pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
-  post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["washer","ウォッシャー液"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"],["mileage","走行距離（メモに記入）"]]
+  post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"]]
 };
 let INSP={kind:"pre",resv:null,urls:{},open:new Set(),target:null};
 const jstDate=(off)=>{const d=new Date(Date.now()+9*3600e3+(off||0)*864e5);return d.toISOString().slice(0,10);};
@@ -1012,7 +1012,7 @@ function renderInsp(){
         html+='<label class="ins-it'+(on?" on":"")+'"><input type="checkbox" data-ik="'+key+'"'+(on?" checked":"")+'>'+fesc(lb)+'</label>';});
       html+='<div class="ins-ph">'+(r.photos||[]).map(ph=>{paths.push(ph.path);const u=phUrl("bt-inspections",ph.path,"full"),tu=phUrl("bt-inspections",ph.path,"thumb");return '<div class="th">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(tu)+'" alt="" loading="lazy" decoding="async"></a>':'')+'<button class="x" data-del="'+fesc(ph.id)+'" title="写真を外す">✕</button></div>';}).join("")+'<button class="ins-add" data-add="1"><span>📷</span>写真</button></div>';
       const memo=(r.checks||{})._memo;
-      html+='<textarea class="ins-memo" data-memo="1" rows="2" placeholder="メモ（気づいた点・走行距離など）">'+fesc(memo&&memo.note||"")+'</textarea>';
+      html+='<textarea class="ins-memo" data-memo="1" rows="2" placeholder="メモ（気づいた点など）">'+fesc(memo&&memo.note||"")+'</textarea>';
       const last=Object.values(r.checks||{}).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)))[0];
       if(last)html+='<div class="ins-who">最終更新 '+new Date(last.updated_at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div>';
       html+='</div>';
