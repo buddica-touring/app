@@ -297,6 +297,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 #viewInsp{max-width:720px;margin:0 auto}
 .ins-seg{display:flex;gap:6px;margin:0 0 10px}
 .ins-kb{flex:1;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 6px;font-size:14px;font-weight:900;color:#475569;cursor:pointer}
+.insp-focus .wrap>h1,.insp-focus .tabs,.insp-focus .ins-seg{display:none!important}   /* タスクの「点検」ボタンから開いた時は1台の点検だけ */
 .ins-kb.on{background:#2563eb;color:#fff;border-color:#2563eb}   /* 出発前/返却後＝タブの下の切替（主タブと区別して青） */
 .ins-sum{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:#334155;margin:0 2px 8px}
 .ins-sum b{color:#16a34a;font-size:16px}
@@ -939,8 +940,25 @@ const INSP_ITEMS={
 };
 let INSP={kind:"pre",resv:null,urls:{},open:new Set(),target:null};
 const jstDate=(off)=>{const d=new Date(Date.now()+9*3600e3+(off||0)*864e5);return d.toISOString().slice(0,10);};
+// ★2026-10-16 タスクの「点検」ボタンから開いた時＝その1台だけ表示（?insp=pre|post&plate=ナンバー&d=タスク日）。
+//   出発前＝洗車タスクの日以降で最初に出発する予約／返却後＝返却タスクの日以降で最初に返却する予約（同じナンバー）。予約番号はURLに出さない。
+const INSP_FOCUS=(()=>{try{const q=new URLSearchParams(location.search);const k=q.get("insp"),p=(q.get("plate")||"").trim(),d=q.get("d")||"";
+  if((k==="pre"||k==="post")&&p&&/^\d{4}-\d{2}-\d{2}$/.test(d))return {kind:k,plate:p,d};}catch(e){}return null;})();
+if(INSP_FOCUS){INSP.kind=INSP_FOCUS.kind;document.documentElement.classList.add("insp-focus");}
+async function loadInspFocus(){
+  const f=INSP_FOCUS, lo=jstDate(-14), hi=jstDate(31);
+  const from=f.d<lo?lo:f.d, to0=new Date(Date.parse(from+"T00:00:00Z")+7*864e5).toISOString().slice(0,10), to=to0>hi?hi:to0;
+  const {data,error}=await sb.rpc("bt_inspection_targets",{p_kind:f.kind,p_from:from,p_to:to});
+  if(error){$("inspBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(error.message)+'</div>';return;}
+  const dk=f.kind==="pre"?"start_date":"end_date", tk=f.kind==="pre"?"start_time":"end_time";
+  const hit=(data||[]).filter(r=>String(r.plate_no||"")===f.plate&&String(r[dk]||"")>=f.d)
+    .sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")))[0];
+  INSP.resv={pre:[],post:[]}; if(hit){INSP.resv[f.kind]=[hit];INSP.open.add(hit.k+"|"+f.kind);}
+  renderInsp();
+}
 async function loadInsp(){
   $("inspBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
+  if(INSP_FOCUS)return loadInspFocus();
   const [pr,po]=await Promise.all([
     sb.rpc("bt_inspection_targets",{p_kind:"pre",p_from:jstDate(0),p_to:jstDate(6)}),
     sb.rpc("bt_inspection_targets",{p_kind:"post",p_from:jstDate(-1),p_to:jstDate(6)})]);
@@ -975,8 +993,9 @@ function renderInsp(){
   const list=INSP.resv[k].slice().sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")));
   const done=list.filter(r=>{const p=inspProg(r);return p.n===p.t;}).length;
   const t0=jstDate(0),t1=jstDate(1),tm=jstDate(-1), WD="日月火水木金土";
-  let html='<div class="ins-sum"><span>'+(k==="pre"?"🕘 出発順（今日〜7日間）":"🕘 返却順（昨日〜7日間）")+'</span><span>完了 <b>'+done+'</b> / '+list.length+' 台</span></div>';
-  if(!list.length)html+='<div style="color:#94a3b8;padding:20px;text-align:center">対象の車両はありません</div>';
+  let html=INSP_FOCUS?'<div class="ins-sum" style="font-size:16px"><span>'+(k==="pre"?"🚗 出発前点検":"🔙 返却後点検")+'</span><span>'+fesc(INSP_FOCUS.plate)+'</span></div>'
+    :'<div class="ins-sum"><span>'+(k==="pre"?"🕘 出発順（今日〜7日間）":"🕘 返却順（昨日〜7日間）")+'</span><span>完了 <b>'+done+'</b> / '+list.length+' 台</span></div>';
+  if(!list.length)html+='<div style="color:#94a3b8;padding:20px;text-align:center">'+(INSP_FOCUS?"この車両の"+(k==="pre"?"出発":"返却")+"予定が見つかりません（配車が変わった可能性があります）":"対象の車両はありません")+'</div>';
   let prev="";const paths=[];
   list.forEach(r=>{
     const d=r[dk]||"";

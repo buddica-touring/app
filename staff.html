@@ -78,7 +78,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.6-bt";
+var VER="staff-v2.7-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -161,6 +161,10 @@ function taskCard(x){
     odoRow='<div class="r2" style="margin-top:5px"><span onclick="saOdo(\''+tid+'\','+(_ow?1:0)+')" title="タップでメーター入力" style="display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;background:'+(_orec?'#dcfce7':'#fef9c3')+';color:'+(_orec?'#166534':'#854d0e')+';border:1px solid '+(_orec?'#86efac':'#fde047')+'">📏 '+(_ow?'出発':'返却')+(_orec?' '+Number(_cur).toLocaleString()+'km'+_dk:' 未記録')+'</span></div>';
   }
   var btns='<div class="r3">';
+  /* ★2026-10-16 🔧点検：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。その車両1台だけの点検ページを開く（返却後洗車は対象外） */
+  if(x.plate&&x.date&&(saIsWash(t)||saIsRet(t))){
+    btns+='<a class="abtn" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;text-decoration:none" href="procurement.html?insp='+(saIsWash(t)?'pre':'post')+'&plate='+encodeURIComponent(x.plate)+'&d='+encodeURIComponent(x.date)+'" target="_blank" rel="noopener">🔧 点検</a>';
+  }
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
     var _hc=HO_MAP[x.resv]||0;
