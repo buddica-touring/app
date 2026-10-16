@@ -6773,7 +6773,9 @@ function OdometerManager({vehicles}){
   // ★2026-09-23 個別記録（予約ごとの貸出/返却時の走行距離リスト・月別）
   const[odoResv,setOdoResv]=useState({}); // {vehicle_code:[予約...]}
   const[indivVc,setIndivVc]=useState(null); // 個別記録モーダルの対象車両code
-  const[indivMonth,setIndivMonth]=useState(new Date().toISOString().slice(0,7));
+  // ★2026-10-16 年月は端末ローカル(JST)で作る。toISOString()はUTC＝月送りが2ヶ月飛ぶ/▶で進まない不具合の原因だった
+  const ymLocal=dt=>dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0");
+  const[indivMonth,setIndivMonth]=useState(ymLocal(new Date()));
   const[indivEdit,setIndivEdit]=useState(null); // 編集中の予約id(走行距離)
   const[edSO,setEdSO]=useState(""),[edEO,setEdEO]=useState("");
 
@@ -6907,7 +6909,7 @@ function OdometerManager({vehicles}){
       const totDrv=mrecs.reduce((s,r)=>s+(drv(r)||0),0);
       const cntDrv=mrecs.filter(r=>drv(r)!=null).length;
       const km=n=>(n==null||n==="")?"-":Number(n).toLocaleString()+"km";
-      const shiftM=d=>{const dt=new Date(indivMonth+"-01T00:00:00");dt.setMonth(dt.getMonth()+d);setIndivMonth(dt.toISOString().slice(0,7));};
+      const shiftM=d=>{const dt=new Date(indivMonth+"-01T00:00:00");dt.setMonth(dt.getMonth()+d);setIndivMonth(ymLocal(dt));};
       const hS={padding:"7px 8px",fontSize:10,fontWeight:700,color:"#475569",background:"#f8fafc",textAlign:"right",borderBottom:"1px solid #e2e8f0",whiteSpace:"nowrap"};
       const tS={padding:"6px 8px",fontSize:11,textAlign:"right",borderBottom:"1px solid #eef2f7",whiteSpace:"nowrap"};
       const edI={width:78,padding:"2px 4px",border:"1px solid #cbd5e1",borderRadius:4,fontSize:11,textAlign:"right"};
@@ -7037,7 +7039,7 @@ function OdometerManager({vehicles}){
                 </td>
                 {/* 個別記録 */}
                 <td style={{...tdS,textAlign:"center"}}>
-                  <button onClick={()=>{setIndivVc(v.code);setIndivMonth(new Date().toISOString().slice(0,7));}} style={{fontSize:9,padding:"3px 10px",background:"#f0fdfa",color:"#0d9488",border:"1px solid #5eead4",borderRadius:5,cursor:"pointer",fontWeight:700}} title="この車両の予約ごとの距離記録(月別)">📋 記録{(odoResv[v.code]||[]).length?" "+(odoResv[v.code]||[]).length:""}</button>
+                  <button onClick={()=>{setIndivVc(v.code);setIndivMonth(ymLocal(new Date()));}} style={{fontSize:9,padding:"3px 10px",background:"#f0fdfa",color:"#0d9488",border:"1px solid #5eead4",borderRadius:5,cursor:"pointer",fontWeight:700}} title="この車両の予約ごとの距離記録(月別)">📋 記録{(odoResv[v.code]||[]).length?" "+(odoResv[v.code]||[]).length:""}</button>
                 </td>
                 {/* 操作 */}
                 <td style={{...tdS,textAlign:"center"}}>
@@ -24146,7 +24148,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.536-BT";
+const APP_VERSION="v1.0.537-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
