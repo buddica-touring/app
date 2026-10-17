@@ -894,7 +894,7 @@ function licRenderReg(){
   var box=document.getElementById('licRegBox'); if(!box)return;
   var T=_lict(), ks=Object.keys(LIC_REG||{}).sort(function(a,b){return a-b;});
   box.innerHTML=!ks.length?'':'<div style="margin-bottom:12px;padding:10px 11px;border:1px solid #e5e9f0;border-radius:10px;background:#f8fafc"><div style="font-size:12px;font-weight:800;color:#0F1F45;margin-bottom:7px">'+(LIC_REG_T.ttl[LANG]||LIC_REG_T.ttl.ja)+'</div>'
-    +ks.map(function(k){return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#475569;min-width:64px">'+T.driver+k+'</span>'+(LIC_REG[k]==='foreign'?'<span style="font-size:11.5px;color:#475569">'+(LIC_ACQ_T.fgs[LANG]||LIC_ACQ_T.fgs.ja)+'</span>':'')+'<input type="date" class="licRegIn" data-k="'+k+'" value="'+(LIC_REG[k]==='foreign'?'':LIC_REG[k])+'" style="flex:1;padding:8px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:14px;background:#fff"></div>';}).join('')
+    +ks.map(function(k){return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#475569;min-width:64px">'+T.driver+k+'</span>'+(LIC_REG[k]==='foreign'?'<span style="font-size:11.5px;color:#475569">'+(LIC_ACQ_T.fgs[LANG]||LIC_ACQ_T.fgs.ja)+'</span>':'')+licDateSel('class="licRegIn" data-k="'+k+'"',(LIC_REG[k]==='foreign'?'':LIC_REG[k]),false)+'</div>';}).join('')
     +'<button type="button" onclick="licRegSave()" style="width:100%;background:#fff;color:#0F1F45;border:1.5px solid #0F1F45;border-radius:9px;padding:9px;font-size:13px;font-weight:800;cursor:pointer">'+(LIC_REG_T.save[LANG]||LIC_REG_T.save.ja)+'</button><div id="licRegMsg" style="font-size:12px;font-weight:700;margin-top:6px;color:#15803d"></div></div>';
   var base=licRegBase(); document.querySelectorAll('.licDrvNo').forEach(function(el){ el.textContent=T.driver+(base+(+el.getAttribute('data-i'))+1); });
 }
@@ -904,11 +904,30 @@ function licRegSave(){
   licAcqCall('lic_report_acquired',{p_drivers:map}).then(function(j){ if(j&&j.ok&&j.drivers){LIC_REG=j.drivers;licRenderReg(); var m=document.getElementById('licRegMsg'); if(m)m.textContent=(LIC_REG_T.saved[LANG]||LIC_REG_T.saved.ja);} }).catch(function(e){console.error('lic reg save',e);});
 }
 function licLoadReg(){ if(!TOKEN)return Promise.resolve(); return licAcqCall('lic_get_acquired').then(function(j){LIC_REG=(j&&j.ok&&j.drivers)||{};licRenderReg();}).catch(function(){LIC_REG={};}); }
+// ★2026-10-17 取得年月日は 年(和暦併記)/月/日 の選択式（免許証は和暦・ブラウザの日付ピッカーは西暦のみで探しにくい）。値は hidden(YYYY-MM-DD・従来の id/class)に入る＝読取側は従来どおり .value
+function licWa(y){ if(y>=2020)return '令和'+(y-2018)+'年'; if(y===2019)return '平成31年・令和元年'; if(y>=1990)return '平成'+(y-1988)+'年'; if(y===1989)return '昭和64年・平成元年'; return '昭和'+(y-1925)+'年'; }
+var LIC_DS_T={ja:['年','月','日','月','日'],en:['Year','Month','Day','',''],zh:['年','月','日','月','日'],ko:['년','월','일','월','일']};
+function licDSOpts(n,sel,ph,suf){ var h='<option value="">'+ph+'</option>'; for(var k=1;k<=n;k++)h+='<option value="'+k+'"'+(sel===k?' selected':'')+'>'+k+suf+'</option>'; return h; }
+function licDateSel(attrs,val,dis){
+  var p=/^\d{4}-\d{2}-\d{2}$/.test(val||'')?val.split('-'):['','',''], T=LIC_DS_T[LANG]||LIC_DS_T.ja, ny=+jstToday().slice(0,4), y0=+p[0]||0, m0=+p[1]||0, d0=+p[2]||0;
+  var st='min-width:0;padding:9px 4px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:15px;background:#fff;color:#0F1F45', ds=dis?' disabled':'', on=' onchange="licDSync(this)"';
+  var oy='<option value="">'+T[0]+'</option>'; for(var y=ny;y>=1940;y--)oy+='<option value="'+y+'"'+(y0===y?' selected':'')+'>'+y+'（'+licWa(y)+'）</option>';
+  var nd=new Date(y0||2000,m0||1,0).getDate(); if(!m0)nd=31;
+  return '<span style="display:flex;gap:6px;flex:1;min-width:0"><select'+ds+on+' style="flex:2.3;'+st+'">'+oy+'</select><select'+ds+on+' style="flex:1;'+st+'">'+licDSOpts(12,m0,T[1],T[3])+'</select><select'+ds+on+' style="flex:1;'+st+'">'+licDSOpts(nd,d0,T[2],T[4])+'</select><input type="hidden" '+attrs+' value="'+(p[0]?val:'')+'"></span>';
+}
+function licDSync(el){
+  var w=el.parentNode, s=w.querySelectorAll('select'), h=w.querySelector('input'), T=LIC_DS_T[LANG]||LIC_DS_T.ja, y=+s[0].value, m=+s[1].value, d=+s[2].value;
+  var nd=m?new Date(y||2000,m,0).getDate():31; if(s[2].options.length-1!==nd){ if(d>nd)d=0; s[2].innerHTML=licDSOpts(nd,d,T[2],T[4]); }
+  h.value=(y&&m&&d&&(y+'-'+('0'+m).slice(-2)+'-'+('0'+d).slice(-2))<=jstToday())?(y+'-'+('0'+m).slice(-2)+'-'+('0'+d).slice(-2)):'';
+  s[2].style.borderColor=(y&&m&&d&&!h.value)?'#dc2626':'#cbd5e1';  // 未来の日付は受け付けない
+}
+function licDSDis(h,on){ if(!h)return; var s=h.parentNode.querySelectorAll('select'); for(var k=0;k<s.length;k++){ s[k].disabled=on; if(on)s[k].value=''; } if(on)h.value=''; }
 function _licAcqHTML(i){
   return '<div style="font-size:12px;font-weight:700;color:#475569;margin:9px 0 3px">'+(LIC_ACQ_T.lab[LANG]||LIC_ACQ_T.lab.ja)+'</div>'
-    +'<input type="date" id="lica'+i+'" max="'+jstToday()+'" style="width:100%;padding:9px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:15px;background:#fff">'
-    +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:700;color:#334155;cursor:pointer;line-height:1.4"><input type="checkbox" id="licaf'+i+'" onchange="var a=document.getElementById(\'lica'+i+'\');if(a){a.disabled=this.checked;if(this.checked)a.value=\'\';}" style="width:20px;height:20px;flex-shrink:0">'+(LIC_ACQ_T.fg[LANG]||LIC_ACQ_T.fg.ja)+'</label>'
-    +'<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.5">'+(LIC_ACQ_T.hint[LANG]||LIC_ACQ_T.hint.ja)+'</div>';
+    +licDateSel('id="lica'+i+'"','',false)
+    +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:700;color:#334155;cursor:pointer;line-height:1.4"><input type="checkbox" id="licaf'+i+'" onchange="licDSDis(document.getElementById(\'lica'+i+'\'),this.checked)" style="width:20px;height:20px;flex-shrink:0">'+(LIC_ACQ_T.fg[LANG]||LIC_ACQ_T.fg.ja)+'</label>'
+    +'<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.5">'+(LIC_ACQ_T.hint[LANG]||LIC_ACQ_T.hint.ja)+'</div>'
+    +(i===0?'<img src="license-acq-sample.jpg" alt="" loading="lazy" style="display:block;width:100%;max-width:360px;margin-top:6px;border-radius:8px;border:1px solid #e2e8f0">':'');  // ★2026-10-17 取得日の位置（左下「他」欄）の見本画像
 }
 // 選択済みファイルを消さずに運転者行だけ追記（全体再描画しない）
 function licAddRow(){
