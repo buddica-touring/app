@@ -332,6 +332,7 @@ const DB = {
     if(!sb){const ls=DB._lsLoad(date)||[];if(!ls.length){ls._fetchError=true;}return ls;}
     const{data,error}=await sb.from("bt_tasks").select("*").eq("date",date).neq("deleted",true).order("sort_order");
     if(error){dbLog("fetchTasks",false,error.message);const ls=DB._lsLoad(date)||[];ls._fetchError=true;return ls;}
+    (data||[]).forEach(r=>DB._setBase(r));
     const tasks=(data||[]).map(DB._fromDbTask);
     // ★ 保存中の場合はlocalStorageを上書きしない（保存中のデータが消えるのを防ぐ）
     if(tasks.length&&DB._pendingSave<=0)DB._lsSave(tasks,date);
@@ -365,17 +366,68 @@ const DB = {
   _toDbTaskMin(t,date,i){const b=DB._toDbTaskBare(t,date,i);b.changed_json=JSON.stringify(t._changed||{});return b;},
   _dbSaveOk:true,
   // ★ 3段階フォールバック保存関数
-  async _upsertWithFallback(rows,label){
+  /* ★2026-10-17 LEDGER-ONE根治(書込を最小化): 全行の丸ごと保存をやめ、
+     ①DBに無い行だけ挿入(既存行は挿入で上書きしない) ②既存行は「この端末が読み込んだ時の値(_base)から実際に変えた列」だけを更新
+     ③mode='system'(再生成/同期)は人が入れる列(時間/変更/返却/メモ/確認/担当/場所/種別/補償/約款等)を書かず、DBが読込後に変わった列もDB優先で書かない。
+     札幌APP(開くだけでは既存行を書かない)と同じ考え方。 */
+  _base:{},
+  _SYS_SKIP:["時間","変更","返却","メモ","確認","担当","送迎場所","集客","内容","内案","確定","約款","LINE","決済","changed_json","date"],
+  _normVal(k,v){
+    if(k==="changed_json"){try{const o=JSON.parse(v||"{}");delete o._src;return JSON.stringify(o);}catch(e){return String(v||"");}}
+    if(v===null||v===undefined)return "";
+    if(typeof v==="boolean")return v?"true":"false";
+    return String(v);
+  },
+  _normRow(row){const o={};Object.keys(row).forEach(k=>{o[k]=DB._normVal(k,row[k]);});return o;},
+  _rawToNorm(raw){try{return DB._normRow(DB._toDbTask(DB._fromDbTask(raw),raw.date,raw.sort_order));}catch(e){return null;}},
+  _setBase(raw){if(raw&&raw._id){const n=DB._rawToNorm(raw);if(n)DB._base[raw._id]=n;}},
+  _patchBase(id,cols){const b=DB._base[id];if(!b)return;Object.keys(cols).forEach(k=>{b[k]=DB._normVal(k,cols[k]);});},
+  async _upsertWithFallback(rows,label,mode){
     if(!sb||!rows.length)return;
-    // 1) フル保存
-    const{error}=await sb.from("bt_tasks").upsert(rows,{onConflict:"_id"});
-    if(!error){DB._dbSaveOk=true;DB._hasChangedCol=true;return;}
-    dbLog(label,false,error.message);
-    // 2) changed_jsonなしで再試行
-    const bareRows=rows.map(r=>{const b={...r};delete b.changed_json;return b;});
-    const{error:e2}=await sb.from("bt_tasks").upsert(bareRows,{onConflict:"_id"});
-    if(!e2){dbLog(label+"-bare",true,"ベア保存成功");DB._dbSaveOk=true;DB._hasChangedCol=false;return;}
-    dbLog(label+"-bare",false,e2.message);DB._dbSaveOk=false;
+    mode=mode||"human";
+    const ids=rows.map(r=>r._id).filter(Boolean);
+    const fresh={};
+    for(let i=0;i<ids.length;i+=150){
+      const{data,error}=await sb.from("bt_tasks").select("*").in("_id",ids.slice(i,i+150));
+      if(error){dbLog(label,false,"現在値の取得失敗(書込中止): "+error.message);DB._dbSaveOk=false;return;}
+      (data||[]).forEach(r=>{fresh[r._id]=r;});
+    }
+    let ok=true;
+    const newRows=rows.filter(r=>!fresh[r._id]);
+    if(newRows.length){
+      const{error}=await sb.from("bt_tasks").upsert(newRows,{onConflict:"_id",ignoreDuplicates:true});
+      if(error){ok=false;dbLog(label+"-insert",false,error.message);}
+      else{newRows.forEach(r=>{DB._base[r._id]=DB._normRow(r);});}
+    }
+    for(const r of rows){
+      const cur=fresh[r._id];
+      if(!cur)continue;
+      if(cur.deleted===true||cur.deleted==="true")continue; /* 墓標は触らない */
+      const base=DB._base[r._id];
+      if(mode==="system"&&!base)continue; /* 読み込んでいない行は再生成で書かない＝DB優先 */
+      const curN=DB._rawToNorm(cur)||{};
+      const ref=base||curN;
+      const nr=DB._normRow(r);
+      const diff={};
+      Object.keys(r).forEach(k=>{
+        if(k==="_id")return;
+        if(nr[k]===ref[k])return;                       /* この端末は変えていない列 */
+        if(nr[k]===curN[k])return;                      /* DBと同じ値 */
+        if(mode==="system"){
+          if(DB._SYS_SKIP.indexOf(k)>=0)return;         /* 人が入れる列は再生成で書かない */
+          if(base&&curN[k]!==base[k])return;            /* 読込後にDBが変わった列はDB優先 */
+        }
+        diff[k]=r[k];
+      });
+      /* _base=この端末が持っている値の元(DBから読んだ値＋自分が書いた列)。書かなかった時にDB最新値へ進めると、
+         端末の古い値が「変えた列」に見え、次の保存で他人の手入力を古い値に戻す(試験で再現)→進めるのは自分が書いた列だけ */
+      if(!Object.keys(diff).length)continue;
+      const{error}=await sb.from("bt_tasks").update(diff).eq("_id",r._id);
+      if(error){ok=false;dbLog(label,false,r._id+" "+error.message);continue;}
+      if(base)DB._patchBase(r._id,diff);else DB._base[r._id]=Object.assign({},curN,DB._normRow(diff));
+      dbLog(label,true,r._id+" "+Object.keys(diff).join(","));
+    }
+    DB._dbSaveOk=ok;if(ok)DB._hasChangedCol=true;
   },
   // ★ スタッフ手入力フィールド（再生成/同期で絶対に潰さない）
   _USER_FIELDS:["assignee","place","colPlace","time","returnTime"],
@@ -433,7 +485,7 @@ const DB = {
         }catch(e){console.warn("[upsertTasks protect] merge skip:",e.message);}
       }
       const rows=toSave.map((t,i)=>DB._toDbTask(t,date,i,(opts&&opts.protect)?'system':'human'));
-      await DB._upsertWithFallback(rows,"upsertTasks");
+      await DB._upsertWithFallback(rows,"upsertTasks",(opts&&opts.protect)?"system":"human");
     }finally{DB._pendingSave--;}
   },
   // ★2026-08-19 洗車「翌日対応」トグル専用の部分更新: changed_json(_nextDayWash)だけを書く。
@@ -456,7 +508,7 @@ const DB = {
     DB._pendingSave++;
     try{
       const row=DB._toDbTask(t,date,t._sortOrder||0,'human');
-      await DB._upsertWithFallback([row],"updateTask");
+      await DB._upsertWithFallback([row],"updateTask","human");
     }finally{DB._pendingSave--;}
   },
   async updateTaskFields(taskId, date, fieldChanges) {
@@ -513,22 +565,23 @@ const DB = {
     if (error) {
       dbLog("updateTaskFields", false, error.message); DB._dbSaveOk = false;
       const _ls = DB._lsLoad(date); const _t = _ls ? _ls.find(x => x._id === taskId) : null;
-      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-err-upsert"); }
+      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-err-upsert", "human"); }
       return;
     }
     if (!_upd || !_upd.length) {
       // 行が存在しない=UPDATE 0件 → フル行をupsert(挿入)して保存を確定
       const _ls = DB._lsLoad(date); const _t = _ls ? _ls.find(x => x._id === taskId) : null;
-      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-insert"); dbLog("updateTaskFields", true, taskId + " (insert)"); }
+      if (_t) { const _row = DB._toDbTask(_t, date, (_t._sortOrder != null && _t._sortOrder !== "") ? +_t._sortOrder : 0, 'human'); await DB._upsertWithFallback([_row], "updateTaskFields-insert", "human"); dbLog("updateTaskFields", true, taskId + " (insert)"); }
       else { DB._dbSaveOk = false; dbLog("updateTaskFields", false, taskId + " 行なし&LSなし"); }
       return;
     }
     DB._dbSaveOk = true;
+    DB._patchBase(taskId, dbChanges);
     dbLog("updateTaskFields", true, taskId + " " + Object.keys(dbChanges).join(","));
   },
   async deleteTasks(date){try{localStorage.removeItem(DB._lsKey(date));}catch(e){} if(!sb)return;const{error}=await sb.from("bt_tasks").delete().eq("date",date);if(error)dbLog("deleteTasks",false,error.message);},
   async deleteTask(id,date){if(!sb)return;/* ★2026-07-04 墓標方式: 物理削除せず deleted=true。復活不能。 */const{error}=await sb.from("bt_tasks").update({deleted:true}).eq("_id",id);if(error)dbLog("deleteTask",false,error.message);else dbLog("deleteTask",true,id);try{const ls=DB._lsLoad(date);if(ls){const next=ls.filter(t=>t._id!==id);localStorage.setItem(DB._lsKey(date),JSON.stringify(next));}}catch(e){}},
-  async fetchTasksRange(fromDate,toDate){if(!sb)return[];const{data,error}=await sb.from("bt_tasks").select("*").gte("date",fromDate).lte("date",toDate).neq("deleted",true).order("date",{ascending:false}).order("sort_order").limit(5000);if(error){dbLog("fetchTasksRange",false,error.message);return[];}return(data||[]).map(r=>({...DB._fromDbTask(r),_date:r.date}));},
+  async fetchTasksRange(fromDate,toDate){if(!sb)return[];const{data,error}=await sb.from("bt_tasks").select("*").gte("date",fromDate).lte("date",toDate).neq("deleted",true).order("date",{ascending:false}).order("sort_order").limit(5000);if(error){dbLog("fetchTasksRange",false,error.message);return[];}return(data||[]).map(r=>{DB._setBase(r);return{...DB._fromDbTask(r),_date:r.date};});},
   _toDbTask(t,date,i,src){return{_id:t._id,date:(t._taskDate||date),"内容":t.type||"","時間":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&t.reservationId&&!t.manual&&!((t.timeChange&&String(t.timeChange).trim())||(t._ssTime&&String(t._ssTime).trim())||(t._manualTimeAt&&String(t._manualTimeAt).trim())))?"":(t.time||"")),"変更":t.timeChange||"","内案":t.typeChange||"","予約者":t.name||"","担当":t.assignee||"","確認":!!t.done,"メモ":t.memo||"","予約番号":t.reservationId||"","OTA":t.ota||"","TEL":t.tel||"","MAIL":t.mail||"",assigned_vehicle:t.assignedVehicle||"","No":t.plateNo||"","人数":t.people||0,"送迎場所":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&t.reservationId&&!t.manual&&!(t._placeSource==="manual"||t._placeSource==="customer"||(t._ssPlace&&String(t._ssPlace).trim())))?"":(t.place||"")),"クラス":t.vehicle||"","確定":t.insurance||"","便名":t.flight||"","返却日":t.returnDate||"","返却":t.returnTime||"","送迎":t.returnType||"","集客":t.colPlace||"","B":+(t.opts?.b||0),"C":+(t.opts?.c||0),"J":+(t.opts?.j||0),"USB":+(t.opts?.usb||0),"約款":!!t.yakkan,"LINE":!!t.line,"決済":!!t.payment,sort_order:(t._sortOrder!=null&&t._sortOrder!==""?+t._sortOrder:i),changed_json:JSON.stringify({...(t._changed||{}),_src:(src||'human'),_timeFromSheet:!!t._timeFromSheet,_timeChangeSource:t._timeChangeSource||"",_placeSource:t._placeSource||"",_ssTime:t._ssTime||"",_ssPlace:t._ssPlace||"",_ssTimeAt:t._ssTimeAt||"",_ssPlaceAt:t._ssPlaceAt||"",_manualTimeAt:t._manualTimeAt||"",_manualPlaceAt:t._manualPlaceAt||"",_manual:!!t.manual,_taskDate:(t._taskDate||date),_nextDayWash:!!t._nextDayWash,_nextDayWashAt:t._nextDayWashAt||""})};},
   _fromDbTask(d){const ch=(()=>{try{const p=JSON.parse(d.changed_json||"{}");return Object.keys(p).length?p:undefined;}catch(e){return undefined;}})();const tfs=ch&&ch._timeFromSheet;const tcs=ch&&ch._timeChangeSource;const ps=ch&&ch._placeSource;const sst=ch&&ch._ssTime;const ssp=ch&&ch._ssPlace;const sstAt=ch&&ch._ssTimeAt;const sspAt=ch&&ch._ssPlaceAt;const mtAt=ch&&ch._manualTimeAt;const mpAt=ch&&ch._manualPlaceAt;const isManual=ch&&ch._manual;const td=ch&&ch._taskDate;const ndw=!!(ch&&ch._nextDayWash);const ndwAt=(ch&&ch._nextDayWashAt)||"";if(ch){delete ch._timeFromSheet;delete ch._timeChangeSource;delete ch._placeSource;delete ch._ssTime;delete ch._ssPlace;delete ch._ssTimeAt;delete ch._ssPlaceAt;delete ch._manualTimeAt;delete ch._manualPlaceAt;delete ch._manual;delete ch._taskDate;delete ch._nextDayWash;delete ch._nextDayWashAt;delete ch._src;}return{_id:d._id,type:(()=>{/* ★2026-08-15 区分の正本は予約。人間の種別変更(内案)がある時だけタスク値、無ければleg種別を予約から導出。洗車/その他/引取/入庫等は導出しない。 */var _t=d["内容"];if(d["内案"]&&String(d["内案"]).trim())return _t;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _t;if(["COL","BD","BDB","返却","返却待"].indexOf(_t)>=0)return deriveRetType(_r);if(["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_t)>=0)return deriveLendType(_r);return _t;})(),time:(()=>{/* ★2026-07-15 STEP2横展開: 時間の正本は予約(del/col_time)。人間編集(変更/_ssTime/手動)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。洗車/その他はタスク値。 */var _tm=d["時間"];if((d["変更"]&&String(d["変更"]).trim())||(sst&&String(sst).trim())||tcs==="manual"||(mtAt&&String(mtAt).trim()))return _tm;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _tm;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _tm;var _rt=_isCol?(_r.colTime||_r.returnTime):(_r.delTime||_r.lendTime);return (_rt&&String(_rt).trim())?_rt:_tm;})(),name:d["予約者"],assignee:d["担当"],done:d["確認"]===true||d["確認"]==="true",memo:d["メモ"],reservationId:d["予約番号"],ota:d["OTA"],tel:d["TEL"],mail:d["MAIL"],assignedVehicle:d.assigned_vehicle,plateNo:d["No"],people:d["人数"],place:(()=>{/* ★2026-07-15 STEP2横展開: 場所の正本は予約(del/col_place)。人間編集(手動/顧客/_ssPlace)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。空はタスク値。 */var _p=d["送迎場所"];if(ps==="manual"||ps==="customer"||(ssp&&String(ssp).trim()))return _p;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _p;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _p;var _fb=_isCol?_r.colPlace:_r.delPlace;return (_fb&&String(_fb).trim())?_fb:_p;})(),vehicle:d["クラス"],insurance:d["確定"],insuranceChange:"",timeChange:d["変更"]||"",typeChange:d["内案"]||"",flight:d["便名"],returnDate:norm(d["返却日"]),returnTime:d["返却"],returnType:d["送迎"],colPlace:d["集客"],opts:(()=>{var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;return _r?{b:+(_r.optB||0),c:+(_r.optC||0),j:+(_r.optJ||0),usb:+(_r.optUSB||0)}:{b:+(d["B"]||0),c:+(d["C"]||0),j:+(d["J"]||0),usb:+(d["USB"]||0)};})(),yakkan:d["約款"]===true||d["約款"]==="true"||/^同意/.test(String(d["約款"]||""))/* ★2026-10-17 お客様署名の写し「同意(氏名) 日時」を同意済みとして読む(未同意と読んで全行保存でfalseを書き戻していた) */,line:d["LINE"]===true||d["LINE"]==="true",payment:d["決済"]===true||d["決済"]==="true",_sortOrder:d.sort_order,_assigneeCustom:false,_timeChanged:false,_changed:ch,_timeFromSheet:!!tfs,_timeChangeSource:tcs||"",_placeSource:ps||"",_ssTime:sst||"",_ssPlace:ssp||"",_ssTimeAt:sstAt||"",_ssPlaceAt:sspAt||"",_manualTimeAt:mtAt||"",_manualPlaceAt:mpAt||"",manual:!!isManual,_taskDate:(td||d.date),_nextDayWash:ndw,_nextDayWashAt:ndwAt};},
   // --- 予約変更管理 ---
@@ -17499,17 +17552,15 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const dbChanged=t._changed||{};
         const lsChanged=(ls&&ls._changed)||{};
         // DB _changedを基本とし、DBにないLS独自の変更のみ追加
-        const merged={...lsChanged,...dbChanged};
+        const merged={...dbChanged};/* ★2026-10-17 端末内の古い_changedをDBに混ぜない */
         if(Object.keys(merged).length){
           t._changed=merged;
           // LSにのみ存在する_changedフィールドはLS値を適用（DBに未到達のローカル変更）
           Object.keys(lsChanged).forEach(f=>{
-            if(lsChanged[f]&&!dbChanged[f]&&ls[f]!==undefined&&ls[f]!==null&&f!=='_changed'&&f!=='opts'&&typeof ls[f]!=='object'){t[f]=ls[f];}
+            /* ★2026-10-17 端末内(LS)の古い値をDB値に被せない(後で保存されDBを古い値に戻していた) */
           });
         }
         if(ls){
-          if(ls.place&&!t.place)t.place=ls.place;
-          if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;
         }
         /* ★2026-09-29 直近編集(≤20s)保護: 生成/再読込でも、いま自分が編集したセルはLS値を維持(mirrorTasks/Realtimeと同一)。 */
         if(ls&&selfUpdatedIds.current.has(t._id)&&(Date.now()-selfUpdatedIds.current.get(t._id)<20000)){
@@ -17561,12 +17612,11 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     // 手動変更保護: DB _changedが権威。LSにのみ在るローカル変更のみ補完
     disp.forEach(t=>{
       const ls=lm[t._id];const dbChanged=t._changed||{};const lsChanged=(ls&&ls._changed)||{};
-      const merged={...lsChanged,...dbChanged};
+      const merged={...dbChanged};/* ★2026-10-17 端末内の古い_changedをDBに混ぜない */
       if(Object.keys(merged).length){
         t._changed=merged;
-        Object.keys(lsChanged).forEach(f=>{if(lsChanged[f]&&!dbChanged[f]&&ls[f]!==undefined&&ls[f]!==null&&f!=='_changed'&&f!=='opts'&&typeof ls[f]!=='object'){t[f]=ls[f];}});
+        Object.keys(lsChanged).forEach(f=>{/* ★2026-10-17 端末内(LS)の古い値をDB値に被せない(後で保存されDBを古い値に戻していた) */});
       }
-      if(ls){if(ls.place&&!t.place)t.place=ls.place;if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;}
       /* ★2026-09-29 直近編集(≤20s)保護: いま自分が編集したセル(担当/時間/メモ/完了/場所)は、DB保存が反映途中でもLS値を維持する。
          既存のLSマージは「DBに_changedフラグが無い項目」しか守らず、同じ項目を2回目に編集すると(1回目でフラグ既立)ミラーがDB旧値で上書き=「一定時間で元に戻る」を起こしていた。保存完了後はLS=DBで無害。 */
       if(ls&&selfUpdatedIds.current.has(t._id)&&(Date.now()-selfUpdatedIds.current.get(t._id)<20000)){
@@ -17628,17 +17678,15 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
               const dbChanged=t._changed||{};
               const lsChanged=(ls&&ls._changed)||{};
               // DB優先でマージ（DBにある変更は上書きしない）
-              const merged={...lsChanged,...dbChanged};
+              const merged={...dbChanged};/* ★2026-10-17 端末内の古い_changedをDBに混ぜない */
               if(Object.keys(merged).length){
                 t._changed=merged;
                 // LSにのみ存在する変更はLS値を適用（DBに未反映のローカル変更）
                 Object.keys(lsChanged).forEach(f=>{
-                  if(lsChanged[f]&&!dbChanged[f]&&ls[f]!==undefined&&ls[f]!==null&&f!=='_changed'&&f!=='opts'&&typeof ls[f]!=='object'){t[f]=ls[f];}
+                  /* ★2026-10-17 端末内(LS)の古い値をDB値に被せない(後で保存されDBを古い値に戻していた) */
                 });
               }
               if(ls){
-                if(ls.place&&!t.place)t.place=ls.place;
-                if(ls.colPlace&&!t.colPlace)t.colPlace=ls.colPlace;
               }
               /* ★2026-09-29 直近編集(≤20s)保護: 他端末Realtime受信でも、いま自分が編集中のセルはLS値を維持し「元に戻る」を防ぐ(mirrorTasksと同一)。 */
               if(ls&&selfUpdatedIds.current.has(t._id)&&(Date.now()-selfUpdatedIds.current.get(t._id)<20000)){
@@ -24178,7 +24226,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.542-BT";
+const APP_VERSION="v1.0.543-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
