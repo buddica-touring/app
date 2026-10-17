@@ -1,6 +1,19 @@
 const fs = require('fs');
 const babel = require('@babel/core');
 
+// ★2026-10-17 オーナー指示（受け渡し箱0020/0021）: タスク保存の「戻らない試験」16項目を毎回流し、NGならビルドを止める（app.js を書かない）
+{
+  const { spawnSync } = require('child_process');
+  const t = spawnSync(process.execPath, ['tests/task_save_test.js', 'index.html.bak'], { encoding: 'utf8' });
+  const last = String(t.stdout || '').trim().split('\n').pop();
+  if (t.status !== 0) {
+    console.error(t.stdout || ''); console.error(t.stderr || '');
+    console.error('❌ タスク保存の戻らない試験が NG のためビルドを中止しました（tests/task_save_test.js）');
+    process.exit(1);
+  }
+  console.log(last);
+}
+
 // ★ index.html.bak（JSXソース）から <script type="text/babel"> を抽出
 const src = fs.readFileSync('index.html.bak', 'utf8');
 const match = src.match(/<script type="text\/babel">([\s\S]*?)<\/script>/);
