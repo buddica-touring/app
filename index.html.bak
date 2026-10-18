@@ -24231,7 +24231,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.545-BT";
+const APP_VERSION="v1.0.546-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -25705,7 +25705,7 @@ function btInvTodoCount(data,stat,maintenance,vehicles){
   let cnt=rows.filter(isTodo).length;
   // ★2026-08-17/2026-09-02 入庫(車検/点検/修理)=車両ブランドの媒体だけ調整対象。未チェックが残れば未対応
   const IL=["車検","半年点検","修理","その他"];// ★2026-10-19 配車表で「その他」登録の長期ブロックも在庫調整対象に（オーナーOK）
-  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};const ch=chOf({_intake:true,vehicleCode:m.vehicleCode});if(ch.some(c=>c.key!==AUTO_KEY&&!s[c.key]))cnt++;});
+  (maintenance||[]).forEach(m=>{if(!m||!IL.includes(m.label)||m.deleted===true)return;if(m.label==="その他"&&!(vehicles||[]).some(x=>x&&x.code===m.vehicleCode))return;/* その他は実在車両のみ（削除済み車両の古いブロックを出さない） */const d=m.endDate||m.startDate;if(!d||d<today)return;const s=stat[m.id]||{};const ch=chOf({_intake:true,vehicleCode:m.vehicleCode});if(ch.some(c=>c.key!==AUTO_KEY&&!s[c.key]))cnt++;});
   return cnt;
 }
 
@@ -25721,7 +25721,7 @@ function BtInventoryTab({data,sb,store,vehicles,maintenance,onCancel}){
   const _vehName=(code)=>{const v=(vehicles||[]).find(x=>x&&x.code===code);return v?v.name:code;};
   const intakeRows=React.useMemo(()=>{
     const IL=["車検","半年点検","修理","その他"];// ★2026-10-19 「その他」も対象（btInvTodoCountと同一）
-    return (maintenance||[]).filter(m=>m&&IL.includes(m.label)&&(m.endDate||m.startDate)&&(m.endDate||m.startDate)>=today&&m.deleted!==true)
+    return (maintenance||[]).filter(m=>m&&IL.includes(m.label)&&(m.endDate||m.startDate)&&(m.endDate||m.startDate)>=today&&m.deleted!==true&&(m.label!=="その他"||(vehicles||[]).some(x=>x&&x.code===m.vehicleCode)))
       .map(m=>({id:m.id,_intake:true,label:m.label,status:m.status||"pending",ota:"入庫",
         name:_vehName(m.vehicleCode),vehicle:_vehName(m.vehicleCode),vehicleCode:m.vehicleCode,
         lendDate:m.startDate,returnDate:m.endDate||m.startDate,createdAt:m.createdAt||today}));
