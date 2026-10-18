@@ -16267,6 +16267,11 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   const SHIFT_STATUS_STYLE={"申請":{color:"#f59e0b",bg:"#fffbeb",border:"#fcd34d",label:"申"},"調整中":{color:"#6366f1",bg:"#eef2ff",border:"#a5b4fc",label:"調"},"確定":{color:"#059669",bg:"#ecfdf5",border:"#6ee7b7",label:"✓"}};
   const getCellDisplay=(shift,type)=>{
     if(!shift)return null;
+    // 希望休は出勤不可の時間を併記（スタッフURL入力：memo='HH:MM-HH:MM'=時間指定／それ以外=終日）
+    if(shift.symbol==="希"){
+      const m=/^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(String(shift.memo||""));
+      return <span style={{fontSize:9,lineHeight:1.05,color:"#d97706",fontWeight:700}}>希<span style={{fontSize:7,display:"block",color:"#b45309"}}>{m?<>{m[1].replace(/^0/,"")}<br/>〜{m[2].replace(/^0/,"")}</>:"終日"}</span></span>;
+    }
     if(type==="正社員"){
       return shift.symbol||"";
     }
@@ -16407,7 +16412,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
                 boxShadow:isToday?"inset 0 0 0 2px #f59e0b":"none",
                 color:shift?.symbol==="●"?"#1d4ed8":shift?.symbol==="公"?"#64748b":shift?.symbol==="希"?"#d97706":shift?.symbol==="有"?"#059669":shift?.symbol==="出"?"#7c3aed":"#d1d5db",
                 height:36,verticalAlign:"middle"
-              }}>{shift?shift.symbol:<span style={{color:"#e5e7eb",fontSize:14}}>+</span>}</td>;
+              }}>{shift?getCellDisplay(shift,"正社員"):<span style={{color:"#e5e7eb",fontSize:14}}>+</span>}</td>;
             })}
           </tr>)}
 
@@ -24226,7 +24231,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.544-BT";
+const APP_VERSION="v1.0.545-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

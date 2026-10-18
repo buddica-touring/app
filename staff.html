@@ -79,7 +79,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.8-bt";
+var VER="staff-v2.9-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -326,15 +326,48 @@ window.openShift=function(ym){
     .then(function(d){ if(!d||d.ok===false){showErr("出勤簿の読み込みに失敗しました");return;} MODE="shift"; SHDATA=d; renderShift(d); })
     .catch(function(){showErr("通信エラー");});
 };
-window.toggleWish=function(date,on){
+window.sendWish=function(date,on,from,to){
+  var pk=document.getElementById("wishpick"); if(pk)pk.remove();
   var el=document.getElementById("cell-"+date); if(el){el.style.opacity=.5;el.style.pointerEvents="none";}
-  fetch(SB+"/rest/v1/rpc/bt_staff_wish",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_date:date,p_on:on})})
+  var body={p_token:TOKEN,p_date:date,p_on:on}; if(from&&to){body.p_from=from;body.p_to=to;}
+  fetch(SB+"/rest/v1/rpc/bt_staff_wish",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify(body)})
     .then(function(r){return r.json();})
     .then(function(d){
       if(!d||d.ok===false){ alert("⚠️ "+((d&&d.msg)||"登録できませんでした")); }
       openShift((SHDATA&&SHDATA.ym)||date.slice(0,7));
     })
     .catch(function(){ alert("通信エラー。もう一度お試しください"); openShift((SHDATA&&SHDATA.ym)||date.slice(0,7)); });
+};
+// 希望休の memo → {from,to}（時間指定）／null（終日）
+function wishRange(memo){var m=/^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(String(memo||""));return m?{from:m[1],to:m[2]}:null;}
+// 30分単位 8:00〜20:00
+var WISH_TIMES=(function(){var a=[];for(var h=8;h<=20;h++){a.push(("0"+h).slice(-2)+":00");if(h<20)a.push(("0"+h).slice(-2)+":30");}return a;})();
+// 休み希望の選択シート（①終日 出勤不可 ②時間指定 ＋取消）
+window.openWishPick=function(date,has,memo){
+  var old=document.getElementById("wishpick"); if(old)old.remove();
+  var md=String(+date.slice(5,7))+"/"+String(+date.slice(8,10));
+  var rg=has?wishRange(memo):null; var curFull=has&&!rg;
+  var opt=function(list,sel){return '<option value="">--:--</option>'+list.map(function(t){return '<option value="'+t+'"'+(t===sel?' selected':'')+'>'+t+'</option>';}).join("");};
+  var bs='display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px 14px;border-radius:12px;font-size:15px;font-weight:800;color:#334155;';
+  var sel='flex:1;font-size:16px;padding:8px;border-radius:10px;border:1px solid #cbd5e1;background:#fff';
+  var h='<div id="wishpick" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:flex-end;justify-content:center">'
+    +'<div style="background:#fff;width:100%;max-width:420px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))">'
+    +'<div style="text-align:center;font-weight:900;font-size:16px;color:#92400e;margin-bottom:4px">'+md+' の休み希望</div>'
+    +'<div style="text-align:center;font-size:11px;color:#94a3b8;margin-bottom:14px">出勤できない時間を選んでください</div>'
+    +'<button onclick="sendWish(\''+date+'\',true)" style="'+bs+'border:2px solid '+(curFull?'#f59e0b':'#e2e8f0')+';background:'+(curFull?'#FFF3CD':'#fff')+'">① 終日 出勤不可<div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:2px">1日まるごと休み希望'+(curFull?'（選択中）':'')+'</div></button>'
+    +'<div style="'+bs+'border:2px solid '+(rg?'#f59e0b':'#e2e8f0')+';background:'+(rg?'#FFF3CD':'#fff')+'">② 時間指定で出勤不可<div style="font-size:11px;font-weight:600;color:#94a3b8;margin:2px 0 8px">この時間だけ出勤できない'+(rg?'（選択中）':'')+'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px"><select id="wish-from" style="'+sel+'">'+opt(WISH_TIMES.slice(0,-1),rg&&rg.from)+'</select><span style="font-weight:800">〜</span><select id="wish-to" style="'+sel+'">'+opt(WISH_TIMES.slice(1),rg&&rg.to)+'</select></div>'
+    +'<button onclick="sendWishTime(\''+date+'\')" style="display:block;width:100%;margin-top:10px;padding:10px;border-radius:10px;border:none;background:#f59e0b;color:#fff;font-size:14px;font-weight:800">この時間で登録</button></div>'
+    +(has?'<button onclick="sendWish(\''+date+'\',false)" style="display:block;width:100%;margin:4px 0 8px;padding:11px;border-radius:12px;border:1px solid #fecaca;background:#fff;font-size:14px;font-weight:800;color:#dc2626">🗑 この日の希望を取消</button>':'')
+    +'<button onclick="var e=document.getElementById(\'wishpick\');if(e)e.remove()" style="display:block;width:100%;padding:11px;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc;font-size:14px;font-weight:700;color:#64748b">閉じる</button>'
+    +'</div></div>';
+  document.body.insertAdjacentHTML("beforeend",h);
+};
+window.sendWishTime=function(date){
+  var f=(document.getElementById("wish-from")||{}).value||"",t=(document.getElementById("wish-to")||{}).value||"";
+  if(!f||!t){alert("開始と終了の時間を選んでください");return;}
+  if(f>=t){alert("終了は開始より後の時間にしてください");return;}
+  sendWish(date,true,f,t);
 };
 function renderShift(d){
   var ym=d.ym||jstToday().slice(0,7);var today=d.today||jstToday();
@@ -357,7 +390,7 @@ function renderShift(d){
   Object.keys(SHSYM).forEach(function(k){var s=SHSYM[k];h+='<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+s.bg+';color:'+s.c+'">'+k+' '+s.l+'</span>';});
   h+='</div>';
   if(editable){
-    h+='<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">✏️ <b>先の月です。</b>休みたい日をタップすると <b>希望休</b>を登録できます（もう一度タップで取消）。<br>すでに出勤・公休などの予定が入っている日は変更できません。</div>';
+    h+='<div class="note" style="background:#fffbeb;border-color:#fde68a;color:#92400e">✏️ <b>先の月です。</b>休みたい日をタップすると <b>①終日／②時間指定（8:00〜20:00）</b> で出勤できない時間を登録できます（もう一度タップで変更・取消）。<br>すでに出勤・公休などの予定が入っている日は変更できません。</div>';
   }else{
     h+='<div class="note">👀 閲覧専用です。休み希望は<b>先の月</b>から入力できます（「翌月 ›」で移動）。</div>';
   }
@@ -371,12 +404,14 @@ function renderShift(d){
     var cfg=SHSYM[sym];var bg=cfg?cfg.bg:'#fff';var bd=isToday?'2px solid #059669':'1px solid #e2e8f0';
     var canTap=editable&&(sym===''||sym==='希');
     var inner='<div style="font-size:12px;font-weight:800;color:'+(dow===0?'#dc2626':dow===6?'#2563eb':'#334155')+'">'+day+'</div>';
+    var wrg=(sym==='希'&&s)?wishRange(s.memo):null;
     if(cfg){inner+='<div style="font-size:11px;font-weight:800;color:'+cfg.c+';margin-top:2px">'+sym+'</div>';
+      if(sym==='希'){inner+='<div style="font-size:8px;font-weight:800;color:#b45309;line-height:1.15">'+(wrg?esc(wrg.from)+'<br>〜'+esc(wrg.to)+'不可':'終日不可')+'</div>';}
       if(sym==='●'&&s.start){inner+='<div style="font-size:8px;color:#475569;line-height:1.15">'+esc((s.start||'').slice(0,5))+(s.end?'<br>〜'+esc((s.end||'').slice(0,5)):'')+'</div>';}
     }else if(!sym&&s&&s.start){inner+='<div style="font-size:8px;color:#94a3b8;margin-top:2px;line-height:1.15">'+esc((s.start||'').slice(0,5))+(s.end?'<br>〜'+esc((s.end||'').slice(0,5)):'')+'</div>';}
-    if(canTap&&sym==='希'){inner+='<div style="font-size:8px;color:#b45309;margin-top:1px">タップで取消</div>';}
+    if(canTap&&sym==='希'){inner+='<div style="font-size:8px;color:#b45309;margin-top:1px">タップで変更</div>';}
     else if(canTap){inner+='<div style="font-size:8px;color:#cbd5e1;margin-top:1px">＋休</div>';}
-    var tap=canTap?(' onclick="toggleWish(\''+ds+'\','+(sym==='希'?'false':'true')+')" style="cursor:pointer"'):'';
+    var tap=canTap?(' onclick="openWishPick(\''+ds+'\','+(sym==='希'?'true':'false')+',\''+(wrg?wrg.from+'-'+wrg.to:'')+'\')" style="cursor:pointer"'):'';
     h+='<div id="cell-'+ds+'"'+tap+' style="min-height:52px;border:'+bd+';border-radius:8px;background:'+bg+';padding:3px 2px 2px;text-align:center;'+(canTap?'':'opacity:'+(editable?'.75':'1'))+'">'+inner+'</div>';
   }
   h+='</div>';
