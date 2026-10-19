@@ -17192,7 +17192,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
           {onDeleteReservation&&<button onClick={()=>{const msg="⚠️ 物理削除（復元不可）\n\n"+tooltip.name+" 様の予約をDBから完全削除しますか？\n\n予約番号: "+tooltip.id+"\n貸出: "+fmtD(tooltip.lendDate)+" "+tooltip.lendTime+"\n返却: "+fmtD(tooltip.returnDate)+" "+tooltip.returnTime+"\n\n※この操作は取り消せません。配車・タスクも削除されます。";if(!window.confirm(msg))return;const conf=window.prompt('本当に削除する場合、"削除"と入力してください');if(conf==='削除'){onDeleteReservation(tooltip.id);setTooltip(null);}else if(conf!==null){alert('入力が一致しないため、削除をキャンセルしました');}}} style={{flex:1,background:"#7f1d1d",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer"}}>削除</button>}
         </div>
       </div>:<div className="text-xs space-y-1 text-gray-600">
-        <div>車両: {tooltip.vehicleCode}</div><div>期間: {fmtD(tooltip.startDate)} 〜 {fmtD(tooltip.endDate)}{(tooltip.startTime||tooltip.endTime)?(" 🕐"+(tooltip.startTime||"?")+"〜"+(tooltip.endTime||"?")):""}</div>
+        <div>車両: {(()=>{const _v=(vehicles||[]).find(x=>x&&x.code===tooltip.vehicleCode);return _v?((_v.name||"")+" "+(_v.no||"")).trim():tooltip.vehicleCode;})()}</div>{/* ★2026-10-19 内部管理番号(code)でなく車種名＋ナンバー */}<div>期間: {fmtD(tooltip.startDate)} 〜 {fmtD(tooltip.endDate)}{(tooltip.startTime||tooltip.endTime)?(" 🕐"+(tooltip.startTime||"?")+"〜"+(tooltip.endTime||"?")):""}</div>
         <div>ステータス: <span style={{fontWeight:800,padding:"1px 8px",borderRadius:4,color:"#fff",background:tooltip.status==="approved"?"#16a34a":"#f59e0b"}}>{tooltip.status==="approved"?"🟢 FIX":"🟠 仮予定"}</span></div>
         {tooltip.workshop&&<div>🏭 {tooltip.workshop}</div>}
         <div style={{display:"flex",gap:6,marginTop:8}}>
@@ -24231,7 +24231,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.546-BT";
+const APP_VERSION="v1.0.547-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
