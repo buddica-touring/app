@@ -15419,7 +15419,7 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
       // 予算（シフトベース）
       let budgetDays=0,budgetHours=0;
       days.forEach(d=>{
-        if(d.shift&&d.shift.symbol!=="公"&&d.shift.symbol!=="希"&&d.shift.symbol!=="有"){
+        if(d.shift&&d.shift.symbol!=="公"&&d.shift.symbol!=="希"&&d.shift.symbol!=="有"&&d.shift.symbol!=="欠"){
           budgetDays++;budgetHours+=calcHours(d.shift.start||"09:00",d.shift.end||(s.type==="正社員"?"19:00":"18:00"));
         }
       });
@@ -15428,7 +15428,7 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
       let budgetWage=0;
       if(isP){
         days.forEach(d=>{
-          if(d.shift&&d.shift.symbol!=="公"&&d.shift.symbol!=="希"&&d.shift.symbol!=="有"){
+          if(d.shift&&d.shift.symbol!=="公"&&d.shift.symbol!=="希"&&d.shift.symbol!=="有"&&d.shift.symbol!=="欠"){
             const h=calcHours(d.shift.start||"09:00",d.shift.end||"18:00");
             const w=DB.getWageForDate(wageHistory,s.name,d.date)||(s.hourlyWage||0);
             budgetWage+=w*h;
@@ -15477,7 +15477,8 @@ function AttendanceManager({shifts,staff,today,attendance,onAttendanceChange}){
     staff.forEach(s=>{
       for(let d=1;d<=dim;d++){
         const ds=viewYM+"-"+String(d).padStart(2,"0");
-        const sh=(shifts[ds]||[]).find(x=>x.name===s.name);
+        const _sh0=(shifts[ds]||[]).find(x=>x.name===s.name);
+        const sh=(_sh0&&_sh0.symbol==="欠")?null:_sh0; // ★2026-10-19 欠勤シフトからは勤怠を作らない（既存勤怠は触らない）
         const attKey=ds+"_"+s.name;
         const att=curAtt[attKey]||null;
         if(sh&&!att){
@@ -16076,7 +16077,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
     if(!window.confirm("保存を実行しますか？"))return;
     const{dateStr,name,type,symbol,start,end,status,isNew}=cellEdit;
     const cur=getShift(dateStr);
-    const entry={name,type,symbol:type==="正社員"?symbol:"",start,end,status:type==="アルバイト"?(status||"確定"):"確定"};
+    const entry={name,type,symbol:type==="正社員"?symbol:(status==="欠勤"?"欠":""),start,end,status:type==="アルバイト"?(status||"確定"):"確定"}; // ★2026-10-19 欠勤=symbol「欠」も併記（出勤人数・未打刻・給与予算から除外される）
     if(isNew){
       _onSC({...shifts,[dateStr]:[...cur,entry]});
     }else{
@@ -16264,7 +16265,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   },[reservations]);
 
   // セル表示内容を取得
-  const SHIFT_STATUS_STYLE={"申請":{color:"#f59e0b",bg:"#fffbeb",border:"#fcd34d",label:"申"},"調整中":{color:"#6366f1",bg:"#eef2ff",border:"#a5b4fc",label:"調"},"確定":{color:"#059669",bg:"#ecfdf5",border:"#6ee7b7",label:"✓"}};
+  const SHIFT_STATUS_STYLE={"申請":{color:"#f59e0b",bg:"#fffbeb",border:"#fcd34d",label:"申"},"調整中":{color:"#6366f1",bg:"#eef2ff",border:"#a5b4fc",label:"調"},"確定":{color:"#059669",bg:"#ecfdf5",border:"#6ee7b7",label:"✓"},"欠勤":{color:"#dc2626",bg:"#fef2f2",border:"#fca5a5",label:"欠"}}; // ★2026-10-19 調整中→欠勤（調整中は既存データ表示用に残す・ボタンからは撤去）
   const getCellDisplay=(shift,type)=>{
     if(!shift)return null;
     // 希望休は出勤不可の時間を併記（スタッフURL入力：memo='HH:MM-HH:MM'=時間指定／それ以外=終日）
@@ -16533,7 +16534,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
         {cellEdit.type==="アルバイト"&&<div style={{marginBottom:16}}>
           <label style={{fontSize:11,color:"#64748b",fontWeight:700,display:"block",marginBottom:8}}>ステータス</label>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-            {[{s:"申請",c:"#f59e0b",bg:"#fffbeb"},{s:"調整中",c:"#6366f1",bg:"#eef2ff"},{s:"確定",c:"#059669",bg:"#ecfdf5"}].map(o=>{
+            {[{s:"申請",c:"#f59e0b",bg:"#fffbeb"},{s:"確定",c:"#059669",bg:"#ecfdf5"},{s:"欠勤",c:"#dc2626",bg:"#fef2f2"}].map(o=>{
               const sel=cellEdit.status===o.s;
               return <button key={o.s} onClick={()=>setCellEdit({...cellEdit,status:o.s})} style={{
                 padding:"10px 6px",borderRadius:10,fontSize:12,fontWeight:700,border:"2px solid",cursor:"pointer",transition:"all .15s",
@@ -17339,7 +17340,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const staffTypeMapOP=useMemo(()=>{const m={};staff.forEach(s=>{m[s.name]=s.type;});return m;},[staff]);
   const activeMembers=useMemo(()=>{
     const dayShifts=shifts[selDate]||[];
-    const offSymbols=new Set(["公","希","有","出"]);
+    const offSymbols=new Set(["公","希","有","出","欠"]);
     return dayShifts.filter(s=>{
       const sType=staffTypeMapOP[s.name]||"";
       if(sType==="正社員")return s.symbol==="●";
@@ -23144,7 +23145,7 @@ function App(){
                   <button onClick={()=>window.open("https://handyman-inquiry.vercel.app/","_blank")} style={{padding:"8px 16px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#b45309,#d97706)",color:"#fff",fontSize:13,fontWeight:700,boxShadow:"0 2px 8px rgba(217,119,6,.3)"}}>📨 問い合わせ</button>
                   {(()=>{
                     const _ts=shifts[today]||[];
-                    const _off=new Set(["公","希","有","出"]);
+                    const _off=new Set(["公","希","有","出","欠"]);
                     const _on=_ts.filter(s=>!_off.has(s.symbol));
                     if(!_on.length)return <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:12,background:"#f1f5f9",border:"1px solid #cbd5e1",fontSize:12,color:"#64748b",fontWeight:700}}>👥 本日出勤者なし</div>;
                     return <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:12,background:"linear-gradient(135deg,#fef3c7,#fde68a)",border:"1px solid #f59e0b",boxShadow:"0 2px 8px rgba(245,158,11,.2)",flexWrap:"wrap"}}>
@@ -23203,7 +23204,7 @@ function App(){
                 const todayD=new Date(todayStr+"T00:00:00");
                 const todayLabel=(todayD.getMonth()+1)+"/"+todayD.getDate()+"("+["日","月","火","水","木","金","土"][todayD.getDay()]+")";
                 const todayShifts=shifts[todayStr]||[];
-                const offSymbols=new Set(["公","希","有"]);
+                const offSymbols=new Set(["公","希","有","欠"]);
                 const onDuty=todayShifts.filter(s=>!offSymbols.has(s.symbol));
                 const PersonalTasks=({dateStr,dateLabel,shiftList})=>{
                   const[dbTasks,setDbTasks]=useState(()=>_ptCache[dateStr]||[]);
@@ -23223,7 +23224,7 @@ function App(){
                   },[dateStr]);
                   if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
                   if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録</div>;
-                  const offS=new Set(["公","希","有"]);
+                  const offS=new Set(["公","希","有","欠"]);
                   const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
                   const byPerson={};
                   duty.forEach(n=>{byPerson[n]=[];});
@@ -23354,7 +23355,7 @@ function App(){
                 const tmrwStr2=tmrw2.getFullYear()+"-"+String(tmrw2.getMonth()+1).padStart(2,"0")+"-"+String(tmrw2.getDate()).padStart(2,"0");
                 const tmrwLabel2=(tmrw2.getMonth()+1)+"/"+tmrw2.getDate()+"("+["日","月","火","水","木","金","土"][tmrw2.getDay()]+")";
                 const tmrwShifts2=shifts[tmrwStr2]||[];
-                const offSymbols2=new Set(["公","希","有"]);
+                const offSymbols2=new Set(["公","希","有","欠"]);
                 const onDuty2=tmrwShifts2.filter(s=>!offSymbols2.has(s.symbol));
                 const PersonalTasks2=({dateStr,shiftList})=>{
                   const[dbTasks,setDbTasks]=useState(()=>_ptCache[dateStr]||[]);
@@ -23373,7 +23374,7 @@ function App(){
                   },[dateStr]);
                   if(!loaded)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>読込中...</div>;
                   if(dbTasks.length===0)return <div style={{fontSize:10,color:"#94a3b8",padding:8}}>OPシートにタスク未登録（OPシートで翌日を開くと自動生成されます）</div>;
-                  const offS=new Set(["公","希","有"]);
+                  const offS=new Set(["公","希","有","欠"]);
                   const duty=shiftList.filter(s=>!offS.has(s.symbol)).map(s=>s.name);
                   const byPerson={};
                   duty.forEach(n=>{byPerson[n]=[];});
@@ -24231,7 +24232,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.547-BT";
+const APP_VERSION="v1.0.548-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
