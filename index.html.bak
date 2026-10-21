@@ -18247,7 +18247,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const bdTasks=sortedTasks.filter(t=>t.type==="BD"||t.type==="BDB");
         const delTasks=sortedTasks.filter(t=>t.type==="DEL");
         const colTasks=sortedTasks.filter(t=>t.type==="COL");
-        const washTasks=sortedTasks.filter(t=>t.type==="洗車"||t.type==="返却後洗車");
+        /* ★2026-10-21 翌日対応にした洗車(当日行に_nextDayWash=true)は当日のサマリーから除外(OPシートのグレー表示と同じ扱い・繰越先の日にだけ出す) */
+        const washTasks=sortedTasks.filter(t=>(t.type==="洗車"||t.type==="返却後洗車")&&!((t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown));
         const raitenTasks=sortedTasks.filter(t=>t.type==="来店"||t.type==="返却"||(t.type!=="PU"&&t.type!=="PUB"&&t.type!=="BD"&&t.type!=="BDB"&&t.type!=="DEL"&&t.type!=="COL"&&t.type!=="洗車"&&t.type!=="返却後洗車"&&t.type!=="その他"&&!t.manual&&!String(t._id||"").startsWith("other_")&&t.place&&/^(来店|店舗|店頭)$/.test(t.place.trim())));
         const pplSum=(arr)=>arr.reduce((s,t)=>s+(parseInt(t.people)||1),0);
         const doneSum=(arr)=>arr.filter(t=>t.done).length;
@@ -18308,8 +18309,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           {/* ★ バス便別乗車人数 / 便名未登録アラート は廃止（バス運用なし） */}
           {/* 時系列スケジュール */}
           {(()=>{
-            const timedWash=sortedTasks.filter(t=>t.type==="洗車"&&t.time);
-            const untimedWash=sortedTasks.filter(t=>t.type==="洗車"&&!t.time);
+            const timedWash=sortedTasks.filter(t=>t.type==="洗車"&&t.time&&!((t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown));
+            const untimedWash=sortedTasks.filter(t=>t.type==="洗車"&&!t.time&&!((t.type==="洗車"||t.type==="返却後洗車")&&t._nextDayWash&&!t._nextDayWashShown));
             const allSchedule=[...sortedTasks.filter(t=>t.type!=="洗車"&&t.type!=="CXL"&&!(t.type==="返却後洗車"&&t._nextDayWash&&!t._nextDayWashShown)),...timedWash].sort((a,b)=>{const ta=a.timeChange||a._ssTime||a.time||"99:99";const tb=b.timeChange||b._ssTime||b.time||"99:99";return ta.localeCompare(tb);});
             const washList=untimedWash;
             const timeGroups={};
@@ -24234,7 +24235,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.550-BT";
+const APP_VERSION="v1.0.551-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
