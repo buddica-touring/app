@@ -22255,6 +22255,8 @@ function App(){
     return {};
   });
   const[showOP,setShowOP]=useState(false);const[showFloatFleet,setShowFloatFleet]=useState(false);const[floatFleetSize,setFloatFleetSize]=useState("half");const[jalanPay,setJalanPay]=useState({});
+  /* ★2026-10-21 本部ダッシュボードから ?op=1 で開いたら、予約の読込後に OPシートを1回だけ開く（ボタンを押したのと同じ・?op 無しは従来どおり） */
+  useEffect(()=>{try{if(!window.__opAuto&&data.length>0&&new URLSearchParams(location.search).get("op")==="1"){window.__opAuto=true;setShowOP(true);}}catch(e){}},[data]);
   const[invStatus,setInvStatus]=useState({}); // ★ bt_inventory_status（TOP在庫調整タイルの未対応バッジ用）
   const _invMk=React.useCallback((r)=>({adj_airtrip:!!r.adj_airtrip,adj_official:!!r.adj_official,adj_rentacom:!!r.adj_rentacom,adj_jalan:!!r.adj_jalan,adj_tabirai:!!r.adj_tabirai,adj_official_hdm:!!r.adj_official_hdm,adj_rakuten:!!r.adj_rakuten,stock_released:!!r.stock_released}),[]);
   const _invReload=React.useCallback(async()=>{if(!sb)return;try{const{data:rows}=await sb.from("bt_inventory_status").select("*");if(!rows)return;const m={};rows.forEach(r=>{m[r.id]=_invMk(r);});setInvStatus(m);}catch(e){}},[sb,_invMk]);
@@ -24232,7 +24234,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.548-BT";
+const APP_VERSION="v1.0.549-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
