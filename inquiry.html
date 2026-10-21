@@ -1379,6 +1379,20 @@ function InboxView({staff}) {
     setToast(`🗑 ${ids.length}件削除しました`);
   };
 
+  // 一括の状態変更（選択した行の status だけを書く・問い合わせ管理 main と同じ）
+  const handleInboxBulkStatus = async (newStatus, label) => {
+    if (selected.size===0) return;
+    if (!confirm(`選択した ${selected.size} 件を「${label}」にしますか？`)) return;
+    const ids=[...selected];
+    const {error} = await sb.from('bt_inquiries').update({status:newStatus}).in('id',ids);
+    if (error) { setToast('⚠️ 更新に失敗しました'); return; }
+    setInqs(p=>p.map(i=>ids.includes(i.id)?{...i,status:newStatus}:i));
+    setSel(prev=> prev&&ids.includes(prev.id)?{...prev,status:newStatus}:prev);
+    setSelected(new Set()); setSelectMode(false);
+    setToast(`✅ ${ids.length}件を「${label}」にしました`);
+  };
+  const bulkBtn = (c,n)=>({fontSize:11,fontWeight:800,padding:'5px 10px',borderRadius:6,border:'1.5px solid '+c,background:n>0?'#fff':'#f1f5f9',color:n>0?c:'#cbd5e1',cursor:n>0?'pointer':'not-allowed',whiteSpace:'nowrap'});
+
   const filtered = inqs.filter(i=>{
     if (filter==='new')     return i.status==='new' || !i.status;
     if (filter==='prog')    return i.status==='in_progress';
@@ -1448,18 +1462,27 @@ function InboxView({staff}) {
               </button>
             </div>
             {selectMode && (
-              <div style={{display:'flex',gap:6,marginBottom:6,padding:'7px 10px',background:'#fef2f2',borderRadius:8,alignItems:'center'}}>
-                <button onClick={toggleInboxSelectAll}
-                  style={{fontSize:11,fontWeight:700,padding:'3px 9px',borderRadius:6,border:'1px solid #fca5a5',background:'white',color:'#ef4444',cursor:'pointer',whiteSpace:'nowrap'}}>
-                  {selected.size===filtered.length&&filtered.length>0?'✕ 全解除':'✓ 全選択'}
-                </button>
-                <span style={{fontSize:11,color:'#ef4444',fontWeight:600}}>{selected.size}件選択中</span>
-                <button onClick={handleInboxBulkDelete} disabled={selected.size===0}
-                  style={{marginLeft:'auto',fontSize:11,fontWeight:800,padding:'5px 13px',borderRadius:6,border:'none',
-                    background:selected.size>0?'#ef4444':'#fca5a5',color:'white',
-                    cursor:selected.size>0?'pointer':'not-allowed',whiteSpace:'nowrap'}}>
-                  🗑 {selected.size}件削除
-                </button>
+              <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:6,padding:'8px 10px',background:'#f1f5f9',borderRadius:8}}>
+                <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                  <button onClick={toggleInboxSelectAll}
+                    style={{fontSize:11,fontWeight:700,padding:'3px 9px',borderRadius:6,border:'1px solid #94a3b8',background:'white',color:'#475569',cursor:'pointer',whiteSpace:'nowrap'}}>
+                    {selected.size===filtered.length&&filtered.length>0?'✕ 全解除':'✓ 全選択'}
+                  </button>
+                  <span style={{fontSize:11,color:'#334155',fontWeight:700}}>{selected.size}件選択中</span>
+                </div>
+                <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                  <span style={{fontSize:10,color:'#94a3b8',fontWeight:800}}>一括変更 →</span>
+                  <button disabled={selected.size===0} onClick={()=>handleInboxBulkStatus('replied','完了')} style={bulkBtn('#16a34a',selected.size)}>✅ 完了</button>
+                  <button disabled={selected.size===0} onClick={()=>handleInboxBulkStatus('in_progress','対応中')} style={bulkBtn('#d97706',selected.size)}>🟡 対応中</button>
+                  <button disabled={selected.size===0} onClick={()=>handleInboxBulkStatus('pending','保留中')} style={bulkBtn('#64748b',selected.size)}>⏸ 保留</button>
+                  <button disabled={selected.size===0} onClick={()=>handleInboxBulkStatus('new','未対応')} style={bulkBtn('#ef4444',selected.size)}>🔴 未対応</button>
+                  <button onClick={handleInboxBulkDelete} disabled={selected.size===0}
+                    style={{marginLeft:'auto',fontSize:11,fontWeight:800,padding:'5px 11px',borderRadius:6,border:'none',
+                      background:selected.size>0?'#ef4444':'#fca5a5',color:'white',
+                      cursor:selected.size>0?'pointer':'not-allowed',whiteSpace:'nowrap'}}>
+                    🗑 {selected.size}件削除
+                  </button>
+                </div>
               </div>
             )}
             <input className="sb-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="名前・内容で検索..." type="search"/>
