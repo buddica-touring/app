@@ -47,12 +47,14 @@ const NOISE_TBL=new Set(['app_settings','nha_app_settings','bt_app_settings']);
 function isNoise(r){ if(NOISE_TBL.has(r.tbl))return true; const s=r.summary||''; if(/last_run|heartbeat|updated_at.*→/.test(s))return true; if(/v\d+\.\d+\.\d+/.test(s))return true; return false; }
 function jpField(k){k=(k||'').trim();return FLD_JP[k]||k;}
 function jpTbl(t){return TBL_JP[t]||t;}
+// ★security 2026-10-23: 監査ログ由来の値(変更前→後・予約番号・担当名・巡回メモ)は利用者入力を含むので、innerHTMLへ入れる前に必ず esc() を通す(保存型XSS対策)。
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function human(r){ // 一文で「何をしたか」
- const tbl=jpTbl(r.tbl);
+ const tbl=esc(jpTbl(r.tbl));
  if(r.op==='DELETE')return tbl+'を<b style="color:#ff9a9a">削除した</b>';
  if(r.op==='INSERT')return tbl+'を新規追加';
  if(r.op==='GENESIS')return tbl+'（初期記録）';
- let parts=(r.summary||'').split(' / ').map(p=>{const i=p.indexOf(':');if(i<0)return p;const k=p.slice(0,i);let rest=p.slice(i+1).trim();let m=rest.split('→');let oldv=(m[0]||'').trim()||'空', newv=(m[1]!==undefined?m[1].trim():'')||'空';return jpField(k)+'を「'+oldv+'」→「'+newv+'」に変更';}).filter(Boolean);
+ let parts=(r.summary||'').split(' / ').map(p=>{const i=p.indexOf(':');if(i<0)return esc(p);const k=p.slice(0,i);let rest=p.slice(i+1).trim();let m=rest.split('→');let oldv=(m[0]||'').trim()||'空', newv=(m[1]!==undefined?m[1].trim():'')||'空';return esc(jpField(k))+'を「'+esc(oldv)+'」→「'+esc(newv)+'」に変更';}).filter(Boolean);
  return tbl+'の '+(parts.join('、')||'更新');
 }
 // ★2026-10-03 プロジェクト整合: C.sb のref(sb-<ref>-auth-token)に一致するトークンだけ使う(別プロジェクトのトークンをBearer送信→401事故を根治)。不一致/未ログインはnull。
@@ -60,7 +62,7 @@ function _sbToken(){try{const ref=(new URL(C.sb).host.split('.')[0]||'');if(!ref
 let onlyWarn=false, showAll=false;
 async function rpc(fn,args){const tok=_sbToken();const H={apikey:C.anon,'Content-Type':'application/json'};if(tok)H.Authorization='Bearer '+tok;const r=await fetch(C.sb+'/rest/v1/rpc/'+fn,{method:'POST',headers:H,body:JSON.stringify(args||{})});if(!r.ok)throw new Error(fn+' '+r.status);return r.json();}
 function whoClass(w){w=(w||'').toLowerCase();if(w.indexOf('gatekeeper')>=0)return'gk';if(w==='customer'||w.indexOf('mypage')>=0)return'cust';if(w.indexOf('staff')===0)return'staff';return'mach';}
-function whoLabel(w){const c=whoClass(w);if(c==='gk')return'🛡️ 3号';if(c==='cust')return'👤 顧客';if(c==='staff'){const p=(w||'').split(':')[1];return '🧑‍🔧 '+(p||'スタッフ');}return'⚙️ システム';}
+function whoLabel(w){const c=whoClass(w);if(c==='gk')return'🛡️ 3号';if(c==='cust')return'👤 顧客';if(c==='staff'){const p=(w||'').split(':')[1];return '🧑‍🔧 '+esc(p||'スタッフ');}return'⚙️ システム';}
 function classify(r){const s=r.summary||'';const human=((r.who||'').indexOf('staff')===0||r.who==='customer');
  // 人間(スタッフ/顧客)の編集は正当=フラグしない。機械/システムの書込だけ疑う。
  if(r.op==='DELETE')return human?'':'warn';
@@ -85,14 +87,14 @@ async function load(){
   document.getElementById('stat').innerHTML='<span class="pill">📜 '+led.length+'件</span><span class="pill" style="color:#ff9a9a">⚠️ 足跡 '+nWarn+'</span><span class="pill" style="color:#e0a020">📅 移動 '+nMove+'</span><span class="pill" style="color:#4ade80">🛡️ 3号が戻した '+nGk+'</span>';
   let html='';
   items.slice(0,250).forEach(it=>{
-   if(it.kind==='act'){const a=it.a;let bd=(a.fixed>0?'<span class="badge" style="background:#0e9f50;color:#fff">戻した '+a.fixed+'件</span> ':'')+(a.reported>0?'<span class="badge" style="background:#e0a020;color:#000">要確認 '+a.reported+'件</span> ':'');if((a.fixed||0)+(a.reported||0)>0)bd+='正常化を実行';else bd=(a.note||'巡回・異常なし ✅');html+='<div class="row gk"><div class="t">'+tfmt(it.at)+'</div><div class="who gk">🛡️ 3号</div><div class="body">'+bd+'</div></div>';return;}
+   if(it.kind==='act'){const a=it.a;let bd=(a.fixed>0?'<span class="badge" style="background:#0e9f50;color:#fff">戻した '+esc(a.fixed)+'件</span> ':'')+(a.reported>0?'<span class="badge" style="background:#e0a020;color:#000">要確認 '+esc(a.reported)+'件</span> ':'');if((a.fixed||0)+(a.reported||0)>0)bd+='正常化を実行';else bd=esc(a.note||'巡回・異常なし ✅');html+='<div class="row gk"><div class="t">'+tfmt(it.at)+'</div><div class="who gk">🛡️ 3号</div><div class="body">'+bd+'</div></div>';return;}
    const r=it.r;const c=classify(r);if(onlyWarn&&c==='')return;
    if(r.op==='UPDATE'&&!(r.summary&&r.summary.trim())&&!showAll)return;
    const cls=whoClass(r.who);
-   html+='<div class="row '+c+'"><div class="t">'+tfmt(r.at)+'</div><div class="who '+cls+'">'+whoLabel(r.who)+'</div><div class="body">'+(c==='warn'?'<span class="badge" style="background:#e23b3b;color:#fff">足跡</span> ':'')+(c==='move'?'<span class="badge" style="background:#e0a020;color:#000">移動</span> ':'')+(r.resv&&r.resv!=='?'?'<span class="resv">〈'+r.resv+'〉</span>':'')+human(r)+'</div></div>';
+   html+='<div class="row '+c+'"><div class="t">'+tfmt(r.at)+'</div><div class="who '+cls+'">'+whoLabel(r.who)+'</div><div class="body">'+(c==='warn'?'<span class="badge" style="background:#e23b3b;color:#fff">足跡</span> ':'')+(c==='move'?'<span class="badge" style="background:#e0a020;color:#000">移動</span> ':'')+(r.resv&&r.resv!=='?'?'<span class="resv">〈'+esc(r.resv)+'〉</span>':'')+human(r)+'</div></div>';
   });
   feed.innerHTML=html||'<div class="empty">✅ 記録なし（この条件では動きなし）</div>';
- }catch(e){feed.innerHTML='<div class="empty">⚠️ 読めません（本体APPにログイン済みの端末で開いてください）<br>'+e.message+'</div>';}
+ }catch(e){feed.innerHTML='<div class="empty">⚠️ 読めません（本体APPにログイン済みの端末で開いてください）<br>'+esc(e&&e.message)+'</div>';}
 }
 document.getElementById('reload').onclick=load;
 document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')load();});
