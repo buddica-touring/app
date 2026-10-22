@@ -17174,6 +17174,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
         <div><OBadge ota={tooltip.ota}/> <span className="font-mono">{tooltip.id}</span></div>
         <div>貸出: {fmtD(tooltip.lendDate)} {tooltip.lendTime} / 返却: {fmtD(tooltip.returnDate)} {tooltip.returnTime}</div>
         <div>クラス: {tooltip.vehicle} / 補償: {tooltip.insurance}</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}><span style={{fontWeight:700,color:"#1e293b"}}>引継:</span><HandoverBtn rid={tooltip.id}/></div>{/* ★2026-10-22 配車表の予約ポップアップから引継(申し送り)を確認・記録 */}
         <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
           <span style={{fontWeight:700,color:"#1e293b"}}>配車:</span>
           <select value={tooltip.vc||""} onChange={e=>{const newVc=e.target.value;if(!newVc){if(!window.confirm("配車を解除しますか？"))return;const nf={...fleet};delete nf[tooltip.id];onFleetChange(nf);DB.deleteFleetOne(tooltip.id);setTooltip({...tooltip,vc:""});/* 配車解除→OPシートタスクもクリア */try{const r=data.find(x=>x.id===tooltip.id);if(r){const _clr=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks)return;const upd=tks.map(tk=>tk.reservationId===tooltip.id?{...tk,assignedVehicle:"",plateNo:""}:tk);if(JSON.stringify(upd)!==JSON.stringify(tks))DB.upsertTasks(upd,d);};const ld=norm(r.lendDate),rd=norm(r.returnDate);_clr(ld);if(rd!==ld)_clr(rd);_clr(dOff(ld,-1));}}catch(e){console.error("[fleet clear tasks]",e);}return;}const conflict=checkVehicleConflict(newVc,tooltip.id,data,fleet,maintenance);if(conflict){const cv=vehicles.find(x=>x.code===newVc);alert((cv?cv.name:newVc)+" は "+fmtD(conflict.lendDate)+"〜"+fmtD(conflict.returnDate)+" に「"+conflict.name+"」様の"+(conflict._isMaint?"メンテナンス":"予約")+"が入っているため変更できません。");return;}const targetV=vehicles.find(x=>x.code===newVc);if(!window.confirm("配車を「"+(targetV?targetV.name:newVc)+"」に変更しますか？"))return;markStaffAssigned(tooltip.id);if(onReassignVehicle){onReassignVehicle(tooltip.id,newVc);}else{onFleetChange({...fleet,[tooltip.id]:newVc});}setTooltip({...tooltip,vc:newVc});}} style={{border:"1px solid #d1d5db",borderRadius:6,padding:"3px 6px",fontSize:11,fontWeight:600,color:"#1d4ed8",flex:1}}>
@@ -24235,7 +24236,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.552-BT";
+const APP_VERSION="v1.0.553-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
