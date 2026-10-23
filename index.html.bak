@@ -6805,11 +6805,11 @@ function HandoverBtn({rid,compact}){
 }
 const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車"]; // 引き継ぎボタン対象(返却後洗車は除く)
 /* ★2026-10-16 🔧点検ボタン（タスクサマリー・アルバイト用 staff.html と同じ）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。
-   その車両1台だけの点検ページ（procurement.html・ログイン不要）を開く。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
+   その車両1台だけの点検ページ（inspection.html・ログイン不要・2026-10-23 procurement.html から独立）を開く。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
 function InspBtn({t,d}){
   const kind=t.type==="洗車"?"pre":(["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0?"post":"");
   if(!kind||!t.plateNo||!d)return null;
-  const u="procurement.html?insp="+kind+"&plate="+encodeURIComponent(t.plateNo)+"&d="+encodeURIComponent(d);
+  const u="inspection.html?insp="+kind+"&plate="+encodeURIComponent(t.plateNo)+"&d="+encodeURIComponent(d);
   return React.createElement("a",{href:u,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:kind==="pre"?"出発前点検":"返却後点検",style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",textDecoration:"none",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #93c5fd",marginLeft:3}},"🔧 点検");
 }
 function OdometerManager({vehicles}){
@@ -14333,7 +14333,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
       <TopIcon icon="🔧" label="OIL交換" badge={oilAlertCnt} subText={oilAlertCnt>0?"要確認":"正常"} color="#ea580c" alert={oilAlertCnt>0} onClick={()=>onOpenOil&&onOpenOil()}/>
       {(()=>{const today=new Date().toISOString().slice(0,10);const pend=(maintenance||[]).filter(m=>(m.status||"pending")!=="approved"&&((m.endDate||m.startDate||"")>=today)).length;
         return <TopIcon icon="🏭" label="入庫" badge={pend} subText={pend>0?"FIX待ち":"OK"} color="#7c3aed" alert={pend>0} onClick={()=>onOpenIntake&&onOpenIntake()}/>;})()}
-      <a href="https://buddica-touring.github.io/app/procurement.html" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
+      <a href="https://buddica-touring.github.io/app/inspection.html" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
         <TopIcon icon="🔧" label="点検" subText="↗ 開く" color="#2563eb" onClick={()=>{}}/>
       </a>
     </div>
@@ -24236,7 +24236,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.553-BT";
+const APP_VERSION="v1.0.554-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

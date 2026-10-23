@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>🔧 点検 | BUDDICA 高松</title>
+<meta name="robots" content="noindex">
+<!-- 2026-10-23 procurement.html の「🔧 点検」タブだけを独立させたページ（オーナー指示「点検だけ引越し・独立させて継続」）。
+     DB・RPC は procurement.html と同じ（bt_inspection_targets／bt_inspection_set／bt_inspection_photo_add／bt_inspection_photo_del）。
+     点検項目 INSP_ITEMS のキーは inspection-log.html と揃える。 -->
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#f1f5f9;color:#0f172a;font-size:14px}
+  .wrap{max-width:1760px;margin:0 auto;padding:10px}
+  h1{font-size:18px;margin:6px 0 2px;display:flex;align-items:center;gap:8px}
+  #st{position:fixed;bottom:12px;left:12px;right:auto;background:#0f172a;color:#fff;font-size:11px;padding:5px 10px;border-radius:8px;opacity:.85}
+  #reload{position:fixed;right:16px;bottom:16px;z-index:60;width:56px;height:56px;border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:24px;box-shadow:0 4px 12px rgba(37,99,235,.45);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #reload:active{transform:scale(.93)}
+  #reload.spin{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:640px){html,body{overscroll-behavior-x:none}#st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+/* 🔧 点検（スマホ前提） */
+#viewInsp{max-width:720px;margin:0 auto}
+.ins-seg{display:flex;gap:6px;margin:0 0 10px}
+.ins-kb{flex:1;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 6px;font-size:14px;font-weight:900;color:#475569;cursor:pointer}
+.insp-focus .wrap>h1,.insp-focus .tabs,.insp-focus .ins-seg{display:none!important}   /* タスクの「点検」ボタンから開いた時は1台の点検だけ */
+.ins-kb.on{background:#2563eb;color:#fff;border-color:#2563eb}   /* 出発前/返却後＝タブの下の切替（主タブと区別して青） */
+.ins-sum{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:#334155;margin:0 2px 8px}
+.ins-sum b{color:#16a34a;font-size:16px}
+.ins-day{font-size:13px;font-weight:900;color:#0f172a;margin:14px 2px 6px;display:flex;gap:6px;align-items:center}
+.ins-day .tg{background:#2563eb;color:#fff;border-radius:6px;padding:1px 7px;font-size:11px}
+.ins-card{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #94a3b8;border-radius:12px;margin:0 0 8px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ins-card.done{border-left-color:#16a34a;background:#f0fdf4}
+.ins-card.part{border-left-color:#f59e0b}
+.ins-hd{display:flex;align-items:center;gap:10px;padding:11px 12px;cursor:pointer}
+.ins-tm{font-size:17px;font-weight:900;color:#0f172a;min-width:58px}
+.ins-car{flex:1;min-width:0}
+.ins-car .nm{font-size:15px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ins-car .sb{font-size:11px;color:#64748b;font-weight:700;margin-top:1px}
+.ins-cb{display:inline-block;color:#fff;border-radius:4px;padding:0 6px;font-size:10px;font-weight:900;margin-right:4px}
+.ins-pg{font-size:12px;font-weight:900;border-radius:999px;padding:4px 10px;background:#f1f5f9;color:#475569;white-space:nowrap}
+.ins-card.done .ins-pg{background:#16a34a;color:#fff}
+.ins-card.part .ins-pg{background:#fef3c7;color:#92400e}
+.ins-bd{display:none;border-top:1px solid #eef2f7;padding:6px 12px 12px}
+.ins-card.open .ins-bd{display:block}
+.ins-it{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid #f1f5f9;font-size:15px;font-weight:700;color:#0f172a;cursor:pointer;-webkit-user-select:none;user-select:none}
+.ins-it input{width:26px;height:26px;flex:0 0 26px;accent-color:#16a34a;cursor:pointer}
+.ins-it.on{color:#166534}
+.ins-warn{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;margin:6px 0}
+.ins-ph{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px}
+.ins-ph .th{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;background:#e2e8f0}
+.ins-ph .th img{width:100%;height:100%;object-fit:cover;display:block}
+.ins-ph .th .x{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:14px;line-height:26px;padding:0;cursor:pointer}
+.ins-add{width:84px;height:84px;border:2px dashed #93c5fd;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:900;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.ins-add span{font-size:24px}
+.ins-memo{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:9px 10px;font-size:16px;font-family:inherit;min-height:46px;resize:vertical}
+.ins-who{font-size:11px;color:#94a3b8;margin-top:6px;text-align:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔧 点検</h1>
+  <div id="viewInsp">
+    <div class="ins-seg"><button class="ins-kb on" data-k="pre">🚗 出発前点検</button><button class="ins-kb" data-k="post">🔙 返却後点検</button></div>
+    <div id="inspBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
+    <input type="file" id="inspFile" accept="image/*" multiple style="display:none">
+  </div>
+</div>
+<button id="reload" title="最新に更新">🔄</button>
+<div id="st">接続中…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
+const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
+const $=id=>document.getElementById(id);
+function setStatus(t){$("st").textContent=t;}
+function fesc(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+// ===== 🔧 点検（出発前点検／返却後点検）・ログイン不要 =====
+// 予約番号は画面にもやり取りにも出さない。サーバが予約ごとに作る推測できない鍵 k だけで読み書きする（オーナー指示 2026-10-15）。
+// 読む＝bt_inspection_targets（日時・車両名・ナンバー・チェック・写真だけ）／書く＝bt_inspection_set（1チェック＝1行）・bt_inspection_photo_add／外す＝bt_inspection_photo_del（墓標）
+const INSP_ITEMS={
+  pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
+  post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"]]
+};
+let INSP={kind:"pre",resv:null,urls:{},open:new Set(),target:null};
+const jstDate=(off)=>{const d=new Date(Date.now()+9*3600e3+(off||0)*864e5);return d.toISOString().slice(0,10);};
+// ★2026-10-16 タスクの「点検」ボタンから開いた時＝その1台だけ表示（?insp=pre|post&plate=ナンバー&d=タスク日）。
+//   出発前＝洗車タスクの日以降で最初に出発する予約／返却後＝返却タスクの日以降で最初に返却する予約（同じナンバー）。予約番号はURLに出さない。
+const INSP_FOCUS=(()=>{try{const q=new URLSearchParams(location.search);const k=q.get("insp"),p=(q.get("plate")||"").trim(),d=q.get("d")||"";
+  if((k==="pre"||k==="post")&&p&&/^\d{4}-\d{2}-\d{2}$/.test(d))return {kind:k,plate:p,d};}catch(e){}return null;})();
+if(INSP_FOCUS){INSP.kind=INSP_FOCUS.kind;document.documentElement.classList.add("insp-focus");}
+async function loadInspFocus(){
+  const f=INSP_FOCUS, lo=jstDate(-14), hi=jstDate(31);
+  const from=f.d<lo?lo:f.d, to0=new Date(Date.parse(from+"T00:00:00Z")+7*864e5).toISOString().slice(0,10), to=to0>hi?hi:to0;
+  const {data,error}=await sb.rpc("bt_inspection_targets",{p_kind:f.kind,p_from:from,p_to:to});
+  if(error){$("inspBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(error.message)+'</div>';return;}
+  const dk=f.kind==="pre"?"start_date":"end_date", tk=f.kind==="pre"?"start_time":"end_time";
+  const hit=(data||[]).filter(r=>String(r.plate_no||"")===f.plate&&String(r[dk]||"")>=f.d)
+    .sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")))[0];
+  INSP.resv={pre:[],post:[]}; if(hit){INSP.resv[f.kind]=[hit];INSP.open.add(hit.k+"|"+f.kind);}
+  renderInsp();
+}
+async function loadInsp(){
+  $("inspBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
+  if(INSP_FOCUS)return loadInspFocus();
+  const [pr,po]=await Promise.all([
+    sb.rpc("bt_inspection_targets",{p_kind:"pre",p_from:jstDate(0),p_to:jstDate(6)}),
+    sb.rpc("bt_inspection_targets",{p_kind:"post",p_from:jstDate(-1),p_to:jstDate(6)})]);
+  const err=pr.error||po.error;
+  if(err){$("inspBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(err.message)+'</div>';return;}
+  INSP.resv={pre:pr.data||[],post:po.data||[]};
+  renderInsp();
+}
+function inspRow(k,kind){return (INSP.resv&&INSP.resv[kind]||[]).find(x=>x.k===k);}
+function inspProg(r){const items=INSP_ITEMS[INSP.kind];let n=0;items.forEach(([key])=>{const c=(r.checks||{})[key];if(c&&c.checked)n++;});return {n,t:items.length};}
+// 写真の表示用URL（点検・タイヤ共通）：一覧は縮小版（1枚 約6KB・元画像は約500KB）、タップで元画像。有効6時間・5時間たったら取り直す（期限切れで画像が出なくなるのを防ぐ）
+const PH_CACHE={};
+function phNeed(bucket,paths){const now=Date.now();return paths.filter(p=>{const c=PH_CACHE[bucket+"/"+p];return !c||now-c.t>5*3600e3;});}
+function phUrl(bucket,p,kind){const c=PH_CACHE[bucket+"/"+p];return c?c[kind]:"";}
+async function phSign(bucket,paths){
+  const need=phNeed(bucket,paths); if(!need.length)return 0;
+  const st=sb.storage.from(bucket), now=Date.now(), full={};
+  const {data}=await st.createSignedUrls(need,21600);
+  (data||[]).forEach(d=>{if(d.signedUrl&&d.path)full[d.path]=d.signedUrl;});
+  let n=0; const q=need.slice();
+  const worker=async()=>{while(q.length){const p=q.shift();let th="";try{const r=await st.createSignedUrl(p,21600,{transform:{width:240,height:240,resize:"cover",quality:70}});th=(r.data&&r.data.signedUrl)||"";}catch(e){}
+    if(full[p]||th){PH_CACHE[bucket+"/"+p]={full:full[p]||th,thumb:th||full[p],t:now};n++;}}};
+  await Promise.all([0,1,2,3,4,5].map(worker));
+  return n;
+}
+function inspSignUrls(paths){return phSign("bt-inspections",paths);}
+let INSP_LOADING=false;
+function renderInsp(){
+  if(!INSP.resv){if(!INSP_LOADING){INSP_LOADING=true;loadInsp().finally(()=>{INSP_LOADING=false;});}return;}
+  const k=INSP.kind, dk=k==="pre"?"start_date":"end_date", tk=k==="pre"?"start_time":"end_time";
+  document.querySelectorAll(".ins-kb").forEach(b=>b.classList.toggle("on",b.dataset.k===k));
+  const list=INSP.resv[k].slice().sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")));
+  const done=list.filter(r=>{const p=inspProg(r);return p.n===p.t;}).length;
+  const t0=jstDate(0),t1=jstDate(1),tm=jstDate(-1), WD="日月火水木金土";
+  let html=INSP_FOCUS?'<div class="ins-sum" style="font-size:16px"><span>'+(k==="pre"?"🚗 出発前点検":"🔙 返却後点検")+'</span><span>'+fesc(INSP_FOCUS.plate)+'</span></div>'
+    :'<div class="ins-sum"><span>'+(k==="pre"?"🕘 出発順（今日〜7日間）":"🕘 返却順（昨日〜7日間）")+'</span><span>完了 <b>'+done+'</b> / '+list.length+' 台</span></div>';
+  if(!list.length)html+='<div style="color:#94a3b8;padding:20px;text-align:center">'+(INSP_FOCUS?"この車両の"+(k==="pre"?"出発":"返却")+"予定が見つかりません（配車が変わった可能性があります）":"対象の車両はありません")+'</div>';
+  let prev="";const paths=[];
+  list.forEach(r=>{
+    const d=r[dk]||"";
+    if(d!==prev){prev=d;const tg=d===t0?"今日":d===t1?"明日":d===tm?"昨日":"";html+='<div class="ins-day">'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'（'+WD[new Date(d+"T00:00:00Z").getUTCDay()]+'）'+(tg?'<span class="tg">'+tg+'</span>':'')+'</div>';}
+    const p=inspProg(r), open=INSP.open.has(r.k+"|"+k), st=p.n===p.t?"done":(p.n>0?"part":"");
+    const cls=r.vtype||"", hdm=String(r.brand||"").toUpperCase()==="HDM";
+    html+='<div class="ins-card '+st+(open?" open":"")+'" data-r="'+fesc(r.k)+'"><div class="ins-hd"><div class="ins-tm">'+fesc(r[tk]||"--:--")+'</div><div class="ins-car"><div class="nm">'+fesc(r.vehicle_name||"未配車")+(r.plate_no?' <span style="font-weight:900">'+fesc(r.plate_no)+'</span>':'')+'</div><div class="sb">'+(cls?'<span class="ins-cb" style="background:'+((typeof M_CLSCOLOR!=="undefined"&&M_CLSCOLOR[cls])||"#64748b")+'">'+fesc(cls)+'</span>':'')+'<span class="ins-cb" style="background:'+(hdm?"#1d4ed8":"#047857")+'">'+(hdm?"HDM":"BTC")+'</span></div></div><span class="ins-pg">'+(p.n===p.t?"✅ 完了":p.n+" / "+p.t)+'</span></div>';
+    if(open){
+      html+='<div class="ins-bd">';
+      const chg=INSP_ITEMS[k].map(([key])=>(r.checks||{})[key]).find(c=>c&&c.checked&&c.vehicle_code&&r.vehicle_code&&c.vehicle_code!==r.vehicle_code);
+      if(chg)html+='<div class="ins-warn">⚠️ 点検後に配車が変わりました（点検した車：'+fesc(chg.vehicle_code)+'）</div>';
+      if(!r.vehicle_code)html+='<div class="ins-warn">未配車です。配車後に点検してください。</div>';
+      INSP_ITEMS[k].forEach(([key,lb])=>{const c=(r.checks||{})[key];const on=!!(c&&c.checked);
+        html+='<label class="ins-it'+(on?" on":"")+'"><input type="checkbox" data-ik="'+key+'"'+(on?" checked":"")+'>'+fesc(lb)+'</label>';});
+      html+='<div class="ins-ph">'+(r.photos||[]).map(ph=>{paths.push(ph.path);const u=phUrl("bt-inspections",ph.path,"full"),tu=phUrl("bt-inspections",ph.path,"thumb");return '<div class="th">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(tu)+'" alt="" loading="lazy" decoding="async"></a>':'')+'<button class="x" data-del="'+fesc(ph.id)+'" title="写真を外す">✕</button></div>';}).join("")+'<button class="ins-add" data-add="1"><span>📷</span>写真</button></div>';
+      const memo=(r.checks||{})._memo;
+      html+='<textarea class="ins-memo" data-memo="1" rows="2" placeholder="メモ（気づいた点など）">'+fesc(memo&&memo.note||"")+'</textarea>';
+      const last=Object.values(r.checks||{}).sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)))[0];
+      if(last)html+='<div class="ins-who">最終更新 '+new Date(last.updated_at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  $("inspBody").innerHTML=html;
+  if(phNeed("bt-inspections",paths).length)inspSignUrls(paths).then(n=>{const ae=document.activeElement;if(n>0&&!(ae&&ae.dataset&&ae.dataset.memo))renderInsp();});   // 写真の表示用URL（1時間有効）を取ってから描き直す
+}
+async function inspSave(key,kind,item,checked,note){
+  const {data,error}=await sb.rpc("bt_inspection_set",{p_k:key,p_kind:kind,p_item:item,p_checked:checked,p_note:note});
+  if(error){alert("保存できませんでした："+error.message);return false;}
+  const r=inspRow(key,kind); if(r&&data){r.checks=r.checks||{};r.checks[item]=data;}
+  return true;
+}
+// 画像は長辺1600pxのJPEGに縮小してから保存（通信量・容量を抑える）。縮小できない形式はそのまま。
+function inspShrink(file){return new Promise(res=>{try{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const m=1600,s=Math.min(1,m/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>res(b||file),"image/jpeg",0.82);};img.onerror=()=>{URL.revokeObjectURL(u);res(file);};img.src=u;}catch(e){res(file);}});}
+$("inspFile").addEventListener("change",async e=>{
+  const files=[...(e.target.files||[])]; e.target.value=""; const tg=INSP.target; if(!tg||!files.length)return;
+  let ok=0;
+  for(let i=0;i<files.length;i++){
+    setStatus("写真を保存中… "+(i+1)+"/"+files.length);
+    const blob=await inspShrink(files[i]);
+    if(blob===files[i]&&!/^image\/(jpeg|png|webp)$/.test(files[i].type||"")){alert("この形式の写真は保存できません（JPEG/PNGで撮り直してください）");continue;}   // HEIC等を縮小できない端末では保存しない（他端末で表示できないため）
+    const ext=blob.type==="image/png"?"png":blob.type==="image/webp"?"webp":"jpg";
+    const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+"_"+Math.random().toString(36).slice(2,10));
+    const path=tg.k+"/"+tg.kind+"/"+uid+"."+ext;
+    const up=await sb.storage.from("bt-inspections").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:false});
+    if(up.error){alert("写真を保存できませんでした："+up.error.message);continue;}
+    const {data,error}=await sb.rpc("bt_inspection_photo_add",{p_k:tg.k,p_kind:tg.kind,p_path:path});
+    if(error){alert("写真の記録に失敗しました："+error.message);continue;}
+    const r=inspRow(tg.k,tg.kind); if(r){r.photos=r.photos||[];r.photos.push({id:data,path});} ok++;
+  }
+  setStatus("写真 "+ok+"枚を保存しました"); renderInsp();
+});
+$("viewInsp").addEventListener("click",async e=>{
+  const kb=e.target.closest(".ins-kb"); if(kb){INSP.kind=kb.dataset.k;renderInsp();return;}
+  const card=e.target.closest(".ins-card"); if(!card)return; const key=card.dataset.r, kind=INSP.kind, ok=key+"|"+kind;
+  if(e.target.closest(".ins-hd")){if(INSP.open.has(ok))INSP.open.delete(ok);else INSP.open.add(ok);renderInsp();return;}
+  const add=e.target.closest("[data-add]"); if(add){INSP.target={k:key,kind};$("inspFile").click();return;}
+  const del=e.target.closest("[data-del]"); if(del){e.preventDefault();if(!confirm("この写真を外しますか？"))return;
+    const {error}=await sb.rpc("bt_inspection_photo_del",{p_k:key,p_photo:del.dataset.del});
+    if(error){alert("外せませんでした："+error.message);return;}
+    const r=inspRow(key,kind); if(r)r.photos=(r.photos||[]).filter(p=>p.id!==del.dataset.del); renderInsp(); return;}
+});
+$("viewInsp").addEventListener("change",async e=>{
+  const t=e.target, card=t.closest(".ins-card"); if(!card)return; const key=card.dataset.r, kind=INSP.kind;
+  if(t.dataset.ik){const lb=t.closest(".ins-it");lb.classList.toggle("on",t.checked);
+    if(!(await inspSave(key,kind,t.dataset.ik,t.checked,null))){t.checked=!t.checked;lb.classList.toggle("on",t.checked);return;}
+    const r=inspRow(key,kind), p=inspProg(r); const pg=card.querySelector(".ins-pg"); if(pg)pg.textContent=p.n===p.t?"✅ 完了":p.n+" / "+p.t;
+    card.classList.toggle("done",p.n===p.t);card.classList.toggle("part",p.n>0&&p.n<p.t);
+    const sm=$("inspBody").querySelector(".ins-sum b");if(sm)sm.textContent=INSP.resv[kind].filter(x=>{const q=inspProg(x);return q.n===q.t;}).length;
+  } else if(t.dataset.memo){ inspSave(key,kind,"_memo",null,String(t.value||"")).then(ok=>{if(ok)setStatus("メモを保存しました");}); }
+});
+// 他の人のチェックは 🔄（右下）か タブの切替で最新に（ログイン不要のためリアルタイム購読はしない）
+$("reload").addEventListener("click",()=>{ if($("viewInsp").style.display!=="none"){INSP.resv=null;renderInsp();} });
+renderInsp();
+</script>
+</body>
+</html>
