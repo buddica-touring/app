@@ -23420,6 +23420,10 @@ function App(){
                   // ★ 2026-05-10: 翌日タスクサマリーもチェック実装
                   const _toggleDone2=async function(_t){
                     const _newDone=!_t.done;
+                    // ★2026-10-23 3店統一：翌日欄も洗車は出発前点検 全項目チェックまで完了不可（今日欄 _toggleDone と同じ）
+                    if(_newDone&&_t.type==="洗車"&&_t.plateNo){const _ic=await btInspPreCount(_t.plateNo,dateStr);
+                      if(_ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
+                      if(_ic&&_ic.n<_ic.t){alert("🔧 出発前点検が "+_ic.n+" / "+_ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}}
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
@@ -24262,7 +24266,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.556-BT";
+const APP_VERSION="v1.0.557-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
