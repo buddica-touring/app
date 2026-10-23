@@ -166,7 +166,7 @@ function taskCard(x){
   var btns='<div class="r3">';
   /* ★2026-10-16 🔧点検：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。その車両1台だけの点検ページを開く（返却後洗車は対象外） */
   if(x.plate&&x.date&&(saIsWash(t)||saIsRet(t))){
-    btns+='<a class="abtn" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;text-decoration:none" href="inspection.html?insp='+(saIsWash(t)?'pre':'post')+'&plate='+encodeURIComponent(x.plate)+'&d='+encodeURIComponent(x.date)+'" target="_blank" rel="noopener">🔧 点検</a>';
+    btns+='<a class="abtn" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;text-decoration:none" href="inspection.html?insp='+(saIsWash(t)?'pre':'post')+'&plate='+encodeURIComponent(x.plate)+'&d='+encodeURIComponent(x.date)+'" onclick="return saInspOpen(this.href)">🔧 点検</a>';
   }
   btns+=odoRow;
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
@@ -243,9 +243,33 @@ window.saOdo=function(tid,isWash){
     })
     .catch(function(){alert("⚠️ 通信エラー。電波を確認してください");});
 };
-window.saDone=function(tid){
+/* ★2026-10-23 3店統一（オーナー確定）：🔧点検はこのページの中で開く（別タブにしない）／洗車は出発前点検 全項目チェックまで完了不可 */
+window.saInspOpen=function(u){
+  var ov=document.getElementById("saInspOv");
+  if(!ov){ov=document.createElement("div");ov.id="saInspOv";ov.style.cssText="position:fixed;inset:0;z-index:9999;background:#f1f5f9;display:flex;flex-direction:column";
+    ov.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#0f172a;color:#fff;font-weight:800;font-size:15px"><span>🔧 点検</span><button onclick="saInspClose()" style="border:none;background:#fff;color:#0f172a;border-radius:8px;padding:6px 14px;font-weight:900;font-size:14px">✕ 閉じる</button></div><iframe id="saInspFr" style="flex:1;width:100%;border:none" title="点検"></iframe>';
+    document.body.appendChild(ov);}
+  document.getElementById("saInspFr").src=u+(u.indexOf("?")>=0?"&":"?")+"embed=1";ov.style.display="flex";return false;
+};
+window.saInspClose=function(){var ov=document.getElementById("saInspOv");if(ov){ov.style.display="none";document.getElementById("saInspFr").src="about:blank";}};
+var SA_INSP_PRE=["exterior","interior","fuel","washer","oil","coolant","tire_air","lights","warning","aircon","docs"];
+function saInspPre(tk){ /* 戻り値 {n,t}／null＝対象の出発予約なし／-1＝読めない */
+  if(!tk||!tk.plate||!/^\d{4}-\d{2}-\d{2}$/.test(tk.date||""))return Promise.resolve(null);
+  var to=new Date(Date.parse(tk.date+"T00:00:00Z")+7*864e5).toISOString().slice(0,10);
+  return fetch(SB+"/rest/v1/rpc/bt_inspection_targets",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_kind:"pre",p_from:tk.date,p_to:to})})
+    .then(function(r){if(!r.ok)throw 0;return r.json();})
+    .then(function(a){var hit=(a||[]).filter(function(r){return String(r.plate_no||"")===String(tk.plate)&&String(r.start_date||"")>=tk.date;})
+      .sort(function(x,y){return String(x.start_date).localeCompare(String(y.start_date))||String(x.start_time||"99").localeCompare(String(y.start_time||"99"));})[0];
+      if(!hit)return null;var n=SA_INSP_PRE.filter(function(k){var c=(hit.checks||{})[k];return c&&c.checked;}).length;return {n:n,t:SA_INSP_PRE.length};})
+    .catch(function(){return -1;});
+}
+window.saDone=function(tid,_inspOk){
   /* ② 距離未登録ガード：洗車=出発 / 返却=返却 が未記録なら完了不可 */
   var tk=saFindTask(tid);
+  if(tk&&saIsWash(tk.type)&&!_inspOk){saInspPre(tk).then(function(ic){
+      if(ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
+      if(ic&&ic.n<ic.t){alert("🔧 出発前点検が "+ic.n+" / "+ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}
+      window.saDone(tid,true);});return;}
   if(tk&&tk.resv){
     if(saIsWash(tk.type)&&tk.start_odo==null){alert("先に「📏 距離」（出発メーター）を登録してください");return;}
     if(saIsRet(tk.type)&&tk.end_odo==null){alert("先に「📏 距離」（返却メーター）を登録してください");return;}

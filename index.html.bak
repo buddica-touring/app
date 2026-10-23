@@ -6806,6 +6806,24 @@ function HandoverBtn({rid,compact}){
 const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車"]; // 引き継ぎボタン対象(返却後洗車は除く)
 /* ★2026-10-16 🔧点検ボタン（タスクサマリー・アルバイト用 staff.html と同じ）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。
    その車両1台だけの点検を APP 内の「🔧点検」画面（tab=tenken・inspection.html を埋め込み）で開く（2026-10-23 オーナー指示「APPの中の機能として」）。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
+/* ★2026-10-23 3店統一（オーナー確定）：洗車は出発前点検（11項目）を全部チェックするまで完了不可。
+   車両はナンバー＋タスク日で、その日以降に最初に出発する予約を引く（点検ページの1台表示と同じ）。
+   戻り値 {n,t}＝点検数／null＝対象の出発予約なし（点検対象なし→完了可）／-1＝読めない（安全側＝完了させない） */
+const BT_INSP_PRE_KEYS=["exterior","interior","fuel","washer","oil","coolant","tire_air","lights","warning","aircon","docs"];
+async function btInspPreCount(plate,d){
+  try{
+    if(!plate||!/^\d{4}-\d{2}-\d{2}$/.test(d||""))return null;
+    const _sb=(typeof sb!=="undefined"?sb:null); if(!_sb)return -1;
+    const to=new Date(Date.parse(d+"T00:00:00Z")+7*864e5).toISOString().slice(0,10);
+    const {data,error}=await _sb.rpc("bt_inspection_targets",{p_kind:"pre",p_from:d,p_to:to});
+    if(error)return -1;
+    const hit=(data||[]).filter(r=>String(r.plate_no||"")===String(plate)&&String(r.start_date||"")>=d)
+      .sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))||String(a.start_time||"99").localeCompare(String(b.start_time||"99")))[0];
+    if(!hit)return null;
+    const n=BT_INSP_PRE_KEYS.filter(k=>{const c=(hit.checks||{})[k];return c&&c.checked;}).length;
+    return {n,t:BT_INSP_PRE_KEYS.length};
+  }catch(e){return -1;}
+}
 function InspBtn({t,d}){
   const kind=t.type==="洗車"?"pre":(["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0?"post":"");
   if(!kind||!t.plateNo||!d)return null;
@@ -23249,6 +23267,10 @@ function App(){
                   // ★ 2026-05-10: タスクサマリーのチェックボックス機能実装（旧コードは onClick 欠落）
                   const _toggleDone=async function(_t){
                     const _newDone=!_t.done;
+                    // ★2026-10-23 3店統一：洗車は出発前点検 全項目チェックまで完了不可（読めない時も完了させない）
+                    if(_newDone&&_t.type==="洗車"&&_t.plateNo){const _ic=await btInspPreCount(_t.plateNo,dateStr);
+                      if(_ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
+                      if(_ic&&_ic.n<_ic.t){alert("🔧 出発前点検が "+_ic.n+" / "+_ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}}
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     // 楽観的UI更新
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
@@ -24240,7 +24262,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.555-BT";
+const APP_VERSION="v1.0.556-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
