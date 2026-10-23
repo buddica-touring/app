@@ -6805,12 +6805,12 @@ function HandoverBtn({rid,compact}){
 }
 const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車"]; // 引き継ぎボタン対象(返却後洗車は除く)
 /* ★2026-10-16 🔧点検ボタン（タスクサマリー・アルバイト用 staff.html と同じ）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。
-   その車両1台だけの点検ページ（inspection.html・ログイン不要・2026-10-23 procurement.html から独立）を開く。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
+   その車両1台だけの点検を APP 内の「🔧点検」画面（tab=tenken・inspection.html を埋め込み）で開く（2026-10-23 オーナー指示「APPの中の機能として」）。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
 function InspBtn({t,d}){
   const kind=t.type==="洗車"?"pre":(["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0?"post":"");
   if(!kind||!t.plateNo||!d)return null;
   const u="inspection.html?insp="+kind+"&plate="+encodeURIComponent(t.plateNo)+"&d="+encodeURIComponent(d);
-  return React.createElement("a",{href:u,target:"_blank",rel:"noopener",onClick:e=>e.stopPropagation(),title:kind==="pre"?"出発前点検":"返却後点検",style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",textDecoration:"none",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #93c5fd",marginLeft:3}},"🔧 点検");
+  return React.createElement("a",{href:u,target:"_blank",rel:"noopener",onClick:e=>{e.stopPropagation();if(window.__btOpenInsp){e.preventDefault();window.__btOpenInsp(u.split("?")[1]);}},title:kind==="pre"?"出発前点検":"返却後点検",style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",textDecoration:"none",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #93c5fd",marginLeft:3}},"🔧 点検");
 }
 function OdometerManager({vehicles}){
   // Slack Bot Token: localStorage に運用環境で設定（公開リポにハードコードしない）
@@ -14250,7 +14250,7 @@ function PaymentSection({sqfRefreshKey,onOpenSqFailed,setTab}){
     {expanded==="jalan"&&<div style={{marginTop:6}}><NhaJalanPaymentWidget onGoJalan={()=>setTab&&setTab("jalanpay")}/></div>}
   </div>;
 }
-function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,onOpenIntake,onOpenMypage}){
+function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,onOpenIntake,onOpenMypage,onOpenInsp}){
   const[expanded,setExpanded]=useState(null);
   const[oilAlertCnt,setOilAlertCnt]=useState(0);
   useEffect(()=>{
@@ -14333,9 +14333,7 @@ function BusinessSection({data,vehicles,fleet,maintenance,onOpenBus,onOpenOil,on
       <TopIcon icon="🔧" label="OIL交換" badge={oilAlertCnt} subText={oilAlertCnt>0?"要確認":"正常"} color="#ea580c" alert={oilAlertCnt>0} onClick={()=>onOpenOil&&onOpenOil()}/>
       {(()=>{const today=new Date().toISOString().slice(0,10);const pend=(maintenance||[]).filter(m=>(m.status||"pending")!=="approved"&&((m.endDate||m.startDate||"")>=today)).length;
         return <TopIcon icon="🏭" label="入庫" badge={pend} subText={pend>0?"FIX待ち":"OK"} color="#7c3aed" alert={pend>0} onClick={()=>onOpenIntake&&onOpenIntake()}/>;})()}
-      <a href="https://buddica-touring.github.io/app/inspection.html" target="_blank" rel="noopener" style={{textDecoration:"none"}}>
-        <TopIcon icon="🔧" label="点検" subText="↗ 開く" color="#2563eb" onClick={()=>{}}/>
-      </a>
+      <TopIcon icon="🔧" label="点検" subText="出発前/返却後" color="#2563eb" onClick={()=>onOpenInsp&&onOpenInsp()}/>
     </div>
     {expanded==="rec"&&<div style={{marginTop:6}}><TopRecentWidget/></div>}
     {expanded==="cxl"&&<div style={{marginTop:6}}><CancelListWidget onClose={()=>setExpanded(null)}/></div>}
@@ -22239,6 +22237,8 @@ function App(){
   },[data]);
   const setTab=useCallback((newTab)=>{setTab_(prev=>{if(prev&&prev!==newTab){setTabHistory(h=>[...h,prev].slice(-20));}return newTab;});},[]);
   React.useEffect(()=>{window.__btSetTab=setTab;return()=>{if(window.__btSetTab===setTab)window.__btSetTab=null;};},[setTab]);
+  const[inspQ,setInspQ]=useState(""); // ★2026-10-23 🔧点検（APP内画面）：""=一覧／"insp=..&plate=..&d=.."=タスクから1台
+  React.useEffect(()=>{window.__btOpenInsp=function(q){setInspQ(q||"");setTab("tenken");};return()=>{window.__btOpenInsp=null;};},[setTab]);
   const goBack=useCallback(()=>{setTabHistory(h=>{if(h.length===0)return h;const prev=h[h.length-1];setTab_(prev);return h.slice(0,-1);});},[]);
   const today=toLD(new Date());const importingRef=useRef(false);
   const[fleet,setFleet_]=useState({});const[unassignedReasons,setUnassignedReasons]=useState({});
@@ -23043,7 +23043,7 @@ function App(){
                 {id:"todo",ico:"✅",l:"タスク管理",desc:"目標・担当タスク・進捗・個人/チーム評価"},
                 {id:"board",ico:"📢",l:"お知らせ",desc:"店舗ルールやNotionのやり方を全員へ周知。新着バッジ＋既読チェック(誰が確認したか)"},
                 {id:"cust_flow",ico:"🧑‍🤝‍🧑",l:"お客様対応",desc:"空港ピックアップ〜出発の手順（免許/約款 完了済み・未完了の2フロー）スタッフマニュアル",external:true,url:"customer-flow-staff.html"},
-                {id:"insp_log",ico:"🔧",l:"点検記録",desc:"出発前点検・返却後点検のチェック記録（未チェック項目・メモ・写真）を見るだけの一覧。チェックは車両進捗管理の🔧点検で行う",external:true,url:"inspection-log.html"},
+                {id:"insp_log",ico:"🔧",l:"点検記録",desc:"出発前点検・返却後点検のチェック記録（未チェック項目・メモ・写真）を見るだけの一覧。チェックはTOPの🔧点検で行う",external:true,url:"inspection-log.html"},
                 {id:"houserules",ico:"🏪",l:"店舗ルール",desc:"日常業務・衛生・車両管理（開店/閉店/清掃/点検の共通ルール）",external:true,url:"houserules.html"},
                 {id:"notif_list",ico:"📣",l:"自動通知一覧",desc:"お客様へ自動送信するメール全7通（予約確定〜御礼）のタイミング・対象・内容を一覧で確認",external:true,url:"bt-notifications.html"},
                 {id:"mypage_admin",ico:"🃏",l:"マイページ管理",external:true,url:"https://rent-handyman.com/mypage-admin.html?bucket=but_tkm",desc:"全店マイページ管理ダッシュボード（未処理/承認/却下/確認済み・共通PIN）"},
@@ -23662,7 +23662,7 @@ function App(){
               <PaymentSection sqfRefreshKey={sqFailedRefreshKey} onOpenSqFailed={()=>setShowSqFailed(true)} setTab={setTab}/>
               {/* ===== 📊 業務 / 関連APP（4アイコン） ===== */}
               <TopSectionTitle icon="📊" title="業務 / 関連APP"/>
-              <BusinessSection onOpenMypage={()=>setTab("mypage_today")} data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")}/>
+              <BusinessSection onOpenMypage={()=>setTab("mypage_today")} data={data} vehicles={vehicles} fleet={fleet} maintenance={maintenance} onOpenBus={()=>{}} onOpenOil={()=>setTab("vehicle")} onOpenIntake={()=>setTab("intake")} onOpenInsp={()=>{setInspQ("");setTab("tenken");}}/>
               {/* ===== 🛠 日常業務以下 アイコングリッド統一 ===== */}
               {sections.map(function(sec){
                 const sectionIco={"運営":"🏛","日常業務":"🛠","スタッフ管理":"👥","会計":"💰","データ・分析":"📈","設定":"⚙️"}[sec.title]||"📌";
@@ -23785,6 +23785,10 @@ function App(){
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
           {tab==="mileage"&&<MileageLogTab sb={sb}/>}
+          {tab==="tenken"&&<div style={{padding:"0 0 16px"}}>
+            {inspQ&&<div style={{marginBottom:6}}><button onClick={()=>setInspQ("")} style={{padding:"4px 12px",fontSize:12,fontWeight:700,color:"#1d4ed8",background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:8,cursor:"pointer"}}>🔧 点検の一覧を見る</button></div>}
+            <iframe key={inspQ||"all"} src={`./inspection.html?embed=1${inspQ?"&"+inspQ:""}&v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}} title="点検"/>
+          </div>}
           {tab==="intake"&&<div style={{padding:"0 0 16px"}}>
             <iframe src={`./intake.html?v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}}/>
           </div>}
@@ -24236,7 +24240,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.554-BT";
+const APP_VERSION="v1.0.555-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

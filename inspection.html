@@ -24,6 +24,7 @@
 .ins-seg{display:flex;gap:6px;margin:0 0 10px}
 .ins-kb{flex:1;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 6px;font-size:14px;font-weight:900;color:#475569;cursor:pointer}
 .insp-focus .wrap>h1,.insp-focus .tabs,.insp-focus .ins-seg{display:none!important}   /* タスクの「点検」ボタンから開いた時は1台の点検だけ */
+.embed .wrap>h1{display:none}   /* APP 内（tab=tenken）に埋め込んだ時は見出しなし */
 .ins-kb.on{background:#2563eb;color:#fff;border-color:#2563eb}   /* 出発前/返却後＝タブの下の切替（主タブと区別して青） */
 .ins-sum{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:#334155;margin:0 2px 8px}
 .ins-sum b{color:#16a34a;font-size:16px}
@@ -90,6 +91,7 @@ const jstDate=(off)=>{const d=new Date(Date.now()+9*3600e3+(off||0)*864e5);retur
 const INSP_FOCUS=(()=>{try{const q=new URLSearchParams(location.search);const k=q.get("insp"),p=(q.get("plate")||"").trim(),d=q.get("d")||"";
   if((k==="pre"||k==="post")&&p&&/^\d{4}-\d{2}-\d{2}$/.test(d))return {kind:k,plate:p,d};}catch(e){}return null;})();
 if(INSP_FOCUS){INSP.kind=INSP_FOCUS.kind;document.documentElement.classList.add("insp-focus");}
+try{if(new URLSearchParams(location.search).get("embed")==="1")document.documentElement.classList.add("embed");}catch(e){}
 async function loadInspFocus(){
   const f=INSP_FOCUS, lo=jstDate(-14), hi=jstDate(31);
   const from=f.d<lo?lo:f.d, to0=new Date(Date.parse(from+"T00:00:00Z")+7*864e5).toISOString().slice(0,10), to=to0>hi?hi:to0;
