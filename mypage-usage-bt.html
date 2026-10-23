@@ -52,7 +52,7 @@ function otaC(o){return(OTA[o]||["","#64748b"])[1]}
 let RES=[],SENDS={},SIGN={},OPEN={},UF="all";
 // ★実開封トラッキング：ガイドページ(guide/index.html)が開いた瞬間に mypage_events(メインDB・store=bt)へ token付きで記録している。それを読み「本当の開封」を出す。
 const MAIN_SB="https://ckrxttbnawkclshczsia.supabase.co";
-const MAIN_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrcnh0dGJuYXdrY2xzaGN6c2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4Nzg1NTAsImV4cCI6MjA4NzQ1NDU1MH0.kDC_UDVWvcrS97wzqQ3NXP79ewjgYwF4vSFdV7y06S8";
+const MAIN_ANON="sb_publishable_aTVhlY0YD-5BBfI03ZNnsg_MzO_vsIe";
 // token→[開封時刻(昇順)]。★ro=1(スタッフ閲覧プレビュー)は除外し「本当のお客様開封」だけ。page_view=ページを開いた瞬間。送信時刻との突合はload()側で行う。
 async function fetchOpens(){ const out={}; let from=0; try{ while(true){ const r=await fetch(MAIN_SB+"/rest/v1/mypage_events?store=eq.bt&event=eq.page_view&token=not.is.null&select=token,created_at,meta&order=created_at.asc",{headers:{apikey:MAIN_ANON,Authorization:"Bearer "+MAIN_ANON,Range:from+"-"+(from+999),"Range-Unit":"items"}}); if(!r.ok)break; const rows=await r.json(); if(!Array.isArray(rows))break; rows.forEach(e=>{ if(!e.token)return; const m=e.meta; if(m&&(m.ro===1||m.ro===true||m.ro==="1"))return; /*★ro=スタッフプレビュー除外*/ (out[e.token]=out[e.token]||[]).push(e.created_at); }); if(rows.length<1000)break; from+=1000; } }catch(e){} return out; }
 // 有効メール判定（noreply / 空 / ダミー を除外）＝ガイドをメール送信できる相手
