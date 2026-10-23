@@ -17227,7 +17227,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
 }
 
 function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
-  const[start,setStart]=useState(edit?(edit.startDate||startDate):startDate);const[end,setEnd]=useState(edit?(edit.endDate||startDate):startDate);const[label,setLabel]=useState(edit?(edit.label||"メンテナンス"):"メンテナンス");
+  const[start,setStart]=useState(edit?(edit.startDate||startDate):startDate);const[end,setEnd]=useState(edit?(edit.endDate||startDate):startDate);const[label,setLabel]=useState(edit?(edit.label||""):"");
   const[cost,setCost]=useState(edit&&edit.cost?String(edit.cost):"");const[workshop,setWorkshop]=useState(edit?(edit.workshop||""):"");const[invoiceNo,setInvoiceNo]=useState(edit?(edit.invoiceNo||""):"");const[maintNotes,setMaintNotes]=useState(edit?(edit.maintNotes||""):"");
   const[status,setStatus]=useState(edit?(edit.status||"pending"):"pending");const[startTime,setStartTime]=useState(edit?(edit.startTime||""):"");const[endTime,setEndTime]=useState(edit?(edit.endTime||""):"");
   const v=vehicles.find(x=>x.code===vehicleCode);
@@ -17237,7 +17237,7 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
   const lS={fontSize:10,color:"#64748b",fontWeight:700,display:"block",marginBottom:2};
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <div style={{fontSize:11,color:"#64748b"}}>車両: <strong>{v?v.name:vehicleCode}</strong> ({v?v.no:""}) {v?v.seats+"名":""}</div>
-    <div><label style={lS}>ラベル</label><select value={label} onChange={e=>setLabel(e.target.value)} style={iS}><option>メンテナンス</option><option>車検</option><option>半年点検</option><option>修理</option><option>清掃</option><option>その他</option></select></div>
+    <div><label style={lS}>ラベル</label><select value={label} onChange={e=>setLabel(e.target.value)} style={iS}><option value="">— 種別を選択 —</option><option>メンテナンス</option><option>車検</option><option>半年点検</option><option>修理</option><option>清掃</option><option>その他</option></select></div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       <div><label style={lS}>{isDetail?"入庫日（開始）":"開始日"}</label><input type="date" value={start} onChange={e=>setStart(e.target.value)} style={iS}/></div>
       <div><label style={lS}>{isDetail?"出庫日（終了）":"終了日"}</label><input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={iS}/></div>
@@ -17267,7 +17267,7 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
       <div><label style={lS}>業者名</label><input value={workshop} onChange={e=>setWorkshop(e.target.value)} style={iS} placeholder="〇〇自動車"/></div>
       <div><label style={lS}>メモ</label><input value={maintNotes} onChange={e=>setMaintNotes(e.target.value)} style={iS}/></div>
     </div>}
-    <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={onClose} disabled={saving} className="btn-ghost">キャンセル</button><button onClick={()=>onAdd(vehicleCode,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,edit?edit.id:null)} disabled={saving} className="btn-primary" style={saving?{opacity:0.6,cursor:"not-allowed"}:{}}>{saving?"保存中...":(edit?"更新":"登録")}</button></div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={onClose} disabled={saving} className="btn-ghost">キャンセル</button><button onClick={()=>{if(!label){window.alert("ラベル（種別）を選択してください");return;}onAdd(vehicleCode,start,end,label,cost,workshop,invoiceNo,maintNotes,status,startTime,endTime,edit?edit.id:null);}} disabled={saving} className="btn-primary" style={saving?{opacity:0.6,cursor:"not-allowed"}:{}}>{saving?"保存中...":(edit?"更新":"登録")}</button></div>
   </div>;
 }
 
@@ -24266,7 +24266,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.557-BT";
+const APP_VERSION="v1.0.558-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
