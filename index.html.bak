@@ -16287,7 +16287,8 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
     // 希望休は出勤不可の時間を併記（スタッフURL入力：memo='HH:MM-HH:MM'=時間指定／それ以外=終日）
     if(shift.symbol==="希"){
       const m=/^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(String(shift.memo||""));
-      return <span style={{fontSize:9,lineHeight:1.05,color:"#d97706",fontWeight:700}}>希<span style={{fontSize:7,display:"block",color:"#b45309"}}>{m?<>{m[1].replace(/^0/,"")}<br/>〜{m[2].replace(/^0/,"")}</>:"終日"}</span></span>;
+      const c=m?"#2563eb":"#dc2626"; // 色分け：終日不可=赤/時間指定不可=青（オーナー指示 2026-10-24）
+      return <span style={{fontSize:9,lineHeight:1.05,color:c,fontWeight:700}}>希<span style={{fontSize:7,display:"block",color:c}}>{m?<>{m[1].replace(/^0/,"")}<br/>〜{m[2].replace(/^0/,"")}</>:"終日"}</span></span>;
     }
     if(type==="正社員"){
       return shift.symbol||"";
@@ -24266,7 +24267,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.558-BT";
+const APP_VERSION="v1.0.559-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
