@@ -16077,11 +16077,15 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   }});}};
   const _onSC=updateShifts;
 
+  // 希望休の保持：希の上に勤務を入れても元の希望を memo="希:<元memo>" で残し、勤務を消したら希に戻す（オーナー指示 2026-10-24）
+  const wishKeep=(s)=>{if(!s)return null;const m=String(s.memo||"");if(s.symbol==="希")return m;return m.startsWith("希:")?m.slice(2):null;};
+  const wishLabel=(m)=>{const r=/^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(String(m||""));return r?`${r[1].replace(/^0/,"")}〜${r[2].replace(/^0/,"")} 不可`:"終日不可";};
+  const wishMemo=(sym,w)=>w==null?undefined:(sym==="希"?w:"希:"+w);
   // セルタップ → 編集モーダル表示
   const handleCellClick=(dateStr,name,type)=>{
     const cur=getShift(dateStr);const existing=cur.find(s=>s.name===name);
     if(existing){
-      setCellEdit({dateStr,name,type,symbol:existing.symbol||"●",start:existing.start||"09:00",end:existing.end||(type==="正社員"?"19:00":"18:00"),status:existing.status||"確定",isNew:false});
+      setCellEdit({dateStr,name,type,symbol:existing.symbol||"●",start:existing.start||"09:00",end:existing.end||(type==="正社員"?"19:00":"18:00"),status:existing.status||"確定",isNew:false,origSym:existing.symbol||"",wish:wishKeep(existing)});
     }else{
       setCellEdit({dateStr,name,type,symbol:type==="正社員"?"●":"",start:"09:00",end:type==="正社員"?"19:00":"18:00",status:type==="アルバイト"?"申請":"確定",isNew:true});
     }
@@ -16094,6 +16098,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
     const{dateStr,name,type,symbol,start,end,status,isNew}=cellEdit;
     const cur=getShift(dateStr);
     const entry={name,type,symbol:type==="正社員"?symbol:(status==="欠勤"?"欠":""),start,end,status:type==="アルバイト"?(status||"確定"):"確定"}; // ★2026-10-19 欠勤=symbol「欠」も併記（出勤人数・未打刻・給与予算から除外される）
+    const _wm=wishMemo(entry.symbol,cellEdit.wish);if(_wm!==undefined)entry.memo=_wm;
     if(isNew){
       _onSC({...shifts,[dateStr]:[...cur,entry]});
     }else{
@@ -16105,9 +16110,16 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
   // セル削除
   const deleteCellEdit=()=>{
     if(!cellEdit)return;
-    if(!window.confirm("削除を実行しますか？"))return;
-    const{dateStr,name}=cellEdit;
+    const{dateStr,name,type,wish,origSym}=cellEdit;
     const cur=getShift(dateStr);
+    // 希望休の上に入れた勤務を消す → 削除せず元の希望休に戻す
+    if(wish!=null&&origSym!=="希"){
+      if(!window.confirm(`勤務を消して、元の希望休（${wishLabel(wish)}）に戻しますか？`))return;
+      const back={name,type,symbol:"希",start:"",end:"",memo:wish,status:"確定"};
+      _onSC({...shifts,[dateStr]:cur.map(s=>s.name===name?back:s)});
+      setCellEdit(null);return;
+    }
+    if(!window.confirm("削除を実行しますか？"))return;
     _onSC({...shifts,[dateStr]:cur.filter(s=>s.name!==name)});
     DB.deleteShift(dateStr,name);
     setCellEdit(null);
@@ -16141,6 +16153,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
           if(existing&&!bulkOverwrite){skipped++;continue;}
           const type=staff.find(s=>s.name===bulkName)?.type||"正社員";
           const entry={name:bulkName,type,symbol:type==="正社員"?bulkSymbol:"",start:bulkStart,end:bulkEnd,status:type==="アルバイト"?"申請":"確定"};
+          const _wm=wishMemo(entry.symbol,wishKeep(existing));if(_wm!==undefined)entry.memo=_wm;
           if(existing&&bulkOverwrite){
             next[ds]=cur.map(s=>s.name===bulkName?entry:s);registered++;
           }else if(!existing){
@@ -16165,9 +16178,16 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
         const dow=new Date(y,mo-1,d).getDay();
         if(bulkDows.includes(dow)){
           const cur=next[ds]||[];
-          const had=cur.some(s=>s.name===bulkName);
+          const ex=cur.find(s=>s.name===bulkName);
+          const w=wishKeep(ex);
+          if(ex&&w!=null&&ex.symbol!=="希"){ // 希望休の上の勤務は削除せず元の希望休に戻す
+            const back={name:bulkName,type:ex.type,symbol:"希",start:"",end:"",memo:w,status:"確定"};
+            next[ds]=cur.map(s=>s.name===bulkName?back:s);
+            delPromises.push(DB.saveShift(ds,bulkName,back));delCount++;
+            continue;
+          }
           next[ds]=cur.filter(s=>s.name!==bulkName);
-          if(had){delPromises.push(DB.deleteShift(ds,bulkName));delCount++;}
+          if(ex){delPromises.push(DB.deleteShift(ds,bulkName));delCount++;}
         }
       }
     });
@@ -16533,6 +16553,7 @@ function ShiftCalendar({shifts,onShiftsChange,today,staff,sbSaveShift,reservatio
         <button onClick={()=>setCellEdit(null)} style={{background:"none",border:"none",fontSize:18,color:"#78716c",cursor:"pointer",padding:4}}>✕</button>
       </div>
       <div style={{padding:"16px 20px"}}>
+        {cellEdit.wish!=null&&<div style={{fontSize:12,fontWeight:700,color:/^\d{2}:\d{2}-/.test(cellEdit.wish)?"#2563eb":"#dc2626",marginBottom:12}}>希望休：{wishLabel(cellEdit.wish)}</div>}
         {/* シフト種別選択（正社員のみ） */}
         {cellEdit.type==="正社員"&&<div style={{marginBottom:16}}>
           <label style={{fontSize:11,color:"#64748b",fontWeight:700,display:"block",marginBottom:8}}>出勤内容</label>
@@ -24267,7 +24288,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.559-BT";
+const APP_VERSION="v1.0.560-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
