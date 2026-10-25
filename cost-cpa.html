@@ -81,7 +81,7 @@
 <script>
 const SB='https://ggqugvyskyiblxiycpci.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18';
-const FEE=0.18;
+const FEE=0.18, FEE_BUD=0.16; // OTA手数料: HANDYMAN 18% / BUDDICA 16%（2026-10-26 オーナー指示）
 const $=id=>document.getElementById(id);
 const yen=n=>'¥'+Math.round(n||0).toLocaleString();
 const yk=n=>'¥'+Math.round((n||0)/10000).toLocaleString()+'万';
@@ -101,7 +101,7 @@ function hpRetAgg(){
 function calc(m){
   const otaRev=m.otaRev||0,otaCnt=m.otaCnt||0,hpRev=m.hpRev||0,hpCnt=m.hpCnt||0;
   const rev=otaRev+hpRev,cnt=otaCnt+hpCnt;
-  const fee=Math.round(otaRev*FEE), ad=+AD[m.m]||0, cost=fee+ad;
+  const sp=OTASPLIT[m.m], fee=Math.round(sp?(sp.hdmRev*FEE+sp.budRev*FEE_BUD):otaRev*FEE), ad=+AD[m.m]||0, cost=fee+ad;
   const otaCpa=otaCnt?Math.round(fee/otaCnt):0, hpCpa=hpCnt?Math.round(ad/hpCnt):0, allCpa=cnt?Math.round(cost/cnt):0;
   const net=rev-cost, roas=cost?rev/cost:0;
   return {m:m.m,otaRev,otaCnt,hpRev,hpCnt,rev,cnt,fee,ad,cost,otaCpa,hpCpa,allCpa,net,roas};
@@ -111,7 +111,7 @@ async function load(){
   try{
     const [agg,st,hpa,osp]=await Promise.all([sbPost('rpc/bt_cost_cpa',{}),sbGet('bt_app_settings?select=value&key=eq.hp_adspend_bt'),sbPost('rpc/bt_hp_acq',{}),sbPost('rpc/bt_ota_brand_split',{}).catch(()=>[])]);
     HPACQ=Array.isArray(hpa)?hpa:[];
-    OTASPLIT={};(Array.isArray(osp)?osp:[]).forEach(r=>{const m=String(r.ym||'');if(/^\d{4}-\d{2}$/.test(m))OTASPLIT[m]={hdm:+r.hdm_cnt||0,bud:+r.bud_cnt||0};});
+    OTASPLIT={};(Array.isArray(osp)?osp:[]).forEach(r=>{const m=String(r.ym||'');if(/^\d{4}-\d{2}$/.test(m))OTASPLIT[m]={hdm:+r.hdm_cnt||0,bud:+r.bud_cnt||0,hdmRev:+r.hdm_rev||0,budRev:+r.bud_rev||0};});
     try{AD=st&&st[0]?JSON.parse(st[0].value||'{}'):{};}catch(e){AD={};}
     const base={};
     (agg||[]).forEach(r=>{const m=String(r.ym||'');if(!/^\d{4}-\d{2}$/.test(m))return;base[m]={m,otaRev:+r.ota_rev||0,otaCnt:+r.ota_cnt||0,hpRev:+r.hp_rev||0,hpCnt:+r.hp_cnt||0};});
@@ -143,7 +143,7 @@ function cardHTML(x){
   return '<div class="mcard'+(x.m===nm?' now':'')+'" data-m="'+x.m+'">'+
     '<div class="mhd"><span class="mym">'+x.m+'</span><span class="mtot">'+yen(x.rev)+' <small>'+x.cnt+'件</small></span>'+
       '<span class="mrat"><span class="fee">OTA '+(x.rev?orat:'—')+'%</span> / <span class="adc">HP '+(x.rev?hrat:'—')+'%</span></span></div>'+
-    '<div class="mrow"><div class="rl r-ota">🟧 OTA<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却=売上</span></div>'+'<div class="cell"><span class="k">件数</span><b>'+x.otaCnt+(OTASPLIT[x.m]?' <span style="font-size:9px;color:#94a3b8;font-weight:700">(B'+OTASPLIT[x.m].bud+'/H'+OTASPLIT[x.m].hdm+')</span>':'')+'</b></div>'+cellK('売上',yen(x.otaRev))+cellK('手数料18%',yen(x.fee))+cellK('CPA',(x.otaCnt?yen(x.otaCpa):'—'),' cpa')+'</div>'+
+    '<div class="mrow"><div class="rl r-ota">🟧 OTA<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">返却=売上</span></div>'+'<div class="cell"><span class="k">件数</span><b>'+x.otaCnt+(OTASPLIT[x.m]?' <span style="font-size:9px;color:#94a3b8;font-weight:700">(B'+OTASPLIT[x.m].bud+'/H'+OTASPLIT[x.m].hdm+')</span>':'')+'</b></div>'+cellK('売上',yen(x.otaRev))+cellK('手数料 H18%/B16%',yen(x.fee))+cellK('CPA',(x.otaCnt?yen(x.otaCpa):'—'),' cpa')+'</div>'+
     '<div class="mrow"><div class="rl r-hp">🟦 HP獲得<span style="font-size:9px;color:#94a3b8;font-weight:700;display:block">成立月＝新規獲得</span></div>'+cellK('件数',x.hpCnt)+cellK('売上',yen(x.hpRev))+
       '<div class="cell"><span class="k">広告費</span><input class="ad" type="number" data-m="'+x.m+'" value="'+(x.ad||'')+'" placeholder="0"></div>'+
       '<div class="cell cpa"><span class="k">獲得CPA</span><b data-r="hpcpa">'+(x.hpCnt&&x.ad?yen(x.hpCpa):'—')+'</b></div></div>'+
