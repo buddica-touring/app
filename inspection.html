@@ -71,6 +71,7 @@
 <div id="st">接続中…</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="insp-howto.js?v=1"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
@@ -156,7 +157,8 @@ function renderInsp(){
       if(chg)html+='<div class="ins-warn">⚠️ 点検後に配車が変わりました（点検した車：'+fesc(chg.vehicle_code)+'）</div>';
       if(!r.vehicle_code)html+='<div class="ins-warn">未配車です。配車後に点検してください。</div>';
       INSP_ITEMS[k].forEach(([key,lb])=>{const c=(r.checks||{})[key];const on=!!(c&&c.checked);
-        html+='<label class="ins-it'+(on?" on":"")+'"><input type="checkbox" data-ik="'+key+'"'+(on?" checked":"")+'>'+fesc(lb)+'</label>';});
+        const lbh='<label class="ins-it'+(on?" on":"")+'"><input type="checkbox" data-ik="'+key+'"'+(on?" checked":"")+'>'+fesc(lb)+'</label>';
+        html+=(k==="pre"&&window.InspHowto&&InspHowto.has(key))?'<div class="ih-wrap">'+InspHowto.row(lbh,key)+'</div>':lbh;});   // ★2026-10-27 出発前点検に「やり方」トグル（insp-howto.js・表示のみ）
       html+='<div class="ins-ph">'+(r.photos||[]).map(ph=>{paths.push(ph.path);const u=phUrl("bt-inspections",ph.path,"full"),tu=phUrl("bt-inspections",ph.path,"thumb");return '<div class="th">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(tu)+'" alt="" loading="lazy" decoding="async"></a>':'')+'<button class="x" data-del="'+fesc(ph.id)+'" title="写真を外す">✕</button></div>';}).join("")+'<button class="ins-add" data-add="1"><span>📷</span>写真</button></div>';
       const memo=(r.checks||{})._memo;
       html+='<textarea class="ins-memo" data-memo="1" rows="2" placeholder="メモ（気づいた点など）">'+fesc(memo&&memo.note||"")+'</textarea>';
