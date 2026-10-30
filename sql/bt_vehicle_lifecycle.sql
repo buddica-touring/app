@@ -11,7 +11,8 @@ alter table public.bt_vehicles
   add column if not exists sale_price      integer,   -- 実際の売却額
   add column if not exists sale_date       date,
   add column if not exists sale_dest       text,      -- 売却先
-  add column if not exists life_flag       text;      -- 例『10万km超』（リミット延長した理由）
+  add column if not exists life_flag       text,
+  add column if not exists exit_type       text not null default 'sell';   -- sell=売却 / ride=乗り潰し      -- 例『10万km超』（リミット延長した理由）
 
 -- 2) 全体設定（1行だけ）
 create table if not exists public.bt_vehicle_life_settings (
@@ -45,6 +46,12 @@ language sql stable security invoker set search_path = public as $$
   from vehicle_twins t;
 $$;
 grant execute on function public.bt_vehicle_damage_summary() to authenticated;
+
+-- 3-2) リアルタイム共有（車両カルテを開いている全員の画面を自動更新）
+do $$ begin
+  begin alter publication supabase_realtime add table public.bt_vehicles; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.bt_vehicle_life_settings; exception when duplicate_object then null; end;
+end $$;
 
 -- 4) 返却メーター（bt_reservations.end_odo）が入ったら車両の現在走行距離を進める
 --    逆戻り・桁違い（+5,000km超）は反映しない
