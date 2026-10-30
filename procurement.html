@@ -214,6 +214,7 @@
     /* 主役タブ＝点検・仕入候補・ETC：上段に大きく */
     .wrap .tabbtn[data-v="insp"],.wrap .tabbtn[data-v="proc"],.wrap .tabbtn[data-v="etc"],.wrap .tabbtn[data-v="tire"]{grid-column:span 3;min-height:52px;font-size:12.5px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     .wrap .tabbtn .tl-l{display:none}.wrap .tabbtn .tl-s{display:inline}
+    .wrap .tabbtn[data-v="karte"],.wrap .tabbtn[data-v="swap"]{grid-column:span 6;order:0;min-height:52px;font-size:14px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="tire"]{order:2}.wrap .tabbtn[data-v="proc"]{order:3}.wrap .tabbtn[data-v="etc"]{order:4}
     .wrap .tabbtn.on{background:#0f172a!important;color:#fff!important;border-color:#0f172a!important}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -242,8 +243,6 @@ tr.grpLast td{border-bottom:3px solid var(--cc)}
 .fltbl .plate{font-weight:900}
 .fl-act{color:#16a34a;font-weight:800}.fl-off{color:#dc2626;font-weight:800}
 .flmiss{color:#cbd5e1}
-#viewFleet .chip{cursor:pointer}
-#viewFleet .chip.on{background:#0f172a;color:#fff;border-color:#0f172a}
 .flnote{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin:6px 0 12px;font-size:12px;color:#92400e;line-height:1.6}
 .fl-sumbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
 .fl-total{font-weight:900;font-size:15px;color:#0f172a;margin-right:4px}
@@ -329,19 +328,122 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 .ins-add span{font-size:24px}
 .ins-memo{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:9px 10px;font-size:16px;font-family:inherit;min-height:46px;resize:vertical}
 .ins-who{font-size:11px;color:#94a3b8;margin-top:6px;text-align:right}
+
+/* 🚗 車両カルテ・🔄 入替（vehicle-life.js）スマホ前提 */
+#viewKarte,#viewSwap{max-width:760px;margin:0 auto}
+.vl-empty{color:#94a3b8;padding:18px;text-align:center;font-size:13px}.vl-empty.sm{padding:8px;font-size:12px;text-align:left}.vl-empty.err{color:#dc2626}
+.vl-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
+.vl-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 6px;text-align:left;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;flex-direction:column;gap:2px;min-width:0}
+.vl-kpi span{font-size:10.5px;font-weight:800;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vl-kpi b{font-size:22px;font-weight:900;color:#0f172a;line-height:1.1}.vl-kpi b small{font-size:10px;color:#94a3b8;margin-left:1px}
+.vl-kpi.st{cursor:default}.vl-kpi.on{border-color:#0f172a;box-shadow:0 0 0 1.5px #0f172a inset}
+.vl-kpi[data-stf="sell"] b{color:#dc2626}.vl-kpi[data-stf="prep"] b{color:#ea580c}.vl-kpi[data-stf="soon"] b{color:#ca8a04}
+.vl-bar1{display:flex;gap:6px;align-items:center;margin:0 0 10px;flex-wrap:wrap}
+.vl-sort{margin-left:auto;border:1px solid #cbd5e1;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;background:#fff;color:#334155;font-family:inherit}
+.vl-gear{border:1px solid #cbd5e1;background:#fff;border-radius:50%;width:32px;height:32px;font-size:15px;cursor:pointer}
+.vl-filt{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#334155;margin:-4px 2px 8px}
+.vl-clr{border:none;background:#e2e8f0;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;color:#475569;cursor:pointer}
+.vl-card{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #16a34a;border-radius:14px;margin:0 0 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.vl-card.sell{border-left-color:#dc2626}.vl-card.prep{border-left-color:#ea580c}.vl-card.soon{border-left-color:#eab308}.vl-card.nodata{border-left-color:#cbd5e1}.vl-card.sold{border-left-color:#475569;opacity:.75}
+.vl-card [data-tog]{cursor:pointer}
+.vl-hd{display:flex;align-items:center;gap:10px;padding:11px 12px 6px}
+.vl-nm{flex:1;min-width:0}.vl-nm b{display:block;font-size:15.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vl-nm small{font-size:11.5px;color:#64748b;font-weight:700}
+.vl-bt{color:#047857;font-weight:900}.vl-hdm{color:#1d4ed8;font-weight:900}.vl-off{color:#dc2626}
+.vl-st{font-size:11.5px;font-weight:900;border-radius:999px;padding:4px 10px;white-space:nowrap;background:#dcfce7;color:#166534}
+.vl-st.sell{background:#dc2626;color:#fff}.vl-st.prep{background:#ffedd5;color:#c2410c}.vl-st.soon{background:#fef9c3;color:#a16207}.vl-st.nodata{background:#f1f5f9;color:#64748b}.vl-st.sold{background:#334155;color:#fff}
+.vl-meter{padding:14px 12px 8px}
+.vl-track{position:relative;height:10px;background:#e2e8f0;border-radius:6px;overflow:visible}
+.vl-track i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#22c55e,#16a34a)}
+.vl-card.soon .vl-track i{background:linear-gradient(90deg,#facc15,#eab308)}.vl-card.prep .vl-track i{background:linear-gradient(90deg,#fb923c,#ea580c)}.vl-card.sell .vl-track i{background:linear-gradient(90deg,#f87171,#dc2626)}
+.vl-track em{position:absolute;top:-4px;width:3px;height:18px;background:#0f172a;border-radius:2px;transform:translateX(-1px)}
+.vl-track em:after{content:"車検";position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:900;color:#0f172a;font-style:normal;white-space:nowrap}
+.vl-kmrow{display:flex;justify-content:space-between;font-size:12px;color:#64748b;font-weight:700;margin-top:5px}
+.vl-kmrow b{font-size:15px;color:#0f172a;font-weight:900}.vl-rest{color:#334155}
+.vl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9}
+.vl-c{padding:7px 8px;border-right:1px solid #f1f5f9;min-width:0}.vl-c:last-child{border-right:none}
+.vl-c label{display:block;font-size:10px;font-weight:800;color:#94a3b8}
+.vl-c b{display:block;font-size:14px;font-weight:900;color:#0f172a;white-space:nowrap}.vl-c b small{font-size:10px;color:#94a3b8}
+.vl-c>small{display:block;font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vl-c.hot{background:#fff7ed}.vl-card.sell .vl-c.hot{background:#fef2f2}
+.vl-now{color:#dc2626!important;font-size:10px!important;display:inline!important}
+.vl-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:8px 12px 10px}
+.vl-tag{font-size:11px;font-weight:800;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:2px 9px}
+.vl-tag.dmg{background:#fff1f2;border-color:#fecdd3;color:#be123c}.vl-tag.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.vl-more{margin-left:auto;font-size:12px;font-weight:800;color:#2563eb}
+.vl-bd{border-top:1px solid #e2e8f0;background:#fcfdff;padding:4px 12px 12px}
+.vl-bd section{padding:10px 0;border-bottom:1px dashed #e2e8f0}.vl-bd section:last-child{border-bottom:none}
+.vl-bd h4,.vl-cfg h4,.vl-h4{margin:0 0 8px;font-size:13px;font-weight:900;color:#0f172a}
+.vl-kv{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.vl-kv>div{background:#fff;border:1px solid #eef2f7;border-radius:10px;padding:7px 9px}
+.vl-kv span{display:block;font-size:10.5px;font-weight:800;color:#94a3b8}.vl-kv b{font-size:14px;font-weight:900}.vl-kv small{display:block;font-size:10.5px;color:#64748b;font-weight:600;line-height:1.4;margin-top:1px}
+.vl-trips{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:8px;font-size:12px}
+.vl-trips>div{display:flex;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding:3px 0;color:#475569}.vl-trips b{color:#0f172a}
+.vl-trips .bad b{color:#b45309}
+.vl-pl{background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:4px 12px}
+.vl-pl-r{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:700;color:#334155}
+.vl-pl-r:last-child{border-bottom:none}.vl-pl-r small{display:block;font-size:10.5px;color:#94a3b8;font-weight:600}
+.vl-pl-r b{font-size:14.5px;font-weight:900;white-space:nowrap}.vl-pl-r b.pos{color:#15803d}.vl-pl-r b.neg{color:#b91c1c}
+.vl-pl-r.sub{background:#f8fafc;margin:0 -12px;padding:8px 12px}.vl-pl-r.tot{font-size:14px;color:#0f172a}.vl-pl-r.tot b{font-size:18px}
+.vl-note{font-size:10.5px;color:#94a3b8;margin-top:5px}
+.vl-mk{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:11.5px;font-weight:800;color:#64748b}
+.vl-mk a{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:5px 11px;text-decoration:none}
+.vl-dmg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.vl-dm{display:flex;flex-direction:column;border:1px solid #fecdd3;background:#fff;border-radius:10px;overflow:hidden;padding:0;cursor:pointer;text-align:left;font-family:inherit}
+.vl-dm img,.vl-dm .noimg{width:100%;height:110px;object-fit:cover;display:flex;align-items:center;justify-content:center;background:#f1f5f9;color:#94a3b8;font-size:12px}
+.vl-dm .cap{padding:5px 8px;font-size:11px;color:#475569;font-weight:700;line-height:1.35}.vl-dm .cap b{display:block;font-size:12px;color:#0f172a}.vl-dm .cap small{display:block;color:#94a3b8}
+.vl-sub{font-size:11px;font-weight:800;color:#64748b;margin:10px 0 5px}
+.vl-ph{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.vl-ph a{flex:0 0 84px;text-decoration:none}.vl-ph img{width:84px;height:84px;border-radius:9px;object-fit:cover;display:block;background:#e2e8f0}.vl-ph small{display:block;font-size:9.5px;color:#64748b;text-align:center;margin-top:2px}
+.vl-form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vl-f{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:800;color:#64748b}
+.vl-f .in{display:flex;align-items:center;border:1px solid #cbd5e1;border-radius:10px;background:#fff;padding:0 9px}
+.vl-f input,.vl-f select{flex:1;min-width:0;border:none;outline:none;font-size:16px;padding:9px 0;background:transparent;font-family:inherit;color:#0f172a;font-weight:700}
+.vl-f i{font-style:normal;font-size:12px;color:#94a3b8}
+.vl-f input.saving{opacity:.5}.vl-f input.err{color:#dc2626}.vl-f input:disabled{color:#94a3b8}
+.vl-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:700;margin:0 0 8px}
+.vl-cfg{background:#fff;border:1.5px solid #0f172a;border-radius:14px;padding:12px;margin:0 0 12px;display:flex;flex-direction:column;gap:9px}
+.vl-cls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.vl-cls label{display:flex;align-items:center;gap:5px;border:1px solid #e2e8f0;border-radius:9px;padding:3px 6px}
+.vl-cls input{flex:1;min-width:0;border:none;outline:none;font-size:16px;font-family:inherit;font-weight:700;padding:5px 0}
+.vl-cls input::placeholder,.vl-f input::placeholder{color:#cbd5e1;font-weight:500}
+.vl-cfg-ft{display:flex;justify-content:flex-end;gap:8px}
+.vl-foot{font-size:10.5px;color:#94a3b8;text-align:center;margin:10px 0 80px;line-height:1.6}
+.vl-viewer{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.92);display:flex;align-items:center;justify-content:center}
+.vl-viewer img{max-width:96vw;max-height:88vh;border-radius:8px}.vl-viewer button{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;font-size:18px}
+/* 入替 */
+.vl-swap-hd{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px;margin:0 0 10px}
+.vl-swap-hd div{font-size:14px;font-weight:800}.vl-swap-hd b{font-size:22px;color:#dc2626;margin-right:2px}.vl-swap-hd small{display:block;font-size:11.5px;color:#64748b;margin-top:3px;line-height:1.5}
+.vl-late{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.vl-tl{position:relative;padding-left:14px;border-left:3px solid #e2e8f0;margin-left:6px}
+.vl-mo{margin:0 0 12px;position:relative}
+.vl-mo:before{content:"";position:absolute;left:-21px;top:5px;width:11px;height:11px;border-radius:50%;background:#cbd5e1;border:2px solid #f1f5f9}
+.vl-mo.now:before{background:#2563eb}.vl-mo.empty .vl-mo-hd b{color:#94a3b8}
+.vl-mo-hd{display:flex;align-items:center;gap:6px;margin:0 0 6px}.vl-mo-hd b{font-size:14px;font-weight:900}
+.vl-nowtag{background:#2563eb;color:#fff;border-radius:6px;padding:1px 7px;font-size:10.5px;font-weight:900}
+.vl-pill{font-size:11px;font-weight:900;border-radius:999px;padding:1px 8px}.vl-pill.proc{background:#ffedd5;color:#c2410c}.vl-pill.sale{background:#fee2e2;color:#b91c1c}
+.vl-ev{display:flex;align-items:center;gap:8px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:9px 10px;margin:0 0 5px;font-family:inherit;text-align:left;cursor:pointer}
+.vl-ev.sale{border-left:4px solid #dc2626}.vl-ev.proc{border-left:4px solid #ea580c}.vl-ev.late{background:#fff7ed}
+.vl-ev .ic{font-size:13px}.vl-ev .nm{flex:1;min-width:0;font-size:13.5px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vl-ev .nm small{color:#94a3b8;font-weight:700}
+.vl-ev .dt{font-size:11px;font-weight:800;color:#64748b;white-space:nowrap}
+.vl-ctbl{overflow-x:auto}.vl-ctbl table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13px;table-layout:auto}
+.vl-ctbl th,.vl-ctbl td{padding:7px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:800}.vl-ctbl th{font-size:11px;color:#64748b;background:#f8fafc}
+.vl-ctbl td.dn{color:#dc2626;background:#fef2f2}
+.vl-card .m-badge,.vl-ev .m-badge,.vl-ctbl .m-badge,.vl-cls .m-badge{order:0;flex:0 0 auto}
+.vl-ctbl table{display:table!important}.vl-ctbl thead{display:table-header-group!important}.vl-ctbl tbody{display:table-row-group!important}.vl-ctbl tr{display:table-row!important}.vl-ctbl th,.vl-ctbl td{display:table-cell!important}
+.vl-mo.gap{color:#94a3b8;font-size:12px;font-weight:800}
+@media(max-width:420px){.vl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vl-c:nth-child(2){border-right:none}.vl-c:nth-child(-n+2){border-bottom:1px solid #f1f5f9}.vl-kpi b{font-size:19px}.vl-form{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
   <div class="tabs">
+    <button class="tabbtn" data-v="karte">🚗 車両カルテ</button>
+    <button class="tabbtn" data-v="swap">🔄 入替</button>
     <button class="tabbtn on" data-v="insp">🔧 点検</button>
     <button class="tabbtn" data-v="tire">🛞 <span class="tl-l">タイヤチェック</span><span class="tl-s">タイヤ</span></button>
     <button class="tabbtn" data-v="proc">🛒 仕入候補</button>
-    <button class="tabbtn" data-v="fleet">🗂 車両リスト（確保）</button>
-    <button class="tabbtn" data-v="master">🗄 マスター（車両登録）</button>
-    <button class="tabbtn" data-v="bt">🟢 BT車両のみ</button>
-    <button class="tabbtn" data-v="hdm">🔵 HDM車両のみ</button>
     <button class="tabbtn" data-v="etc">📡 <span class="tl-l">ETCセットアップ</span><span class="tl-s">ETC</span></button>
   </div>
   <div id="viewProc" style="display:none">
@@ -363,31 +465,8 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   <div class="foot">年式/走行/展示場所は buddica.jp 表記どおり自動取得 ・ 車両状態は個体ごとに手動入力 ・ データはリアルタイム共有</div>
   </div><!--/viewProc-->
 
-  <div id="viewFleet" style="display:none">
-    <div class="sub" style="margin-bottom:8px"><b>確保車両</b>（仕入OK・整備OK・ナンバーあり）をクラス別にまとめた一覧です（名義で絞り込み可）。</div>
-    <div class="tb" style="margin-bottom:6px">
-      <span class="chip on" data-fb="all">全体</span>
-      <span class="chip" data-fb="HDM">🔵 HDM</span>
-      <span class="chip" data-fb="BUDDICA">🟢 BUDDICA</span>
-      <button class="btn" id="reloadFleet" style="margin-left:auto">🔄 最新に更新</button>
-    </div>
-    <div id="fleetBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
-  </div>
-
-  <div id="viewMaster" style="display:none">
-    <div class="tb" style="margin-bottom:6px">
-      <button class="btn" id="reloadMaster" style="margin-left:auto">🔄 最新に更新</button>
-    </div>
-    <div id="masterBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
-  </div>
-  <div id="viewBt" style="display:none">
-    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadBt" style="margin-left:auto">🔄 最新に更新</button></div>
-    <div id="btBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
-  </div>
-  <div id="viewHdm" style="display:none">
-    <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadHdm" style="margin-left:auto">🔄 最新に更新</button></div>
-    <div id="hdmBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
-  </div>
+  <div id="viewKarte" style="display:none"><div id="karteBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
+  <div id="viewSwap" style="display:none"><div id="swapBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
   <div id="viewEtc" style="display:none">
     <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadEtc" style="margin-left:auto">🔄 最新に更新</button></div>
     <div id="etcBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
@@ -407,6 +486,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
+<script src="vehicle-life.js?v=1"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const STATUSES=["未対応","確認中","対応中","NG","OK"];
@@ -751,17 +831,11 @@ sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   const _ae=document.activeElement, _ed=_ae&&_ae.classList&&(_ae.classList.contains("cell")||_ae.hasAttribute("data-df"));
   if(!_ed){render();}
   else{renderDash();}
-  if($("viewFleet")&&$("viewFleet").style.display!=="none")renderFleet();
 }).subscribe(s=>{ if(s==="SUBSCRIBED")setStatus("リアルタイム接続"); });
 
 // ===== 車両リスト（HDM / BUDDICA）=====
-let FLEET=null, fleetBrand="all";
-const CLASS_ORDER=["A","AA","B","C","D","E","F","G","H","I","J","K","送迎"];
-function nbrand(b){return String(b||"").toUpperCase()==="HDM"?"HDM":"BUDDICA";}
 function fesc(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
-async function loadFleet(){ await load(); renderFleet(); }
 // マスター＝BTアプリの車両登録マスター(bt_vehicles)をクラス別に表示
-let MASTER=null;
 const M_ORDER=["AA","A","B","C","D","E","F","G","H","I","J","K","送迎"];
 const M_CLSLBL={AA:"ハイエンド車両",A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン","送迎":"送迎車"};
 const M_CLSCOLOR={AA:"#0f172a",A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d","送迎":"#64748b"};
@@ -802,92 +876,6 @@ function mSpecLine(v){
 let KPIFLAGS={}, KPI_YM="";
 // 稼働＝当月配車表(bt_vehicle_monthly_kpi)と一致。KPI未設定の車はマスタの静的activeにフォールバック。保険事業車は未稼働。
 function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.code]; return f!==undefined ? f!==false : (v.active!==false && v.status!=="inactive"); }
-async function loadMaster(){
-  $("masterBody").innerHTML='<div style="color:#94a3b8;padding:14px">読み込み中…</div>';
-  KPI_YM=new Date(Date.now()+9*3600*1000).toISOString().slice(0,7); // JST基準の当月(配車表と一致・UTCだと月境界でズレる)
-  const [vres,kres]=await Promise.all([
-    sb.from("bt_vehicles").select("*"),
-    sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,active").eq("year_month",KPI_YM)
-  ]);
-  if(vres.error){$("masterBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(vres.error.message)+'</div>';return;}
-  KPIFLAGS={}; (kres.data||[]).forEach(k=>{KPIFLAGS[k.vehicle_code]=k.active;});
-  MASTER=vres.data||[]; renderActiveMaster();
-}
-function masterHtml(list, subtitle){
-  const g=x=>x?fesc(x):'<span class="flmiss">-</span>';
-  const grp={}; list.forEach(v=>{const t=v.type||"?";(grp[t]=grp[t]||[]).push(v);});
-  const order=M_ORDER.filter(c=>grp[c]).concat(Object.keys(grp).filter(c=>M_ORDER.indexOf(c)<0));
-  const total=list.length, totHDM=list.filter(isHdm).length, totBT=total-totHDM, totIns=list.reduce((s,v)=>s+insOf(v),0), totLease=list.reduce((s,v)=>s+leaseOf(v),0);
-  let html='<div class="sub" style="margin-bottom:8px">'+subtitle+'</div>';
-  html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span><span class="fl-sc"><b style="color:#047857">BT</b> '+totBT+'台</span><span class="fl-sc"><b style="color:#1d4ed8">HDM</b> '+totHDM+'台</span>'+(totIns>0?'<span class="fl-sc">保険 ¥'+totIns.toLocaleString()+'/月</span>':'')+(totLease>0?'<span class="fl-sc">リース ¥'+totLease.toLocaleString()+'/月</span>':'')+'</div>';
-  if(!total){return html+'<div style="color:#94a3b8;padding:16px;text-align:center">該当する車両はありません。</div>';}
-  order.forEach(c=>{
-    const arr=grp[c]; if(!arr||!arr.length)return;
-    const col=M_CLSCOLOR[c]||"#94a3b8", lbl=M_CLSLBL[c]||"", hdm=arr.filter(isHdm).length, bt=arr.length-hdm, ins=arr.reduce((s,v)=>s+insOf(v),0), lease=arr.reduce((s,v)=>s+leaseOf(v),0);
-    html+='<div class="m-clsrow" data-mc="'+fesc(c)+'"><span class="m-badge" style="background:'+col+'">'+fesc(c)+'</span><span class="m-lbl">'+fesc(lbl)+'</span><span class="m-brands">'+(bt?'<span class="m-bt">BT'+bt+'</span>':'')+(hdm?'<span class="m-hdm">HDM'+hdm+'</span>':'')+'</span><span class="m-cnt">'+arr.length+'台</span>'+(ins>0?'<span class="m-mc">保険¥'+ins.toLocaleString()+'</span>':'')+(lease>0?'<span class="m-mc" style="color:#2563eb">リース¥'+lease.toLocaleString()+'</span>':'')+'</div>';
-    {
-      html+='<div class="fltblwrap" style="margin:-2px 0 8px"><table class="fltbl"><thead><tr><th>ナンバー</th><th>車種</th><th>ブランド</th><th>年式</th><th>車台番号</th><th>車検満了</th><th>点検</th><th>走行km</th><th>保険/月</th><th>リース/月</th><th>稼働</th></tr></thead><tbody>';
-      arr.slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(v=>{
-        const mi=v.current_mileage?Number(v.current_mileage).toLocaleString():'<span class="flmiss">-</span>', on=isKpiActive(v), bd=isHdm(v);
-        html+='<tr class="vrow"><td class="plate" data-lb="ナンバー"><span class="vtog">▸</span> '+g(v.plate_no)+'</td><td data-lb="車種">'+fesc(v.name||"")+'</td><td data-lb="ブランド"><span style="font-size:10px;color:#fff;background:'+(bd?"#1d4ed8":"#047857")+';border-radius:4px;padding:1px 6px;font-weight:800">'+(bd?"HDM":"BT")+'</span></td><td data-lb="年式">'+g(v.year)+'</td><td data-lb="車台番号" style="font-size:11px;color:#475569">'+g(v.chassis_no)+'</td><td data-lb="車検満了">'+g(v.inspection_due_date)+'</td><td data-lb="点検">'+g(v.tenken_due_date)+'</td><td data-lb="走行km">'+mi+'</td><td data-lb="保険/月">¥'+insOf(v).toLocaleString()+'</td><td data-lb="リース/月">¥'+leaseOf(v).toLocaleString()+'</td><td data-lb="稼働" class="'+(on?"fl-act":"fl-off")+'">'+(on?"稼働":"未稼働")+'</td></tr><tr class="m-specrow"><td colspan="11"><div class="m-specs">'+mSpecLine(v)+'</div></td></tr>';
-      });
-      html+='</tbody></table></div>';
-    }
-  });
-  return html;
-}
-function renderActiveMaster(){
-  if($("viewBt")&&$("viewBt").style.display!=="none")renderBt();
-  else if($("viewHdm")&&$("viewHdm").style.display!=="none")renderHdm();
-  else renderMaster();
-}
-function renderMaster(){
-  if(!MASTER){loadMaster();return;}
-  $("masterBody").innerHTML=masterHtml(MASTER,'高松の車両マスター（BTアプリの車両登録データ）をクラス別に、全車両を展開して表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>（bt_vehicle_monthly_kpi）。');
-}
-function renderBt(){
-  if(!MASTER){loadMaster();return;}
-  $("btBody").innerHTML=masterHtml(MASTER.filter(v=>!isHdm(v)),'🟢 <b>BT（BUDDICA）名義の車両のみ</b>をクラス別に表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>。');
-}
-function renderHdm(){
-  if(!MASTER){loadMaster();return;}
-  $("hdmBody").innerHTML=masterHtml(MASTER.filter(isHdm),'🔵 <b>HDM（HANDYMAN）名義の車両のみ</b>をクラス別に表示します。<b>稼働＝当月（'+KPI_YM+'）配車表と連動</b>。');
-}
-// 車両リスト＝仕入OK＋整備OK（確保）の車両だけをクラス別にまとめて表示（読み取り専用サマリー）
-const FL_CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
-const FL_CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-const FL_STCOL={stU:"#64748b",stC:"#b45309",stO:"#166534",stN:"#b91c1c",stX:"#1d4ed8"};
-function renderFleet(){
-  const g=x=>x?fesc(x):'<span class="flmiss">-</span>';
-  let list=rows.filter(isSecured);  // 確保=isSecured
-  if(fleetBrand==="HDM")list=list.filter(r=>r.pickup==="HDM");
-  else if(fleetBrand==="BUDDICA")list=list.filter(r=>r.pickup==="BD");
-  const total=list.length;
-  const plate=r=>{const p=String(r.plate||"");if(!p)return'<span class="flmiss">-</span>';const m=p.match(/(\d{2,4})\s*$/);return m?m[1]:fesc(p);};
-  const meigi=r=>r.pickup==="HDM"?'<span style="background:#2563eb;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">HDM</span>':(r.pickup==="BD"?'<span style="background:#f97316;color:#fff;font-weight:800;border-radius:5px;padding:1px 7px;font-size:11px">BD</span>':'<span class="flmiss">未定</span>');
-  const sale=r=>{const s=r.sale_status||"未対応";return '<span style="color:'+(FL_STCOL[STCLS[s]]||"#64748b")+';font-weight:800;font-size:12px">'+fesc(s)+'</span>';};
-  let html='<div class="sub" style="margin-bottom:8px"><b style="color:#16a34a">確保車両</b>（仕入OK・整備OK・ナンバーあり）をクラス別にまとめています。</div>';
-  if(!total){$("fleetBody").innerHTML=html+'<div style="color:#94a3b8;padding:16px;text-align:center">確保車両はまだありません。</div>';return;}
-  const order=CLASSES.slice(1);  // A..K
-  const grp={}; order.forEach(c=>grp[c]=[]); const misc=[];
-  list.forEach(r=>{ if(r.vclass&&grp[r.vclass])grp[r.vclass].push(r); else misc.push(r); });
-  let sumChips=''; order.forEach(c=>{ if(grp[c].length) sumChips+='<span class="fl-sc"><b style="color:'+(FL_CLSCOLOR[c]||"#334155")+'">'+c+'</b> '+grp[c].length+'台</span>'; });
-  if(misc.length) sumChips+='<span class="fl-sc">未設定 '+misc.length+'台</span>';
-  html+='<div class="fl-sumbar"><span class="fl-total">総台数 <b>'+total+'</b> 台</span>'+sumChips+'</div>';
-  const sect=(c,arr)=>{
-    if(!arr.length)return;
-    const col=FL_CLSCOLOR[c]||"#94a3b8", lbl=FL_CLSLBL[c]||"クラス未設定";
-    html+='<div class="brandhead" style="background:'+col+'"><span style="background:rgba(255,255,255,.25);border-radius:5px;padding:1px 9px;font-weight:900">'+(c||"—")+'</span> '+lbl+'<span class="bc">'+arr.length+'台</span></div>';
-    html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:32%">車種</th><th style="width:76px">ナンバー</th><th>車両状態</th><th style="width:60px">名義</th><th style="width:80px">販売開始</th></tr></thead><tbody>';
-    arr.forEach(r=>{
-      html+='<tr><td data-lb="車種"><b>'+fesc(r.model||"車種未取得")+'</b></td><td class="plate" data-lb="ナンバー">'+plate(r)+'</td><td data-lb="車両状態" style="white-space:normal">'+(r.condition?fesc(r.condition):'<span class="flmiss">-</span>')+'</td><td data-lb="名義">'+meigi(r)+'</td><td data-lb="販売開始">'+sale(r)+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  };
-  order.forEach(c=>sect(c,grp[c]));
-  if(misc.length)sect("",misc);
-  $("fleetBody").innerHTML=html;
-}
 // ===== ETCセットアップ＝全車両(bt_vehicles・読むだけ)の進捗。保存先は bt_etc_setup（1車1項目だけ upsert）=====
 let ETC_V=null, ETC={};
 const ETC_EXCLUDE=new Set(["ポルシqs4p","ハイエース1002"]);   // 10/14 オーナー指示：ETC表からだけ外す（911・ハイエース1002）。bt_vehicles・保存データは触らない
@@ -1182,31 +1170,17 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
   $("viewProc").style.display=v==="proc"?"":"none";
-  $("viewFleet").style.display=v==="fleet"?"":"none";
-  $("viewMaster").style.display=v==="master"?"":"none";
-  $("viewBt").style.display=v==="bt"?"":"none";
-  $("viewHdm").style.display=v==="hdm"?"":"none";
   $("viewEtc").style.display=v==="etc"?"":"none";
   $("viewTire").style.display=v==="tire"?"":"none";
   $("viewInsp").style.display=v==="insp"?"":"none";
   if(v==="insp"){INSP.resv=null;renderInsp();}
-  if(v==="fleet")renderFleet();
-  if(v==="master")renderMaster();
-  if(v==="bt")renderBt();
-  if(v==="hdm")renderHdm();
+  $("viewKarte").style.display=v==="karte"?"":"none";
+  $("viewSwap").style.display=v==="swap"?"":"none";
+  if(v==="karte")VL.show("karte");
+  if(v==="swap")VL.show("swap");
   if(v==="etc")renderEtc();
   if(v==="tire"){TIRE_V=null;renderTire();}
 }));
-$("reloadFleet").addEventListener("click",loadFleet);
-$("reloadMaster")&&$("reloadMaster").addEventListener("click",loadMaster);
-$("reloadBt")&&$("reloadBt").addEventListener("click",loadMaster);
-$("reloadHdm")&&$("reloadHdm").addEventListener("click",loadMaster);
-["masterBody","btBody","hdmBody"].forEach(function(id){var el=$(id);if(el)el.addEventListener("click",function(e){var r=e.target.closest("tr.vrow");if(r)r.classList.toggle("open");});});
-document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(c=>c.addEventListener("click",()=>{
-  document.querySelectorAll("#viewFleet .chip[data-fb]").forEach(x=>x.classList.remove("on"));c.classList.add("on");
-  fleetBrand=c.dataset.fb;renderFleet();
-}));
-
 load();
 // 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
 (function(){let t="";try{t=new URLSearchParams(location.search).get("tab")||"";}catch(e){}
