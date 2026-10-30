@@ -10,18 +10,25 @@ alter table public.bt_vehicles
   add column if not exists sale_expected   integer,   -- 予想売却額（相場を見て入力）
   add column if not exists sale_price      integer,   -- 実際の売却額
   add column if not exists sale_date       date,
-  add column if not exists sale_dest       text;      -- 売却先
+  add column if not exists sale_dest       text,      -- 売却先
+  add column if not exists life_flag       text;      -- 例『10万km超』（リミット延長した理由）
 
 -- 2) 全体設定（1行だけ）
 create table if not exists public.bt_vehicle_life_settings (
   id               integer primary key default 1 check (id = 1),
-  default_limit_km integer not null default 150000,
+  default_limit_km integer not null default 100000,             -- オーナー指示 2026-10-30：全車10万km
+  over_limit_km    integer not null default 150000,             -- 既に10万kmを超えていた車
   class_limits     jsonb   not null default '{}'::jsonb,   -- 例 {"AA":80000,"A":120000}
   lead_months      integer not null default 3,             -- 売却予定の何ヶ月前に仕入れを動かすか
   shaken_rule      text    not null default 'next',        -- next=次の車検期間中にリミット到達なら車検前に売る / always=車検前に必ず売る / ignore=車検は見ない
   updated_at       timestamptz not null default now()
 );
 insert into public.bt_vehicle_life_settings (id) values (1) on conflict do nothing;
+
+-- 1-2) 適用時点で既に10万kmを超えている車は、リミット15万km＋フラグで固定（あとから10万kmを超えた車は対象外）
+update public.bt_vehicles
+   set life_limit_km = 150000, life_flag = '10万km超'
+ where life_limit_km is null and coalesce(current_mileage,0) >= 100000 and coalesce(type,'') <> '送迎';
 alter table public.bt_vehicle_life_settings enable row level security;
 drop policy if exists authenticated_full_access on public.bt_vehicle_life_settings;
 create policy authenticated_full_access on public.bt_vehicle_life_settings for all to authenticated using (true) with check (true);

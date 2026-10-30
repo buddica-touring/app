@@ -9,7 +9,7 @@ const VL=(()=>{
   const DAY=864e5, MON=30.44*DAY;
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
-  const DEF={default_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next"};
+  const DEF={default_limit_km:100000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next"};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
   const S={loaded:false,loading:null,cfg:Object.assign({},DEF),cfgSaved:false,lifeCols:false,
     v:[],res:{},maint:{},dmg:{},kpi:{},calc:{},open:new Set(),detail:{},
     brand:"all",stf:"all",sort:"sale",view:"karte",showCfg:false};
@@ -75,7 +75,16 @@ const VL=(()=>{
     return k/d>KM_PER_DAY_MAX?null:k;
   }
   function suspect(r){const k=n(r.driven_km)!=null?n(r.driven_km):(n(r.end_odo)!=null&&n(r.start_odo)!=null?n(r.end_odo)-n(r.start_odo):null);return k!=null&&tripKm(r)==null;}
-  function limitOf(v){return n(v.life_limit_km)||n(S.cfg.class_limits&&S.cfg.class_limits[v.type])||n(S.cfg.default_limit_km)||150000;}
+  // 既定リミットを既に超えていた車＝延長リミット＋フラグ。DB追加後は SQL で 2026-10-30 時点の該当車に life_limit_km と life_flag を固定する
+  //（ここで毎回判定すると、あとから10万kmを超えた車まで延長されてしまうため、DB未適用の間だけの仮判定）
+  function baseLimit(v){return n(S.cfg.class_limits&&S.cfg.class_limits[v.type])||n(S.cfg.default_limit_km)||DEF.default_limit_km;}
+  function limitOf(v,odo){
+    if(n(v.life_limit_km))return n(v.life_limit_km);
+    const b=baseLimit(v);
+    if(!S.lifeCols&&odo!=null&&odo>=b)return n(S.cfg.over_limit_km)||DEF.over_limit_km;
+    return b;
+  }
+  function overFlag(v,odo){return v.life_flag||(!S.lifeCols&&!n(v.life_limit_km)&&odo!=null&&odo>=baseLimit(v)?(km(baseLimit(v)/10000)+"万km超"):"");}
 
   function compute(){
     const t0=T0(), allKm=[];
@@ -100,7 +109,7 @@ const VL=(()=>{
       const base=n(v.current_mileage)||0;
       const odoMax=done.reduce((m,r)=>{const o=n(r.end_odo);return o&&o>m&&o-base<=20000?o:m;},0);
       const odo=Math.max(base,odoMax)||null;
-      const limit=limitOf(v);
+      const limit=limitOf(v,odo), flag=overFlag(v,odo);
       let limitT=null; if(odo!=null&&odo>=limit)limitT=t0; else if(odo!=null&&monKm>0)limitT=t0+(limit-odo)/monKm*MON;
       const shaken=ts(v.inspection_due_date||v.inspection_next_date);
       // 車検ルール：next＝次の車検期間（2年）中にリミット到達なら、車検の1ヶ月前に売る
@@ -122,15 +131,20 @@ const VL=(()=>{
       else if(procT<=t0)st="prep";
       else if(saleT<=addMon(t0,6))st="soon";
       // 収支（売上は 2026-08-03 以降の実績）
-      const revDone=done.reduce((s,r)=>s+(n(r.final_price)||n(r.price)||n(r.amount)||0),0);
-      const revBooked=rs.filter(r=>ts(r.end_date)>=t0).reduce((s,r)=>s+(n(r.final_price)||n(r.price)||n(r.amount)||0),0);
+      const price=r=>n(r.final_price)||n(r.price)||n(r.amount)||0;
+      const revDone=done.reduce((s,r)=>s+price(r),0);
+      const revBooked=rs.filter(r=>ts(r.end_date)>=t0).reduce((s,r)=>s+price(r),0);
+      // 稼働日数＝貸出日数（今日までに経過した分）。在籍日数＝データ開始（または仕入日）から今日まで
+      const runDays=rs.reduce((s,r)=>{const a=ts(r.start_date),b=Math.min(ts(r.end_date),t0-DAY);return b>=a?s+Math.round((b-a)/DAY)+1:s;},0);
+      const from=Math.max(ts(DATA_FROM),ts(v.purchase_date)||0), months=Math.max(0,(t0-from)/MON), heldDays=Math.max(1,Math.round((t0-from)/DAY));
       const mts=S.maint[v.code]||[], mCost=mts.reduce((s,m)=>s+(n(m.actual_cost)||n(m.cost)||0),0);
-      const from=Math.max(ts(DATA_FROM),ts(v.purchase_date)||0), months=Math.max(0,(t0-from)/MON);
       const fixedMon=(n(v.lease_monthly)||0)+(n(v.insurance_annual)||0)+(n(v.car_tax)||0)/12;
-      const fixed=fixedMon*months, gross=revDone-mCost-fixed;
+      const fixed=fixedMon*months, buy=n(v.purchase_price);
+      const cost=(buy||0)+mCost+fixed, gross=revDone-cost;   // 原価＝仕入額＋整備費＋リース・保険・税
       const exitPrice=n(v.sale_price)!=null?n(v.sale_price):n(v.sale_expected);
-      const total=n(v.purchase_price)!=null&&exitPrice!=null?gross+exitPrice-n(v.purchase_price):null;
-      S.calc[v.code]={odo,limit,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
+      const total=buy!=null&&exitPrice!=null?gross+exitPrice:null;
+      const recov=buy?revDone/buy:null;
+      S.calc[v.code]={odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
   }
@@ -171,7 +185,8 @@ const VL=(()=>{
       +'<button class="vl-kpi'+(S.stf==="soon"?" on":"")+'" data-stf="soon"><span>🟡 半年以内</span><b>'+cnt("soon")+'</b></button>'
       +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(S.global.monKm)+'<small>km</small></b></div></div>';
     const G=S.global;
-    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small></div>';
+    const nFlag=base.filter(v=>S.calc[v.code].flag).length;
+    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small>'+(nFlag?'<span class="vl-flagline">⚑ '+km(S.cfg.default_limit_km)+'kmを既に超えている車 '+nFlag+'台は、リミット'+km(S.cfg.over_limit_km)+'kmで計算中</span>':'')+'</div>';
     h+='<div class="vl-bar1">'
       +['all','BT','HDM'].map(b=>'<button class="chip'+(S.brand===b?" on":"")+'" data-br="'+b+'">'+(b==="all"?"全体 "+S.v.length:b==="BT"?"🟢 BT":"🔵 HDM")+'</button>').join("")
       +'<select class="vl-sort" aria-label="並び順">'+[["sale","売却が近い順"],["class","クラス順"],["km","走行距離順"],["profit","粗利順"]].map(([k,l])=>'<option value="'+k+'"'+(S.sort===k?" selected":"")+'>'+l+'</option>').join("")+'</select>'
@@ -206,8 +221,9 @@ const VL=(()=>{
       +'</div>';
     h+='<div class="vl-tags" data-tog="1">'
       +(dn!=null?'<span class="vl-tag'+(dn?" dmg":"")+'">🩹 傷 '+dn+'</span>':'')
-      +'<span class="vl-tag">🔧 整備 '+(S.maint[v.code]||[]).length+'件</span>'
-      +'<span class="vl-tag">💴 粗利 '+yen(c.gross)+'</span>'
+      +(c.flag?'<span class="vl-tag flag">⚑ '+e(c.flag)+'</span>':'')
+      +'<span class="vl-tag">💴 売上 '+yen(c.revDone)+'</span>'
+      +'<span class="vl-tag">📅 稼働 '+c.runDays+'日</span>'
       +(c.susp?'<span class="vl-tag warn">⚠ 走行入力の確認 '+c.susp+'件</span>':'')
       +'<span class="vl-more">'+(open?'閉じる ▴':'詳しく ▾')+'</span></div>';
     if(open)h+='<div class="vl-bd">'+detailHtml(v)+'</div>';
@@ -222,7 +238,7 @@ const VL=(()=>{
     h+='<section><h4>📈 走行予測の根拠</h4><div class="vl-kv">'
       +kv("月間走行（全車共通）",km(c.monKm)+'km','1予約 '+km(S.global.avgKm)+'km × 月 '+S.global.perMon.toFixed(1)+'件')
       +kv("この車の予約",(S.res[v.code]||[]).length+'件','この先60日の予約 '+c.future+'件')
-      +kv("リミット",km(c.limit)+'km',n(v.life_limit_km)?'この車だけの設定':(S.cfg.class_limits&&S.cfg.class_limits[v.type]?'クラス'+e(v.type)+'の設定':'全体の既定'))
+      +kv("リミット",km(c.limit)+'km',c.flag?'⚑ '+e(c.flag)+' → 延長リミット':n(v.life_limit_km)?'この車だけの設定':(S.cfg.class_limits&&S.cfg.class_limits[v.type]?'クラス'+e(v.type)+'の設定':'全体の既定'))
       +kv("リミット到達",c.limitT!=null?ymFar(c.limitT):'—',c.limitT!=null&&c.limitT>addMon(T0(),60)?'今のペースだと'+ym(c.limitT):'')
       +kv("車検ルール",c.byShaken!=null?ym(c.byShaken)+'に売る':'車検は通す',S.cfg.shaken_rule==="always"?'車検前に必ず売る設定':S.cfg.shaken_rule==="ignore"?'車検は見ない設定':'次の車検期間中にリミットに達するなら車検前に売る')
       +'</div>';
@@ -232,15 +248,24 @@ const VL=(()=>{
     }
     h+='</section>';
     // 生涯収支
-    h+='<section><h4>💴 個体別の生涯成績</h4><div class="vl-pl">'
-      +pl("仕入額",n(v.purchase_price)!=null?yen(-n(v.purchase_price)):'未入力',"neg")
-      +pl("売上（実績）",yen(c.revDone),"pos",'予約済み '+yen(c.revBooked)+' は含まず')
+    h+='<section><h4>💴 個体別の生涯成績</h4><div class="vl-kpis">'
+      +kp("売上（生涯）",yen(c.revDone),'予約済み '+yen(c.revBooked)+' は別')
+      +kp("稼働日数",c.runDays+'<small>日</small>','稼働率 '+Math.round(c.runDays/c.heldDays*100)+'%（在籍'+c.heldDays+'日）')
+      +kp("予約件数",c.nDone+'<small>件</small>','日単価 '+(c.runDays?yen(c.revDone/c.runDays):'—'))
+      +kp("粗利",'<span class="'+(c.gross>=0?"pos":"neg")+'">'+yen(c.gross)+'</span>',c.revDone?'粗利率 '+Math.round(c.gross/c.revDone*100)+'%':'')
+      +'</div>';
+    if(c.recov!=null)h+='<div class="vl-recov"><div><span>仕入額の回収</span><b>'+Math.round(c.recov*100)+'%</b></div><div class="tr"><i style="width:'+Math.min(100,c.recov*100)+'%"></i></div><small>売上 '+yen(c.revDone)+' ／ 仕入額 '+yen(c.buy)+'</small></div>';
+    else h+='<div class="vl-warn">仕入額が未入力です。入れると、スタートからいくら回収したかが出ます。</div>';
+    h+='<div class="vl-pl">'
+      +pl("売上（実績）",yen(c.revDone),"pos")
+      +pl("仕入額",c.buy!=null?yen(-c.buy):'未入力',"neg")
       +pl("整備費",yen(-c.mCost),"neg",(S.maint[v.code]||[]).length+'件')
       +pl("リース・保険・税",yen(-c.fixed),"neg",yen(c.fixedMon)+'/月 × '+c.months.toFixed(1)+'ヶ月')
-      +'<div class="vl-pl-r sub"><span>粗利（売上−コスト）</span><b class="'+(c.gross>=0?"pos":"neg")+'">'+yen(c.gross)+'</b></div>'
+      +'<div class="vl-pl-r sub"><span>原価 計</span><b class="neg">'+yen(-c.cost)+'</b></div>'
+      +'<div class="vl-pl-r sub"><span>粗利（売上−原価）</span><b class="'+(c.gross>=0?"pos":"neg")+'">'+yen(c.gross)+'</b></div>'
       +pl(n(v.sale_price)!=null?"売却額":"予想売却額",c.exitPrice!=null?yen(c.exitPrice):'未入力',"pos")
-      +'<div class="vl-pl-r tot"><span>最終損益</span><b class="'+(c.total==null?"":c.total>=0?"pos":"neg")+'">'+(c.total!=null?yen(c.total):'仕入額・売却額の入力待ち')+'</b></div>'
-      +'</div><div class="vl-note">売上・固定費は '+DATA_FROM.replace(/-/g,"/")+'（または仕入日）以降で集計</div>';
+      +'<div class="vl-pl-r tot"><span>生涯で生んだ利益<small>粗利＋売却額</small></span><b class="'+(c.total==null?"":c.total>=0?"pos":"neg")+'">'+(c.total!=null?yen(c.total):'仕入額・売却額の入力待ち')+'</b></div>'
++'</div><div class="vl-note">売上・固定費は '+DATA_FROM.replace(/-/g,"/")+'（または仕入日）以降で集計</div>';
     h+='</section>';
     // 売却時の条件（相場を見る材料）
     {
@@ -283,13 +308,14 @@ const VL=(()=>{
     if(!S.lifeCols)h+='<div class="vl-warn">入力欄を使うにはデータベースの追加（sql/bt_vehicle_lifecycle.sql）が必要です。</div>';
     h+='<div class="vl-form">'
       +fld(v,"purchase_price","仕入額","円","number")+fld(v,"purchase_date","仕入日","","date")
-      +fld(v,"life_limit_km","この車のリミット","km","number",km(limitOf(v))+"（既定）")
+      +fld(v,"life_limit_km","この車のリミット","km","number",km(S.calc[v.code].limit)+"（既定）")
       +fld(v,"sale_plan_date","売却予定日（手動）","","date")
       +fld(v,"sale_expected","予想売却額","円","number")
       +fld(v,"sale_price","売却額（確定）","円","number")+fld(v,"sale_date","売却日","","date")+fld(v,"sale_dest","売却先","","text","業者名など")
       +'</div></section>';
     return h;
   }
+  const kp=(k,v,s)=>'<div class="vl-kp"><span>'+k+'</span><b>'+v+'</b>'+(s?'<small>'+s+'</small>':'')+'</div>';
   const kv=(k,v,s)=>'<div><span>'+k+'</span><b>'+v+'</b>'+(s?'<small>'+s+'</small>':'')+'</div>';
   const pl=(k,v,cls,s)=>'<div class="vl-pl-r"><span>'+k+(s?'<small>'+s+'</small>':'')+'</span><b class="'+cls+'">'+v+'</b></div>';
   function fld(v,key,lb,unit,type,ph){
@@ -324,6 +350,7 @@ const VL=(()=>{
     return '<div class="vl-cfg"><h4>⚙ 売却・入替のルール（全員共通）</h4>'
       +(S.cfgSaved?'':'<div class="vl-warn">設定を保存するにはデータベースの追加（sql/bt_vehicle_lifecycle.sql）が必要です。今は既定値で計算しています。</div>')
       +'<label class="vl-f"><span>走行リミット（既定）</span><span class="in"><input inputmode="numeric" data-cfg="default_limit_km" value="'+km(c.default_limit_km)+'"><i>km</i></span></label>'
+      +'<label class="vl-f"><span>すでに既定を超えていた車のリミット</span><span class="in"><input inputmode="numeric" data-cfg="over_limit_km" value="'+km(c.over_limit_km)+'"><i>km</i></span></label>'
       +'<div class="vl-sub">クラス別のリミット（空欄＝既定）</div><div class="vl-cls">'+cls.map(k=>'<label><span class="m-badge" style="background:'+clsCol(k)+'">'+k+'</span><input inputmode="numeric" data-cls="'+k+'" value="'+(c.class_limits&&c.class_limits[k]?km(c.class_limits[k]):'')+'" placeholder="'+km(c.default_limit_km)+'"></label>').join("")+'</div>'
       +'<label class="vl-f"><span>仕入れを動かす時期</span><span class="in"><select data-cfg="lead_months">'+[1,2,3,4,5,6].map(m=>'<option value="'+m+'"'+(+c.lead_months===m?" selected":"")+'>売却の'+m+'ヶ月前</option>').join("")+'</select></span></label>'
       +'<label class="vl-f"><span>車検の扱い</span><span class="in"><select data-cfg="shaken_rule">'+[["next","次の車検期間中にリミットに達するなら、車検前に売る"],["always","車検の前に必ず売る"],["ignore","車検は見ない（走行だけ）"]].map(([k,l])=>'<option value="'+k+'"'+(c.shaken_rule===k?" selected":"")+'>'+l+'</option>').join("")+'</select></span></label>'
@@ -392,7 +419,7 @@ const VL=(()=>{
     const num=s=>{const x=String(s||"").replace(/[^\d]/g,"");return x?Number(x):null;};
     root.querySelectorAll("[data-cfg]").forEach(i=>{const k=i.dataset.cfg;c[k]=k==="shaken_rule"?i.value:num(i.value)||DEF[k];});
     root.querySelectorAll("[data-cls]").forEach(i=>{const x=num(i.value);if(x)c.class_limits[i.dataset.cls]=x;else delete c.class_limits[i.dataset.cls];});
-    const {error}=await sb.from("bt_vehicle_life_settings").upsert({id:1,default_limit_km:c.default_limit_km,class_limits:c.class_limits,lead_months:c.lead_months,shaken_rule:c.shaken_rule,updated_at:new Date().toISOString()});
+    const {error}=await sb.from("bt_vehicle_life_settings").upsert({id:1,default_limit_km:c.default_limit_km,over_limit_km:c.over_limit_km,class_limits:c.class_limits,lead_months:c.lead_months,shaken_rule:c.shaken_rule,updated_at:new Date().toISOString()});
     if(error){setStatus("設定を保存できませんでした："+error.message);return;}
     S.cfg=c; S.showCfg=false; compute(); render(); setStatus("✅ ルールを保存しました");
   }
@@ -424,7 +451,7 @@ const VL=(()=>{
       if(t.dataset.f){saveField(t.closest(".vl-card").dataset.code,t);}
     });
     kb.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&ev.target.dataset.f)ev.target.blur();});
-    kb.addEventListener("focusin",ev=>{const t=ev.target;if(t.dataset.t==="number"||t.dataset.cfg==="default_limit_km"||t.dataset.cls)t.value=t.value.replace(/[^\d]/g,"");});
+    kb.addEventListener("focusin",ev=>{const t=ev.target;if(t.dataset.t==="number"||/_km$/.test(t.dataset.cfg||"")||t.dataset.cls)t.value=t.value.replace(/[^\d]/g,"");});
     sw.addEventListener("click",ev=>{const g=ev.target.closest("[data-goto]");if(g)gotoCard(g.dataset.goto);});
     const rl=$("reload"); if(rl)rl.addEventListener("click",()=>{if(S.view&&($("viewKarte").style.display!=="none"||$("viewSwap").style.display!=="none")){S.loaded=false;S.detail={};show(S.view);}});
   }
