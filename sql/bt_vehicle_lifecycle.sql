@@ -11,8 +11,9 @@ alter table public.bt_vehicles
   add column if not exists sale_price      integer,   -- 実際の売却額
   add column if not exists sale_date       date,
   add column if not exists sale_dest       text,      -- 売却先
-  add column if not exists life_flag       text,
-  add column if not exists exit_type       text not null default 'sell';   -- sell=売却 / ride=乗り潰し      -- 例『10万km超』（リミット延長した理由）
+  add column if not exists life_flag       text,      -- 例『10万km超』（リミット延長した理由）
+  add column if not exists exit_type       text not null default 'sell',   -- sell=売却 / ride=乗り潰し
+  add column if not exists market_code     text;                           -- カーセンサー車種コード（例 TO_S228＝アクア）
 
 -- 2) 全体設定（1行だけ）
 create table if not exists public.bt_vehicle_life_settings (
@@ -52,6 +53,26 @@ do $$ begin
   begin alter publication supabase_realtime add table public.bt_vehicles; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.bt_vehicle_life_settings; exception when duplicate_object then null; end;
 end $$;
+
+-- 3-3) 市場価格（一般小売）の調査結果。ブラウザで週1回、カーセンサーの検索結果（車種・年式±1年・走行±1万km・修復歴なし）から集計値と [走行km,本体価格] の数値だけを保存（掲載文・写真は保存しない）
+create table if not exists public.bt_market_prices (
+  id           bigserial primary key,
+  vehicle_code text not null,
+  source       text not null,            -- carsensor / goonet
+  purpose      text not null default 'now', -- now=今の走行帯 / end=終了時の走行帯
+  year_from    integer, year_to integer, km_from integer, km_to integer,   -- 調査条件（年式±1年・走行±1万km）
+  surveyed_at  timestamptz not null default now(),
+  query_url    text,                     -- 調査した検索ページ（条件：車種・年式・走行帯）
+  n            integer,                  -- 掲載台数
+  median       integer, p25 integer, p75 integer, min integer, max integer,   -- 車両本体価格（円）
+  points       jsonb,                    -- [[走行km, 価格], ...]
+  note         text
+);
+create index if not exists bt_market_prices_code_at on public.bt_market_prices (vehicle_code, surveyed_at desc);
+alter table public.bt_market_prices enable row level security;
+drop policy if exists authenticated_full_access on public.bt_market_prices;
+create policy authenticated_full_access on public.bt_market_prices for all to authenticated using (true) with check (true);
+alter table public.bt_vehicle_life_settings add column if not exists buy_rate integer not null default 75;   -- 買取見込み＝小売相場×この％
 
 -- 4) 返却メーター（bt_reservations.end_odo）が入ったら車両の現在走行距離を進める
 --    逆戻り・桁違い（+5,000km超）は反映しない

@@ -9,7 +9,7 @@ const VL=(()=>{
   const DAY=864e5, MON=30.44*DAY;
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
-  const DEF={default_limit_km:100000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next"};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
+  const DEF={default_limit_km:100000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next",buy_rate:75};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
   const S={loaded:false,loading:null,cfg:Object.assign({},DEF),cfgSaved:false,lifeCols:false,
     v:[],res:{},maint:{},dmg:{},kpi:{},calc:{},open:new Set(),detail:{},
     brand:"all",stf:"all",sort:"sale",view:"karte",showCfg:false};
@@ -18,6 +18,7 @@ const VL=(()=>{
   const e=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const n=x=>{if(x==null||x==="")return null;const v=Number(x);return isFinite(v)?v:null;};
   const yen=x=>x==null?"—":(x<0?"−":"")+"¥"+Math.abs(Math.round(x)).toLocaleString();
+  const man=x=>x==null?'—':(x>=1e4?(Math.round(x/1e3)/10).toLocaleString()+'万':Math.round(x).toLocaleString()+'円');
   const km=x=>x==null?"—":Math.round(x).toLocaleString();
   const todayStr=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
   const T0=()=>Date.parse(todayStr()+"T00:00:00Z");
@@ -46,14 +47,15 @@ const VL=(()=>{
     if(S.loading&&!force)return S.loading;
     S.loading=(async()=>{
       const ymNow=todayStr().slice(0,7);
-      const [veh,fleet,res,mt,kpi,cfg,dmg]=await Promise.all([
+      const [veh,fleet,res,mt,kpi,cfg,dmg,mk]=await Promise.all([
         all(()=>sb.from("bt_vehicles").select("*").order("code")),
         all(()=>sb.from("bt_fleet").select("reservation_id,vehicle_code")),
         all(()=>sb.from("bt_reservations").select("id,start_date,end_date,status,final_price,price,amount,driven_km,start_odo,end_odo,end_odo_at").gte("start_date",DATA_FROM).order("id")),
         all(()=>sb.from("bt_vehicle_maintenance").select("vehicle_code,type,date,completed_date,cost,actual_cost,workshop,odometer_km,km_at").order("id")),
         sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,active").eq("year_month",ymNow),
         sb.from("bt_vehicle_life_settings").select("*").eq("id",1).maybeSingle(),
-        sb.rpc("bt_vehicle_damage_summary")]);
+        sb.rpc("bt_vehicle_damage_summary"),
+        sb.from("bt_market_prices").select("vehicle_code,source,surveyed_at,n,median,p25,p75,min,max,points,query_url").gte("surveyed_at",new Date(Date.now()-180*DAY).toISOString()).order("surveyed_at",{ascending:false}).limit(2000)]);
       S.v=veh.filter(v=>v.type!=="送迎");
       S.lifeCols=S.v.length>0&&("life_limit_km" in S.v[0]);
       const r2v={}; fleet.forEach(f=>{r2v[f.reservation_id]=f.vehicle_code;});
@@ -61,6 +63,7 @@ const VL=(()=>{
       S.maint={}; mt.forEach(m=>{(S.maint[m.vehicle_code]=S.maint[m.vehicle_code]||[]).push(m);});
       S.kpi={}; ((kpi&&kpi.data)||[]).forEach(k=>{S.kpi[k.vehicle_code]=k.active;});
       S.cfgSaved=!!(cfg&&cfg.data); if(cfg&&cfg.data)S.cfg=Object.assign({},DEF,cfg.data,{class_limits:cfg.data.class_limits||{}});
+      S.mk={}; S.mkOn=!!(mk&&!mk.error); if(S.mkOn)(mk.data||[]).forEach(m=>{(S.mk[m.vehicle_code]=S.mk[m.vehicle_code]||[]).push(m);});
       S.dmg={}; if(dmg&&!dmg.error)(dmg.data||[]).forEach(d=>{S.dmg[d.code]=d;});
       compute(); S.loaded=true; S.updated=new Date();
     })().catch(err=>{S.err=err;throw err;}).finally(()=>{S.loading=null;});
@@ -86,6 +89,36 @@ const VL=(()=>{
   }
   function overFlag(v,odo){return v.life_flag||(!S.lifeCols&&!n(v.life_limit_km)&&odo!=null&&odo>=baseLimit(v)?(km(baseLimit(v)/10000)+"万km超"):"");}
 
+  // 相場（オーナー指示 2026-10-30）：ピンポイントで当てず「相場感」を出す。
+  //   条件＝同じ車種・年式±1年（3年分）・走行±1万km。今の走行と終了時の走行の2つで調べ、中央値と価格帯（25〜75%）を出す。装備・グレードはカーセンサーの検索条件に依存
+  function wYear(y){const s=String(y||"").replace(/\s/g,"");let m;
+    if((m=s.match(/^(19|20)(\d{2})/)))return +(m[1]+m[2]);
+    if((m=s.match(/^(?:H|平成)(\d{1,2})/)))return 1988+ +m[1];
+    if((m=s.match(/^(?:R|令和)(\d{1,2})/)))return 2018+ +m[1];
+    return null;}
+  function band(k){if(k==null)return null;const c=Math.round(k/10000)*10000;return [Math.max(0,c-10000),c+10000];}
+  // カーセンサーの車種ページ＋条件（YMIN/YMAX＝年式、SMIN/SMAX＝走行km）。車種コードは bt_vehicles.market_code（例 TO_S228＝アクア）
+  function csUrl(code,ys,b){const m=String(code||"").match(/^([A-Z]{2})_S(\d+)$/i);if(!m||!ys||!b)return null;
+    return "https://www.carsensor.net/usedcar/b"+m[1].toUpperCase()+"/s"+m[2]+"/index.html?YMIN="+ys[0]+"&YMAX="+ys[1]+"&SMIN="+b[0]+"&SMAX="+b[1];}
+  function surveySpec(v,c){const y=wYear(v.year),ys=y?[y-1,y+1]:null,now=band(c.odo),end=c.ride?null:band(c.kmEnd);
+    return {name:v.name,year:y,years:ys,now,end,code:v.market_code||null,urlNow:csUrl(v.market_code,ys,now),urlEnd:csUrl(v.market_code,ys,end)};}
+  function market(code){
+    const rows=S.mk[code]; if(!rows||!rows.length)return null;
+    const med=a=>{const b=a.slice().sort((x,y)=>x-y);if(!b.length)return null;const q=p=>{const i=(b.length-1)*p,l=Math.floor(i);return b[l]+(b[Math.ceil(i)]-b[l])*(i-l);};return {med:q(.5),p25:q(.25),p75:q(.75),min:b[0],max:b[b.length-1],n:b.length};};
+    const pick=purpose=>{
+      const latest={}; rows.filter(r=>(r.purpose||"now")===purpose).forEach(r=>{if(!latest[r.source])latest[r.source]=r;});
+      const cur=Object.values(latest); if(!cur.length)return null;
+      const prices=[].concat(...cur.map(r=>Array.isArray(r.points)?r.points.map(p=>Array.isArray(p)?p[1]:p):[])).filter(x=>x>0);
+      let st=prices.length?med(prices):null;
+      if(!st){const ms=cur.filter(r=>n(r.median)!=null);if(!ms.length)return null;
+        st={med:ms.reduce((s,r)=>s+n(r.median),0)/ms.length,p25:Math.min(...ms.map(r=>n(r.p25)??n(r.median))),p75:Math.max(...ms.map(r=>n(r.p75)??n(r.median))),min:Math.min(...ms.map(r=>n(r.min)??n(r.median))),max:Math.max(...ms.map(r=>n(r.max)??n(r.median))),n:ms.reduce((s,r)=>s+(n(r.n)||0),0)};}
+      const prev=rows.find(r=>(r.purpose||"now")===purpose&&!cur.includes(r)&&n(r.median)!=null);
+      return Object.assign(st,{when:cur.map(r=>r.surveyed_at).sort().pop(),sources:cur.map(r=>r.source),urls:cur.map(r=>({s:r.source,u:r.query_url})),prev:prev?n(prev.median):null,
+        cond:cur[0]});
+    };
+    const now=pick("now"), end=pick("end");
+    return now||end?{now,end,median:(now||end).med}:null;
+  }
   function compute(){
     const t0=T0(), allKm=[];
     let nRes=0, vDays=0;
@@ -146,7 +179,18 @@ const VL=(()=>{
       const exitPrice=n(v.sale_price)!=null?n(v.sale_price):n(v.sale_expected)!=null?n(v.sale_expected):(v.exit_type==="ride"?0:null);
       const total=buy!=null&&exitPrice!=null?gross+exitPrice:null;
       const recov=buy?revDone/buy:null;
-      S.calc[v.code]={stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
+      const mkt=market(v.code);
+      // 今売る vs 走らせる（売り止めまで今のペースで稼ぎ、終了時の走行での相場で売る）
+      const rate=(n(S.cfg.buy_rate)||DEF.buy_rate)/100;
+      const dayGross=(revDone-mCost-fixed)/heldDays;   // 1日あたりの粗利（仕入額を除く）
+      const daysLeft=stopT!=null?Math.max(0,(stopT-t0)/DAY):null;
+      const kmEnd=limitT!=null&&saleT!=null&&why==="走行"?limit:(odo!=null&&monKm!=null&&saleT!=null?odo+monKm*Math.max(0,(saleT-t0)/MON):null);
+      const nowExit=mkt&&mkt.now?mkt.now.med*rate:null, endExit=mkt&&mkt.end?mkt.end.med*rate:null;
+      const vsNow=nowExit!=null?gross+nowExit:null, vsLater=daysLeft!=null&&(ride||endExit!=null)?gross+dayGross*daysLeft+(ride?0:endExit):null;
+      const sellNow=vsNow!=null&&vsLater!=null&&vsNow>vsLater&&!ride;
+      const vsLaterRide=ride&&vsNow!=null&&daysLeft!=null?gross+dayGross*daysLeft:null;
+      const overBuy=mkt&&buy!=null&&nowExit>buy;
+      S.calc[v.code]={mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
   }
@@ -187,8 +231,8 @@ const VL=(()=>{
       +'<button class="vl-kpi'+(S.stf==="soon"?" on":"")+'" data-stf="soon"><span>🟡 半年以内</span><b>'+cnt("soon")+'</b></button>'
       +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(S.global.monKm)+'<small>km</small></b></div></div>';
     const G=S.global;
-    const nFlag=base.filter(v=>S.calc[v.code].flag).length;
-    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small>'+(nFlag?'<span class="vl-flagline">⚑ '+km(S.cfg.default_limit_km)+'kmを既に超えている車 '+nFlag+'台は、リミット'+km(S.cfg.over_limit_km)+'kmで計算中</span>':'')+'</div>';
+    const nFlag=base.filter(v=>S.calc[v.code].flag).length, nNow=base.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
+    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small>'+(nNow?'<span class="vl-flagline hot">💡 相場から見て今が売り時の車 '+nNow+'台</span>':'')+(nFlag?'<span class="vl-flagline">⚑ '+km(S.cfg.default_limit_km)+'kmを既に超えている車 '+nFlag+'台は、リミット'+km(S.cfg.over_limit_km)+'kmで計算中</span>':'')+'</div>';
     h+='<div class="vl-bar1">'
       +['all','BT','HDM'].map(b=>'<button class="chip'+(S.brand===b?" on":"")+'" data-br="'+b+'">'+(b==="all"?"全体 "+S.v.length:b==="BT"?"🟢 BT":"🔵 HDM")+'</button>').join("")
       +'<select class="vl-sort" aria-label="並び順">'+[["sale","売り止め順"],["class","クラス順"],["km","走行距離順"],["profit","粗利順"]].map(([k,l])=>'<option value="'+k+'"'+(S.sort===k?" selected":"")+'>'+l+'</option>').join("")+'</select>'
@@ -223,7 +267,7 @@ const VL=(()=>{
       +'</div>';
     h+='<div class="vl-tags" data-tog="1">'
       +(dn!=null?'<span class="vl-tag'+(dn?" dmg":"")+'">🩹 傷 '+dn+'</span>':'')
-      +(c.flag?'<span class="vl-tag flag">⚑ '+e(c.flag)+(c.ride?'':'・乗り潰し候補')+'</span>':'')+(c.ride?'<span class="vl-tag ride">♻ 乗り潰し</span>':'')
+      +(c.flag?'<span class="vl-tag flag">⚑ '+e(c.flag)+(c.ride?'':'・乗り潰し候補')+'</span>':'')+(c.ride?'<span class="vl-tag ride">♻ 乗り潰し</span>':'')+(c.mkt?'<span class="vl-tag mk'+(c.sellNow?' hot':'')+'">📊 相場 '+(c.mkt.now?man(c.mkt.now.p25)+'〜'+man(c.mkt.now.p75):man(c.mkt.median))+(c.sellNow?'・今が売り時':'')+'</span>':'')+(c.overBuy?'<span class="vl-tag hot">💡 買取見込みが仕入額超え</span>':'')
       +'<span class="vl-tag">💴 売上 '+yen(c.revDone)+'</span>'
       +'<span class="vl-tag">📅 稼働 '+c.runDays+'日</span>'
       +(c.susp?'<span class="vl-tag warn">⚠ 走行入力の確認 '+c.susp+'件</span>':'')
@@ -270,6 +314,23 @@ const VL=(()=>{
       +'<div class="vl-pl-r tot"><span>生涯で生んだ利益<small>粗利＋最後の売却額（仕入額は原価に含む）</small></span><b class="'+(c.total==null?"":c.total>=0?"pos":"neg")+'">'+(c.total!=null?yen(c.total):'仕入額・売却額の入力待ち')+'</b></div>'
 +'</div><div class="vl-note">売上・固定費は '+DATA_FROM.replace(/-/g,"/")+'（または仕入日）以降で集計</div>';
     h+='</section>';
+    // 市場価格（ブラウザで週1回調査した結果）
+    {
+      const m=c.mkt, sp=surveySpec(v,c);
+      const condTxt=b=>e(sp.name)+'・'+(sp.years?sp.years[0]+'〜'+sp.years[1]+'年式':'年式不明')+'・'+(b?km(b[0])+'〜'+km(b[1])+'km':'走行不明');
+      const box=(lb,x,b,exit)=>'<div class="big"><span>'+lb+'</span>'+(x?'<b>'+man(x.p25)+'〜'+man(x.p75)+'</b><em class="md">中央値 '+man(x.med)+'</em>'+(x.prev!=null&&Math.round(x.med-x.prev)?'<em class="'+(x.med>x.prev?"up":"dn")+'">'+(x.med>x.prev?'▲':'▼')+man(Math.abs(x.med-x.prev))+'</em>':'')
+          +'<small>'+x.n+'台（全体 '+man(x.min)+'〜'+man(x.max)+'）・'+e(x.sources.join("/"))+' '+e(String(x.when).slice(5,10).replace("-","/"))+'調査</small>'+(exit!=null?'<small class="ex">買取見込み '+yen(exit)+'（中央値×'+Math.round(c.rate*100)+'%）</small>':''):'<b class="no">未調査</b>')
+          +'<small class="cond">条件：'+condTxt(b)+'・修復歴なし</small></div>';
+      h+='<section><h4>📊 市場価格（一般小売の相場感）</h4>';
+      if(!S.mkOn)h+='<div class="vl-warn">相場の保存先（データベースの追加）がまだありません。</div>';
+      h+='<div class="vl-mkt">'+box('今の走行で売ると',m&&m.now,sp.now,c.nowExit)+(c.ride?'':box('終了時（'+(c.saleT!=null?ymFar(c.saleT):'—')+'）に売ると',m&&m.end,sp.end,c.endExit))+'</div>';
+      if(c.vsNow!=null&&c.vsLater!=null)h+='<div class="vl-vs'+(c.sellNow?' now':'')+'"><div><span>今売る</span><b>'+yen(c.vsNow)+'</b><small>粗利＋買取見込み</small></div><div><span>'+(c.ride?'乗り潰す':'売り止めまで走らせる')+'</span><b>'+yen(c.vsLater)+'</b><small>あと'+Math.round(c.daysLeft)+'日 × 粗利'+yen(c.dayGross)+'/日</small></div><p>'+(c.sellNow?'💡 今売った方が生涯利益が <b>'+yen(c.vsNow-c.vsLater)+'</b> 多い見込み':'走らせた方が <b>'+yen(c.vsLater-c.vsNow)+'</b> 多い見込み')+'</p></div>';
+      else if(m&&c.buy==null)h+='<div class="vl-note">仕入額を入れると「今売る／走らせる」の比較が出ます。</div>';
+      if(c.overBuy)h+='<div class="vl-warn hot">💡 買取見込み '+yen(c.nowExit)+' が仕入額 '+yen(c.buy)+' を上回っています</div>';
+      if(sp.urlNow||sp.urlEnd)h+='<div class="vl-mk"><span>カーセンサーで見る</span>'+(sp.urlNow?'<a target="_blank" rel="noopener" href="'+e(sp.urlNow)+'">今の走行 ↗</a>':'')+(sp.urlEnd?'<a target="_blank" rel="noopener" href="'+e(sp.urlEnd)+'">終了時の走行 ↗</a>':'')+'</div>';
+      else if(S.lifeCols)h+='<div class="vl-note">カーセンサーの車種コードが未登録です（初回の調査で自動登録されます）。</div>';
+      h+='</section>';
+    }
     // 売却時の条件（相場を見る材料）
     {
       const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};
@@ -287,8 +348,7 @@ const VL=(()=>{
         +kv("グレード・型式",e([v.grade,sp.model_code].filter(Boolean).join(" ")||"—"),[sp.transmission,sp.fuel,v.seats?v.seats+"人":""].filter(Boolean).map(e).join("・"))
         +kv("車検残",shLeft==null?'—':shLeft<=0?'なし':shLeft.toFixed(0)+'ヶ月','売却時点')
         +'</div><div class="vl-eq">'+(eq.length?eq.map(x=>'<span>'+e(x)+'</span>').join(""):'<span class="none">装備未登録（マスターで入力）</span>')+(dn!=null?'<span class="dm">傷 '+dn+'件</span>':'')+'</div>';
-      const q=encodeURIComponent([v.name,v.year,v.grade,kmAtSale?Math.round(kmAtSale/10000)+"万km":""].filter(Boolean).join(" "));
-      h+='<div class="vl-mk"><span>相場を見る</span><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Acarsensor.net+'+q+'">カーセンサー ↗</a><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Agoo-net.com+'+q+'">グーネット ↗</a></div></section>';
+      h+='</section>';
     }
     // 傷・写真
     h+='<section><h4>🩹 傷・写真</h4>';
@@ -356,6 +416,7 @@ const VL=(()=>{
       +'<label class="vl-f"><span>走行リミット（既定）</span><span class="in"><input inputmode="numeric" data-cfg="default_limit_km" value="'+km(c.default_limit_km)+'"><i>km</i></span></label>'
       +'<label class="vl-f"><span>すでに既定を超えていた車のリミット</span><span class="in"><input inputmode="numeric" data-cfg="over_limit_km" value="'+km(c.over_limit_km)+'"><i>km</i></span></label>'
       +'<div class="vl-sub">クラス別のリミット（空欄＝既定）</div><div class="vl-cls">'+cls.map(k=>'<label><span class="m-badge" style="background:'+clsCol(k)+'">'+k+'</span><input inputmode="numeric" data-cls="'+k+'" value="'+(c.class_limits&&c.class_limits[k]?km(c.class_limits[k]):'')+'" placeholder="'+km(c.default_limit_km)+'"></label>').join("")+'</div>'
+      +'<label class="vl-f"><span>買取見込み＝小売相場の何％か</span><span class="in"><input inputmode="numeric" data-cfg="buy_rate" value="'+(c.buy_rate||DEF.buy_rate)+'"><i>%</i></span></label>'
       +'<label class="vl-f"><span>仕入れを動かす時期</span><span class="in"><select data-cfg="lead_months">'+[1,2,3,4,5,6].map(m=>'<option value="'+m+'"'+(+c.lead_months===m?" selected":"")+'>売却の'+m+'ヶ月前</option>').join("")+'</select></span></label>'
       +'<label class="vl-f"><span>車検の扱い</span><span class="in"><select data-cfg="shaken_rule">'+[["next","次の車検期間中にリミットに達するなら、車検前に売る"],["always","車検の前に必ず売る"],["ignore","車検は見ない（走行だけ）"]].map(([k,l])=>'<option value="'+k+'"'+(c.shaken_rule===k?" selected":"")+'>'+l+'</option>').join("")+'</select></span></label>'
       +'<div class="vl-cfg-ft"><button class="btn" data-cfgclose="1">閉じる</button><button class="btn p" data-cfgsave="1"'+(S.cfgSaved?'':' disabled')+'>保存</button></div></div>';
@@ -433,7 +494,7 @@ const VL=(()=>{
     const num=s=>{const x=String(s||"").replace(/[^\d]/g,"");return x?Number(x):null;};
     root.querySelectorAll("[data-cfg]").forEach(i=>{const k=i.dataset.cfg;c[k]=k==="shaken_rule"?i.value:num(i.value)||DEF[k];});
     root.querySelectorAll("[data-cls]").forEach(i=>{const x=num(i.value);if(x)c.class_limits[i.dataset.cls]=x;else delete c.class_limits[i.dataset.cls];});
-    const {error}=await sb.from("bt_vehicle_life_settings").upsert({id:1,default_limit_km:c.default_limit_km,over_limit_km:c.over_limit_km,class_limits:c.class_limits,lead_months:c.lead_months,shaken_rule:c.shaken_rule,updated_at:new Date().toISOString()});
+    const {error}=await sb.from("bt_vehicle_life_settings").upsert({id:1,default_limit_km:c.default_limit_km,over_limit_km:c.over_limit_km,class_limits:c.class_limits,lead_months:c.lead_months,buy_rate:c.buy_rate,shaken_rule:c.shaken_rule,updated_at:new Date().toISOString()});
     if(error){setStatus("設定を保存できませんでした："+error.message);return;}
     S.cfg=c; S.showCfg=false; compute(); render(); setStatus("✅ ルールを保存しました");
   }
@@ -479,5 +540,5 @@ const VL=(()=>{
     const rl=$("reload"); if(rl)rl.addEventListener("click",()=>{if(S.view&&($("viewKarte").style.display!=="none"||$("viewSwap").style.display!=="none")){S.loaded=false;S.detail={};show(S.view);}});
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind); else bind();
-  return {show,load,_S:S};
+  return {show,load,surveySpec,wYear,_S:S};
 })();
