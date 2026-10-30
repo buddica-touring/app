@@ -241,9 +241,27 @@ const VL=(()=>{
       +pl(n(v.sale_price)!=null?"売却額":"予想売却額",c.exitPrice!=null?yen(c.exitPrice):'未入力',"pos")
       +'<div class="vl-pl-r tot"><span>最終損益</span><b class="'+(c.total==null?"":c.total>=0?"pos":"neg")+'">'+(c.total!=null?yen(c.total):'仕入額・売却額の入力待ち')+'</b></div>'
       +'</div><div class="vl-note">売上・固定費は '+DATA_FROM.replace(/-/g,"/")+'（または仕入日）以降で集計</div>';
-    const q=encodeURIComponent((v.name||"")+" "+(v.year||"")+" "+(c.odo?Math.round(c.odo/10000)+"万km":""));
-    h+='<div class="vl-mk"><span>相場を見る</span><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Acarsensor.net+'+q+'">カーセンサー ↗</a><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Agoo-net.com+'+q+'">グーネット ↗</a></div>';
     h+='</section>';
+    // 売却時の条件（相場を見る材料）
+    {
+      const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};
+      const kmAtSale=c.why==="走行"?c.limit:(c.odo!=null&&c.monKm!=null&&c.saleT!=null?c.odo+c.monKm*Math.max(0,monthsTo(c.saleT)):c.odo);
+      let shAt=c.shaken; if(shAt&&c.saleT!=null)while(shAt<c.saleT)shAt=addMon(shAt,24);   // 車検を通した場合は2年ごとに更新
+      const shLeft=shAt&&c.saleT!=null?(shAt-c.saleT)/MON:null;
+      const eq=[]; const navs=[]; if(sp.nav_en)navs.push("英");if(sp.nav_zh)navs.push("中");if(sp.nav_ko)navs.push("韓");
+      if(navs.length)eq.push("ナビ("+navs.join("/")+")"); else if(sp.nav)eq.push("ナビ");
+      [["backcam","バックカメラ"],["dashcam","ドラレコ"],["rearmonitor","リアモニター"],["bluetooth","Bluetooth"],["usb","USB"]].forEach(([k,l])=>{if(sp[k])eq.push(l);});
+      if(v.equip&&v.equip!=="-")eq.push(v.equip);
+      const dn=S.detail[v.code]&&S.detail[v.code].damages?S.detail[v.code].damages.length:(S.dmg[v.code]?S.dmg[v.code].n:null);
+      h+='<section><h4>🏷 売却時の条件（相場を見る材料）</h4><div class="vl-kv">'
+        +kv("年式",e(v.year||"—"),'')
+        +kv("売却時の走行",km(kmAtSale)+'km',c.saleT!=null?ymFar(c.saleT)+'時点の見込み':'')
+        +kv("グレード・型式",e([v.grade,sp.model_code].filter(Boolean).join(" ")||"—"),[sp.transmission,sp.fuel,v.seats?v.seats+"人":""].filter(Boolean).map(e).join("・"))
+        +kv("車検残",shLeft==null?'—':shLeft<=0?'なし':shLeft.toFixed(0)+'ヶ月','売却時点')
+        +'</div><div class="vl-eq">'+(eq.length?eq.map(x=>'<span>'+e(x)+'</span>').join(""):'<span class="none">装備未登録（マスターで入力）</span>')+(dn!=null?'<span class="dm">傷 '+dn+'件</span>':'')+'</div>';
+      const q=encodeURIComponent([v.name,v.year,v.grade,kmAtSale?Math.round(kmAtSale/10000)+"万km":""].filter(Boolean).join(" "));
+      h+='<div class="vl-mk"><span>相場を見る</span><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Acarsensor.net+'+q+'">カーセンサー ↗</a><a target="_blank" rel="noopener" href="https://www.google.com/search?q=site%3Agoo-net.com+'+q+'">グーネット ↗</a></div></section>';
+    }
     // 傷・写真
     h+='<section><h4>🩹 傷・写真</h4>';
     if(D===undefined||D==="loading")h+='<div class="vl-empty sm">読み込み中…</div>';
@@ -325,7 +343,14 @@ const VL=(()=>{
       add(c.procT,{k:"proc",v,c,t:c.procT}); add(c.saleT,{k:"sale",v,c,t:c.saleT});});
     let h='<div class="vl-swap-hd"><div><b>'+late.length+'</b>台は仕入れを動かす時期を過ぎています</div><small>売却予定の'+(S.cfg.lead_months||3)+'ヶ月前に「🛒仕入れ開始」が来ます。同じクラスで入れ替える前提です。</small></div>';
     if(late.length)h+='<div class="vl-late">'+late.map(v=>{const c=S.calc[v.code];return '<button class="vl-ev proc late" data-goto="'+e(v.code)+'"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type)+'</span><span class="nm">'+e(v.name)+' <small>'+e(plate4(v))+'</small></span><span class="dt">売却 '+ym(c.saleT)+'</span></button>';}).join("")+'</div>';
-    h+='<div class="vl-tl">';
+    // 全車両の売却目安（今→5年。走行は全車共通ペース、個体差は今の走行距離から）
+    const H=60, rows=S.v.filter(v=>S.calc[v.code].st!=="sold").sort((a,b)=>(S.calc[a.code].saleT??9e15)-(S.calc[b.code].saleT??9e15));
+    h+='<h4 class="vl-h4">全車両の売却目安</h4><div class="vl-gantt"><div class="vl-gx"><span></span><div>'+[0,12,24,36,48,60].map(m=>'<i style="left:'+(m/H*100)+'%">'+(m===0?'今':m===60?'5年+':(m/12)+'年')+'</i>').join("")+'</div></div>';
+    rows.forEach(v=>{const c=S.calc[v.code], mo=c.saleT!=null?Math.max(0,monthsTo(c.saleT)):null, w=mo==null?0:Math.min(100,mo/H*100);
+      h+='<button class="vl-gr '+STATUS[c.st].cls+'" data-goto="'+e(v.code)+'"><span class="nm"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type)+'</span><span class="t">'+e(v.name)+'<small>'+e(plate4(v))+' · '+(c.odo!=null?km(c.odo)+'km':'—')+'</small></span></span>'
+        +'<div class="bar"><i style="width:'+w+'%"></i>'+(mo!=null?'<b class="'+(w>70?'r':'')+'" style="left:'+w+'%">'+(mo>H?'5年+':ym(c.saleT).replace("年","/").replace("月",""))+(c.why==="車検"?' 📋':'')+'</b>':'<b style="left:0">予測待ち</b>')+'</div></button>';});
+    h+='</div><div class="vl-note">バーの長さ＝売却目安までの期間。📋＝車検前に売る判定。月の走行は全車共通（月 '+km(S.global.monKm)+'km）なので、差は今の走行距離から生まれます。</div>';
+    h+='<h4 class="vl-h4">月別の入替予定</h4><div class="vl-tl">';
     let gap=[];
     const flush=()=>{if(!gap.length)return;h+='<div class="vl-mo empty gap">'+(gap.length>1?ym(gap[0])+'〜'+ym(gap[gap.length-1]):ym(gap[0]))+'　予定なし</div>';gap=[];};
     months.forEach((m,i)=>{
