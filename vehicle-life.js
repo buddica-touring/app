@@ -3,12 +3,12 @@
 // 読む：bt_vehicles / bt_fleet×bt_reservations（売上・メーター実測）/ bt_vehicle_maintenance / bt_vehicle_monthly_kpi
 //       vehicle_twins（傷・写真＝開いた時だけ1台分）/ bt_inspection_photos・bt_tire_photos（写真）/ bt_vehicle_life_settings
 // 書く：bt_vehicles のライフサイクル列・bt_vehicle_life_settings（sql/bt_vehicle_lifecycle.sql 適用後）
-// 予測：1台の月間走行＝月の予約件数（直近90日）×1予約あたり平均km（クラス平均と混ぜる）。メーター実測は 2026-09-05〜。
+// 予測：全車共通の1本＝1予約あたり平均km × 1台あたり月の予約件数（どちらも全車・全期間の実績）。
+//       クラスや車種で分けない。開くたびに最新の実績で計算し直すので、営業日数が増えるほど精度が上がる。メーター実測は 2026-09-05〜。
 const VL=(()=>{
   const DAY=864e5, MON=30.44*DAY;
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
-  const SHRINK=3;                         // 車両の件数が少ない間はクラス平均に寄せる重み
   const DEF={default_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next"};
   const S={loaded:false,loading:null,cfg:Object.assign({},DEF),cfgSaved:false,lifeCols:false,
     v:[],res:{},maint:{},dmg:{},kpi:{},calc:{},open:new Set(),detail:{},
@@ -78,22 +78,23 @@ const VL=(()=>{
   function limitOf(v){return n(v.life_limit_km)||n(S.cfg.class_limits&&S.cfg.class_limits[v.type])||n(S.cfg.default_limit_km)||150000;}
 
   function compute(){
-    const t0=T0(), clsKm={}, allKm=[];
-    S.v.forEach(v=>(S.res[v.code]||[]).forEach(r=>{const k=tripKm(r);if(k==null)return;(clsKm[v.type]=clsKm[v.type]||[]).push(k);allKm.push(k);}));
-    const avg=a=>a&&a.length?a.reduce((s,x)=>s+x,0)/a.length:null, gAvg=avg(allKm);
-    S.global={avgKm:gAvg,n:allKm.length};
+    const t0=T0(), allKm=[];
+    let nRes=0, vDays=0;
+    S.v.forEach(v=>{
+      const rs=(S.res[v.code]||[]).filter(r=>ts(r.start_date)<=t0);
+      rs.forEach(r=>{const k=tripKm(r);if(k!=null)allKm.push(k);});
+      if(!rs.length)return;
+      const first=Math.min(...rs.map(r=>ts(r.start_date)));
+      nRes+=rs.length; vDays+=Math.max(1,(t0-Math.max(first,ts(DATA_FROM)))/DAY);
+    });
+    const avgKm=allKm.length?allKm.reduce((s,x)=>s+x,0)/allKm.length:null;
+    const perMon=vDays?nRes/vDays*30.44:0;
+    const monKm=avgKm!=null&&perMon>0?avgKm*perMon:null;
+    S.global={avgKm,n:allKm.length,perMon,monKm,nRes,days:Math.round((t0-ts(DATA_FROM))/DAY)};
     S.calc={};
     S.v.forEach(v=>{
       const rs=(S.res[v.code]||[]).slice().sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)));
-      const past=rs.filter(r=>ts(r.start_date)<=t0), done=rs.filter(r=>ts(r.end_date)<t0);
-      const trips=rs.map(tripKm).filter(x=>x!=null), cAvg=avg(clsKm[v.type])??gAvg;
-      const vAvg=trips.length?(trips.reduce((s,x)=>s+x,0)+SHRINK*(cAvg||0))/(trips.length+SHRINK):cAvg;
-      // 直近90日の予約件数（データ開始・この車の初回予約より前は数えない。最低14日）
-      const first=past.length?ts(past[0].start_date):null;
-      const winStart=Math.max(t0-90*DAY,ts(DATA_FROM),first||t0), winDays=Math.max(14,(t0-winStart)/DAY);
-      const nWin=past.filter(r=>ts(r.start_date)>=winStart).length;
-      const perMon=nWin/winDays*30.44;
-      const monKm=(vAvg!=null&&nWin>0)?perMon*vAvg:null;
+      const done=rs.filter(r=>ts(r.end_date)<t0);
       const future=rs.filter(r=>ts(r.start_date)>t0&&ts(r.start_date)<=t0+60*DAY).length;
       // 現在の走行距離＝マスターと返却メーターの大きい方（桁違いは除く）
       const base=n(v.current_mileage)||0;
@@ -129,7 +130,7 @@ const VL=(()=>{
       const fixed=fixedMon*months, gross=revDone-mCost-fixed;
       const exitPrice=n(v.sale_price)!=null?n(v.sale_price):n(v.sale_expected);
       const total=n(v.purchase_price)!=null&&exitPrice!=null?gross+exitPrice-n(v.purchase_price):null;
-      S.calc[v.code]={odo,limit,monKm,perMon,vAvg,cAvg,trips:trips.length,nWin,winDays,future,limitT,shaken,byShaken,saleT,why,procT,st,
+      S.calc[v.code]={odo,limit,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
   }
@@ -163,14 +164,14 @@ const VL=(()=>{
     const body=$("karteBody"); if(!body)return;
     const base=S.v.filter(v=>S.brand==="all"||(S.brand==="HDM")===isHdm(v));
     const cnt=k=>base.filter(v=>S.calc[v.code].st===k).length;
-    const kmList=base.map(v=>S.calc[v.code].monKm).filter(x=>x!=null);
-    const avgMon=kmList.length?kmList.reduce((s,x)=>s+x,0)/kmList.length:null;
     let h='';
     h+='<div class="vl-sum">'
       +'<button class="vl-kpi'+(S.stf==="sell"?" on":"")+'" data-stf="sell"><span>🔴 売却時期</span><b>'+cnt("sell")+'</b></button>'
       +'<button class="vl-kpi'+(S.stf==="prep"?" on":"")+'" data-stf="prep"><span>🟠 入替準備</span><b>'+cnt("prep")+'</b></button>'
       +'<button class="vl-kpi'+(S.stf==="soon"?" on":"")+'" data-stf="soon"><span>🟡 半年以内</span><b>'+cnt("soon")+'</b></button>'
-      +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(avgMon)+'<small>km</small></b></div></div>';
+      +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(S.global.monKm)+'<small>km</small></b></div></div>';
+    const G=S.global;
+    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small></div>';
     h+='<div class="vl-bar1">'
       +['all','BT','HDM'].map(b=>'<button class="chip'+(S.brand===b?" on":"")+'" data-br="'+b+'">'+(b==="all"?"全体 "+S.v.length:b==="BT"?"🟢 BT":"🔵 HDM")+'</button>').join("")
       +'<select class="vl-sort" aria-label="並び順">'+[["sale","売却が近い順"],["class","クラス順"],["km","走行距離順"],["profit","粗利順"]].map(([k,l])=>'<option value="'+k+'"'+(S.sort===k?" selected":"")+'>'+l+'</option>').join("")+'</select>'
@@ -180,7 +181,7 @@ const VL=(()=>{
     const list=filtered();
     if(!list.length)h+='<div class="vl-empty">該当する車両はありません。</div>';
     list.forEach(v=>{h+=cardHtml(v);});
-    h+='<div class="vl-foot">予測＝直近90日の予約件数 × 1予約あたり平均km（全体 '+km(S.global.avgKm)+'km・'+S.global.n+'件の実測）。売上は '+DATA_FROM.replace(/-/g,"/")+' 以降。</div>';
+    h+='<div class="vl-foot">売上は '+DATA_FROM.replace(/-/g,"/")+' 以降の実績。予測は開くたびに最新の実績で計算し直します。</div>';
     body.innerHTML=h;
     S.open.forEach(code=>{if(S.detail[code]===undefined)loadDetail(code);});
   }
@@ -198,7 +199,7 @@ const VL=(()=>{
     h+='<div class="vl-meter" data-tog="1"><div class="vl-track"><i style="width:'+pct.toFixed(1)+'%"></i>'+(shPct!=null?'<em style="left:'+shPct.toFixed(1)+'%" title="車検時点の予測"></em>':'')+'</div>'
       +'<div class="vl-kmrow"><span><b>'+km(c.odo)+'</b> / '+km(c.limit)+'km</span><span class="vl-rest">'+(c.odo!=null?(c.odo>=c.limit?'リミット超過':'残り '+km(c.limit-c.odo)+'km'):'走行未入力')+'</span></div></div>';
     h+='<div class="vl-grid" data-tog="1">'
-      +cell("月間走行",c.monKm!=null?km(c.monKm)+'<small>km</small>':'—',c.monKm!=null?'予約 '+c.perMon.toFixed(1)+'件/月':'予約実績なし')
+      +cell("リミット到達",c.limitT!=null?ymFar(c.limitT):'—',c.monKm!=null?'月 '+km(c.monKm)+'km 計算':'')
       +cell("売却予定",c.saleT!=null?ymFar(c.saleT):'—',c.why?(c.why==="走行"?"🚗 走行リミット":c.why==="車検"?"📋 車検前":c.why==="手動"?"✍ 手動":c.why):'',c.st==="sell")
       +cell("仕入れ開始",c.procT!=null&&c.st!=="sold"?ymFar(c.procT):'—',c.procT!=null&&c.st!=="sold"?(c.procT<=T0()?'<b class="vl-now">今すぐ</b>':(monthsTo(c.procT)>60?'':'あと'+Math.ceil(monthsTo(c.procT))+'ヶ月')):'',c.st==="prep")
       +cell("車検",c.shaken?ymd(c.shaken).slice(2):'—',c.shaken?(monthsTo(c.shaken)<0?'期限切れ':'あと'+monthsTo(c.shaken).toFixed(1)+'ヶ月'):'')
@@ -219,8 +220,8 @@ const VL=(()=>{
     let h='';
     // 予測の根拠
     h+='<section><h4>📈 走行予測の根拠</h4><div class="vl-kv">'
-      +kv("1予約あたり",km(c.vAvg)+'km',c.trips?'この車 '+c.trips+'件の実測 ＋ クラス平均 '+km(c.cAvg)+'km':'実測なし → クラス平均')
-      +kv("月の予約件数",c.perMon.toFixed(1)+'件','直近'+Math.round(c.winDays)+'日で'+c.nWin+'件／この先60日の予約 '+c.future+'件')
+      +kv("月間走行（全車共通）",km(c.monKm)+'km','1予約 '+km(S.global.avgKm)+'km × 月 '+S.global.perMon.toFixed(1)+'件')
+      +kv("この車の予約",(S.res[v.code]||[]).length+'件','この先60日の予約 '+c.future+'件')
       +kv("リミット",km(c.limit)+'km',n(v.life_limit_km)?'この車だけの設定':(S.cfg.class_limits&&S.cfg.class_limits[v.type]?'クラス'+e(v.type)+'の設定':'全体の既定'))
       +kv("リミット到達",c.limitT!=null?ymFar(c.limitT):'—',c.limitT!=null&&c.limitT>addMon(T0(),60)?'今のペースだと'+ym(c.limitT):'')
       +kv("車検ルール",c.byShaken!=null?ym(c.byShaken)+'に売る':'車検は通す',S.cfg.shaken_rule==="always"?'車検前に必ず売る設定':S.cfg.shaken_rule==="ignore"?'車検は見ない設定':'次の車検期間中にリミットに達するなら車検前に売る')
