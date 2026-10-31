@@ -191,11 +191,20 @@ const VL=(()=>{
     const nOp=S.v.filter(v=>v.exit_type!=="return"&&!(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride"))).length;
     const nIn=S.v.reduce((m,v)=>m+(S.res[v.code]||[]).filter(r=>ts(r.start_date)<=t0&&ts(r.start_date)>=ts(DATA_FROM)).length,0), mons=Math.max(1,(t0-ts(DATA_FROM))/DAY/30.44);
     const perMon=nOp?nIn/nOp/mons:0;
-    const monKm=avgKm!=null&&perMon>0?avgKm*perMon:null;
+    // オーナー指示 2026-10-31：実測（距離のある予約）は 1予約平均・日数・1日あたり の根拠。台あたり月間は別計算＝期間中のメーター増分の合計÷月数÷運用台数
+    // 各車のリミット予測はその車のペース（期間のメーター増分÷その車の期間）。期間が3ヶ月未満の車はフリート平均で代用（止まっている車は自然に遅くなる）
+    let odoSum=0, nOdo=0; const pace={};
+    S.v.forEach(v=>{const rs=(S.res[v.code]||[]).filter(r=>!r._odoBad&&ts(r.start_date)>=ts(DATA_FROM)&&ts(r.start_date)<=t0);
+      const lo=Math.min(...rs.map(r=>n(r.start_odo)).filter(x=>x>0)), hi=Math.max(...rs.map(r=>n(r.end_odo)).filter(x=>x>0));
+      if(isFinite(lo)&&isFinite(hi)&&hi>lo&&hi-lo<=20000*mons){odoSum+=hi-lo;nOdo++;
+        const from=Math.max(ts(DATA_FROM),ts(v.service_from)||0), m=(t0-from)/DAY/30.44; if(m>=3)pace[v.code]=(hi-lo)/m;}});
+    const monKm=nOp&&odoSum?odoSum/mons/nOp:null;
     const sD=allD.reduce((s,x)=>s+x,0), avgDays=allD.length?sD/allD.length:null, dayKm=sD?allKm.reduce((s,x)=>s+x,0)/sD:null;
-    S.global={avgKm,avgDays,dayKm,n:allKm.length,perMon,nOp,mons,monKm,nRes,days:Math.round((t0-ts(DATA_FROM))/DAY)};
+    S.global={avgKm,avgDays,dayKm,n:allKm.length,perMon,nOp,mons,odoSum,nOdo,monKm,nRes,days:Math.round((t0-ts(DATA_FROM))/DAY)};
     S.calc={};
+    const monKmF=monKm;
     S.v.forEach(v=>{
+      const monKm=pace[v.code]??monKmF, paceOwn=pace[v.code]!=null;
       const rs=(S.res[v.code]||[]).slice().sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)));
       const done=rs.filter(r=>ts(r.end_date)<t0);
       const future=rs.filter(r=>ts(r.start_date)>t0&&ts(r.start_date)<=t0+60*DAY).length;
@@ -254,7 +263,7 @@ const VL=(()=>{
       const sellNow=vsNow!=null&&vsLater!=null&&vsNow>vsLater&&!ride;
       const vsLaterRide=ride&&vsNow!=null&&daysLeft!=null?gross+dayGross*daysLeft:null;
       const overBuy=mkt&&buy!=null&&nowExit>buy;
-      S.calc[v.code]={odoSrc,mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
+      S.calc[v.code]={paceOwn,odoSrc,mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
   }
@@ -331,7 +340,7 @@ const VL=(()=>{
     let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b>'+man(a.reduce((x,v)=>x+C(v).revDone,0))+'</b><span>総売上</span></div></div>';
     // 試算（オーナー指示 2026-10-31）：全車・全期間の実績から
     const G=S.global||{};
-    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["1予約日数",G.avgDays,"同 "+(G.n||0)+"件","日",1],["1日あたり",G.dayKm,"距離÷日数"],["月間/台",G.monKm,"総走行÷"+(G.nOp||0)+"台÷"+(G.mons||0).toFixed(1)+"ヶ月"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why,u,dp])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?(dp?x.toFixed(dp):km(x)):'—')+'<small>'+(u||'km')+'</small></b><i>'+why+'</i></div>').join('')+'</div>';
+    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["1予約日数",G.avgDays,"同 "+(G.n||0)+"件","日",1],["1日あたり",G.dayKm,"距離÷日数"],["月間/台",G.monKm,"メーター増分"+(G.nOdo||0)+"台分÷"+(G.nOp||0)+"台÷"+(G.mons||0).toFixed(1)+"ヶ月"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why,u,dp])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?(dp?x.toFixed(dp):km(x)):'—')+'<small>'+(u||'km')+'</small></b><i>'+why+'</i></div>').join('')+'</div>';
     // 全体＝車両カルテのサマリ（オーナー指示 2026-10-31）：1台1枚の小さなカードに カルテの要点（判定・走行/リミット・車検・売止・入替・総売上・市場価格）
     const keyOf=v=>g==="brand"?(isHdm(v)?"HDM":"BT"):g==="judge"?judgeOf(C(v)):(v.type||"—");
     const keys=[...new Set(a.map(keyOf))].sort((x,y)=>g==="judge"?["swap","pass","wait"].indexOf(x)-["swap","pass","wait"].indexOf(y):g==="class"?(M_ORDER.indexOf(x)+99)%199-(M_ORDER.indexOf(y)+99)%199:String(x).localeCompare(String(y)));
@@ -443,7 +452,7 @@ const VL=(()=>{
     const cell=(lb,val,sub,cls)=>'<div'+(cls?' class="'+cls+'"':'')+'><span>'+lb+'</span><b>'+val+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
     const dt=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();}, soon=t=>t!=null&&t<=addMon(t0,2)?'r':''; const span=(a,b)=>{if(!a||b==null||b<a)return'—';const m=Math.round((b-a)/MON);return (m>=12?Math.floor(m/12)+'年':'')+(m%12?m%12+'ヶ月':'');};
     h+='<div class="kc-g" data-tog="1"><div class="kc-row m">'
-      +cell('リミット',km(c.limit))+cell('現在',km(c.odo),'',pct>=90?'r':'')+cell('平均/月',km(c.monKm))+cell('予想/年',c.monKm!=null?km(c.monKm*12):'—')
+      +cell('リミット',km(c.limit))+cell('現在',km(c.odo),'',pct>=90?'r':'')+cell('平均/月',km(c.monKm),c.paceOwn?'この車の実測':'平均で試算')+cell('予想/年',c.monKm!=null?km(c.monKm*12):'—')
       +'</div><div class="kc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="kc-row m">'
       +cell('次回車検',dt(c.shaken),'',soon(c.shaken))+cell('売止',dt(c.stopT),'',soon(c.stopT))+cell('入替',dt(swapT),'',soon(swapT))+cell('運用期間',span(ts(v.purchase_date),c.saleT),ts(v.purchase_date)?'':'仕入日なし')
       +'</div><div class="kc-row m">'
@@ -467,7 +476,7 @@ const VL=(()=>{
     const gap=over==="before"?'車検前にリミット到達':over==="swap"?'次の車検期間中にリミット（'+(c.limitT?yy(c.limitT):'')+'）':'次の車検まで余裕 '+(Math.round((c.limit-k2)/1e3)/10)+'万km';
     return '<div class="kc-sg" data-tog="1"><div class="hd">'+dec+'<span>'+gap+'</span></div>'
       +'<div class="g"><i class="a" style="width:'+P(c.odo)+'"></i><i class="b" style="left:'+P(c.odo)+';width:calc('+P(k1)+' - '+P(c.odo)+')"></i><i class="c'+(k2>=c.limit?' x':'')+'" style="left:'+P(k1)+';width:calc('+P(k2)+' - '+P(k1)+')"></i><em style="left:'+P(c.limit)+'"></em></div>'
-      +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div><div class="avg">平均走行 <b>月 '+km(c.monKm)+'km</b> ＝ 1予約 <b>'+km(S.global.avgKm)+'km</b> × 1台 <b>月'+S.global.perMon.toFixed(1)+'件</b><small>全車の実績（走行 '+S.global.n+'件・予約 '+S.global.nRes+'件）・日々更新</small></div></div>';
+      +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div><div class="avg">平均走行 <b>月 '+km(c.monKm)+'km</b> '+(c.paceOwn?'＝ この車のメーター増分 ÷ 月数<small>この車の実測・日々更新</small>':'＝ 平均で試算（全車のメーター増分 ÷ <b>'+S.global.nOp+'台</b> ÷ <b>'+S.global.mons.toFixed(1)+'ヶ月</b>）<small>データ3ヶ月未満のため・日々更新</small>')+'</div></div>';
   }
 
   // この車の働き（オーナー指示 2026-10-31：目的は「いくら稼いだか」と「売却で最後どうなるか」）
