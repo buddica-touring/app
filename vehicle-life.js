@@ -94,7 +94,9 @@ const VL=(()=>{
         S.proc=(pr&&pr.data)||[]; ((et&&et.data)||[]).forEach(x=>{S.etc[x.code]=x.done;});}
       S.mk={}; S.mkOn=!!(mk&&!mk.error); if(S.mkOn)(mk.data||[]).forEach(m=>{(S.mk[m.vehicle_code]=S.mk[m.vehicle_code]||[]).push(m);});
       S.dmg={}; if(dmg&&!dmg.error)(dmg.data||[]).forEach(d=>{S.dmg[d.code]=d;});
-      compute(); S.loaded=true; S.updated=new Date();
+      compute();
+      try{await syncStop();}catch(err){console.warn("[VL] 売止ブロック",err&&err.message);}
+      S.loaded=true; S.updated=new Date();
     })().catch(err=>{S.err=err;throw err;}).finally(()=>{S.loading=null;});
     return S.loading;
   }
@@ -308,7 +310,7 @@ const VL=(()=>{
     if(c.stopT==null)return {txt:'走行を入力すると予定が出ます',t:null,lv:"mut"};
     const sw=addMon(c.stopT,-LEAD()), over=c.odo!=null&&c.limit&&c.odo>=c.limit, ev=[];
     if(c.shaken!=null&&c.shaken>=t0&&c.shaken<c.stopT)ev.push({t:c.shaken,a:'車検を通す'});
-    if(!v.relay_to)ev.push({t:sw,a:'後継車を登録'});
+    if(!v.relay_to)ev.push(t0<sw?{t:sw,a:'入替車両の準備を始める'}:{t:c.stopT,a:'後継車を登録（売止日から販売）'});
     if(t0<=c.stopT)ev.push({t:c.stopT,a:'予約を止める（売止）'});
     ev.push({t:c.saleT,a:(c.ride?'廃車':c.shaken!=null&&c.saleT<=c.shaken?'車検を通さず売却':'売却')});
     const x=ev.filter(o=>o.t!=null).sort((a,b)=>a.t-b.t)[0]; if(!x)return null;
@@ -621,11 +623,13 @@ const VL=(()=>{
       const st=prepOf(nv), on=nv.service_from?ts(nv.service_from):null;
       return '<div class="sc0"><span>↳ '+e(nv.name||nv.code)+' <small>'+e(plate4(nv))+'</small></span><div class="tr">'+(on!=null&&on<=Z?'<b class="mk on" style="left:'+P(on)+'" title="稼働開始 '+mdS(on)+'">🚗</b>':'')+'</div>'
         +'<div class="ps">'+st.map(([l,d])=>'<i class="'+(d===true?'ok':d===false?'ng':'')+'">'+(d===true?'✓':'')+l+'</i>').join('')+'</div></div>';};
+    const stopLine=x=>{const b=S.stop&&S.stop[x.v.code]; if(!b)return ''; const n=afterStop(x.v.code).length;
+      return '<div class="sc0"><span>⛔ 配車表ブロック済</span><em>'+mdS(ts(b.start_date))+'〜'+(b.end_date>=FAR?'無期限':mdS(ts(b.end_date)))+'</em>'+(n?'<em class="r">⚠ 売止後の予約 '+n+'件</em>':'')+'</div>';};
     const one=(x,isEx)=>'<div class="rw '+(isEx?'ex':x.d<0?'late':'')+'">'+(isEx?'<span class="extag">例</span>':'')+'<button class="who" data-goto="'+e(x.v.code)+'">'+nm(x.v)+'</button>'
       +'<div class="tr"><i class="now" style="left:'+P(t0)+'"></i><i class="p" style="left:'+P(x.due.proc)+';width:calc('+P(x.due.stop)+' - '+P(x.due.proc)+')"></i><i class="s" style="left:'+P(x.due.stop)+';width:calc('+P(x.due.sale)+' - '+P(x.due.stop)+')"></i>'
       +mk(x,"proc","🛒")+mk(x,"stop","⛔")+mk(x,"sale","💴")+'</div>'
       +(()=>{const na=nextAct(x.v,x.c);return '<div class="go"><b class="na '+(na?na.lv:'')+'">'+(na?na.txt:'')+'</b>';})()
-      +(x.cur[0]==="proc"?'<button class="vl-mini go" data-sec="relay">入替車両を登録</button>':'<button class="vl-mini" data-goto="'+e(x.v.code)+'">カルテ</button>')+'</div>'+succ(x)+'</div>';
+      +(x.cur[0]==="proc"?'<button class="vl-mini go" data-sec="relay">入替車両を登録</button>':'<button class="vl-mini" data-goto="'+e(x.v.code)+'">カルテ</button>')+'</div>'+stopLine(x)+succ(x)+'</div>';
     h+=rows.map(x=>one(x,false)).join('')+(ex?one(ex,true):'');
     h+='</div><div class="ov-leg"><span>🛒手配（売止の'+LEAD()+'ヶ月前）</span><span>⛔売止</span><span>💴売却</span><span><i class="p"></i>手配期間</span><span><i class="s"></i>売止〜売却</span></div>';
     if(!rows.length)h+='<div class="vl-note">今、手配の時期に入った車はありません（上は例）。</div>';
@@ -663,6 +667,43 @@ const VL=(()=>{
         return '<tr><td><span class="m-badge" style="background:'+clsCol(k)+'">'+k+'</span></td>'+mIdx.map(i=>{const x=at(i),d=x<vs.length;return '<td class="'+(d?"dn":"")+'">'+x+'</td>';}).join("")+'</tr>';}).join("")+'</tbody></table></div>';
     return h;
   }
+
+  // ---------- 売止ブロック（オーナー指示 2026-10-31：入替で販売しない期間を作らない）----------
+  // 入替車両の準備期間（既定3ヶ月）で後継車を用意し、販売開始日＝売止日で同じ行にバトンタッチ＝在庫は減らさない。
+  // 売止日になっても後継車が未登録の車だけ、配車表に「売止」ブロック（bt_maintenance label=売止, id=stop_<code>）を
+  //   今日〜無期限で自動登録 → 在庫調整に全媒体「要」。後で後継車を登録すると、ブロックは切替日の前日で終わる。
+  const FAR="2099-12-31", stopId=code=>"stop_"+code;
+  async function syncStop(){
+    S.stop={};
+    const t0=T0(), want=S.v.filter(v=>{const c=S.calc[v.code];return c&&c.st!=="sold"&&c.stopT!=null&&c.stopT<=t0&&!v.relay_to&&!isSucc(v.code);})
+      .map(v=>{const st=dstr(Math.max(S.calc[v.code].stopT,t0)), en=v.relay_to&&v.service_to?v.service_to:FAR;return {code:v.code,start:st,end:en};})
+      .filter(w=>w.start<=w.end);
+    let rows;
+    if(VIEW_KEY){const {data,error}=await sb.rpc("bt_vehicle_stop_sync",{p_key:VIEW_KEY,p_rows:want});if(error)throw error;rows=data||[];}
+    else{
+      const {data,error}=await sb.from("bt_maintenance").select("id,vehicle_code,start_date,end_date").eq("label","売止");if(error)throw error;
+      rows=data||[]; const have=new Set(rows.map(r=>r.vehicle_code));
+      for(const w of want.filter(w=>!have.has(w.code))){
+        const row={id:stopId(w.code),vehicle_code:w.code,start_date:w.start,end_date:w.end,label:"売止",cost:0,actual_cost:0,workshop:"",invoice_no:"",maint_notes:"売止日までに後継車が未登録のため自動登録（車両ダッシュボード）",status:"approved"};
+        const {error:e1}=await sb.from("bt_maintenance").upsert(row,{onConflict:"id",ignoreDuplicates:true});
+        if(e1){console.warn("[VL] 売止ブロック登録",e1.message);continue;}
+        rows.push(row); intakeLog("intake_created",w.code,w.start,w.end);
+      }
+    }
+    rows.forEach(r=>{S.stop[r.vehicle_code]=r;});
+  }
+  function intakeLog(type,code,from,to){try{sb.from("bt_intake_actions").insert({action_type:type,vehicle_code:code,user_email:(window.__BT_USER_EMAIL||""),target_date_from:from,target_date_to:to,notified_slack:false,payload:{action:type,id:stopId(code),label:"売止"}}).then(()=>{},()=>{});}catch(e){}}
+  // ブロックの終わりを変える（入替の登録・解除）。在庫調整のチェックは付け直し（媒体の在庫を合わせ直すため）
+  async function setStopEnd(code,end){
+    const b=S.stop&&S.stop[code]; if(!b)return null;
+    let r;
+    if(end<b.start_date){r=await sb.from("bt_maintenance").delete().eq("id",b.id);if(!r.error)intakeLog("intake_cancelled",code,b.start_date,b.end_date);}
+    else{r=await sb.from("bt_maintenance").update({end_date:end}).eq("id",b.id);if(!r.error)intakeLog("intake_edited",code,b.start_date,end);}
+    if(!r.error){try{await sb.from("bt_inventory_status").delete().eq("id",b.id);}catch(e){}}
+    return r.error;
+  }
+  // 売止日より後に入っている予約（ブロックと重なる）
+  function afterStop(code){const b=S.stop&&S.stop[code];if(!b)return[];const a=ts(b.start_date),z=ts(b.end_date);return (S.res[code]||[]).filter(r=>ts(r.end_date)>=a&&ts(r.start_date)<=z);}
 
   // ---------- 入替リレー ----------
   const dstr=t=>new Date(t).toISOString().slice(0,10);
@@ -703,6 +744,8 @@ const VL=(()=>{
     const nv=S.v.find(x=>x.code===to);
     if(!old||!nv){alert("後継車を選んでください。新しい車は先に車両マスターに登録してください。");return;}
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||ts(d)<=T0()){alert("切替日は明日以降の日付にしてください。");return;}
+    const cc=S.calc[code], lastD=cc&&cc.stopT!=null?dstr(Math.max(cc.stopT,T0()+DAY)):null;
+    if(lastD&&d>lastD){alert("後継車の販売開始日は売止日（"+lastD+"）までにしてください（販売しない期間を作らないため）。");return;}
     const sp=spanning(code,d);
     if(sp.length){const last=sp.reduce((m,r)=>ts(r.end_date)>m?ts(r.end_date):m,0);
       alert("切替日 "+d+" をまたぐ予約が "+sp.length+" 件あります（"+sp.map(r=>r.start_date+"〜"+r.end_date).join("、")+"）。\n切替日を "+dstr(last+DAY)+" 以降にしてください。");return;}
@@ -719,7 +762,8 @@ const VL=(()=>{
     for(const r of moving){const {error}=await sb.from("bt_fleet").upsert({reservation_id:r.id,vehicle_code:to},{onConflict:"reservation_id"});if(error){err=error;break;}moved++;}
     // OPシート（日付ごとのタスク）に入っている車両も差し替える
     if(!err&&moving.length){const {error}=await sb.from("bt_tasks").update({assigned_vehicle:to,"No":nv.plate_no||"",updated_at:now}).in("予約番号",moving.map(r=>r.id)).eq("assigned_vehicle",code);if(error)err=error;}
-    setStatus(err?"⚠ 一部の予約を移せませんでした（"+moved+"/"+moving.length+"件）："+err.message:"✅ 入替車両を登録しました（予約 "+moved+" 件を移動）");
+    const se=await setStopEnd(code,dstr(t-DAY));
+    setStatus(err?"⚠ 一部の予約を移せませんでした（"+moved+"/"+moving.length+"件）："+err.message:se?"⚠ 売止ブロックを直せませんでした："+se.message:"✅ 入替車両を登録しました（予約 "+moved+" 件を移動"+(S.stop[code]?"・売止ブロックは "+dstr(t-DAY)+" まで":"")+"）");
     S.loaded=false; await load(true); render();
   }
   async function undoRelay(code){
@@ -730,6 +774,7 @@ const VL=(()=>{
     const now=new Date().toISOString();
     let r1=await sb.from("bt_vehicles").update({service_to:null,relay_to:null,updated_at:now}).eq("code",code);
     if(!r1.error)r1=await sb.from("bt_vehicles").update({service_from:null,updated_at:now}).eq("code",nx.code);
+    if(!r1.error)await setStopEnd(code,FAR);
     setStatus(r1.error?"解除できませんでした："+r1.error.message:"✅ 入替車両の登録を解除しました");
     S.loaded=false; await load(true); render();
   }
