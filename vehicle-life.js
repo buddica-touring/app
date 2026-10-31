@@ -295,9 +295,9 @@ const VL=(()=>{
   }
   const nm=v=>'<span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type)+'</span><span class="nm">'+e(v.name)+' <small>'+e(plate4(v))+'</small></span>';
   // 全体（オーナー指示 2026-10-31：文字を減らし、図で俯瞰。クラス・ブランド・判定でまとめ、並び替えできる）
-  //   判定：車検前に入替＝次の車検期間中にリミットに届くので車検を通さず入れ替える／車検を通す＝それ以外／予測待ち＝走行データ不足
-  const JUDGE={swap:{lb:"車検前に入替",c:"#dc2626"},pass:{lb:"車検を通す",c:"#475569"},wait:{lb:"予測待ち",c:"#cbd5e1"}};
-  const judgeOf=c=>c.stopT==null?"wait":c.why==="車検"?"swap":"pass";
+  //   判定：リミット先行（車検前に入替）＝次の車検期間中にリミットに届くので車検を通さず入れ替える／車検更新＝それ以外／予測待ち＝走行データ不足
+  const JUDGE={swap:{lb:"リミット先行",c:"#dc2626"},pass:{lb:"車検更新",c:"#475569"},wait:{lb:"予測待ち",c:"#cbd5e1"}};
+  const judgeOf=c=>c.stopT==null?"wait":c.why==="車検"||(c.shaken!=null&&c.stopT<c.shaken)?"swap":"pass";
   function sumHtml(){
     const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), t0=T0(), H=36;
     const g=S.ovg||"class", so=S.ovs||"stop";
@@ -306,7 +306,7 @@ const VL=(()=>{
     const in1y=a.filter(v=>C(v).stopT!=null&&C(v).stopT<=addMon(t0,12)).length;
     const inB=a.filter(v=>C(v).buy!=null), gross=inB.reduce((s,v)=>s+C(v).gross,0);
     // 数字4つ
-    let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>車検前に入替</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b class="'+(gross<0?'neg':'')+'">'+(inB.length?man(gross):'—')+'</b><span>粗利（'+inB.length+'台）</span></div></div>';
+    let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b class="'+(gross<0?'neg':'')+'">'+(inB.length?man(gross):'—')+'</b><span>粗利（'+inB.length+'台）</span></div></div>';
     // ドーナツ（判定）＋クラス別の棒
     const tot=a.length||1, R=36, L=2*Math.PI*R; let off=0;
     const arcs=["swap","pass","wait"].map(k=>{const n=cntJ(k),len=n/tot*L;const s='<circle r="'+R+'" cx="50" cy="50" fill="none" stroke="'+JUDGE[k].c+'" stroke-width="14" stroke-dasharray="'+len+' '+(L-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 50 50)"/>';off+=len;return n?s:'';}).join("");
@@ -332,7 +332,7 @@ const VL=(()=>{
         if(c.shaken){for(let t=c.shaken;t<=addMon(t0,H);t=addMon(t,24))if(t>=t0)tl+='<b class="sk'+(c.byShaken&&Math.abs(t-c.byShaken)<DAY*40?' x':'')+'" style="left:'+pos(t)+'%"></b>';}
         return '<div class="ov-r '+j+'" data-goto="'+e(v.code)+'"><div class="who">'+nm(v)+'</div><div class="tl">'+(c.stopT==null?'<span class="na">予測待ち</span>':'')+tl+'</div>'
           +'<div class="km"><div class="kb"><i style="width:'+p+'%"></i></div><span>'+mk(c.odo)+'<small>/'+mk(c.limit)+'</small></span></div></div>';}).join("");});
-    h+='</div><div class="ov-leg"><span><i class="run"></i>稼働</span><span><i class="end"></i>売り止め〜終了</span><span><b class="sk"></b>車検</span><span><b class="sk x"></b>車検前に入替</span></div>';
+    h+='</div><div class="ov-leg"><span><i class="run"></i>稼働</span><span><i class="end"></i>売り止め〜終了</span><span><b class="sk"></b>車検</span><span><b class="sk x"></b>リミット先行</span></div>';
     return h;
   }
   const tbl=(head,rows)=>'<div class="vl-ctbl vl-dt"><table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';
@@ -480,7 +480,7 @@ const VL=(()=>{
     const kAt=t=>c.odo+c.monKm*Math.max(0,(t-t0)/MON), k1=kAt(sh), k2=kAt(addMon(sh,24));
     const over=k1>=c.limit?"before":k2>=c.limit?"swap":"pass";
     const mx=Math.max(c.limit,k2)*1.04, P=k=>(Math.min(k,mx)/mx*100).toFixed(1)+'%', yy=t=>ym(t).replace("年","/").replace("月","");
-    const dec=over==="pass"?'<b class="ok">車検を通す</b>':'<b class="ng">車検前に入替</b>';
+    const dec=over==="pass"?'<b class="ok">車検更新</b>':'<b class="ng">リミット先行</b>';
     const gap=over==="before"?'車検前にリミット到達':over==="swap"?'次の車検期間中にリミット（'+(c.limitT?yy(c.limitT):'')+'）':'次の車検まで余裕 '+(Math.round((c.limit-k2)/1e3)/10)+'万km';
     return '<div class="kc-sg" data-tog="1"><div class="hd">'+dec+'<span>'+gap+'</span></div>'
       +'<div class="g"><i class="a" style="width:'+P(c.odo)+'"></i><i class="b" style="left:'+P(c.odo)+';width:calc('+P(k1)+' - '+P(c.odo)+')"></i><i class="c'+(k2>=c.limit?' x':'')+'" style="left:'+P(k1)+';width:calc('+P(k2)+' - '+P(k1)+')"></i><em style="left:'+P(c.limit)+'"></em></div>'
