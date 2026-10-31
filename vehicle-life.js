@@ -459,8 +459,8 @@ const VL=(()=>{
     const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?addMon(c.stopT,-2):null, t0=T0();
     const cell=(lb,val,sub,cls)=>'<div'+(cls?' class="'+cls+'"':'')+'><span>'+lb+'</span><b>'+val+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
     const dt=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();}, soon=t=>t!=null&&t<=addMon(t0,2)?'r':''; const span=(a,b)=>{if(!a||b==null||b<a)return'—';const m=Math.round((b-a)/MON);return (m>=12?Math.floor(m/12)+'年':'')+(m%12?m%12+'ヶ月':'');};
-    h+='<div class="kc-g" data-tog="1"><div class="kc-row">'
-      +cell('リミット',km(c.limit))+cell('現在',km(c.odo),'',pct>=90?'r':'')+cell('平均/月',km(c.monKm))
+    h+='<div class="kc-g" data-tog="1"><div class="kc-row m">'
+      +cell('リミット',km(c.limit))+cell('現在',km(c.odo),'',pct>=90?'r':'')+cell('平均/月',km(c.monKm))+cell('予想/年',c.monKm!=null?km(c.monKm*12):'—')
       +'</div><div class="kc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="kc-row m">'
       +cell('次回車検',dt(c.shaken),'',soon(c.shaken))+cell('売止',dt(c.stopT),'',soon(c.stopT))+cell('入替',dt(swapT),'',soon(swapT))+cell('運用期間',span(ts(v.purchase_date),c.saleT),ts(v.purchase_date)?'':'仕入日なし')
       +'</div><div class="kc-row m">'
