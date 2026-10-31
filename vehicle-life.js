@@ -355,9 +355,9 @@ const VL=(()=>{
     const BANDS=[[0,3e4,"〜3万km"],[3e4,5e4,"3〜5万km"],[5e4,8e4,"5〜8万km"],[8e4,1e5,"8〜10万km"],[1e5,9e9,"10万km〜"]];
     // カードを押すとその距離帯だけ表示（オーナー指示 2026-10-31）。もう一度押すか「全て」で全車
     const sold=v=>!!(v.sale_date||n(v.sale_price)!=null||v.sale_dest);   // 売却確定＝売却日・売却額・売却先のどれかが入っている
-    const inB=(v,i)=>i==="talk"?C(v).talk:i==="prep"?inPrep(v):i==="stop"?sold(v):i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
+    const inB=(v,i)=>i==="due"?C(v).limitT!=null&&C(v).limitT<=addMon(t0,LEAD())&&!sold(v):i==="talk"?C(v).talk:i==="prep"?inPrep(v):i==="stop"?sold(v):i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
     h+='<div class="ov-band"><button data-ovb="all" class="'+(ob==null?'on':'')+'"><span>全て</span><b>'+a.length+'<small>台</small></b></button>'+BANDS.map(([lo,hi,lb],i)=>{const n=a.filter(v=>inB(v,i)).length;return '<button data-ovb="'+i+'" class="'+(lo>=1e5&&n?'r ':lo>=8e4&&n?'o ':'')+(String(ob)===String(i)?'on':'')+'"><span>'+lb+'</span><b>'+n+'<small>台</small></b></button>';}).join('')
-      +[["talk","協議","o "],["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
+      +[["due","入替該当","r "],["talk","協議","o "],["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ④入替準備開始日（売止の準備期間前）
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
