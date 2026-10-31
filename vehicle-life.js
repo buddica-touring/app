@@ -634,24 +634,30 @@ const VL=(()=>{
   // 売止日になっても後継車が未登録の車だけ、配車表に「売止」ブロック（bt_maintenance label=売止, id=stop_<code>）を
   //   今日〜無期限で自動登録 → 在庫調整に全媒体「要」。後で後継車を登録すると、ブロックは切替日の前日で終わる。
   const FAR="2099-12-31", stopId=code=>"stop_"+code;
+  // オーナー指示 2026-10-31：自動では登録しない（売止未定の車まで止まって意味不明になるため）。
+  //   既存のブロックを読むだけ。登録は入替車両タブの「⛔ 配車表を止める」ボタン（売止日が出ている車だけ）で人が押す
   async function syncStop(){
     S.stop={};
-    const t0=T0(), want=S.v.filter(v=>{const c=S.calc[v.code];return c&&c.st!=="sold"&&c.stopT!=null&&c.stopT<=t0&&!v.relay_to&&!isSucc(v.code);})
-      .map(v=>{const st=dstr(Math.max(S.calc[v.code].stopT,t0)), en=v.relay_to&&v.service_to?v.service_to:FAR;return {code:v.code,start:st,end:en};})
-      .filter(w=>w.start<=w.end);
     let rows;
-    if(VIEW_KEY){const {data,error}=await sb.rpc("bt_vehicle_stop_sync",{p_key:VIEW_KEY,p_rows:want});if(error)throw error;rows=data||[];}
-    else{
-      const {data,error}=await sb.from("bt_maintenance").select("id,vehicle_code,start_date,end_date").eq("label","売止");if(error)throw error;
-      rows=data||[]; const have=new Set(rows.map(r=>r.vehicle_code));
-      for(const w of want.filter(w=>!have.has(w.code))){
-        const row={id:stopId(w.code),vehicle_code:w.code,start_date:w.start,end_date:w.end,label:"売止",cost:0,actual_cost:0,workshop:"",invoice_no:"",maint_notes:"売止日までに後継車が未登録のため自動登録（車両ダッシュボード）",status:"approved"};
-        const {error:e1}=await sb.from("bt_maintenance").upsert(row,{onConflict:"id",ignoreDuplicates:true});
-        if(e1){console.warn("[VL] 売止ブロック登録",e1.message);continue;}
-        rows.push(row); intakeLog("intake_created",w.code,w.start,w.end);
-      }
-    }
+    if(VIEW_KEY){const {data,error}=await sb.rpc("bt_vehicle_stop_sync",{p_key:VIEW_KEY,p_rows:[]});if(error)throw error;rows=data||[];}
+    else{const {data,error}=await sb.from("bt_maintenance").select("id,vehicle_code,start_date,end_date").eq("label","売止");if(error)throw error;rows=data||[];}
     rows.forEach(r=>{S.stop[r.vehicle_code]=r;});
+  }
+  async function addStop(code){
+    const v=S.v.find(x=>x.code===code), c=S.calc[code], t0=T0(); if(!v||!c||c.stopT==null)return;
+    const w={code,start:dstr(Math.max(c.stopT,t0)),end:FAR};
+    if(!confirm((v.name||code)+" "+plate4(v)+" の配車表を "+w.start+" から止めます（在庫調整に「要」が出ます）。よろしいですか？"))return;
+    let error=null;
+    if(VIEW_KEY){({error}=await sb.rpc("bt_vehicle_stop_sync",{p_key:VIEW_KEY,p_rows:[w]}));}
+    else{({error}=await sb.from("bt_maintenance").upsert({id:stopId(code),vehicle_code:code,start_date:w.start,end_date:w.end,label:"売止",cost:0,actual_cost:0,workshop:"",invoice_no:"",maint_notes:"車両ダッシュボードの入替車両タブから登録（売止）",status:"approved"},{onConflict:"id",ignoreDuplicates:true}));
+      if(!error)intakeLog("intake_created",code,w.start,w.end);}
+    setStatus(error?"止められませんでした："+error.message:"✅ 配車表を止めました");
+    await syncStop(); render();
+  }
+  async function delStop(code){
+    if(!confirm("配車表のブロックを外しますか？"))return;
+    const er=await setStopEnd(code,"0000-00-00"); setStatus(er?"外せませんでした："+er.message:"✅ ブロックを外しました");
+    await syncStop(); render();
   }
   function intakeLog(type,code,from,to){try{sb.from("bt_intake_actions").insert({action_type:type,vehicle_code:code,user_email:(window.__BT_USER_EMAIL||""),target_date_from:from,target_date_to:to,notified_slack:false,payload:{action:type,id:stopId(code),label:"売止"}}).then(()=>{},()=>{});}catch(e){}}
   // ブロックの終わりを変える（入替の登録・解除）。在庫調整のチェックは付け直し（媒体の在庫を合わせ直すため）
@@ -699,7 +705,11 @@ const VL=(()=>{
           +'<label class="dt">切替日 <input type="date" class="vl-rdate" value="'+def+'"'+(S.relayCols?'':' disabled')+'></label>'
           +'<button class="vl-mini go" data-relay="'+e(v.code)+'"'+(S.relayCols?'':' disabled')+'>登録</button>';}
       const b=S.stop&&S.stop[v.code], na=b?afterStop(v.code).length:0;
-      if(b)h+='<span class="blk">⛔ 配車表ブロック '+mdS(ts(b.start_date))+'〜'+(b.end_date>=FAR?'無期限':mdS(ts(b.end_date)))+(na?' ・<b>売止後の予約 '+na+'件</b>':'')+'</span>';
+      if(b)h+='<span class="blk">⛔ 配車表ブロック '+mdS(ts(b.start_date))+'〜'+(b.end_date>=FAR?'無期限':mdS(ts(b.end_date)))+(na?' ・<b>売止後の予約 '+na+'件</b>':'')+'</span>'+(VIEW_KEY?'':'<button class="vl-mini" data-delstop="'+e(v.code)+'">外す</button>');
+      else if(!nx&&c.stopT!=null)h+='<button class="vl-mini" data-addstop="'+e(v.code)+'">⛔ 配車表を止める</button>';
+      // 協議（オーナー指示 2026-10-31）：ここで人が判断する。売止日を決める（→その後に配車表を止める）か、リミットを決めて継続。決めるまでブロックしない
+      if(c.talk&&c.stopT==null)h+='<div class="tk"><b>判断</b><label>売止日 <input type="date" class="vl-tkd" value="'+dstr(addMon(t0,1))+'"></label><button class="vl-mini go" data-tkstop="'+e(v.code)+'">売止日を決める</button>'
+        +'<span class="or">または</span><label>リミット <input class="vl-tkl" inputmode="numeric" placeholder="例 150000" size="8">km</label><button class="vl-mini" data-tkkeep="'+e(v.code)+'">継続</button></div>';
       h+='</div></div>';});
     return h+'</div><div class="vl-note sm">後継車は先に車両マスターに登録。切替日から配車表の同じ行に入り、以降の予約も移ります。</div>';
   }
@@ -812,6 +822,12 @@ const VL=(()=>{
       const sc=t.closest("[data-sec]"); if(sc){goSec(sc.dataset.sec);return;}
       const rl=t.closest("[data-relay]"); if(rl&&!rl.disabled){doRelay(rl.dataset.relay,rl.closest("[data-code]"));return;}
       const ur=t.closest("[data-unrelay]"); if(ur){undoRelay(ur.dataset.unrelay);return;}
+      const as=t.closest("[data-addstop]"); if(as){addStop(as.dataset.addstop);return;}
+      const tk=t.closest("[data-tkstop]"); if(tk){const d=tk.closest(".tk").querySelector(".vl-tkd").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){setStatus("売止日を入れてください");return;}
+        const cd=tk.dataset.tkstop;saveVal(cd,"sale_plan_date",dstr(addMon(ts(d),1))).then(()=>addStop(cd));return;}   // 決めたらそのまま配車表を売止日から止める（オーナー指示：判断＝配車表連携）   // 売却予定日＝売止日の1ヶ月後（売止＝売却の1ヶ月前のルール）
+      const kp=t.closest("[data-tkkeep]"); if(kp){const x=Number(String(kp.closest(".tk").querySelector(".vl-tkl").value).replace(/[^\d]/g,""));if(!x){setStatus("リミット（km）を入れてください");return;}
+        saveVal(kp.dataset.tkkeep,"life_limit_km",x);return;}
+      const ds=t.closest("[data-delstop]"); if(ds){delStop(ds.dataset.delstop);return;}
       const g=t.closest("[data-goto]"); if(g&&!t.closest(".vl-card")&&!t.closest("input,select,label")){gotoCard(g.dataset.goto);return;}
       const sf=t.closest("[data-stf]"); if(sf){S.stf=S.stf===sf.dataset.stf?"all":sf.dataset.stf;S.sec="karte";saveUi();render();return;}
       const br=t.closest("[data-br]"); if(br){S.brand=br.dataset.br;saveUi();render();return;}
