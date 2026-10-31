@@ -433,7 +433,6 @@ const VL=(()=>{
       +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(S.global.monKm)+'<small>km</small></b></div></div>';
     const G=S.global;
     const nFlag=base.filter(v=>S.calc[v.code].flag).length, nNow=base.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
-    h+='<div class="vl-stat"><b>全車共通の予測</b>　1予約 平均 <b>'+km(G.avgKm)+'km</b> × 1台あたり <b>'+G.perMon.toFixed(1)+'件/月</b> ＝ <b>月 '+km(G.monKm)+'km</b><small>実績 '+G.days+'日・予約 '+G.nRes+'件・走行実測 '+G.n+'件から計算（営業日数が増えるほど精度が上がります）</small>'+(nNow?'<span class="vl-flagline hot">💡 相場から見て今が売り時の車 '+nNow+'台</span>':'')+(nFlag?'<span class="vl-flagline">⚑ '+km(S.cfg.default_limit_km)+'kmを既に超えている車 '+nFlag+'台は、リミット'+km(S.cfg.over_limit_km)+'kmで計算中</span>':'')+'</div>';
     h+='<div class="vl-bar1">'
       +['all','BT','HDM'].map(b=>'<button class="chip'+(S.brand===b?" on":"")+'" data-br="'+b+'">'+(b==="all"?"全体 "+S.v.length:b==="BT"?"🟢 BT":"🔵 HDM")+'</button>').join("")
       +'<select class="vl-sort" aria-label="並び順">'+[["sale","売り止め順"],["class","クラス順"],["km","走行距離順"],["profit","粗利順"]].map(([k,l])=>'<option value="'+k+'"'+(S.sort===k?" selected":"")+'>'+l+'</option>').join("")+'</select>'
@@ -443,7 +442,6 @@ const VL=(()=>{
     const list=filtered();
     if(!list.length)h+='<div class="vl-empty">該当する車両はありません。</div>';
     list.forEach(v=>{h+=cardHtml(v);});
-    h+='<div class="vl-foot">売上は '+DATA_FROM.replace(/-/g,"/")+' 以降の実績。予測は開くたびに最新の実績で計算し直します。</div>';
     return h;
   }
 
@@ -456,23 +454,37 @@ const VL=(()=>{
     let h='<div class="vl-card '+st.cls+(open?" open":"")+'" data-code="'+e(v.code)+'">';
     h+='<div class="vl-hd" data-tog="1"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type||"?")+'</span>'
       +'<div class="vl-nm"><b>'+e(v.name||v.code)+'</b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(v.year?' · '+e(v.year):'')+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
-      +'<span class="vl-st '+st.cls+'">'+st.lb+'</span></div>';
-    h+='<div class="vl-meter" data-tog="1"><div class="vl-track"><i style="width:'+pct.toFixed(1)+'%"></i>'+(shPct!=null?'<em style="left:'+shPct.toFixed(1)+'%" title="車検時点の予測"></em>':'')+'</div>'
-      +'<div class="vl-kmrow"><span><b>'+km(c.odo)+'</b> / '+km(c.limit)+'km</span><span class="vl-rest">'+(c.odo!=null?(c.odo>=c.limit?'リミット超過':'残り '+km(c.limit-c.odo)+'km'):'走行未入力')+'</span></div></div>';
-    h+='<div class="vl-grid" data-tog="1">'
-      +cell("リミット到達",c.limitT!=null?ymFar(c.limitT):'—',c.monKm!=null?'月 '+km(c.monKm)+'km 計算':'')
-      +cell("売り止め",c.stopT!=null?ymFar(c.stopT):(c.st==="sold"?'終了済':'—'),c.stopT!=null?(c.ride?'♻ 乗り潰し ':'💴 売却 ')+ymFar(c.saleT)+(c.why==="車検"?'（車検）':c.why==="手動"?'（手動）':''):'',c.st==="sell")
-      +cell("仕入れ開始",c.procT!=null?ymFar(c.procT):'—',c.procT!=null?(c.procT<=T0()?'<b class="vl-now">今すぐ</b>':(monthsTo(c.procT)>60?'':'あと'+Math.ceil(monthsTo(c.procT))+'ヶ月')):'',c.st==="prep")
-      +cell("車検",c.shaken?ymd(c.shaken).slice(2):'—',c.shaken?(monthsTo(c.shaken)<0?'期限切れ':'あと'+monthsTo(c.shaken).toFixed(1)+'ヶ月'):'')
-      +'</div>';
-    h+='<div class="vl-tags" data-tog="1">'
-      +(dn!=null?'<span class="vl-tag'+(dn?" dmg":"")+'">🩹 傷 '+dn+'</span>':'')
-      +(c.flag?'<span class="vl-tag flag">⚑ '+e(c.flag)+(c.ride?'':'・乗り潰し候補')+'</span>':'')+(c.ride?'<span class="vl-tag ride">♻ 乗り潰し</span>':'')+(c.mkt?'<span class="vl-tag mk'+(c.sellNow?' hot':'')+'">📊 相場 '+(c.mkt.now?man(c.mkt.now.p25)+'〜'+man(c.mkt.now.p75):man(c.mkt.median))+(c.sellNow?'・今が売り時':'')+'</span>':'')+(c.overBuy?'<span class="vl-tag hot">💡 買取見込みが仕入額超え</span>':'')
-      +'<span class="vl-tag">💴 売上 '+yen(c.revDone)+'</span>'
-      +(c.susp?'<span class="vl-tag warn">⚠ 走行入力の確認 '+c.susp+'件</span>':'')
-      +'<span class="vl-more">'+(open?'閉じる ▴':'詳しく ▾')+'</span></div>';
+      +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
+    // 走行の見込みグラフ（オーナー指示 2026-10-31：文字を減らしてグラフで）。横＝時間、縦＝走行km。灰線＝見込み、赤＝売り止め、点線＝仕入開始、◆＝車検
+    h+='<div class="kc-chart" data-tog="1">'+lifeChart(c)+'</div>';
+    const j=judgeOf(c), left=c.stopT!=null?monthsTo(c.stopT):null;
+    h+='<div class="kc-nums" data-tog="1"><div class="'+(c.st==="sell"||c.st==="prep"?'r':'')+'"><span>売り止め</span><b>'+(c.stopT!=null?ym(c.stopT).replace("年","/").replace("月",""):'—')+'</b><small>'+(left==null?'':left<=0?'今':'あと'+(left<12?Math.ceil(left)+'ヶ月':(left/12).toFixed(1)+'年'))+'</small></div>'
+      +'<div><span>売上</span><b>'+man(c.revDone)+'</b><small>&nbsp;</small></div>'
+      +'<div><span>粗利</span><b class="'+(c.buy!=null&&c.gross<0?'neg':'')+'">'+(c.buy!=null?man(c.gross):'—')+'</b><small>'+(c.buy==null?'仕入額なし':c.recov!=null?'回収 '+Math.round(c.recov*100)+'%':'')+'</small></div></div>';
+    h+='<div class="kc-more" data-tog="1">'+(dn?'<span>傷 '+dn+'</span>':'')+(c.susp?'<span class="r">走行ミス '+c.susp+'</span>':'')+'<em>'+(open?'閉じる ▴':'詳しく ▾')+'</em></div>';
     if(open)h+='<div class="vl-bd">'+detailHtml(v)+'</div>';
     return h+'</div>';
+  }
+
+  function lifeChart(c){
+    const t0=T0(), W=300, Hh=96, L=26, R=6, T=12, B=16;
+    if(c.odo==null||c.limit==null)return '<div class="kc-na">走行の記録がありません</div>';
+    let tEnd=Math.max(c.saleT||0,c.shaken||0,addMon(t0,12)); tEnd=Math.min(addMon(tEnd,3),addMon(t0,60));
+    const x=t=>L+(Math.min(Math.max(t,t0),tEnd)-t0)/(tEnd-t0)*(W-L-R), yMax=c.limit*1.05, y=k=>T+(1-Math.min(k,yMax)/yMax)*(Hh-T-B);
+    let g='<svg viewBox="0 0 '+W+' '+Hh+'" class="kc-svg">';
+    g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(c.limit)+'" y2="'+y(c.limit)+'" class="lim"/><text x="'+(L-3)+'" y="'+(y(c.limit)+3)+'" class="ax" text-anchor="end">'+Math.round(c.limit/1e4)+'万</text>';
+    g+='<text x="'+(L-3)+'" y="'+(Hh-B+3)+'" class="ax" text-anchor="end">0</text><line x1="'+L+'" x2="'+(W-R)+'" y1="'+(Hh-B)+'" y2="'+(Hh-B)+'" class="base"/>';
+    // 見込み線（今→リミット到達または右端）
+    const tL=Math.min(c.saleT||tEnd,c.limitT||tEnd,tEnd), kL=c.limitT!=null&&tL>=c.limitT?c.limit:(c.monKm?c.odo+c.monKm*(tL-t0)/MON:c.odo);
+    g+='<polygon points="'+x(t0)+','+(Hh-B)+' '+x(t0)+','+y(c.odo)+' '+x(tL)+','+y(kL)+' '+x(tL)+','+(Hh-B)+'" class="area"/><line x1="'+x(t0)+'" y1="'+y(c.odo)+'" x2="'+x(tL)+'" y2="'+y(kL)+'" class="proj"/>';
+    g+='<circle cx="'+x(t0)+'" cy="'+y(c.odo)+'" r="3.5" class="now"/>';
+    const vl=(t,cls,lb)=>t!=null&&t>=t0&&t<=tEnd?'<line x1="'+x(t)+'" x2="'+x(t)+'" y1="'+T+'" y2="'+(Hh-B)+'" class="'+cls+'"/><text x="'+x(t)+'" y="'+(T-3)+'" class="vt '+cls+'" text-anchor="middle">'+lb+'</text>':'';
+    g+=vl(c.procT,"proc","仕入")+vl(c.stopT,"stop","売り止め");
+    if(c.shaken)for(let t=c.shaken;t<=tEnd;t=addMon(t,24))if(t>=t0){const X=x(t),Y=Hh-B;g+='<rect x="'+(X-4)+'" y="'+(Y-4)+'" width="8" height="8" transform="rotate(45 '+X+' '+Y+')" class="shk'+(c.byShaken&&Math.abs(t-c.byShaken)<40*DAY?' x':'')+'"/>';}
+    // 年の目盛り
+    for(let yr=new Date(t0).getUTCFullYear()+1;;yr++){const t=Date.UTC(yr,0,1);if(t>tEnd)break;g+='<text x="'+x(t)+'" y="'+(Hh-3)+'" class="ax" text-anchor="middle">'+yr+'</text>';}
+    g+='<text x="'+x(t0)+'" y="'+(Hh-3)+'" class="ax">今</text>';
+    return g+'</svg>';
   }
   function cell(lb,val,sub,hot){return '<div class="vl-c'+(hot?" hot":"")+'"><label>'+lb+'</label><b>'+val+'</b><small>'+(sub||"&nbsp;")+'</small></div>';}
 
@@ -483,43 +495,16 @@ const VL=(()=>{
     h+='<section><h4>📏 今の走行 <small>'+(c.odo!=null?km(c.odo)+'km・'+odoLb(c):'記録なし')+'</small></h4>'+odoForm(v,c);
     if(D&&D.trips){const bad=D.trips.filter(suspect);if(bad.length)h+='<div class="vl-trips">'+bad.slice(0,5).map(r=>'<div class="bad"><span>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</span><b>⚠ '+km(rawKm(r))+'km <small>'+e(tripBad(r))+'・計算から除外</small></b></div>').join("")+'</div>';}
     h+='</section>';
-    // 生涯収支
-    h+='<section><h4>💴 個体別の生涯成績</h4><div class="vl-kpis">'
-      +kp("売上（生涯）",yen(c.revDone),'予約済み '+yen(c.revBooked)+' は別')
-      +kp("粗利",'<span class="'+(c.gross>=0?"pos":"neg")+'">'+yen(c.gross)+'</span>',c.revDone?'粗利率 '+Math.round(c.gross/c.revDone*100)+'%':'')
-      +'</div>';
-    if(c.recov!=null)h+='<div class="vl-recov"><div><span>仕入額の回収</span><b>'+Math.round(c.recov*100)+'%</b></div><div class="tr"><i style="width:'+Math.min(100,c.recov*100)+'%"></i></div><small>売上 '+yen(c.revDone)+' ／ 仕入額 '+yen(c.buy)+'</small></div>';
-    else h+='<div class="vl-warn">仕入額が未入力です。入れると、スタートからいくら回収したかが出ます。</div>';
-    h+='<div class="vl-pl">'
-      +pl("売上（実績）",yen(c.revDone),"pos")
-      +pl("仕入額",c.buy!=null?yen(-c.buy):'未入力',"neg")
-      +pl("整備費",yen(-c.mCost),"neg",(S.maint[v.code]||[]).length+'件')
-      +pl("リース・保険・税",yen(-c.fixed),"neg",yen(c.fixedMon)+'/月 × '+c.months.toFixed(1)+'ヶ月')
-      +'<div class="vl-pl-r sub"><span>原価 計</span><b class="neg">'+yen(-c.cost)+'</b></div>'
-      +'<div class="vl-pl-r sub"><span>粗利（売上−原価）</span><b class="'+(c.gross>=0?"pos":"neg")+'">'+yen(c.gross)+'</b></div>'
-      +pl(c.ride?(n(v.sale_price)!=null?"廃車・下取り額":"廃車・下取り額（見込み）"):(n(v.sale_price)!=null?"売却額":"予想売却額"),c.exitPrice!=null?yen(c.exitPrice):'未入力',"pos")
-      +'<div class="vl-pl-r tot"><span>生涯で生んだ利益<small>粗利＋最後の売却額（仕入額は原価に含む）</small></span><b class="'+(c.total==null?"":c.total>=0?"pos":"neg")+'">'+(c.total!=null?yen(c.total):'仕入額・売却額の入力待ち')+'</b></div>'
-+'</div><div class="vl-note">売上・固定費は '+DATA_FROM.replace(/-/g,"/")+'（または仕入日）以降で集計</div>';
-    h+='</section>';
-    // 市場価格（ブラウザで週1回調査した結果）
-    {
-      const m=c.mkt, sp=surveySpec(v,c);
-      const condTxt=b=>e(sp.name)+'・'+(sp.years?sp.years[0]+'〜'+sp.years[1]+'年式':'年式不明')+'・'+(b?km(b[0])+'〜'+km(b[1])+'km':'走行不明')+'・'+sp.must.filter(Boolean).map(e).join('・')+(sp.mustMiss?'・<span class="miss">必須条件 '+sp.mustMiss+'つ未入力</span>':'');
-      const box=(lb,x,b,exit)=>'<div class="big"><span>'+lb+'</span>'+(x?'<b>'+man(x.p25)+'〜'+man(x.p75)+'</b><em class="md">中央値 '+man(x.med)+'</em>'+(x.prev!=null&&Math.round(x.med-x.prev)?'<em class="'+(x.med>x.prev?"up":"dn")+'">'+(x.med>x.prev?'▲':'▼')+man(Math.abs(x.med-x.prev))+'</em>':'')
-          +'<small>'+x.n+'台（全体 '+man(x.min)+'〜'+man(x.max)+'）・'+rankTxt(x.n)+'・'+e(x.sources.join("/"))+' '+e(String(x.when).slice(5,10).replace("-","/"))+'調査</small>'+(x.cond&&x.cond.note&&/広げ/.test(x.cond.note)?'<small class="miss">'+e(x.cond.note.split('／').filter(t=>/広げ|参考/.test(t)).join('／'))+'</small>':'')+(exit!=null?'<small class="ex">買取見込み '+yen(exit)+'（中央値×'+Math.round(c.rate*100)+'%）</small>':''):'<b class="no">未調査</b>')
-          +'<small class="cond">条件：'+condTxt(b)+'・修復歴なし</small></div>';
-      h+='<section><h4>📊 市場価格（一般小売の相場感）</h4>';
-      if(!S.mkOn)h+='<div class="vl-warn">相場の保存先（データベースの追加）がまだありません。</div>';
-      {const ms=shakenOf(v).filter(o=>o.miss);if(ms.length)h+='<div class="vl-warn">車検証の未入力 '+ms.length+'項目：'+ms.map(o=>e(o.l)).join('・')+'<br><small>配車表の車両マスター（基本情報）で入れると、相場の検索条件に使われます。</small></div>';}
-      h+='<details class="vl-rule"><summary>この基準で検索しています（あくまで目安）</summary><dl>'+MARKET_RULE.map(([k,t])=>'<dt>'+e(k)+'</dt><dd>'+e(t)+'</dd>').join("")+'</dl></details>';
-      h+='<div class="vl-mkt">'+box('今の走行で売ると',m&&m.now,sp.now,c.nowExit)+(c.ride?'':box('終了時（'+(c.saleT!=null?ymFar(c.saleT):'—')+'）に売ると',m&&m.end,sp.end,c.endExit))+'</div>';
-      if(c.vsNow!=null&&c.vsLater!=null)h+='<div class="vl-vs'+(c.sellNow?' now':'')+'"><div><span>今売る</span><b>'+yen(c.vsNow)+'</b><small>粗利＋買取見込み</small></div><div><span>'+(c.ride?'乗り潰す':'売り止めまで走らせる')+'</span><b>'+yen(c.vsLater)+'</b><small>あと'+Math.round(c.daysLeft)+'日 × 粗利'+yen(c.dayGross)+'/日</small></div><p>'+(c.sellNow?'💡 今売った方が生涯利益が <b>'+yen(c.vsNow-c.vsLater)+'</b> 多い見込み':'走らせた方が <b>'+yen(c.vsLater-c.vsNow)+'</b> 多い見込み')+'</p></div>';
-      else if(m&&c.buy==null)h+='<div class="vl-note">仕入額を入れると「今売る／走らせる」の比較が出ます。</div>';
-      if(c.overBuy)h+='<div class="vl-warn hot">💡 買取見込み '+yen(c.nowExit)+' が仕入額 '+yen(c.buy)+' を上回っています</div>';
-      if(sp.urlNow||sp.urlEnd)h+='<div class="vl-mk"><span>カーセンサーで見る</span>'+(sp.urlNow?'<a target="_blank" rel="noopener" href="'+e(sp.urlNow)+'">今の走行 ↗</a>':'')+(sp.urlEnd?'<a target="_blank" rel="noopener" href="'+e(sp.urlEnd)+'">終了時の走行 ↗</a>':'')+'</div>';
-      else if(S.lifeCols)h+='<div class="vl-note">カーセンサーの車種コードが未登録です（初回の調査で自動登録されます）。</div>';
-      h+='</section>';
-    }
+    // 相場（範囲バー：真ん中50%・中央値・買取見込み）
+    {const m=c.mkt, sp=surveySpec(v,c), ms=shakenOf(v).filter(o=>o.miss);
+      const xs=[m&&m.now,m&&m.end].filter(Boolean), lo=xs.length?Math.min(...xs.map(x=>n(x.min)??x.p25)):0, hi=xs.length?Math.max(...xs.map(x=>n(x.max)??x.p75)):1;
+      const P=x=>((x-lo)/((hi-lo)||1)*100).toFixed(1)+'%';
+      const bar=(lb,x,exit)=>'<div class="kc-mr"><span>'+lb+'</span>'+(x?'<div class="b"><i style="left:'+P(x.p25)+';width:calc('+P(x.p75)+' - '+P(x.p25)+')"></i><em style="left:'+P(x.med)+'"></em>'+(exit!=null?'<u style="left:'+P(exit)+'"></u>':'')+'</div><b>'+man(x.med)+'</b>':'<div class="b na">未調査</div><b>—</b>')+'</div>';
+      h+='<section><h4>📈 相場'+(ms.length?' <small class="r">車検証 未入力'+ms.length+'</small>':'')+'</h4>'
+        +bar('今',m&&m.now,c.nowExit)+(c.ride?'':bar(c.saleT!=null?ym(c.saleT).replace("年","/").replace("月",""):'終了時',m&&m.end,c.endExit))
+        +(xs.length?'<div class="kc-ml"><span><i></i>真ん中50%</span><span><em></em>中央値</span><span><u></u>買取見込み</span></div>':'')
+        +(c.vsNow!=null&&c.vsLater!=null?'<div class="kc-vs'+(c.sellNow?' now':'')+'"><div><span>今売る</span><b>'+man(c.vsNow)+'</b></div><div><span>走らせる</span><b>'+man(c.vsLater)+'</b></div></div>':'')
+        +(sp.urlNow?'<a class="kc-link" target="_blank" rel="noopener" href="'+e(sp.urlNow)+'">カーセンサー ↗</a>':'')+'</section>';}
     // 傷・写真
     h+='<section><h4>🩹 傷・写真</h4>';
     if(D===undefined||D==="loading")h+='<div class="vl-empty sm">読み込み中…</div>';
