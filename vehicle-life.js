@@ -262,7 +262,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS=[["全体",[["sum","📊","全体"]]],["売却・入替",[["plan","📅","個体別スケジュール"],["swap","🗓","売り止め・入替予定"],["relay","🔁","リレー入替"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","生涯成績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS=[["全体",[["sum","📊","全体"]]],["売却・入替",[["plan","📅","個体別スケジュール"],["swap","🗓","売り止め・入替予定"],["relay","🔁","リレー入替"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="swap")return a.filter(v=>["sell","prep"].includes(S.calc[v.code].st)).length;
     if(k==="relay")return a.filter(v=>!v.relay_to&&!isSucc(v.code)&&["sell","prep"].includes(S.calc[v.code].st)).length;
@@ -382,21 +382,21 @@ const VL=(()=>{
       +bads.sort((a,b)=>String(b.r.start_date).localeCompare(String(a.r.start_date))).map(({v,r})=>'<div class="r"><div class="who">'+nm(v)+'<small>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</small></div><div class="why"><b>'+km(rawKm(r))+'km</b>（出発 '+(n(r.start_odo)!=null?km(r.start_odo):'—')+' → 返却 '+(n(r.end_odo)!=null?km(r.end_odo):'—')+'）<em>'+e(tripBad(r))+'</em></div></div>').join("")+'</details>';
     return h+'</div><div class="vl-lead">売り止め＝終了（走行リミット・車検・手動のうち早い方）の1ヶ月前。仕入開始＝売り止めの'+(S.cfg.lead_months||3)+'ヶ月前。走行は全車共通の月 '+km(S.global.monKm)+'km で予測。</div>';
   }
-  // 生涯成績（1台1枚）：仕入額 → 売上・稼働 → 原価・粗利。仕入額と仕入日はカードの中で直接入力（欄から外れると保存）
+  // クラス実績（オーナー指示 2026-10-31）：AA以外はクラスでまとめて1台あたり、AAは1台ずつ。稼働率＝稼働日数÷保有日数（データ開始日か仕入日から）
   function kpiHtml(){
-    const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold").sort((x,y)=>C(y).revDone-C(x).revDone);
-    const inp=(v,k,type,ph)=>'<input class="vl-ti" type="'+(type==="number"?"text":type)+'"'+(type==="number"?' inputmode="numeric"':'')+' data-f="'+k+'" data-t="'+type+'" value="'+e(v[k]==null?"":type==="number"?Number(v[k]).toLocaleString():v[k])+'" placeholder="'+(ph||"")+'"'+(S.lifeCols?'':' disabled')+'>';
-    const inB=a.filter(v=>C(v).buy!=null), sum=(l,f)=>l.reduce((s,v)=>s+(f(C(v))||0),0), gAll=sum(inB,c=>c.gross);
-    let h='<h4 class="vl-h4">💴 生涯成績 <small>売上が多い順・仕入額と仕入日はカードの中で入力（欄から外れると保存）</small></h4>'
-      +'<div class="vl-ksum"><div><span>売上（全車）</span><b>'+man(sum(a,c=>c.revDone))+'</b></div><div><span>稼働日数</span><b>'+km(sum(a,c=>c.runDays))+'<small>日</small></b></div>'
-      +'<div><span>粗利（仕入額入力済み）</span><b class="'+(gAll>=0?'grn':'red')+'">'+(inB.length?man(gAll):'—')+'</b></div><div class="'+(inB.length<a.length?'miss':'')+'"><span>仕入額の入力</span><b>'+inB.length+'<small>/'+a.length+'台</small></b></div></div>'
-      +'<div class="vl-kgrid">';
-    h+=a.map(v=>{const c=C(v),r=c.recov!=null?Math.round(c.recov*100):null;
-      return '<div class="vl-kc'+(c.buy==null?' nobuy':'')+'" data-code="'+e(v.code)+'"><div class="who" data-goto="'+e(v.code)+'">'+nm(v)+(r!=null?'<span class="rc '+(r>=100?'ok':'')+'">回収 '+r+'%</span>':'')+'</div>'
-        +'<div class="nums"><div><span>売上</span><b>'+man(c.revDone)+'</b></div><div><span>稼働</span><b>'+c.runDays+'<small>日</small></b></div><div><span>原価</span><b>'+(c.buy!=null?man(c.cost):'—')+'</b></div><div><span>粗利</span><b class="'+(c.buy==null?'mut':c.gross>=0?'grn':'red')+'">'+(c.buy!=null?man(c.gross):'—')+'</b></div></div>'
-        +(r!=null?'<div class="rbar"><i style="width:'+Math.min(100,r)+'%"></i></div>':'')
-        +'<div class="ins"><label><span>仕入額</span>'+inp(v,"purchase_price","number","未入力")+'<i>円</i></label><label><span>仕入日</span>'+inp(v,"purchase_date","date")+'</label></div></div>';}).join("");
-    return h+'</div>';
+    const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), sum=(l,f)=>l.reduce((s,v)=>s+(f(C(v))||0),0);
+    const st=l=>{const hd=sum(l,c=>c.heldDays);return {n:l.length,rev:sum(l,c=>c.revDone)/l.length,util:hd?sum(l,c=>c.runDays)/hd:null};};
+    const cls=[...new Set(a.filter(v=>v.type!=="AA").map(v=>v.type||"?"))];
+    const rows=cls.map(t=>{const l=a.filter(v=>(v.type||"?")===t);return {t,l,x:st(l)};}).concat(a.filter(v=>v.type==="AA").map(v=>({v,l:[v],x:st([v])})));
+    const all=st(a), pc=u=>u==null?'—':Math.round(u*100)+'%';
+    const row=r=>'<div class="vl-cr"'+(r.v?' data-goto="'+e(r.v.code)+'"':'')+'><div class="hd">'+(r.v?nm(r.v):'<span class="m-badge" style="background:'+clsCol(r.t)+'">'+e(r.t)+'</span><span class="nm">'+e([...new Set(r.l.map(v=>v.name))].join('・'))+'</span><em>'+r.x.n+'台</em>')+'</div>'
+      +'<div class="nums"><div><span>'+(r.v?'売上':'総売上')+'</span><b>'+man(r.x.rev*r.x.n)+'</b></div>'+(r.v?'':'<div><span>台平均売上</span><b>'+man(r.x.rev)+'</b></div>')+'<div><span>稼働率</span><b>'+pc(r.x.util)+'</b></div></div>'
+      +'<div class="bar"><u style="width:'+(r.x.util==null?0:Math.min(100,r.x.util*100)).toFixed(1)+'%"></u></div></div>';
+    const by=(x,y)=>y.x.rev-x.x.rev;
+    return '<h4 class="vl-h4">💴 クラス実績</h4>'
+      +'<div class="vl-ksum k3"><div><span>総売上</span><b>'+man(all.rev*all.n)+'</b></div><div><span>台平均売上</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div></div>'
+      +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
+      +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
   }
   function marketHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold").sort((x,y)=>(S.calc[y.code].sellNow?1:0)-(S.calc[x.code].sellNow?1:0)||(S.calc[x.code].stopT??9e15)-(S.calc[y.code].stopT??9e15));
