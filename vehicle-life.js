@@ -114,8 +114,14 @@ const VL=(()=>{
   // カーセンサーの車種ページ＋条件（YMIN/YMAX＝年式、SMIN/SMAX＝走行km）。車種コードは bt_vehicles.market_code（例 TO_S228＝アクア）
   function csUrl(code,ys,b){const m=String(code||"").match(/^([A-Z]{2})_S(\d+)$/i);if(!m||!ys||!b)return null;
     return "https://www.carsensor.net/usedcar/b"+m[1].toUpperCase()+"/s"+m[2]+"/index.html?YMIN="+ys[0]+"&YMAX="+ys[1]+"&SMIN="+b[0]+"&SMAX="+b[1];}
-  function surveySpec(v,c){const y=wYear(v.year),ys=y?[y-1,y+1]:null,now=band(c.odo),end=c.ride?null:band(c.kmEnd);
-    return {name:v.name,year:y,years:ys,now,end,code:v.market_code||null,urlNow:csUrl(v.market_code,ys,now),urlEnd:csUrl(v.market_code,ys,end)};}
+  // 車検証の項目（配車表の車両マスターで必須入力）。必須条件＝排気量・動力・駆動・乗車定員
+  const SHAKEN_ITEMS=[["maker","車名"],["model_code","型式"],["first_reg","初度登録年月"],["displacement","総排気量"],["fuel","燃料の種類"],["seats","乗車定員"],["type_no","型式指定番号"],["class_no","類別区分番号"],["chassis_no","車台番号"],["drive","駆動方式"]];
+  function shakenOf(v){const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};const val=k=>k==="seats"?v.seats:k==="chassis_no"?v.chassis_no:sp[k];
+    return SHAKEN_ITEMS.map(([k,l])=>({k,l,x:val(k)})).map(o=>Object.assign(o,{miss:o.x==null||String(o.x).trim()===""}));}
+  function surveySpec(v,c){const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};
+    const fr=String(sp.first_reg||"").match(/^(\d{4})/), y=fr?+fr[1]:wYear(v.year), ys=y?[y-1,y+1]:null, now=band(c.odo), end=c.ride?null:band(c.kmEnd);
+    const must=[sp.displacement?sp.displacement+"L":null,sp.fuel||null,sp.drive||null,v.seats?v.seats+"人乗り":null];
+    return {name:v.name,year:y,years:ys,now,end,must,mustMiss:must.filter(x=>!x).length,code:v.market_code||null,urlNow:csUrl(v.market_code,ys,now),urlEnd:csUrl(v.market_code,ys,end)};}
   function market(code){
     const rows=S.mk[code]; if(!rows||!rows.length)return null;
     const med=a=>{const b=a.slice().sort((x,y)=>x-y);if(!b.length)return null;const q=p=>{const i=(b.length-1)*p,l=Math.floor(i);return b[l]+(b[Math.ceil(i)]-b[l])*(i-l);};return {med:q(.5),p25:q(.25),p75:q(.75),min:b[0],max:b[b.length-1],n:b.length};};
@@ -331,12 +337,13 @@ const VL=(()=>{
     // 市場価格（ブラウザで週1回調査した結果）
     {
       const m=c.mkt, sp=surveySpec(v,c);
-      const condTxt=b=>e(sp.name)+'・'+(sp.years?sp.years[0]+'〜'+sp.years[1]+'年式':'年式不明')+'・'+(b?km(b[0])+'〜'+km(b[1])+'km':'走行不明');
+      const condTxt=b=>e(sp.name)+'・'+(sp.years?sp.years[0]+'〜'+sp.years[1]+'年式':'年式不明')+'・'+(b?km(b[0])+'〜'+km(b[1])+'km':'走行不明')+'・'+sp.must.filter(Boolean).map(e).join('・')+(sp.mustMiss?'・<span class="miss">必須条件 '+sp.mustMiss+'つ未入力</span>':'');
       const box=(lb,x,b,exit)=>'<div class="big"><span>'+lb+'</span>'+(x?'<b>'+man(x.p25)+'〜'+man(x.p75)+'</b><em class="md">中央値 '+man(x.med)+'</em>'+(x.prev!=null&&Math.round(x.med-x.prev)?'<em class="'+(x.med>x.prev?"up":"dn")+'">'+(x.med>x.prev?'▲':'▼')+man(Math.abs(x.med-x.prev))+'</em>':'')
           +'<small>'+x.n+'台（全体 '+man(x.min)+'〜'+man(x.max)+'）・'+e(x.sources.join("/"))+' '+e(String(x.when).slice(5,10).replace("-","/"))+'調査</small>'+(exit!=null?'<small class="ex">買取見込み '+yen(exit)+'（中央値×'+Math.round(c.rate*100)+'%）</small>':''):'<b class="no">未調査</b>')
           +'<small class="cond">条件：'+condTxt(b)+'・修復歴なし</small></div>';
       h+='<section><h4>📊 市場価格（一般小売の相場感）</h4>';
       if(!S.mkOn)h+='<div class="vl-warn">相場の保存先（データベースの追加）がまだありません。</div>';
+      {const ms=shakenOf(v).filter(o=>o.miss);if(ms.length)h+='<div class="vl-warn">車検証の未入力 '+ms.length+'項目：'+ms.map(o=>e(o.l)).join('・')+'<br><small>配車表の車両マスター（基本情報）で入れると、相場の検索条件に使われます。</small></div>';}
       h+='<details class="vl-rule"><summary>この基準で検索しています（あくまで目安）</summary><dl>'+MARKET_RULE.map(([k,t])=>'<dt>'+e(k)+'</dt><dd>'+e(t)+'</dd>').join("")+'</dl></details>';
       h+='<div class="vl-mkt">'+box('今の走行で売ると',m&&m.now,sp.now,c.nowExit)+(c.ride?'':box('終了時（'+(c.saleT!=null?ymFar(c.saleT):'—')+'）に売ると',m&&m.end,sp.end,c.endExit))+'</div>';
       if(c.vsNow!=null&&c.vsLater!=null)h+='<div class="vl-vs'+(c.sellNow?' now':'')+'"><div><span>今売る</span><b>'+yen(c.vsNow)+'</b><small>粗利＋買取見込み</small></div><div><span>'+(c.ride?'乗り潰す':'売り止めまで走らせる')+'</span><b>'+yen(c.vsLater)+'</b><small>あと'+Math.round(c.daysLeft)+'日 × 粗利'+yen(c.dayGross)+'/日</small></div><p>'+(c.sellNow?'💡 今売った方が生涯利益が <b>'+yen(c.vsNow-c.vsLater)+'</b> 多い見込み':'走らせた方が <b>'+yen(c.vsLater-c.vsNow)+'</b> 多い見込み')+'</p></div>';

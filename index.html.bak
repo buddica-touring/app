@@ -4987,14 +4987,27 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
               <div><label style={lS}>略称</label><input value={(form.specs&&form.specs.abbr)||""} onChange={e=>upS("abbr",e.target.value)} style={fS} placeholder="アル①"/></div>
               <div><label style={lS}>グレード</label><input value={form.grade} onChange={e=>upF("grade",e.target.value)} style={fS} placeholder="2.5S Cパッケージ"/></div>
               <div><label style={lS}>ナンバー</label><input value={form.no} onChange={e=>upF("no",e.target.value)} style={fS} placeholder="2340"/></div>
-              <div><label style={lS}>定員</label><input type="number" value={form.seats} onChange={e=>upF("seats",e.target.value)} style={fS}/></div>
               <div><label style={lS}>年式</label><input value={form.year} onChange={e=>upF("year",e.target.value)} style={fS} placeholder="2022"/></div>
-              <div><label style={lS}>油種</label><select value={(form.specs&&form.specs.fuel)||""} onChange={e=>upS("fuel",e.target.value)} style={fS}><option value="">未設定</option>{["レギュラー","ハイオク","軽油","ハイブリッド","EV"].map(o=><option key={o} value={o}>{o}</option>)}</select></div>
               <div style={{gridColumn:"1/-1"}}><label style={lS}>カラー</label><input value={form.color} onChange={e=>upF("color",e.target.value)} style={fS} placeholder="ホワイトパールクリスタルシャイン"/></div>
-              <div><label style={lS}>型式</label><input value={(form.specs&&form.specs.model_code)||""} onChange={e=>upS("model_code",e.target.value)} style={fS} placeholder="3BA-AGH30W"/></div>
-              <div><label style={lS}>車台番号</label><input value={form.chassisNo||""} onChange={e=>upF("chassisNo",e.target.value)} style={fS} placeholder="M900A-0489962"/></div>
               <div><label style={lS}>車体番号</label><input value={(form.specs&&form.specs.shatai_no)||""} onChange={e=>upS("shatai_no",e.target.value)} style={fS} placeholder="AGH30-0123456"/></div>
             </div>
+            {/* ★2026-10-31 オーナー指示：車検証の項目を必須入力にして、市場価格（カーセンサー）の検索条件に使う（procurement.html 車両カルテ） */}
+            {(()=>{const sp=form.specs||{};const req=[["車名",sp.maker],["型式",sp.model_code],["初度登録年月",sp.first_reg],["総排気量",sp.displacement],["燃料の種類",sp.fuel],["乗車定員",form.seats],["型式指定番号",sp.type_no],["類別区分番号",sp.class_no],["車台番号",form.chassisNo],["駆動方式",sp.drive]];const miss=req.filter(([,x])=>x==null||String(x).trim()==="").map(([l])=>l);const rS=(x)=>({...fS,...((x==null||String(x).trim()==="")?{borderColor:"#fca5a5",background:"#fff7f7"}:{})});const R=<span style={{color:"#dc2626"}}>*</span>;
+            return <React.Fragment>
+            {secH("車検証（必須・相場の検索条件に使います）")}
+            <div style={{fontSize:11,fontWeight:700,marginBottom:10,padding:"6px 10px",borderRadius:8,background:miss.length?"#fef2f2":"#f0fdf4",color:miss.length?"#b91c1c":"#15803d",border:"1px solid "+(miss.length?"#fecaca":"#bbf7d0")}}>{miss.length?"未入力 "+miss.length+"項目："+miss.join("・"):"✓ 車検証の項目はすべて入っています"}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div><label style={lS}>車名 {R}</label><input value={sp.maker||""} onChange={e=>upS("maker",e.target.value)} style={rS(sp.maker)} placeholder="トヨタ"/></div>
+              <div><label style={lS}>型式 {R}</label><input value={sp.model_code||""} onChange={e=>upS("model_code",e.target.value)} style={rS(sp.model_code)} placeholder="3BA-AGH30W"/></div>
+              <div><label style={lS}>初度登録年月 {R}</label><input type="month" value={sp.first_reg||""} onChange={e=>upS("first_reg",e.target.value)} style={rS(sp.first_reg)}/></div>
+              <div><label style={lS}>総排気量（L） {R}</label><input inputMode="decimal" value={sp.displacement||""} onChange={e=>upS("displacement",e.target.value)} style={rS(sp.displacement)} placeholder="2.49"/></div>
+              <div><label style={lS}>燃料の種類 {R}</label><select value={sp.fuel||""} onChange={e=>upS("fuel",e.target.value)} style={rS(sp.fuel)}><option value="">未設定</option>{["レギュラー","ハイオク","軽油","ハイブリッド","EV"].map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+              <div><label style={lS}>乗車定員 {R}</label><input type="number" value={form.seats} onChange={e=>upF("seats",e.target.value)} style={rS(form.seats)}/></div>
+              <div><label style={lS}>型式指定番号 {R}</label><input inputMode="numeric" value={sp.type_no||""} onChange={e=>upS("type_no",e.target.value)} style={rS(sp.type_no)} placeholder="19628"/></div>
+              <div><label style={lS}>類別区分番号 {R}</label><input inputMode="numeric" value={sp.class_no||""} onChange={e=>upS("class_no",e.target.value)} style={rS(sp.class_no)} placeholder="0012"/></div>
+              <div><label style={lS}>車台番号 {R}</label><input value={form.chassisNo||""} onChange={e=>upF("chassisNo",e.target.value)} style={rS(form.chassisNo)} placeholder="M900A-0489962"/></div>
+              <div><label style={lS}>駆動方式 {R} <span style={{fontWeight:500,color:"#94a3b8"}}>車検証に無し・型式で判断</span></label><select value={sp.drive||""} onChange={e=>upS("drive",e.target.value)} style={rS(sp.drive)}><option value="">未設定</option><option value="2WD">2WD</option><option value="4WD">4WD</option></select></div>
+            </div></React.Fragment>;})()}
             {secH("走行・操作情報")}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={lS}>ハンドル</label><select value={(form.specs&&form.specs.handle)||""} onChange={e=>upS("handle",e.target.value)} style={fS}><option value="">未設定</option><option value="右">右</option><option value="左">左</option></select></div>
