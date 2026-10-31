@@ -180,15 +180,16 @@ const VL=(()=>{
         if(S.cfg.shaken_rule==="always"||(kmAtNext!=null&&kmAtNext>=limit))byShaken=shaken;
       }
       let saleT=null, why="";
-      if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
+      if(v.exit_type==="return"){saleT=ts(v.sale_date)||t0;why="返却済";}   // リース返却・手放した車（2026-10-31 911）。一覧から外し、履歴は残す
+      else if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
       else if(v.sale_plan_date){saleT=ts(v.sale_plan_date);why="手動";}
       else if(limitT!=null&&(byShaken==null||limitT<=byShaken)){saleT=limitT;why="走行";}
       else if(byShaken!=null){saleT=byShaken;why="車検";}
       // saleT＝稼働の終わり（リミット到達・車検・手動）。その1ヶ月前に売り止め（予約を止める）、売り止めから逆算して仕入れ開始
-      const lead=n(S.cfg.lead_months)||3, stopT=saleT!=null&&why!=="売却済"?addMon(saleT,-1):null, procT=stopT!=null?addMon(stopT,-lead):null;
+      const lead=n(S.cfg.lead_months)||3, stopT=saleT!=null&&why!=="売却済"&&why!=="返却済"?addMon(saleT,-1):null, procT=stopT!=null?addMon(stopT,-lead):null;
       const ride=v.exit_type==="ride";   // 乗り潰し（売らずに使い切る）
       let st="run";
-      if(why==="売却済")st="sold";
+      if(why==="売却済"||why==="返却済")st="sold";
       else if(saleT==null)st=odo==null||monKm==null?"nodata":"run";
       else if(stopT<=t0||(odo!=null&&odo>=limit))st="sell";
       else if(procT<=t0)st="prep";
@@ -512,7 +513,7 @@ const VL=(()=>{
     // 編集
     h+='<section><h4>✍ 仕入れ・出口（売却／乗り潰し）</h4>';
     if(!S.lifeCols)h+='<div class="vl-warn">入力欄を使うにはデータベースの追加（sql/bt_vehicle_lifecycle.sql）が必要です。</div>';
-    h+='<div class="vl-exit">'+[["sell","💴 売却"],["ride","♻ 乗り潰し"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
+    h+='<div class="vl-exit">'+[["sell","💴 売却"],["ride","♻ 乗り潰し"],["return","🔙 リース返却"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
     h+='<div class="vl-form">'
       +fld(v,"purchase_price","仕入額","円","number")+fld(v,"purchase_date","仕入日","","date")
       +fld(v,"life_limit_km","この車のリミット","km","number",km(S.calc[v.code].limit)+"（既定）")
@@ -748,7 +749,9 @@ const VL=(()=>{
       if(t.closest(".vl-gear")){S.showCfg=!S.showCfg;render();return;}
       if(t.closest("[data-cfgclose]")){S.showCfg=false;render();return;}
       if(t.closest("[data-cfgsave]")){saveCfg(t.closest(".vl-cfg"));return;}
-      const ex=t.closest("[data-exit]"); if(ex&&!ex.disabled){const code=ex.closest(".vl-card").dataset.code;saveVal(code,"exit_type",ex.dataset.exit);return;}
+      const ex=t.closest("[data-exit]"); if(ex&&!ex.disabled){const code=ex.closest(".vl-card").dataset.code,v=S.v.find(x=>x.code===code);
+        if(ex.dataset.exit==="return"&&v&&v.exit_type!=="return"&&!confirm((v.name||code)+" をリース返却済みにして、スケジュールの一覧から外します（履歴は残ります）。よろしいですか？"))return;
+        saveVal(code,"exit_type",ex.dataset.exit);return;}
       const dm=t.closest("[data-dmg]"); if(dm){const img=dm.querySelector("img");if(img)openViewer(img.src);return;}
       const tg=t.closest("[data-tog]"); if(tg){const code=tg.closest(".vl-card").dataset.code;
         if(S.open.has(code))S.open.delete(code); else{S.open.add(code); if(S.detail[code]===undefined||S.detail[code].err)loadDetail(code);}
