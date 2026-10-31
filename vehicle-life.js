@@ -10,6 +10,7 @@
 const VL=(()=>{
   const DAY=864e5, MON=30.44*DAY;
   const VIEW_KEY=(()=>{try{return new URLSearchParams(location.search).get("view")||"";}catch(e){return "";}})();   // 閲覧専用リンク
+  if(VIEW_KEY)document.documentElement.classList.add("vl-view");   // 閲覧リンク：ルール設定・リレーはログイン時だけ（ボタンを出さない）
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
   const DEF={default_limit_km:100000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next",buy_rate:75};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
@@ -275,7 +276,6 @@ const VL=(()=>{
     let h='<div class="vl-dash"><nav class="vl-side">'+SECS.map(([g,items])=>'<div class="g">'+e(g)+'</div>'+items.map(x=>'<button class="'+(S.sec===x[0]?"on":"")+'" data-sec="'+x[0]+'"><span>'+lb(x)+'</span>'+(bd(x)?'<i>'+bd(x)+'</i>':'')+'</button>').join("")).join("")+'</nav>';
     h+='<div class="vl-main"><label class="vl-pick"><select class="vl-secsel" aria-label="画面を選ぶ">'+SECS.map(([g,items])=>'<optgroup label="'+e(g)+'">'+items.map(x=>'<option value="'+x[0]+'"'+(S.sec===x[0]?" selected":"")+'>'+x[2]+(bd(x)?' 🔴'+bd(x):'')+'</option>').join("")+'</optgroup>').join("")+'</select></label>';
     h+='<div class="vl-sec">'+(S.v.length?secHtml():'<div class="vl-empty err">車両が0台です。配車表にログインしていない端末では表示されません。<br><a href="index.html" target="_blank" rel="noopener">配車表でログイン ↗</a> してから、この画面を開き直してください。</div>')+'</div>';
-    if(VIEW_KEY)h+='<div class="vl-foot">👀 閲覧専用リンク（変更はできません。写真・担当者名は表示しません）</div>';
     h+=(VIEW_KEY?'':'<div class="vl-foot live">🟢 リアルタイム共有（配車表・点検の更新が自動で反映されます）'+(S.updated?'　最終更新 '+String(S.updated.getHours()).padStart(2,"0")+':'+String(S.updated.getMinutes()).padStart(2,"0"):'')+'</div>')+'</div></div>';
     body.innerHTML=h;
     if(S.sec==="karte")S.open.forEach(code=>{if(S.detail[code]===undefined)loadDetail(code);});
@@ -543,7 +543,7 @@ const VL=(()=>{
     h+='<section><h4>🩹 傷・写真</h4>';
     if(D===undefined||D==="loading")h+='<div class="vl-empty sm">読み込み中…</div>';
     else if(D.err)h+='<div class="vl-empty sm err">'+e(D.err)+'</div>';
-    else if(D.ro)h+='<div class="vl-empty sm">傷 '+((S.dmg[v.code]&&S.dmg[v.code].n)||0)+'件（写真は閲覧リンクでは表示しません）</div>';
+    else if(D.ro)h+='<div class="vl-empty sm">傷 '+((S.dmg[v.code]&&S.dmg[v.code].n)||0)+'件</div>';
     else{
       const ds=D.damages||[];
       if(!ds.length)h+='<div class="vl-empty sm">記録された傷はありません</div>';
@@ -695,7 +695,7 @@ const VL=(()=>{
     return h+'</div>';
   }
   async function doRelay(code,row){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
+    if(VIEW_KEY)return;
     const old=S.v.find(x=>x.code===code), to=row.querySelector(".vl-rsel").value, d=row.querySelector(".vl-rdate").value;
     const nv=S.v.find(x=>x.code===to);
     if(!old||!nv){alert("後継車を選んでください。新しい車は先に車両マスターに登録してください。");return;}
@@ -720,7 +720,7 @@ const VL=(()=>{
     S.loaded=false; await load(true); render();
   }
   async function undoRelay(code){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
+    if(VIEW_KEY)return;
     const old=S.v.find(x=>x.code===code), nx=relayOf(code); if(!old||!nx)return;
     const t=old.service_to?ts(old.service_to)+DAY:null, back=t?(S.res[nx.code]||[]).filter(r=>ts(r.start_date)>=t):[];
     if(!confirm(old.name+" "+plate4(old)+" → "+(nx.name||nx.code)+" のリレーを解除しますか？\n\n予約は "+(nx.name||nx.code)+" に入ったまま残ります（"+back.length+"件）。必要なら配車表で戻してください。"))return;
@@ -732,27 +732,26 @@ const VL=(()=>{
   }
 
   // ---------- 操作 ----------
+  // 閲覧リンクでも車両の項目は編集できる（オーナー指示 2026-10-31）。キー付きの関数経由（sql/bt_vehicle_view_edit.sql）
+  const updV=(code,patch)=>VIEW_KEY?sb.rpc("bt_vehicle_view_update",{p_key:VIEW_KEY,p_code:code,p_patch:patch}):sb.from("bt_vehicles").update(Object.assign({},patch,{updated_at:new Date().toISOString()})).eq("code",code);
   async function saveVal(code,key,val){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
     const v=S.v.find(x=>x.code===code); if(!v||v[key]===val)return;
-    const {error}=await sb.from("bt_vehicles").update({[key]:val,updated_at:new Date().toISOString()}).eq("code",code);
+    const {error}=await updV(code,{[key]:val});
     if(error){setStatus("保存できませんでした："+error.message);return;}
     v[key]=val; compute(); setStatus("✅ 保存しました"); render();
   }
   async function saveField(code,inp){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
     const key=inp.dataset.f, t=inp.dataset.t; let val=inp.value.trim();
     if(t==="number"){val=val.replace(/[^\d]/g,"");val=val===""?null:Number(val);}else if(val==="")val=null;
     const v=S.v.find(x=>x.code===code); if(!v||v[key]===val||(v[key]==null&&val==null))return;
     inp.classList.add("saving");
-    const {error}=await sb.from("bt_vehicles").update({[key]:val,updated_at:new Date().toISOString()}).eq("code",code);
+    const {error}=await updV(code,{[key]:val});
     inp.classList.remove("saving");
     if(error){inp.classList.add("err");setStatus("保存できませんでした："+error.message);return;}
     inp.classList.remove("err"); v[key]=val; compute(); setStatus("✅ 保存しました");
     inp.blur(); render();
   }
   async function saveOdo(box){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
     const code=box.dataset.code, v=S.v.find(x=>x.code===code), ki=box.querySelector('[data-odo="km"]'), di=box.querySelector('[data-odo="at"]');
     const val=Number(String(ki.value).replace(/[^\d]/g,"")), at=di.value||todayStr();
     if(!v||!val){ki.classList.add("err");ki.focus();setStatus("メーターの数字を入れてください");return;}
@@ -761,14 +760,14 @@ const VL=(()=>{
     if(old!=null&&Math.abs(val-old)>50000&&!confirm(km(old)+"km → "+km(val)+"km に変えます。合っていますか？"))return;
     const specs=Object.assign({},spOf(v),{odo_at:at});
     box.classList.add("saving");
-    const {error}=await sb.from("bt_vehicles").update({current_mileage:val,specs,updated_at:new Date().toISOString()}).eq("code",code);
+    const {error}=await (VIEW_KEY?updV(code,{current_mileage:val,odo_at:at}):updV(code,{current_mileage:val,specs}));
     box.classList.remove("saving");
     if(error){ki.classList.add("err");setStatus("保存できませんでした："+error.message);return;}
     if(box.closest(".vl-odobox"))S.odoOpen=true;
     v.current_mileage=val; v.specs=specs; compute(); setStatus("✅ "+(v.name||code)+"の走行を "+km(val)+"km にしました"); render();
   }
   async function saveCfg(root){
-    if(VIEW_KEY){setStatus("👀 閲覧専用リンクでは変更できません（配車表にログインして開いてください）");return;}
+    if(VIEW_KEY)return;
     const c=Object.assign({},S.cfg,{class_limits:Object.assign({},S.cfg.class_limits)});
     const num=s=>{const x=String(s||"").replace(/[^\d]/g,"");return x?Number(x):null;};
     root.querySelectorAll("[data-cfg]").forEach(i=>{const k=i.dataset.cfg;c[k]=k==="shaken_rule"?i.value:num(i.value)||DEF[k];});
