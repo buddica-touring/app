@@ -341,9 +341,8 @@ const VL=(()=>{
     const g=S.ovg||"class", so=S.ovs||"stop";
     const mk=x=>x==null?'—':(Math.round(x/1e3)/10)+'万';
     const cntJ=k=>a.filter(v=>judgeOf(C(v))===k).length;
-    const in1y=a.filter(v=>C(v).stopT!=null&&C(v).stopT<=addMon(t0,12)).length;
     // 数字4つ
-    let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b>'+man(a.reduce((x,v)=>x+C(v).revDone,0))+'</b><span>総売上</span></div></div>';
+    let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div></div>';
     // 試算（オーナー指示 2026-10-31）：全車・全期間の実績から
     const G=S.global||{};
     h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["1予約日数",G.avgDays,"同 "+(G.n||0)+"件","日",1],["1日あたり",G.dayKm,"距離÷日数"],["月間/台",G.monKm,"メーター増分"+(G.nOdo||0)+"台分÷"+(G.nOp||0)+"台÷"+(G.mons||0).toFixed(1)+"ヶ月"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why,u,dp])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?(dp?x.toFixed(dp):km(x)):'—')+'<small>'+(u||'km')+'</small></b><i>'+why+'</i></div>').join('')+'</div>';
