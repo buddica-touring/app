@@ -343,19 +343,16 @@ const VL=(()=>{
     h+='<div class="ov-band"><button data-ovb="all" class="'+(ob==null?'on':'')+'"><span>全て</span><b>'+a.length+'<small>台</small></b></button>'+BANDS.map(([lo,hi,lb],i)=>{const n=a.filter(v=>inB(v,i)).length;return '<button data-ovb="'+i+'" class="'+(lo>=1e5&&n?'r ':lo>=8e4&&n?'o ':'')+(String(ob)===String(i)?'on':'')+'"><span>'+lb+'</span><b>'+n+'<small>台</small></b></button>';}).join('')
       +[["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
-    // サマリ＝カルテを1本の時間軸で総括（オーナー指示 2026-10-31）。横＝先月→3年先、縦線＝今日。◆車検・🛒入替・⛔売止、帯＝稼働／入替期間／売止〜売却
-    const A=addMon(t0,-1), Z=addMon(t0,36), P=t=>Math.max(0,Math.min(100,(t-A)/(Z-A)*100)).toFixed(1)+'%', inZ=t=>t!=null&&t>=A&&t<=Z;
-    h+='<div class="vl-tlx sm"><div class="ax"><div></div><div class="sc">'+[0,12,24,36].map(i=>{const m=addMon(t0,i);return '<span style="left:'+P(m)+'">'+(i?ymS(m):'今日')+'</span>';}).join('')+'</div><div></div></div>';
+    // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ④入替準備開始日（売止の2ヶ月前）
+    const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
+    h+='<div class="ov-num"><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>入替準備</span></div>';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
-      h+=l.map(v=>{const c=C(v),j=judgeOf(c),na=nextAct(v,c),sw=c.stopT!=null?addMon(c.stopT,-2):null,p=c.odo!=null&&c.limit?Math.min(100,c.odo/c.limit*100):0;
-        let tr='<i class="now" style="left:'+P(t0)+'"></i>';
-        if(c.stopT!=null){tr+='<i class="g" style="left:'+P(t0)+';width:calc('+P(sw)+' - '+P(t0)+')"></i><i class="p" style="left:'+P(Math.max(sw,t0))+';width:calc('+P(c.stopT)+' - '+P(Math.max(sw,t0))+')"></i><i class="s" style="left:'+P(Math.max(c.stopT,t0))+';width:calc('+P(c.saleT)+' - '+P(Math.max(c.stopT,t0))+')"></i>';
-          if(inZ(sw))tr+='<b class="mk" style="left:'+P(sw)+'" title="入替 '+mdS(sw)+'">🛒</b>'; if(inZ(c.stopT))tr+='<b class="mk" style="left:'+P(c.stopT)+'" title="売止 '+mdS(c.stopT)+'">⛔</b>';}
-        if(c.shaken)for(let t=c.shaken;t<=Z;t=addMon(t,24))if(t>=A)tr+='<b class="shk'+(c.stopT!=null&&t>c.stopT?' x':'')+'" style="left:'+P(t)+'" title="車検 '+mdS(t)+'"></b>';
-        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="who">'+nm(v)+'<small class="kv'+(p>=90?' r':'')+'">'+(c.odo!=null?Math.round(c.odo/1e3)+'k km':'—')+'</small><small class="rv">'+mk(c.revDone)+'</small></div>'
-          +'<div class="tr">'+(c.stopT==null?'<span class="na">予測待ち</span>':'')+tr+'</div><div class="go">'+(na?'<b class="na '+na.lv+'">'+na.txt+'</b>':'')+'</div></div>';}).join('');});
-    h+='</div><div class="ov-leg"><span><b class="shk"></b>車検</span><span>🛒入替</span><span>⛔売止</span><span><i class="p"></i>入替期間</span><span><i class="s"></i>売止〜売却</span></div>';
+      h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-2):null;
+        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div>'
+          +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit?km(c.limit):'—')+'</div>'
+          +'<div data-l="到達予想"'+(c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+ymd(c.limitT)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div></div>';}).join('');});
+    h+='</div>';
     return h;
   }
   const tbl=(head,rows)=>'<div class="vl-ctbl vl-dt"><table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';
