@@ -87,6 +87,10 @@ const VL=(()=>{
       S.maint={}; mt.forEach(m=>{(S.maint[m.vehicle_code]=S.maint[m.vehicle_code]||[]).push(m);});
       S.kpi={}; ((kpi&&kpi.data)||[]).forEach(k=>{S.kpi[k.vehicle_code]=k.active;});
       S.cfgSaved=!!(cfg&&cfg.data); if(cfg&&cfg.data)S.cfg=Object.assign({},DEF,cfg.data,{class_limits:cfg.data.class_limits||{}});
+      // 入替車両の準備（仕入候補の進捗・ETC）。閲覧リンクでは読まない
+      S.proc=[]; S.etc={};
+      if(!VIEW_KEY){const [pr,et]=await Promise.all([sb.from("bt_procurement").select("id,no,model,vclass,plate,status,maint_status,pickup_status,prep_status,op_start_date"),sb.from("bt_etc_setup").select("code,done")]);
+        S.proc=(pr&&pr.data)||[]; ((et&&et.data)||[]).forEach(x=>{S.etc[x.code]=x.done;});}
       S.mk={}; S.mkOn=!!(mk&&!mk.error); if(S.mkOn)(mk.data||[]).forEach(m=>{(S.mk[m.vehicle_code]=S.mk[m.vehicle_code]||[]).push(m);});
       S.dmg={}; if(dmg&&!dmg.error)(dmg.data||[]).forEach(d=>{S.dmg[d.code]=d;});
       compute(); S.loaded=true; S.updated=new Date();
@@ -262,7 +266,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS=[["全体",[["sum","📊","全体"]]],["売却・入替",[["plan","📅","個体別スケジュール"],["swap","🗓","売り止め・入替予定"],["month","📆","月別入替"],["relay","🔁","リレー入替"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS=[["全体",[["sum","📊","全体"]]],["売却・入替",[["plan","📅","個体別スケジュール"],["swap","🗓","売り止め・入替予定"],["month","📆","月別入替"],["relay","🛒","入替車両（仕入）"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="swap")return a.filter(v=>["sell","prep"].includes(S.calc[v.code].st)).length;
     if(k==="relay")return a.filter(v=>!v.relay_to&&!isSucc(v.code)&&["sell","prep"].includes(S.calc[v.code].st)).length;
@@ -603,6 +607,9 @@ const VL=(()=>{
   }
 
   // ---------- 入替タブ ----------
+  // 入替車両の準備：後継車（入替車両（仕入）で登録した車）を仕入候補とナンバー下4桁で照合し 整備→引取→準備→ETC→稼働開始
+  function prepOf(nv){if(!nv)return null;const p4=plate4(nv), pr=p4?S.proc.find(r=>{const m=String(r.plate||"").match(/(\d{1,4})\s*$/);return m&&m[1]===p4;}):null, ok=x=>x==="OK";
+    return [["整備",pr?ok(pr.maint_status):null],["引取",pr?ok(pr.pickup_status):null],["準備",pr?ok(pr.prep_status):null],["ETC",nv.code in S.etc?!!S.etc[nv.code]:null],["稼働",nv.service_from?ts(nv.service_from)<=T0():null]];}
   // 売り止め・入替（オーナー指示 2026-10-31：具体的なアクションが分かるように）。1台ごとに 手配→売止→売却 の3ステップ、今やる1つを期限つきで出す
   // 手配＝後継車をリレー登録（期限＝入替日＝売止の2ヶ月前）、売止＝配車表で予約を止める（期限＝売止日）、売却＝売却・返却（期限＝終了日）
   function swapHtml(){
@@ -619,11 +626,15 @@ const VL=(()=>{
     let h='<div class="vl-ksum k3"><div class="'+(late.length?'miss':'')+'"><span>期限切れ</span><b>'+late.length+'<small>台</small></b></div><div><span>30日以内</span><b>'+near.length+'<small>台</small></b></div><div><span>12ヶ月以内</span><b>'+rows.length+'<small>台</small></b></div></div>';
     const mk=(x,k,ic)=>{const t=x.due[k]; if(t==null||t>Z)return''; return '<b class="mk '+k+(x.done[k]?' ok':k===x.cur[0]?' cur':'')+'" style="left:'+P(t)+'" title="'+mdS(t)+'">'+(x.done[k]?'✓':ic)+'</b>';};
     h+='<div class="vl-tlx"><div class="ax"><div></div><div class="sc">'+[0,1,4,7,10,13].map(i=>{const m=addMon(Date.UTC(new Date(A).getUTCFullYear(),new Date(A).getUTCMonth(),1),i);return m>=A&&m<=Z?'<span style="left:'+P(m)+'">'+ymS(m)+'</span>':'';}).join('')+'<em class="now" style="left:'+P(t0)+'">今日</em></div><div></div></div>';
+    const succ=x=>{const nv=relayOf(x.v.code); if(!nv)return '<div class="sc0"><span>↳ 入替車両</span><em class="'+(x.due.proc<T0()?'r':'')+'">未登録</em></div>';
+      const st=prepOf(nv), on=nv.service_from?ts(nv.service_from):null;
+      return '<div class="sc0"><span>↳ '+e(nv.name||nv.code)+' <small>'+e(plate4(nv))+'</small></span><div class="tr">'+(on!=null&&on<=Z?'<b class="mk on" style="left:'+P(on)+'" title="稼働開始 '+mdS(on)+'">🚗</b>':'')+'</div>'
+        +'<div class="ps">'+st.map(([l,d])=>'<i class="'+(d===true?'ok':d===false?'ng':'')+'">'+(d===true?'✓':'')+l+'</i>').join('')+'</div></div>';};
     h+=rows.map(x=>'<div class="rw '+(x.d<0?'late':'')+'"><button class="who" data-goto="'+e(x.v.code)+'">'+nm(x.v)+'</button>'
       +'<div class="tr"><i class="now" style="left:'+P(t0)+'"></i><i class="p" style="left:'+P(x.due.proc)+';width:calc('+P(x.due.stop)+' - '+P(x.due.proc)+')"></i><i class="s" style="left:'+P(x.due.stop)+';width:calc('+P(x.due.sale)+' - '+P(x.due.stop)+')"></i>'
       +mk(x,"proc","🛒")+mk(x,"stop","⛔")+mk(x,"sale","💴")+'</div>'
       +'<div class="go"><b>'+x.cur[1]+' '+(x.cur[0]==="proc"?'後継車を手配':x.cur[0]==="stop"?'予約を止める':(x.c.ride?'廃車':'売却'))+'</b><em>'+mdS(x.t)+' · '+left(x.d)+'</em>'
-      +(x.cur[0]==="proc"?'<button class="vl-mini go" data-sec="relay">リレー登録</button>':'<button class="vl-mini" data-goto="'+e(x.v.code)+'">カルテ</button>')+'</div></div>').join('');
+      +(x.cur[0]==="proc"?'<button class="vl-mini go" data-sec="relay">入替車両を登録</button>':'<button class="vl-mini" data-goto="'+e(x.v.code)+'">カルテ</button>')+'</div>'+succ(x)+'</div>').join('');
     h+='</div><div class="ov-leg"><span>🛒手配（売止の2ヶ月前）</span><span>⛔売止</span><span>💴売却</span><span><i class="p"></i>手配期間</span><span><i class="s"></i>売止〜売却</span></div>';
     const rest=items.length-rows.length;
     if(rest)h+='<div class="vl-note">それ以降 '+rest+'台 → <button class="vl-mini" data-sec="month">月別入替</button></div>';
@@ -676,7 +687,7 @@ const VL=(()=>{
     const due=S.v.filter(v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&(v.relay_to||["sell","prep","soon"].includes(c.st));})
       .sort((a,b)=>(S.calc[a.code].stopT??9e15)-(S.calc[b.code].stopT??9e15));
     const miss=due.filter(v=>!v.relay_to&&["sell","prep"].includes(S.calc[v.code].st));
-    let h='<h4 class="vl-h4">🔁 リレー入替（販売を止めない）</h4><div class="vl-relay">';
+    let h='<h4 class="vl-h4">🛒 入替車両（仕入）</h4><div class="vl-relay">';
     h+='<div class="vl-note">新しい車を先に車両マスターに登録し、ここで「前の車 → 後継車」と切替日を決めます。切替日から後継車が配車表の同じ行に入り、それ以降の予約も自動で移るので、クラスの台数（OTA・BUDDICA管理画面の在庫）は減りません。'
       +(miss.length?'<br><b class="red">後継車が決まっていない入替が '+miss.length+' 台あります。</b>':'')+'</div>';
     if(!S.relayCols)h+='<div class="vl-warn">リレー用の列がまだDBにありません（sql/bt_vehicle_lifecycle.sql を適用すると使えます）。</div>';
@@ -694,7 +705,7 @@ const VL=(()=>{
       h+='<div class="vl-rl '+(["sell","prep"].includes(c.st)?'miss':'')+'" data-code="'+e(v.code)+'">'+head+'<span class="ar">→</span>'
         +'<select class="vl-rsel"'+(S.relayCols?'':' disabled')+'><option value="">後継車を選ぶ…</option>'+cands.map(x=>'<option value="'+e(x.code)+'">'+e(x.name)+' '+e(plate4(x))+(S.calc[x.code].rents?'（予約'+S.calc[x.code].rents+'件）':'（新規）')+'</option>').join("")+'</select>'
         +'<label class="dt">切替日 <input type="date" class="vl-rdate" value="'+def+'"'+(S.relayCols?'':' disabled')+'></label>'
-        +'<button class="vl-mini go" data-relay="'+e(v.code)+'"'+(S.relayCols?'':' disabled')+'>リレー登録</button>'
+        +'<button class="vl-mini go" data-relay="'+e(v.code)+'"'+(S.relayCols?'':' disabled')+'>登録</button>'
         +'<small class="sub">売り止め目安 '+(c.stopT!=null?ymd(c.stopT):'—')+'</small></div>';});
     return h+'</div>';
   }
@@ -720,18 +731,18 @@ const VL=(()=>{
     for(const r of moving){const {error}=await sb.from("bt_fleet").upsert({reservation_id:r.id,vehicle_code:to},{onConflict:"reservation_id"});if(error){err=error;break;}moved++;}
     // OPシート（日付ごとのタスク）に入っている車両も差し替える
     if(!err&&moving.length){const {error}=await sb.from("bt_tasks").update({assigned_vehicle:to,"No":nv.plate_no||"",updated_at:now}).in("予約番号",moving.map(r=>r.id)).eq("assigned_vehicle",code);if(error)err=error;}
-    setStatus(err?"⚠ 一部の予約を移せませんでした（"+moved+"/"+moving.length+"件）："+err.message:"✅ リレーを登録しました（予約 "+moved+" 件を移動）");
+    setStatus(err?"⚠ 一部の予約を移せませんでした（"+moved+"/"+moving.length+"件）："+err.message:"✅ 入替車両を登録しました（予約 "+moved+" 件を移動）");
     S.loaded=false; await load(true); render();
   }
   async function undoRelay(code){
     if(VIEW_KEY)return;
     const old=S.v.find(x=>x.code===code), nx=relayOf(code); if(!old||!nx)return;
     const t=old.service_to?ts(old.service_to)+DAY:null, back=t?(S.res[nx.code]||[]).filter(r=>ts(r.start_date)>=t):[];
-    if(!confirm(old.name+" "+plate4(old)+" → "+(nx.name||nx.code)+" のリレーを解除しますか？\n\n予約は "+(nx.name||nx.code)+" に入ったまま残ります（"+back.length+"件）。必要なら配車表で戻してください。"))return;
+    if(!confirm(old.name+" "+plate4(old)+" → "+(nx.name||nx.code)+" の入替車両の登録を解除しますか？\n\n予約は "+(nx.name||nx.code)+" に入ったまま残ります（"+back.length+"件）。必要なら配車表で戻してください。"))return;
     const now=new Date().toISOString();
     let r1=await sb.from("bt_vehicles").update({service_to:null,relay_to:null,updated_at:now}).eq("code",code);
     if(!r1.error)r1=await sb.from("bt_vehicles").update({service_from:null,updated_at:now}).eq("code",nx.code);
-    setStatus(r1.error?"解除できませんでした："+r1.error.message:"✅ リレーを解除しました");
+    setStatus(r1.error?"解除できませんでした："+r1.error.message:"✅ 入替車両の登録を解除しました");
     S.loaded=false; await load(true); render();
   }
 
