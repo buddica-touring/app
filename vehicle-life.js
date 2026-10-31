@@ -416,11 +416,11 @@ const VL=(()=>{
     const old=document.getElementById('vl-mkpop'); if(old)old.remove();
     const d=document.createElement('div'); d.id='vl-mkpop';
     d.innerHTML='<div class="mp-bg"></div><div class="mp-box" role="dialog"><button class="mp-x" aria-label="閉じる">×</button>'
-      +'<div class="mp-hd">'+nm(v)+'</div>'
+      +'<div class="mp-hd">'+nm(v)+'</div><div class="mp-up">更新日 <b>'+when+'</b></div>'
       +'<div class="mp-big"><span>市場売却額</span><b>'+man(c.nowExit)+'</b><small>＝ 中央値 '+man(m.med)+' × '+Math.round(rate*100)+'%</small></div>'
       +'<div class="mp-g"><div><span>台数</span><b>'+(m.n||0)+'<small>台</small></b></div><div><span>中央値</span><b>'+man(m.med)+'</b></div><div><span>中間50%</span><b>'+man(m.p25)+'〜'+man(m.p75)+'</b></div></div>'
       +'<div class="mp-h">検索条件（この調査で実際に使った条件）</div><dl class="mp-dl">'+qc.map(([k,x])=>'<dt>'+k+'</dt><dd>'+e(x)+'</dd>').join('')+'</dl>'
-      +'<div class="mp-h">試算根拠</div><dl class="mp-dl"><dt>価格</dt><dd>本体価格（掲載価格・目安）</dd><dt>売却額</dt><dd>中央値 '+man(m.med)+' × 買取率 '+Math.round(rate*100)+'%</dd><dt>調査日</dt><dd>'+when+'</dd>'+(cd.note?'<dt>確認</dt><dd>'+e(cd.note)+'</dd>':'')+'</dl>'
+      +'<div class="mp-h">試算根拠</div><dl class="mp-dl"><dt>価格</dt><dd>本体価格（掲載価格・目安）</dd><dt>売却額</dt><dd>中央値 '+man(m.med)+' × 買取率 '+Math.round(rate*100)+'%</dd><dt>更新日</dt><dd>'+when+'</dd>'+(cd.note?'<dt>確認</dt><dd>'+e(cd.note)+'</dd>':'')+'</dl>'
       +(u?'<a class="mp-a" href="'+e(u.u)+'" target="_blank" rel="noopener">カーセンサーで同じ条件を開く ↗</a>':'')
       +'<div class="mp-n">目安です。実際の買取額は査定で変わります。</div></div>';
     document.body.appendChild(d);
