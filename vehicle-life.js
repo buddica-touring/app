@@ -335,6 +335,8 @@ const VL=(()=>{
     if(d<0||over&&x.a!=='後継車を登録'&&x.a!=='車検を通す')return {txt:'今すぐ '+x.a+(over?'（リミット超過）':'（'+(-d)+'日超過）'),t:x.t,lv:"r"};
     return {txt:ymdS(x.t)+(x.a==='車検を通す'?' ':'までに ')+x.a,t:x.t,lv:d<=60?"o":""};
   }
+  // 出口の目印（オーナー指示 2026-10-31）：売却／乗り潰し。リース返却は一覧から外れるので出さない
+  const exTag=v=>v.exit_type==="ride"?'<em class="vl-ex ride">♻乗り潰し</em>':'<em class="vl-ex">💴売却</em>';
   const judgeOf=c=>c.talk&&c.stopT==null?"talk":c.stopT==null?"wait":c.why==="車検"||(c.shaken!=null&&c.stopT<c.shaken)?"swap":"pass";
   function sumHtml(){
     const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), t0=T0();
@@ -366,7 +368,7 @@ const VL=(()=>{
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
-        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div>'
+        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+exTag(v)+'</div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
           +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div></div>';}).join('');});
     h+='</div>';
@@ -450,7 +452,7 @@ const VL=(()=>{
     const kpiOff=S.kpi[v.code]===false||v.active===false;
     let h='<div class="vl-card '+st.cls+(open?" open":"")+'" data-code="'+e(v.code)+'">';
     h+='<div class="vl-hd" data-tog="1"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type||"?")+'</span>'
-      +'<div class="vl-nm"><b>'+e(v.name||v.code)+'<em class="vl-yr'+(v.year?'':' na')+'">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式未入力')+'</em></b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
+      +'<div class="vl-nm"><b>'+e(v.name||v.code)+'<em class="vl-yr'+(v.year?'':' na')+'">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式未入力')+'</em>'+(v.exit_type==="return"?'':exTag(v))+'</b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
       +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
     // オーナー指示 2026-10-31：カードは決めた10項目だけ（走行・日付・お金）。入替＝売り止めの準備期間前、市場価格＝相場中央値×買取率
     const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?addMon(c.stopT,-LEAD()):null, t0=T0();
