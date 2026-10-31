@@ -480,7 +480,7 @@ const VL=(()=>{
     const gap=over==="before"?'車検前にリミット到達':over==="swap"?'次の車検期間中にリミット（'+(c.limitT?yy(c.limitT):'')+'）':'次の車検まで余裕 '+(Math.round((c.limit-k2)/1e3)/10)+'万km';
     return '<div class="kc-sg" data-tog="1"><div class="hd">'+dec+'<span>'+gap+'</span></div>'
       +'<div class="g"><i class="a" style="width:'+P(c.odo)+'"></i><i class="b" style="left:'+P(c.odo)+';width:calc('+P(k1)+' - '+P(c.odo)+')"></i><i class="c'+(k2>=c.limit?' x':'')+'" style="left:'+P(k1)+';width:calc('+P(k2)+' - '+P(k1)+')"></i><em style="left:'+P(c.limit)+'"></em></div>'
-      +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div></div>';
+      +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div><div class="avg">平均走行 <b>月 '+km(c.monKm)+'km</b> ＝ 1予約 <b>'+km(S.global.avgKm)+'km</b> × 1台 <b>月'+S.global.perMon.toFixed(1)+'件</b><small>全車の実績（走行 '+S.global.n+'件・予約 '+S.global.nRes+'件）・日々更新</small></div></div>';
   }
 
   // この車の働き（オーナー指示 2026-10-31：目的は「いくら稼いだか」と「売却で最後どうなるか」）
@@ -494,7 +494,7 @@ const VL=(()=>{
     return '<div class="kc-mf" data-tog="1"><div class="two"><div><span>稼いだ額</span><b class="'+(work<0?'neg':'')+'">'+man(work)+'</b></div>'
       +'<div><span>'+(fixed?'売却して最後':'今売ったら最後')+'</span><b class="'+(fin!=null&&fin<0?'neg':'pos')+'">'+(fin==null?'—':(fin>0?'+':'')+man(fin))+'</b></div></div>'
       +'<div class="bar"><i class="w" style="width:'+P(work)+'"></i>'+(sale!=null?'<i class="s" style="left:'+P(work)+';width:'+P(sale)+'"></i>':'')+'<em style="left:'+P(c.buy)+'"></em></div>'
-      +'<div class="lg"><span><i class="w"></i>稼いだ額</span><span><i class="s"></i>'+(fixed?'売却額':'今の相場で売却')+(sale!=null?' '+man(sale):' 未調査')+'</span><span><em></em>仕入 '+man(c.buy)+'</span></div></div>';
+      +'<div class="lg"><span><i class="w"></i>稼いだ額＝売上 '+man(c.revDone)+' − 経費 '+man(c.fixed+c.mCost)+'</span><span><i class="s"></i>'+(fixed?'売却額':'今の相場で売却')+(sale!=null?' '+man(sale)+(fixed||!c.mkt||!c.mkt.now?'':'＝中央値 '+man(c.mkt.now.med)+'×'+(c.rate!=null?Math.round(c.rate*100):n(S.cfg.buy_rate)||75)+'%'):' 未調査')+'</span><span><em></em>仕入 '+man(c.buy)+'</span></div></div>';
   }
   function lifeChart(c){
     const t0=T0(), W=300, Hh=96, L=26, R=6, T=12, B=16;
