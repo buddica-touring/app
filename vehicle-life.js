@@ -327,7 +327,7 @@ const VL=(()=>{
         if(c.stopT!=null){tr+='<i class="g" style="left:'+P(t0)+';width:calc('+P(sw)+' - '+P(t0)+')"></i><i class="p" style="left:'+P(Math.max(sw,t0))+';width:calc('+P(c.stopT)+' - '+P(Math.max(sw,t0))+')"></i><i class="s" style="left:'+P(Math.max(c.stopT,t0))+';width:calc('+P(c.saleT)+' - '+P(Math.max(c.stopT,t0))+')"></i>';
           if(inZ(sw))tr+='<b class="mk" style="left:'+P(sw)+'" title="入替 '+mdS(sw)+'">🛒</b>'; if(inZ(c.stopT))tr+='<b class="mk" style="left:'+P(c.stopT)+'" title="売止 '+mdS(c.stopT)+'">⛔</b>';}
         if(c.shaken)for(let t=c.shaken;t<=Z;t=addMon(t,24))if(t>=A)tr+='<b class="shk'+(c.stopT!=null&&t>c.stopT?' x':'')+'" style="left:'+P(t)+'" title="車検 '+mdS(t)+'"></b>';
-        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="who">'+nm(v)+'<small class="kv">'+(c.odo!=null?Math.round(c.odo/1e3)+'k':'—')+'<i style="width:'+p.toFixed(0)+'%"></i></small><small class="rv">'+mk(c.revDone)+'</small></div>'
+        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="who">'+nm(v)+'<small class="kv'+(p>=90?' r':'')+'">'+(c.odo!=null?Math.round(c.odo/1e3)+'k km':'—')+'</small><small class="rv">'+mk(c.revDone)+'</small></div>'
           +'<div class="tr">'+(c.stopT==null?'<span class="na">予測待ち</span>':'')+tr+'</div><div class="go"><span class="kc-j '+j+'">'+JUDGE[j].lb+'</span></div></div>';}).join('');});
     h+='</div><div class="ov-leg"><span><b class="shk"></b>車検</span><span>🛒入替</span><span>⛔売止</span><span><i class="p"></i>入替期間</span><span><i class="s"></i>売止〜売却</span></div>';
     return h;
