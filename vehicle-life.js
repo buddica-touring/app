@@ -457,6 +457,7 @@ const VL=(()=>{
       +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
     // 走行の見込みグラフ（オーナー指示 2026-10-31：文字を減らしてグラフで）。横＝時間、縦＝走行km。灰線＝見込み、赤＝売り止め、点線＝仕入開始、◆＝車検
     h+='<div class="kc-chart" data-tog="1">'+lifeChart(c)+'</div>';
+    h+=shakenGauge(c);
     const j=judgeOf(c), left=c.stopT!=null?monthsTo(c.stopT):null;
     h+='<div class="kc-nums" data-tog="1"><div class="'+(c.st==="sell"||c.st==="prep"?'r':'')+'"><span>売り止め</span><b>'+(c.stopT!=null?ym(c.stopT).replace("年","/").replace("月",""):'—')+'</b><small>'+(left==null?'':left<=0?'今':'あと'+(left<12?Math.ceil(left)+'ヶ月':(left/12).toFixed(1)+'年'))+'</small></div>'
       +'<div><span>売上</span><b>'+man(c.revDone)+'</b><small>&nbsp;</small></div>'
@@ -466,6 +467,20 @@ const VL=(()=>{
     return h+'</div>';
   }
 
+
+  // 車検とリミットの関係（オーナー指示 2026-10-31：相関が見えない）。0→リミットの帯に「今」「次の車検時」「その次の車検時（車検を通した場合に使い切る距離）」を置く
+  function shakenGauge(c){
+    if(!c.shaken||c.odo==null||!c.monKm||c.st==="sold")return '';
+    const t0=T0(); let sh=c.shaken; while(sh<t0)sh=addMon(sh,24);
+    const kAt=t=>c.odo+c.monKm*Math.max(0,(t-t0)/MON), k1=kAt(sh), k2=kAt(addMon(sh,24));
+    const over=k1>=c.limit?"before":k2>=c.limit?"swap":"pass";
+    const mx=Math.max(c.limit,k2)*1.04, P=k=>(Math.min(k,mx)/mx*100).toFixed(1)+'%', yy=t=>ym(t).replace("年","/").replace("月","");
+    const dec=over==="pass"?'<b class="ok">車検を通す</b>':'<b class="ng">車検前に入替</b>';
+    const gap=over==="before"?'車検前にリミット到達':over==="swap"?'次の車検期間中にリミット（'+(c.limitT?yy(c.limitT):'')+'）':'次の車検まで余裕 '+(Math.round((c.limit-k2)/1e3)/10)+'万km';
+    return '<div class="kc-sg" data-tog="1"><div class="hd">'+dec+'<span>'+gap+'</span></div>'
+      +'<div class="g"><i class="a" style="width:'+P(c.odo)+'"></i><i class="b" style="left:'+P(c.odo)+';width:calc('+P(k1)+' - '+P(c.odo)+')"></i><i class="c'+(k2>=c.limit?' x':'')+'" style="left:'+P(k1)+';width:calc('+P(k2)+' - '+P(k1)+')"></i><em style="left:'+P(c.limit)+'"></em></div>'
+      +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div></div>';
+  }
   function lifeChart(c){
     const t0=T0(), W=300, Hh=96, L=26, R=6, T=12, B=16;
     if(c.odo==null||c.limit==null)return '<div class="kc-na">走行の記録がありません</div>';
