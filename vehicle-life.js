@@ -14,7 +14,7 @@ const VL=(()=>{
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
   const LEAD=()=>n(S.cfg&&S.cfg.lead_months)||3;   // 入替車両準備期間（オーナー指示 2026-10-31：3ヶ月、ルールで変更可）
-  const DEF={default_limit_km:100000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next",buy_rate:75};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
+  const DEF={default_limit_km:90000,over_limit_km:150000,class_limits:{},lead_months:3,shaken_rule:"next",buy_rate:75};   // オーナー指示 2026-10-30：全車10万km。その時点で超えていた車は15万km＋フラグ
   // 市場価格の判断基準（オーナー指示 2026-10-31：定義をあいまいにしない・画面にも出す）。基準を足すときはここに1行足す（docs/market-price-rule.md も同じ内容に）
   const MARKET_RULE=[
     ["車種","カーセンサーの同じ車種（車種コード）。クラスは車種で決まる"],
@@ -55,6 +55,7 @@ const VL=(()=>{
     prep:{lb:"入替準備",ic:"🟠",cls:"prep",rank:1},
     soon:{lb:"半年以内",ic:"🟡",cls:"soon",rank:2},
     run:{lb:"稼働中",ic:"🟢",cls:"run",rank:3},
+    talk:{lb:"協議",ic:"🟣",cls:"talk",rank:1},
     nodata:{lb:"予測待ち",ic:"⚪",cls:"nodata",rank:4}};
   const DMG_T={scratch:"擦り傷",dent:"へこみ",chip:"欠け",stone_chip:"飛び石",break:"破損"};
   const DMG_S={minor:"軽",moderate:"中",severe:"重"};
@@ -223,6 +224,8 @@ const VL=(()=>{
         const kmAtNext=odo!=null&&monKm!=null?odo+monKm*((addMon(shaken,24)-t0)/MON):null;
         if(S.cfg.shaken_rule==="always"||(kmAtNext!=null&&kmAtNext>=limit))byShaken=shaken;
       }
+      // オーナー指示 2026-10-31：リミット9万km。すでに10万km超の車は「協議」＝自動の予測・売止を出さず、売却か継続かを決める（決めたら売却予定日を手入力）
+      const talk=v.life_flag==="協議"; if(talk){limitT=null;byShaken=null;}
       let saleT=null, why="";
       if(v.exit_type==="return"){saleT=ts(v.sale_date)||t0;why="返却済";}   // リース返却・手放した車（2026-10-31 911）。一覧から外し、履歴は残す
       else if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
@@ -234,7 +237,7 @@ const VL=(()=>{
       const ride=v.exit_type==="ride";   // 乗り潰し（売らずに使い切る）
       let st="run";
       if(why==="売却済"||why==="返却済")st="sold";
-      else if(saleT==null)st=odo==null||monKm==null?"nodata":"run";
+      else if(saleT==null)st=talk?"talk":odo==null||monKm==null?"nodata":"run";
       else if(stopT<=t0||(odo!=null&&odo>=limit))st="sell";
       else if(procT<=t0)st="prep";
       else if(stopT<=addMon(t0,6))st="soon";
@@ -263,7 +266,7 @@ const VL=(()=>{
       const sellNow=vsNow!=null&&vsLater!=null&&vsNow>vsLater&&!ride;
       const vsLaterRide=ride&&vsNow!=null&&daysLeft!=null?gross+dayGross*daysLeft:null;
       const overBuy=mkt&&buy!=null&&nowExit>buy;
-      S.calc[v.code]={paceOwn,odoSrc,mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
+      S.calc[v.code]={talk,paceOwn,odoSrc,mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
   }
@@ -313,11 +316,12 @@ const VL=(()=>{
   const nm=v=>'<span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type)+'</span><span class="nm">'+e(v.name)+' <small>'+e(plate4(v))+'</small></span>';
   // 全体（オーナー指示 2026-10-31：文字を減らし、図で俯瞰。クラス・ブランド・判定でまとめ、並び替えできる）
   //   判定：リミット先行（車検前に入替）＝次の車検期間中にリミットに届くので車検を通さず入れ替える／車検更新＝それ以外／予測待ち＝走行データ不足
-  const JUDGE={swap:{lb:"リミット先行",c:"#dc2626"},pass:{lb:"車検更新",c:"#475569"},wait:{lb:"予測待ち",c:"#cbd5e1"}};
+  const JUDGE={talk:{lb:"協議",c:"#7c3aed"},swap:{lb:"リミット先行",c:"#dc2626"},pass:{lb:"車検更新",c:"#475569"},wait:{lb:"予測待ち",c:"#cbd5e1"}};
   // 次にやること（オーナー指示 2026-10-31：いつ何をするかを文章で）。車検・後継車登録・売止・売却のうち、まだの一番早いもの
   const ymdS=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
   function nextAct(v,c){
     const t0=T0(); if(c.st==="sold")return null;
+    if(c.talk&&c.stopT==null)return {txt:'協議：売却か継続かを決める',t:null,lv:"o"};
     if(c.stopT==null)return {txt:'走行を入力すると予定が出ます',t:null,lv:"mut"};
     const sw=addMon(c.stopT,-LEAD()), over=c.odo!=null&&c.limit&&c.odo>=c.limit, ev=[];
     if(c.shaken!=null&&c.shaken>=t0&&c.shaken<c.stopT)ev.push({t:c.shaken,a:'車検を通す'});
@@ -329,7 +333,7 @@ const VL=(()=>{
     if(d<0||over&&x.a!=='後継車を登録'&&x.a!=='車検を通す')return {txt:'今すぐ '+x.a+(over?'（リミット超過）':'（'+(-d)+'日超過）'),t:x.t,lv:"r"};
     return {txt:ymdS(x.t)+(x.a==='車検を通す'?' ':'までに ')+x.a,t:x.t,lv:d<=60?"o":""};
   }
-  const judgeOf=c=>c.stopT==null?"wait":c.why==="車検"||(c.shaken!=null&&c.stopT<c.shaken)?"swap":"pass";
+  const judgeOf=c=>c.talk&&c.stopT==null?"talk":c.stopT==null?"wait":c.why==="車検"||(c.shaken!=null&&c.stopT<c.shaken)?"swap":"pass";
   function sumHtml(){
     const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), t0=T0();
     const g=S.ovg||"class", so=S.ovs||"stop";
@@ -351,9 +355,9 @@ const VL=(()=>{
     const BANDS=[[0,3e4,"〜3万km"],[3e4,5e4,"3〜5万km"],[5e4,8e4,"5〜8万km"],[8e4,1e5,"8〜10万km"],[1e5,9e9,"10万km〜"]];
     // カードを押すとその距離帯だけ表示（オーナー指示 2026-10-31）。もう一度押すか「全て」で全車
     const sold=v=>!!(v.sale_date||n(v.sale_price)!=null||v.sale_dest);   // 売却確定＝売却日・売却額・売却先のどれかが入っている
-    const inB=(v,i)=>i==="prep"?inPrep(v):i==="stop"?sold(v):i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
+    const inB=(v,i)=>i==="talk"?C(v).talk:i==="prep"?inPrep(v):i==="stop"?sold(v):i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
     h+='<div class="ov-band"><button data-ovb="all" class="'+(ob==null?'on':'')+'"><span>全て</span><b>'+a.length+'<small>台</small></b></button>'+BANDS.map(([lo,hi,lb],i)=>{const n=a.filter(v=>inB(v,i)).length;return '<button data-ovb="'+i+'" class="'+(lo>=1e5&&n?'r ':lo>=8e4&&n?'o ':'')+(String(ob)===String(i)?'on':'')+'"><span>'+lb+'</span><b>'+n+'<small>台</small></b></button>';}).join('')
-      +[["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
+      +[["talk","協議","o "],["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ④入替準備開始日（売止の準備期間前）
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
@@ -362,8 +366,8 @@ const VL=(()=>{
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
         return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div>'
-          +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit?km(c.limit):'—')+'</div>'
-          +'<div data-l="到達予想"'+(c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+ymd(c.limitT)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div></div>';}).join('');});
+          +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
+          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div></div>';}).join('');});
     h+='</div>';
     return h;
   }
