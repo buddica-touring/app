@@ -483,24 +483,18 @@ const VL=(()=>{
       +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div></div>';
   }
 
-  // お金の流れ（オーナー指示 2026-10-31：仕入・生涯売上・粗利・売却を相関で）。滝グラフ：仕入（−）→売上（＋）→経費（−）＝粗利 →売却（＋）＝生涯利益
+  // この車の働き（オーナー指示 2026-10-31：目的は「いくら稼いだか」と「売却で最後どうなるか」）
+  //   働き＝売上−経費（リース・保険・税・整備）。最後＝働き＋売却額（確定前は今の相場の買取見込み）−仕入額。
+  //   1本の帯：働き（黒）＋売却（灰）を積み、仕入額の位置に赤線。赤線を越えれば元が取れている
   function moneyFlow(c){
-    if(c.st==="sold"&&c.buy==null)return '';
-    if(c.buy==null)return '<div class="kc-mf na" data-tog="1">仕入額を入れると、仕入→売上→粗利→売却の流れが出ます</div>';
-    const exp=c.fixed+c.mCost, est=c.exitPrice==null, sale=n(c.exitPrice)!=null&&n(S.v.find(x=>S.calc[x.code]===c)?.sale_price)!=null?c.exitPrice:(c.nowExit!=null?c.nowExit:null), sl=sale==null?"売却":"今の相場";   // 売却＝今の相場（買取見込み）。売却額が確定していればそれ
-    const steps=[["仕入",-c.buy],["売上",c.revDone],["経費",-exp],["粗利",null],[sl,sale],["生涯",null]];
-    let run=0; const bars=[]; steps.forEach(([lb,v])=>{if(lb===sl){if(v==null)bars.push({lb,na:1});else{bars.push({lb,from:run,to:run+v,neg:v<0});run+=v;}}else if(v==null){bars.push({lb,from:0,to:run,tot:1});}else{bars.push({lb,from:run,to:run+v,neg:v<0});run+=v;}});
-    const vals=bars.filter(b=>!b.na).flatMap(b=>[b.from,b.to]), lo=Math.min(0,...vals), hi=Math.max(0,...vals), W=300, H=110, T=14, B=16, cw=W/bars.length;
-    const y=v=>T+(hi-v)/((hi-lo)||1)*(H-T-B);
-    let g='<svg viewBox="0 0 '+W+' '+H+'" class="kc-wf"><line x1="0" x2="'+W+'" y1="'+y(0)+'" y2="'+y(0)+'" class="z"/>';
-    bars.forEach((b,i)=>{const x=i*cw+cw*.18,w=cw*.64;
-      if(b.na){g+='<text x="'+(x+w/2)+'" y="'+(y(0)-4)+'" class="v" text-anchor="middle">未定</text>';}
-      else{const top=y(Math.max(b.from,b.to)),hh=Math.max(1.5,Math.abs(y(b.from)-y(b.to)));const v=b.to-b.from;
-        g+='<rect x="'+x+'" y="'+top+'" width="'+w+'" height="'+hh+'" class="'+(b.tot?(b.to<0?'tn':'tp'):b.neg?'n':'p')+'"/>';
-        g+='<text x="'+(x+w/2)+'" y="'+(top-3)+'" class="v'+(b.tot&&b.to<0?' neg':'')+'" text-anchor="middle">'+man(b.tot?b.to:v).replace("円","")+'</text>';
-        if(i<bars.length-1&&!bars[i+1].na)g+='<line x1="'+(x+w)+'" x2="'+((i+1)*cw+cw*.18)+'" y1="'+y(b.to)+'" y2="'+y(b.to)+'" class="k"/>';}
-      g+='<text x="'+(x+w/2)+'" y="'+(H-3)+'" class="l" text-anchor="middle">'+b.lb+'</text>';});
-    return '<div class="kc-mf" data-tog="1">'+g+'</svg></div>';
+    if(c.buy==null)return '<div class="kc-mf na" data-tog="1">仕入額を入れると「稼いだ額」と「最後に残る額」が出ます</div>';
+    const work=c.revDone-c.fixed-c.mCost, v=S.v.find(x=>S.calc[x.code]===c), fixed=v&&n(v.sale_price)!=null;
+    const sale=fixed?n(v.sale_price):c.nowExit, fin=sale!=null?work+sale-c.buy:null;
+    const mx=Math.max(c.buy,Math.max(0,work)+(sale||0))*1.05||1, P=x=>(Math.max(0,x)/mx*100).toFixed(1)+'%';
+    return '<div class="kc-mf" data-tog="1"><div class="two"><div><span>稼いだ額</span><b class="'+(work<0?'neg':'')+'">'+man(work)+'</b></div>'
+      +'<div><span>'+(fixed?'売却して最後':'今売ったら最後')+'</span><b class="'+(fin!=null&&fin<0?'neg':'pos')+'">'+(fin==null?'—':(fin>0?'+':'')+man(fin))+'</b></div></div>'
+      +'<div class="bar"><i class="w" style="width:'+P(work)+'"></i>'+(sale!=null?'<i class="s" style="left:'+P(work)+';width:'+P(sale)+'"></i>':'')+'<em style="left:'+P(c.buy)+'"></em></div>'
+      +'<div class="lg"><span><i class="w"></i>稼いだ額</span><span><i class="s"></i>'+(fixed?'売却額':'今の相場で売却')+(sale!=null?' '+man(sale):' 未調査')+'</span><span><em></em>仕入 '+man(c.buy)+'</span></div></div>';
   }
   function lifeChart(c){
     const t0=T0(), W=300, Hh=96, L=26, R=6, T=12, B=16;
