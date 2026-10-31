@@ -458,10 +458,11 @@ const VL=(()=>{
     // 走行の見込みグラフ（オーナー指示 2026-10-31：文字を減らしてグラフで）。横＝時間、縦＝走行km。灰線＝見込み、赤＝売り止め、点線＝仕入開始、◆＝車検
     h+='<div class="kc-chart" data-tog="1">'+lifeChart(c)+'</div>';
     h+=shakenGauge(c);
+    h+=moneyFlow(c);
     const j=judgeOf(c), left=c.stopT!=null?monthsTo(c.stopT):null;
     h+='<div class="kc-nums" data-tog="1"><div class="'+(c.st==="sell"||c.st==="prep"?'r':'')+'"><span>売り止め</span><b>'+(c.stopT!=null?ym(c.stopT).replace("年","/").replace("月",""):'—')+'</b><small>'+(left==null?'':left<=0?'今':'あと'+(left<12?Math.ceil(left)+'ヶ月':(left/12).toFixed(1)+'年'))+'</small></div>'
-      +'<div><span>売上</span><b>'+man(c.revDone)+'</b><small>&nbsp;</small></div>'
-      +'<div><span>粗利</span><b class="'+(c.buy!=null&&c.gross<0?'neg':'')+'">'+(c.buy!=null?man(c.gross):'—')+'</b><small>'+(c.buy==null?'仕入額なし':c.recov!=null?'回収 '+Math.round(c.recov*100)+'%':'')+'</small></div></div>';
+      +(c.buy!=null?'':'<div><span>売上</span><b>'+man(c.revDone)+'</b><small>&nbsp;</small></div>'
+      +'<div><span>粗利</span><b class="'+(c.buy!=null&&c.gross<0?'neg':'')+'">'+(c.buy!=null?man(c.gross):'—')+'</b><small>'+(c.buy==null?'仕入額なし':c.recov!=null?'回収 '+Math.round(c.recov*100)+'%':'')+'</small></div>')+'</div>';
     h+='<div class="kc-more" data-tog="1">'+(dn?'<span>傷 '+dn+'</span>':'')+(c.susp?'<span class="r">走行ミス '+c.susp+'</span>':'')+'<em>'+(open?'閉じる ▴':'詳しく ▾')+'</em></div>';
     if(open)h+='<div class="vl-bd">'+detailHtml(v)+'</div>';
     return h+'</div>';
@@ -480,6 +481,26 @@ const VL=(()=>{
     return '<div class="kc-sg" data-tog="1"><div class="hd">'+dec+'<span>'+gap+'</span></div>'
       +'<div class="g"><i class="a" style="width:'+P(c.odo)+'"></i><i class="b" style="left:'+P(c.odo)+';width:calc('+P(k1)+' - '+P(c.odo)+')"></i><i class="c'+(k2>=c.limit?' x':'')+'" style="left:'+P(k1)+';width:calc('+P(k2)+' - '+P(k1)+')"></i><em style="left:'+P(c.limit)+'"></em></div>'
       +'<div class="lb"><span><i class="a"></i>今 <b>'+(Math.round(c.odo/1e3)/10)+'万</b></span><span><i class="b"></i>車検 '+yy(sh)+' <b>'+(Math.round(k1/1e3)/10)+'万</b></span><span><i class="c"></i>次の車検 '+yy(addMon(sh,24))+' <b class="'+(k2>=c.limit?'ng':'')+'">'+(Math.round(k2/1e3)/10)+'万</b></span><span><em></em>リミット '+Math.round(c.limit/1e4)+'万</span></div></div>';
+  }
+
+  // お金の流れ（オーナー指示 2026-10-31：仕入・生涯売上・粗利・売却を相関で）。滝グラフ：仕入（−）→売上（＋）→経費（−）＝粗利 →売却（＋）＝生涯利益
+  function moneyFlow(c){
+    if(c.st==="sold"&&c.buy==null)return '';
+    if(c.buy==null)return '<div class="kc-mf na" data-tog="1">仕入額を入れると、仕入→売上→粗利→売却の流れが出ます</div>';
+    const exp=c.fixed+c.mCost, est=c.exitPrice==null, sale=n(c.exitPrice)!=null&&n(S.v.find(x=>S.calc[x.code]===c)?.sale_price)!=null?c.exitPrice:(c.nowExit!=null?c.nowExit:null), sl=sale==null?"売却":"今の相場";   // 売却＝今の相場（買取見込み）。売却額が確定していればそれ
+    const steps=[["仕入",-c.buy],["売上",c.revDone],["経費",-exp],["粗利",null],[sl,sale],["生涯",null]];
+    let run=0; const bars=[]; steps.forEach(([lb,v])=>{if(lb===sl){if(v==null)bars.push({lb,na:1});else{bars.push({lb,from:run,to:run+v,neg:v<0});run+=v;}}else if(v==null){bars.push({lb,from:0,to:run,tot:1});}else{bars.push({lb,from:run,to:run+v,neg:v<0});run+=v;}});
+    const vals=bars.filter(b=>!b.na).flatMap(b=>[b.from,b.to]), lo=Math.min(0,...vals), hi=Math.max(0,...vals), W=300, H=110, T=14, B=16, cw=W/bars.length;
+    const y=v=>T+(hi-v)/((hi-lo)||1)*(H-T-B);
+    let g='<svg viewBox="0 0 '+W+' '+H+'" class="kc-wf"><line x1="0" x2="'+W+'" y1="'+y(0)+'" y2="'+y(0)+'" class="z"/>';
+    bars.forEach((b,i)=>{const x=i*cw+cw*.18,w=cw*.64;
+      if(b.na){g+='<text x="'+(x+w/2)+'" y="'+(y(0)-4)+'" class="v" text-anchor="middle">未定</text>';}
+      else{const top=y(Math.max(b.from,b.to)),hh=Math.max(1.5,Math.abs(y(b.from)-y(b.to)));const v=b.to-b.from;
+        g+='<rect x="'+x+'" y="'+top+'" width="'+w+'" height="'+hh+'" class="'+(b.tot?(b.to<0?'tn':'tp'):b.neg?'n':'p')+'"/>';
+        g+='<text x="'+(x+w/2)+'" y="'+(top-3)+'" class="v'+(b.tot&&b.to<0?' neg':'')+'" text-anchor="middle">'+man(b.tot?b.to:v).replace("円","")+'</text>';
+        if(i<bars.length-1&&!bars[i+1].na)g+='<line x1="'+(x+w)+'" x2="'+((i+1)*cw+cw*.18)+'" y1="'+y(b.to)+'" y2="'+y(b.to)+'" class="k"/>';}
+      g+='<text x="'+(x+w/2)+'" y="'+(H-3)+'" class="l" text-anchor="middle">'+b.lb+'</text>';});
+    return '<div class="kc-mf" data-tog="1">'+g+'</svg></div>';
   }
   function lifeChart(c){
     const t0=T0(), W=300, Hh=96, L=26, R=6, T=12, B=16;
