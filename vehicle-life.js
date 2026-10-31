@@ -368,7 +368,7 @@ const VL=(()=>{
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
-        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+exTag(v)+'</div>'
+        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
           +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+(c.why==="車検"&&!c.talk?'<small>終了</small>':'')+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
           +(()=>{const sp=n(v.sale_price);return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':' title="自動査定"')+'>'+man(sp!=null?sp:c.nowExit)+'</div>';})()+'</div>';}).join('');});
@@ -686,7 +686,7 @@ const VL=(()=>{
     due.forEach(v=>{const c=S.calc[v.code], nx=relayOf(v.code), k=gk(c.stopT);
       if(k!==ym){ym=k;h+='<div class="gh">'+k+'<b>'+due.filter(x=>gk(S.calc[x.code].stopT)===k).length+'</b></div>';}
       const late=c.stopT!=null&&c.stopT<=t0;
-      h+='<div class="rw'+(nx?' dn':' nd')+'" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div>'
+      h+='<div class="rw'+(nx?' dn':' nd')+'" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+'</div>'
         +'<div class="nums"><span><i>現在</i>'+(c.odo!=null?km(c.odo):'—')+'</span><span><i>売止</i><b class="'+(late?'r':'')+'">'+(c.stopT!=null?ymd2(c.stopT):'未定')+'</b></span><span><i>売却</i>'+(c.saleT!=null?ymd2(c.saleT):'—')+'</span></div><div class="succ">';
       if(nx){const sw=v.service_to?dstr(ts(v.service_to)+DAY):null, sp=sw?spanning(v.code,sw):[], st=prepOf(nx)||[];
         h+='<span class="ar">→</span><span class="nm">'+e(nx.name||nx.code)+' <small>'+e(plate4(nx))+'</small></span><span class="dt">切替 '+(sw?ymd(ts(sw)):'—')+'</span>'
