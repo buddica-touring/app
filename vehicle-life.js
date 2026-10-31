@@ -324,6 +324,9 @@ const VL=(()=>{
     const in1y=a.filter(v=>C(v).stopT!=null&&C(v).stopT<=addMon(t0,12)).length;
     // 数字4つ
     let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b>'+man(a.reduce((x,v)=>x+C(v).revDone,0))+'</b><span>総売上</span></div></div>';
+    // 試算（オーナー指示 2026-10-31）：全車・全期間の実績から
+    const G=S.global||{};
+    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["月間/台",G.monKm,"月"+(G.perMon||0).toFixed(1)+"予約×平均"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?km(x):'—')+'<small>km</small></b><i>'+why+'</i></div>').join('')+'</div>';
     // 全体＝車両カルテのサマリ（オーナー指示 2026-10-31）：1台1枚の小さなカードに カルテの要点（判定・走行/リミット・車検・売止・入替・総売上・市場価格）
     const keyOf=v=>g==="brand"?(isHdm(v)?"HDM":"BT"):g==="judge"?judgeOf(C(v)):(v.type||"—");
     const keys=[...new Set(a.map(keyOf))].sort((x,y)=>g==="judge"?["swap","pass","wait"].indexOf(x)-["swap","pass","wait"].indexOf(y):g==="class"?(M_ORDER.indexOf(x)+99)%199-(M_ORDER.indexOf(y)+99)%199:String(x).localeCompare(String(y)));
@@ -335,9 +338,10 @@ const VL=(()=>{
     // 走行距離帯ごとの保有台数（オーナー指示 2026-10-31）
     const BANDS=[[0,3e4,"〜3万km"],[3e4,5e4,"3〜5万km"],[5e4,8e4,"5〜8万km"],[8e4,1e5,"8〜10万km"],[1e5,9e9,"10万km〜"]];
     // カードを押すとその距離帯だけ表示（オーナー指示 2026-10-31）。もう一度押すか「全て」で全車
-    const inB=(v,i)=>i==="stop"?C(v).stopT!=null&&C(v).stopT<=t0:i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
+    const sold=v=>!!(v.sale_date||n(v.sale_price)!=null||v.sale_dest);   // 売却確定＝売却日・売却額・売却先のどれかが入っている
+    const inB=(v,i)=>i==="prep"?C(v).stopT!=null&&addMon(C(v).stopT,-2)<=t0&&!sold(v):i==="stop"?sold(v):i==="na"?C(v).odo==null:C(v).odo!=null&&C(v).odo>=BANDS[i][0]&&C(v).odo<BANDS[i][1], ob=S.ovb==null?null:S.ovb;
     h+='<div class="ov-band"><button data-ovb="all" class="'+(ob==null?'on':'')+'"><span>全て</span><b>'+a.length+'<small>台</small></b></button>'+BANDS.map(([lo,hi,lb],i)=>{const n=a.filter(v=>inB(v,i)).length;return '<button data-ovb="'+i+'" class="'+(lo>=1e5&&n?'r ':lo>=8e4&&n?'o ':'')+(String(ob)===String(i)?'on':'')+'"><span>'+lb+'</span><b>'+n+'<small>台</small></b></button>';}).join('')
-      +(()=>{const n=a.filter(v=>inB(v,"stop")).length;return '<button data-ovb="stop" class="'+(n?'r ':'')+(ob==="stop"?'on':'')+'"><span>売止（売却）</span><b>'+n+'<small>台</small></b></button>';})()+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
+      +[["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;return '<button data-ovb="'+k+'" class="'+(m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span><b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝カルテを1本の時間軸で総括（オーナー指示 2026-10-31）。横＝先月→3年先、縦線＝今日。◆車検・🛒入替・⛔売止、帯＝稼働／入替期間／売止〜売却
     const A=addMon(t0,-1), Z=addMon(t0,36), P=t=>Math.max(0,Math.min(100,(t-A)/(Z-A)*100)).toFixed(1)+'%', inZ=t=>t!=null&&t>=A&&t<=Z;
@@ -794,7 +798,7 @@ const VL=(()=>{
       if(t.closest(".vl-odobox:not(.bad)>summary")){S.odoOpen=!t.closest("details").open;return;}
       const os=t.closest("[data-odosave]"); if(os){saveOdo(os.closest(".vl-odo"));return;}
       const og=t.closest("[data-ovg]"); if(og){S.ovg=og.dataset.ovg;render();return;}
-      const ob=t.closest("[data-ovb]"); if(ob){const k=ob.dataset.ovb, v=k==="all"?null:k==="na"||k==="stop"?k:+k; S.ovb=(v===S.ovb)?null:v; render();return;}
+      const ob=t.closest("[data-ovb]"); if(ob){const k=ob.dataset.ovb, v=k==="all"?null:isNaN(+k)?k:+k; S.ovb=(v===S.ovb)?null:v; render();return;}
       const sv=t.closest("[data-swv]"); if(sv){S.swv=sv.dataset.swv;render();return;}
       const os2=t.closest("[data-ovs]"); if(os2){S.ovs=os2.dataset.ovs;render();return;}
       const sc=t.closest("[data-sec]"); if(sc){goSec(sc.dataset.sec);return;}
