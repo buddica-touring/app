@@ -345,7 +345,7 @@ const VL=(()=>{
     let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div></div>';
     // 試算（オーナー指示 2026-10-31）：全車・全期間の実績から
     const G=S.global||{};
-    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["1予約日数",G.avgDays,"同 "+(G.n||0)+"件","日",1],["1日あたり",G.dayKm,"距離÷日数"],["月間/台",G.monKm,"メーター増分"+(G.nOdo||0)+"台分÷"+(G.nOp||0)+"台÷"+(G.mons||0).toFixed(1)+"ヶ月"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why,u,dp])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?(dp?x.toFixed(dp):km(x)):'—')+'<small>'+(u||'km')+'</small></b><i>'+why+'</i></div>').join('')+'</div>';
+    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["1予約日数",G.avgDays,"同 "+(G.n||0)+"件","日",1],["1日あたり",G.dayKm,"距離÷日数"],["月間/台",G.monKm,"メーター増分"+(G.nOdo||0)+"台分÷"+(G.nOp||0)+"台÷"+(G.mons||0).toFixed(1)+"ヶ月"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why,u,dp])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?(dp?x.toFixed(dp):km(x)):'—')+'<small>'+(u||'km')+'</small></b><i>'+why+'</i></div>').join('')+'</div><div class="ov-estn">集計 '+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'〜今日（約'+(G.mons||0).toFixed(1)+'ヶ月）・予約や返却が入るたびに自動で更新され、数字は変わります</div>';
     // 全体＝車両カルテのサマリ（オーナー指示 2026-10-31）：1台1枚の小さなカードに カルテの要点（判定・走行/リミット・車検・売止・入替・総売上・市場価格）
     const keyOf=v=>g==="brand"?(isHdm(v)?"HDM":"BT"):g==="judge"?judgeOf(C(v)):(v.type||"—");
     const keys=[...new Set(a.map(keyOf))].sort((x,y)=>g==="judge"?["swap","pass","wait"].indexOf(x)-["swap","pass","wait"].indexOf(y):g==="class"?(M_ORDER.indexOf(x)+99)%199-(M_ORDER.indexOf(y)+99)%199:String(x).localeCompare(String(y)));
