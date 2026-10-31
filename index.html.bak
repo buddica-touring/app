@@ -1526,6 +1526,11 @@ function AccountingPanel({staff,onSynced}){
   const openEdit=(r)=>{
     setEditRec(r);setFDate(r.date);setFType(r.type);setFCategory(r.category);setFSubCat(r.subCategory||"");setFDesc(r.description);setFAmount(String(r.amount));setFInputBy(r.inputBy);setFMemo(r.memo);setFPayMethod(r.payMethod||"現金");setFResvNo(r.resvNo||"");setFUrl(r.url||"");setFPaid(!!r.paid);setFStaffName(r.staffName||"");setFUserName(r.userName||"");setFPayee(r.payee||"");setFPayContent(r.payContent||"");setShowForm(true);
   };
+  // 複製: 既存行の内容を引き継いで「新規登録」フォームを開く（日付は本日JST・新IDで別レコードになる＝元の行は変わらない）
+  const copyRec=(r)=>{
+    const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+    setEditRec(null);setFDate(today);setFType(r.type);setFCategory(r.category);setFSubCat(r.subCategory||"");setFDesc(r.description);setFAmount(String(r.amount));setFInputBy(r.inputBy||"");setFMemo(r.memo||"");setFPayMethod(r.payMethod||"現金");setFResvNo(r.resvNo||"");setFUrl(r.url||"");setFPaid(false);setFStaffName(r.staffName||"");setFUserName(r.userName||"");setFPayee(r.payee||"");setFPayContent(r.payContent||"");setShowForm(true);
+  };
   const togglePaid=async(r)=>{
     const isCashSale=r.type==="cash_in"&&r.category==="現金売上";
     const msg=isCashSale
@@ -1849,6 +1854,7 @@ function AccountingPanel({staff,onSynced}){
       <tbody>{(acctTab==="personal_adv"?padvFiltered:filtered).map((r,i)=>{
         const bg=i%2===0?"#fff":"#f9fafb";
         const editDel=<td style={{padding:"4px 6px"}}>
+          <button type="button" onClick={()=>copyRec(r)} title="この行をコピーして新規登録" style={{fontSize:9,padding:"1px 5px",borderRadius:3,border:"1px solid #bfdbfe",background:"#fff",color:"#2563eb",cursor:"pointer",marginRight:3}}>📋</button>
           <button type="button" onClick={()=>openEdit(r)} style={{fontSize:9,padding:"1px 5px",borderRadius:3,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",marginRight:3}}>✏️</button>
           <button type="button" onClick={()=>deleteRec(r.id)} style={{fontSize:9,padding:"1px 5px",borderRadius:3,border:"1px solid #fecaca",background:"#fff",color:"#dc2626",cursor:"pointer"}}>🗑</button>
         </td>;
@@ -5090,7 +5096,7 @@ function VehicleManager({vehicles,onVehiclesChange,vehicleClasses,onDeleteVehicl
                 </div>
                 <div>
                   <label style={lS}>証券番号</label>
-                  <input value={form.insurancePolicyNo||""} onChange={e=>upF("insurancePolicyNo",e.target.value)} style={fS} placeholder="C645260432"/>
+                  <input value={form.insurancePolicyNo||""} onChange={e=>upF("insurancePolicyNo",e.target.value)} style={fS} placeholder="C6******32"/>
                 </div>
                 <div>
                   <label style={lS}>保険開始日</label>
@@ -14664,7 +14670,7 @@ function SqFailedModal({onClose,onResolved}){
               <option value="現金">現金</option>
               <option value="その他">その他</option>
             </select></label>
-            <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>予約番号（任意）<input value={form.resvNo} onChange={e=>setForm({...form,resvNo:e.target.value})} placeholder="例: R0IPN7SD" className="input-s" style={{marginTop:3}}/></label>
+            <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>予約番号（任意）<input value={form.resvNo} onChange={e=>setForm({...form,resvNo:e.target.value})} placeholder="例: R0****SD" className="input-s" style={{marginTop:3}}/></label>
             <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>担当スタッフ<input value={form.staffName} onChange={e=>setForm({...form,staffName:e.target.value})} placeholder="例: 大下" className="input-s" style={{marginTop:3}}/></label>
             <label style={{fontSize:11,fontWeight:700,color:"#374151",gridColumn:"span 2"}}>摘要 <span style={{color:"#dc2626"}}>*</span><input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="例: ガソリン代 / 延長料金1日分 / オプション追加" className="input-s" style={{marginTop:3,border:form.description?"1px solid #d1d5db":"2px solid #dc2626",background:form.description?"#fff":"#fef2f2"}}/></label>
             <label style={{fontSize:11,fontWeight:700,color:"#374151",gridColumn:"span 2"}}>補足メモ<input value={form.memo} onChange={e=>setForm({...form,memo:e.target.value})} placeholder="（任意）" className="input-s" style={{marginTop:3}}/></label>
@@ -14732,7 +14738,7 @@ function SqFailedModal({onClose,onResolved}){
                <option value="income">収入</option>
                <option value="expense">支出</option>
              </select></label>
-             <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>予約番号（任意）<input value={form.resvNo} onChange={e=>setForm({...form,resvNo:e.target.value})} placeholder="例: R0IPN7SD（なしで空白）" className="input-s" style={{marginTop:3}}/></label>
+             <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>予約番号（任意）<input value={form.resvNo} onChange={e=>setForm({...form,resvNo:e.target.value})} placeholder="例: R0****SD（なしで空白）" className="input-s" style={{marginTop:3}}/></label>
              <label style={{fontSize:11,fontWeight:700,color:"#374151",gridColumn:"span 2"}}>摘要 <span style={{color:"#dc2626"}}>*</span><input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="ガソリン代 / 延長料金1日分 など" className="input-s" style={{marginTop:3}}/></label>
              <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>担当スタッフ<input value={form.staffName} onChange={e=>setForm({...form,staffName:e.target.value})} placeholder="例: 大下" className="input-s" style={{marginTop:3}}/></label>
              <label style={{fontSize:11,fontWeight:700,color:"#374151"}}>補足メモ<input value={form.memo} onChange={e=>setForm({...form,memo:e.target.value})} placeholder="（任意）" className="input-s" style={{marginTop:3}}/></label>
@@ -24321,7 +24327,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.564-BT";
+const APP_VERSION="v1.0.565-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
