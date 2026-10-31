@@ -364,15 +364,15 @@ const VL=(()=>{
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ③'次回車検（赤＝車検で終了） ④入替準備開始日（売止の準備期間前） ⑤仕入額 ⑥市場売却額＝自動査定（売却額が確定したらその額） ⑦累計売上 ⑧最終利益＝⑥＋⑦−⑤
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    h+='<div class="ov-num v2"><div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>最終利益</span></div>';
+    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>最終利益</span></div>';h+='<div class="ov-num v2">';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
-      h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
+      h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>'+HD;
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
         return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
           +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
           +'<div data-l="仕入額">'+man(c.buy)+'</div>'
-          +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.buy!=null&&mv!=null?mv+c.revDone-c.buy:null;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':' title="自動査定"')+'>'+man(mv)+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" title="市場売却額＋累計売上−仕入額"'+(pl!=null&&pl<0?' class="r"':pl!=null?' class="g"':'')+'>'+(pl!=null&&pl>0?'+':'')+man(pl)+'</div>';})()+'</div>';}).join('');});
+          +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.buy!=null&&mv!=null?mv+c.revDone-c.buy:null;const hasMk=sp==null&&c.mkt&&c.mkt.now;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" title="市場売却額＋累計売上−仕入額"'+(pl!=null&&pl<0?' class="r"':pl!=null?' class="g"':'')+'>'+(pl!=null&&pl>0?'+':'')+man(pl)+'</div>';})()+'</div>';}).join('');});
     h+='</div>';
     return h;
   }
@@ -398,6 +398,34 @@ const VL=(()=>{
       +'<div class="vl-ksum k3"><div><span>総売上</span><b>'+man(all.rev*all.n)+'</b></div><div><span>台平均売上</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div></div>'
       +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
       +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
+  }
+  // 市場売却額の根拠ポップ（オーナー指示 2026-11-01）：台数・中央値・中間50%・市場売却額と試算根拠
+  function mkPop(code){
+    const v=S.v.find(x=>x.code===code), c=v&&S.calc[code], m=c&&c.mkt&&c.mkt.now; if(!m)return;
+    const rate=c.rate!=null?c.rate:(n(S.cfg.buy_rate)||DEF.buy_rate)/100, cd=m.cond||{}, km=x=>x==null?'':(Math.round(x/1000)/10)+'万km';
+    const when=m.when?String(m.when).slice(0,10).replace(/-/g,'/'):'—';
+    const u=(m.urls||[]).find(x=>x.u);
+    // 保存された検索URLから条件をそのまま読む（推測で書かない）
+    let Q={}; try{Q=Object.fromEntries(new URL(u?u.u:'https://x/').searchParams);}catch(_){}
+    const FU={1:'ガソリン',2:'ディーゼル',3:'ハイブリッド',4:'電気'}, KU={'4WD0':'2WD','4WD1':'4WD'};
+    const yQ=Q.YMIN||cd.year_from, yQ2=Q.YMAX||cd.year_to, sQ=Q.SMIN!=null?+Q.SMIN:cd.km_from, sQ2=Q.SMAX!=null?+Q.SMAX:cd.km_to;
+    const qc=[['車種',(v.name||'')+((u&&String(u.u).match(/usedcar\/([^/]+\/[^/?]+)/))?'（カーセンサー '+String(u.u).match(/usedcar\/([^/]+\/[^/?]+)/)[1]+'）':'')],
+      ['年式',yQ?(yQ===yQ2?yQ+'年':yQ+'〜'+yQ2+'年'):'—'],['走行',sQ!=null||sQ2!=null?km(sQ)+'〜'+km(sQ2):'—'],
+      ['修復歴',Q.OPTCD==='REP0'?'なし':'指定なし'],['排気量',Q.HMIN?(Q.HMIN===Q.HMAX?Q.HMIN+'cc':Q.HMIN+'〜'+Q.HMAX+'cc'):'指定なし'],
+      ['動力',Q.FUEL?(FU[Q.FUEL]||Q.FUEL):'指定なし'],['駆動',Q.KUDO?(KU[Q.KUDO]||Q.KUDO):'指定なし'],['定員',Q.TEIIN?Q.TEIIN+'人':'指定なし'],['並び',Q.SORT==='2'?'本体価格の安い順':'—']];
+    const old=document.getElementById('vl-mkpop'); if(old)old.remove();
+    const d=document.createElement('div'); d.id='vl-mkpop';
+    d.innerHTML='<div class="mp-bg"></div><div class="mp-box" role="dialog"><button class="mp-x" aria-label="閉じる">×</button>'
+      +'<div class="mp-hd">'+nm(v)+'</div>'
+      +'<div class="mp-big"><span>市場売却額</span><b>'+man(c.nowExit)+'</b><small>＝ 中央値 '+man(m.med)+' × '+Math.round(rate*100)+'%</small></div>'
+      +'<div class="mp-g"><div><span>台数</span><b>'+(m.n||0)+'<small>台</small></b></div><div><span>中央値</span><b>'+man(m.med)+'</b></div><div><span>中間50%</span><b>'+man(m.p25)+'〜'+man(m.p75)+'</b></div></div>'
+      +'<div class="mp-h">検索条件（この調査で実際に使った条件）</div><dl class="mp-dl">'+qc.map(([k,x])=>'<dt>'+k+'</dt><dd>'+e(x)+'</dd>').join('')+'</dl>'
+      +'<div class="mp-h">試算根拠</div><dl class="mp-dl"><dt>価格</dt><dd>本体価格（掲載価格・目安）</dd><dt>売却額</dt><dd>中央値 '+man(m.med)+' × 買取率 '+Math.round(rate*100)+'%</dd><dt>調査日</dt><dd>'+when+'</dd>'+(cd.note?'<dt>確認</dt><dd>'+e(cd.note)+'</dd>':'')+'</dl>'
+      +(u?'<a class="mp-a" href="'+e(u.u)+'" target="_blank" rel="noopener">カーセンサーで同じ条件を開く ↗</a>':'')
+      +'<div class="mp-n">目安です。実際の買取額は査定で変わります。</div></div>';
+    document.body.appendChild(d);
+    const close=()=>{d.remove();document.removeEventListener('keydown',esc);}, esc=ev=>{if(ev.key==='Escape')close();};
+    d.querySelector('.mp-bg').onclick=close; d.querySelector('.mp-x').onclick=close; document.addEventListener('keydown',esc);
   }
   function marketHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold").sort((x,y)=>(S.calc[y.code].sellNow?1:0)-(S.calc[x.code].sellNow?1:0)||(S.calc[x.code].stopT??9e15)-(S.calc[y.code].stopT??9e15));
@@ -829,6 +857,7 @@ const VL=(()=>{
       const kp=t.closest("[data-tkkeep]"); if(kp){const x=Number(String(kp.closest(".tk").querySelector(".vl-tkl").value).replace(/[^\d]/g,""));if(!x){setStatus("リミット（km）を入れてください");return;}
         saveVal(kp.dataset.tkkeep,"life_limit_km",x);return;}
       const ds=t.closest("[data-delstop]"); if(ds){delStop(ds.dataset.delstop);return;}
+      const mk=t.closest("[data-mk]"); if(mk){ev.stopPropagation&&ev.stopPropagation();mkPop(mk.dataset.mk);return;}
       const g=t.closest("[data-goto]"); if(g&&!t.closest(".vl-card")&&!t.closest("input,select,label")){gotoCard(g.dataset.goto);return;}
       const sf=t.closest("[data-stf]"); if(sf){S.stf=S.stf===sf.dataset.stf?"all":sf.dataset.stf;S.sec="karte";saveUi();render();return;}
       const br=t.closest("[data-br]"); if(br){S.brand=br.dataset.br;saveUi();render();return;}
