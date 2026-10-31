@@ -13,7 +13,10 @@ alter table public.bt_vehicles
   add column if not exists sale_dest       text,      -- 売却先
   add column if not exists life_flag       text,      -- 例『10万km超』（リミット延長した理由）
   add column if not exists exit_type       text not null default 'sell',   -- sell=売却 / ride=乗り潰し
-  add column if not exists market_code     text;                           -- カーセンサー車種コード（例 TO_S228＝アクア）
+  add column if not exists market_code     text,                           -- カーセンサー車種コード（例 TO_S228＝アクア）
+  add column if not exists service_from    date,   -- 入替リレー：この車を貸せる最初の日（後継車の切替日）
+  add column if not exists service_to      date,   -- 入替リレー：この車を貸せる最後の日（切替日の前日）
+  add column if not exists relay_to        text;   -- 入替リレー：後継車の code（配車表で同じ行に続けて表示）
 
 -- 2) 全体設定（1行だけ）
 create table if not exists public.bt_vehicle_life_settings (
