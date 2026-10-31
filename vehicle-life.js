@@ -535,7 +535,7 @@ const VL=(()=>{
     h+='<section><h4>🩹 傷・写真</h4>';
     if(D===undefined||D==="loading")h+='<div class="vl-empty sm">読み込み中…</div>';
     else if(D.err)h+='<div class="vl-empty sm err">'+e(D.err)+'</div>';
-    else if(D.ro)h+='<div class="vl-empty sm">傷 '+((S.dmg[code]&&S.dmg[code].n)||0)+'件（写真は閲覧リンクでは表示しません）</div>';
+    else if(D.ro)h+='<div class="vl-empty sm">傷 '+((S.dmg[v.code]&&S.dmg[v.code].n)||0)+'件（写真は閲覧リンクでは表示しません）</div>';
     else{
       const ds=D.damages||[];
       if(!ds.length)h+='<div class="vl-empty sm">記録された傷はありません</div>';
