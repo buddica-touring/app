@@ -266,7 +266,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS=[["全体",[["sum","📊","全体"]]],["売却・入替",[["swap","🗓","売り止め・入替予定"],["relay","🛒","入替車両（仕入）"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["swap","🗓","売り止め・入替予定"],["relay","🛒","入替車両（仕入）"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="swap")return a.filter(v=>["sell","prep"].includes(S.calc[v.code].st)).length;
     if(k==="relay")return a.filter(v=>!v.relay_to&&!isSucc(v.code)&&["sell","prep"].includes(S.calc[v.code].st)).length;
@@ -316,14 +316,20 @@ const VL=(()=>{
     const seg=(name,cur,opts)=>'<div class="ov-seg">'+opts.map(([k,l])=>'<button data-'+name+'="'+k+'" class="'+(cur===k?'on':'')+'">'+l+'</button>').join("")+'</div>';
     h+='<div class="ov-ctl">'+seg("ovg",g,[["class","クラス"],["brand","ブランド"],["judge","判定"]])+seg("ovs",so,[["stop","売止順"],["km","走行順"],["gross","売上順"]])+'</div>';
     const sorter=(x,y)=>{const X=C(x),Y=C(y);return so==="km"?(Y.odo||0)/(Y.limit||1)-(X.odo||0)/(X.limit||1):so==="gross"?Y.revDone-X.revDone:(X.stopT??9e15)-(Y.stopT??9e15);};
-    const ymS=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1);}, soon=t=>t!=null&&t<=addMon(t0,2)?' class="r"':'';
+    const ymS=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1);};
+    // サマリ＝カルテを1本の時間軸で総括（オーナー指示 2026-10-31）。横＝先月→3年先、縦線＝今日。◆車検・🛒入替・⛔売止、帯＝稼働／入替期間／売止〜売却
+    const A=addMon(t0,-1), Z=addMon(t0,36), P=t=>Math.max(0,Math.min(100,(t-A)/(Z-A)*100)).toFixed(1)+'%', inZ=t=>t!=null&&t>=A&&t<=Z;
+    h+='<div class="vl-tlx sm"><div class="ax"><div></div><div class="sc">'+[0,12,24,36].map(i=>{const m=addMon(t0,i);return '<span style="left:'+P(m)+'">'+(i?ymS(m):'今日')+'</span>';}).join('')+'</div><div></div></div>';
     keys.forEach(k=>{const l=a.filter(v=>keyOf(v)===k).sort(sorter);
-      h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div><div class="ov-cs">';
-      h+=l.map(v=>{const c=C(v),j=judgeOf(c),p=c.odo!=null&&c.limit?Math.min(100,c.odo/c.limit*100):0,sw=c.stopT!=null?addMon(c.stopT,-2):null,mp=c.mkt&&c.mkt.now?c.nowExit:null;
-        return '<div class="ov-c" data-goto="'+e(v.code)+'"><div class="hd">'+nm(v)+'<span class="kc-j '+j+'">'+JUDGE[j].lb+'</span></div>'
-          +'<div class="km"><div class="kb"><i class="'+(p>=90?'r':'')+'" style="width:'+p.toFixed(1)+'%"></i></div><span>'+km(c.odo)+'<small> / '+km(c.limit)+'</small></span></div>'
-          +'<div class="g5"><div><span>車検</span><b'+soon(c.shaken)+'>'+ymS(c.shaken)+'</b></div><div><span>入替</span><b'+soon(sw)+'>'+ymS(sw)+'</b></div><div><span>売止</span><b'+soon(c.stopT)+'>'+ymS(c.stopT)+'</b></div>'
-          +'<div><span>総売上</span><b>'+mk(c.revDone)+'</b></div><div><span>市場</span><b>'+mk(mp)+'</b></div></div></div>';}).join("")+'</div>';});
+      h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
+      h+=l.map(v=>{const c=C(v),j=judgeOf(c),sw=c.stopT!=null?addMon(c.stopT,-2):null,p=c.odo!=null&&c.limit?Math.min(100,c.odo/c.limit*100):0;
+        let tr='<i class="now" style="left:'+P(t0)+'"></i>';
+        if(c.stopT!=null){tr+='<i class="g" style="left:'+P(t0)+';width:calc('+P(sw)+' - '+P(t0)+')"></i><i class="p" style="left:'+P(Math.max(sw,t0))+';width:calc('+P(c.stopT)+' - '+P(Math.max(sw,t0))+')"></i><i class="s" style="left:'+P(Math.max(c.stopT,t0))+';width:calc('+P(c.saleT)+' - '+P(Math.max(c.stopT,t0))+')"></i>';
+          if(inZ(sw))tr+='<b class="mk" style="left:'+P(sw)+'" title="入替 '+mdS(sw)+'">🛒</b>'; if(inZ(c.stopT))tr+='<b class="mk" style="left:'+P(c.stopT)+'" title="売止 '+mdS(c.stopT)+'">⛔</b>';}
+        if(c.shaken)for(let t=c.shaken;t<=Z;t=addMon(t,24))if(t>=A)tr+='<b class="shk'+(c.stopT!=null&&t>c.stopT?' x':'')+'" style="left:'+P(t)+'" title="車検 '+mdS(t)+'"></b>';
+        return '<div class="rw" data-goto="'+e(v.code)+'"><div class="who">'+nm(v)+'<small class="kv'+(p>=90?' r':'')+'">'+(c.odo!=null?Math.round(c.odo/1e3)+'k km':'—')+'</small><small class="rv">'+mk(c.revDone)+'</small></div>'
+          +'<div class="tr">'+(c.stopT==null?'<span class="na">予測待ち</span>':'')+tr+'</div><div class="go"><span class="kc-j '+j+'">'+JUDGE[j].lb+'</span></div></div>';}).join('');});
+    h+='</div><div class="ov-leg"><span><b class="shk"></b>車検</span><span>🛒入替</span><span>⛔売止</span><span><i class="p"></i>入替期間</span><span><i class="s"></i>売止〜売却</span></div>';
     return h;
   }
   const tbl=(head,rows)=>'<div class="vl-ctbl vl-dt"><table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';
