@@ -26880,7 +26880,7 @@ async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
     var _dk=(_s!=null&&_e!=null&&_e>=_s)?(_e-_s):null;
     var _p={};_p[_fld]=_v;_p[_isWash?"start_odo_at":"end_odo_at"]=new Date().toISOString();_p.driven_km=_dk;
     await sb.from("bt_reservations").update(_p).eq("id",_t.reservationId);
-    if(_isRet&&_t.assignedVehicle&&vehicles){var _vv=vehicles.find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v){try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
+    if(_isRet&&_t.assignedVehicle&&vehicles){var _vv=vehicles.find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v&&(!_vv.current_mileage||_v-_vv.current_mileage<=5000)){/* 5,000km以上の飛びは入力ミス扱い（DBトリガーと同じ） */try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
     if(_dk!=null&&showMsgFn){try{showMsgFn("走行 "+_dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
   }catch(_eo){console.warn("[odo]",_eo);}
 }
@@ -26960,7 +26960,7 @@ function MileageLogTab({sb}){
       const dk=(s!=null&&e!=null&&e>=s)?(e-s):null;
       const patch={};patch[field]=val;patch[field==="start_odo"?"start_odo_at":"end_odo_at"]=new Date().toISOString();patch.driven_km=dk;
       await sb.from("bt_reservations").update(patch).eq("id",r.id);
-      if(field==="end_odo"&&val!=null&&r.vcode){const cur=(veh[r.vcode]||{}).current_mileage||0;if(val>cur)await sb.from("bt_vehicles").update({current_mileage:val}).eq("code",r.vcode);}
+      if(field==="end_odo"&&val!=null&&r.vcode){const cur=(veh[r.vcode]||{}).current_mileage||0;if(val>cur&&(!cur||val-cur<=5000))await sb.from("bt_vehicles").update({current_mileage:val}).eq("code",r.vcode);}
       setRows(rs=>rs.map(x=>x.id===r.id?{...x,[field]:val,driven_km:dk}:x));
     }catch(e){alert("保存失敗: "+(e.message||e));}finally{setBusy("");}
   };

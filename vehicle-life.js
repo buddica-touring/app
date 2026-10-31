@@ -76,6 +76,7 @@ const VL=(()=>{
       S.relayCols=S.v.length>0&&("relay_to" in S.v[0]);
       const r2v={}; fleet.forEach(f=>{r2v[f.reservation_id]=f.vehicle_code;});
       S.res={}; res.forEach(r=>{const c=r2v[r.id]; if(!c||isCancel(r))return; (S.res[c]=S.res[c]||[]).push(r);});
+      markOdo();
       S.maint={}; mt.forEach(m=>{(S.maint[m.vehicle_code]=S.maint[m.vehicle_code]||[]).push(m);});
       S.kpi={}; ((kpi&&kpi.data)||[]).forEach(k=>{S.kpi[k.vehicle_code]=k.active;});
       S.cfgSaved=!!(cfg&&cfg.data); if(cfg&&cfg.data)S.cfg=Object.assign({},DEF,cfg.data,{class_limits:cfg.data.class_limits||{}});
@@ -86,14 +87,30 @@ const VL=(()=>{
     return S.loading;
   }
 
-  // 1予約の走行km（入力ミスらしい値は null）
-  function tripKm(r){
-    let k=n(r.driven_km); if(k==null&&n(r.end_odo)!=null&&n(r.start_odo)!=null)k=n(r.end_odo)-n(r.start_odo);
-    if(k==null||k<=0||k>KM_MAX)return null;
+  // 1予約の走行km。入力ミス（オーナー指示 2026-10-31：異常値は必ず外す）は null にして、平均にも今の走行にも使わない
+  //   外す条件：0km以下／1回3,000km超／1日1,000km超／走行kmとメーター差が50km以上違う／出発メーターが前回の返却より小さい（markOdo）
+  const rawKm=r=>n(r.driven_km)!=null?n(r.driven_km):(n(r.end_odo)!=null&&n(r.start_odo)!=null?n(r.end_odo)-n(r.start_odo):null);
+  function tripBad(r){
+    const k=rawKm(r); if(k==null)return "";
+    if(r._bad)return r._bad;
+    if(k<=0)return "0km以下";
+    if(k>KM_MAX)return "1回 "+km(KM_MAX)+"km超";
     const d=Math.max(1,Math.round((ts(r.end_date)-ts(r.start_date))/DAY)+1);
-    return k/d>KM_PER_DAY_MAX?null:k;
+    if(k/d>KM_PER_DAY_MAX)return "1日 "+km(KM_PER_DAY_MAX)+"km超";
+    if(n(r.driven_km)!=null&&n(r.end_odo)!=null&&n(r.start_odo)!=null&&Math.abs(n(r.driven_km)-(n(r.end_odo)-n(r.start_odo)))>=50)return "走行kmとメーター差が合わない";
+    return "";
   }
-  function suspect(r){const k=n(r.driven_km)!=null?n(r.driven_km):(n(r.end_odo)!=null&&n(r.start_odo)!=null?n(r.end_odo)-n(r.start_odo):null);return k!=null&&tripKm(r)==null;}
+  function tripKm(r){const k=rawKm(r);return k==null||tripBad(r)?null:k;}
+  function suspect(r){return rawKm(r)!=null&&!!tripBad(r);}
+  // 車ごとにメーターを日付順に並べて、前後が合わない記録に印をつける（返却メーターが前回より小さい・2万km以上飛ぶ／出発メーターが前回の返却より小さい）
+  function markOdo(){
+    Object.values(S.res).forEach(rs=>{let last=null;
+      rs.slice().sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))).forEach(r=>{r._bad="";r._odoBad=false;
+        const so=n(r.start_odo), eo=n(r.end_odo);
+        if(so!=null&&last!=null&&so<last-50)r._bad="出発メーターが前回の返却より小さい";
+        if(eo!=null){if(last!=null&&(eo<last-50||eo-last>20000)){r._odoBad=true;r._bad=r._bad||"返却メーターが前回と合わない";}else last=Math.max(last||0,eo);}
+      });});
+  }
   // 既定リミットを既に超えていた車＝延長リミット＋フラグ。DB追加後は SQL で 2026-10-30 時点の該当車に life_limit_km と life_flag を固定する
   //（ここで毎回判定すると、あとから10万kmを超えた車まで延長されてしまうため、DB未適用の間だけの仮判定）
   function baseLimit(v){return n(S.cfg.class_limits&&S.cfg.class_limits[v.type])||n(S.cfg.default_limit_km)||DEF.default_limit_km;}
@@ -166,7 +183,7 @@ const VL=(()=>{
       const future=rs.filter(r=>ts(r.start_date)>t0&&ts(r.start_date)<=t0+60*DAY).length;
       // 現在の走行距離＝マスターと返却メーターの大きい方（桁違いは除く）
       const base=n(v.current_mileage)||0;
-      let odoMax=0,odoRetT=null; done.forEach(r=>{const o=n(r.end_odo);if(o&&o>odoMax&&o-base<=20000){odoMax=o;odoRetT=ts(r.end_date);}});
+      let odoMax=0,odoRetT=null; done.forEach(r=>{const o=n(r.end_odo);if(o&&!r._odoBad&&o>odoMax&&o-base<=20000){odoMax=o;odoRetT=ts(r.end_date);}});
       const odo=Math.max(base,odoMax)||null;
       // 走行の出どころ：返却メーター／手入力（specs.odo_at＝入力した日）／マスター。返却記録がない車は手入力で補う（2026-10-31）
       const odoAt=ts(spOf(v).odo_at), odoSrc=odo==null?null:odoMax>0&&odoMax>=base?{k:"ret",t:odoRetT}:odoAt!=null?{k:"man",t:odoAt}:{k:"master",t:null};
@@ -180,15 +197,16 @@ const VL=(()=>{
         if(S.cfg.shaken_rule==="always"||(kmAtNext!=null&&kmAtNext>=limit))byShaken=shaken;
       }
       let saleT=null, why="";
-      if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
+      if(v.exit_type==="return"){saleT=ts(v.sale_date)||t0;why="返却済";}   // リース返却・手放した車（2026-10-31 911）。一覧から外し、履歴は残す
+      else if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
       else if(v.sale_plan_date){saleT=ts(v.sale_plan_date);why="手動";}
       else if(limitT!=null&&(byShaken==null||limitT<=byShaken)){saleT=limitT;why="走行";}
       else if(byShaken!=null){saleT=byShaken;why="車検";}
       // saleT＝稼働の終わり（リミット到達・車検・手動）。その1ヶ月前に売り止め（予約を止める）、売り止めから逆算して仕入れ開始
-      const lead=n(S.cfg.lead_months)||3, stopT=saleT!=null&&why!=="売却済"?addMon(saleT,-1):null, procT=stopT!=null?addMon(stopT,-lead):null;
+      const lead=n(S.cfg.lead_months)||3, stopT=saleT!=null&&why!=="売却済"&&why!=="返却済"?addMon(saleT,-1):null, procT=stopT!=null?addMon(stopT,-lead):null;
       const ride=v.exit_type==="ride";   // 乗り潰し（売らずに使い切る）
       let st="run";
-      if(why==="売却済")st="sold";
+      if(why==="売却済"||why==="返却済")st="sold";
       else if(saleT==null)st=odo==null||monKm==null?"nodata":"run";
       else if(stopT<=t0||(odo!=null&&odo>=limit))st="sell";
       else if(procT<=t0)st="prep";
@@ -330,6 +348,9 @@ const VL=(()=>{
       +'<div class="vl-legend"><span><i class="run"></i>稼働</span><span><i class="prep"></i>仕入・入替準備</span><span><i class="stop"></i>売り止め〜終了</span><span><b class="mk k"></b>車検</span></div>'
       +'<div class="vl-plan"><div class="vl-axis"><div></div><div></div><div class="ax">'+ax+'</div></div>';
     G.forEach(([k,lb,f])=>{const l=a.filter(f);if(!l.length)return;h+='<div class="vl-pg '+k+'">'+lb+'<b>'+l.length+'台</b></div>'+l.map(card).join("");});
+    const bads=[];S.v.forEach(v=>(S.res[v.code]||[]).forEach(r=>{if(suspect(r))bads.push({v,r});}));
+    if(bads.length)h+='<details class="vl-odobox bad"><summary>⚠ 計算から外した走行記録 <b>'+bads.length+'件</b><span>入力ミスと思われるため、平均にも今の走行にも使っていません。走行ログで直すと自動で計算に戻ります</span></summary>'
+      +bads.sort((a,b)=>String(b.r.start_date).localeCompare(String(a.r.start_date))).map(({v,r})=>'<div class="r"><div class="who">'+nm(v)+'<small>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</small></div><div class="why"><b>'+km(rawKm(r))+'km</b>（出発 '+(n(r.start_odo)!=null?km(r.start_odo):'—')+' → 返却 '+(n(r.end_odo)!=null?km(r.end_odo):'—')+'）<em>'+e(tripBad(r))+'</em></div></div>').join("")+'</details>';
     return h+'</div><div class="vl-lead">売り止め＝終了（走行リミット・車検・手動のうち早い方）の1ヶ月前。仕入開始＝売り止めの'+(S.cfg.lead_months||3)+'ヶ月前。走行は全車共通の月 '+km(S.global.monKm)+'km で予測。</div>';
   }
   function kpiHtml(){
@@ -432,7 +453,7 @@ const VL=(()=>{
       +'</div><div class="vl-odo-l"><span>今のメーターを手で入れる</span>'+odoForm(v,c)+'</div>';
     if(D&&D.trips&&D.trips.length){
       h+='<div class="vl-trips">'+D.trips.slice(0,8).map(r=>{const k=tripKm(r),bad=suspect(r);
-        return '<div class="'+(bad?"bad":"")+'"><span>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</span><b>'+(k!=null?km(k)+'km':bad?'⚠ '+km(n(r.driven_km)??(n(r.end_odo)-n(r.start_odo)))+'km':'未入力')+'</b></div>';}).join("")+'</div>';
+        return '<div class="'+(bad?"bad":"")+'"><span>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</span><b>'+(k!=null?km(k)+'km':bad?'⚠ '+km(rawKm(r))+'km <small>'+e(tripBad(r))+'・計算から除外</small>':'未入力')+'</b></div>';}).join("")+'</div>';
     }
     h+='</section>';
     // 生涯収支
@@ -512,7 +533,7 @@ const VL=(()=>{
     // 編集
     h+='<section><h4>✍ 仕入れ・出口（売却／乗り潰し）</h4>';
     if(!S.lifeCols)h+='<div class="vl-warn">入力欄を使うにはデータベースの追加（sql/bt_vehicle_lifecycle.sql）が必要です。</div>';
-    h+='<div class="vl-exit">'+[["sell","💴 売却"],["ride","♻ 乗り潰し"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
+    h+='<div class="vl-exit">'+[["sell","💴 売却"],["ride","♻ 乗り潰し"],["return","🔙 リース返却"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
     h+='<div class="vl-form">'
       +fld(v,"purchase_price","仕入額","円","number")+fld(v,"purchase_date","仕入日","","date")
       +fld(v,"life_limit_km","この車のリミット","km","number",km(S.calc[v.code].limit)+"（既定）")
@@ -737,7 +758,7 @@ const VL=(()=>{
     const goSec=k=>{S.sec=k;saveUi();render();const m=document.querySelector(".vl-main");if(m&&m.getBoundingClientRect().top<0)m.scrollIntoView({block:"start"});};
     kb.addEventListener("click",ev=>{
       const t=ev.target;
-      if(t.closest(".vl-odobox>summary")){S.odoOpen=!t.closest("details").open;return;}
+      if(t.closest(".vl-odobox:not(.bad)>summary")){S.odoOpen=!t.closest("details").open;return;}
       const os=t.closest("[data-odosave]"); if(os){saveOdo(os.closest(".vl-odo"));return;}
       const sc=t.closest("[data-sec]"); if(sc){goSec(sc.dataset.sec);return;}
       const rl=t.closest("[data-relay]"); if(rl&&!rl.disabled){doRelay(rl.dataset.relay,rl.closest(".vl-rl"));return;}
@@ -748,7 +769,9 @@ const VL=(()=>{
       if(t.closest(".vl-gear")){S.showCfg=!S.showCfg;render();return;}
       if(t.closest("[data-cfgclose]")){S.showCfg=false;render();return;}
       if(t.closest("[data-cfgsave]")){saveCfg(t.closest(".vl-cfg"));return;}
-      const ex=t.closest("[data-exit]"); if(ex&&!ex.disabled){const code=ex.closest(".vl-card").dataset.code;saveVal(code,"exit_type",ex.dataset.exit);return;}
+      const ex=t.closest("[data-exit]"); if(ex&&!ex.disabled){const code=ex.closest(".vl-card").dataset.code,v=S.v.find(x=>x.code===code);
+        if(ex.dataset.exit==="return"&&v&&v.exit_type!=="return"&&!confirm((v.name||code)+" をリース返却済みにして、スケジュールの一覧から外します（履歴は残ります）。よろしいですか？"))return;
+        saveVal(code,"exit_type",ex.dataset.exit);return;}
       const dm=t.closest("[data-dmg]"); if(dm){const img=dm.querySelector("img");if(img)openViewer(img.src);return;}
       const tg=t.closest("[data-tog]"); if(tg){const code=tg.closest(".vl-card").dataset.code;
         if(S.open.has(code))S.open.delete(code); else{S.open.add(code); if(S.detail[code]===undefined||S.detail[code].err)loadDetail(code);}
