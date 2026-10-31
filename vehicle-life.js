@@ -385,17 +385,16 @@ const VL=(()=>{
   // クラス実績（オーナー指示 2026-10-31）：AA以外はクラスでまとめて1台あたり、AAは1台ずつ。稼働率＝稼働日数÷保有日数（データ開始日か仕入日から）
   function kpiHtml(){
     const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), sum=(l,f)=>l.reduce((s,v)=>s+(f(C(v))||0),0);
-    const st=l=>{const b=l.filter(v=>C(v).buy!=null), hd=sum(l,c=>c.heldDays);
-      return {n:l.length,rev:sum(l,c=>c.revDone)/l.length,util:hd?sum(l,c=>c.runDays)/hd:null,gross:b.length?sum(b,c=>c.gross)/b.length:null,nb:b.length};};
+    const st=l=>{const hd=sum(l,c=>c.heldDays);return {n:l.length,rev:sum(l,c=>c.revDone)/l.length,util:hd?sum(l,c=>c.runDays)/hd:null};};
     const cls=[...new Set(a.filter(v=>v.type!=="AA").map(v=>v.type||"?"))];
     const rows=cls.map(t=>{const l=a.filter(v=>(v.type||"?")===t);return {t,l,x:st(l)};}).concat(a.filter(v=>v.type==="AA").map(v=>({v,l:[v],x:st([v])})));
-    const mx=Math.max(1,...rows.map(r=>r.x.rev)), all=st(a), pc=u=>u==null?'—':Math.round(u*100)+'%';
+    const all=st(a), pc=u=>u==null?'—':Math.round(u*100)+'%';
     const row=r=>'<div class="vl-cr"'+(r.v?' data-goto="'+e(r.v.code)+'"':'')+'><div class="hd">'+(r.v?nm(r.v):'<span class="m-badge" style="background:'+clsCol(r.t)+'">'+e(r.t)+'</span><span class="nm">'+e([...new Set(r.l.map(v=>v.name))].join('・'))+'</span><em>'+r.x.n+'台</em>')+'</div>'
-      +'<div class="nums"><div><span>売上'+(r.v?'':'/台')+'</span><b>'+man(r.x.rev)+'</b></div><div><span>稼働率</span><b>'+pc(r.x.util)+'</b></div><div><span>粗利'+(r.v?'':'/台')+'</span><b class="'+(r.x.gross!=null&&r.x.gross<0?'neg':'')+'">'+(r.x.gross==null?'—':man(r.x.gross))+'</b></div></div>'
+      +'<div class="nums"><div><span>'+(r.v?'売上':'総売上')+'</span><b>'+man(r.x.rev*r.x.n)+'</b></div>'+(r.v?'':'<div><span>台平均売上</span><b>'+man(r.x.rev)+'</b></div>')+'<div><span>稼働率</span><b>'+pc(r.x.util)+'</b></div></div>'
       +'<div class="bar"><u style="width:'+(r.x.util==null?0:Math.min(100,r.x.util*100)).toFixed(1)+'%"></u></div></div>';
     const by=(x,y)=>y.x.rev-x.x.rev;
     return '<h4 class="vl-h4">💴 クラス実績</h4>'
-      +'<div class="vl-ksum"><div><span>売上/台</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div><div><span>粗利/台</span><b>'+(all.gross==null?'—':man(all.gross))+'</b></div><div class="'+(all.nb<all.n?'miss':'')+'"><span>仕入額</span><b>'+all.nb+'<small>/'+all.n+'</small></b></div></div>'
+      +'<div class="vl-ksum k3"><div><span>総売上</span><b>'+man(all.rev*all.n)+'</b></div><div><span>台平均売上</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div></div>'
       +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
       +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
   }
