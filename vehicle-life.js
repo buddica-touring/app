@@ -324,6 +324,9 @@ const VL=(()=>{
     const in1y=a.filter(v=>C(v).stopT!=null&&C(v).stopT<=addMon(t0,12)).length;
     // 数字4つ
     let h='<div class="ov-tiles"><div><b>'+a.length+'</b><span>台</span></div><div class="r"><b>'+cntJ("swap")+'</b><span>リミット先行</span></div><div><b>'+in1y+'</b><span>1年以内に売り止め</span></div><div><b>'+man(a.reduce((x,v)=>x+C(v).revDone,0))+'</b><span>総売上</span></div></div>';
+    // 試算（オーナー指示 2026-10-31）：全車・全期間の実績から
+    const G=S.global||{};
+    h+='<div class="ov-est">'+[["1予約平均",G.avgKm,"走行 "+(G.n||0)+"件"],["月間/台",G.monKm,"月"+(G.perMon||0).toFixed(1)+"予約×平均"],["年間/台",G.monKm*12,"月間×12"]].map(([lb,x,why])=>'<div><span>'+lb+'<em>試算</em></span><b>'+(x?km(x):'—')+'<small>km</small></b><i>'+why+'</i></div>').join('')+'</div>';
     // 全体＝車両カルテのサマリ（オーナー指示 2026-10-31）：1台1枚の小さなカードに カルテの要点（判定・走行/リミット・車検・売止・入替・総売上・市場価格）
     const keyOf=v=>g==="brand"?(isHdm(v)?"HDM":"BT"):g==="judge"?judgeOf(C(v)):(v.type||"—");
     const keys=[...new Set(a.map(keyOf))].sort((x,y)=>g==="judge"?["swap","pass","wait"].indexOf(x)-["swap","pass","wait"].indexOf(y):g==="class"?(M_ORDER.indexOf(x)+99)%199-(M_ORDER.indexOf(y)+99)%199:String(x).localeCompare(String(y)));
