@@ -455,14 +455,18 @@ const VL=(()=>{
     h+='<div class="vl-hd" data-tog="1"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type||"?")+'</span>'
       +'<div class="vl-nm"><b>'+e(v.name||v.code)+'</b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(v.year?' · '+e(v.year):'')+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
       +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
-    // 走行の見込みグラフ（オーナー指示 2026-10-31：文字を減らしてグラフで）。横＝時間、縦＝走行km。灰線＝見込み、赤＝売り止め、点線＝仕入開始、◆＝車検
-    h+='<div class="kc-chart" data-tog="1">'+lifeChart(c)+'</div>';
-    h+=shakenGauge(c);
-    h+=moneyFlow(c);
-    const j=judgeOf(c), left=c.stopT!=null?monthsTo(c.stopT):null;
-    h+='<div class="kc-nums" data-tog="1"><div class="'+(c.st==="sell"||c.st==="prep"?'r':'')+'"><span>売り止め</span><b>'+(c.stopT!=null?ym(c.stopT).replace("年","/").replace("月",""):'—')+'</b><small>'+(left==null?'':left<=0?'今':'あと'+(left<12?Math.ceil(left)+'ヶ月':(left/12).toFixed(1)+'年'))+'</small></div>'
-      +(c.buy!=null?'':'<div><span>売上</span><b>'+man(c.revDone)+'</b><small>&nbsp;</small></div>'
-      +'<div><span>粗利</span><b class="'+(c.buy!=null&&c.gross<0?'neg':'')+'">'+(c.buy!=null?man(c.gross):'—')+'</b><small>'+(c.buy==null?'仕入額なし':c.recov!=null?'回収 '+Math.round(c.recov*100)+'%':'')+'</small></div>')+'</div>';
+    // オーナー指示 2026-10-31：カードは決めた10項目だけ（走行・日付・お金）。入替＝売り止めの2ヶ月前、市場価格＝相場中央値×買取率
+    const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?addMon(c.stopT,-2):null, t0=T0();
+    const cell=(lb,val,sub,cls)=>'<div'+(cls?' class="'+cls+'"':'')+'><span>'+lb+'</span><b>'+val+'</b><small>'+(sub||'&nbsp;')+'</small></div>';
+    const dt=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();}, soon=t=>t!=null&&t<=addMon(t0,2)?'r':'';
+    h+='<div class="kc-g" data-tog="1"><div class="kc-row">'
+      +cell('リミット',km(c.limit))+cell('現在',km(c.odo),'',pct>=90?'r':'')+cell('平均/月',km(c.monKm))
+      +'</div><div class="kc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="kc-row">'
+      +cell('次回車検',dt(c.shaken),'',soon(c.shaken))+cell('売止',dt(c.stopT),'',soon(c.stopT))+cell('入替',dt(swapT),'',soon(swapT))
+      +'</div><div class="kc-row m">'
+      +cell('仕入',man(c.buy))+cell('総売上',man(c.revDone))+cell(sold!=null?'売却額':'市場価格',man(sale))
+      +cell('売却後総売上',sale!=null?man(c.revDone+sale):'—','',sale!=null&&c.buy!=null&&c.revDone+sale<c.buy?'neg':'')
+      +'</div></div>';
     h+='<div class="kc-more" data-tog="1">'+(dn?'<span>傷 '+dn+'</span>':'')+(c.susp?'<span class="r">走行ミス '+c.susp+'</span>':'')+'<em>'+(open?'閉じる ▴':'詳しく ▾')+'</em></div>';
     if(open)h+='<div class="vl-bd">'+detailHtml(v)+'</div>';
     return h+'</div>';
