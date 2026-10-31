@@ -1,4 +1,4 @@
--- 売止ブロック（オーナー指示 2026-10-31）：閲覧リンク（?view=キー）から開いた時も、手配の時期に入った車の
+-- 売止ブロック（オーナー指示 2026-10-31）：閲覧リンク（?view=キー）から開いた時も、売止日までに後継車が未登録の車の
 -- 「売止」ブロック（bt_maintenance label=売止, id=stop_<code>）を自動登録できるようにする。
 -- 登録するのは無い車だけ（既にあれば触らない）。返り値＝全ての売止ブロック。ログイン時は画面から直接 bt_maintenance に書く。
 create or replace function public.bt_vehicle_stop_sync(p_key text, p_rows jsonb)

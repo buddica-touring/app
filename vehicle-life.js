@@ -307,9 +307,9 @@ const VL=(()=>{
   function nextAct(v,c){
     const t0=T0(); if(c.st==="sold")return null;
     if(c.stopT==null)return {txt:'走行を入力すると予定が出ます',t:null,lv:"mut"};
-    const sw=addMon(c.stopT,-2), over=c.odo!=null&&c.limit&&c.odo>=c.limit, ev=[];
+    const sw=c.procT, over=c.odo!=null&&c.limit&&c.odo>=c.limit, ev=[];
     if(c.shaken!=null&&c.shaken>=t0&&c.shaken<c.stopT)ev.push({t:c.shaken,a:'車検を通す'});
-    if(!v.relay_to)ev.push({t:sw,a:'後継車を登録'});
+    if(!v.relay_to)ev.push(t0<sw?{t:sw,a:'入替車両の準備を始める'}:{t:c.stopT,a:'後継車を登録（売止日から販売）'});
     if(t0<=c.stopT)ev.push({t:c.stopT,a:'予約を止める（売止）'});
     ev.push({t:c.saleT,a:(c.ride?'廃車':c.shaken!=null&&c.saleT<=c.shaken?'車検を通さず売却':'売却')});
     const x=ev.filter(o=>o.t!=null).sort((a,b)=>a.t-b.t)[0]; if(!x)return null;
@@ -346,7 +346,7 @@ const VL=(()=>{
     h+='<div class="vl-tlx sm"><div class="ax"><div></div><div class="sc">'+[0,12,24,36].map(i=>{const m=addMon(t0,i);return '<span style="left:'+P(m)+'">'+(i?ymS(m):'今日')+'</span>';}).join('')+'</div><div></div></div>';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
-      h+=l.map(v=>{const c=C(v),j=judgeOf(c),na=nextAct(v,c),sw=c.stopT!=null?addMon(c.stopT,-2):null,p=c.odo!=null&&c.limit?Math.min(100,c.odo/c.limit*100):0;
+      h+=l.map(v=>{const c=C(v),j=judgeOf(c),na=nextAct(v,c),sw=c.stopT!=null?c.procT:null,p=c.odo!=null&&c.limit?Math.min(100,c.odo/c.limit*100):0;
         let tr='<i class="now" style="left:'+P(t0)+'"></i>';
         if(c.stopT!=null){tr+='<i class="g" style="left:'+P(t0)+';width:calc('+P(sw)+' - '+P(t0)+')"></i><i class="p" style="left:'+P(Math.max(sw,t0))+';width:calc('+P(c.stopT)+' - '+P(Math.max(sw,t0))+')"></i><i class="s" style="left:'+P(Math.max(c.stopT,t0))+';width:calc('+P(c.saleT)+' - '+P(Math.max(c.stopT,t0))+')"></i>';
           if(inZ(sw))tr+='<b class="mk" style="left:'+P(sw)+'" title="入替 '+mdS(sw)+'">🛒</b>'; if(inZ(c.stopT))tr+='<b class="mk" style="left:'+P(c.stopT)+'" title="売止 '+mdS(c.stopT)+'">⛔</b>';}
@@ -436,8 +436,8 @@ const VL=(()=>{
     h+='<div class="vl-hd" data-tog="1"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type||"?")+'</span>'
       +'<div class="vl-nm"><b>'+e(v.name||v.code)+'</b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(v.year?' · '+e(v.year):'')+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
       +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
-    // オーナー指示 2026-10-31：カードは決めた10項目だけ（走行・日付・お金）。入替＝売り止めの2ヶ月前、市場価格＝相場中央値×買取率
-    const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?addMon(c.stopT,-2):null, t0=T0();
+    // オーナー指示 2026-10-31：カードは決めた10項目だけ（走行・日付・お金）。入替＝準備期間（売止の3ヶ月前・設定で変更可）、市場価格＝相場中央値×買取率
+    const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?c.procT:null, t0=T0();
     const cell=(lb,val,sub,cls)=>'<div'+(cls?' class="'+cls+'"':'')+'><span>'+lb+'</span><b>'+val+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
     const dt=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();}, soon=t=>t!=null&&t<=addMon(t0,2)?'r':''; const span=(a,b)=>{if(!a||b==null||b<a)return'—';const m=Math.round((b-a)/MON);return (m>=12?Math.floor(m/12)+'年':'')+(m%12?m%12+'ヶ月':'');};
     h+='<div class="kc-g" data-tog="1"><div class="kc-row m">'
@@ -589,7 +589,7 @@ const VL=(()=>{
       +'<label class="vl-f"><span>すでに既定を超えていた車のリミット</span><span class="in"><input inputmode="numeric" data-cfg="over_limit_km" value="'+km(c.over_limit_km)+'"><i>km</i></span></label>'
       +'<div class="vl-sub">クラス別のリミット（空欄＝既定）</div><div class="vl-cls">'+cls.map(k=>'<label><span class="m-badge" style="background:'+clsCol(k)+'">'+k+'</span><input inputmode="numeric" data-cls="'+k+'" value="'+(c.class_limits&&c.class_limits[k]?km(c.class_limits[k]):'')+'" placeholder="'+km(c.default_limit_km)+'"></label>').join("")+'</div>'
       +'<label class="vl-f"><span>買取見込み＝小売相場の何％か</span><span class="in"><input inputmode="numeric" data-cfg="buy_rate" value="'+(c.buy_rate||DEF.buy_rate)+'"><i>%</i></span></label>'
-      +'<label class="vl-f"><span>仕入れを動かす時期</span><span class="in"><select data-cfg="lead_months">'+[1,2,3,4,5,6].map(m=>'<option value="'+m+'"'+(+c.lead_months===m?" selected":"")+'>売却の'+m+'ヶ月前</option>').join("")+'</select></span></label>'
+      +'<label class="vl-f"><span>入替車両の準備期間</span><span class="in"><select data-cfg="lead_months">'+[1,2,3,4,5,6].map(m=>'<option value="'+m+'"'+(+c.lead_months===m?" selected":"")+'>売止の'+m+'ヶ月前</option>').join("")+'</select></span></label>'
       +'<label class="vl-f"><span>車検の扱い</span><span class="in"><select data-cfg="shaken_rule">'+[["next","次の車検期間中にリミットに達するなら、車検前に売る"],["always","車検の前に必ず売る"],["ignore","車検は見ない（走行だけ）"]].map(([k,l])=>'<option value="'+k+'"'+(c.shaken_rule===k?" selected":"")+'>'+l+'</option>').join("")+'</select></span></label>'
       +'<div class="vl-cfg-ft">'+(asSec?'':'<button class="btn" data-cfgclose="1">閉じる</button>')+'<button class="btn p" data-cfgsave="1"'+(S.cfgSaved?'':' disabled')+'>保存</button></div></div>';
   }
@@ -599,7 +599,7 @@ const VL=(()=>{
   function prepOf(nv){if(!nv)return null;const p4=plate4(nv), pr=p4?S.proc.find(r=>{const m=String(r.plate||"").match(/(\d{1,4})\s*$/);return m&&m[1]===p4;}):null, ok=x=>x==="OK";
     return [["整備",pr?ok(pr.maint_status):null],["引取",pr?ok(pr.pickup_status):null],["準備",pr?ok(pr.prep_status):null],["ETC",nv.code in S.etc?!!S.etc[nv.code]:null],["稼働",nv.service_from?ts(nv.service_from)<=T0():null]];}
   // 売り止め・入替（オーナー指示 2026-10-31：具体的なアクションが分かるように）。1台ごとに 手配→売止→売却 の3ステップ、今やる1つを期限つきで出す
-  // 手配＝後継車をリレー登録（期限＝入替日＝売止の2ヶ月前）、売止＝配車表で予約を止める（期限＝売止日）、売却＝売却・返却（期限＝終了日）
+  // 手配＝後継車をリレー登録（準備開始＝売止の準備期間前・登録期限＝売止日）、売止＝配車表で予約を止める（期限＝売止日）、売却＝売却・返却（期限＝終了日）
   function swapHtml(){
     // オーナー指示 2026-10-31：月別入替は独立タブをやめ、この中で タイムライン／月別 を切り替え
     const tg='<div class="ov-ctl"><div class="ov-seg">'+[["tl","タイムライン"],["mo","月別"]].map(([k,l])=>'<button data-swv="'+k+'" class="'+((S.swv||"tl")===k?'on':'')+'">'+l+'</button>').join('')+'</div></div>';
@@ -607,7 +607,7 @@ const VL=(()=>{
     const ymS=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1);};
     const t0=T0(), STEP=[["proc","🛒","手配"],["stop","⛔","売止"],["sale","💴","売却"]];
     const items=S.v.filter(v=>S.calc[v.code].st!=="sold"&&S.calc[v.code].stopT!=null).map(v=>{const c=S.calc[v.code];
-      const due={proc:addMon(c.stopT,-2),stop:c.stopT,sale:c.saleT}, done={proc:!!v.relay_to,stop:t0>c.stopT,sale:false};
+      const due={proc:c.procT,stop:c.stopT,sale:c.saleT}, done={proc:!!v.relay_to,stop:t0>c.stopT,sale:false};
       const cur=STEP.find(x=>!done[x[0]])||STEP[2], t=due[cur[0]], d=Math.round((t-t0)/DAY);
       return {v,c,due,done,cur,t,d};}).sort((a,b)=>a.t-b.t);
     // タイムライン（オーナー指示 2026-10-31）：横＝先月→12ヶ月先、縦線＝今日。🛒手配・⛔売止・💴売却 の点、今やる1つを右に
@@ -629,7 +629,7 @@ const VL=(()=>{
       +(()=>{const na=nextAct(x.v,x.c);return '<div class="go"><b class="na '+(na?na.lv:'')+'">'+(na?na.txt:'')+'</b>';})()
       +(x.cur[0]==="proc"?'<button class="vl-mini go" data-sec="relay">入替車両を登録</button>':'<button class="vl-mini" data-goto="'+e(x.v.code)+'">カルテ</button>')+'</div>'+stopLine(x)+succ(x)+'</div>';
     h+=rows.map(x=>one(x,false)).join('')+(ex?one(ex,true):'');
-    h+='</div><div class="ov-leg"><span>🛒手配（売止の2ヶ月前）</span><span>⛔売止</span><span>💴売却</span><span><i class="p"></i>手配期間</span><span><i class="s"></i>売止〜売却</span></div>';
+    h+='</div><div class="ov-leg"><span>🛒準備開始（売止の'+(+S.cfg.lead_months||3)+'ヶ月前）</span><span>⛔売止</span><span>💴売却</span><span><i class="p"></i>手配期間</span><span><i class="s"></i>売止〜売却</span></div>';
     if(!rows.length)h+='<div class="vl-note">今、手配の時期に入った車はありません（上は例）。</div>';
     return h;
   }
@@ -638,10 +638,10 @@ const VL=(()=>{
     for(let i=0;i<18;i++)months.push(addMon(Date.UTC(new Date(t0).getUTCFullYear(),new Date(t0).getUTCMonth(),1),i));
     const key=t=>{const d=new Date(t);return d.getUTCFullYear()*100+d.getUTCMonth();};
     const ev={}; const add=(t,o)=>{const k=key(Math.max(t,months[0]));(ev[k]=ev[k]||[]).push(o);};
-    // オーナー指示 2026-10-31：入替の時期に入った車だけ＋形が分かる例を1台（入替＝売止の2ヶ月前）
+    // オーナー指示 2026-10-31：入替の時期に入った車だけ＋形が分かる例を1台（入替＝準備期間に入った車）
     const live=S.v.filter(v=>{const c=S.calc[v.code];return c.st!=="sold"&&c.saleT!=null&&c.stopT!=null;});
-    const inR=live.filter(v=>addMon(S.calc[v.code].stopT,-2)<=t0), exV=live.filter(v=>addMon(S.calc[v.code].stopT,-2)>t0).sort((a,b)=>S.calc[a.code].stopT-S.calc[b.code].stopT)[0];
-    inR.concat(exV?[exV]:[]).forEach(v=>{const c=S.calc[v.code], ex=v===exV, sw=addMon(c.stopT,-2);
+    const inR=live.filter(v=>S.calc[v.code].procT<=t0), exV=live.filter(v=>S.calc[v.code].procT>t0).sort((a,b)=>S.calc[a.code].stopT-S.calc[b.code].stopT)[0];
+    inR.concat(exV?[exV]:[]).forEach(v=>{const c=S.calc[v.code], ex=v===exV, sw=c.procT;
       add(sw,{k:"proc",v,c,t:sw,ex}); add(c.stopT,{k:"stop",v,c,t:c.stopT,ex}); add(c.saleT,{k:"sale",v,c,t:c.saleT,ex});});
     let h='';
     h+='<div class="vl-tl">';
@@ -666,14 +666,14 @@ const VL=(()=>{
     return h;
   }
 
-  // ---------- 売止ブロック（オーナー指示 2026-10-31）----------
-  // 手配の時期（売止の2ヶ月前）に入った車は、配車表に「売止」ブロック（bt_maintenance label=売止, id=stop_<code>）を
-  //   売止日〜無期限で自動登録 → 配車表で貸せなくなり、在庫調整に全媒体「要」が出る（HDM公式は自動）。日付は登録時点で固定。
-  // 入替車両を登録すると、ブロックは切替日の前日で終わり、後継車が同じ行で続く。売止日より後の既存予約は消さずに警告だけ出す。
+  // ---------- 売止ブロック（オーナー指示 2026-10-31：入替で販売しない期間を作らない）----------
+  // 入替車両の準備期間（既定3ヶ月）で後継車を用意し、販売開始日＝売止日で同じ行にバトンタッチ＝在庫は減らさない。
+  // 売止日になっても後継車が未登録の車だけ、配車表に「売止」ブロック（bt_maintenance label=売止, id=stop_<code>）を
+  //   今日〜無期限で自動登録 → 在庫調整に全媒体「要」。後で後継車を登録すると、ブロックは切替日の前日で終わる。
   const FAR="2099-12-31", stopId=code=>"stop_"+code;
   async function syncStop(){
     S.stop={};
-    const t0=T0(), want=S.v.filter(v=>{const c=S.calc[v.code];return c&&c.st!=="sold"&&c.stopT!=null&&addMon(c.stopT,-2)<=t0;})
+    const t0=T0(), want=S.v.filter(v=>{const c=S.calc[v.code];return c&&c.st!=="sold"&&c.stopT!=null&&c.stopT<=t0&&!v.relay_to&&!isSucc(v.code);})
       .map(v=>{const st=dstr(Math.max(S.calc[v.code].stopT,t0)), en=v.relay_to&&v.service_to?v.service_to:FAR;return {code:v.code,start:st,end:en};})
       .filter(w=>w.start<=w.end);
     let rows;
@@ -682,7 +682,7 @@ const VL=(()=>{
       const {data,error}=await sb.from("bt_maintenance").select("id,vehicle_code,start_date,end_date").eq("label","売止");if(error)throw error;
       rows=data||[]; const have=new Set(rows.map(r=>r.vehicle_code));
       for(const w of want.filter(w=>!have.has(w.code))){
-        const row={id:stopId(w.code),vehicle_code:w.code,start_date:w.start,end_date:w.end,label:"売止",cost:0,actual_cost:0,workshop:"",invoice_no:"",maint_notes:"車両ダッシュボードから自動登録（売止）",status:"approved"};
+        const row={id:stopId(w.code),vehicle_code:w.code,start_date:w.start,end_date:w.end,label:"売止",cost:0,actual_cost:0,workshop:"",invoice_no:"",maint_notes:"売止日までに後継車が未登録のため自動登録（車両ダッシュボード）",status:"approved"};
         const {error:e1}=await sb.from("bt_maintenance").upsert(row,{onConflict:"id",ignoreDuplicates:true});
         if(e1){console.warn("[VL] 売止ブロック登録",e1.message);continue;}
         rows.push(row); intakeLog("intake_created",w.code,w.start,w.end);
@@ -742,6 +742,8 @@ const VL=(()=>{
     const nv=S.v.find(x=>x.code===to);
     if(!old||!nv){alert("後継車を選んでください。新しい車は先に車両マスターに登録してください。");return;}
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||ts(d)<=T0()){alert("切替日は明日以降の日付にしてください。");return;}
+    const cc=S.calc[code], lastD=cc&&cc.stopT!=null?dstr(Math.max(cc.stopT,T0()+DAY)):null;
+    if(lastD&&d>lastD){alert("後継車の販売開始日は売止日（"+lastD+"）までにしてください（販売しない期間を作らないため）。");return;}
     const sp=spanning(code,d);
     if(sp.length){const last=sp.reduce((m,r)=>ts(r.end_date)>m?ts(r.end_date):m,0);
       alert("切替日 "+d+" をまたぐ予約が "+sp.length+" 件あります（"+sp.map(r=>r.start_date+"〜"+r.end_date).join("、")+"）。\n切替日を "+dstr(last+DAY)+" 以降にしてください。");return;}
