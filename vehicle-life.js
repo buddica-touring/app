@@ -672,26 +672,28 @@ const VL=(()=>{
   // 切替日 d をまたぐ予約（d より前に出て d 以降に返る）＝そのままでは切り替えられない
   function spanning(code,d){const t=ts(d);return (S.res[code]||[]).filter(r=>ts(r.start_date)<t&&ts(r.end_date)>=t);}
   // 入替車両（オーナー指示 2026-10-31）：売り止め・入替と入替車両（仕入）を1つに。入替準備期間に入った車を売止の月別・早い順に。後継車の登録と準備状況もここで
-  const inPrep=v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&c.stopT!=null&&addMon(c.stopT,-LEAD())<=T0()&&n(v.sale_price)==null;};
+  // オーナー指示 2026-10-31：協議（10万km超・売止日未定）の車も入替の対象としてここに出す
+  const inPrep=v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&(c.stopT!=null?addMon(c.stopT,-LEAD())<=T0():!!c.talk);};
   function relayHtml(){
     const t0=T0(), ymd2=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    const due=S.v.filter(inPrep).sort((a,b)=>S.calc[a.code].stopT-S.calc[b.code].stopT);
+    const due=S.v.filter(inPrep).sort((a,b)=>(S.calc[a.code].stopT??-1)-(S.calc[b.code].stopT??-1));
     let h='<div class="vl-rl2">';
     if(!S.relayCols)h+='<div class="vl-warn">リレー用の列がまだDBにありません（sql/bt_vehicle_lifecycle.sql を適用すると使えます）。</div>';
     if(!due.length)h+='<div class="vl-note">入替準備期間（売止の'+LEAD()+'ヶ月前〜）に入った車はありません。</div>';
     let ym="";
-    due.forEach(v=>{const c=S.calc[v.code], nx=relayOf(v.code), d=new Date(c.stopT), k=d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月';
-      if(k!==ym){ym=k;h+='<div class="gh">'+k+' 売止<b>'+due.filter(x=>{const y=new Date(S.calc[x.code].stopT);return y.getUTCFullYear()+'年'+(y.getUTCMonth()+1)+'月'===k;}).length+'</b></div>';}
-      const late=c.stopT<=t0;
+    const gk=t=>{if(t==null)return '協議（売止日未定）';const d=new Date(t);return d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月 売止';};
+    due.forEach(v=>{const c=S.calc[v.code], nx=relayOf(v.code), k=gk(c.stopT);
+      if(k!==ym){ym=k;h+='<div class="gh">'+k+'<b>'+due.filter(x=>gk(S.calc[x.code].stopT)===k).length+'</b></div>';}
+      const late=c.stopT!=null&&c.stopT<=t0;
       h+='<div class="rw'+(nx?' dn':' nd')+'" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div>'
-        +'<div class="nums"><span><i>現在</i>'+(c.odo!=null?km(c.odo):'—')+'</span><span><i>売止</i><b class="'+(late?'r':'')+'">'+ymd2(c.stopT)+'</b></span><span><i>売却</i>'+(c.saleT!=null?ymd2(c.saleT):'—')+'</span></div><div class="succ">';
+        +'<div class="nums"><span><i>現在</i>'+(c.odo!=null?km(c.odo):'—')+'</span><span><i>売止</i><b class="'+(late?'r':'')+'">'+(c.stopT!=null?ymd2(c.stopT):'未定')+'</b></span><span><i>売却</i>'+(c.saleT!=null?ymd2(c.saleT):'—')+'</span></div><div class="succ">';
       if(nx){const sw=v.service_to?dstr(ts(v.service_to)+DAY):null, sp=sw?spanning(v.code,sw):[], st=prepOf(nx)||[];
         h+='<span class="ar">→</span><span class="nm">'+e(nx.name||nx.code)+' <small>'+e(plate4(nx))+'</small></span><span class="dt">切替 '+(sw?ymd(ts(sw)):'—')+'</span>'
           +st.map(([l,x])=>'<em class="'+(x?'y':'')+'">'+(x?'✓':'')+l+'</em>').join('')+(sp.length?'<span class="vl-warn">切替日をまたぐ予約 '+sp.length+'件</span>':'')
           +'<button class="vl-mini" data-unrelay="'+e(v.code)+'">解除</button>';}
       else{const cands=S.v.filter(x=>x.code!==v.code&&x.type===v.type&&String(x.brand||"")===String(v.brand||"")&&!x.relay_to&&!isSucc(x.code)&&S.calc[x.code].st!=="sold")
           .sort((a,b)=>(S.calc[a.code].rents-S.calc[b.code].rents)||String(b.created_at||"").localeCompare(String(a.created_at||"")));
-        const def=dstr(Math.max(c.stopT,t0+DAY));
+        const def=dstr(Math.max(c.stopT??0,t0+DAY));
         h+='<span class="ar">→</span><select class="vl-rsel"'+(S.relayCols?'':' disabled')+'><option value="">後継車を選ぶ…</option>'+cands.map(x=>'<option value="'+e(x.code)+'">'+e(x.name)+' '+e(plate4(x))+(S.calc[x.code].rents?'（予約'+S.calc[x.code].rents+'件）':'（新規）')+'</option>').join("")+'</select>'
           +'<label class="dt">切替日 <input type="date" class="vl-rdate" value="'+def+'"'+(S.relayCols?'':' disabled')+'></label>'
           +'<button class="vl-mini go" data-relay="'+e(v.code)+'"'+(S.relayCols?'':' disabled')+'>登録</button>';}
@@ -807,7 +809,7 @@ const VL=(()=>{
       const ob=t.closest("[data-ovb]"); if(ob){const k=ob.dataset.ovb, v=k==="all"?null:isNaN(+k)?k:+k; S.ovb=(v===S.ovb)?null:v; render();return;}
       const os2=t.closest("[data-ovs]"); if(os2){S.ovs=os2.dataset.ovs;render();return;}
       const sc=t.closest("[data-sec]"); if(sc){goSec(sc.dataset.sec);return;}
-      const rl=t.closest("[data-relay]"); if(rl&&!rl.disabled){doRelay(rl.dataset.relay,rl.closest(".vl-rl"));return;}
+      const rl=t.closest("[data-relay]"); if(rl&&!rl.disabled){doRelay(rl.dataset.relay,rl.closest("[data-code]"));return;}
       const ur=t.closest("[data-unrelay]"); if(ur){undoRelay(ur.dataset.unrelay);return;}
       const g=t.closest("[data-goto]"); if(g&&!t.closest(".vl-card")&&!t.closest("input,select,label")){gotoCard(g.dataset.goto);return;}
       const sf=t.closest("[data-stf]"); if(sf){S.stf=S.stf===sf.dataset.stf?"all":sf.dataset.stf;S.sec="karte";saveUi();render();return;}
