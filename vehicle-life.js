@@ -332,6 +332,10 @@ const VL=(()=>{
     h+='<div class="ov-ctl">'+seg("ovg",g,[["class","クラス"],["brand","ブランド"],["judge","判定"]])+seg("ovs",so,[["stop","売止順"],["km","走行順"],["gross","売上順"]])+'</div>';
     const sorter=(x,y)=>{const X=C(x),Y=C(y);return so==="km"?(Y.odo||0)/(Y.limit||1)-(X.odo||0)/(X.limit||1):so==="gross"?Y.revDone-X.revDone:(X.stopT??9e15)-(Y.stopT??9e15);};
     const ymS=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1);};
+    // 走行距離帯ごとの保有台数（オーナー指示 2026-10-31）
+    const BANDS=[[0,3e4,"〜3万km"],[3e4,5e4,"3〜5万km"],[5e4,8e4,"5〜8万km"],[8e4,1e5,"8〜10万km"],[1e5,9e9,"10万km〜"]];
+    h+='<div class="ov-band">'+BANDS.map(([lo,hi,lb])=>{const n=a.filter(v=>C(v).odo!=null&&C(v).odo>=lo&&C(v).odo<hi).length;return '<div class="'+(lo>=1e5&&n?'r':lo>=8e4&&n?'o':'')+'"><span>'+lb+'</span><b>'+n+'<small>台</small></b></div>';}).join('')
+      +(a.some(v=>C(v).odo==null)?'<div class="mut"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></div>':'')+'</div>';
     // サマリ＝カルテを1本の時間軸で総括（オーナー指示 2026-10-31）。横＝先月→3年先、縦線＝今日。◆車検・🛒入替・⛔売止、帯＝稼働／入替期間／売止〜売却
     const A=addMon(t0,-1), Z=addMon(t0,36), P=t=>Math.max(0,Math.min(100,(t-A)/(Z-A)*100)).toFixed(1)+'%', inZ=t=>t!=null&&t>=A&&t<=Z;
     h+='<div class="vl-tlx sm"><div class="ax"><div></div><div class="sc">'+[0,12,24,36].map(i=>{const m=addMon(t0,i);return '<span style="left:'+P(m)+'">'+(i?ymS(m):'今日')+'</span>';}).join('')+'</div><div></div></div>';
