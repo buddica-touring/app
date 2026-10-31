@@ -16,12 +16,14 @@ const VL=(()=>{
   const MARKET_RULE=[
     ["車種","カーセンサーの同じ車種（車種コード）。クラスは車種で決まる"],
     ["年式","その車の年式 ±1年（例：2017年式なら2016〜2018年式）"],
-    ["走行距離","売る時点の走行 ±1万km（例：7万kmなら6〜8万km）"],
+    ["走行距離","売る時点の走行を1万km単位に丸めて ±1万km（例：6.4万kmなら5〜7万km。カーセンサーの指定が1万km刻みのため）"],
     ["必須条件","排気量・動力（ハイブリッド／ガソリン／ディーゼル）・駆動方式（2WD／4WD）・乗車定員（何人乗り）の4つは必ず合わせる（同じ車種でも価格帯が別になるため）"],
     ["修復歴","修復歴ありは除く"],
+    ["台数が少ない時","5台未満なら、年式を±2年 → 走行も±2万kmの順に広げ、5台以上になった条件で出す（広げた時は画面に明記）。それでも5台未満なら参考値、0台なら該当なし"],
     ["グレード・装備","絞らない（実測で絞っても価格帯が狭くならず、台数だけ減るため）。装備は記録だけ"],
     ["派生モデル","クロスオーバーなど価格帯が別の派生モデルは、派生モデルだけで取る"],
-    ["出し方","本体価格の中央値と、真ん中50%（25〜75%）の価格帯。毎週ブラウザで調査"],
+    ["出し方","本体価格（支払総額ではない）の中央値と、真ん中50%（25〜75%）の価格帯。店の売り出し価格で、売れた価格ではない。毎週ブラウザで調査"],
+    ["数え方","本体価格の安い順に並べ、25%・50%・75%の順位の台が載るページだけ開く（1ページ30台。例：318台なら80・159・239番目＝3・6・8ページ目＋台数を見る1ページ目）。全部のページは見なくても順位で決まる"],
     ["買取見込み","小売相場の中央値 × 設定の％（初期75%）"]];
   const S={loaded:false,loading:null,cfg:Object.assign({},DEF),cfgSaved:false,lifeCols:false,
     v:[],res:{},maint:{},dmg:{},kpi:{},calc:{},open:new Set(),detail:{},
@@ -68,7 +70,7 @@ const VL=(()=>{
         sb.from("bt_vehicle_monthly_kpi").select("vehicle_code,active").eq("year_month",ymNow),
         sb.from("bt_vehicle_life_settings").select("*").eq("id",1).maybeSingle(),
         sb.rpc("bt_vehicle_damage_summary"),
-        sb.from("bt_market_prices").select("vehicle_code,source,surveyed_at,n,median,p25,p75,min,max,points,query_url").gte("surveyed_at",new Date(Date.now()-180*DAY).toISOString()).order("surveyed_at",{ascending:false}).limit(2000)]);
+        sb.from("bt_market_prices").select("vehicle_code,source,purpose,surveyed_at,year_from,year_to,km_from,km_to,n,median,p25,p75,min,max,points,query_url,note").gte("surveyed_at",new Date(Date.now()-180*DAY).toISOString()).order("surveyed_at",{ascending:false}).limit(2000)]);
       S.v=veh.filter(v=>v.type!=="送迎");
       S.lifeCols=S.v.length>0&&("life_limit_km" in S.v[0]);
       S.relayCols=S.v.length>0&&("relay_to" in S.v[0]);
@@ -122,6 +124,9 @@ const VL=(()=>{
     const fr=String(sp.first_reg||"").match(/^(\d{4})/), y=fr?+fr[1]:wYear(v.year), ys=y?[y-1,y+1]:null, now=band(c.odo), end=c.ride?null:band(c.kmEnd);
     const must=[sp.displacement?sp.displacement+"L":null,sp.fuel||null,sp.drive||null,v.seats?v.seats+"人乗り":null];
     return {name:v.name,year:y,years:ys,now,end,must,mustMiss:must.filter(x=>!x).length,code:v.market_code||null,urlNow:csUrl(v.market_code,ys,now),urlEnd:csUrl(v.market_code,ys,end)};}
+  // 安い順で25%・50%・75%の順位と、それが載るページ（カーセンサーは1ページ30台）。調査で開くのはこのページと1ページ目だけ
+  function rankTxt(N){if(!(N>0))return "";const r=[.25,.5,.75].map(p=>Math.max(1,Math.ceil(N*p))),pg=[...new Set([1].concat(r.map(x=>Math.ceil(x/30))))];
+    return '安い順 '+r.join('・')+'番目（全'+Math.ceil(N/30)+'ページ中 '+pg.join('・')+'ページ目を確認）';}
   function market(code){
     const rows=S.mk[code]; if(!rows||!rows.length)return null;
     const med=a=>{const b=a.slice().sort((x,y)=>x-y);if(!b.length)return null;const q=p=>{const i=(b.length-1)*p,l=Math.floor(i);return b[l]+(b[Math.ceil(i)]-b[l])*(i-l);};return {med:q(.5),p25:q(.25),p75:q(.75),min:b[0],max:b[b.length-1],n:b.length};};
@@ -406,7 +411,7 @@ const VL=(()=>{
       const m=c.mkt, sp=surveySpec(v,c);
       const condTxt=b=>e(sp.name)+'・'+(sp.years?sp.years[0]+'〜'+sp.years[1]+'年式':'年式不明')+'・'+(b?km(b[0])+'〜'+km(b[1])+'km':'走行不明')+'・'+sp.must.filter(Boolean).map(e).join('・')+(sp.mustMiss?'・<span class="miss">必須条件 '+sp.mustMiss+'つ未入力</span>':'');
       const box=(lb,x,b,exit)=>'<div class="big"><span>'+lb+'</span>'+(x?'<b>'+man(x.p25)+'〜'+man(x.p75)+'</b><em class="md">中央値 '+man(x.med)+'</em>'+(x.prev!=null&&Math.round(x.med-x.prev)?'<em class="'+(x.med>x.prev?"up":"dn")+'">'+(x.med>x.prev?'▲':'▼')+man(Math.abs(x.med-x.prev))+'</em>':'')
-          +'<small>'+x.n+'台（全体 '+man(x.min)+'〜'+man(x.max)+'）・'+e(x.sources.join("/"))+' '+e(String(x.when).slice(5,10).replace("-","/"))+'調査</small>'+(exit!=null?'<small class="ex">買取見込み '+yen(exit)+'（中央値×'+Math.round(c.rate*100)+'%）</small>':''):'<b class="no">未調査</b>')
+          +'<small>'+x.n+'台（全体 '+man(x.min)+'〜'+man(x.max)+'）・'+rankTxt(x.n)+'・'+e(x.sources.join("/"))+' '+e(String(x.when).slice(5,10).replace("-","/"))+'調査</small>'+(x.cond&&x.cond.note&&/広げ/.test(x.cond.note)?'<small class="miss">'+e(x.cond.note.split('／').filter(t=>/広げ|参考/.test(t)).join('／'))+'</small>':'')+(exit!=null?'<small class="ex">買取見込み '+yen(exit)+'（中央値×'+Math.round(c.rate*100)+'%）</small>':''):'<b class="no">未調査</b>')
           +'<small class="cond">条件：'+condTxt(b)+'・修復歴なし</small></div>';
       h+='<section><h4>📊 市場価格（一般小売の相場感）</h4>';
       if(!S.mkOn)h+='<div class="vl-warn">相場の保存先（データベースの追加）がまだありません。</div>';
