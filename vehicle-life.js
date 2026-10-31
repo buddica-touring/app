@@ -287,7 +287,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🛒","入替車両"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💴","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🛒","入替車両"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="shaken")return a.filter(v=>shakenOf(v).some(o=>o.miss)).length;
@@ -336,7 +336,7 @@ const VL=(()=>{
     return {txt:ymdS(x.t)+(x.a==='車検を通す'?' ':'までに ')+x.a,t:x.t,lv:d<=60?"o":""};
   }
   // 出口の目印（オーナー指示 2026-10-31）：売却／乗り潰し。リース返却は一覧から外れるので出さない
-  const exTag=v=>v.exit_type==="ride"?'<em class="vl-ex ride">♻乗り潰し</em>':'<em class="vl-ex">💴売却</em>';
+  const exTag=v=>v.exit_type==="ride"?'<em class="vl-ex ride">乗り潰し</em>':'<em class="vl-ex">売却</em>';
   const judgeOf=c=>c.talk&&c.stopT==null?"talk":c.stopT==null?"wait":c.why==="車検"||(c.shaken!=null&&c.stopT<c.shaken)?"swap":"pass";
   function sumHtml(){
     const C=v=>S.calc[v.code], a=S.v.filter(v=>C(v).st!=="sold"), t0=T0();
@@ -364,13 +364,13 @@ const VL=(()=>{
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ③'次回車検（赤＝車検で終了） ④入替準備開始日（売止の準備期間前） ⑤仕入額 ⑥市場売却額＝自動査定（売却額が確定したらその額） ⑦累計売上 ⑧今売却なら＝⑥＋⑦−⑤
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    h+='<div class="ov-num"><div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>今売却なら</span></div>';
+    h+='<div class="ov-num v2"><div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>今売却なら</span></div>';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>';
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
         return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
-          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+(c.why==="車検"&&!c.talk?'<small>終了</small>':'')+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
+          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
           +'<div data-l="仕入額">'+man(c.buy)+'</div>'
           +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.buy!=null&&mv!=null?mv+c.revDone-c.buy:null;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':' title="自動査定"')+'>'+man(mv)+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="今売却なら" title="市場売却額＋累計売上−仕入額"'+(pl!=null&&pl<0?' class="r"':pl!=null?' class="g"':'')+'>'+(pl!=null&&pl>0?'+':'')+man(pl)+'</div>';})()+'</div>';}).join('');});
     h+='</div>';
@@ -394,7 +394,7 @@ const VL=(()=>{
       +'<div class="nums"><div><span>'+(r.v?'売上':'総売上')+'</span><b>'+man(r.x.rev*r.x.n)+'</b></div>'+(r.v?'':'<div><span>台平均売上</span><b>'+man(r.x.rev)+'</b></div>')+'<div><span>稼働率</span><b>'+pc(r.x.util)+'</b></div></div>'
       +'<div class="bar"><u style="width:'+(r.x.util==null?0:Math.min(100,r.x.util*100)).toFixed(1)+'%"></u></div></div>';
     const by=(x,y)=>y.x.rev-x.x.rev;
-    return '<h4 class="vl-h4">💴 クラス実績</h4>'
+    return '<h4 class="vl-h4">💰 クラス実績</h4>'
       +'<div class="vl-ksum k3"><div><span>総売上</span><b>'+man(all.rev*all.n)+'</b></div><div><span>台平均売上</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div></div>'
       +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
       +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
@@ -560,7 +560,7 @@ const VL=(()=>{
     // 編集
     h+='<section><h4>✍ 仕入れ・出口（売却／乗り潰し）</h4>';
     if(!S.lifeCols)h+='<div class="vl-warn">入力欄を使うにはデータベースの追加（sql/bt_vehicle_lifecycle.sql）が必要です。</div>';
-    h+='<div class="vl-exit">'+[["sell","💴 売却"],["ride","♻ 乗り潰し"],["return","🔙 リース返却"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
+    h+='<div class="vl-exit">'+[["sell","売却"],["ride","乗り潰し"],["return","🔙 リース返却"]].map(([k,l])=>'<button data-exit="'+k+'" class="'+((v.exit_type||"sell")===k?"on":"")+'"'+(S.lifeCols?'':' disabled')+'>'+l+'</button>').join("")+'</div>';
     h+='<div class="vl-form">'
       +fld(v,"purchase_price","仕入額","円","number")+fld(v,"purchase_date","仕入日","","date")
       +fld(v,"life_limit_km","この車のリミット","km","number",km(S.calc[v.code].limit)+"（既定）")
