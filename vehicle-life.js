@@ -225,7 +225,7 @@ const VL=(()=>{
         if(S.cfg.shaken_rule==="always"||(kmAtNext!=null&&kmAtNext>=limit))byShaken=shaken;
       }
       // オーナー指示 2026-10-31：リミット9万km。すでに10万km超の車は「協議」＝自動の予測・売止を出さず、売却か継続かを決める（決めたら売却予定日を手入力）
-      const talk=v.life_flag==="協議"; if(talk){limitT=null;byShaken=null;}
+      const talk=v.life_flag==="協議"&&!n(v.life_limit_km); if(talk){limitT=null;byShaken=null;}
       let saleT=null, why="";
       if(v.exit_type==="return"){saleT=ts(v.sale_date)||t0;why="返却済";}   // リース返却・手放した車（2026-10-31 911）。一覧から外し、履歴は残す
       else if(v.sale_date&&(n(v.sale_price)!=null||v.exit_type==="ride")){saleT=ts(v.sale_date);why="売却済";}
@@ -562,8 +562,20 @@ const VL=(()=>{
       +fld(v,"sale_plan_date","売却予定日（手動）","","date")
       +fld(v,"sale_expected","予想売却額","円","number")
       +fld(v,"sale_price",v.exit_type==="ride"?"廃車・下取り額（確定）":"売却額（確定）","円","number")+fld(v,"sale_date",v.exit_type==="ride"?"廃車日":"売却日","","date")+fld(v,"sale_dest","売却先","","text","業者名など")
-      +'</div></section>';
+      +'</div><div class="vl-savebar"><button type="button" class="vl-mini go" data-fsave'+(S.lifeCols?'':' disabled')+'>保存</button>'
+      +(S.saved&&S.saved[v.code]?'<span class="ok">✅ 保存しました '+new Date(S.saved[v.code]).toTimeString().slice(0,5)+'</span>':'<span>入力すると自動で保存されます</span>')+'</div></section>';
     return h;
+  }
+  // 保存ボタン（オーナー指示 2026-10-31）：フォームの変更をまとめて保存し「保存しました」を出す
+  async function saveForm(code,box){
+    const v=S.v.find(x=>x.code===code); if(!v)return; const patch={};
+    box.querySelectorAll("[data-f]").forEach(inp=>{const key=inp.dataset.f,t=inp.dataset.t;let val=inp.value.trim();
+      if(t==="number"){val=val.replace(/[^\d]/g,"");val=val===""?null:Number(val);}else if(val==="")val=null;
+      if(!(v[key]===val||(v[key]==null&&val==null)))patch[key]=val;});
+    if(Object.keys(patch).length){const {error}=await updV(code,patch);
+      if(error){setStatus("保存できませんでした："+error.message);return;}
+      Object.assign(v,patch); compute();}
+    (S.saved=S.saved||{})[code]=Date.now(); setStatus("✅ 保存しました"); render();
   }
   const kp=(k,v,s)=>'<div class="vl-kp"><span>'+k+'</span><b>'+v+'</b>'+(s?'<small>'+s+'</small>':'')+'</div>';
   const kv=(k,v,s)=>'<div><span>'+k+'</span><b>'+v+'</b>'+(s?'<small>'+s+'</small>':'')+'</div>';
@@ -743,7 +755,7 @@ const VL=(()=>{
     const {error}=await updV(code,{[key]:val});
     inp.classList.remove("saving");
     if(error){inp.classList.add("err");setStatus("保存できませんでした："+error.message);return;}
-    inp.classList.remove("err"); v[key]=val; compute(); setStatus("✅ 保存しました");
+    inp.classList.remove("err"); v[key]=val; compute(); (S.saved=S.saved||{})[code]=Date.now(); setStatus("✅ 保存しました");
     inp.blur(); render();
   }
   async function saveOdo(box){
@@ -787,6 +799,7 @@ const VL=(()=>{
       const t=ev.target;
       if(t.closest(".vl-odobox:not(.bad)>summary")){S.odoOpen=!t.closest("details").open;return;}
       const os=t.closest("[data-odosave]"); if(os){saveOdo(os.closest(".vl-odo"));return;}
+      const fs=t.closest("[data-fsave]"); if(fs){saveForm(fs.closest("[data-code]").dataset.code,fs.closest("section"));return;}
       const og=t.closest("[data-ovg]"); if(og){S.ovg=og.dataset.ovg;render();return;}
       const ob=t.closest("[data-ovb]"); if(ob){const k=ob.dataset.ovb, v=k==="all"?null:isNaN(+k)?k:+k; S.ovb=(v===S.ovb)?null:v; render();return;}
       const os2=t.closest("[data-ovs]"); if(os2){S.ovs=os2.dataset.ovs;render();return;}
