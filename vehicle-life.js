@@ -836,12 +836,14 @@ const VL=(()=>{
   const NX_F=[["name","車種名","text","例 ノア"],["plate_no","ナンバー","text","例 4120"],["year","年式","text","例 2021"],["mileage","走行km","number","例 32000"],["shaken","車検満了","date",""],["price","仕入額","number","総額（円）"]];
   const nxOf=v=>(v&&v.next_car&&typeof v.next_car==="object")?v.next_car:{};
   const nxDate=(v,c)=>nxOf(v).date||dstr(Math.max(c.stopT??0,T0()+DAY));
+  const NX_OPEN=new Set();   // 開いている行の車両コード。保存後の描き直しで閉じないように覚える（既定は閉じる）
   function slideHtml(v,c){
     const x=nxOf(v), t0=T0(), d=nxDate(v,c), cd=e(v.code), p4=String(x.plate_no||"").match(/(\d{1,4})\s*$/), ok=s=>s==="OK";
     const pr=p4?S.proc.find(r=>{const m=String(r.plate||"").match(/(\d{1,4})\s*$/);return m&&m[1]===p4[1];}):null;
     const st=[["整備",pr?ok(pr.maint_status):null],["引取",pr?ok(pr.pickup_status):null],["準備",pr?ok(pr.prep_status):null]];
     const ready=!!(x.name&&x.plate_no), sp=spanning(v.code,d).length, early=ts(d)>t0, dis=!S.slideCols||VIEW_KEY;
-    return '<div class="nx"><div class="nxh">後継車の登録情報<small>車両マスタに保存。スライド実行で枠の表示が切り替わります</small></div><div class="nxf">'
+    const sum=x.name||x.plate_no?[x.name,x.plate_no].filter(Boolean).join(' ')+'・入替日 '+mdS(ts(d)):'未登録';
+    return '<details class="nx" data-code="'+cd+'"'+(NX_OPEN.has(v.code)?' open':'')+'><summary class="nxh">後継車の登録情報<small>'+e(sum)+'</small></summary><div class="nxd">車両マスタに保存。スライド実行で枠の表示が切り替わります</div><div class="nxf">'
       +NX_F.map(([k,l,t,ph])=>'<label><span>'+l+'</span><input data-nx="'+k+'" data-code="'+cd+'" type="'+(t==="date"?"date":"text")+'"'+(t==="number"?' inputmode="numeric"':'')+(dis?' disabled':'')+' placeholder="'+e(ph)+'" value="'+e(x[k]==null?"":(t==="number"?Number(x[k]).toLocaleString():x[k]))+'"></label>').join('')
       +'<label><span>導入方法</span><select data-nx="acq" data-code="'+cd+'"'+(dis?' disabled':'')+'><option value="buy"'+(x.acq!=="lease"?" selected":"")+'>一括仕入</option><option value="lease"'+(x.acq==="lease"?" selected":"")+'>リース（総額）</option></select></label></div>'
       +'<div class="nxs">'+st.map(([l,y])=>'<em class="'+(y?'y':'')+'">'+(y?'✓':'')+l+'</em>').join('')
@@ -849,7 +851,7 @@ const VL=(()=>{
       +(p4&&!pr?'<span class="nxn">仕入リストにナンバー '+e(p4[1])+' がありません</span>':'')+'</div>'
       +'<div class="nxg"><label class="dt">入替日 <input type="date" data-nx="date" data-code="'+cd+'" value="'+d+'"'+(dis?' disabled':'')+'></label>'
       +'<button class="vl-mini go" data-slide="'+cd+'"'+(ready&&!dis?'':' disabled')+'>スライド実行</button>'
-      +(sp?'<span class="vl-warn">入替日に貸出中の予約 '+sp+'件</span>':ready&&early?'<span class="nxn">入替日（'+mdS(ts(d))+'）から押せます</span>':'')+'</div></div>';
+      +(sp?'<span class="vl-warn">入替日に貸出中の予約 '+sp+'件</span>':ready&&early?'<span class="nxn">入替日（'+mdS(ts(d))+'）から押せます</span>':'')+'</div></details>';
   }
   async function saveNx(inp){
     if(VIEW_KEY||!S.slideCols)return;
@@ -993,6 +995,7 @@ const VL=(()=>{
         if(S.open.has(code))S.open.delete(code); else{S.open.add(code); if(S.detail[code]===undefined||S.detail[code].err)loadDetail(code);}
         rerenderCard(code); return;}
     });
+    kb.addEventListener("toggle",ev=>{const t=ev.target;if(!t.classList||!t.classList.contains("nx"))return;if(t.open)NX_OPEN.add(t.dataset.code);else NX_OPEN.delete(t.dataset.code);},true);   // toggle は伝わらないので capture で受ける
     kb.addEventListener("change",ev=>{if(ev.target.closest&&ev.target.closest(".vl-host"))return;   // 仕入候補・タイヤ・ETC の画面は procurement.html 側で処理
 const t=ev.target;
       if(t.classList.contains("vl-secsel")){goSec(t.value);return;}
