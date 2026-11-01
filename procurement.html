@@ -1111,12 +1111,15 @@ if(window.innerWidth>680){const d=$("clswrap");if(d)d.open=true;}   // PCは既�
 // realtime
 sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_procurement"},payload=>{
   const {eventType,new:nw,old}=payload;
+  const prevSt=nw&&nw.id?((rows.find(r=>r.id===nw.id)||{}).status):undefined;
   if(eventType==="INSERT"){ if(!rows.find(r=>r.id===nw.id)){rows.push(nw);} }
   else if(eventType==="UPDATE"){ const i=rows.findIndex(r=>r.id===nw.id);
     if(i>=0){ const cur=rows[i]; /* フィールド単位でマージ：自分が保存中(pending)の項目はローカル値を守る＝他人の更新で勝手に戻さない */
       Object.keys(nw).forEach(f=>{ if(!pending.has(nw.id+":"+f)) cur[f]=nw[f]; }); }
     else rows.push(nw); }
   else if(eventType==="DELETE"){ rows=rows.filter(r=>r.id!==old.id); }
+  // 仕入OKの変化はタイヤチェック・ETCの一覧にも反映（開いていれば読み直す）
+  if((eventType==="INSERT"&&nw.status==="OK")||(eventType==="UPDATE"&&(prevSt!==nw.status||(nw.status==="OK"&&old&&old.plate!==undefined&&old.plate!==nw.plate)))||eventType==="DELETE"){ETC_V=null;TIRE_V=null;const ve=$("viewEtc"),vt=$("viewTire");if(ve&&ve.style.display!=="none")renderEtc();if(vt&&vt.style.display!=="none")renderTire();}
   rows.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   // 入力中セルは維持（フォーカス中は全再描画しない）＝メモ/予定日(data-df)も保護し、他人の更新で入力中テキストを消さない
   const _ae=document.activeElement, _ed=_ae&&_ae.classList&&(_ae.classList.contains("cell")||_ae.hasAttribute("data-df"));
@@ -1168,6 +1171,18 @@ let KPIFLAGS={}, KPI_YM="";
 // 稼働＝当月配車表(bt_vehicle_monthly_kpi)と一致。KPI未設定の車はマスタの静的activeにフォールバック。保険事業車は未稼働。
 function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.code]; return f!==undefined ? f!==false : (v.active!==false && v.status!=="inactive"); }
 // ===== ETCセットアップ＝全車両(bt_vehicles・読むだけ)の進捗。保存先は bt_etc_setup（1車1項目だけ upsert）=====
+// 仕入候補との連動（オーナー指示 2026-11-01）：仕入候補で「仕入OK」になった車は、車両マスタに登録される前からタイヤチェック・ETCに出す。
+//   コード＝"proc_"+仕入候補id。車両マスタに同じナンバー（下4桁）で登録されたら、その車の行に入力済みの内容を引き継ぐ（元の行は消さない）
+const p4of=x=>{const m=String(x||"").match(/(\d{2,4})\s*$/);return m?m[1]:"";};
+async function procRows(){return (rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("id,plate,model,status,vclass")).data)||[]);}
+function procExtra(vs,prow){const have=new Set(vs.map(v=>p4of(v.plate_no)).filter(Boolean));
+  return prow.filter(r=>r.status==="OK"&&!isSample(r)&&!(p4of(r.plate)&&have.has(p4of(r.plate)))).map(r=>({code:"proc_"+r.id,plate_no:p4of(r.plate),brand:"",vtype:r.vclass||"",type:r.vclass||"",name:(r.model||"")+"（仕入）",cand:true}));}
+async function procCarry(table,vs,prow,cur){   // 登録済みの車に、仕入候補の時に入れた内容を引き継ぐ
+  for(const v of vs){const p=p4of(v.plate_no); if(!p||cur[v.code])continue;
+    const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)===p), o=r&&cur["proc_"+r.id]; if(!o)continue;
+    const row=Object.assign({},o,{code:v.code,updated_at:new Date().toISOString()}); delete row.created_at;
+    const {error}=await sb.from(table).upsert(row,{onConflict:"code"}); if(!error)cur[v.code]=row;
+    if(!error&&table==="bt_tire_check"){try{await sb.from("bt_tire_photos").update({code:v.code}).eq("code","proc_"+r.id);}catch(e){}}}}
 let ETC_V=null, ETC={};
 const ETC_EXCLUDE=new Set(["ポルシqs4p","ハイエース1002"]);   // 10/14 オーナー指示：ETC表からだけ外す（911・ハイエース1002）。bt_vehicles・保存データは触らない
 async function loadEtc(){
@@ -1177,9 +1192,10 @@ async function loadEtc(){
   const [vres,eres,nres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_etc_setup").select("*"),sb.rpc("bt_company_vehicles")]);
   if(vres.error||eres.error){$("etcBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc((vres.error||eres.error).message)+'</div>';return;}
   const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});
-  const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);
+  const prow=await procRows();
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};
-  ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;}); renderEtc();
+  ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;});
+  await procCarry("bt_etc_setup",ETC_V,prow,ETC); ETC_V=ETC_V.concat(procExtra(ETC_V,prow)); renderEtc();
 }
 function renderEtc(){
   if(!ETC_V){loadEtc();return;}
@@ -1365,11 +1381,14 @@ async function loadTire(){
   const er=vres.error||tres.error||pres.error;
   if(er){$("tireBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(er.message)+'</div>';return;}
   const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});   // 車両名＝既存の公開関数 bt_company_vehicles（稼働車のナンバー→車両名）。稼働外の車は名前なし
-  const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);   // 仕入候補の読込がまだなら直接読む
+  const prow=await procRows();   // 仕入候補の読込がまだなら直接読む
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};   // 稼働前の車は仕入候補（bt_procurement）の車種名で補う
   TIRE_V=(vres.data||[]).filter(v=>!TIRE_EXCLUDE.has(v.code)).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)}));
   TIRE={};(tres.data||[]).forEach(t=>TIRE[t.code]=t);
   TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
+  const vs=TIRE_V.slice(); await procCarry("bt_tire_check",vs,prow,TIRE);
+  vs.forEach(v=>{const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)&&p4of(x.plate)===p4of(v.plate_no));if(r&&!TIRE_PH[v.code]&&TIRE_PH["proc_"+r.id])TIRE_PH[v.code]=TIRE_PH["proc_"+r.id];});
+  TIRE_V=TIRE_V.concat(procExtra(TIRE_V,prow));
   renderTire();
 }
 function tireSignUrls(paths){return phSign("bt-tires",paths);}
@@ -1479,7 +1498,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
 // 仕入候補・タイヤ・ETC は車両ダッシュボードの左メニューから開く（オーナー指示 2026-11-01：上のタブは 車両・KPI・点検 の3つ）
 const HOSTV={proc:"viewProc",tire:"viewTire",etc:"viewEtc"};
 window.VL_PARK=function(){const pk=$("vlPark");Object.values(HOSTV).forEach(id=>{const el=$(id);if(el&&el.parentNode!==pk){el.style.display="none";pk.appendChild(el);}});};
-window.VL_HOST=function(k,host){const el=$(HOSTV[k]);if(!el||!host)return;host.appendChild(el);el.style.display="";if(k==="etc")renderEtc();if(k==="tire")renderTire();};
+window.VL_HOST=function(k,host){const el=$(HOSTV[k]);if(!el||!host)return;const fresh=el.parentNode!==host;host.appendChild(el);el.style.display="";if(k==="etc"){if(fresh)ETC_V=null;renderEtc();}if(k==="tire"){if(fresh)TIRE_V=null;renderTire();}};   // 開くたびに読み直す（仕入候補の仕入OKを反映）
 load();
 // 開いた時の既定タブ＝サマリ（オーナー指示 2026-11-01。以前は点検）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
 (function(){let t="";try{const q=new URLSearchParams(location.search);t=q.get("tab")||"";if(!t||q.get("view"))t="sum";}catch(e){}   // 既定＝サマリ（オーナー指示 2026-11-01、閲覧リンクも）
