@@ -291,21 +291,26 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🛒","入替車両"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="shaken")return a.filter(v=>shakenOf(v).some(o=>o.miss)).length;
     if(k==="market")return a.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
     return 0;};
+  // 仕入候補・タイヤ・ETC（オーナー指示 2026-11-01：上のタブから車両ダッシュボードの中へ）＝procurement.html の既存画面をここに差し込む
+  const HOSTED=["proc","tire","etc"];
   function renderDash(){
     const body=$("karteBody"); if(!body)return;
+    const SECS=VIEW_KEY?SECS0.map(([g,it])=>[g,it.filter(x=>!HOSTED.includes(x[0]))]).filter(([,it])=>it.length):SECS0;
     const all=SECS.flatMap(g=>g[1]); if(!all.some(x=>x[0]===S.sec))S.sec="sum";
     const lb=x=>x[1]+' '+x[2], bd=x=>{const n=secBadge(x[0]);return n?n:0;};
     let h='<div class="vl-dash"><nav class="vl-side">'+SECS.map(([g,items])=>'<div class="g">'+e(g)+'</div>'+items.map(x=>'<button class="'+(S.sec===x[0]?"on":"")+'" data-sec="'+x[0]+'"><span>'+lb(x)+'</span>'+(bd(x)?'<i>'+bd(x)+'</i>':'')+'</button>').join("")).join("")+'</nav>';
     h+='<div class="vl-main"><label class="vl-pick"><select class="vl-secsel" aria-label="画面を選ぶ">'+SECS.map(([g,items])=>'<optgroup label="'+e(g)+'">'+items.map(x=>'<option value="'+x[0]+'"'+(S.sec===x[0]?" selected":"")+'>'+x[2]+(bd(x)?' 🔴'+bd(x):'')+'</option>').join("")+'</optgroup>').join("")+'</select></label>';
     h+='<div class="vl-sec">'+(S.v.length?secHtml():'<div class="vl-empty err">車両が0台です。配車表にログインしていない端末では表示されません。<br><a href="index.html" target="_blank" rel="noopener">配車表でログイン ↗</a> してから、この画面を開き直してください。</div>')+'</div>';
     h+=(VIEW_KEY?'':'<div class="vl-foot live">🟢 リアルタイム共有（配車表・点検の更新が自動で反映されます）'+(S.updated?'　最終更新 '+String(S.updated.getHours()).padStart(2,"0")+':'+String(S.updated.getMinutes()).padStart(2,"0"):'')+'</div>')+'</div></div>';
+    if(window.VL_PARK)window.VL_PARK();   // 差し込んだ画面を書き換えで消さないよう、先に退避
     body.innerHTML=h;
+    if(HOSTED.includes(S.sec)&&window.VL_HOST)window.VL_HOST(S.sec,body.querySelector(".vl-host"));
     if(S.sec==="karte")S.open.forEach(code=>{if(S.detail[code]===undefined)loadDetail(code);});
   }
   function secHtml(){
@@ -316,6 +321,7 @@ const VL=(()=>{
       case "market":return marketHtml();
       case "shaken":return shakenHtml();
       case "rule":return cfgHtml(true);
+      case "proc":case "tire":case "etc":return '<div class="vl-host"></div>';
       default:return sumHtml();
     }
   }
@@ -951,7 +957,8 @@ const VL=(()=>{
   function bind(){
     const kb=$("karteBody");
     const goSec=k=>{S.sec=k;saveUi();render();const m=document.querySelector(".vl-main");if(m&&m.getBoundingClientRect().top<0)m.scrollIntoView({block:"start"});};
-    kb.addEventListener("click",ev=>{
+    kb.addEventListener("click",ev=>{if(ev.target.closest&&ev.target.closest(".vl-host"))return;   // 仕入候補・タイヤ・ETC の画面は procurement.html 側で処理
+
       const t=ev.target;
       if(t.closest(".vl-odobox:not(.bad)>summary")){S.odoOpen=!t.closest("details").open;return;}
       const os=t.closest("[data-odosave]"); if(os){saveOdo(os.closest(".vl-odo"));return;}
@@ -986,19 +993,22 @@ const VL=(()=>{
         if(S.open.has(code))S.open.delete(code); else{S.open.add(code); if(S.detail[code]===undefined||S.detail[code].err)loadDetail(code);}
         rerenderCard(code); return;}
     });
-    kb.addEventListener("change",ev=>{const t=ev.target;
+    kb.addEventListener("change",ev=>{if(ev.target.closest&&ev.target.closest(".vl-host"))return;   // 仕入候補・タイヤ・ETC の画面は procurement.html 側で処理
+const t=ev.target;
       if(t.classList.contains("vl-secsel")){goSec(t.value);return;}
       if(t.classList.contains("vl-sort")){S.sort=t.value;saveUi();render();return;}
       if(t.dataset.nx){saveNx(t);return;}
       if(t.dataset.f){saveField(t.closest("[data-code]").dataset.code,t);}
     });
-    kb.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&ev.target.dataset.f)ev.target.blur();if(ev.key==="Enter"&&ev.target.dataset.odo)saveOdo(ev.target.closest(".vl-odo"));});
-    kb.addEventListener("focusin",ev=>{const t=ev.target;if(t.dataset.t==="number"||/_km$/.test(t.dataset.cfg||"")||t.dataset.cls)t.value=t.value.replace(/[^\d]/g,"");});
+    kb.addEventListener("keydown",ev=>{if(ev.target.closest&&ev.target.closest(".vl-host"))return;   // 仕入候補・タイヤ・ETC の画面は procurement.html 側で処理
+if(ev.key==="Enter"&&ev.target.dataset.f)ev.target.blur();if(ev.key==="Enter"&&ev.target.dataset.odo)saveOdo(ev.target.closest(".vl-odo"));});
+    kb.addEventListener("focusin",ev=>{if(ev.target.closest&&ev.target.closest(".vl-host"))return;   // 仕入候補・タイヤ・ETC の画面は procurement.html 側で処理
+const t=ev.target;if(t.dataset.t==="number"||/_km$/.test(t.dataset.cfg||"")||t.dataset.cls)t.value=t.value.replace(/[^\d]/g,"");});
     // リアルタイム：車両・予約（配車表）・整備・設定が変わったら、開いている人全員の画面を自動で更新（入力中は待つ）
     let tm=null; const visible=()=>$("viewKarte").style.display!=="none";
     const refresh=()=>{clearTimeout(tm);tm=setTimeout(()=>{const ae=document.activeElement;
       if(ae&&ae.closest&&ae.closest("#viewKarte")&&/INPUT|SELECT/.test(ae.tagName)){refresh();return;}
-      if(!S.loaded)return; load(true).then(()=>{S.updated=new Date();if(visible())render();}).catch(()=>{});},4000);};
+      if(!S.loaded)return; load(true).then(()=>{S.updated=new Date();if(visible()&&!HOSTED.includes(S.sec))render();}).catch(()=>{});},4000);};
     const ch=sb.channel("vl-rt");
     ["bt_vehicles","bt_reservations","bt_fleet","bt_vehicle_maintenance","bt_vehicle_life_settings"].forEach(t=>ch.on("postgres_changes",{event:"*",schema:"public",table:t},refresh));
     ch.subscribe();
