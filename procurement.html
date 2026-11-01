@@ -217,6 +217,7 @@
     .wrap .tabbtn[data-v="karte"]{grid-column:span 12;order:0;min-height:52px;font-size:14px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     .wrap .tabbtn[data-v="kpi"]{grid-column:span 12;order:0;min-height:44px;font-size:13px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px}
     .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="tire"]{order:2}.wrap .tabbtn[data-v="proc"]{order:3}.wrap .tabbtn[data-v="etc"]{order:4}
+    .wrap .tabbtn[data-v="karte"],.wrap .tabbtn[data-v="kpi"],.wrap .tabbtn[data-v="insp"]{grid-column:span 4;order:0;min-height:48px;font-size:13.5px}
     .wrap .tabbtn.on{background:#0f172a!important;color:#fff!important;border-color:#0f172a!important}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .card small{font-size:10.5px;line-height:1.45}
@@ -708,12 +709,9 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 <div class="wrap">
   <h1>🚗 TOURISM 進行管理</h1>
   <div class="tabs">
-    <button class="tabbtn" data-v="karte">🚗 車両ダッシュボード</button>
+    <button class="tabbtn" data-v="karte">🚗 車両</button>
     <button class="tabbtn" data-v="kpi">📊 KPI</button>
     <button class="tabbtn on" data-v="insp">🔧 点検</button>
-    <button class="tabbtn" data-v="tire">🛞 <span class="tl-l">タイヤチェック</span><span class="tl-s">タイヤ</span></button>
-    <button class="tabbtn" data-v="proc">🛒 仕入候補</button>
-    <button class="tabbtn" data-v="etc">📡 <span class="tl-l">ETCセットアップ</span><span class="tl-s">ETC</span></button>
   </div>
   <div id="viewProc" style="display:none">
   <button class="dashsum" id="dashsum" type="button"></button>
@@ -746,6 +744,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <div id="tireBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
     <input type="file" id="tireFile" accept="image/*" multiple style="display:none">
   </div>
+  <div id="vlPark" style="display:none"></div>
   <div id="viewInsp">
     <div class="ins-seg"><button class="ins-kb on" data-k="pre">🚗 出発前点検</button><button class="ins-kb" data-k="post">🔙 返却後点検</button></div>
     <div id="inspBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
@@ -756,7 +755,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="vehicle-life.js?v=66"></script>
+<script src="vehicle-life.js?v=67"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const STATUSES=["未対応","確認中","対応中","NG","OK"];
@@ -1453,10 +1452,15 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   if(v==="etc")renderEtc();
   if(v==="tire"){TIRE_V=null;renderTire();}
 }));
+// 仕入候補・タイヤ・ETC は車両ダッシュボードの左メニューから開く（オーナー指示 2026-11-01：上のタブは 車両・KPI・点検 の3つ）
+const HOSTV={proc:"viewProc",tire:"viewTire",etc:"viewEtc"};
+window.VL_PARK=function(){const pk=$("vlPark");Object.values(HOSTV).forEach(id=>{const el=$(id);if(el&&el.parentNode!==pk){el.style.display="none";pk.appendChild(el);}});};
+window.VL_HOST=function(k,host){const el=$(HOSTV[k]);if(!el||!host)return;host.appendChild(el);el.style.display="";if(k==="etc")renderEtc();if(k==="tire")renderTire();};
 load();
 // 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
 (function(){let t="";try{t=new URLSearchParams(location.search).get("tab")||"";}catch(e){}
-  if(t==="swap"){t="karte";try{VL._S.sec="relay";}catch(e){}}   // 旧「入替」タブは車両ダッシュボードの中へ
+  if(t==="swap"){t="karte";try{VL._S.sec="relay";}catch(e){}}
+  if(t==="proc"||t==="tire"||t==="etc"){try{VL._S.sec=t;}catch(e){}t="karte";}   // 仕入候補・タイヤ・ETC は車両ダッシュボードの中   // 旧「入替」タブは車両ダッシュボードの中へ
   const b=t&&document.querySelector('.tabbtn[data-v="'+t.replace(/[^a-z]/g,"")+'"]');
   if(b&&t!=="insp")b.click(); else renderInsp();})();
 setInterval(()=>{ if(!document.activeElement||document.activeElement.tagName==="BODY")load(); },60000);
