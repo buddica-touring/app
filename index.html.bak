@@ -5390,7 +5390,7 @@ function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onC
   const vehName=(code)=>{const v=(vehicles||[]).find(x=>x.code===code);return v?v.name:code;};
   const LAB={display:"block",fontSize:11,fontWeight:700,color:"#475569",marginBottom:3};
   const INP={width:"100%",border:"1px solid #cbd5e1",borderRadius:8,padding:"8px 10px",fontSize:13,boxSizing:"border-box"};
-  const TC={"車検":"#2563eb","半年点検":"#16a34a","修理":"#dc2626"};
+  const TC={"車検":"#2563eb","半年点検":"#16a34a","修理":"#dc2626","安全在庫":"#ca8a04"};
   const save=async()=>{
     if(!vc){alert("車両を選択してください");return;}
     if(!sd||!ed){alert("入庫日・引取日を入力してください");return;}
@@ -5400,7 +5400,7 @@ function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onC
     if(_mc){alert("⚠️ 入庫予定が重複するため登録できません。\n\n"+vehName(vc)+" は "+fmtD(_mc.startDate)+"〜"+fmtD(_mc.endDate||_mc.startDate)+" に\n「"+(_mc.label||"入庫")+"」の入庫予定が入っています。\n\n期間を変更するか、既存の入庫予定を確認してください。");return;}}
     setSaving(true);
     const id=edit?edit.id:("m"+Date.now());
-    const status=fix?"approved":"pending";
+    const status=(fix||label==="安全在庫")?"approved":"pending";
     const ac=edit?(Number(edit.actualCost)||0):0; // 編集時は確定金額を保持（確定入力を上書きしない）
     const row={id,vehicle_code:vc,start_date:sd,end_date:ed,label,cost:Number(cost)||0,actual_cost:ac,workshop:ws||"",invoice_no:edit?(edit.invoiceNo||""):"",maint_notes:detail||"",status,work_detail:detail||"",start_time:st||null,end_time:et||null};
     try{
@@ -5442,7 +5442,7 @@ function IntakeAddForm({preset,edit,vehicles,maintenance,onMaintenanceChange,onC
           <select value={vc} onChange={e=>setVc(e.target.value)} style={INP}><option value="">選択…</option>{(vehicles||[]).filter(v=>v.active!==false).map(v=><option key={v.code} value={v.code}>{v.name}（{v.type}）{v.no?" / "+v.no:""}</option>)}</select>
         </div>
         <div><label style={LAB}>種別</label>
-          <div style={{display:"flex",gap:6}}>{["車検","半年点検","修理"].map(t=><button key={t} onClick={()=>setLabel(t)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"2px solid "+(label===t?TC[t]:"#e2e8f0"),background:label===t?TC[t]:"#fff",color:label===t?"#fff":"#64748b",fontWeight:800,fontSize:12,cursor:"pointer"}}>{t}</button>)}</div>
+          <div style={{display:"flex",gap:6}}>{["車検","半年点検","修理","安全在庫"].map(t=><button key={t} onClick={()=>setLabel(t)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"2px solid "+(label===t?TC[t]:"#e2e8f0"),background:label===t?TC[t]:"#fff",color:label===t?"#fff":"#64748b",fontWeight:800,fontSize:12,cursor:"pointer"}}>{t}</button>)}</div>
         </div>
         <div><label style={LAB}>状態</label>
           <div style={{display:"flex",gap:6}}>
@@ -16964,7 +16964,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     if(_mc){const _vm=(vehicles||[]).find(x=>x.code===vc);alert("⚠️ 入庫予定が重複するため登録できません。\n\n"+(_vm?_vm.name+" ("+_vm.no+")":vc)+" は "+fmtD(_mc.startDate)+"〜"+fmtD(_mc.endDate||_mc.startDate)+" に\n「"+(_mc.label||"入庫")+"」の入庫予定が入っています。\n\n期間を変更するか、既存の入庫予定を確認してください。");return;}}
     if(maintSaving)return;
     setMaintSaving(true);
-    const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:status||"pending",startTime:startTime||"",endTime:endTime||"",createdAt:((editId&&(maintenance||[]).find(x=>x.id===editId))||{}).createdAt||new Date().toISOString()};
+    const m={id:editId||("m"+Date.now()),vehicleCode:vc,startDate:start,endDate:end,label,cost:Number(cost)||0,workshop:workshop||"",invoiceNo:invoiceNo||"",maintNotes:maintNotes||"",status:label==="安全在庫"?"approved":(status||"pending"),startTime:startTime||"",endTime:endTime||"",createdAt:((editId&&(maintenance||[]).find(x=>x.id===editId))||{}).createdAt||new Date().toISOString()};
     const next=editId?(maintenance||[]).map(x=>x.id===editId?m:x):[...(maintenance||[]),m];
     onMaintenanceChange(next);
     DB._maintLsSave(next);
@@ -17229,7 +17229,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
                 {!isMobile&&(()=>{const u=utilRates[v.code];if(!u)return null;const pc=u.pct;const cl=pc>=80?"#dc2626":pc>=50?"#f59e0b":"#22c55e";return <span style={{fontSize:8,fontWeight:700,color:cl,marginLeft:4,background:pc>=80?"#fef2f2":pc>=50?"#fffbeb":"#f0fdf4",padding:"0 3px",borderRadius:3}}>{u.days}日{!isMobile&&" "+pc+"%"}</span>;})()}
               </td>
               {dates.map((d,di)=>{const isToday=d===today;const _sw=_ch&&_ch.some((c,ci)=>ci>0&&c.serviceFrom===d);return <td key={d} style={{position:"relative",height:ROW_H,borderBottom:"1px solid #f1f5f9",borderRight:"1px solid #e2e8f0",...(_sw?{borderLeft:"3px solid #7c3aed"}:{}),cursor:dragInfo?"copy":"pointer",background:isDT?rowHL:(isToday?"#eff6ff":"transparent"),padding:0,transition:"background .15s"}} onClick={()=>{if(!dragInfo)handleCellClick(_ch?relayCodeAt(_ch,d):v.code,d);}}>
-                {di===0&&bars.map((b,bi)=>{const isRes=b.type==="reservation";const isMaint=b.type==="maintenance";const isSafety=isMaint&&String(b.m?.id||"").startsWith("sf_");const isDragging=dragInfo===b.r?.id;const isSearchHit=isRes&&searchResult&&searchResult.found&&searchResult.hitSet.has(b.r.id);const brandMM=isRes&&b.r&&(()=>{const rb=resBrand(b.r),vb=normBrand(v.brand);return !!(rb&&vb&&rb!==vb);})();return <div key={bi} title={brandMM?("⚠ ブランド不一致: 予約="+resBrand(b.r)+" / 車両="+normBrand(v.brand)+"運用車。配車表で正しいブランドの車へ移してください。"):undefined} className={isMaint?"":(isSearchHit?"tl-bar tl-bar-hit":(brandMM?"tl-bar tl-bar-mm":"tl-bar"))} draggable={isRes} onDragStart={isRes?e=>handleDragStart(e,b.r.id):undefined} onDragEnd={handleDragEnd} onClick={e=>handleBarClick(e,b)} style={{left:b.left,width:Math.max(b.width,20),background:isSafety?"repeating-linear-gradient(45deg,#facc15,#facc15 6px,#fde047 6px,#fde047 12px)":isMaint?(b.m?.status==="approved"?"repeating-linear-gradient(135deg,#15803d,#15803d 3px,#16a34a 3px,#16a34a 6px)":"repeating-linear-gradient(135deg,#d97706,#d97706 3px,#f59e0b 3px,#f59e0b 6px)"):(isRes?(isDragging?"#f87171":brandMM?"repeating-linear-gradient(135deg,#db2777,#db2777 6px,#9d174d 6px,#9d174d 12px)":(FLEET_ASSIGNER_BG[assignerKinds[String(b.r.id)]]||FLEET_ASSIGNER_BG.unknown)):"#2563eb"),color:isSafety?"#713f12":"#fff",fontSize:isMaint?9.5:9,fontWeight:isMaint?800:600,boxShadow:isSearchHit?"0 0 8px 3px rgba(250,204,21,.8),0 0 16px 6px rgba(250,204,21,.4)":(isDragging?"0 4px 12px rgba(0,0,0,.3)":(isMaint?"none":"0 1px 3px rgba(0,0,0,.2)")),outline:isSearchHit?"3px solid #facc15":(brandMM?"2px solid #831843":"none"),position:"absolute",top:isMaint?0:3,height:isMaint?17:undefined,bottom:isMaint?undefined:3,zIndex:isMaint?3:(isSearchHit?15:(brandMM?12:(isDragging?10:2))),opacity:isDragging?0.7:(isSafety?1:(isMaint?0.9:1)),cursor:isRes?"grab":"pointer",transition:"opacity .15s, box-shadow .15s",borderRadius:isMaint?0:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap",border:isSafety?"1px solid #ca8a04":undefined,boxSizing:"border-box"}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{isRes?`${brandMM?"⚠":""}${b.r.ota==="HANDYMAN"&&b.r.site==="hdm2"?"🆕2":""}${fleetOtaTag(b.r.ota)}${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`:isSafety?"🛡安全在庫":("🔧"+b.m.label+(b.m.status==="approved"?"〔FIX〕":"〔仮〕"))}</span></div>;})}
+                {di===0&&bars.map((b,bi)=>{const isRes=b.type==="reservation";const isMaint=b.type==="maintenance";const isSafety=isMaint&&(String(b.m?.id||"").startsWith("sf_")||b.m?.label==="予備車"||b.m?.label==="安全在庫");const isDragging=dragInfo===b.r?.id;const isSearchHit=isRes&&searchResult&&searchResult.found&&searchResult.hitSet.has(b.r.id);const brandMM=isRes&&b.r&&(()=>{const rb=resBrand(b.r),vb=normBrand(v.brand);return !!(rb&&vb&&rb!==vb);})();return <div key={bi} title={brandMM?("⚠ ブランド不一致: 予約="+resBrand(b.r)+" / 車両="+normBrand(v.brand)+"運用車。配車表で正しいブランドの車へ移してください。"):undefined} className={isMaint?"":(isSearchHit?"tl-bar tl-bar-hit":(brandMM?"tl-bar tl-bar-mm":"tl-bar"))} draggable={isRes} onDragStart={isRes?e=>handleDragStart(e,b.r.id):undefined} onDragEnd={handleDragEnd} onClick={e=>handleBarClick(e,b)} style={{left:b.left,width:Math.max(b.width,20),background:isSafety?"repeating-linear-gradient(45deg,#facc15,#facc15 6px,#fde047 6px,#fde047 12px)":isMaint?(b.m?.status==="approved"?"repeating-linear-gradient(135deg,#15803d,#15803d 3px,#16a34a 3px,#16a34a 6px)":"repeating-linear-gradient(135deg,#d97706,#d97706 3px,#f59e0b 3px,#f59e0b 6px)"):(isRes?(isDragging?"#f87171":brandMM?"repeating-linear-gradient(135deg,#db2777,#db2777 6px,#9d174d 6px,#9d174d 12px)":(FLEET_ASSIGNER_BG[assignerKinds[String(b.r.id)]]||FLEET_ASSIGNER_BG.unknown)):"#2563eb"),color:isSafety?"#713f12":"#fff",fontSize:isMaint?9.5:9,fontWeight:isMaint?800:600,boxShadow:isSearchHit?"0 0 8px 3px rgba(250,204,21,.8),0 0 16px 6px rgba(250,204,21,.4)":(isDragging?"0 4px 12px rgba(0,0,0,.3)":(isMaint?"none":"0 1px 3px rgba(0,0,0,.2)")),outline:isSearchHit?"3px solid #facc15":(brandMM?"2px solid #831843":"none"),position:"absolute",top:isMaint?0:3,height:isMaint?17:undefined,bottom:isMaint?undefined:3,zIndex:isMaint?3:(isSearchHit?15:(brandMM?12:(isDragging?10:2))),opacity:isDragging?0.7:(isSafety?1:(isMaint?0.9:1)),cursor:isRes?"grab":"pointer",transition:"opacity .15s, box-shadow .15s",borderRadius:isMaint?0:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap",border:isSafety?"1px solid #ca8a04":undefined,boxSizing:"border-box"}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{isRes?`${brandMM?"⚠":""}${b.r.ota==="HANDYMAN"&&b.r.site==="hdm2"?"🆕2":""}${fleetOtaTag(b.r.ota)}${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`:isSafety?"🛡安全在庫":("🔧"+b.m.label+(b.m.status==="approved"?"〔FIX〕":"〔仮〕"))}</span></div>;})}
               </td>;})}
             </tr>;})}
           </React.Fragment>)}
@@ -17242,6 +17242,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       <div className="space-y-2">
         <button onClick={()=>{const v=vehicles.find(x=>x.code===cellAction.vehicleCode);setShowResForm({vehicleCode:cellAction.vehicleCode,lendDate:cellAction.date,vehicle:v?.type||"A"});setCellAction(null);}} className="w-full py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700">新規予約を登録</button>
         <button onClick={()=>{setShowMaintForm(cellAction);setCellAction(null);}} className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">メンテナンス登録</button>
+        <button onClick={()=>{setShowMaintForm({...cellAction,safety:true});setCellAction(null);}} className="w-full py-2 rounded-lg text-sm font-bold" style={{background:"repeating-linear-gradient(45deg,#facc15,#facc15 6px,#fde047 6px,#fde047 12px)",color:"#713f12",border:"1px solid #ca8a04"}}>🛡 安全在庫を登録</button>
         <button onClick={()=>setCellAction(null)} className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold">キャンセル</button>
       </div>
     </div></div>}
@@ -17282,14 +17283,14 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       </div>}
     </div></div>}
 
-    {showMaintForm&&<div className="modal-overlay" onClick={()=>{if(!maintSaving)setShowMaintForm(null);}}><div className="modal-box" style={{maxWidth:320,padding:20}} onClick={e=>e.stopPropagation()}><h4 className="font-bold text-sm mb-3">{showMaintForm.edit?"メンテナンス編集":"メンテナンス登録"}</h4><MaintForm vehicleCode={showMaintForm.vehicleCode} startDate={showMaintForm.date} edit={showMaintForm.edit} onAdd={addMaint} onClose={()=>{if(!maintSaving)setShowMaintForm(null);}} vehicles={vehicles} saving={maintSaving}/></div></div>}
+    {showMaintForm&&<div className="modal-overlay" onClick={()=>{if(!maintSaving)setShowMaintForm(null);}}><div className="modal-box" style={{maxWidth:320,padding:20}} onClick={e=>e.stopPropagation()}><h4 className="font-bold text-sm mb-3">{showMaintForm.safety?"🛡 安全在庫を登録":showMaintForm.edit?"メンテナンス編集":"メンテナンス登録"}</h4><MaintForm vehicleCode={showMaintForm.vehicleCode} startDate={showMaintForm.date} edit={showMaintForm.edit} presetLabel={showMaintForm.safety?"安全在庫":""} onAdd={addMaint} onClose={()=>{if(!maintSaving)setShowMaintForm(null);}} vehicles={vehicles} saving={maintSaving}/></div></div>}
 
     {showResForm&&<ReservationForm prefill={showResForm} onAdd={(r,vc)=>{onAddReservation(r,vc);setShowResForm(null);}} onBulkAdd={(rArr,fl)=>{onBulkAddReservation(rArr,fl);setShowResForm(null);}} vehicles={vehicles} vehicleClasses={vehicleClasses} onClose={()=>setShowResForm(null)} data={data} fleet={fleet} maintenance={maintenance}/>}
   </div>;
 }
 
-function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
-  const[start,setStart]=useState(edit?(edit.startDate||startDate):startDate);const[end,setEnd]=useState(edit?(edit.endDate||startDate):startDate);const[label,setLabel]=useState(edit?(edit.label||""):"");
+function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit,presetLabel}){
+  const[start,setStart]=useState(edit?(edit.startDate||startDate):startDate);const[end,setEnd]=useState(edit?(edit.endDate||startDate):startDate);const[label,setLabel]=useState(edit?(edit.label||""):(presetLabel||""));
   const[cost,setCost]=useState(edit&&edit.cost?String(edit.cost):"");const[workshop,setWorkshop]=useState(edit?(edit.workshop||""):"");const[invoiceNo,setInvoiceNo]=useState(edit?(edit.invoiceNo||""):"");const[maintNotes,setMaintNotes]=useState(edit?(edit.maintNotes||""):"");
   const[status,setStatus]=useState(edit?(edit.status||"pending"):"pending");const[startTime,setStartTime]=useState(edit?(edit.startTime||""):"");const[endTime,setEndTime]=useState(edit?(edit.endTime||""):"");
   const v=vehicles.find(x=>x.code===vehicleCode);
@@ -17299,7 +17300,7 @@ function MaintForm({vehicleCode,startDate,onAdd,onClose,vehicles,saving,edit}){
   const lS={fontSize:10,color:"#64748b",fontWeight:700,display:"block",marginBottom:2};
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <div style={{fontSize:11,color:"#64748b"}}>車両: <strong>{v?v.name:vehicleCode}</strong> ({v?v.no:""}) {v?v.seats+"名":""}</div>
-    <div><label style={lS}>ラベル</label><select value={label} onChange={e=>setLabel(e.target.value)} style={iS}><option value="">— 種別を選択 —</option><option>メンテナンス</option><option>車検</option><option>半年点検</option><option>修理</option><option>清掃</option><option>その他</option></select></div>
+    <div><label style={lS}>ラベル</label><select value={label} onChange={e=>setLabel(e.target.value)} style={iS}><option value="">— 種別を選択 —</option><option>メンテナンス</option><option>車検</option><option>半年点検</option><option>修理</option><option>清掃</option><option>その他</option><option>安全在庫</option></select></div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       <div><label style={lS}>{isDetail?"入庫日（開始）":"開始日"}</label><input type="date" value={start} onChange={e=>setStart(e.target.value)} style={iS}/></div>
       <div><label style={lS}>{isDetail?"出庫日（終了）":"終了日"}</label><input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={iS}/></div>
@@ -24328,7 +24329,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.566-BT";
+const APP_VERSION="v1.0.567-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
