@@ -366,15 +366,15 @@ const VL=(()=>{
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ③'次回車検（赤＝車検で終了） ④入替準備開始日（売止の準備期間前） ⑤仕入額 ⑥市場売却額＝自動査定（売却額が確定したらその額） ⑦累計売上 ⑧最終利益＝⑥＋⑦−⑤
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>最終利益</span></div>';h+='<div class="ov-num v2">';
+    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span><span class="g4">参考</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>最終利益</span><span>リース/月額</span></div>';h+='<div class="ov-num v2">';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>'+HD;
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
         return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
-          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
+          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+(()=>{const k=shakenCount(v);return k?'<small class="skc" title="'+e(k.why)+'">'+(k.est?'約':'')+k.n+'回</small>':'';})()+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
           +'<div data-l="仕入額"'+(c.isLease?' title="リース総額"':'')+'>'+man(c.buy)+'</div>'
-          +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.basis!=null&&mv!=null?mv+c.revDone-c.basis:null;const hasMk=sp==null&&c.mkt&&c.mkt.now;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" data-pl="'+e(v.code)+'" title="クリックで計算の中身"'+(pl!=null&&pl<0?' class="r plc"':pl!=null?' class="g plc"':' class="plc"')+'><span class="plv">'+(pl!=null&&pl>0?'+':'')+man(pl)+'</span></div>';})()+'</div>';}).join('');});
+          +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.basis!=null&&mv!=null?mv+c.revDone-c.basis:null;const hasMk=sp==null&&c.mkt&&c.mkt.now;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" data-pl="'+e(v.code)+'" title="クリックで計算の中身"'+(pl!=null&&pl<0?' class="r plc"':pl!=null?' class="g plc"':' class="plc"')+'><span class="plv">'+(pl!=null&&pl>0?'+':'')+man(pl)+'</span></div><div data-l="リース/月額" class="ref" title="参考（計算には使わない）・車両マスタ">'+(n(v.lease_monthly)>0?man(n(v.lease_monthly)):'—')+'</div>';})()+'</div>';}).join('');});
     h+='</div>';
     return h;
   }
@@ -400,6 +400,17 @@ const VL=(()=>{
       +'<div class="vl-ksum k3"><div><span>総売上</span><b>'+man(all.rev*all.n)+'</b></div><div><span>台平均売上</span><b>'+man(all.rev)+'</b></div><div><span>稼働率</span><b>'+pc(all.util)+'</b></div></div>'
       +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
       +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
+  }
+  // 車検更新回数（オーナー指示 2026-11-01）：初度登録→今の車検満了日から推定。レンタカー（貸渡）乗用＝初回2年・以降1年。
+  // 初度登録（車検証）があればその月、無ければ年式の1月で「約」。どちらも無ければ出さない
+  function shakenCount(v){
+    const due=ts(v.inspection_due_date); if(!due)return null;
+    const sp=(v.specs&&typeof v.specs==="object")?v.specs:{}, fr=sp.first_reg?String(sp.first_reg):"", y=parseInt(v.year,10);
+    let f=null, est=false;
+    if(/^\d{4}-\d{1,2}/.test(fr)){const [a,b]=fr.split("-").map(Number);f=Date.UTC(a,b-1,1);}else if(y>1990){f=Date.UTC(y,0,1);est=true;}
+    if(f==null)return null;
+    const mon=(due-f)/MON, n=Math.max(0,Math.round((mon-24)/12));
+    return {n,est,why:(est?'年式から推定':'初度登録 '+fr+' から推定')+'：初回2年・以降1年（レンタカー）で数えた更新回数'};
   }
   // 最終利益の中身ポップ（オーナー指示 2026-11-01）：導入方法（一括仕入／リース、手動か自動判定か）と計算式
   function plPop(code){
