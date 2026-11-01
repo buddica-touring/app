@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>🚗 レンタ車両/進捗管理 | TOURISM 在庫入替</title>
+<title>🚗 TOURISM 進行管理</title>
 <meta name="robots" content="noindex">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -215,7 +215,10 @@
     .wrap .tabbtn[data-v="insp"],.wrap .tabbtn[data-v="proc"],.wrap .tabbtn[data-v="etc"],.wrap .tabbtn[data-v="tire"]{grid-column:span 3;min-height:52px;font-size:12.5px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     .wrap .tabbtn .tl-l{display:none}.wrap .tabbtn .tl-s{display:inline}
     .wrap .tabbtn[data-v="karte"]{grid-column:span 12;order:0;min-height:52px;font-size:14px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .wrap .tabbtn[data-v="kpi"]{grid-column:span 12;order:0;min-height:44px;font-size:13px;font-weight:900;color:#0f172a;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px}
     .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="tire"]{order:2}.wrap .tabbtn[data-v="proc"]{order:3}.wrap .tabbtn[data-v="etc"]{order:4}
+    .wrap .tabbtn[data-v="sum"],.wrap .tabbtn[data-v="karte"],.wrap .tabbtn[data-v="kpi"],.wrap .tabbtn[data-v="insp"]{grid-column:span 3;order:0;min-height:48px;font-size:13.5px}
+    .wrap .tabbtn[data-v="manual"]{grid-column:span 12;order:9;min-height:36px;font-size:12.5px}
     .wrap .tabbtn.on{background:#0f172a!important;color:#fff!important;border-color:#0f172a!important}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .card small{font-size:10.5px;line-height:1.45}
@@ -684,21 +687,78 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 @media(max-width:1199px){.ov-num.v2 .mkv{padding:1px 5px;margin:0;max-width:100%;box-sizing:border-box}.ov-num.v2 .rw>div.mkc{overflow:visible}}
 @media(max-width:1199px){.ov-num.v2 .rw>div[data-l="リース/月額"]{grid-column-start:1}.ov-num.v2 .rw>div[data-l="次回車検"] .skc{display:block;margin:0}}
 @media(min-width:1200px){.ov-num.v2 .rw>div:not(.nmc),.ov-num.v2 .hr>span:not(:first-child){padding-left:5px;padding-right:7px}.ov-num.v2 .rw>div:not(.nmc){font-size:12.5px;letter-spacing:-.01em}}
+
+/* スライド入替（後継車の登録情報） */
+.vl-rl2 .nx{flex-basis:100%;border:1px solid #d7e5d3;background:#fbfdfb;border-radius:12px;padding:10px 12px;margin-top:4px}
+.vl-rl2 .nxh{font-size:12px;font-weight:700;color:#15803d;margin-bottom:8px}.vl-rl2 .nxh small{font-weight:400;color:#a8a29e;margin-left:8px}
+.vl-rl2 .nxf{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.vl-rl2 .nxf label{display:flex;flex-direction:column;gap:2px;font-size:10px;color:#a8a29e;font-weight:600;min-width:0}
+.vl-rl2 .nxf input,.vl-rl2 .nxf select{font:inherit;font-size:13px;color:#1c1917;padding:6px 8px;border:1px solid #e7e0d8;border-radius:8px;background:#fff;min-width:0;width:100%;box-sizing:border-box}
+.vl-rl2 .nxf input.err{border-color:#dc2626}.vl-rl2 .nxf input.saving{opacity:.5}
+.vl-rl2 .nxs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 8px}
+.vl-rl2 .nxs em,.vl-rl2 .nxs label{font-style:normal;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#f1f5f9;color:#94a3b8;display:inline-flex;align-items:center;gap:3px}
+.vl-rl2 .nxs .y{background:#dcfce7;color:#15803d}.vl-rl2 .nxs input{margin:0}
+.vl-rl2 .nxn{font-size:11px;color:#a8a29e}
+.vl-rl2 .nxg{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.vl-rl2 .nxg input{font:inherit;padding:4px 8px;border:1px solid #e7e0d8;border-radius:8px}
+.vl-rl2 .nxg [data-slide]{background:#1c1917;color:#fff;border-color:#1c1917;padding:6px 16px;border-radius:99px;font-weight:700}
+.vl-rl2 .nxg [data-slide]:disabled{background:#e7e0d8;border-color:#e7e0d8;color:#a8a29e}
+.vl-rl2 .rw.nd .succ .nx select{border-color:#e7e0d8}
+.vl-rl2.sw .nums{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+/* サマリ（本部サマリの高松だけ） */
+#viewSum{max-width:1180px;margin:0 auto}
+#sumBody{font-variant-numeric:tabular-nums;color:#1c1917}
+#sumBody .bs-h{font-size:13px;font-weight:700;color:#57534e;margin:18px 0 8px}#sumBody .bs-h small{font-weight:400;color:#a8a29e;margin-left:6px}
+#sumBody .bs-n{font-size:11px;color:#a8a29e;margin:4px 0}
+#sumBody .bs-m{color:#a8a29e;font-size:12px}
+#sumBody .bs-c{background:#fff;border:1px solid #ece4da;border-radius:14px;padding:14px 16px;min-width:0}
+#sumBody .bs-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+#sumBody .bs-big{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:6px}
+#sumBody .bs-big div{display:flex;flex-direction:column}#sumBody .bs-big span{font-size:11px;color:#a8a29e;font-weight:600}#sumBody .bs-big b{font-size:24px;font-weight:700}
+#sumBody .bs-line{font-size:13px;padding:7px 0;border-top:1px solid #f3eee8;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+#sumBody .bs-al{background:#fdf2f2;color:#b91c1c;border-radius:99px;padding:2px 10px;font-size:12px}
+#sumBody .g{color:#15803d}#sumBody .r{color:#c0392b}
+#sumBody .bs-ch{font-size:15px;font-weight:700;margin-bottom:6px}#sumBody .bs-ch small{font-size:12px;color:#a8a29e;margin-left:6px;font-weight:400}
+#sumBody .bs-kpi{display:flex;flex-direction:column}#sumBody .bs-kpi b{font-size:26px;font-weight:700;line-height:1.2}#sumBody .bs-kpi span{font-size:12px;color:#78716c}#sumBody .bs-kpi em{font-style:normal;font-weight:700;color:#1c1917}
+#sumBody .bs-bar{height:6px;background:#f3eee8;border-radius:99px;margin:8px 0 6px;overflow:hidden}#sumBody .bs-bar i{display:block;height:100%;background:#c0392b;border-radius:99px}
+#sumBody .bs-r{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid #f3eee8;font-size:13px}#sumBody .bs-r span{color:#78716c}#sumBody .bs-r small{font-weight:400;color:#a8a29e}
+@media(max-width:600px){#sumBody .bs-big{grid-template-columns:repeat(3,minmax(0,1fr))}#sumBody .bs-big b{font-size:20px}}
+
+#sumBody .bs-tr{position:relative}
+#sumBody .bs-trl{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:#78716c;margin-bottom:6px}#sumBody .bs-trl i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+#sumBody .bs-trs{overflow-x:auto}#sumBody .bs-trs svg{display:block;max-width:none}
+#sumBody .bs-tr .t{font-size:12px;font-weight:700;fill:#57534e}#sumBody .bs-tr .v{font-size:10px;fill:#57534e;text-anchor:middle;font-weight:600;stroke:#fff;stroke-width:3px;paint-order:stroke}
+#sumBody .bs-tr .m{font-size:10px;fill:#a8a29e;text-anchor:middle}#sumBody .bs-tr .m.now{fill:#c0392b;font-weight:700}
+#sumBody .bs-tr .ax{stroke:#ece4da}#sumBody .bs-tr .hit{fill:transparent;cursor:pointer}#sumBody .bs-tr .hit:hover{fill:rgba(28,25,23,.03)}#sumBody .bs-tr .xh{stroke:#a8a29e;stroke-dasharray:3 3}
+#sumBody .bs-tip{position:absolute;top:34px;background:#fff;border:1px solid #ece4da;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:8px 10px;font-size:12px;min-width:160px;pointer-events:none}
+#sumBody .bs-tip div{display:flex;justify-content:space-between;gap:12px}#sumBody .bs-tip span{color:#78716c}#sumBody .bs-tip small{color:#a8a29e;font-weight:400}
+#sumBody .bs-tbl{margin-top:6px;font-size:12px}#sumBody .bs-tbl summary{color:#78716c;cursor:pointer}#sumBody .bs-tbl table{border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}#sumBody .bs-tbl th,#sumBody .bs-tbl td{padding:3px 10px;text-align:right;border-top:1px solid #f3eee8}#sumBody .bs-tbl th{color:#a8a29e;font-weight:600}
+
+tr.arcHide{display:none!important}
+.arcbox{margin-top:10px;border:1px solid #e7e0d8;border-radius:10px;background:#fbf8f4}.arcbox>summary{cursor:pointer;padding:8px 12px;font-size:13px;font-weight:800;color:#78716c}.arcbox[open]>summary{border-bottom:1px solid #e7e0d8}.arcbox .fltblwrap{opacity:.75}
+
+/* 使い方マニュアル（オーナー指示 2026-11-01：カテゴリ別・折りたたみ） */
+#viewManual{max-width:980px;margin:0 auto}
+.mn{color:#1c1917;font-size:14px;line-height:1.7}.mn-h{font-size:16px;font-weight:800;margin:4px 0 10px}.mn-h small{font-size:11px;color:#a8a29e;font-weight:400;margin-left:8px}
+.mn-s{background:#fff;border:1px solid #ece4da;border-radius:14px;margin:0 0 10px;overflow:hidden}.mn-s>summary{cursor:pointer;padding:12px 16px;font-weight:800;font-size:15px;list-style:none}.mn-s>summary::after{content:"▾";float:right;color:#a8a29e}.mn-s[open]>summary::after{content:"▴"}
+.mn-b{padding:0 16px 12px;border-top:1px solid #f3eee8}.mn-b p{margin:10px 0}.mn-b ul,.mn-b ol{margin:8px 0;padding-left:22px}.mn-b li{margin:3px 0}
+.mn-t{overflow-x:auto}.mn-t table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}.mn-t th{text-align:left;font-size:11px;color:#a8a29e;font-weight:700;padding:6px 8px;border-bottom:1px solid #ece4da}.mn-t td{padding:7px 8px;border-bottom:1px solid #f3eee8;vertical-align:top}
+@media(max-width:700px){.mn-t th{display:none}.mn-t tr{display:block;border-bottom:1px solid #ece4da;padding:6px 0}.mn-t td{display:block;border:0;padding:2px 0}.mn-t td::before{content:attr(data-l);display:block;font-size:10px;color:#a8a29e;font-weight:700}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🚗 レンタ車両/進捗管理 <small style="font-size:12px;color:#64748b;font-weight:700">TOURISM 在庫入替</small></h1>
+  <h1>🚗 TOURISM 進行管理</h1>
   <div class="tabs">
-    <button class="tabbtn" data-v="karte">🚗 車両ダッシュボード</button>
+    <button class="tabbtn" data-v="sum">🏠 サマリ</button>
+    <button class="tabbtn" data-v="karte">🚗 車両</button>
+    <button class="tabbtn" data-v="kpi">📊 KPI</button>
     <button class="tabbtn on" data-v="insp">🔧 点検</button>
-    <button class="tabbtn" data-v="tire">🛞 <span class="tl-l">タイヤチェック</span><span class="tl-s">タイヤ</span></button>
-    <button class="tabbtn" data-v="proc">🛒 仕入候補</button>
-    <button class="tabbtn" data-v="etc">📡 <span class="tl-l">ETCセットアップ</span><span class="tl-s">ETC</span></button>
+    <button class="tabbtn" data-v="manual">📖 使い方</button>
   </div>
   <div id="viewProc" style="display:none">
-  <button class="dashsum" id="dashsum" type="button"></button>
-  <div class="dash" id="dash"></div>
+  <button class="dashsum" id="dashsum" type="button" style="display:none"></button>
+  <div class="dash" id="dash" style="display:none"></div><!-- 最上段カードは一旦非表示（オーナー指示 2026-11-01。コードは残す：戻すときは style を外す） -->
 
   <div class="tb"><button class="btn p" id="add">＋ URLで追加（自動取得）</button></div>
 
@@ -716,6 +776,43 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
   </div><!--/viewProc-->
 
   <div id="viewKarte" style="display:none"><div id="karteBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
+  <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
+<details class="mn-s" open><summary>全体</summary><div class="mn-b">
+<p>上のタブは「サマリ・車両・KPI・点検・使い方」の5つです。開くと最初にサマリが出ます。</p>
+<ul><li>閲覧リンク（URLに view= が付いたもの）はログインなしで見られます。お客様の情報は出ません。</li><li>数字が変わらないときは、ページを再読み込みしてください（Macは Cmd+Shift+R）。</li><li>車は「車種＋ナンバー下4桁」で表示します（例：アクア 3710）。</li></ul>
+</div></details>
+<details class="mn-s"><summary>サマリ</summary><div class="mn-b">
+<p>高松店だけの本部サマリです。数字は本部と同じ集計です。</p>
+<ul><li>本日の状況：貸出・返却・洗車・他・新規予約、出勤者、未入金・点検などの注意。1分ごとに自動で更新されます。</li><li>直近3か月：当月・翌月・翌々月の売上と目標に対する進捗、稼働率、予約件数、稼働台数。</li><li>推移：2026年8月から予約が入っている先の月までのグラフです。売上・予約件数・稼働台数・予約単価を同じ月の並びで縦に4段で並べています。月にマウスを乗せる（スマホはタップ）と、4つの数字がまとめて出ます。グレー＝済んだ月、赤＝今月、薄いグレー＝先の月（今日時点の予約分）。「表で見る」で一覧表も見られます。</li><li>年間：1月から今月までの実績と、年間目標に対する進捗。</li><li>売上＝返却月（予約＋予約外）、件数＝返却月の予約数、稼働率＝貸出日数÷稼働可能日数。目標は店舗KPIページの値を使います。</li></ul>
+</div></details>
+<details class="mn-s"><summary>車両</summary><div class="mn-b">
+<p>左のメニュー（スマホは上のプルダウン）で画面を切り替えます。</p>
+<div class="mn-t"><table><tr><th>メニュー</th><th>見られること</th></tr><tr><td data-l="メニュー">サマリ</td><td data-l="見られること">全車の一覧。仕入額・累計売上・市場売却額・最終利益・次回車検・リース/月額（参考）。市場売却額と最終利益は点滅しているセルを押すと、根拠のポップが出ます</td></tr><tr><td data-l="メニュー">入替車両</td><td data-l="見られること">入替準備期間に入った車と、後継車の登録・スライド実行</td></tr><tr><td data-l="メニュー">車両カルテ</td><td data-l="見られること">1台ごとの走行・リミット予定日・入替予定日・車検・仕入額・導入方法（一括仕入／リース総額）</td></tr><tr><td data-l="メニュー">車検証</td><td data-l="見られること">車検証の項目の入力状況</td></tr><tr><td data-l="メニュー">準備</td><td data-l="見られること">仕入候補・タイヤチェック・ETCセットアップ</td></tr><tr><td data-l="メニュー">クラス実績・相場</td><td data-l="見られること">クラス別の実績と、カーセンサーの相場（更新日・検索条件つき）</td></tr><tr><td data-l="メニュー">ルール</td><td data-l="見られること">リミット距離・入替準備期間などの設定</td></tr></table></div>
+<ul><li>最終利益＝市場売却額＋累計売上−仕入額（総額）。リースの車も「リース総額」で計算します。</li><li>車検済N回は、配車表の整備記録にある「車検」の実績だけを数えます。</li></ul>
+</div></details>
+<details class="mn-s"><summary>入替（スライド）</summary><div class="mn-b">
+<p>売り止めはしません。準備した新しい車を、今の車の枠（配車表の同じ行）にそのまま入れ替えます。</p>
+<ol><li>車両 → 入替車両 を開きます。</li><li>出ていく車の行の「後継車の登録情報」に、車種名・ナンバー・年式・走行・車検満了・仕入額・導入方法を入れます。入れた内容は車両マスタに保存されます。</li><li>整備・引取・準備は仕入候補の進捗から自動で ✓ が付きます。ETCは自分でチェックします。</li><li>入替日になったら「スライド実行」を押します。入替日より前は押せません。</li><li>実行すると、配車表の枠・予約・OTA・アドミン設定はそのままです。車種名とナンバーなどだけが新しい車に変わり、入替日以降の予約のナンバー表示も変わります。</li></ol>
+<ul><li>入替日に旧車の貸出が残っているときは止まって知らせます。返却後に押してください。</li><li>旧車の成績（累計売上・最終利益など）は、入替車両タブの一番下の「入替履歴」に残ります。新しい車の数字には混ざりません。</li><li>傷の記録は旧車の分が残ります。</li></ul>
+</div></details>
+<details class="mn-s"><summary>仕入候補・タイヤ・ETC</summary><div class="mn-b">
+<p>仕入候補の「仕入」を OK にすると、その車がタイヤチェックとETCの両方に「（仕入）」付きで自動で出ます。</p>
+<ul><li>車両マスタに同じナンバー（下4桁）で登録すると、登録した車の行にまとまります。それまでに入れたタイヤ・ETCの内容は引き継がれます。</li><li>アーカイブ：仕入候補の行の右端の 🗄 を押すと、一覧の一番下の「🗄 アーカイブ」にまとめて折りたたまれます。データは消えず、↩️ で戻せます。</li><li>アーカイブした車は、タイヤチェックとETCでも表の下の「🗄 アーカイブ」に移ります。同じナンバーの登録済みの車も含みます。稼働済みの車を片付けるときに使います。</li></ul>
+</div></details>
+<details class="mn-s"><summary>連携データ</summary><div class="mn-b">
+<p>どの画面の入力が、どこに反映されるかの一覧です。</p>
+<div class="mn-t"><table><tr><th>入力するところ</th><th>自動で反映されるところ</th></tr><tr><td data-l="入力するところ">配車表（予約・返却メーター）</td><td data-l="自動で反映されるところ">車両カルテの走行・平均走行・リミット予定日、サマリの累計売上・予約件数・稼働率</td></tr><tr><td data-l="入力するところ">配車表の車両マスタ</td><td data-l="自動で反映されるところ">車両の車種名・ナンバー・年式・車検日・リース月額</td></tr><tr><td data-l="入力するところ">配車表の整備記録（車検）</td><td data-l="自動で反映されるところ">車両の「車検済N回」</td></tr><tr><td data-l="入力するところ">車両カルテ（仕入額・導入方法）</td><td data-l="自動で反映されるところ">車両サマリの仕入額・最終利益</td></tr><tr><td data-l="入力するところ">相場調査（カーセンサー）</td><td data-l="自動で反映されるところ">車両サマリの市場売却額・最終利益</td></tr><tr><td data-l="入力するところ">仕入候補「仕入」OK</td><td data-l="自動で反映されるところ">タイヤチェック・ETCに「（仕入）」で追加、入替車両の整備・引取・準備の ✓</td></tr><tr><td data-l="入力するところ">仕入候補のアーカイブ</td><td data-l="自動で反映されるところ">タイヤチェック・ETCの同じ車もアーカイブへ</td></tr><tr><td data-l="入力するところ">入替車両の後継車の登録情報</td><td data-l="自動で反映されるところ">車両マスタ（スライド実行で枠の車種名・ナンバー・予約のナンバー表示）</td></tr><tr><td data-l="入力するところ">店舗KPIページの目標</td><td data-l="自動で反映されるところ">サマリの目標・進捗</td></tr></table></div>
+</div></details>
+<details class="mn-s"><summary>操作（カテゴリ別）</summary><div class="mn-b">
+<div class="mn-t"><table><tr><th>カテゴリ</th><th>操作</th><th>場所</th></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">候補を追加（URLを貼ると自動取得）</td><td data-l="場所">車両 → 準備 → 仕入候補</td></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">仕入OK・整備・店舗回収・準備・名義・販売開始を進める</td><td data-l="場所">同上</td></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">アーカイブ 🗄／戻す ↩️</td><td data-l="場所">同上（行の右端）</td></tr><tr><td data-l="カテゴリ">準備</td><td data-l="操作">タイヤの写真・ステータス・交換予定日</td><td data-l="場所">車両 → 準備 → タイヤチェック</td></tr><tr><td data-l="カテゴリ">準備</td><td data-l="操作">ETCのセットアップ・管理番号表・予定日</td><td data-l="場所">車両 → 準備 → ETCセットアップ</td></tr><tr><td data-l="カテゴリ">入替</td><td data-l="操作">後継車の情報を入れる → 入替日にスライド実行</td><td data-l="場所">車両 → 入替車両</td></tr><tr><td data-l="カテゴリ">入替</td><td data-l="操作">10万km超の車：売止日を決める／リミットを決めて継続</td><td data-l="場所">同上</td></tr><tr><td data-l="カテゴリ">車両</td><td data-l="操作">仕入額・導入方法・現在の走行を入れる</td><td data-l="場所">車両 → 車両カルテ</td></tr><tr><td data-l="カテゴリ">車両</td><td data-l="操作">車検証の項目を入れる</td><td data-l="場所">配車表の車両マスタ</td></tr><tr><td data-l="カテゴリ">売却</td><td data-l="操作">売却額・売却日を入れる</td><td data-l="場所">車両 → 車両カルテ</td></tr><tr><td data-l="カテゴリ">設定</td><td data-l="操作">リミット距離・入替準備期間・車検の扱い</td><td data-l="場所">車両 → ルール</td></tr></table></div>
+</div></details>
+<details class="mn-s"><summary>KPI・点検</summary><div class="mn-b">
+<ul><li>KPI：店舗KPIのページ（2026年下期MTG）をそのまま表示します。右上の「別タブで開く」でも開けます。</li><li>点検：これまでどおりの点検画面です。</li></ul>
+<p>困ったとき：表示がおかしい・反映されないときは、まず再読み込みしてください。直らなければ画面のスクリーンショットを送ってください。</p>
+</div></details>
+</div></div>
+  <div id="viewSum" style="display:none"><div id="sumBody"></div></div>
+  <div id="viewKpi" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?fresh=0924l" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="kpiFrame" data-src="https://nosh2318.github.io/spk-task/bt-mtg-2026h2.html?fresh=0924l" title="KPI" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewSwap" style="display:none"><div id="swapBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
   <div id="viewEtc" style="display:none">
     <div class="tb" style="margin-bottom:6px"><button class="btn" id="reloadEtc" style="margin-left:auto">🔄 最新に更新</button></div>
@@ -726,6 +823,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
     <div id="tireBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
     <input type="file" id="tireFile" accept="image/*" multiple style="display:none">
   </div>
+  <div id="vlPark" style="display:none"></div>
   <div id="viewInsp">
     <div class="ins-seg"><button class="ins-kb on" data-k="pre">🚗 出発前点検</button><button class="ins-kb" data-k="post">🔙 返却後点検</button></div>
     <div id="inspBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div>
@@ -736,7 +834,8 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="vehicle-life.js?v=65"></script>
+<script src="bt-summary.js?v=2"></script>
+<script src="vehicle-life.js?v=68"></script>
 <script>
 const SB_URL="https://ggqugvyskyiblxiycpci.supabase.co", ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const STATUSES=["未対応","確認中","対応中","NG","OK"];
@@ -777,6 +876,7 @@ let STAGE_OPEN={}; try{STAGE_OPEN=JSON.parse(localStorage.getItem("proc_stage_op
 const stageClosed=k=>!STAGE_OPEN[k];
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
+let ARC_OPEN=false;   // 仕入候補のアーカイブ（オーナー指示 2026-11-01：消さずに下へまとめて折りたたむ。タイヤ・ETCの「（仕入）」行も同じく折りたたみ）
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
 // pending＝保存中の "id:field"。他ユーザーのリアルタイム更新がこのフィールドを勝手に戻さないよう守る（データ整合）
 const $=id=>document.getElementById(id);
@@ -869,6 +969,7 @@ function render(){
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
   }).slice().sort((a,b)=>{
+    if(!!a.archived!==!!b.archived)return a.archived?1:-1;   // アーカイブは一番下にまとめる
     if(MOB){const sa=stageIdx(a),sb2=stageIdx(b);if(sa!==sb2)return sa-sb2;}   // スマホ＝進捗段階ごと → その中はクラス順
     const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス別にグループ化、未設定(新規追加分)は末尾
     if(ca!==cb)return ca<cb?-1:1;
@@ -876,11 +977,12 @@ function render(){
   });
   const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
   const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-  const gkey=r=>MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
+  const gkey=r=>r.archived?"__arc":MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
   const gcount={},gsec={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;if(isSecured(x))gsec[g]=(gsec[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=MOB&&stageClosed(g)?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
-      if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
+      if(g==="__arc"){hdr=`<tr class="clsgrp arcg" data-arc="1" style="--cc:#a8a29e;cursor:pointer"><td colspan="16"><span class="cbadge" style="background:#a8a29e">🗄</span>アーカイブ<span class="ccount">${gcount[g]||0}台 ・ ${ARC_OPEN?"▲ 閉じる":"▼ 開く"}</span></td></tr>`;}
+      else if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
       else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""}${hid} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
@@ -902,7 +1004,7 @@ function render(){
           ?`<span class="cp" data-cp="url" title="URLをコピー">📋</span><a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="font-size:14px;text-decoration:none">🔗</a><span class="refetch" title="URLから再取得" style="font-size:14px">🔄</span>`
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
-      <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
+      <td class="delc" data-lb="削除"><span class="arcb" title="${r.archived?"アーカイブから戻す":"アーカイブ（消さずに下へまとめる）"}" style="cursor:pointer;margin-right:6px">${r.archived?"↩️":"🗄"}</span><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
     <tr class="detailrow${hid}" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
@@ -920,6 +1022,10 @@ function render(){
     el.addEventListener("change",()=>save(id,f,el.value));
     if(el.classList.contains("autg")){ _autg(el); el.addEventListener("input",()=>_autg(el)); }
   });
+  $("tb").querySelectorAll(".arcb").forEach(el=>{el.addEventListener("click",ev=>{ev.stopPropagation();const id=el.closest("tr").dataset.id,r=rows.find(x=>x.id===id);if(!r)return;
+    if(!("archived" in r)){alert("アーカイブ用の列がまだありません。SQLを1回実行してください。");return;}
+    save(id,"archived",!r.archived).then(()=>{render();ETC_V=null;TIRE_V=null;});});});
+  $("tb").querySelectorAll('tr[data-arc]').forEach(el=>el.addEventListener("click",()=>{ARC_OPEN=!ARC_OPEN;render();}));
   $("tb").querySelectorAll(".del").forEach(el=>{
     el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
   });
@@ -1070,12 +1176,15 @@ if(window.innerWidth>680){const d=$("clswrap");if(d)d.open=true;}   // PCは既�
 // realtime
 sb.channel("proc-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt_procurement"},payload=>{
   const {eventType,new:nw,old}=payload;
+  const prevSt=nw&&nw.id?((rows.find(r=>r.id===nw.id)||{}).status):undefined;
   if(eventType==="INSERT"){ if(!rows.find(r=>r.id===nw.id)){rows.push(nw);} }
   else if(eventType==="UPDATE"){ const i=rows.findIndex(r=>r.id===nw.id);
     if(i>=0){ const cur=rows[i]; /* フィールド単位でマージ：自分が保存中(pending)の項目はローカル値を守る＝他人の更新で勝手に戻さない */
       Object.keys(nw).forEach(f=>{ if(!pending.has(nw.id+":"+f)) cur[f]=nw[f]; }); }
     else rows.push(nw); }
   else if(eventType==="DELETE"){ rows=rows.filter(r=>r.id!==old.id); }
+  // 仕入OKの変化はタイヤチェック・ETCの一覧にも反映（開いていれば読み直す）
+  if((eventType==="INSERT"&&nw.status==="OK")||(eventType==="UPDATE"&&(prevSt!==nw.status||(nw.status==="OK"&&old&&old.plate!==undefined&&old.plate!==nw.plate)))||eventType==="DELETE"){ETC_V=null;TIRE_V=null;const ve=$("viewEtc"),vt=$("viewTire");if(ve&&ve.style.display!=="none")renderEtc();if(vt&&vt.style.display!=="none")renderTire();}
   rows.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   // 入力中セルは維持（フォーカス中は全再描画しない）＝メモ/予定日(data-df)も保護し、他人の更新で入力中テキストを消さない
   const _ae=document.activeElement, _ed=_ae&&_ae.classList&&(_ae.classList.contains("cell")||_ae.hasAttribute("data-df"));
@@ -1127,6 +1236,20 @@ let KPIFLAGS={}, KPI_YM="";
 // 稼働＝当月配車表(bt_vehicle_monthly_kpi)と一致。KPI未設定の車はマスタの静的activeにフォールバック。保険事業車は未稼働。
 function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.code]; return f!==undefined ? f!==false : (v.active!==false && v.status!=="inactive"); }
 // ===== ETCセットアップ＝全車両(bt_vehicles・読むだけ)の進捗。保存先は bt_etc_setup（1車1項目だけ upsert）=====
+// 仕入候補との連動（オーナー指示 2026-11-01）：仕入候補で「仕入OK」になった車は、車両マスタに登録される前からタイヤチェック・ETCに出す。
+//   コード＝"proc_"+仕入候補id。車両マスタに同じナンバー（下4桁）で登録されたら、その車の行に入力済みの内容を引き継ぐ（元の行は消さない）
+const p4of=x=>{const m=String(x||"").match(/(\d{2,4})\s*$/);return m?m[1]:"";};
+async function procRows(){if(rows&&rows.length)return rows;let r=await sb.from("bt_procurement").select("id,plate,model,status,vclass,archived");if(r.error)r=await sb.from("bt_procurement").select("id,plate,model,status,vclass");return r.data||[];}
+function procExtra(vs,prow){const have=new Set(vs.map(v=>p4of(v.plate_no)).filter(Boolean));
+  return prow.filter(r=>r.status==="OK"&&!isSample(r)&&!(p4of(r.plate)&&have.has(p4of(r.plate)))).map(r=>({code:"proc_"+r.id,plate_no:p4of(r.plate),brand:"",vtype:r.vclass||"",type:r.vclass||"",name:(r.model||"")+"（仕入）",cand:true,arc:!!r.archived}));}
+// アーカイブした仕入候補と同じナンバー（下4桁）の登録済み車も、タイヤ・ETCではアーカイブ側に入れる（オーナー指示 2026-11-01：稼働済みをまとめて片付ける）
+function procArcMark(vs,prow){const a=new Set(prow.filter(r=>r.archived&&!isSample(r)).map(r=>p4of(r.plate)).filter(Boolean));vs.forEach(v=>{if(a.has(p4of(v.plate_no)))v.arc=true;});}
+async function procCarry(table,vs,prow,cur){   // 登録済みの車に、仕入候補の時に入れた内容を引き継ぐ
+  for(const v of vs){const p=p4of(v.plate_no); if(!p||cur[v.code])continue;
+    const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)===p), o=r&&cur["proc_"+r.id]; if(!o)continue;
+    const row=Object.assign({},o,{code:v.code,updated_at:new Date().toISOString()}); delete row.created_at;
+    const {error}=await sb.from(table).upsert(row,{onConflict:"code"}); if(!error)cur[v.code]=row;
+    if(!error&&table==="bt_tire_check"){try{await sb.from("bt_tire_photos").update({code:v.code}).eq("code","proc_"+r.id);}catch(e){}}}}
 let ETC_V=null, ETC={};
 const ETC_EXCLUDE=new Set(["ポルシqs4p","ハイエース1002"]);   // 10/14 オーナー指示：ETC表からだけ外す（911・ハイエース1002）。bt_vehicles・保存データは触らない
 async function loadEtc(){
@@ -1136,23 +1259,28 @@ async function loadEtc(){
   const [vres,eres,nres]=await Promise.all([sb.rpc("bt_etc_vehicles"),sb.from("bt_etc_setup").select("*"),sb.rpc("bt_company_vehicles")]);
   if(vres.error||eres.error){$("etcBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc((vres.error||eres.error).message)+'</div>';return;}
   const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});
-  const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);
+  const prow=await procRows();
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};
-  ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;}); renderEtc();
+  ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;});
+  await procCarry("bt_etc_setup",ETC_V,prow,ETC); procArcMark(ETC_V,prow); ETC_V=ETC_V.concat(procExtra(ETC_V,prow)); renderEtc();
 }
 function renderEtc(){
   if(!ETC_V){loadEtc();return;}
   if(!ETC_V.length){$("etcBody").innerHTML='<div style="color:#94a3b8;padding:16px;text-align:center">車両がありません</div>';return;}
   const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス(M_ORDER順)→車種→ナンバー
-  const list=ETC_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const arcL=ETC_V.filter(v=>v.arc);   // アーカイブした仕入候補（下に折りたたみ）
+  const list=ETC_V.filter(v=>!v.arc).sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const done=list.filter(v=>ETC[v.code]&&ETC[v.code].done).length;
   let html='<div class="fl-sumbar"><span class="fl-total">セットアップ済 <b>'+done+'</b> / '+list.length+' 台</span><span class="fl-sc">未 '+(list.length-done)+'台</span></div>';
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:150px">車種</th><th style="width:110px">ナンバー</th><th style="width:90px">管理番号表</th><th style="width:90px">セットアップ</th><th style="width:150px">予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
-  list.forEach(v=>{
+  const rowE=v=>{let html='';
     const e=ETC[v.code]||{}, bd=isHdm(v);
     html+='<tr'+(e.done?' style="background:#f0fdf4"':'')+'><td data-lb="車種" style="font-weight:700">'+(v.name?fesc(v.name):'<span class="flmiss">-</span>')+'</td><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td><td data-lb="管理番号表"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-kanri="'+fesc(v.code)+'"'+(e.kanri_done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.kanri_done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="セットアップ"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-done="'+fesc(v.code)+'"'+(e.done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="予定日"><input type="date" data-etc-plan="'+fesc(v.code)+'" value="'+fesc(e.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td><td data-lb="入庫先"><input type="text" data-etc-dest="'+fesc(v.code)+'" value="'+fesc(e.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td><td data-lb="備考" style="white-space:normal"><input type="text" data-etc-memo="'+fesc(v.code)+'" value="'+fesc(e.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
-  });
-  $("etcBody").innerHTML=html+'</tbody></table></div>';
+  return html;};
+  list.forEach(v=>{html+=rowE(v);});
+  html+='</tbody></table></div>';
+  if(arcL.length)html+='<details class="arcbox"><summary>🗄 アーカイブ '+arcL.length+'台</summary><div class="fltblwrap"><table class="fltbl"><tbody>'+arcL.map(rowE).join('')+'</tbody></table></div></details>';
+  $("etcBody").innerHTML=html;
 }
 async function saveEtc(code,patch){
   const {data,error}=await sb.from("bt_etc_setup").upsert(Object.assign({code},patch,{updated_at:new Date().toISOString()}),{onConflict:"code"}).select();
@@ -1324,28 +1452,32 @@ async function loadTire(){
   const er=vres.error||tres.error||pres.error;
   if(er){$("tireBody").innerHTML='<div style="color:#dc2626;padding:14px">取得失敗：'+fesc(er.message)+'</div>';return;}
   const nm={};(Array.isArray(nres.data)?nres.data:[]).forEach(x=>{if(x&&x.plate&&!nm[x.plate])nm[x.plate]=x.name||"";});   // 車両名＝既存の公開関数 bt_company_vehicles（稼働車のナンバー→車両名）。稼働外の車は名前なし
-  const prow=(rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("plate,model")).data)||[]);   // 仕入候補の読込がまだなら直接読む
+  const prow=await procRows();   // 仕入候補の読込がまだなら直接読む
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};   // 稼働前の車は仕入候補（bt_procurement）の車種名で補う
   TIRE_V=(vres.data||[]).filter(v=>!TIRE_EXCLUDE.has(v.code)).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)}));
   TIRE={};(tres.data||[]).forEach(t=>TIRE[t.code]=t);
   TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
+  const vs=TIRE_V.slice(); await procCarry("bt_tire_check",vs,prow,TIRE);
+  vs.forEach(v=>{const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)&&p4of(x.plate)===p4of(v.plate_no));if(r&&!TIRE_PH[v.code]&&TIRE_PH["proc_"+r.id])TIRE_PH[v.code]=TIRE_PH["proc_"+r.id];});
+  procArcMark(TIRE_V,prow); TIRE_V=TIRE_V.concat(procExtra(TIRE_V,prow));
   renderTire();
 }
 function tireSignUrls(paths){return phSign("bt-tires",paths);}
 function renderTire(){
   if(!TIRE_V){loadTire();return;}
   const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス→ナンバー（ETCと同じ並び）
-  const list=TIRE_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const arcL=TIRE_V.filter(v=>v.arc);   // アーカイブした仕入候補（下に折りたたみ）
+  const list=TIRE_V.filter(v=>!v.arc).sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="交換").length, sdn=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="相談").length;
   let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">交換 '+chg+'台</span><span class="fl-sc" style="color:#7e22ce">相談 '+sdn+'台</span><span class="fl-sc">未確認 '+(list.length-ok-chg-sdn)+'台</span></div>';
   // 並び替え：選んだステータスの車を先頭に（番号は車両順のまま＝車の番号として固定）。画面だけの切替・保存しない
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-size:12px;font-weight:800;color:#64748b">並び替え'+[["","車両順"],["交換","交換"],["相談","相談"],["未確認","未確認"],["確認済","確認済"]].map(([k,l])=>'<button data-tire-sort="'+k+'" style="border:1px solid '+(TIRE_SORT===k?'#0f172a':'#cbd5e1')+';background:'+(TIRE_SORT===k?'#0f172a':'#fff')+';color:'+(TIRE_SORT===k?'#fff':'#334155')+';border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer">'+l+'</button>').join("")+'</div>';
-  const no={};list.forEach((v,i)=>no[v.code]=i+1);
+  const no={};list.forEach((v,i)=>no[v.code]=i+1);arcL.forEach(v=>no[v.code]='—');
   const stOf=v=>(TIRE[v.code]&&TIRE[v.code].status)||"未確認";
   const view=TIRE_SORT?list.filter(v=>stOf(v)===TIRE_SORT).concat(list.filter(v=>stOf(v)!==TIRE_SORT)):list;
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:170px">車両</th><th style="width:230px">写真</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
   const paths=[];
-  view.forEach(v=>{
+  const rowT=v=>{let html='';
     const t=TIRE[v.code]||{}, ph=TIRE_PH[v.code]||[], has=ph.length>0, c=fesc(v.code);
     const bg=t.status==="確認済"?' style="background:#f0fdf4"':(t.status==="交換"?' style="background:#fef2f2"':(t.status==="相談"?' style="background:#f3e8ff"':''));
     const phHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+ph.map(p=>{paths.push(p.path);const u=phUrl("bt-tires",p.path,"full"),tu=phUrl("bt-tires",p.path,"thumb");return '<span style="position:relative;display:inline-block;width:56px;height:56px;border-radius:8px;overflow:hidden;background:#e2e8f0">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(tu)+'" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" decoding="async" alt=""></a>':'')+'<button data-tire-del="'+fesc(p.id)+'" title="写真を外す" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:12px;line-height:22px;padding:0;cursor:pointer">✕</button></span>';}).join("")+
@@ -1359,8 +1491,11 @@ function renderTire(){
       '<td data-lb="交換予定日"><input type="date" data-tire-plan="'+c+'" value="'+fesc(t.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td>'+
       '<td data-lb="入庫先"><input type="text" data-tire-dest="'+c+'" value="'+fesc(t.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" maxlength="200" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td>'+
       '<td data-lb="備考" style="white-space:normal"><input type="text" data-tire-memo="'+c+'" value="'+fesc(t.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" maxlength="500" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
-  });
-  $("tireBody").innerHTML=html+'</tbody></table></div>';
+  return html;};
+  view.forEach(v=>{html+=rowT(v);});
+  html+='</tbody></table></div>';
+  if(arcL.length)html+='<details class="arcbox"><summary>🗄 アーカイブ '+arcL.length+'台</summary><div class="fltblwrap"><table class="fltbl"><tbody>'+arcL.map(rowT).join('')+'</tbody></table></div></details>';
+  $("tireBody").innerHTML=html;
   if(phNeed("bt-tires",paths).length)tireSignUrls(paths).then(n=>{const ae=document.activeElement;if(n>0&&!(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tireDest||ae.dataset.tirePlan)))renderTire();});
 }
 async function saveTire(code,patch){
@@ -1426,15 +1561,25 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   if(v==="insp"){INSP.resv=null;renderInsp();}
   $("viewKarte").style.display=v==="karte"?"":"none";
   $("viewSwap").style.display=v==="swap"?"":"none";
+  $("viewKpi").style.display=v==="kpi"?"":"none";
+  $("viewSum").style.display=v==="sum"?"":"none";
+  $("viewManual").style.display=v==="manual"?"":"none";
+  if(v==="sum")BTSUM.show();   // サマリ（本部サマリの高松だけ）
+  if(v==="kpi"){const f=$("kpiFrame");if(!f.src)f.src=f.dataset.src;}   // KPI（オーナー指示 2026-11-01）：別ページを埋め込み、開いた時だけ読む
   if(v==="karte")VL.show("karte");
   if(v==="swap")VL.show("swap");
   if(v==="etc")renderEtc();
   if(v==="tire"){TIRE_V=null;renderTire();}
 }));
+// 仕入候補・タイヤ・ETC は車両ダッシュボードの左メニューから開く（オーナー指示 2026-11-01：上のタブは 車両・KPI・点検 の3つ）
+const HOSTV={proc:"viewProc",tire:"viewTire",etc:"viewEtc"};
+window.VL_PARK=function(){const pk=$("vlPark");Object.values(HOSTV).forEach(id=>{const el=$(id);if(el&&el.parentNode!==pk){el.style.display="none";pk.appendChild(el);}});};
+window.VL_HOST=function(k,host){const el=$(HOSTV[k]);if(!el||!host)return;const fresh=el.parentNode!==host;host.appendChild(el);el.style.display="";if(k==="etc"){if(fresh)ETC_V=null;renderEtc();}if(k==="tire"){if(fresh)TIRE_V=null;renderTire();}};   // 開くたびに読み直す（仕入候補の仕入OKを反映）
 load();
-// 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
-(function(){let t="";try{t=new URLSearchParams(location.search).get("tab")||"";}catch(e){}
-  if(t==="swap"){t="karte";try{VL._S.sec="relay";}catch(e){}}   // 旧「入替」タブは車両ダッシュボードの中へ
+// 開いた時の既定タブ＝サマリ（オーナー指示 2026-11-01。以前は点検）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
+(function(){let t="";try{const q=new URLSearchParams(location.search);t=q.get("tab")||"";if(!t||q.get("view"))t="sum";}catch(e){}   // 既定＝サマリ（オーナー指示 2026-11-01、閲覧リンクも）
+  if(t==="swap"){t="karte";try{VL._S.sec="relay";}catch(e){}}
+  if(t==="proc"||t==="tire"||t==="etc"){try{VL._S.sec=t;}catch(e){}t="karte";}   // 仕入候補・タイヤ・ETC は車両ダッシュボードの中   // 旧「入替」タブは車両ダッシュボードの中へ
   const b=t&&document.querySelector('.tabbtn[data-v="'+t.replace(/[^a-z]/g,"")+'"]');
   if(b&&t!=="insp")b.click(); else renderInsp();})();
 setInterval(()=>{ if(!document.activeElement||document.activeElement.tagName==="BODY")load(); },60000);
