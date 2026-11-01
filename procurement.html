@@ -1197,6 +1197,8 @@ const p4of=x=>{const m=String(x||"").match(/(\d{2,4})\s*$/);return m?m[1]:"";};
 async function procRows(){if(rows&&rows.length)return rows;let r=await sb.from("bt_procurement").select("id,plate,model,status,vclass,archived");if(r.error)r=await sb.from("bt_procurement").select("id,plate,model,status,vclass");return r.data||[];}
 function procExtra(vs,prow){const have=new Set(vs.map(v=>p4of(v.plate_no)).filter(Boolean));
   return prow.filter(r=>r.status==="OK"&&!isSample(r)&&!(p4of(r.plate)&&have.has(p4of(r.plate)))).map(r=>({code:"proc_"+r.id,plate_no:p4of(r.plate),brand:"",vtype:r.vclass||"",type:r.vclass||"",name:(r.model||"")+"（仕入）",cand:true,arc:!!r.archived}));}
+// アーカイブした仕入候補と同じナンバー（下4桁）の登録済み車も、タイヤ・ETCではアーカイブ側に入れる（オーナー指示 2026-11-01：稼働済みをまとめて片付ける）
+function procArcMark(vs,prow){const a=new Set(prow.filter(r=>r.archived&&!isSample(r)).map(r=>p4of(r.plate)).filter(Boolean));vs.forEach(v=>{if(a.has(p4of(v.plate_no)))v.arc=true;});}
 async function procCarry(table,vs,prow,cur){   // 登録済みの車に、仕入候補の時に入れた内容を引き継ぐ
   for(const v of vs){const p=p4of(v.plate_no); if(!p||cur[v.code])continue;
     const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)===p), o=r&&cur["proc_"+r.id]; if(!o)continue;
@@ -1215,7 +1217,7 @@ async function loadEtc(){
   const prow=await procRows();
   const pnm=p=>{const r=prow.find(x=>{const m=String(x.plate||"").match(/(\d{2,4})\s*$/);return m&&m[1]===String(p||"");});return r?(r.model||""):"";};
   ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;});
-  await procCarry("bt_etc_setup",ETC_V,prow,ETC); ETC_V=ETC_V.concat(procExtra(ETC_V,prow)); renderEtc();
+  await procCarry("bt_etc_setup",ETC_V,prow,ETC); procArcMark(ETC_V,prow); ETC_V=ETC_V.concat(procExtra(ETC_V,prow)); renderEtc();
 }
 function renderEtc(){
   if(!ETC_V){loadEtc();return;}
@@ -1412,7 +1414,7 @@ async function loadTire(){
   TIRE_PH={};(pres.data||[]).forEach(p=>{(TIRE_PH[p.code]=TIRE_PH[p.code]||[]).push(p);});
   const vs=TIRE_V.slice(); await procCarry("bt_tire_check",vs,prow,TIRE);
   vs.forEach(v=>{const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)&&p4of(x.plate)===p4of(v.plate_no));if(r&&!TIRE_PH[v.code]&&TIRE_PH["proc_"+r.id])TIRE_PH[v.code]=TIRE_PH["proc_"+r.id];});
-  TIRE_V=TIRE_V.concat(procExtra(TIRE_V,prow));
+  procArcMark(TIRE_V,prow); TIRE_V=TIRE_V.concat(procExtra(TIRE_V,prow));
   renderTire();
 }
 function tireSignUrls(paths){return phSign("bt-tires",paths);}
