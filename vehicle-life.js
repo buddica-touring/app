@@ -301,7 +301,7 @@ const VL=(()=>{
   const HOSTED=["proc","tire","etc"];
   function renderDash(){
     const body=$("karteBody"); if(!body)return;
-    const SECS=VIEW_KEY?SECS0.map(([g,it])=>[g,it.filter(x=>!HOSTED.includes(x[0]))]).filter(([,it])=>it.length):SECS0;
+    const SECS=SECS0;   // 閲覧リンクでも仕入候補・タイヤ・ETCを出す（以前の上のタブと同じ。オーナー指示 2026-11-01）
     const all=SECS.flatMap(g=>g[1]); if(!all.some(x=>x[0]===S.sec))S.sec="sum";
     const lb=x=>x[1]+' '+x[2], bd=x=>{const n=secBadge(x[0]);return n?n:0;};
     let h='<div class="vl-dash"><nav class="vl-side">'+SECS.map(([g,items])=>'<div class="g">'+e(g)+'</div>'+items.map(x=>'<button class="'+(S.sec===x[0]?"on":"")+'" data-sec="'+x[0]+'"><span>'+lb(x)+'</span>'+(bd(x)?'<i>'+bd(x)+'</i>':'')+'</button>').join("")).join("")+'</nav>';
