@@ -268,8 +268,8 @@ const VL=(()=>{
       const sellNow=vsNow!=null&&vsLater!=null&&vsNow>vsLater&&!ride;
       const vsLaterRide=ride&&vsNow!=null&&daysLeft!=null?gross+dayGross*daysLeft:null;
       const overBuy=mkt&&buy!=null&&nowExit>buy;
-      // 導入方法（オーナー指示 2026-11-01）：一括仕入＝仕入額、リース＝今日までのリース支払額（車両マスタのリース月額×導入からの月数）を原価に
-      const isLease=acqOf(v)==="lease", lf=n(v.lease_monthly)||null, leasePaid=isLease&&lf!=null?Math.round(lf*Math.max(0,(t0-(ts(v.purchase_date)||ts(DATA_FROM)))/MON)):null, basis=isLease?leasePaid:buy;
+      // 導入方法（オーナー指示 2026-11-01 改）：仕入額は常に総額（一括仕入＝仕入総額、リース＝リース総額）。最終利益＝市場売却額＋累計売上−仕入額（総額）
+      const isLease=acqOf(v)==="lease", lf=n(v.lease_monthly)||null, leasePaid=isLease&&lf!=null?Math.round(lf*Math.max(0,(t0-(ts(v.purchase_date)||ts(DATA_FROM)))/MON)):null, basis=buy;
       S.calc[v.code]={isLease,lf,leasePaid,basis,talk,paceOwn,odoSrc,mkt,rate,dayGross,daysLeft,kmEnd,nowExit,endExit,vsNow,vsLater,sellNow,overBuy,stopT,ride,odo,limit,flag,runDays,heldDays,nDone:done.length,cost,buy,recov,monKm,future,limitT,shaken,byShaken,saleT,why,procT,st,
         revDone,revBooked,mCost,fixed,fixedMon,months,gross,exitPrice,total,susp:rs.filter(suspect).length,rents:rs.length};
     });
@@ -373,7 +373,7 @@ const VL=(()=>{
         return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
           +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
-          +'<div data-l="仕入額"'+(c.isLease?' title="リース：今日までの支払 '+man(c.leasePaid)+'"':'')+'>'+(c.isLease?'<span class="ls">リース</span><span>月'+man(c.lf)+'</span>':man(c.buy))+'</div>'
+          +'<div data-l="仕入額"'+(c.isLease?' title="リース総額"':'')+'>'+man(c.buy)+'</div>'
           +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.basis!=null&&mv!=null?mv+c.revDone-c.basis:null;const hasMk=sp==null&&c.mkt&&c.mkt.now;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" data-pl="'+e(v.code)+'" title="クリックで計算の中身"'+(pl!=null&&pl<0?' class="r plc"':pl!=null?' class="g plc"':' class="plc"')+'><span class="plv">'+(pl!=null&&pl>0?'+':'')+man(pl)+'</span></div>';})()+'</div>';}).join('');});
     h+='</div>';
     return h;
@@ -405,17 +405,15 @@ const VL=(()=>{
   function plPop(code){
     const v=S.v.find(x=>x.code===code), c=v&&S.calc[code]; if(!c)return;
     const sp=n(v.sale_price), mv=sp!=null?sp:c.nowExit, L=c.isLease, manual=!!v.acquire_type;
-    const from=ts(v.purchase_date)||ts(DATA_FROM), mons=Math.max(0,(T0()-from)/MON);
     const pl=c.basis!=null&&mv!=null?mv+c.revDone-c.basis:null;
     const row=(k,val,sub,cls)=>'<div class="pr'+(cls?' '+cls:'')+'"><span>'+k+(sub?'<small>'+sub+'</small>':'')+'</span><b>'+val+'</b></div>';
-    const miss=[]; if(mv==null)miss.push('市場売却額（相場が未調査）'); if(c.basis==null)miss.push(L?'リース月額（車両マスタ）':'仕入額');
+    const miss=[]; if(mv==null)miss.push('市場売却額（相場が未調査）'); if(c.basis==null)miss.push(L?'リース総額（カルテで入力）':'仕入額');
     openPop('<div class="mp-hd">'+nm(v)+'</div><div class="mp-up">導入方法 <b>'+(L?'リース':'一括仕入')+'</b>　'+(manual?'カルテで設定':'自動判定（'+(L?'仕入額なし＋マスタにリース月額あり':'仕入額あり')+'）')+'</div>'
-      +'<div class="mp-big'+(pl!=null&&pl>=0?' ok':pl==null?' na':'')+'"><span>最終利益</span><b>'+(pl!=null?(pl>0?'+':'')+man(pl):'—')+'</b><small>＝ 市場売却額 ＋ 累計売上 − '+(L?'今日までのリース支払額':'仕入額')+'</small></div>'
+      +'<div class="mp-big'+(pl!=null&&pl>=0?' ok':pl==null?' na':'')+'"><span>最終利益</span><b>'+(pl!=null?(pl>0?'+':'')+man(pl):'—')+'</b><small>＝ 市場売却額 ＋ 累計売上 − 仕入額（総額）</small></div>'
       +'<div class="mp-h">計算の中身</div><div class="mp-calc">'
       +row('市場売却額',man(mv),sp!=null?'売却額（確定）':'自動査定')
       +row('＋ 累計売上',man(c.revDone),'8/3〜今日の予約売上')
-      +(L?row('− リース支払額',man(c.leasePaid),c.lf!=null?'月 '+man(c.lf)+' × '+(Math.round(mons*10)/10)+'ヶ月（'+(v.purchase_date?'導入日 '+String(v.purchase_date).replace(/-/g,'/'):'8/3')+'〜今日）':'')
-        :row('− 仕入額',man(c.buy),'一括仕入'))
+      +row('− 仕入額',man(c.buy),L?'リース総額':'仕入総額')
       +row('＝ 最終利益',pl!=null?(pl>0?'+':'')+man(pl):'—','',pl!=null&&pl<0?'tot r':'tot')+'</div>'
       +(miss.length?'<div class="mp-n">未入力のため計算できません：'+miss.join('・')+'</div>':'')
       +'<div class="mp-n">今日売った場合の目安です。導入方法はカルテで切り替えられます。</div>');
@@ -522,7 +520,7 @@ const VL=(()=>{
       +'</div><div class="kc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="kc-row m">'
       +cell('次回車検',dt(c.shaken),'',soon(c.shaken))+cell('売止',dt(c.stopT),'',soon(c.stopT))+cell('入替',dt(swapT),'',soon(swapT))+cell('運用期間',span(ts(v.purchase_date),c.saleT),ts(v.purchase_date)?'':'仕入日なし')
       +'</div><div class="kc-row m">'
-      +cell(c.isLease?'リース':'仕入',c.isLease?'月'+man(c.lf):man(c.buy),c.isLease&&c.leasePaid!=null?'支払 '+man(c.leasePaid):'')+cell('総売上',man(c.revDone))+cell(sold!=null?'売却額':'査定額',man(sale),sold==null&&c.mkt&&c.mkt.now&&c.mkt.now.when?dt(Date.parse(String(c.mkt.now.when).slice(0,10)+'T00:00:00Z'))+' 調査':'')
+      +cell(c.isLease?'リース総額':'仕入',man(c.buy),c.isLease?'リース':'')+cell('総売上',man(c.revDone))+cell(sold!=null?'売却額':'査定額',man(sale),sold==null&&c.mkt&&c.mkt.now&&c.mkt.now.when?dt(Date.parse(String(c.mkt.now.when).slice(0,10)+'T00:00:00Z'))+' 調査':'')
       +cell('売却後総売上',sale!=null?man(c.revDone+sale):'—','',sale!=null&&c.buy!=null&&c.revDone+sale<c.buy?'neg':'')
       +'</div></div>';
     h+='<div class="kc-more" data-tog="1">'+(dn?'<span>傷 '+dn+'</span>':'')+(c.susp?'<span class="r">走行ミス '+c.susp+'</span>':'')+'<em>'+(open?'閉じる ▴':'詳しく ▾')+'</em></div>';
@@ -649,9 +647,9 @@ const VL=(()=>{
     const L=acqOf(v)==="lease", dis=S.leaseCols?'':' disabled';
     let h='<div class="vl-f vl-acq"><span>導入方法</span><span class="seg">'+[["buy","一括仕入"],["lease","リース"]].map(([k,l])=>'<button data-acq="'+k+'" class="'+((L?"lease":"buy")===k?"on":"")+'"'+dis+'>'+l+'</button>').join("")+'</span></div>';
     if(!S.leaseCols)h+='<div class="vl-warn">導入方法を切り替えるにはデータベースに列の追加が必要です（sql/bt_vehicle_lease.sql）。</div>';
-    if(!L)return h+fld(v,"purchase_price","仕入額","円","number");
+    if(!L)return h+fld(v,"purchase_price","仕入額（総額）","円","number");
     const m=n(v.lease_monthly)||0;
-    return h+'<div class="vl-f"><span>リース額</span><span class="in ro"><b>'+(m?'月 '+man(m)+' ／ 年 '+man(m*12):'未入力')+'</b><small>車両マスタ（配車表）のリース月額</small></span></div>';
+    return h+fld(v,"purchase_price","リース総額","円","number","契約の総額")+'<div class="vl-f"><span>参考：リース月額</span><span class="in ro"><b>'+(m?'月 '+man(m):'—')+'</b><small>車両マスタ（配車表）</small></span></div>';
   }
   function fld(v,key,lb,unit,type,ph){
     const val=v[key]==null?"":String(v[key]);
