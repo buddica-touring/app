@@ -401,16 +401,10 @@ const VL=(()=>{
       +'<div class="vl-crs">'+rows.filter(r=>!r.v).sort(by).map(row).join('')+'</div>'
       +'<h4 class="vl-h4">AA</h4><div class="vl-crs">'+rows.filter(r=>r.v).sort(by).map(row).join('')+'</div>';
   }
-  // 車検更新回数（オーナー指示 2026-11-01）：初度登録→今の車検満了日から推定。レンタカー（貸渡）乗用＝初回2年・以降1年。
-  // 初度登録（車検証）があればその月、無ければ年式の1月で「約」。どちらも無ければ出さない
+  // 車検更新回数（オーナー指示 2026-11-01 改）：推定はしない。整備記録（配車表）の車検の実績だけを数える。記録が無ければ出さない
   function shakenCount(v){
-    const due=ts(v.inspection_due_date); if(!due)return null;
-    const sp=(v.specs&&typeof v.specs==="object")?v.specs:{}, fr=sp.first_reg?String(sp.first_reg):"", y=parseInt(v.year,10);
-    let f=null, est=false;
-    if(/^\d{4}-\d{1,2}/.test(fr)){const [a,b]=fr.split("-").map(Number);f=Date.UTC(a,b-1,1);}else if(y>1990){f=Date.UTC(y,0,1);est=true;}
-    if(f==null)return null;
-    const mon=(due-f)/MON, n=Math.max(0,Math.round((mon-24)/12));
-    return {n,est,why:'これまでに車検を通した回数（'+(est?'年式':'初度登録 '+fr)+'から推定。レンタカーの初回2年・以降1年で計算）'};
+    const n=(S.maint[v.code]||[]).filter(m=>/車検/.test(m.type||"")&&(m.completed_date||m.date)).length;
+    return n?{n,why:'配車表の整備記録にある車検の回数'}:null;
   }
   // 最終利益の中身ポップ（オーナー指示 2026-11-01）：導入方法（一括仕入／リース、手動か自動判定か）と計算式
   function plPop(code){
