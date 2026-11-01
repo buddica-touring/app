@@ -732,6 +732,9 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 #sumBody .bs-tip{position:absolute;top:34px;background:#fff;border:1px solid #ece4da;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:8px 10px;font-size:12px;min-width:160px;pointer-events:none}
 #sumBody .bs-tip div{display:flex;justify-content:space-between;gap:12px}#sumBody .bs-tip span{color:#78716c}#sumBody .bs-tip small{color:#a8a29e;font-weight:400}
 #sumBody .bs-tbl{margin-top:6px;font-size:12px}#sumBody .bs-tbl summary{color:#78716c;cursor:pointer}#sumBody .bs-tbl table{border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}#sumBody .bs-tbl th,#sumBody .bs-tbl td{padding:3px 10px;text-align:right;border-top:1px solid #f3eee8}#sumBody .bs-tbl th{color:#a8a29e;font-weight:600}
+
+tr.arcHide{display:none!important}
+.arcbox{margin-top:10px;border:1px solid #e7e0d8;border-radius:10px;background:#fbf8f4}.arcbox>summary{cursor:pointer;padding:8px 12px;font-size:13px;font-weight:800;color:#78716c}.arcbox[open]>summary{border-bottom:1px solid #e7e0d8}.arcbox .fltblwrap{opacity:.75}
 </style>
 </head>
 <body>
@@ -828,6 +831,7 @@ let STAGE_OPEN={}; try{STAGE_OPEN=JSON.parse(localStorage.getItem("proc_stage_op
 const stageClosed=k=>!STAGE_OPEN[k];
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
+let ARC_OPEN=false;   // 仕入候補のアーカイブ（オーナー指示 2026-11-01：消さずに下へまとめて折りたたむ。タイヤ・ETCの「（仕入）」行も同じく折りたたみ）
 let rows=[], filter="all", goal=+(localStorage.getItem("proc_goal")||30), openRows=new Set(), pending=new Set();
 // pending＝保存中の "id:field"。他ユーザーのリアルタイム更新がこのフィールドを勝手に戻さないよう守る（データ整合）
 const $=id=>document.getElementById(id);
@@ -920,6 +924,7 @@ function render(){
     if(filter==="sold")return /SOLD/i.test(r.price||"");
     return r.status===filter;
   }).slice().sort((a,b)=>{
+    if(!!a.archived!==!!b.archived)return a.archived?1:-1;   // アーカイブは一番下にまとめる
     if(MOB){const sa=stageIdx(a),sb2=stageIdx(b);if(sa!==sb2)return sa-sb2;}   // スマホ＝進捗段階ごと → その中はクラス順
     const ca=a.vclass||"~", cb=b.vclass||"~";  // クラス別にグループ化、未設定(新規追加分)は末尾
     if(ca!==cb)return ca<cb?-1:1;
@@ -927,11 +932,12 @@ function render(){
   });
   const CLSLBL={A:"ラグジュアリーミニバン",B:"ラグジュアリーミニバン",C:"ミニバン",D:"SUV",E:"セダン",F:"コンパクトSUV",G:"コンパクト",H:"コンパクトハイトワゴン",I:"軽ハイトワゴン",J:"軽・コンパクト",K:"コンパクトミニバン"};
   const CLSCOLOR={A:"#dc2626",B:"#2563eb",C:"#16a34a",D:"#ea580c",E:"#475569",F:"#7c3aed",G:"#0891b2",H:"#9333ea",I:"#0d9488",J:"#db2777",K:"#65a30d"};
-  const gkey=r=>MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
+  const gkey=r=>r.archived?"__arc":MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
   const gcount={},gsec={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;if(isSecured(x))gsec[g]=(gsec[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=MOB&&stageClosed(g)?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
-      if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
+  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
+      if(g==="__arc"){hdr=`<tr class="clsgrp arcg" data-arc="1" style="--cc:#a8a29e;cursor:pointer"><td colspan="16"><span class="cbadge" style="background:#a8a29e">🗄</span>アーカイブ<span class="ccount">${gcount[g]||0}台 ・ ${ARC_OPEN?"▲ 閉じる":"▼ 開く"}</span></td></tr>`;}
+      else if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
       else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""}${hid} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
@@ -953,7 +959,7 @@ function render(){
           ?`<span class="cp" data-cp="url" title="URLをコピー">📋</span><a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="font-size:14px;text-decoration:none">🔗</a><span class="refetch" title="URLから再取得" style="font-size:14px">🔄</span>`
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
-      <td class="delc" data-lb="削除"><span class="del" title="この候補を削除">🗑</span></td>
+      <td class="delc" data-lb="削除"><span class="arcb" title="${r.archived?"アーカイブから戻す":"アーカイブ（消さずに下へまとめる）"}" style="cursor:pointer;margin-right:6px">${r.archived?"↩️":"🗄"}</span><span class="del" title="この候補を削除">🗑</span></td>
     </tr>
     <tr class="detailrow${hid}" data-id="${r.id}" style="--cc:${col}"><td colspan="16"><div class="pdetail">
       <div class="ptitle">📋 進捗予定</div>
@@ -971,6 +977,10 @@ function render(){
     el.addEventListener("change",()=>save(id,f,el.value));
     if(el.classList.contains("autg")){ _autg(el); el.addEventListener("input",()=>_autg(el)); }
   });
+  $("tb").querySelectorAll(".arcb").forEach(el=>{el.addEventListener("click",ev=>{ev.stopPropagation();const id=el.closest("tr").dataset.id,r=rows.find(x=>x.id===id);if(!r)return;
+    if(!("archived" in r)){alert("アーカイブ用の列がまだありません。SQLを1回実行してください。");return;}
+    save(id,"archived",!r.archived).then(()=>{render();ETC_V=null;TIRE_V=null;});});});
+  $("tb").querySelectorAll('tr[data-arc]').forEach(el=>el.addEventListener("click",()=>{ARC_OPEN=!ARC_OPEN;render();}));
   $("tb").querySelectorAll(".del").forEach(el=>{
     el.addEventListener("click",()=>{const id=el.closest("tr").dataset.id;if(confirm("この候補を削除しますか？"))del(id);});
   });
@@ -1184,9 +1194,9 @@ function isKpiActive(v){ if(v.insurance_veh)return false; const f=KPIFLAGS[v.cod
 // 仕入候補との連動（オーナー指示 2026-11-01）：仕入候補で「仕入OK」になった車は、車両マスタに登録される前からタイヤチェック・ETCに出す。
 //   コード＝"proc_"+仕入候補id。車両マスタに同じナンバー（下4桁）で登録されたら、その車の行に入力済みの内容を引き継ぐ（元の行は消さない）
 const p4of=x=>{const m=String(x||"").match(/(\d{2,4})\s*$/);return m?m[1]:"";};
-async function procRows(){return (rows&&rows.length)?rows:(((await sb.from("bt_procurement").select("id,plate,model,status,vclass")).data)||[]);}
+async function procRows(){if(rows&&rows.length)return rows;let r=await sb.from("bt_procurement").select("id,plate,model,status,vclass,archived");if(r.error)r=await sb.from("bt_procurement").select("id,plate,model,status,vclass");return r.data||[];}
 function procExtra(vs,prow){const have=new Set(vs.map(v=>p4of(v.plate_no)).filter(Boolean));
-  return prow.filter(r=>r.status==="OK"&&!isSample(r)&&!(p4of(r.plate)&&have.has(p4of(r.plate)))).map(r=>({code:"proc_"+r.id,plate_no:p4of(r.plate),brand:"",vtype:r.vclass||"",type:r.vclass||"",name:(r.model||"")+"（仕入）",cand:true}));}
+  return prow.filter(r=>r.status==="OK"&&!isSample(r)&&!(p4of(r.plate)&&have.has(p4of(r.plate)))).map(r=>({code:"proc_"+r.id,plate_no:p4of(r.plate),brand:"",vtype:r.vclass||"",type:r.vclass||"",name:(r.model||"")+"（仕入）",cand:true,arc:!!r.archived}));}
 async function procCarry(table,vs,prow,cur){   // 登録済みの車に、仕入候補の時に入れた内容を引き継ぐ
   for(const v of vs){const p=p4of(v.plate_no); if(!p||cur[v.code])continue;
     const r=prow.find(x=>x.status==="OK"&&p4of(x.plate)===p), o=r&&cur["proc_"+r.id]; if(!o)continue;
@@ -1211,15 +1221,19 @@ function renderEtc(){
   if(!ETC_V){loadEtc();return;}
   if(!ETC_V.length){$("etcBody").innerHTML='<div style="color:#94a3b8;padding:16px;text-align:center">車両がありません</div>';return;}
   const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス(M_ORDER順)→車種→ナンバー
-  const list=ETC_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const arcL=ETC_V.filter(v=>v.arc);   // アーカイブした仕入候補（下に折りたたみ）
+  const list=ETC_V.filter(v=>!v.arc).sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const done=list.filter(v=>ETC[v.code]&&ETC[v.code].done).length;
   let html='<div class="fl-sumbar"><span class="fl-total">セットアップ済 <b>'+done+'</b> / '+list.length+' 台</span><span class="fl-sc">未 '+(list.length-done)+'台</span></div>';
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:150px">車種</th><th style="width:110px">ナンバー</th><th style="width:90px">管理番号表</th><th style="width:90px">セットアップ</th><th style="width:150px">予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
-  list.forEach(v=>{
+  const rowE=v=>{let html='';
     const e=ETC[v.code]||{}, bd=isHdm(v);
     html+='<tr'+(e.done?' style="background:#f0fdf4"':'')+'><td data-lb="車種" style="font-weight:700">'+(v.name?fesc(v.name):'<span class="flmiss">-</span>')+'</td><td class="plate" data-lb="ナンバー">'+(v.plate_no?fesc(v.plate_no):'<span class="flmiss">-</span>')+'</td><td data-lb="管理番号表"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-kanri="'+fesc(v.code)+'"'+(e.kanri_done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.kanri_done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="セットアップ"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:800;font-size:12px"><input type="checkbox" data-etc-done="'+fesc(v.code)+'"'+(e.done?" checked":"")+' style="width:20px;height:20px;cursor:pointer">'+(e.done?'<span style="color:#166534">済</span>':'<span style="color:#94a3b8">未</span>')+'</label></td><td data-lb="予定日"><input type="date" data-etc-plan="'+fesc(v.code)+'" value="'+fesc(e.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td><td data-lb="入庫先"><input type="text" data-etc-dest="'+fesc(v.code)+'" value="'+fesc(e.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td><td data-lb="備考" style="white-space:normal"><input type="text" data-etc-memo="'+fesc(v.code)+'" value="'+fesc(e.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
-  });
-  $("etcBody").innerHTML=html+'</tbody></table></div>';
+  return html;};
+  list.forEach(v=>{html+=rowE(v);});
+  html+='</tbody></table></div>';
+  if(arcL.length)html+='<details class="arcbox"><summary>🗄 アーカイブ '+arcL.length+'台</summary><div class="fltblwrap"><table class="fltbl"><tbody>'+arcL.map(rowE).join('')+'</tbody></table></div></details>';
+  $("etcBody").innerHTML=html;
 }
 async function saveEtc(code,patch){
   const {data,error}=await sb.from("bt_etc_setup").upsert(Object.assign({code},patch,{updated_at:new Date().toISOString()}),{onConflict:"code"}).select();
@@ -1405,17 +1419,18 @@ function tireSignUrls(paths){return phSign("bt-tires",paths);}
 function renderTire(){
   if(!TIRE_V){loadTire();return;}
   const cix=v=>{const i=M_ORDER.indexOf(v.type||"");return i<0?99:i;};   // 店舗(BTC→HDM)→クラス→ナンバー（ETCと同じ並び）
-  const list=TIRE_V.slice().sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
+  const arcL=TIRE_V.filter(v=>v.arc);   // アーカイブした仕入候補（下に折りたたみ）
+  const list=TIRE_V.filter(v=>!v.arc).sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const ok=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="確認済").length, chg=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="交換").length, sdn=list.filter(v=>TIRE[v.code]&&TIRE[v.code].status==="相談").length;
   let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">交換 '+chg+'台</span><span class="fl-sc" style="color:#7e22ce">相談 '+sdn+'台</span><span class="fl-sc">未確認 '+(list.length-ok-chg-sdn)+'台</span></div>';
   // 並び替え：選んだステータスの車を先頭に（番号は車両順のまま＝車の番号として固定）。画面だけの切替・保存しない
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-size:12px;font-weight:800;color:#64748b">並び替え'+[["","車両順"],["交換","交換"],["相談","相談"],["未確認","未確認"],["確認済","確認済"]].map(([k,l])=>'<button data-tire-sort="'+k+'" style="border:1px solid '+(TIRE_SORT===k?'#0f172a':'#cbd5e1')+';background:'+(TIRE_SORT===k?'#0f172a':'#fff')+';color:'+(TIRE_SORT===k?'#fff':'#334155')+';border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer">'+l+'</button>').join("")+'</div>';
-  const no={};list.forEach((v,i)=>no[v.code]=i+1);
+  const no={};list.forEach((v,i)=>no[v.code]=i+1);arcL.forEach(v=>no[v.code]='—');
   const stOf=v=>(TIRE[v.code]&&TIRE[v.code].status)||"未確認";
   const view=TIRE_SORT?list.filter(v=>stOf(v)===TIRE_SORT).concat(list.filter(v=>stOf(v)!==TIRE_SORT)):list;
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:170px">車両</th><th style="width:230px">写真</th><th style="width:120px">ステータス</th><th style="width:150px">交換予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
   const paths=[];
-  view.forEach(v=>{
+  const rowT=v=>{let html='';
     const t=TIRE[v.code]||{}, ph=TIRE_PH[v.code]||[], has=ph.length>0, c=fesc(v.code);
     const bg=t.status==="確認済"?' style="background:#f0fdf4"':(t.status==="交換"?' style="background:#fef2f2"':(t.status==="相談"?' style="background:#f3e8ff"':''));
     const phHtml='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+ph.map(p=>{paths.push(p.path);const u=phUrl("bt-tires",p.path,"full"),tu=phUrl("bt-tires",p.path,"thumb");return '<span style="position:relative;display:inline-block;width:56px;height:56px;border-radius:8px;overflow:hidden;background:#e2e8f0">'+(u?'<a href="'+fesc(u)+'" target="_blank" rel="noopener"><img src="'+fesc(tu)+'" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" decoding="async" alt=""></a>':'')+'<button data-tire-del="'+fesc(p.id)+'" title="写真を外す" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(15,23,42,.7);color:#fff;font-size:12px;line-height:22px;padding:0;cursor:pointer">✕</button></span>';}).join("")+
@@ -1429,8 +1444,11 @@ function renderTire(){
       '<td data-lb="交換予定日"><input type="date" data-tire-plan="'+c+'" value="'+fesc(t.plan_date||"")+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;font-size:13px"></td>'+
       '<td data-lb="入庫先"><input type="text" data-tire-dest="'+c+'" value="'+fesc(t.dest||"").replace(/"/g,"&quot;")+'" placeholder="入庫先" maxlength="200" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td>'+
       '<td data-lb="備考" style="white-space:normal"><input type="text" data-tire-memo="'+c+'" value="'+fesc(t.memo||"").replace(/"/g,"&quot;")+'" placeholder="備考" maxlength="500" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:13px"></td></tr>';
-  });
-  $("tireBody").innerHTML=html+'</tbody></table></div>';
+  return html;};
+  view.forEach(v=>{html+=rowT(v);});
+  html+='</tbody></table></div>';
+  if(arcL.length)html+='<details class="arcbox"><summary>🗄 アーカイブ '+arcL.length+'台</summary><div class="fltblwrap"><table class="fltbl"><tbody>'+arcL.map(rowT).join('')+'</tbody></table></div></details>';
+  $("tireBody").innerHTML=html;
   if(phNeed("bt-tires",paths).length)tireSignUrls(paths).then(n=>{const ae=document.activeElement;if(n>0&&!(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tireDest||ae.dataset.tirePlan)))renderTire();});
 }
 async function saveTire(code,patch){
