@@ -1481,8 +1481,8 @@ const HOSTV={proc:"viewProc",tire:"viewTire",etc:"viewEtc"};
 window.VL_PARK=function(){const pk=$("vlPark");Object.values(HOSTV).forEach(id=>{const el=$(id);if(el&&el.parentNode!==pk){el.style.display="none";pk.appendChild(el);}});};
 window.VL_HOST=function(k,host){const el=$(HOSTV[k]);if(!el||!host)return;host.appendChild(el);el.style.display="";if(k==="etc")renderEtc();if(k==="tire")renderTire();};
 load();
-// 開いた時の既定タブ＝点検（オーナー指示 2026-10-15）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
-(function(){let t="";try{t=new URLSearchParams(location.search).get("tab")||"";}catch(e){}
+// 開いた時の既定タブ＝サマリ（オーナー指示 2026-11-01。以前は点検）。URL の ?tab=proc 等で最初から別タブを開ける（例 procurement.html?tab=proc＝仕入候補）
+(function(){let t="";try{const q=new URLSearchParams(location.search);t=q.get("tab")||"";if(!t||q.get("view"))t="sum";}catch(e){}   // 既定＝サマリ（オーナー指示 2026-11-01、閲覧リンクも）
   if(t==="swap"){t="karte";try{VL._S.sec="relay";}catch(e){}}
   if(t==="proc"||t==="tire"||t==="etc"){try{VL._S.sec=t;}catch(e){}t="karte";}   // 仕入候補・タイヤ・ETC は車両ダッシュボードの中   // 旧「入替」タブは車両ダッシュボードの中へ
   const b=t&&document.querySelector('.tabbtn[data-v="'+t.replace(/[^a-z]/g,"")+'"]');
