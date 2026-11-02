@@ -844,7 +844,8 @@ const VL=(()=>{
     const run=x.kmM!=null?'年間'+km(x.kmM*12)+'km走行し、':'';
     const when=b.k===0?'今売ると':b.k+'か月後（'+ym(addMon(T0(),b.k))+(b.kmAt!=null?'・'+km(b.kmAt)+'km':'')+'）に売ると';
     const drop='売却額は'+baseLb+man(base)+'から'+man(b.val)+'へ'+(pct!=null?(pct>=0?pct+'%下落':(-pct)+'%上昇'):'')+'します';
-    const life=f!=null?'レンタル期間の売上'+man(c.revDone+b.cs)+(b.cc?'（経費'+man(b.cc)+'を引く）':'')+'を合算すると、生涯成績は'+hpm(f)+'になります':'仕入額が未入力のため生涯成績は出せません（今売るより'+hpm(b.up)+'）';
+    const gp=c.revDone+b.cs-b.cc;
+    const life=f!=null?'レンタル期間の粗利'+man(gp)+'（売上'+man(c.revDone+b.cs)+'−経費'+man(b.cc)+'）に売却額'+man(b.val)+'を足し、'+baseLb+man(c.buy)+'を引いた生涯成績は'+hpm(f)+'になります':'レンタル期間の粗利は'+man(gp)+'（売上'+man(c.revDone+b.cs)+'−経費'+man(b.cc)+'）。仕入額が未入力のため生涯成績は出せません（今売るより'+hpm(b.up)+'）';
     return 'この'+(v.name||'車')+'は'+run+when+'、'+drop+'。'+life+'。';
   }
   const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
