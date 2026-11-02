@@ -375,23 +375,8 @@ const VL=(()=>{
     h+='<div class="ov-band"><button data-ovb="all" class="'+(ob==null?'on':'')+'"><span>全て</span><b>'+a.length+'<small>台</small></b></button>'+BANDS.map(([lo,hi,lb],i)=>{const n=a.filter(v=>inB(v,i)).length;return '<button data-ovb="'+i+'" class="'+(lo>=8e4?'sell '+(n?'has ':''):'')+(String(ob)===String(i)?'on':'')+'"><span>'+lb+'</span>'+(lo>=8e4?'<em class="vsk">'+(n?'<i></i>':'')+'売却検討</em>':'')+'<b>'+n+'<small>台</small></b></button>';}).join('')
       +[["due","入替該当","r "],["talk","協議","o "],["prep","入替準備","o "],["stop","売却確定","r "]].map(([k,lb,cl])=>{const m=a.filter(v=>inB(v,k)).length;const sl=k==="prep";return '<button data-ovb="'+k+'" class="'+(sl?'sell '+(m?'has ':''):m?cl:'')+(ob===k?'on':'')+'"><span>'+lb+'</span>'+(sl?'<em class="vsk">'+(m?'<i></i>':'')+'売却検討</em>':'')+'<b>'+m+'<small>台</small></b></button>';}).join('')+(a.some(v=>C(v).odo==null)?'<button data-ovb="na" class="mut'+(ob==="na"?' on':'')+'"><span>未入力</span><b>'+a.filter(v=>C(v).odo==null).length+'<small>台</small></b></button>':'')+'</div>';
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
-    // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ③'次回車検（赤＝車検で終了） ④入替準備開始日（売止の準備期間前） ⑤仕入額 ⑥市場売却額＝自動査定（売却額が確定したらその額） ⑦累計売上 ⑧最終利益＝⑥＋⑦−⑤
-    const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">保有判定（利益最大の売り時）</span><span class="g4">相場</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>判定</span><span>推奨売却</span><span>仕入額</span><span>最終利益</span><span>市場売却額</span></div>';h+='<div class="ov-num v2">';
-    keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
-      h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>'+HD;
-      h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
-        return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
-          +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
-          +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+(()=>{const k=shakenCount(v);return k?'<small class="skc" title="'+e(k.why)+'">車検済'+k.n+'回</small>':'';})()+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
-          +(()=>{const x=holdOf(v), ok=x&&!x.na, b=ok?x.best:null, fN=ok?holdFin(v,x.all[0]):null, fB=ok?holdFin(v,b):null;
-            const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,hasMk=sp==null&&c.mkt&&c.mkt.now;
-            return '<div data-l="判定" class="hj-c" title="'+e(x?holdWhy(x):'')+'">'+holdBadge(x)+'</div>'
-              +'<div data-l="推奨売却"'+(ok&&b.k===0?' class="r"':'')+'>'+(!ok?'—':b.k===0?'今':ymS(addMon(t0,b.k)))+'</div>'
-              +'<div data-l="仕入額"'+(c.isLease?' title="リース総額"':'')+'>'+man(c.buy)+'</div>'
-              +'<div data-l="最終利益" class="fp'+(fB!=null&&fB<0?' r':fB!=null?' g':'')+'" title="売却額＋売上（実績＋見込み）−経費−仕入額。下段は今売った場合">'+(fB==null?'—':hpm(fB))+(ok&&b.k>0&&fN!=null?'<small>今 '+hpm(fN)+'</small>':'')+'</div>'
-              +'<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div>';})()+'</div>';}).join('');});
-    h+='</div>';
+    // 下段＝保有判定（オーナー指示 2026-11-02：サマリの下段を保有判定に入れ替え。上の距離帯・入替などのボタンで絞り込める）
+    h+=holdListHtml(shown);
     return h;
   }
   const tbl=(head,rows)=>'<div class="vl-ctbl vl-dt"><table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';
@@ -879,8 +864,9 @@ const VL=(()=>{
       +'<circle cx="'+X(b.k).toFixed(1)+'" cy="'+Y(val(b)).toFixed(1)+'" r="5" class="bp"/><text x="'+Math.min(W-R-4,Math.max(L+4,X(b.k))).toFixed(1)+'" y="'+(Y(val(b))-10<T+8?Y(val(b))+20:Y(val(b))-10).toFixed(1)+'" text-anchor="'+(b.k>HMAX*.7?'end':b.k<HMAX*.2?'start':'middle')+'" class="bt">'+(b.k?b.k+'か月後 ':'今 ')+hpm(val(b))+'</text>'
       +'</svg><div class="hd-chl">'+(fin?'最終利益':'今売るより上乗せ（仕入額が未入力のため）')+'の推移・●が最大</div></div>';
   }
-  function holdHtml(){
-    const a=S.v.filter(v=>S.calc[v.code].st!=="sold"), H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
+  function holdHtml(){return holdListHtml(S.v.filter(v=>S.calc[v.code].st!=="sold"));}
+  function holdListHtml(a){
+    const H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
     h+='<details class="hd-n"><summary>計算のしかた</summary><div>1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から、距離の分は査定の相場（今の相場と10万km前後の相場）を結んだ下がり方で、年数の分は年'+HOLD.age+'%（仮置き）で下げます。相場が更新されると自動で連動します。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div></details>';
