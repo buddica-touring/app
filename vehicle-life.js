@@ -765,15 +765,18 @@ const VL=(()=>{
   const inPrep=v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&(c.stopT!=null?addMon(c.stopT,-LEAD())<=T0():!!c.talk);};
   // 入替予測（オーナー指示 2026-11-02）：今日から3ヶ月以内に走行リミットへ届く予定の車を、到達が早い順に出す。協議の車はリミット未定なので入らない
   const FORECAST_MON=3;
-  const forecastList=()=>{const end=addMon(T0(),FORECAST_MON);return S.v.filter(v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&c.limitT!=null&&c.limitT<=end;}).sort((a,b)=>S.calc[a.code].limitT-S.calc[b.code].limitT);};
+  const forecastCars=()=>S.v.filter(v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&c.limitT!=null;}).sort((a,b)=>S.calc[a.code].limitT-S.calc[b.code].limitT);
+  const forecastList=()=>{const end=addMon(T0(),FORECAST_MON);return forecastCars().filter(v=>S.calc[v.code].limitT<=end);};
   function forecastHtml(){
-    const l=forecastList(), t0=T0();
-    let h='<div class="vl-rl2 fc"><div class="gh">3ヶ月以内にリミット到達予定（'+ymdS(addMon(t0,FORECAST_MON))+'まで）<b>'+l.length+'</b></div>';
+    const l=forecastList(), t0=T0(), end=addMon(t0,FORECAST_MON), nx=forecastCars().find(v=>S.calc[v.code].limitT>end), nc=nx&&S.calc[nx.code];
+    let h='<div class="vl-rl2 fc"><div class="fcw"><b>この一覧に出る条件</b><ul><li>「リミットまでの残りkm ÷ 月間走行」が3ヶ月以下になった車が出ます</li><li>リミットは '+km(n(S.cfg.default_limit_km)||DEF.default_limit_km)+'km（車ごとに決めた場合はその値）</li><li>月間走行は車ごとの実績です。実績が3ヶ月未満の車は全車平均を使います</li><li>出ない車：売却確定・後継車・協議（リミット未定）</li></ul>'
+      +(nx?'<p>次に近い車：'+e(nx.name)+' '+e(plate4(nx))+'　残り '+km(nc.limit-nc.odo)+'km・月間 '+km(nc.monKm)+'km・到達予想 '+ymdS(nc.limitT)+'</p>':'')+'</div>'
+      +'<div class="gh">3ヶ月以内にリミット到達予定（'+ymdS(end)+'まで）<b>'+l.length+'</b></div>';
     if(!l.length)h+='<div class="vl-note">3ヶ月以内にリミットへ届く予定の車はありません。</div>';
     h+=l.map(v=>{const c=S.calc[v.code], over=c.limitT<=t0;
       return '<div class="rw" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
         +'<div class="nums"><span><i>現在</i>'+km(c.odo)+'</span><span><i>リミット</i>'+km(c.limit)+'</span><span><i>月間走行</i>'+km(c.monKm)+'</span><span><i>到達予想</i><b class="'+(over?'r':'')+'">'+(over?'到達済み':ymdS(c.limitT))+'</b></span></div></div>';}).join('');
-    return h+'</div><div class="vl-note sm">到達予想は月間走行から計算しています。実績が3ヶ月未満の車は全車平均を使います。予約や返却が入るたびに変わります。</div>';
+    return h+'</div>';
   }
   function relayHtml(){
     const t0=T0(), ymd2=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
