@@ -296,7 +296,7 @@ const VL=(()=>{
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="forecast")return forecastList().length;
     if(k==="shaken")return a.filter(v=>shakenOf(v).some(o=>o.miss)).length;
-    if(k==="market")return a.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
+    if(k==="market")return a.filter(v=>holdSell(v)||S.calc[v.code].overBuy).length;
     return 0;};
   // 仕入候補・タイヤ・ETC（オーナー指示 2026-11-01：上のタブから車両ダッシュボードの中へ）＝procurement.html の既存画面をここに差し込む
   const HOSTED=["proc","tire","etc"];
@@ -377,15 +377,20 @@ const VL=(()=>{
     const shown=ob==null?a:a.filter(v=>inB(v,ob));
     // サマリ＝数字だけ（オーナー指示 2026-10-31）：①現在距離 ②リミット距離 ③予想到達日 ③'次回車検（赤＝車検で終了） ④入替準備開始日（売止の準備期間前） ⑤仕入額 ⑥市場売却額＝自動査定（売却額が確定したらその額） ⑦累計売上 ⑧最終利益＝⑥＋⑦−⑤
     const ymd=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
-    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">お金</span><span class="g4">参考</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>仕入額</span><span>市場売却額</span><span>累計売上</span><span>最終利益</span><span>リース/月額</span></div>';h+='<div class="ov-num v2">';
+    const HD='<div class="gr"><span></span><span class="g1">走行 km</span><span class="g2">日付</span><span class="g3">保有判定（利益最大の売り時）</span><span class="g4">相場</span></div><div class="hr"><span>車両</span><span>現在</span><span>リミット</span><span>到達予想</span><span>次回車検</span><span>入替準備</span><span>判定</span><span>推奨売却</span><span>仕入額</span><span>最終利益</span><span>市場売却額</span></div>';h+='<div class="ov-num v2">';
     keys.filter(k=>shown.some(v=>keyOf(v)===k)).forEach(k=>{const l=shown.filter(v=>keyOf(v)===k).sort(sorter);
       h+='<div class="gh">'+e(glb(k))+'<b>'+l.length+'</b></div>'+HD;
       h+=l.map(v=>{const c=C(v),p=c.odo!=null&&c.limit?c.odo/c.limit:0,pr=c.stopT!=null?addMon(c.stopT,-LEAD()):null;
         return '<div class="rw'+(c.talk?' talk':'')+'" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
           +'<div data-l="現在"'+(p>=.9?' class="r"':'')+'>'+(c.odo!=null?km(c.odo):'—')+'</div><div data-l="リミット">'+(c.limit&&!c.talk?km(c.limit):'—')+'</div>'
           +'<div data-l="到達予想"'+(c.talk?' class="o"':c.limitT!=null&&c.limitT<=t0?' class="r"':'')+'>'+(c.talk?'協議':ymd(c.limitT))+'</div><div data-l="次回車検"'+(c.why==="車検"&&!c.talk?' class="r" title="車検を通さず売却（車検日で終了）"':'')+'>'+ymd(c.shaken)+(()=>{const k=shakenCount(v);return k?'<small class="skc" title="'+e(k.why)+'">車検済'+k.n+'回</small>':'';})()+'</div><div data-l="入替準備"'+(pr!=null&&pr<=t0?' class="o"':'')+'>'+ymd(pr)+'</div>'
-          +'<div data-l="仕入額"'+(c.isLease?' title="リース総額"':'')+'>'+man(c.buy)+'</div>'
-          +(()=>{const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,pl=c.basis!=null&&mv!=null?mv+c.revDone-c.basis:null;const hasMk=sp==null&&c.mkt&&c.mkt.now;return '<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div><div data-l="累計売上">'+man(c.revDone)+'</div><div data-l="最終利益" data-pl="'+e(v.code)+'" title="クリックで計算の中身"'+(pl!=null&&pl<0?' class="r plc"':pl!=null?' class="g plc"':' class="plc"')+'><span class="plv">'+(pl!=null&&pl>0?'+':'')+man(pl)+'</span></div><div data-l="リース/月額" class="ref" title="参考（計算には使わない）・車両マスタ">'+(n(v.lease_monthly)>0?man(n(v.lease_monthly)):'—')+'</div>';})()+'</div>';}).join('');});
+          +(()=>{const x=holdOf(v), ok=x&&!x.na, b=ok?x.best:null, fN=ok?holdFin(v,x.all[0]):null, fB=ok?holdFin(v,b):null;
+            const sp=n(v.sale_price),mv=sp!=null?sp:c.nowExit,hasMk=sp==null&&c.mkt&&c.mkt.now;
+            return '<div data-l="判定" class="hj-c" title="'+e(x?holdWhy(x):'')+'">'+holdBadge(x)+'</div>'
+              +'<div data-l="推奨売却"'+(ok&&b.k===0?' class="r"':'')+'>'+(!ok?'—':b.k===0?'今':ymS(addMon(t0,b.k)))+'</div>'
+              +'<div data-l="仕入額"'+(c.isLease?' title="リース総額"':'')+'>'+man(c.buy)+'</div>'
+              +'<div data-l="最終利益" class="fp'+(fB!=null&&fB<0?' r':fB!=null?' g':'')+'" title="売却額＋売上（実績＋見込み）−経費−仕入額。下段は今売った場合">'+(fB==null?'—':hpm(fB))+(ok&&b.k>0&&fN!=null?'<small>今 '+hpm(fN)+'</small>':'')+'</div>'
+              +'<div data-l="市場売却額"'+(sp!=null?' title="売却額（確定）"':hasMk?' class="mkc" data-mk="'+e(v.code)+'" title="クリックで根拠"':'')+'>'+(hasMk?'<span class="mkv">'+man(mv)+'</span>':man(mv))+'</div>';})()+'</div>';}).join('');});
     h+='</div>';
     return h;
   }
@@ -471,10 +476,10 @@ const VL=(()=>{
     d.querySelector('.mp-bg').onclick=close; d.querySelector('.mp-x').onclick=close; document.addEventListener('keydown',esc);
   }
   function marketHtml(){
-    const a=S.v.filter(v=>S.calc[v.code].st!=="sold").sort((x,y)=>(S.calc[y.code].sellNow?1:0)-(S.calc[x.code].sellNow?1:0)||(S.calc[x.code].stopT??9e15)-(S.calc[y.code].stopT??9e15));
+    const a=S.v.filter(v=>S.calc[v.code].st!=="sold").sort((x,y)=>(holdSell(y)?1:0)-(holdSell(x)?1:0)||(S.calc[x.code].stopT??9e15)-(S.calc[y.code].stopT??9e15));
     return '<h4 class="vl-h4">📈 相場 <small>今の走行で売った場合の小売相場</small></h4><details class="vl-rule"><summary>この基準で検索しています（あくまで目安）</summary><dl>'+MARKET_RULE.map(([k,t])=>'<dt>'+e(k)+'</dt><dd>'+e(t)+'</dd>').join("")+'</dl></details>'
       +tbl(["車両","相場（真ん中50%）","中央値","買取見込み","判定"],a.map(v=>{const c=S.calc[v.code],x=c.mkt&&c.mkt.now;
-        return '<tr data-goto="'+e(v.code)+'"><td>'+nm(v)+'</td><td>'+(x?man(x.p25)+'〜'+man(x.p75):'<span class="mut">未調査</span>')+'</td><td>'+(x?man(x.med):'—')+'</td><td>'+(c.nowExit!=null?man(c.nowExit):'—')+'</td><td>'+(c.sellNow?'<b class="org">💡今が売り時</b>':c.overBuy?'<b class="org">仕入額超え</b>':'')+'</td></tr>';}));
+        return '<tr data-goto="'+e(v.code)+'"><td>'+nm(v)+'</td><td>'+(x?man(x.p25)+'〜'+man(x.p75):'<span class="mut">未調査</span>')+'</td><td>'+(x?man(x.med):'—')+'</td><td>'+(c.nowExit!=null?man(c.nowExit):'—')+'</td><td>'+(holdSell(v)?'<b class="org">💡今が売り時（保有判定）</b>':c.overBuy?'<b class="org">仕入額超え</b>':'')+'</td></tr>';}));
   }
   function shakenHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold").map(v=>({v,ms:shakenOf(v).filter(o=>o.miss)})).sort((x,y)=>y.ms.length-x.ms.length);
@@ -504,7 +509,7 @@ const VL=(()=>{
       +'<button class="vl-kpi'+(S.stf==="soon"?" on":"")+'" data-stf="soon"><span>🟡 半年以内</span><b>'+cnt("soon")+'</b></button>'
       +'<div class="vl-kpi st"><span>月間走行/台</span><b>'+km(S.global.monKm)+'<small>km</small></b></div></div>';
     const G=S.global;
-    const nFlag=base.filter(v=>S.calc[v.code].flag).length, nNow=base.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
+    const nFlag=base.filter(v=>S.calc[v.code].flag).length, nNow=base.filter(v=>holdSell(v)||S.calc[v.code].overBuy).length;
     h+='<div class="vl-bar1">'
       +['all','BT','HDM'].map(b=>'<button class="chip'+(S.brand===b?" on":"")+'" data-br="'+b+'">'+(b==="all"?"全体 "+S.v.length:b==="BT"?"🟢 BT":"🔵 HDM")+'</button>').join("")
       +'<select class="vl-sort" aria-label="並び順">'+[["sale","売り止め順"],["class","クラス順"],["km","走行距離順"],["profit","粗利順"]].map(([k,l])=>'<option value="'+k+'"'+(S.sort===k?" selected":"")+'>'+l+'</option>').join("")+'</select>'
@@ -526,7 +531,7 @@ const VL=(()=>{
     let h='<div class="vl-card '+st.cls+(open?" open":"")+'" data-code="'+e(v.code)+'">';
     h+='<div class="vl-hd" data-tog="1"><span class="m-badge" style="background:'+clsCol(v.type)+'">'+e(v.type||"?")+'</span>'
       +'<div class="vl-nm"><b>'+e(v.name||v.code)+'<em class="vl-yr'+(v.year?'':' na')+'">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式未入力')+'</em>'+(v.exit_type==="return"?'':exTag(v))+'</b><small>'+e(plate4(v)||"—")+' · <span class="'+(isHdm(v)?"vl-hdm":"vl-bt")+'">'+(isHdm(v)?"HDM":"BT")+'</span>'+(kpiOff?' · <span class="vl-off">今月停止</span>':'')+'</small></div>'
-      +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':'<span class="kc-j '+judgeOf(c)+'">'+JUDGE[judgeOf(c)].lb+'</span>')+'</div>';
+      +(c.st==='sold'?'<span class="vl-st sold">終了済</span>':holdBadge(holdOf(v)))+'</div>';
     // オーナー指示 2026-10-31：カードは決めた10項目だけ（走行・日付・お金）。入替＝売り止めの準備期間前、市場価格＝相場中央値×買取率
     const fx=S.v.find(x=>x.code===v.code), sold=n(fx&&fx.sale_price), sale=sold!=null?sold:c.nowExit, swapT=c.stopT!=null?addMon(c.stopT,-LEAD()):null, t0=T0();
     const cell=(lb,val,sub,cls)=>'<div'+(cls?' class="'+cls+'"':'')+'><span>'+lb+'</span><b>'+val+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
@@ -536,8 +541,9 @@ const VL=(()=>{
       +'</div><div class="kc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="kc-row m">'
       +cell('次回車検',dt(c.shaken),'',soon(c.shaken))+cell('売止',dt(c.stopT),'',soon(c.stopT))+cell('入替',dt(swapT),'',soon(swapT))+cell('運用期間',span(ts(v.purchase_date),c.saleT),ts(v.purchase_date)?'':'仕入日なし')
       +'</div><div class="kc-row m">'
-      +cell(c.isLease?'リース総額':'仕入',man(c.buy),c.isLease?'リース':'')+cell('総売上',man(c.revDone))+cell(sold!=null?'売却額':'査定額',man(sale),sold==null&&c.mkt&&c.mkt.now&&c.mkt.now.when?dt(Date.parse(String(c.mkt.now.when).slice(0,10)+'T00:00:00Z'))+' 調査':'')
-      +cell('売却後総売上',sale!=null?man(c.revDone+sale):'—','',sale!=null&&c.buy!=null&&c.revDone+sale<c.buy?'neg':'')
+      +(()=>{const x=holdOf(v), ok=x&&!x.na, bb=ok?x.best:null, fN=ok?holdFin(v,x.all[0]):null, fB=ok?holdFin(v,bb):null;
+        return cell(c.isLease?'リース総額':'仕入額',man(c.buy),c.isLease?'リース':'一括仕入')+cell('推奨売却',!ok?'—':bb.k===0?'今':ym(addMon(t0,bb.k)),ok&&bb.k>0?bb.k+'か月後':'',ok&&bb.k===0?'r':'')
+          +cell('最終利益（今売る）',fN==null?'—':hpm(fN),'',fN!=null&&fN<0?'neg':'')+cell('最終利益（推奨月）',fB==null?'—':hpm(fB),ok?'今売るより'+hpm(bb.up):'',fB!=null&&fB<0?'neg':'');})()
       +'</div></div>';
     h+='<div class="kc-more" data-tog="1">'+(dn?'<span>傷 '+dn+'</span>':'')+(c.susp?'<span class="r">走行ミス '+c.susp+'</span>':'')+'<em>'+(open?'閉じる ▴':'詳しく ▾')+'</em></div>';
     if(open)h+='<div class="vl-bd">'+detailHtml(v)+'</div>';
@@ -597,6 +603,7 @@ const VL=(()=>{
   function detailHtml(v){
     const c=S.calc[v.code], D=S.detail[v.code];
     let h='';
+    {const x=holdOf(v); if(x)h+='<section class="hd-sec"><h4>⚖ 保有判定 '+holdBadge(x)+'</h4><div class="hd-why">'+e(holdWhy(x))+'</div>'+(x.na?'':holdFlow(v,x)+holdChart(v,x)+'<div class="vl-note">売上：'+(x.src==='own'?'この車の実績（'+ymd(x.opFrom)+'〜'+x.opDays+'日）を年換算 '+man(x.S1)+'/年':(x.src==='class'?'同じクラス':'全車')+'の平均（稼働30日以上の'+x.srcN+'台）'+man(x.S1)+'/年')+'・単価低下'+HOLD.drop+'%/年。経費：年'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'（保険・車検・点検）。売却額：今'+man(x.V0)+'から年'+(v.type==="A"?HOLD.ageA:HOLD.age)+'%・1万kmごと'+HOLD.kmDep+'%下落（仮置き）。</div>')+'</section>';}
     // 今の走行（入力ミスで外した記録だけ出す）
     h+='<section><h4>📏 今の走行 <small>'+(c.odo!=null?km(c.odo)+'km・'+odoLb(c):'記録なし')+'</small></h4>'+odoForm(v,c);
     if(D&&D.trips){const bad=D.trips.filter(suspect);if(bad.length)h+='<div class="vl-trips">'+bad.slice(0,5).map(r=>'<div class="bad"><span>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</span><b>⚠ '+km(rawKm(r))+'km <small>'+e(tripBad(r))+'・計算から除外</small></b></div>').join("")+'</div>';}
@@ -609,7 +616,6 @@ const VL=(()=>{
       h+='<section><h4>📈 相場'+(ms.length?' <small class="r">車検証 未入力'+ms.length+'</small>':'')+'</h4>'
         +bar('今',m&&m.now,c.nowExit)+(c.ride?'':bar(c.saleT!=null?ym(c.saleT).replace("年","/").replace("月",""):'終了時',m&&m.end,c.endExit))
         +(xs.length?'<div class="kc-ml"><span><i></i>真ん中50%</span><span><em></em>中央値</span><span><u></u>買取見込み</span></div>':'')
-        +(c.vsNow!=null&&c.vsLater!=null?'<div class="kc-vs'+(c.sellNow?' now':'')+'"><div><span>今売る</span><b>'+man(c.vsNow)+'</b></div><div><span>走らせる</span><b>'+man(c.vsLater)+'</b></div></div>':'')
         +(sp.urlNow?'<a class="kc-link" target="_blank" rel="noopener" href="'+e(sp.urlNow)+'">カーセンサー ↗</a>':'')+'</section>';}
     // 傷・写真
     h+='<section><h4>🩹 傷・写真</h4>';
@@ -808,32 +814,59 @@ const VL=(()=>{
     const pick=[...new Set([0,6,12,24,HMAX,best.k])].sort((a,b)=>a-b);
     return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,firstOff,opFrom,opDays,src,srcN:cr?cr.n:0,edge:best.k===HMAX,short:own&&opDays<90};
   }
+  // 保有判定の共通部品（サマリ・保有判定・車両カルテで同じものを使う。オーナー指示 2026-11-02：目的は利益最大化。保有判定を主役にする）
+  const hpm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
+  const holdFin=(v,r)=>{const c=S.calc[v.code];return c.buy!=null&&r?r.val+c.revDone+r.cs-r.cc-c.buy:null;};   // 最終利益＝売却額＋売上（実績＋見込み）−経費−仕入額
+  const holdSell=v=>{const x=holdOf(v);return !!(x&&!x.na&&x.best.k===0);};
+  function holdWhy(x){
+    if(x.na)return x.na;
+    if(x.best.k===0){const okR=x.all.filter(r=>r.k>0&&r.ok);if(!okR.length)return '1か月以内にリミット到達';const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）'+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');}
+    return ym(addMon(T0(),x.best.k))+'に売るのが最大で、今売るより '+hpm(x.best.up)+(x.edge?'（'+HMAX+'か月以上先の可能性）':'')+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');
+  }
+  const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
+  function holdFlow(v,x){
+    const c=S.calc[v.code], buy=c.buy;
+    return '<div class="hd-flow"><table><thead><tr><th>売る時期</th><th>仕入額</th><th>＋売上</th><th>−経費</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
+      +x.rows.map(r=>{const best=r===x.best, off=!r.ok, f=holdFin(v,r);
+        return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
+          +'<td>'+(buy!=null?man(buy):'未入力')+'</td>'
+          +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
+          +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
+          +'<td>'+man(r.val)+'</td>'
+          +'<td class="eq"><b class="'+(f==null?'':f>=0?'g':'r')+'">'+(f==null?'—':hpm(f))+'</b>'+(r.k?'<small>今売るより'+hpm(r.up)+'</small>':'')+'</td></tr>';}).join('')
+      +'</tbody></table></div>';
+  }
+  // 最終利益（仕入額が未入力なら「今売るより」）の月ごとの推移。最大の月に印、リミット到達月に線
+  function holdChart(v,x){
+    const fin=holdFin(v,x.all[0])!=null, val=r=>fin?holdFin(v,r):r.up, pts=x.all, ys=pts.map(val), lo=Math.min(0,...ys), hi=Math.max(0,...ys);
+    const W=640,H=180,L=56,R=12,T=14,B=26, X=k=>L+(W-L-R)*k/HMAX, Y=y=>T+(H-T-B)*(1-(y-lo)/((hi-lo)||1));
+    const okPts=pts.filter(r=>r.ok), offPts=pts.filter(r=>!r.ok||r.k===(x.firstOff?x.firstOff.k-1:-1));
+    const path=a=>a.map((r,i)=>(i?'L':'M')+X(r.k).toFixed(1)+' '+Y(val(r)).toFixed(1)).join('');
+    const b=x.best, ticks=[0,6,12,18,24,30,36];
+    return '<div class="hd-ch"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(fin?'最終利益':'今売るより上乗せ')+'の月ごとの推移">'
+      +'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(0).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'" class="z"/>'
+      +ticks.map(k=>'<text x="'+X(k)+'" y="'+(H-8)+'" text-anchor="middle">'+(k?k+'か月':'今')+'</text>').join('')
+      +[hi,lo].filter((y,i,a)=>a.indexOf(y)===i).map(y=>'<text x="'+(L-6)+'" y="'+(Y(y)+4).toFixed(1)+'" text-anchor="end">'+hpm(y)+'</text>').join('')
+      +(x.firstOff?'<line x1="'+X(x.firstOff.k)+'" x2="'+X(x.firstOff.k)+'" y1="'+T+'" y2="'+(H-B)+'" class="lim"/><text x="'+(X(x.firstOff.k)-4)+'" y="'+(T+10)+'" text-anchor="end" class="lim">リミット到達</text>':'')
+      +(offPts.length>1?'<path d="'+path(pts.filter(r=>!r.ok||(x.firstOff&&r.k===x.firstOff.k-1)))+'" class="off"/>':'')
+      +'<path d="'+path(okPts)+'" class="ln"/>'
+      +'<circle cx="'+X(b.k).toFixed(1)+'" cy="'+Y(val(b)).toFixed(1)+'" r="5" class="bp"/><text x="'+Math.min(W-R-4,Math.max(L+4,X(b.k))).toFixed(1)+'" y="'+(Y(val(b))-10).toFixed(1)+'" text-anchor="'+(b.k>HMAX*.7?'end':b.k<HMAX*.2?'start':'middle')+'" class="bt">'+(b.k?b.k+'か月後 ':'今 ')+hpm(val(b))+'</text>'
+      +'</svg><div class="hd-chl">'+(fin?'最終利益':'今売るより上乗せ（仕入額が未入力のため）')+'の推移・●が最大</div></div>';
+  }
   function holdHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold"), H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
-    const pm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
     h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
       const c=S.calc[v.code];
-      const why=x.na?x.na:x.best.k===0?(()=>{const okR=x.all.filter(r=>r.k>0&&r.ok);if(!okR.length)return '1か月以内にリミット到達';const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+pm(r.cum)+'／下落'+pm(-r.drop)+'）'+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');})():ym(addMon(T0(),x.best.k))+'に売るのが最大で、今売るより '+pm(x.best.up)+(x.edge?'（'+HMAX+'か月以上先の可能性）':'')+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');
-      const jd=x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
+      const why=holdWhy(x);
+      const jd=holdBadge(x);
       const kmTxt=(c.odo!=null?km(c.odo)+'km':'走行—')+'・年'+(c.monKm!=null?km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'—')+(c.limit&&!c.talk?'・リミット'+km(c.limit):'');
       let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>';
-      if(!x.na){
-        const buy=c.buy, fin=r=>buy!=null?r.val+c.revDone+r.cs-r.cc-buy:null;
-        t+='<div class="hd-flow"><table><thead><tr><th>売る時期</th><th>仕入額</th><th>＋売上</th><th>−経費</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
-          +x.rows.map(r=>{const best=r===x.best, off=!r.ok;
-            return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
-              +'<td>'+(buy!=null?man(buy):'未入力')+'</td>'
-              +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
-              +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
-              +'<td>'+man(r.val)+'</td>'
-              +'<td class="eq"><b class="'+(fin(r)==null?'':fin(r)>=0?'g':'r')+'">'+(fin(r)==null?'—':pm(fin(r)))+'</b>'+(r.k?'<small>今売るより'+pm(r.up)+'</small>':'')+'</td></tr>';}).join('')
-          +'</tbody></table></div>';
-      }
+      if(!x.na)t+=holdFlow(v,x);
       return t+'</div>';}).join('');
     return h;
   }
