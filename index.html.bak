@@ -308,7 +308,8 @@ const DB = {
   _fleetBackupSave(f){try{const backup={data:f,ts:Date.now(),count:Object.keys(f).filter(k=>k!=="_unassignedReasons").length};localStorage.setItem("bt_fleet_backup",JSON.stringify(backup));}catch(e){}},
   _fleetBackupLoad(){try{const s=localStorage.getItem("bt_fleet_backup");return s?JSON.parse(s):null;}catch(e){return null;}},
   async fetchFleet(){if(!sb){return DB._fleetLsLoad();}const data=await fetchAllRows("bt_fleet");if(!data.length){const ls=DB._fleetLsLoad();const lsCount=Object.keys(ls).filter(k=>k!=="_unassignedReasons").length;if(lsCount>0){console.warn("[fetchFleet] DB空だがlocalStorage有り("+lsCount+"件) → LS使用");}if(lsCount===0){const backup=DB._fleetBackupLoad();if(backup&&backup.count>0){console.warn("[fetchFleet] DB空+LS空 → バックアップ復元("+backup.count+"件)");return backup.data;}}return ls;}const f={};data.forEach(r=>f[r.reservation_id]=r.vehicle_code);dbLog("fetchFleet",true,Object.keys(f).length+"件");DB._fleetLsSave(f);return f;},
-  async upsertFleet(fleet){DB._fleetLsSave(fleet);if(!sb)return;const rows=Object.entries(fleet).filter(([k,v])=>k!=="_unassignedReasons"&&typeof v==="string").map(([k,v])=>({reservation_id:k,vehicle_code:v}));if(rows.length){for(let i=0;i<rows.length;i+=500){const chunk=rows.slice(i,i+500);const{error}=await sb.from("bt_fleet").upsert(chunk,{onConflict:"reservation_id"});if(error){dbLog("upsertFleet",false,error.message);return;}}dbLog("upsertFleet",true,rows.length+"件");}},
+  /* ★2026-11-02 prev（変更前の画面の配車）を渡すと「変えた予約だけ」保存。画面が古くても触っていない予約を古い車で上書きしない（自動組み替えの移動が戻る対策） */
+  async upsertFleet(fleet,prev){DB._fleetLsSave(fleet);if(!sb)return;const rows=Object.entries(fleet).filter(([k,v])=>k!=="_unassignedReasons"&&typeof v==="string"&&(!prev||prev[k]!==v)).map(([k,v])=>({reservation_id:k,vehicle_code:v}));if(rows.length){for(let i=0;i<rows.length;i+=500){const chunk=rows.slice(i,i+500);const{error}=await sb.from("bt_fleet").upsert(chunk,{onConflict:"reservation_id"});if(error){dbLog("upsertFleet",false,error.message);return;}}dbLog("upsertFleet",true,rows.length+"件");}},
   async updateFleetOne(resId,code){if(!sb)return;const{error}=await sb.from("bt_fleet").upsert({reservation_id:resId,vehicle_code:code,manual:true},{onConflict:"reservation_id"});if(error)dbLog("updateFleet1",false,error.message);},  /* ★2026-10-05 manual:true＝人の手動配車印。DB検問(bt_fleet.manual列・列反映REST確認済)はこの印の無い自動配車だけを異ブランド拒否する(手動は自由) */
   async deleteFleetOne(resId){if(!sb)return;const{error}=await sb.from("bt_fleet").delete().eq("reservation_id",resId);if(error)dbLog("deleteFleet1",false,error.message);},
   // --- Broadcast（CSV取込ロック通知） ---
@@ -22777,9 +22778,10 @@ function App(){
   window.__spkForceShifts=setShifts;
   const fleetRefApp=React.useRef(fleet);fleetRefApp.current=fleet;
   const setFleetSync=useCallback((nextFleet)=>{
-    const resolved=typeof nextFleet==="function"?nextFleet(fleetRefApp.current):nextFleet;
+    const prevFleet=fleetRefApp.current;
+    const resolved=typeof nextFleet==="function"?nextFleet(prevFleet):nextFleet;
     setFleet(resolved);fleetRefApp.current=resolved;markLocalChange("fleet");
-    DB.upsertFleet(resolved).then(()=>markDbSync("fleet")).catch(e=>console.error("upsertFleet error:",e));
+    DB.upsertFleet(resolved,prevFleet).then(()=>markDbSync("fleet")).catch(e=>console.error("upsertFleet error:",e));
   },[]);
 
   // 配車変更 + OPシートタスク同時更新
@@ -22989,7 +22991,7 @@ function App(){
       // 自動配車
       const newFleet=autoAssign(newData,vehicles,fleet,maintenance);
       setFleet(newFleet);
-      DB.upsertFleet(newFleet);
+      DB.upsertFleet(newFleet,fleet);
     }
   },[data,vehicles,fleet,maintenance]);
 
@@ -23870,7 +23872,7 @@ function App(){
           {tab==="shift"&&<ShiftCalendar shifts={shifts} onShiftsChange={setShiftsSync} today={today} staff={staff} sbSaveShift={DB.saveShift} reservations={data} fleet={fleet} vehicles={vehicles}/>}
           {tab==="attendance"&&<PASGuard label="給与計算" code="1173"><AttendanceManager shifts={shifts} staff={staff} today={today} attendance={attendance} onAttendanceChange={setAttendance}/></PASGuard>}
           {tab==="fleet"&&<FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>}
-          {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
+          {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf,fleetRefApp.current).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
           {tab==="mileage"&&<MileageLogTab sb={sb}/>}
@@ -24329,7 +24331,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.567-BT";
+const APP_VERSION="v1.0.568-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
