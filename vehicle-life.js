@@ -603,7 +603,7 @@ const VL=(()=>{
   function detailHtml(v){
     const c=S.calc[v.code], D=S.detail[v.code];
     let h='';
-    {const x=holdOf(v); if(x)h+='<section class="hd-sec"><h4>⚖ 保有判定 '+holdBadge(x)+'</h4><div class="hd-why">'+e(holdWhy(x))+'</div>'+(x.na?'':holdFlow(v,x)+holdChart(v,x)+'<div class="vl-note">売上：'+(x.src==='own'?'この車の実績（'+ymd(x.opFrom)+'〜'+x.opDays+'日）を年換算 '+man(x.S1)+'/年':(x.src==='class'?'同じクラス':'全車')+'の平均（稼働30日以上の'+x.srcN+'台）'+man(x.S1)+'/年')+'・単価低下'+HOLD.drop+'%/年。経費：年'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'（保険・車検・点検）。売却額：今'+man(x.V0)+'から年'+(v.type==="A"?HOLD.ageA:HOLD.age)+'%・1万kmごと'+HOLD.kmDep+'%下落（仮置き）。</div>')+'</section>';}
+    {const x=holdOf(v); if(x)h+='<section class="hd-sec"><h4>⚖ 保有判定 '+holdBadge(x)+'</h4>'+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>')+'<div class="hd-why">'+e(holdWhy(x))+'</div>'+(x.na?'':holdFlow(v,x)+holdChart(v,x)+'<div class="vl-note">売上：'+(x.src==='own'?'この車の実績（'+ymd(x.opFrom)+'〜'+x.opDays+'日）を年換算 '+man(x.S1)+'/年':(x.src==='class'?'同じクラス':'全車')+'の平均（稼働30日以上の'+x.srcN+'台）'+man(x.S1)+'/年')+'・単価低下'+HOLD.drop+'%/年。経費：年'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'（保険・車検・点検）。売却額：今'+man(x.V0)+'から年'+(v.type==="A"?HOLD.ageA:HOLD.age)+'%・1万kmごと'+HOLD.kmDep+'%下落（仮置き）。</div>')+'</section>';}
     // 今の走行（入力ミスで外した記録だけ出す）
     h+='<section><h4>📏 今の走行 <small>'+(c.odo!=null?km(c.odo)+'km・'+odoLb(c):'記録なし')+'</small></h4>'+odoForm(v,c);
     if(D&&D.trips){const bad=D.trips.filter(suspect);if(bad.length)h+='<div class="vl-trips">'+bad.slice(0,5).map(r=>'<div class="bad"><span>'+e(String(r.start_date).slice(5).replace("-","/"))+'〜'+e(String(r.end_date).slice(5).replace("-","/"))+'</span><b>⚠ '+km(rawKm(r))+'km <small>'+e(tripBad(r))+'・計算から除外</small></b></div>').join("")+'</div>';}
@@ -823,6 +823,17 @@ const VL=(()=>{
     if(x.best.k===0){const okR=x.all.filter(r=>r.k>0&&r.ok);if(!okR.length)return '1か月以内にリミット到達';const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）'+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');}
     return ym(addMon(T0(),x.best.k))+'に売るのが最大で、今売るより '+hpm(x.best.up)+(x.edge?'（'+HMAX+'か月以上先の可能性）':'')+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');
   }
+  // 1台の結論を文章で（オーナー指示 2026-11-02）：年間〜km走って〜か月後に売ると〜%下落、レンタル期間の売上を合算すると生涯成績は〜
+  function holdStory(v,x){
+    if(!x||x.na)return '';
+    const c=S.calc[v.code], b=x.best, f=holdFin(v,b), base=c.buy!=null?c.buy:x.V0, baseLb=c.buy!=null?(c.isLease?'リース総額':'仕入額'):'今の売却額';
+    const pct=base?Math.round((base-b.val)/base*100):null;
+    const run=x.kmM!=null?'年間'+km(x.kmM*12)+'km走行し、':'';
+    const when=b.k===0?'今売ると':b.k+'か月後（'+ym(addMon(T0(),b.k))+(b.kmAt!=null?'・'+km(b.kmAt)+'km':'')+'）に売ると';
+    const drop='売却額は'+baseLb+man(base)+'から'+man(b.val)+'へ'+(pct!=null?(pct>=0?pct+'%下落':(-pct)+'%上昇'):'')+'します';
+    const life=f!=null?'レンタル期間の売上'+man(c.revDone+b.cs)+(b.cc?'（経費'+man(b.cc)+'を引く）':'')+'を合算すると、生涯成績は'+hpm(f)+'になります':'仕入額が未入力のため生涯成績は出せません（今売るより'+hpm(b.up)+'）';
+    return 'この'+(v.name||'車')+'は'+run+when+'、'+drop+'。'+life+'。';
+  }
   const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
   function holdFlow(v,x){
     const c=S.calc[v.code], buy=c.buy;
@@ -865,7 +876,7 @@ const VL=(()=>{
       const why=holdWhy(x);
       const jd=holdBadge(x);
       const kmTxt=(c.odo!=null?km(c.odo)+'km':'走行—')+'・年'+(c.monKm!=null?km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'—')+(c.limit&&!c.talk?'・リミット'+km(c.limit):'');
-      let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>';
+      let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>'+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>');
       if(!x.na)t+=holdFlow(v,x);
       return t+'</div>';}).join('');
     return h;
