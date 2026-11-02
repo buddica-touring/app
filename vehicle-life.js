@@ -775,6 +775,14 @@ const VL=(()=>{
   //   n年後の売却額＝今の売却額（相場×買取率）×（1−年下落率）^n ×（1−距離下落率×増える距離÷1万km）。年間走行はその車のペース
   //   n年後にリミットを超える選択肢は除外。仮置きの率は HOLD に1行ずつ（売却実績が出たら置き換える）
   const HOLD={ageA:10, age:15, kmDep:2, drop:5, insMon:10000, shaken:100000, tenken:25000, tenkenN:2};   // 経費は一旦固定（オーナー指示 2026-11-02）：保険 月1万／車検 年1回10万／点検 年2回×2.5万   // 年下落率％（Aクラス／その他）・1万kmごとの下落％・単価低下％/年
+  function opOf(v){const t0=T0(), st=(S.res[v.code]||[]).map(r=>ts(r.start_date)).filter(t=>t!=null&&t<=t0&&t>=ts(DATA_FROM));
+    if(!st.length)return null;const from=Math.min(...st);return {from,days:Math.round((t0-from)/DAY)};}
+  function holdRate(type){   // 稼働30日以上の車の 売上合計÷稼働日数合計
+    const pool=S.v.filter(x=>S.calc[x.code].st!=="sold").map(x=>({x,o:opOf(x)})).filter(y=>y.o&&y.o.days>=30);
+    const rate=l=>{const d=l.reduce((s,y)=>s+y.o.days,0);return d?l.reduce((s,y)=>s+S.calc[y.x.code].revDone,0)/d:null;};
+    const cl=pool.filter(y=>y.x.type===type);
+    if(cl.length)return {perDay:rate(cl),src:"class",n:cl.length};
+    return pool.length?{perDay:rate(pool),src:"all",n:pool.length}:null;}
   const HMAX=36;   // 月単位で何か月先まで見るか（オーナー指示 2026-11-02：稼働月で出す）
   function holdOf(v){
     const c=S.calc[v.code];
@@ -783,11 +791,11 @@ const VL=(()=>{
     const sp=n(v.sale_price), V0=sp!=null?sp:c.nowExit;
     if(V0==null)return {na:"相場なし（市場売却額が出ると判定）"};
     // 月の売上＝実績売上÷稼働日数（その車の最初の予約日〜今日）で年換算（オーナー指示 2026-11-02：稼働前の期間で薄めない）。返却が入るたびに更新。単価は年HOLD.drop%ずつ下がる
-    const t0=T0(), st=(S.res[v.code]||[]).map(r=>ts(r.start_date)).filter(t=>t!=null&&t<=t0&&t>=ts(DATA_FROM));
-    if(!st.length)return {na:"まだ予約の実績がない"};
-    const opFrom=Math.min(...st), opDays=Math.round((t0-opFrom)/DAY);
-    if(opDays<30)return {na:"稼働30日未満（"+ymd(opFrom)+"から）"};
-    const S1=c.revDone/opDays*365, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
+    //   稼働30日未満の車は、同じクラスの稼働30日以上の車の平均（1日あたり売上）で代用。クラスにいなければ全車平均（オーナー指示 2026-11-02）
+    const op=opOf(v), own=op&&op.days>=30, cr=own?null:holdRate(v.type);
+    if(!own&&!cr)return {na:"売上の実績がまだない"};
+    const opFrom=op?op.from:null, opDays=op?op.days:0;
+    const S1=own?c.revDone/opDays*365:cr.perDay*365, src=own?"own":cr.src, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
     const kmM=c.monKm, age=(v.type==="A"?HOLD.ageA:HOLD.age)/100;
     const V=k=>V0*Math.pow(1-age,k/12)*Math.max(0,1-HOLD.kmDep/100*(kmM||0)*k/1e4);
     const all=[]; let cs=0,cc=0;
@@ -798,14 +806,14 @@ const VL=(()=>{
     const best=all.filter(r=>r.ok).reduce((b,r)=>r.up>b.up?r:b,all[0]);
     const firstOff=all.find(r=>!r.ok);
     const pick=[...new Set([0,6,12,24,HMAX,best.k])].sort((a,b)=>a-b);
-    return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,firstOff,opFrom,opDays,edge:best.k===HMAX,short:opDays<90};
+    return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,firstOff,opFrom,opDays,src,srcN:cr?cr.n:0,edge:best.k===HMAX,short:own&&opDays<90};
   }
   function holdHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold"), H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
     const pm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
-    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
+    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
@@ -820,7 +828,7 @@ const VL=(()=>{
           +x.rows.map(r=>{const best=r===x.best, off=!r.ok;
             return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
               +'<td>'+(buy!=null?man(buy):'未入力')+'</td>'
-              +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+'</small>':'<small>実績 '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日'+(x.short?'（90日未満）':'')+'</small>')+'</td>'
+              +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
               +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
               +'<td>'+man(r.val)+'</td>'
               +'<td class="eq"><b class="'+(fin(r)==null?'':fin(r)>=0?'g':'r')+'">'+(fin(r)==null?'—':pm(fin(r)))+'</b>'+(r.k?'<small>今売るより'+pm(r.up)+'</small>':'')+'</td></tr>';}).join('')
