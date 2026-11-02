@@ -291,9 +291,10 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
+    if(k==="forecast")return forecastList().length;
     if(k==="shaken")return a.filter(v=>shakenOf(v).some(o=>o.miss)).length;
     if(k==="market")return a.filter(v=>S.calc[v.code].sellNow||S.calc[v.code].overBuy).length;
     return 0;};
@@ -317,6 +318,7 @@ const VL=(()=>{
     switch(S.sec){
       case "karte":return karteHtml();
       case "relay":return relayHtml();
+      case "forecast":return forecastHtml();
       case "kpi":return kpiHtml();
       case "market":return marketHtml();
       case "shaken":return shakenHtml();
@@ -761,6 +763,18 @@ const VL=(()=>{
   // 入替車両（オーナー指示 2026-10-31）：売り止め・入替と入替車両（仕入）を1つに。入替準備期間に入った車を売止の月別・早い順に。後継車の登録と準備状況もここで
   // オーナー指示 2026-10-31：協議（10万km超・売止日未定）の車も入替の対象としてここに出す
   const inPrep=v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&(c.stopT!=null?addMon(c.stopT,-LEAD())<=T0():!!c.talk);};
+  // 入替予測（オーナー指示 2026-11-02）：今日から3ヶ月以内に走行リミットへ届く予定の車を、到達が早い順に出す。協議の車はリミット未定なので入らない
+  const FORECAST_MON=3;
+  const forecastList=()=>{const end=addMon(T0(),FORECAST_MON);return S.v.filter(v=>{const c=S.calc[v.code];return c.st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null&&c.limitT!=null&&c.limitT<=end;}).sort((a,b)=>S.calc[a.code].limitT-S.calc[b.code].limitT);};
+  function forecastHtml(){
+    const l=forecastList(), t0=T0();
+    let h='<div class="vl-rl2 fc"><div class="gh">3ヶ月以内にリミット到達予定（'+ymdS(addMon(t0,FORECAST_MON))+'まで）<b>'+l.length+'</b></div>';
+    if(!l.length)h+='<div class="vl-note">3ヶ月以内にリミットへ届く予定の車はありません。</div>';
+    h+=l.map(v=>{const c=S.calc[v.code], over=c.limitT<=t0;
+      return '<div class="rw" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
+        +'<div class="nums"><span><i>現在</i>'+km(c.odo)+'</span><span><i>リミット</i>'+km(c.limit)+'</span><span><i>月間走行</i>'+km(c.monKm)+'</span><span><i>到達予想</i><b class="'+(over?'r':'')+'">'+(over?'到達済み':ymdS(c.limitT))+'</b></span></div></div>';}).join('');
+    return h+'</div><div class="vl-note sm">到達予想は月間走行から計算しています。実績が3ヶ月未満の車は全車平均を使います。予約や返却が入るたびに変わります。</div>';
+  }
   function relayHtml(){
     const t0=T0(), ymd2=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
     const due=S.v.filter(inPrep).sort((a,b)=>(S.calc[a.code].stopT??-1)-(S.calc[b.code].stopT??-1));
