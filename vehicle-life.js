@@ -803,7 +803,7 @@ const VL=(()=>{
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+='<div class="vl-hold"><div class="hr"><span>車両</span><span>判定</span><span>走行距離</span><span>今の売却額</span><span>年間売上</span><span>1年後に売る</span><span>2年後に売る</span></div>';
     h+=rowsH.map(({v,h:x})=>{
-      const lbl=x.na?'<em class="hj na">判定不可</em><small>'+e(x.na)+'</small>':x.best.k===0?'<em class="hj sell">今売却</em><small>持つと利益が減る</small>':'<em class="hj keep">保有 '+x.best.k+'年</em><small>'+ym(addMon(T0(),12*x.best.k))+'ごろ売却・'+pm(x.best.up)+'</small>';
+      const lbl=x.na?'<em class="hj na">判定不可</em><small>'+e(x.na)+'</small>':x.best.k===0?'<em class="hj sell">今売却</em><small>'+(()=>{const r1=x.rows[1],r2=x.rows[2];if(!r1.ok)return '1年以内にリミット到達（売却時 '+km(r1.kmAt)+'km）';const r=r2.ok&&r2.up>r1.up?r2:r1;return r.k+'年持つと 粗利'+pm(r.cum)+' より 売却額の下落'+pm(-r.drop)+' が大きい';})()+'</small>':'<em class="hj keep">保有 '+x.best.k+'年</em><small>'+ym(addMon(T0(),12*x.best.k))+'ごろ売却・'+pm(x.best.up)+'</small>';
       const kmA=r=>r&&r.kmAt!=null?'<small>売却時 '+km(r.kmAt)+'km</small>':'';
       const yr=r=>!r?'—':!r.ok?'<span class="mut">リミット超過</span>'+kmA(r):'<b class="'+(r.up>0?'g':'r')+'">'+pm(r.up)+'</b><small>粗利'+man(r.cum)+'・売却'+man(r.val)+(r.ins?'・車検'+r.ins+'回':'')+'</small>'+kmA(r);
       const c=S.calc[v.code], kmCell=(c.odo!=null?km(c.odo)+'km':'—')+'<small>'+(c.monKm!=null?'年 '+km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'ペース不明')+(c.limit&&!c.talk?'・リミット '+km(c.limit):'')+'</small>';
