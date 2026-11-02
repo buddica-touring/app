@@ -850,12 +850,13 @@ const VL=(()=>{
   const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
   function holdFlow(v,x){
     const c=S.calc[v.code], buy=c.buy;
-    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?man(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th>＋売上</th><th>−経費</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
+    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?man(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th>＋売上</th><th>−経費</th><th class="gp">＝粗利</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
       +x.rows.map(r=>{const best=r===x.best, off=!r.ok, f=holdFin(v,r);
         return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
           +'<td class="bc">'+(buy!=null?man(buy):'未入力')+'</td>'
           +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
           +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
+          +'<td class="gp"><b class="'+(c.revDone+r.cs-r.cc>=0?'':'r')+'">'+man(c.revDone+r.cs-r.cc)+'</b><small>売上−経費</small></td>'
           +'<td>'+man(r.val)+'</td>'
           +'<td class="eq"><b class="'+(f==null?'':f>=0?'g':'r')+'">'+(f==null?'—':hpm(f))+'</b>'+(r.k?'<small>今売るより'+hpm(r.up)+'</small>':'')+'</td></tr>';}).join('')
       +'</tbody></table></div>';
