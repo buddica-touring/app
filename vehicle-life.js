@@ -291,7 +291,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["def","📘","定義・変更履歴"],["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="forecast")return forecastList().length;
@@ -323,6 +323,7 @@ const VL=(()=>{
       case "market":return marketHtml();
       case "shaken":return shakenHtml();
       case "rule":return cfgHtml(true);
+      case "def":return defHtml();
       case "proc":case "tire":case "etc":return '<div class="vl-host"></div>';
       default:return sumHtml();
     }
@@ -889,6 +890,46 @@ const VL=(()=>{
       let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>'+(x.na?'':holdPlan(v,x))+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>');
       if(!x.na)t+=holdFlow(v,x);
       return t+'</div>';}).join('');
+    return h;
+  }
+  // 定義・変更履歴（オーナー指示 2026-11-02：目的の定義を残し、変更ごとに確認できるようにする）
+  //   ロジックや前提値を変えたら、DEF_LOG の先頭に1行足す（日付・何を変えたか・なぜ）。前提値の表は HOLD・ルール設定から自動で出る
+  const DEF_LOG=[
+    ["2026-11-02","目的を「90km以内で利益最大」に統一。90km到達・車検手前・手入力の売却予定を期限にし、その中で最終利益が最大の月を売却予定にする。売止・入替準備を逆算し、今の設定と並べて表示（予約停止はまだ今の設定）","目的が画面ごとにばらばらだったため"],
+    ["2026-11-02","サマリの下段を保有判定のカードに入れ替え。保有判定メニューはサマリに統合","保有判定が主役のため"],
+    ["2026-11-02","将来の売却額を査定の相場に連動（距離＝今の相場と10万km相場から実測、年数＝年"+HOLD.age+"%）","一律2%の仮置きが実際の下がり方（2〜9%）と合わなかったため"],
+    ["2026-11-02","売上の年換算を稼働日数（その車の最初の予約日〜今日）で割る。稼働30日未満はクラス平均で代用","稼働前の期間で売上が薄まっていたため"],
+    ["2026-11-02","年間経費を一旦固定：保険 月1万＋車検 年1回10万＋点検 年2回×2.5万＝年27万","オーナー指示"],
+    ["2026-11-02","仕入額（一括仕入＝仕入総額、リース＝リース総額）をスタート額として表示。リース月額は計算に使わない","総額で見るため"],
+    ["2026-11-02","保有判定を追加（月ごとに最終利益を計算し、最大の月を売却予定にする）","売り時を利益で決めるため"]];
+  function defHtml(){
+    const cfg=S.cfg, yr=HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN;
+    const row=(k,v,why)=>'<tr><td>'+k+'</td><td><b>'+v+'</b></td><td>'+why+'</td></tr>';
+    let h='<h4 class="vl-h4">📘 定義・変更履歴 <small>この画面の数字は、今のプログラムの設定値をそのまま表示しています</small></h4>';
+    h+='<div class="df-goal"><span>目的</span><b>在庫（1台ごと）を、'+km(n(cfg.default_limit_km)||DEF.default_limit_km)+'km以内で最大の利益を生むように運用する</b></div>';
+    h+='<div class="df-sec"><h5>判断の流れ</h5><ol>'
+      +'<li><b>期限（上限）</b>：90km到達・車検手前（次の車検期間中に90kmに届く車は車検を通さない）・手入力の売却予定日のうち一番早い日。これより後には売らない</li>'
+      +'<li><b>売却予定</b>：今から期限までを1か月ずつ計算し、最終利益が一番大きい月</li>'
+      +'<li><b>売止・入替準備</b>：売却予定の1か月前に売止、その'+LEAD()+'か月前から入替準備</li>'
+      +'<li><b>判定</b>：売却予定が今なら「今売却」、先なら「保有◯か月」</li></ol>'
+      +'<p class="df-warn">運用状態：予約停止（売止）は、まだ今までの基準（90km到達・車検・手入力）で動いています。統一した売却予定への切り替えは未実施です。</p></div>';
+    h+='<div class="df-sec"><h5>計算式</h5><ul>'
+      +'<li><b>最終利益（生涯成績）</b> ＝ 粗利 ＋ 売却額 − 仕入額</li>'
+      +'<li><b>粗利</b> ＝ 売上（実績＋見込み）− 経費</li>'
+      +'<li><b>仕入額</b> ＝ 一括仕入なら仕入総額、リースならリース総額（リース月額は使わない）</li>'
+      +'<li>仕入額は、どの月に売っても同じ額が引かれるので、売却予定の選び方には影響しない（未入力でも判定は出る）</li></ul></div>';
+    h+='<div class="df-sec"><h5>前提値（今の設定）</h5>'+tbl(["項目","値","決め方"],[
+      row('売上（見込み）','実績を年換算','その車の実績売上 ÷ 稼働日数（最初の予約日〜今日）× 365。稼働30日未満は同じクラスの平均（いなければ全車平均）。'+(()=>{const d=new Date(ts(DATA_FROM));return d.getUTCFullYear()+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の予約が対象'),
+      row('単価の低下','年'+HOLD.drop+'%','仮置き'),
+      row('年間経費',man(yr)+'/年','保険 月'+man(HOLD.insMon)+'＋車検 年1回'+man(HOLD.shaken)+'＋点検 年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'（仮置き・全車共通）'),
+      row('今の売却額','相場中央値×'+(n(cfg.buy_rate)||DEF.buy_rate)+'%','査定（カーセンサー）の今の走行帯の中央値 × 買取率。売却額が確定していればその額'),
+      row('距離による下落','車ごとの実測','今の相場と10万km前後の相場を結んだ1万kmあたりの下落率。ない車は同じクラスの平均→全車平均→'+HOLD.kmDep+'%'),
+      row('年数による下落','年'+HOLD.age+'%','仮置き（相場は同じ年式で調べるため年数の分が入らない）'),
+      row('走行ペース','車ごとの実績','メーター増分 ÷ 期間。実績3か月未満は全車平均'),
+      row('リミット',km(n(cfg.default_limit_km)||DEF.default_limit_km)+'km','ルール設定'),
+      row('入替準備期間',LEAD()+'か月','ルール設定'),
+      row('最長で見る期間',HMAX+'か月（期限が分からない車は'+HNOCAP+'か月）','')])+'</div>';
+    h+='<div class="df-sec"><h5>変更履歴 <small>新しい順</small></h5>'+tbl(["日付","変更","理由"],DEF_LOG.map(([d,c,w])=>'<tr><td>'+e(d)+'</td><td>'+e(c)+'</td><td>'+e(w)+'</td></tr>'))+'</div>';
     return h;
   }
   function forecastHtml(){
