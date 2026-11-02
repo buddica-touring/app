@@ -294,7 +294,7 @@ const VL=(()=>{
   const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["def","📘","アルゴリズム"],["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
-    if(k==="forecast")return forecastList().length;
+    if(k==="forecast")return planSoon().length;
     if(k==="shaken")return a.filter(v=>shakenOf(v).some(o=>o.miss)).length;
     if(k==="market")return a.filter(v=>holdSell(v)||S.calc[v.code].overBuy).length;
     return 0;};
@@ -916,6 +916,7 @@ const VL=(()=>{
   // アルゴリズム（オーナー指示 2026-11-02：目的・判断のしかた・前提値・変更履歴を1か所に。名前は「アルゴリズム」に統一）
   //   ロジックや前提値を変えたら、DEF_LOG の先頭に1行足す（日付・何を変えたか・なぜ）。前提値の表は HOLD・ルール設定から自動で出る
   const DEF_LOG=[
+    ["2026-11-02","入替予測タブを、保有判定の「手放す月」にもとづく入替予定（月ごとの台数・入替準備・売止・手放す）に置き換え。メニューの数字は3か月以内に入替準備に入る台数","入替の計画を保有判定に揃えるため（表示のみ。予約停止はまだ以前の基準）"],
     ["2026-11-02","タブ名を「定義・変更履歴」から「アルゴリズム」に変更","シンプルに統一するため"],
     ["2026-11-02","目的を「品質を保ちながら、"+HOLD.maxY+"年・90km以内で最大の利益（利益が同じなら早く手放す）」に更新","長く持つほど品質・リスク・相場の面で不利になり、利益はほとんど増えないため（オーナー判断）"],
     ["2026-11-02","今後の走行ペースを想定値 年"+HOLD.paceY.toLocaleString()+"km に（全車共通）。9万km到達・距離による下落・乗り潰しの期間はこのペースで計算","今後の運用の想定で判断するため（実績は8月からで短い）"],
@@ -962,16 +963,33 @@ const VL=(()=>{
     h+='<div class="df-sec"><h5>変更履歴 <small>新しい順</small></h5>'+tbl(["日付","変更","理由"],DEF_LOG.map(([d,c,w])=>'<tr><td>'+e(d)+'</td><td>'+e(c)+'</td><td>'+e(w)+'</td></tr>'))+'</div>';
     return h;
   }
+  // 入替予測＝入替予定（オーナー指示 2026-11-02：保有判定の「手放す月」を月ごとに並べる。既存のリミット基準の予測から置き換え）
+  //   表示だけ。配車表の予約は、入替車両の「配車表を止める」を押した時だけ止まる（その日付はまだ今の設定）
+  function planList(){
+    return S.v.filter(v=>S.calc[v.code].st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null).map(v=>({v,x:holdOf(v)})).filter(o=>o.x&&!o.x.na);
+  }
+  const planSoon=()=>{const end=addMon(T0(),FORECAST_MON);return planList().filter(o=>o.x.prepU<=end);};   // 3か月以内に入替準備に入る車（メニューの数字）
   function forecastHtml(){
-    const l=forecastList(), t0=T0(), end=addMon(t0,FORECAST_MON), nx=forecastCars().find(v=>S.calc[v.code].limitT>end), nc=nx&&S.calc[nx.code];
-    let h='<div class="vl-rl2 fc"><div class="fcw"><b>この一覧に出る条件</b><ul><li>「リミットまでの残りkm ÷ 月間走行」が3ヶ月以下になった車が出ます</li><li>リミットは '+km(n(S.cfg.default_limit_km)||DEF.default_limit_km)+'km（車ごとに決めた場合はその値）</li><li>月間走行は車ごとの実績です。実績が3ヶ月未満の車は全車平均を使います</li><li>出ない車：売却確定・後継車・協議（リミット未定）</li></ul>'
-      +(nx?'<p>次に近い車：'+e(nx.name)+' '+e(plate4(nx))+'　残り '+km(nc.limit-nc.odo)+'km・月間 '+km(nc.monKm)+'km・到達予想 '+ymdS(nc.limitT)+'</p>':'')+'</div>'
-      +'<div class="gh">3ヶ月以内にリミット到達予定（'+ymdS(end)+'まで）<b>'+l.length+'</b></div>';
-    if(!l.length)h+='<div class="vl-note">3ヶ月以内にリミットへ届く予定の車はありません。</div>';
-    h+=l.map(v=>{const c=S.calc[v.code], over=c.limitT<=t0;
-      return '<div class="rw" data-code="'+e(v.code)+'"><div class="nmc">'+nm(v)+'<div class="sub"><em class="yr">'+(v.year?e(wYear(v.year)||v.year)+'年式':'年式—')+'</em>'+exTag(v)+'</div></div>'
-        +'<div class="nums"><span><i>現在</i>'+km(c.odo)+'</span><span><i>リミット</i>'+km(c.limit)+'</span><span><i>月間走行</i>'+km(c.monKm)+'</span><span><i>到達予想</i><b class="'+(over?'r':'')+'">'+(over?'到達済み':ymdS(c.limitT))+'</b></span></div></div>';}).join('');
-    return h+'</div>';
+    const t0=T0(), L=planList(), na=S.v.filter(v=>S.calc[v.code].st!=="sold"&&!isSucc(v.code)&&n(v.sale_price)==null).filter(v=>{const x=holdOf(v);return x&&x.na;});
+    const mk=t=>{const d=new Date(t);return d.getUTCFullYear()*12+d.getUTCMonth();}, m0=mk(t0), lb=m=>Math.floor(m/12)+'/'+(m%12+1);
+    const last=Math.max(m0+11,...L.map(o=>mk(o.x.saleU))), N=Math.min(last-m0+1,48);
+    const cnt=Array.from({length:N},(_,i)=>L.filter(o=>mk(o.x.saleU)===m0+i).length), mx=Math.max(1,...cnt);
+    let h='<h4 class="vl-h4">📅 入替予測 <small>保有判定の「手放す月」を月ごとに並べた入替予定。返却や相場の更新で自動で変わります</small></h4>';
+    h+='<div class="pl-note">表示だけです。配車表の予約は、入替車両の「⛔ 配車表を止める」を押した時だけ止まります（その日付はまだ以前の基準）。</div>';
+    // 月ごとの台数（手放す）
+    h+='<div class="pl-bars" role="img" aria-label="月ごとの手放す台数">'+cnt.map((n2,i)=>'<div class="pl-b'+((m0+i)%12===0?' y':'')+'"><b>'+(n2||'')+'</b><i style="height:'+(n2/mx*100).toFixed(0)+'%"></i><span>'+(i===0?'今月':(m0+i)%12===0?String(Math.floor((m0+i)/12)).slice(2)+'/1':[3,6,9].includes((m0+i)%12)?String((m0+i)%12+1):'')+'</span></div>').join('')+'</div>';
+    // 月別リスト：入替準備を始める／売止／手放す
+    const ev=[]; L.forEach(o=>{const x=o.x;
+      ev.push({m:mk(Math.max(x.prepU,t0)),t:'prep',o});ev.push({m:mk(Math.max(x.stopU,t0)),t:'stop',o});ev.push({m:mk(x.saleU),t:'sale',o});});
+    const TL={prep:['入替準備を始める','pp'],stop:['売止（予約を止める）','ps'],sale:['手放す','px']};
+    const months=[...new Set(ev.map(z=>z.m))].sort((a,b)=>a-b);
+    h+='<div class="pl-list">'+months.map(m=>{const es=ev.filter(z=>z.m===m);
+      return '<div class="pl-m"><div class="pl-mh">'+lb(m)+(m===m0?' <small>今月</small>':'')+'<em>手放す '+es.filter(z=>z.t==='sale').length+'台</em></div>'
+        +['prep','stop','sale'].filter(t=>es.some(z=>z.t===t)).map(t=>'<div class="pl-g"><span class="pl-t '+TL[t][1]+'">'+TL[t][0]+'</span>'
+          +es.filter(z=>z.t===t).map(z=>{const x=z.o.x,v=z.o.v,f=holdFin(v,x.best);
+            return '<div class="pl-r" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div><div class="pl-w">'+(t==='sale'?(x.mode==='ride'?'乗り潰し（90km）':x.capK!=null&&x.best.k===x.H?e(String(x.capWhy).replace(/（.*$/,'')):x.best.k===0?'今が利益最大':'利益最大')+(f!=null?'・生涯成績 '+hpmC(f):''):'手放す '+ymS3(x.saleU))+'</div></div>';}).join('')+'</div>').join('')+'</div>';}).join('')+'</div>';
+    if(na.length)h+='<div class="pl-m"><div class="pl-mh">判定不可 <em>'+na.length+'台</em></div>'+na.map(v=>'<div class="pl-r" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div><div class="pl-w">'+e(holdOf(v).na)+'</div></div>').join('')+'</div>';
+    return h;
   }
   function relayHtml(){
     const t0=T0(), ymd2=t=>{const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
