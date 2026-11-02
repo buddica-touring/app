@@ -782,9 +782,12 @@ const VL=(()=>{
     if(c.ride)return {na:"乗り潰し（売却しない）"};
     const sp=n(v.sale_price), V0=sp!=null?sp:c.nowExit;
     if(V0==null)return {na:"相場なし（市場売却額が出ると判定）"};
-    if(c.heldDays<30)return {na:"売上データ30日未満"};
-    // 月の売上＝実績売上÷在籍日数×30.44日（返却が入るたびに更新）。単価は年HOLD.drop%ずつ下がる
-    const S1=c.revDone/c.heldDays*365, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
+    // 月の売上＝実績売上÷稼働日数（その車の最初の予約日〜今日）で年換算（オーナー指示 2026-11-02：稼働前の期間で薄めない）。返却が入るたびに更新。単価は年HOLD.drop%ずつ下がる
+    const t0=T0(), st=(S.res[v.code]||[]).map(r=>ts(r.start_date)).filter(t=>t!=null&&t<=t0&&t>=ts(DATA_FROM));
+    if(!st.length)return {na:"まだ予約の実績がない"};
+    const opFrom=Math.min(...st), opDays=Math.round((t0-opFrom)/DAY);
+    if(opDays<30)return {na:"稼働30日未満（"+ymd(opFrom)+"から）"};
+    const S1=c.revDone/opDays*365, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
     const kmM=c.monKm, age=(v.type==="A"?HOLD.ageA:HOLD.age)/100;
     const V=k=>V0*Math.pow(1-age,k/12)*Math.max(0,1-HOLD.kmDep/100*(kmM||0)*k/1e4);
     const all=[]; let cs=0,cc=0;
@@ -795,14 +798,14 @@ const VL=(()=>{
     const best=all.filter(r=>r.ok).reduce((b,r)=>r.up>b.up?r:b,all[0]);
     const firstOff=all.find(r=>!r.ok);
     const pick=[...new Set([0,6,12,24,HMAX,best.k])].sort((a,b)=>a-b);
-    return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,firstOff,edge:best.k===HMAX,short:c.heldDays<90};
+    return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,firstOff,opFrom,opDays,edge:best.k===HMAX,short:opDays<90};
   }
   function holdHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold"), H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
     const pm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
-    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷在籍日数で月換算・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
+    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
@@ -817,7 +820,7 @@ const VL=(()=>{
           +x.rows.map(r=>{const best=r===x.best, off=!r.ok;
             return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
               +'<td>'+(buy!=null?man(buy):'未入力')+'</td>'
-              +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+'</small>':'<small>実績</small>')+'</td>'
+              +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+'</small>':'<small>実績 '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日'+(x.short?'（90日未満）':'')+'</small>')+'</td>'
               +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
               +'<td>'+man(r.val)+'</td>'
               +'<td class="eq"><b class="'+(fin(r)==null?'':fin(r)>=0?'g':'r')+'">'+(fin(r)==null?'—':pm(fin(r)))+'</b>'+(r.k?'<small>今売るより'+pm(r.up)+'</small>':'')+'</td></tr>';}).join('')
