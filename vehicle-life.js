@@ -773,7 +773,9 @@ const VL=(()=>{
     const cl=pool.filter(y=>y.x.type===type);
     if(cl.length)return {perDay:rate(cl),src:"class",n:cl.length};
     return pool.length?{perDay:rate(pool),src:"all",n:pool.length}:null;}
-  const HMAX=36;   // 月単位で何か月先まで見るか（オーナー指示 2026-11-02：稼働月で出す）
+  // 目的を利益最大化に統一（オーナー指示 2026-11-02）：売る時期＝利益が最大の月。ただし 90km到達・車検手前・手入力の売却予定（既存の saleT）より後には売れないので、そこを上限にする
+  const HMAX=120, HNOCAP=60;   // 上限が分からない車（協議など）は60か月先まで。どの車も最長120か月
+  const CAPLB={"走行":"90km到達","車検":"車検手前（次の車検期間中に90kmに届く）","手動":"手入力の売却予定"};
   // 売却額の下がり方（オーナー指示 2026-11-02：査定と連動）
   //   距離の分＝その車の相場の実測：今の相場（今の走行帯）と終了時の相場（同じ年式・10万km前後）を結んだ、1万kmあたりの下落率
   //   終了時の相場がない車は同じクラスの平均、いなければ全車平均、それもなければ HOLD.kmDep。年数の分は相場に入らない（同じ年式で調査）ので HOLD.age を足す
@@ -801,24 +803,30 @@ const VL=(()=>{
     const S1=own?c.revDone/opDays*365:cr.perDay*365, src=own?"own":cr.src, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
     const kmM=c.monKm, age=HOLD.age/100, sl=holdSlope(v);
     const V=k=>V0*Math.pow(1-age,k/12)*Math.max(.1,1-sl.pct/100*(kmM||0)*k/1e4);   // 下限は今の10%
+    const capK=c.saleT!=null&&CAPLB[c.why]?Math.max(0,Math.floor(monthsTo(c.saleT))):null, H=Math.min(capK??HNOCAP,HMAX);
     const all=[]; let cs=0,cc=0;
-    for(let k=0;k<=HMAX;k++){
+    for(let k=0;k<=H;k++){
       if(k>0){cs+=sm*Math.pow(1-HOLD.drop/100,(k-1)/12); cc+=cm;}
-      const val=V(k), cum=cs-cc, ok=k===0||c.talk||c.odo==null||kmM==null||c.odo+kmM*k<c.limit;
+      const val=V(k), cum=cs-cc, ok=true;
       all.push({k,cs,cc,cum,val,drop:V0-val,up:cum-(V0-val),ok,kmAt:c.odo!=null&&kmM!=null?c.odo+kmM*k:null});}
     const best=all.filter(r=>r.ok).reduce((b,r)=>r.up>b.up?r:b,all[0]);
-    const firstOff=all.find(r=>!r.ok);
-    const pick=[...new Set([0,6,12,24,HMAX,best.k])].sort((a,b)=>a-b);
-    return {all,rows:pick.map(k=>all[k]),best,V0,S1,kmM,sl,firstOff,opFrom,opDays,src,srcN:cr?cr.n:0,edge:best.k===HMAX,short:own&&opDays<90};
+    const pick=[...new Set([0,6,12,24,36,60,H,best.k].filter(k=>k<=H))].sort((a,b)=>a-b);
+    // 統一した売却予定（利益最大の月）と、そこから逆算した売止・入替準備。今の設定（saleT＝上限側）と並べて見せる（予約停止はまだ今の設定で動く）
+    const saleU=addMon(T0(),best.k), stopU=addMon(saleU,-1), prepU=addMon(stopU,-LEAD());
+    return {all,rows:pick.map(k=>all[k]),best,H,capK,capWhy:capK!=null?CAPLB[c.why]:null,saleU,stopU,prepU,V0,S1,kmM,sl,opFrom,opDays,src,srcN:cr?cr.n:0,edge:capK==null&&best.k===H,short:own&&opDays<90};
   }
   // 保有判定の共通部品（サマリ・保有判定・車両カルテで同じものを使う。オーナー指示 2026-11-02：目的は利益最大化。保有判定を主役にする）
+  const manC=x=>x==null?'—':Math.abs(x)>=1e6?(x<0?'−':'')+Math.round(Math.abs(x)/1e4).toLocaleString()+'万':man(x);
   const hpm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
+  const hpmC=x=>x==null?'—':(x>0?'+':x<0?'−':'')+manC(Math.abs(x));
   const holdFin=(v,r)=>{const c=S.calc[v.code];return c.buy!=null&&r?r.val+c.revDone+r.cs-r.cc-c.buy:null;};   // 最終利益＝売却額＋売上（実績＋見込み）−経費−仕入額
   const holdSell=v=>{const x=holdOf(v);return !!(x&&!x.na&&x.best.k===0);};
   function holdWhy(x){
     if(x.na)return x.na;
-    if(x.best.k===0){const okR=x.all.filter(r=>r.k>0&&r.ok);if(!okR.length)return '1か月以内にリミット到達';const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）'+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');}
-    return ym(addMon(T0(),x.best.k))+'に売るのが最大で、今売るより '+hpm(x.best.up)+(x.edge?'（'+HMAX+'か月以上先の可能性）':'')+(x.firstOff?'・'+x.firstOff.k+'か月後にリミット到達':'');
+    const cap=x.capWhy?'上限は'+ym(addMon(T0(),x.H))+'（'+x.capWhy+'）':'';
+    if(x.best.k===0){if(x.H===0)return '上限（'+(x.capWhy||'')+'）に達している';const okR=x.all.filter(r=>r.k>0);const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）・'+cap;}
+    if(x.capK!=null&&x.best.k===x.H)return '上限まで持つのが最大：'+ym(addMon(T0(),x.best.k))+'（'+x.capWhy+'）に売り、今売るより '+hpm(x.best.up);
+    return ym(addMon(T0(),x.best.k))+'に売るのが最大で、今売るより '+hpm(x.best.up)+(x.edge?'（'+x.H+'か月以上先の可能性）':'')+(cap?'・'+cap:'');
   }
   // 1台の結論を文章で（オーナー指示 2026-11-02）：年間〜km走って〜か月後に売ると〜%下落、レンタル期間の売上を合算すると生涯成績は〜
   function holdStory(v,x){
@@ -835,39 +843,42 @@ const VL=(()=>{
   const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.best.k===0?'<em class="hj sell">今売却</em>':'<em class="hj keep">保有 '+x.best.k+'か月</em>';
   function holdFlow(v,x){
     const c=S.calc[v.code], buy=c.buy;
-    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?man(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th>＋売上</th><th>−経費</th><th class="gp">＝粗利</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
+    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?manC(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th>＋売上</th><th>−経費</th><th class="gp">＝粗利</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
       +x.rows.map(r=>{const best=r===x.best, off=!r.ok, f=holdFin(v,r);
         return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
-          +'<td class="bc">'+(buy!=null?man(buy):'未入力')+'</td>'
-          +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
-          +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
-          +'<td class="gp"><b class="'+(c.revDone+r.cs-r.cc>=0?'':'r')+'">'+man(c.revDone+r.cs-r.cc)+'</b><small>売上−経費</small></td>'
-          +'<td>'+man(r.val)+'</td>'
-          +'<td class="eq"><b class="'+(f==null?'':f>=0?'g':'r')+'">'+(f==null?'—':hpm(f))+'</b>'+(r.k?'<small>今売るより'+hpm(r.up)+'</small>':'')+'</td></tr>';}).join('')
+          +'<td class="bc">'+(buy!=null?manC(buy):'未入力')+'</td>'
+          +'<td>'+manC(c.revDone+r.cs)+(r.k?'<small>うち見込み'+manC(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
+          +'<td>'+(r.cc?'−'+manC(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
+          +'<td class="gp"><b class="'+(c.revDone+r.cs-r.cc>=0?'':'r')+'">'+manC(c.revDone+r.cs-r.cc)+'</b><small>売上−経費</small></td>'
+          +'<td>'+manC(r.val)+'</td>'
+          +'<td class="eq"><b class="'+(f==null?'':f>=0?'g':'r')+'">'+(f==null?'—':hpmC(f))+'</b>'+(r.k?'<small>今売るより'+hpmC(r.up)+'</small>':'')+'</td></tr>';}).join('')
       +'</tbody></table></div>';
   }
   // 最終利益（仕入額が未入力なら「今売るより」）の月ごとの推移。最大の月に印、リミット到達月に線
   function holdChart(v,x){
     const fin=holdFin(v,x.all[0])!=null, val=r=>fin?holdFin(v,r):r.up, pts=x.all, ys=pts.map(val), lo=Math.min(0,...ys), hi=Math.max(0,...ys);
-    const W=400,H=170,L=50,R=10,T=16,B=24, X=k=>L+(W-L-R)*k/HMAX, Y=y=>T+(H-T-B)*(1-(y-lo)/((hi-lo)||1));
-    const okPts=pts.filter(r=>r.ok), offPts=pts.filter(r=>!r.ok||r.k===(x.firstOff?x.firstOff.k-1:-1));
+    const W=400,H=170,L=50,R=10,T=16,B=24, X=k=>L+(W-L-R)*k/(x.H||1), Y=y=>T+(H-T-B)*(1-(y-lo)/((hi-lo)||1));
+    const okPts=pts;
     const path=a=>a.map((r,i)=>(i?'L':'M')+X(r.k).toFixed(1)+' '+Y(val(r)).toFixed(1)).join('');
-    const b=x.best, ticks=[0,12,24,36];
+    const b=x.best, st=x.H<=24?6:x.H<=48?12:x.H<=84?24:36, ticks=Array.from({length:Math.floor(x.H/st)+1},(_,i)=>i*st);
     return '<div class="hd-ch"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(fin?'最終利益':'今売るより上乗せ')+'の月ごとの推移">'
       +'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(0).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'" class="z"/>'
       +ticks.map(k=>'<text x="'+X(k)+'" y="'+(H-8)+'" text-anchor="middle">'+(k?k+'か月':'今')+'</text>').join('')
-      +[hi,lo].filter((y,i,a)=>a.indexOf(y)===i).map(y=>'<text x="'+(L-6)+'" y="'+(Y(y)+4).toFixed(1)+'" text-anchor="end">'+hpm(y)+'</text>').join('')
-      +(x.firstOff?'<line x1="'+X(x.firstOff.k)+'" x2="'+X(x.firstOff.k)+'" y1="'+T+'" y2="'+(H-B)+'" class="lim"/><text x="'+(X(x.firstOff.k)-4)+'" y="'+(T+10)+'" text-anchor="end" class="lim">リミット到達</text>':'')
-      +(offPts.length>1?'<path d="'+path(pts.filter(r=>!r.ok||(x.firstOff&&r.k===x.firstOff.k-1)))+'" class="off"/>':'')
+      +[hi,lo].filter((y,i,a)=>a.indexOf(y)===i).map(y=>'<text x="'+(L-6)+'" y="'+(Y(y)+4).toFixed(1)+'" text-anchor="end">'+hpmC(y)+'</text>').join('')
+      +(x.capK!=null?'<line x1="'+X(x.H)+'" x2="'+X(x.H)+'" y1="'+T+'" y2="'+(H-B)+'" class="lim"/><text x="'+(X(x.H)-4)+'" y="'+(H-B-4)+'" text-anchor="end" class="lim">上限</text>':'')
       +'<path d="'+path(okPts)+'" class="ln"/>'
-      +'<circle cx="'+X(b.k).toFixed(1)+'" cy="'+Y(val(b)).toFixed(1)+'" r="5" class="bp"/><text x="'+Math.min(W-R-4,Math.max(L+4,X(b.k))).toFixed(1)+'" y="'+(Y(val(b))-10<T+8?Y(val(b))+20:Y(val(b))-10).toFixed(1)+'" text-anchor="'+(b.k>HMAX*.7?'end':b.k<HMAX*.2?'start':'middle')+'" class="bt">'+(b.k?b.k+'か月後 ':'今 ')+hpm(val(b))+'</text>'
+      +'<circle cx="'+X(b.k).toFixed(1)+'" cy="'+Y(val(b)).toFixed(1)+'" r="5" class="bp"/><text x="'+Math.min(W-R-4,Math.max(L+4,X(b.k))).toFixed(1)+'" y="'+(Y(val(b))-10<T+8?Y(val(b))+20:Y(val(b))-10).toFixed(1)+'" text-anchor="'+(b.k>x.H*.7?'end':b.k<x.H*.2?'start':'middle')+'" class="bt">'+(b.k?b.k+'か月後 ':'今 ')+hpmC(val(b))+'</text>'
       +'</svg><div class="hd-chl">'+(fin?'最終利益':'今売るより上乗せ（仕入額が未入力のため）')+'の推移・●が最大</div></div>';
   }
+  const ymdS2=t=>{if(t==null)return'—';const d=new Date(t);return String(d.getUTCFullYear()).slice(2)+'/'+(d.getUTCMonth()+1)+'/'+d.getUTCDate();};
+  function holdPlan(v,x){const c=S.calc[v.code], diff=c.stopT!=null&&Math.abs(c.stopT-x.stopU)>31*DAY;
+    return '<div class="hd-plan"><span><i>売却予定（利益最大）</i><b>'+(x.best.k===0?'今':ymdS2(x.saleU))+'</b></span><span><i>売止</i><b>'+(x.best.k===0?'今':ymdS2(x.stopU))+'</b></span><span><i>入替準備</i><b>'+(x.prepU<=T0()?'今':ymdS2(x.prepU))+'</b></span>'
+      +'<span class="now'+(diff?' df':'')+'"><i>今の設定（予約停止はこちらで動作中）</i><b>売止 '+ymdS2(c.stopT)+'・入替準備 '+(c.stopT!=null?ymdS2(addMon(c.stopT,-LEAD())):'—')+'</b></span></div>';}
   function holdListHtml(a){
     const H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
-    h+='<details class="hd-n"><summary>計算のしかた</summary><div>1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から'+HMAX+'か月先まで1か月ずつ計算し、最終利益が一番大きい月を選びます（緑の行）。表は今・6・12・24・'+HMAX+'か月後と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から、距離の分は査定の相場（今の相場と10万km前後の相場）を結んだ下がり方で、年数の分は年'+HOLD.age+'%（仮置き）で下げます。相場が更新されると自動で連動します。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div></details>';
+    h+='<details class="hd-n"><summary>計算のしかた</summary><div>1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から上限（90km到達・車検手前・手入力の売却予定のうち一番早い月。分からない車は'+HNOCAP+'か月先）まで1か月ずつ計算し、最終利益が一番大きい月を売却予定にします（緑の行）。表は今・6・12・24・36・60か月後・上限と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から、距離の分は査定の相場（今の相場と10万km前後の相場）を結んだ下がり方で、年数の分は年'+HOLD.age+'%（仮置き）で下げます。相場が更新されると自動で連動します。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div></details>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
@@ -875,7 +886,7 @@ const VL=(()=>{
       const why=holdWhy(x);
       const jd=holdBadge(x);
       const kmTxt=(c.odo!=null?km(c.odo)+'km':'走行—')+'・年'+(c.monKm!=null?km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'—')+(c.limit&&!c.talk?'・リミット'+km(c.limit):'');
-      let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>'+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>');
+      let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>'+(x.na?'':holdPlan(v,x))+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>');
       if(!x.na)t+=holdFlow(v,x);
       return t+'</div>';}).join('');
     return h;
