@@ -865,14 +865,14 @@ const VL=(()=>{
   const holdBadge=x=>!x?'<span class="vl-st sold">終了済</span>':x.na?'<em class="hj na">判定不可</em>':x.mode==='ride'?'<em class="hj ride">乗り潰し '+ymS3(x.saleU)+'まで</em>':x.best.k===0?'<em class="hj sell">今手放す</em>':'<em class="hj keep">'+ymS3(x.saleU)+'に手放す</em>';
   function holdFlow(v,x){
     const c=S.calc[v.code], buy=c.buy;
-    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?manC(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th>＋売上</th><th>−経費</th><th class="gp">＝粗利</th><th>＋売却額</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
+    return '<div class="hd-buy">仕入額 <b>'+(buy!=null?manC(buy):'未入力')+'</b>'+(buy!=null?'（'+(c.isLease?'リース総額':'一括仕入')+'）':'')+' からスタート</div><div class="hd-flow"><table><thead><tr><th>売る時期</th><th class="bc">仕入額</th><th class="sv">売却額</th><th>＋売上</th><th>−経費</th><th class="gp">＝粗利</th><th class="eq">＝最終利益</th></tr></thead><tbody>'
       +x.rows.map(r=>{const best=r===x.best, off=!r.ok, f=holdFin(v,r);
         return '<tr class="'+(best?'best':'')+(off?' off':'')+(r.ride?' rd':'')+'"><td>'+(r.ride?'乗り潰し '+r.k+'か月':r.k===0?'今売る':r.k+'か月後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
           +'<td class="bc">'+(buy!=null?manC(buy):'未入力')+'</td>'
+          +'<td class="sv">'+manC(r.val)+(r.ride?'<small>廃車</small>':c.buy!=null?'<small>仕入から'+hpmC(r.val-c.buy)+'</small>':'')+'</td>'
           +'<td>'+manC(c.revDone+r.cs)+(r.k?'<small>うち見込み'+manC(r.cs)+(x.src!=='own'?'（'+(x.src==='class'?'クラス平均':'全車平均')+'）':'')+'</small>':'<small>実績'+(x.opFrom!=null?' '+ymd(x.opFrom).slice(5)+'〜'+x.opDays+'日':'')+(x.short?'（90日未満）':'')+'</small>')+'</td>'
           +'<td>'+(r.cc?'−'+manC(r.cc):'0')+(r.k?'<small>'+r.k+'か月分</small>':'')+'</td>'
           +'<td class="gp"><b class="'+(c.revDone+r.cs-r.cc>=0?'':'r')+'">'+manC(c.revDone+r.cs-r.cc)+'</b><small>売上−経費</small></td>'
-          +'<td>'+manC(r.val)+'</td>'
           +'<td class="eq"><b class="'+(f==null?'':f>=0?'g':'r')+'">'+(f==null?'—':hpmC(f))+'</b>'+(r.k?'<small>今売るより'+hpmC(r.up)+'</small>':'')+'</td></tr>';}).join('')
       +'</tbody></table></div>';
   }
