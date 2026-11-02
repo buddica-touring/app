@@ -774,7 +774,7 @@ const VL=(()=>{
   //   粗利＝売上 − 整備費 − 保険・税 − 車検費（売上・整備費は 2026-08-03 以降の実績を年換算。最終利益と同じく人件費・OTA手数料は含めない）
   //   n年後の売却額＝今の売却額（相場×買取率）×（1−年下落率）^n ×（1−距離下落率×増える距離÷1万km）。年間走行はその車のペース
   //   n年後にリミットを超える選択肢は除外。仮置きの率は HOLD に1行ずつ（売却実績が出たら置き換える）
-  const HOLD={ageA:10, age:15, kmDep:2, drop:5};   // 年下落率％（Aクラス／その他）・1万kmごとの下落％・単価低下％/年
+  const HOLD={ageA:10, age:15, kmDep:2, drop:5, insMon:10000, shaken:100000, tenken:25000, tenkenN:2};   // 経費は一旦固定（オーナー指示 2026-11-02）：保険 月1万／車検 年1回10万／点検 年2回×2.5万   // 年下落率％（Aクラス／その他）・1万kmごとの下落％・単価低下％/年
   function holdOf(v){
     const c=S.calc[v.code], t0=T0();
     if(c.st==="sold")return null;
@@ -788,7 +788,7 @@ const VL=(()=>{
     const insp=k=>{if(c.shaken==null)return 0;let d=c.shaken,m=0;const a=addMon(t0,12*(k-1)),b=addMon(t0,12*k);while(d<b){if(d>=a)m++;d=addMon(d,12);}return m;};
     const rows=[{k:0,cum:0,cs:0,cc:0,val:V0,drop:0,up:0,ok:true,kmAt:c.odo}]; let cum=0;
     let cs=0,cc=0;
-    for(let k=1;k<=2;k++){const sl=S1*Math.pow(1-HOLD.drop/100,k-1), co=M+F+insp(k)*K, g=sl-co; cum+=g; cs+=sl; cc+=co;
+    for(let k=1;k<=2;k++){const sl=S1*Math.pow(1-HOLD.drop/100,k-1), co=HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN, g=sl-co; cum+=g; cs+=sl; cc+=co;
       const val=V(k), ok=c.talk||c.odo==null||kmY==null||c.odo+kmY*k<c.limit;
       rows.push({k,g,cum,cs,cc,val,drop:V0-val,up:cum-(V0-val),ok,ins:insp(k),kmAt:c.odo!=null&&kmY!=null?c.odo+kmY*k:null});}
     const best=rows.filter(r=>r.k>0&&r.ok).reduce((b,r)=>r.up>b.up?r:b,rows[0]);
@@ -799,7 +799,7 @@ const VL=(()=>{
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
     const pm=x=>x==null?'—':(x>0?'+':x<0?'−':'')+man(Math.abs(x)).replace(/^−/,'');
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>保有</span></div><div class="r"><b>'+sell.length+'</b><span>今売却</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
-    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を「今売る／1年後／2年後」で並べ、最終利益が一番大きい時期を選びます（緑の行）。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・単価低下'+HOLD.drop+'%/年）。経費は今後の整備費・保険・税・車検（過去分はサマリの最終利益と同じく含めない）。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
+    h+='<div class="ov-estn hd-n">1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を「今売る／1年後／2年後」で並べ、最終利益が一番大きい時期を選びます（緑の行）。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から年'+HOLD.ageA+'%（Aクラス）／'+HOLD.age+'%（その他）、1万kmごとに'+HOLD.kmDep+'%下がる仮置き。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
@@ -815,7 +815,7 @@ const VL=(()=>{
             return '<tr class="'+(best?'best':'')+(off?' off':'')+'"><td>'+(r.k===0?'今売る':r.k+'年後')+'<small>'+(r.kmAt!=null?km(r.kmAt)+'km':'')+(off?' リミット超過':'')+'</small></td>'
               +'<td>'+(buy!=null?man(buy):'未入力')+'</td>'
               +'<td>'+man(c.revDone+r.cs)+(r.k?'<small>うち見込み'+man(r.cs)+'</small>':'<small>実績</small>')+'</td>'
-              +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.ins?'<small>車検'+r.ins+'回</small>':'')+'</td>'
+              +'<td>'+(r.cc?'−'+man(r.cc):'0')+(r.k?'<small>保険・車検・点検'+r.k+'年分</small>':'')+'</td>'
               +'<td>'+man(r.val)+'</td>'
               +'<td class="eq"><b class="'+(fin(r)==null?'':fin(r)>=0?'g':'r')+'">'+(fin(r)==null?'—':pm(fin(r)))+'</b>'+(r.k?'<small>今売るより'+pm(r.up)+'</small>':'')+'</td></tr>';}).join('')
           +'</tbody></table></div>';
