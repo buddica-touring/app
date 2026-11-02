@@ -774,9 +774,8 @@ const VL=(()=>{
     const cl=pool.filter(y=>y.x.type===type);
     if(cl.length)return {perDay:rate(cl),src:"class",n:cl.length};
     return pool.length?{perDay:rate(pool),src:"all",n:pool.length}:null;}
-  // 目的を利益最大化に統一（オーナー指示 2026-11-02）：売る時期＝利益が最大の月。ただし 90km到達・車検手前・手入力の売却予定（既存の saleT）より後には売れないので、そこを上限にする
+  // 目的を利益最大化に統一（オーナー指示 2026-11-02）：売る時期＝利益が最大の月。上限（保有3年 または 90km の早い方・手入力の売却予定日）より後には持たない
   const HMAX=120, HNOCAP=60;   // 上限が分からない車（協議など）は60か月先まで。どの車も最長120か月
-  const CAPLB={"走行":"90km到達","車検":"車検手前（次の車検期間中に90kmに届く）","手動":"手入力の売却予定"};
   // 売却額の下がり方（オーナー指示 2026-11-02：査定と連動）
   //   距離の分＝その車の相場の実測：今の相場（今の走行帯）と終了時の相場（同じ年式・10万km前後）を結んだ、1万kmあたりの下落率
   //   終了時の相場がない車は同じクラスの平均、いなければ全車平均、それもなければ HOLD.kmDep。年数の分は相場に入らない（同じ年式で調査）ので HOLD.age を足す
@@ -790,7 +789,7 @@ const VL=(()=>{
     const act=S.v.filter(x=>S.calc[x.code].st!=="sold"), cl=avg(act.filter(x=>x.type===v.type));
     if(cl)return Object.assign({src:"class"},cl);const al=avg(act);if(al)return Object.assign({src:"all"},al);return {src:"default",pct:HOLD.kmDep};}
   const slopeLb=sl=>sl.src==="own"?'この車の相場（今'+man(sl.nowMed)+'→'+km(sl.endKm)+'km時'+man(sl.endMed)+(sl.ref?'・終了時は参考値':'')+'）':sl.src==="class"?'同じクラスの相場の平均（'+sl.n+'台）':sl.src==="all"?'全車の相場の平均（'+sl.n+'台）':'仮置き';
-  // 手放す時期（オーナー指示 2026-11-02）：保有は最長 HOLD.maxY 年（保有期間が長いほどリスクが増えるため）。期限＝90km到達・車検手前・手入力・保有上限の一番早い月
+  // 手放す時期（オーナー指示 2026-11-02）：保有は最長 HOLD.maxY 年（保有期間が長いほどリスクが増えるため）。上限＝保有3年 または 90km の早い方・手入力・保有上限の一番早い月
   //   年式が古い車（初度登録から HOLD.rideAgeY 年以上）と、出口が「乗り潰し」の車は、売る場合と「90km到達まで乗り潰す（売却額0）」を比べ、利益の大きい方を推奨する
   function holdOf(v){
     const c=S.calc[v.code];
@@ -806,10 +805,12 @@ const VL=(()=>{
     const S1=own?c.revDone/opDays*365:cr.perDay*365, src=own?"own":cr.src, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
     const kmM=c.monKm, age=HOLD.age/100, sl=holdSlope(v);
     const V=k=>V0x*Math.pow(1-age,k/12)*Math.max(.1,1-sl.pct/100*(kmM||0)*k/1e4);   // 下限は今の10%
-    // 期限：既存の saleT（90km到達・車検手前・手入力）と保有上限（仕入日→なければ稼働開始日から HOLD.maxY 年）の早い方
+    // 上限：保有 HOLD.maxY 年（仕入日→なければ稼働開始日から）・90km到達・手入力の売却予定日の一番早い月
     const t0=T0(), start=ts(v.purchase_date)||ts(v.service_from)||opFrom, capEnd=start!=null?addMon(start,12*HOLD.maxY):null;
-    const capA=c.saleT!=null&&CAPLB[c.why]?Math.max(0,Math.floor(monthsTo(c.saleT))):null, capB=capEnd!=null?Math.max(0,Math.floor(monthsTo(capEnd))):null;
-    const useB=capB!=null&&(capA==null||capB<capA), capK=useB?capB:capA, capWhy=useB?'保有'+HOLD.maxY+'年の上限（'+(ts(v.purchase_date)?'仕入日':'稼働開始')+' '+ymd(start)+'から）':capA!=null?CAPLB[c.why]:null;
+    // 上限＝保有3年 または 90km到達 の早い方（オーナー指示 2026-11-02）。手入力の売却予定日があればそれも上限。車検手前は上限にしない（車検費は経費に入っている）
+    const mo=t=>t==null?null:Math.max(0,Math.floor(monthsTo(t)));
+    const caps=[[mo(c.talk?null:c.limitT),km(c.limit)+'km到達'],[mo(capEnd),'保有'+HOLD.maxY+'年（'+(ts(v.purchase_date)?'仕入日':'稼働開始')+' '+ymd(start)+'から）'],[mo(ts(v.sale_plan_date)),'手入力の売却予定日']].filter(z=>z[0]!=null).sort((a,b)=>a[0]-b[0]);
+    const capK=caps.length?caps[0][0]:null, capWhy=caps.length?caps[0][1]:null;
     const H=Math.min(capK??HNOCAP,HMAX);
     // 乗り潰し：年式が古い車・出口が乗り潰しの車だけ。90km到達まで走らせ、売却額は0
     const yr=wYear(v.year), old=yr!=null&&new Date(t0).getUTCFullYear()-yr>=HOLD.rideAgeY;
@@ -836,10 +837,10 @@ const VL=(()=>{
   const holdSell=v=>{const x=holdOf(v);return !!(x&&!x.na&&x.mode==='sell'&&x.best.k===0);};
   function holdWhy(x){
     if(x.na)return x.na;
-    const cap=x.capWhy?'期限は'+ym(addMon(T0(),x.H))+'（'+x.capWhy+'）':'';
+    const cap=x.capWhy?'上限は'+ym(addMon(T0(),x.H))+'（'+x.capWhy+'）':'';
     if(x.mode==='ride')return (S.calc[x.code||'']||{}).ride?'出口が乗り潰しの車':'年式が古く売却額が小さいため、売るより'+ym(x.saleU)+'（90km到達）まで乗り潰す方が利益が大きい'+(x.sellBest?'（売る場合より'+hpm(x.best.up-x.sellBest.up)+'）':'');
-    if(x.best.k===0){if(x.H===0)return '期限（'+(x.capWhy||'')+'）に達している';const okR=x.all.filter(r=>r.k>0);const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）・'+cap;}
-    if(x.capK!=null&&x.best.k===x.H)return '期限まで持つのが最大：'+ym(addMon(T0(),x.best.k))+'（'+x.capWhy+'）に手放し、今売るより '+hpm(x.best.up);
+    if(x.best.k===0){if(x.H===0)return '上限（'+(x.capWhy||'')+'）に達している';const okR=x.all.filter(r=>r.k>0);const r=okR.reduce((b,q)=>q.up>b.up?q:b);return 'どの月で売っても 保有中の粗利より売却額の下落が大きい（'+r.k+'か月後で 粗利'+hpm(r.cum)+'／下落'+hpm(-r.drop)+'）・'+cap;}
+    if(x.capK!=null&&x.best.k===x.H)return '上限まで持つのが最大：'+ym(addMon(T0(),x.best.k))+'（'+x.capWhy+'）に手放し、今売るより '+hpm(x.best.up);
     return ym(addMon(T0(),x.best.k))+'に手放すのが最大で、今売るより '+hpm(x.best.up)+(x.edge?'（'+x.H+'か月以上先の可能性）':'')+(cap?'・'+cap:'');
   }
   // 1台の結論を文章で（オーナー指示 2026-11-02）：年間〜km走って〜か月後に売ると〜%下落、レンタル期間の売上を合算すると生涯成績は〜
@@ -895,7 +896,7 @@ const VL=(()=>{
     const H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.mode==='sell'&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.mode==='sell'&&x.h.best.k===0), ride=H.filter(x=>!x.h.na&&x.h.mode==='ride'), na=H.filter(x=>x.h.na);
     let h='<div class="ov-tiles hd-t"><div class="g"><b>'+keep.length+'</b><span>期限内に手放す</span></div><div class="r"><b>'+sell.length+'</b><span>今手放す</span></div><div class="p"><b>'+ride.length+'</b><span>乗り潰し</span></div><div><b>'+na.length+'</b><span>判定不可</span></div></div>';
-    h+='<details class="hd-n"><summary>計算のしかた</summary><div>1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から上限（90km到達・車検手前・手入力の売却予定のうち一番早い月。分からない車は'+HNOCAP+'か月先）まで1か月ずつ計算し、最終利益が一番大きい月を売却予定にします（緑の行）。表は今・6・12・24・36・60か月後・上限と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から、距離の分は査定の相場（今の相場と10万km前後の相場）を結んだ下がり方で、年数の分は年'+HOLD.age+'%（仮置き）で下げます。相場が更新されると自動で連動します。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div></details>';
+    h+='<details class="hd-n"><summary>計算のしかた</summary><div>1台ごとに、お金の流れ（仕入額 → ＋売上 → −経費 → ＋売却額 ＝ 最終利益）を、今から上限（保有'+HOLD.maxY+'年 または 90km の早い方。手入力の売却予定日があればそれも。分からない車は'+HNOCAP+'か月先）まで1か月ずつ計算し、最終利益が一番大きい月を売却予定にします（緑の行）。表は今・6・12・24・36・60か月後・上限と、その月を表示。返却が入るたびに再計算されます。売上は'+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績＋今後の見込み（実績を年換算・月の売上＝実績÷稼働日数（その車の最初の予約日〜今日）で月換算。稼働30日未満の車は同じクラスの平均（いなければ全車平均）で代用し「クラス平均」と表示・単価低下'+HOLD.drop+'%/年）。経費は1年あたり 保険'+man(HOLD.insMon*12)+'（月'+man(HOLD.insMon)+'）＋車検'+man(HOLD.shaken)+'（年1回）＋点検'+man(HOLD.tenken*HOLD.tenkenN)+'（年'+HOLD.tenkenN+'回×'+man(HOLD.tenken)+'）＝'+man(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)+'の仮置き。売却額は今の市場売却額から、距離の分は査定の相場（今の相場と10万km前後の相場）を結んだ下がり方で、年数の分は年'+HOLD.age+'%（仮置き）で下げます。相場が更新されると自動で連動します。仕入額が未入力でも、どの行にも同じ額が引かれるだけなので判定は出ます。</div></details>';
     const ord=x=>x.h.na?3:x.h.mode==='ride'?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
     h+=rowsH.map(({v,h:x})=>{
@@ -911,6 +912,7 @@ const VL=(()=>{
   // 定義・変更履歴（オーナー指示 2026-11-02：目的の定義を残し、変更ごとに確認できるようにする）
   //   ロジックや前提値を変えたら、DEF_LOG の先頭に1行足す（日付・何を変えたか・なぜ）。前提値の表は HOLD・ルール設定から自動で出る
   const DEF_LOG=[
+    ["2026-11-02","上限を「保有"+HOLD.maxY+"年 または 90km の早い方」（＋手入力の売却予定日）に整理。車検手前は上限から外す","オーナー判断。車検費は経費に入っているため"],
     ["2026-11-02","保有の上限を"+HOLD.maxY+"年に（期限に追加）。表示を「◯年◯月に手放す」に変更。年式が古い車（初度登録から"+HOLD.rideAgeY+"年以上）は90kmまでの乗り潰しとも比べ、利益が大きい方を推奨","保有期間が長いほどリスクが増えるため（オーナー判断）。古い車は売却額が小さく乗り潰しの方が得な場合があるため"],
     ["2026-11-02","目的を「90km以内で利益最大」に統一。90km到達・車検手前・手入力の売却予定を期限にし、その中で最終利益が最大の月を売却予定にする。売止・入替準備を逆算し、今の設定と並べて表示（予約停止はまだ今の設定）","目的が画面ごとにばらばらだったため"],
     ["2026-11-02","サマリの下段を保有判定のカードに入れ替え。保有判定メニューはサマリに統合","保有判定が主役のため"],
@@ -925,8 +927,8 @@ const VL=(()=>{
     let h='<h4 class="vl-h4">📘 定義・変更履歴 <small>この画面の数字は、今のプログラムの設定値をそのまま表示しています</small></h4>';
     h+='<div class="df-goal"><span>目的</span><b>在庫（1台ごと）を、'+km(n(cfg.default_limit_km)||DEF.default_limit_km)+'km以内で最大の利益を生むように運用する</b></div>';
     h+='<div class="df-sec"><h5>判断の流れ</h5><ol>'
-      +'<li><b>期限（上限）</b>：90km到達・車検手前（次の車検期間中に90kmに届く車は車検を通さない）・手入力の売却予定日・<b>保有'+HOLD.maxY+'年</b>（仕入日から。なければ稼働開始日から）のうち一番早い日。保有が長いほどリスクが増えるため、これより後には持たない</li>'
-      +'<li><b>手放す時期</b>：今から期限までを1か月ずつ計算し、最終利益が一番大きい月</li>'
+      +'<li><b>上限</b>：<b>保有'+HOLD.maxY+'年 または '+km(n(cfg.default_limit_km)||DEF.default_limit_km)+'km</b> の早い方（保有は仕入日から。なければ稼働開始日から）。手入力の売却予定日があればそれも上限。保有が長いほどリスクが増えるため、これより後には持たない</li>'
+      +'<li><b>手放す時期</b>：今から上限までを1か月ずつ計算し、最終利益が一番大きい月</li>'
       +'<li><b>乗り潰し</b>：年式が古い車（初度登録から'+HOLD.rideAgeY+'年以上）と、出口が「乗り潰し」の車は、90km到達まで乗り潰した場合（売却額0）とも比べ、利益が大きければ乗り潰しを推奨する（保有'+HOLD.maxY+'年の上限はかけない）</li>'
       +'<li><b>売止・入替準備</b>：売却予定の1か月前に売止、その'+LEAD()+'か月前から入替準備</li>'
       +'<li><b>表示</b>：「◯年◯月に手放す」「今手放す」「乗り潰し ◯年◯月まで」</li></ol>'
