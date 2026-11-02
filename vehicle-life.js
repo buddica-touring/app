@@ -765,7 +765,7 @@ const VL=(()=>{
   //   粗利＝売上 − 整備費 − 保険・税 − 車検費（売上・整備費は 2026-08-03 以降の実績を年換算。最終利益と同じく人件費・OTA手数料は含めない）
   //   n年後の売却額＝今の売却額（相場×買取率）×（1−年下落率）^n ×（1−距離下落率×増える距離÷1万km）。年間走行はその車のペース
   //   n年後にリミットを超える選択肢は除外。仮置きの率は HOLD に1行ずつ（売却実績が出たら置き換える）
-  const HOLD={maxY:3, rideAgeY:7, age:5, kmDep:6, drop:5, insMon:10000, shaken:100000, tenken:25000, tenkenN:2};   // 経費は一旦固定（オーナー指示 2026-11-02）：保険 月1万／車検 年1回10万／点検 年2回×2.5万   // 年下落率％（Aクラス／その他）・1万kmごとの下落％・単価低下％/年
+  const HOLD={paceY:15000, maxY:3, rideAgeY:7, age:5, kmDep:6, drop:5, insMon:10000, shaken:100000, tenken:25000, tenkenN:2};   // 経費は一旦固定（オーナー指示 2026-11-02）：保険 月1万／車検 年1回10万／点検 年2回×2.5万   // 年下落率％（Aクラス／その他）・1万kmごとの下落％・単価低下％/年
   function opOf(v){const t0=T0(), st=(S.res[v.code]||[]).map(r=>ts(r.start_date)).filter(t=>t!=null&&t<=t0&&t>=ts(DATA_FROM));
     if(!st.length)return null;const from=Math.min(...st);return {from,days:Math.round((t0-from)/DAY)};}
   function holdRate(type){   // 稼働30日以上の車の 売上合計÷稼働日数合計
@@ -803,13 +803,14 @@ const VL=(()=>{
     if(!own&&!cr)return {na:"売上の実績がまだない"};
     const opFrom=op?op.from:null, opDays=op?op.days:0;
     const S1=own?c.revDone/opDays*365:cr.perDay*365, src=own?"own":cr.src, sm=S1/12, cm=(HOLD.insMon*12+HOLD.shaken+HOLD.tenken*HOLD.tenkenN)/12;
-    const kmM=c.monKm, age=HOLD.age/100, sl=holdSlope(v);
+    const kmM=HOLD.paceY/12, age=HOLD.age/100, sl=holdSlope(v);   // 今後の走行ペースは想定値（オーナー指示 2026-11-02：年1.5万km）。実績ペースは使わない
     const V=k=>V0x*Math.pow(1-age,k/12)*Math.max(.1,1-sl.pct/100*(kmM||0)*k/1e4);   // 下限は今の10%
     // 上限：保有 HOLD.maxY 年（仕入日→なければ稼働開始日から）・90km到達・手入力の売却予定日の一番早い月
     const t0=T0(), start=ts(v.purchase_date)||ts(v.service_from)||opFrom, capEnd=start!=null?addMon(start,12*HOLD.maxY):null;
     // 上限＝保有3年 または 90km到達 の早い方（オーナー指示 2026-11-02）。手入力の売却予定日があればそれも上限。車検手前は上限にしない（車検費は経費に入っている）
     const mo=t=>t==null?null:Math.max(0,Math.floor(monthsTo(t)));
-    const caps=[[mo(c.talk?null:c.limitT),km(c.limit)+'km到達'],[mo(capEnd),'保有'+HOLD.maxY+'年（'+(ts(v.purchase_date)?'仕入日':'稼働開始')+' '+ymd(start)+'から）'],[mo(ts(v.sale_plan_date)),'手入力の売却予定日']].filter(z=>z[0]!=null).sort((a,b)=>a[0]-b[0]);
+    const limT=c.talk||c.odo==null?null:c.odo>=c.limit?t0:t0+(c.limit-c.odo)/kmM*MON;   // 9万km到達は想定ペースで出す
+    const caps=[[mo(limT),km(c.limit)+'km到達'],[mo(capEnd),'保有'+HOLD.maxY+'年（'+(ts(v.purchase_date)?'仕入日':'稼働開始')+' '+ymd(start)+'から）'],[mo(ts(v.sale_plan_date)),'手入力の売却予定日']].filter(z=>z[0]!=null).sort((a,b)=>a[0]-b[0]);
     // 車検トリガー（オーナー指示 2026-11-02：3年・9万km・車検の3つ）：次の車検を通しても、その後1年以内（2回目以降の車検は毎年）に3年か9万kmに届くなら、車検の手前で手放す
     const shk=c.shaken!=null&&c.shaken>t0?mo(c.shaken):null;
     if(caps.length&&shk!=null&&S.cfg.shaken_rule!=="ignore"&&shk<caps[0][0]&&caps[0][0]<shk+12&&caps[0][1]!=='手入力の売却予定日')caps.unshift([shk,'車検手前（車検後1年以内に'+caps[0][1].replace(/（.*$/,'')+'に届くため、車検を通さない）']);
@@ -906,7 +907,7 @@ const VL=(()=>{
       const c=S.calc[v.code];
       const why=holdWhy(x);
       const jd=holdBadge(x);
-      const kmTxt=(c.odo!=null?km(c.odo)+'km':'走行—')+'・年'+(c.monKm!=null?km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'—')+(c.limit&&!c.talk?'・リミット'+km(c.limit):'');
+      const kmTxt=(c.odo!=null?km(c.odo)+'km':'走行—')+'・今後 年'+km(HOLD.paceY)+'km（想定）'+(c.monKm!=null?'・実績 年'+km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'')+(c.limit&&!c.talk?'・リミット'+km(c.limit):'');
       let t='<div class="hd-card" data-goto="'+e(v.code)+'"><div class="hd-hd"><div class="nmc">'+nm(v)+'</div><div class="hd-j">'+jd+'<small>'+e(why)+'</small></div></div><div class="hd-km">'+kmTxt+'</div>'+(x.na?'':holdPlan(v,x))+(x.na?'':'<div class="hd-story">'+e(holdStory(v,x))+'</div>');
       if(!x.na)t+=holdFlow(v,x);
       return t+'</div>';}).join('');
@@ -915,6 +916,7 @@ const VL=(()=>{
   // 定義・変更履歴（オーナー指示 2026-11-02：目的の定義を残し、変更ごとに確認できるようにする）
   //   ロジックや前提値を変えたら、DEF_LOG の先頭に1行足す（日付・何を変えたか・なぜ）。前提値の表は HOLD・ルール設定から自動で出る
   const DEF_LOG=[
+    ["2026-11-02","今後の走行ペースを想定値 年"+HOLD.paceY.toLocaleString()+"km に（全車共通）。9万km到達・距離による下落・乗り潰しの期間はこのペースで計算","今後の運用の想定で判断するため（実績は8月からで短い）"],
     ["2026-11-02","上限のトリガーを「保有"+HOLD.maxY+"年・90km・車検」の3つに。車検を通しても1年以内に3年か90kmに届くなら、車検の手前で手放す","オーナー判断"],
     ["2026-11-02","上限を「保有"+HOLD.maxY+"年 または 90km の早い方」（＋手入力の売却予定日）に整理。車検手前は上限から外す","オーナー判断。車検費は経費に入っているため"],
     ["2026-11-02","保有の上限を"+HOLD.maxY+"年に（期限に追加）。表示を「◯年◯月に手放す」に変更。年式が古い車（初度登録から"+HOLD.rideAgeY+"年以上）は90kmまでの乗り潰しとも比べ、利益が大きい方を推奨","保有期間が長いほどリスクが増えるため（オーナー判断）。古い車は売却額が小さく乗り潰しの方が得な場合があるため"],
@@ -949,7 +951,7 @@ const VL=(()=>{
       row('今の売却額','相場中央値×'+(n(cfg.buy_rate)||DEF.buy_rate)+'%','査定（カーセンサー）の今の走行帯の中央値 × 買取率。売却額が確定していればその額'),
       row('距離による下落','車ごとの実測','今の相場と10万km前後の相場を結んだ1万kmあたりの下落率。ない車は同じクラスの平均→全車平均→'+HOLD.kmDep+'%'),
       row('年数による下落','年'+HOLD.age+'%','仮置き（相場は同じ年式で調べるため年数の分が入らない）'),
-      row('走行ペース','車ごとの実績','メーター増分 ÷ 期間。実績3か月未満は全車平均'),
+      row('今後の走行ペース','年'+km(HOLD.paceY)+'km','想定（全車共通）。9万km到達・距離による下落・乗り潰しの期間はこのペースで計算。実績ペース（メーター増分÷期間）は参考表示のみ'),
       row('リミット',km(n(cfg.default_limit_km)||DEF.default_limit_km)+'km','ルール設定'),
       row('入替準備期間',LEAD()+'か月','ルール設定'),
       row('保有の上限',HOLD.maxY+'年','オーナー判断（保有期間が長いほどリスクが増えるため）'),
