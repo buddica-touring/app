@@ -291,7 +291,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"],["hold","⚖","保有判定"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
+  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="forecast")return forecastList().length;
@@ -319,7 +319,6 @@ const VL=(()=>{
       case "karte":return karteHtml();
       case "relay":return relayHtml();
       case "forecast":return forecastHtml();
-      case "hold":return holdHtml();
       case "kpi":return kpiHtml();
       case "market":return marketHtml();
       case "shaken":return shakenHtml();
@@ -864,7 +863,6 @@ const VL=(()=>{
       +'<circle cx="'+X(b.k).toFixed(1)+'" cy="'+Y(val(b)).toFixed(1)+'" r="5" class="bp"/><text x="'+Math.min(W-R-4,Math.max(L+4,X(b.k))).toFixed(1)+'" y="'+(Y(val(b))-10<T+8?Y(val(b))+20:Y(val(b))-10).toFixed(1)+'" text-anchor="'+(b.k>HMAX*.7?'end':b.k<HMAX*.2?'start':'middle')+'" class="bt">'+(b.k?b.k+'か月後 ':'今 ')+hpm(val(b))+'</text>'
       +'</svg><div class="hd-chl">'+(fin?'最終利益':'今売るより上乗せ（仕入額が未入力のため）')+'の推移・●が最大</div></div>';
   }
-  function holdHtml(){return holdListHtml(S.v.filter(v=>S.calc[v.code].st!=="sold"));}
   function holdListHtml(a){
     const H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
     const keep=H.filter(x=>!x.h.na&&x.h.best.k>0), sell=H.filter(x=>!x.h.na&&x.h.best.k===0), na=H.filter(x=>x.h.na);
