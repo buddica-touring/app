@@ -789,9 +789,9 @@ const VL=(()=>{
     const rows=[{k:0,cum:0,val:V0,drop:0,up:0,ok:true}]; let cum=0;
     for(let k=1;k<=2;k++){const g=S1*Math.pow(1-HOLD.drop/100,k-1)-M-F-insp(k)*K; cum+=g;
       const val=V(k), ok=c.talk||c.odo==null||kmY==null||c.odo+kmY*k<c.limit;
-      rows.push({k,g,cum,val,drop:V0-val,up:cum-(V0-val),ok,ins:insp(k)});}
+      rows.push({k,g,cum,val,drop:V0-val,up:cum-(V0-val),ok,ins:insp(k),kmAt:c.odo!=null&&kmY!=null?c.odo+kmY*k:null});}
     const best=rows.filter(r=>r.k>0&&r.ok).reduce((b,r)=>r.up>b.up?r:b,rows[0]);
-    return {rows,best,V0,S1,M,F,K,kmY,short:c.heldDays<90};
+    return {rows,best,V0,S1,M,F,K,kmY,odo:c.odo,limit:c.talk?null:c.limit,short:c.heldDays<90};
   }
   function holdHtml(){
     const a=S.v.filter(v=>S.calc[v.code].st!=="sold"), H=a.map(v=>({v,h:holdOf(v)})).filter(x=>x.h);
@@ -801,12 +801,14 @@ const VL=(()=>{
     h+='<div class="ov-estn hd-n">「今売る／1年後／2年後」のうち生涯利益が一番大きい時期。上乗せ利益＝保有中の粗利 −（今の売却額 − その時の売却額）。仕入額（一括・リース総額）とリース月額は判定に使いません。売上は '+(()=>{const d=new Date(ts(DATA_FROM));return (d.getUTCMonth()+1)+'/'+d.getUTCDate();})()+'以降の実績を年換算（季節で偏ります）。仮置き：年下落 Aクラス'+HOLD.ageA+'%・その他'+HOLD.age+'%、1万kmごと'+HOLD.kmDep+'%、単価低下'+HOLD.drop+'%/年。</div>';
     const ord=x=>x.h.na?2:x.h.best.k===0?0:1;
     const rowsH=H.slice().sort((x,y)=>ord(x)-ord(y)||(y.h.best?y.h.best.up:0)-(x.h.best?x.h.best.up:0));
-    h+='<div class="vl-hold"><div class="hr"><span>車両</span><span>判定</span><span>今の売却額</span><span>年間売上</span><span>1年後に売る</span><span>2年後に売る</span></div>';
+    h+='<div class="vl-hold"><div class="hr"><span>車両</span><span>判定</span><span>走行距離</span><span>今の売却額</span><span>年間売上</span><span>1年後に売る</span><span>2年後に売る</span></div>';
     h+=rowsH.map(({v,h:x})=>{
       const lbl=x.na?'<em class="hj na">判定不可</em><small>'+e(x.na)+'</small>':x.best.k===0?'<em class="hj sell">今売却</em><small>持つと利益が減る</small>':'<em class="hj keep">保有 '+x.best.k+'年</em><small>'+ym(addMon(T0(),12*x.best.k))+'ごろ売却・'+pm(x.best.up)+'</small>';
-      const yr=r=>!r?'—':!r.ok?'<span class="mut">リミット超過</span>':'<b class="'+(r.up>0?'g':'r')+'">'+pm(r.up)+'</b><small>粗利'+man(r.cum)+'・売却'+man(r.val)+(r.ins?'・車検'+r.ins+'回':'')+'</small>';
+      const kmA=r=>r&&r.kmAt!=null?'<small>売却時 '+km(r.kmAt)+'km</small>':'';
+      const yr=r=>!r?'—':!r.ok?'<span class="mut">リミット超過</span>'+kmA(r):'<b class="'+(r.up>0?'g':'r')+'">'+pm(r.up)+'</b><small>粗利'+man(r.cum)+'・売却'+man(r.val)+(r.ins?'・車検'+r.ins+'回':'')+'</small>'+kmA(r);
+      const c=S.calc[v.code], kmCell=(c.odo!=null?km(c.odo)+'km':'—')+'<small>'+(c.monKm!=null?'年 '+km(c.monKm*12)+'km'+(c.paceOwn?'':'（平均）'):'ペース不明')+(c.limit&&!c.talk?'・リミット '+km(c.limit):'')+'</small>';
       return '<div class="rw" data-goto="'+e(v.code)+'"><div class="nmc">'+nm(v)+'</div><div data-l="判定" class="jd">'+lbl+'</div>'
-        +'<div data-l="今の売却額">'+(x.na?'—':man(x.V0))+'</div><div data-l="年間売上">'+(x.na?'—':man(x.S1)+(x.short?'<small>90日未満</small>':''))+'</div>'
+        +'<div data-l="走行距離">'+kmCell+'</div><div data-l="今の売却額">'+(x.na?'—':man(x.V0))+'</div><div data-l="年間売上">'+(x.na?'—':man(x.S1)+(x.short?'<small>90日未満</small>':''))+'</div>'
         +'<div data-l="1年後に売る">'+(x.na?'—':yr(x.rows[1]))+'</div><div data-l="2年後に売る">'+(x.na?'—':yr(x.rows[2]))+'</div></div>';}).join('');
     return h+'</div>';
   }
