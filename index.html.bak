@@ -4512,6 +4512,8 @@ function custPageLabel(ota,brand){ return custPageIsHdm(ota,brand)?"マイペー
 /* ★2026-10-14 OPシート(サマリー/マスター)：お客様用ガイド/マイページURLをコピーのみ(開かない・staff=1なし) */
 function copyCustLink(url,e){ if(e){e.preventDefault();e.stopPropagation();} if(!url)return; const btn=e&&e.currentTarget; const ok=()=>{ if(btn){const o=btn.textContent;btn.textContent="✅";setTimeout(()=>{btn.textContent=o;},1200);} }; const fb=()=>{const ta=document.createElement("textarea");ta.value=url;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");ok();}catch(err){alert("コピー失敗\n"+url);}document.body.removeChild(ta);}; try{ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(ok).catch(fb);}else fb(); }catch(err){fb();} }
 function custPageUrlByResv(token,resvNo,suffix){ const ota=(window._resOtaMap||{})[resvNo]; return custPageUrl(token,ota,suffix); }
+/* ★2026-11-03 新オフィシャル直販(ota=HANDYMAN)の決済額・決済日時＝Square で取引を探す手掛かり。高松は決済記録が予約表に無い(paid と square_order_id のみ)ため EF bt-pay-info が Square を開くたびに読む・書込なし */
+function HpPayLine({rid}){const[p,setP]=useState(null);useEffect(()=>{let live=true;setP(null);if(!rid)return;(async()=>{try{const s=await sb.auth.getSession();const tk=s&&s.data&&s.data.session&&s.data.session.access_token;if(!tk)return;const r=await fetch("https://ggqugvyskyiblxiycpci.supabase.co/functions/v1/bt-pay-info",{method:"POST",headers:{"Authorization":"Bearer "+tk,"Content-Type":"application/json"},body:JSON.stringify({id:rid})});const j=await r.json().catch(()=>null);if(live&&j&&j.ok&&j.at)setP(j);}catch(e){}})();return()=>{live=false;};},[rid]);if(!p)return null;return <div style={{gridColumn:"1 / -1"}}>💳 決済: <span style={{fontWeight:700,color:"#0f172a"}}>¥{Number(p.amount||0).toLocaleString()}（{new Date(p.at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})}）{p.refunded&&<span style={{color:"#dc2626"}}> 返金済</span>}</span></div>;}
 function OBadge({ota,brand,rid,site}){/* ★2026-10-28 新サイト hdm-rentacar.jp の予約は ota=HANDYMAN のまま site=hdm2 で区別＝表示だけ HDM2（集計・判定・ブランドは ota/brand のまま） */if(ota==="HANDYMAN"&&(site||(rid&&DB._resIdx&&DB._resIdx[rid]&&DB._resIdx[rid].site))==="hdm2")return <span title="hdm-rentacar.jp(新サイト)からの予約" style={{background:"#0891b2",color:"#fff",padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>🆕HDM2</span>;const k=OTA_NORM[ota]||(ota==="A"?"O":ota);let o=OTA[k];const lbl=otaAbbr(ota,brand);if(!o&&(!lbl||lbl==="-"))return null;if(!o&&(ota==null||ota==="")){const b=String(brand||"").trim().toUpperCase();if(b==="HDM")o={bg:"#e0e7ff",c:"#1e3a8a"};else if(b==="BUDDICA")o=OTA["HP"];}const bg=o?o.bg:"#f1f5f9",c=o?o.c:"#475569";return <span style={{background:bg,color:c,padding:"1px 6px",borderRadius:4,fontSize:10,fontWeight:700,border:`1px solid ${c}22`}}>{lbl}</span>;}
 /* ★2026-08-10 HANDYMAN(じゃらん)予約の識別：送迎プラカード・問合せ・決済ツールが異なるため要注意。紺バッジ＋薄紺背景で警告。BUDDICAは無印。 */
 /* ★2026-10-14 HDM判定をじゃらんのみ→じゃらん/楽天/スカイ/HANDYMAN公式に（custPageIsHdm・DB brand=HDM と一致）。旧=楽天・HANDYMAN公式の背景色が付かなかった */
@@ -20064,6 +20066,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                   <div>貸出: <span style={{fontWeight:700,color:"#0f172a"}}>{srcRes.lendDate||"-"} {srcRes.lendTime||""}</span></div>
                   <div>返却: <span style={{fontWeight:700,color:"#0f172a"}}>{srcRes.returnDate||"-"} {srcRes.returnTime||""}</span></div>
                   <div>人数: <span style={{fontWeight:700,color:"#0f172a"}}>{srcRes.people||0}名</span></div>
+                  {srcRes.ota==="HANDYMAN"&&<HpPayLine rid={srcRes.id}/>}
                 </div>}
                 {/* 個人情報セクション: 氏名・TEL・MAIL（表示のみ） */}
                 {srcRes&&<div style={{marginTop:8,padding:"8px 10px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
@@ -24331,7 +24334,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.568-BT";
+const APP_VERSION="v1.0.569-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
