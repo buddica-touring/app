@@ -13,7 +13,9 @@ window.BTSUM=(function(){
     const t=await fetch(KPI_PAGE,{cache:"no-store"}).then(r=>r.text());
     const num=k=>{const m=t.match(new RegExp('\\b'+k+'\\s*=\\s*(\\d+)'));return m?+m[1]:0;}, str=k=>{const m=t.match(new RegExp('\\b'+k+'\\s*=\\s*"([0-9-]+)"'));return m?m[1]:'9999-99';};
     const T={rev:num('T_REV'),revOct:num('T_REV_OCT'),from:str('T_FROM'),cnt:num('T_CNT'),cntFrom:str('T_CNT_FROM')};
-    T.revT=m=>m<T.from?0:(m==='2026-10'?T.revOct:T.rev); T.cntT=m=>(T.cnt&&m>=T.cntFrom)?T.cnt:0; return T;
+    T.revT=m=>m<T.from?0:(m==='2026-10'?T.revOct:T.rev); T.cntT=m=>(T.cnt&&m>=T.cntFrom)?T.cnt:0;
+    // 設定単価（オーナー指示 2026-11-04）＝店舗KPI画面の目標予約単価 T_UNIT（グロス・11月〜）。現在単価＝売上(予約+予約外)÷予約件数＝KPI画面と同じ式
+    T.unit=num('T_UNIT'); T.unitT=m=>(T.unit&&m>=T.cntFrom)?T.unit:0; return T;
   }
   const row=(l,v,cls)=>'<div class="bs-r'+(cls?' '+cls:'')+'"><span>'+l+'</span><b>'+v+'</b></div>';
   const un='<span class="bs-m">未設定</span>';
@@ -84,12 +86,15 @@ window.BTSUM=(function(){
     try{
       const [d,T]=await Promise.all([rpc("bt_mtg_h2"),targets()]);
       const o=(d&&d.data)||{}, gen=d&&d.generated;
-      document.getElementById("bsM3").innerHTML=M3.map(([k,l])=>{const m=o[k]||{},t=T.revT(k),c=T.cntT(k),u=utilOf(m);
+      document.getElementById("bsM3").innerHTML=M3.map(([k,l])=>{const m=o[k]||{},t=T.revT(k),c=T.cntT(k),u=utilOf(m),su=T.unitT(k),cu=m.tot_c?(m.tot_r||0)/m.tot_c:null,gp=su&&cu!=null?cu-su:null;
         return '<div class="bs-c"><div class="bs-ch">'+l+'<small>'+(+k.slice(5))+'月</small></div>'
           +'<div class="bs-kpi"><b>'+yen(m.tot_r)+'</b><span>'+(t?'目標 '+yen(t)+'・<em>'+pct(m.tot_r||0,t)+'</em>':'目標 未設定')+'</span></div>'
           +'<div class="bs-bar"><i style="width:'+(t?Math.min(100,Math.round((m.tot_r||0)/t*100)):0)+'%"></i></div>'
           +row('稼働率',(u.p==null?'—':Math.round(u.p*100)+'%')+' <small>/ 目標 '+Math.round(T_UTIL*100)+'%</small>')
           +row('予約件数',(m.tot_c||0)+'件'+(c?' <small>/ 目標 '+c+'件</small>':''))
+          +row('設定単価',su?yen(su):'—')
+          +row('現在単価',cu==null?'—':yen(cu))
+          +row('乖離',gp==null?'—':'<span class="'+(gp<0?'r':'g')+'">'+(gp<0?'−':'+')+yen(Math.abs(gp))+' <small>（'+(gp<0?'−':'+')+Math.round(Math.abs(gp)/su*100)+'%）</small></span>')
           +row('稼働台数',(m.nveh||0)+'台')+'</div>';}).join('');
       const tr=document.getElementById("bsTr"); tr.innerHTML=trendHtml(o,ym,tr.clientWidth); trendHover(tr.querySelector(".bs-tr"));
       const a={tR:0,aR:0,aRall:0,fR:0,tC:0,aC:0,aCall:0,rd:0,ad:0};
