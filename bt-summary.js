@@ -94,7 +94,7 @@ window.BTSUM=(function(){
           +row('予約件数',(m.tot_c||0)+'件'+(c?' <small>/ 目標 '+c+'件</small>':''))
           +row('設定単価',su?yen(su):'—')
           +row('現在単価',cu==null?'—':yen(cu))
-          +row('乖離',gp==null?'—':'<span class="'+(gp<0?'r':'g')+'">'+(gp<0?'−':'+')+yen(Math.abs(gp))+' <small>（'+(gp<0?'−':'+')+Math.round(Math.abs(gp)/su*100)+'%）</small></span>')
+          +row('乖離',gp==null?'—':'<i style="font-style:normal;color:'+(gp<0?'#c0392b':'#15803d')+'">'+(gp<0?'−':'+')+yen(Math.abs(gp))+' <small>（'+(gp<0?'−':'+')+Math.round(Math.abs(gp)/su*100)+'%）</small></i>')
           +row('稼働台数',(m.nveh||0)+'台')+'</div>';}).join('');
       const tr=document.getElementById("bsTr"); tr.innerHTML=trendHtml(o,ym,tr.clientWidth); trendHover(tr.querySelector(".bs-tr"));
       const a={tR:0,aR:0,aRall:0,fR:0,tC:0,aC:0,aCall:0,rd:0,ad:0};
