@@ -176,6 +176,8 @@ section{display:grid;gap:12px}
 @media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
 .chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
+#rmSum,#rmYear{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4){border-left:3px solid var(--fg)}
+@media(max-width:700px){#rmSum,#rmYear{grid-template-columns:repeat(3,1fr)}}
 </style>
 
 <div class="wrap">
@@ -395,10 +397,10 @@ function drawRoad(){
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
   const yr=n/12, ex=L.life-L.mon*n;
-  const row=(lab,d,unit)=>card(`総売上（${lab}）`,`${f1(L.rev*12*d+L.sale*d/yr)}<small>万</small>`,`貸出 ${f1(L.rev*12*d)}万 ＋ 売却 ${f1(L.sale*d/yr)}万`,1)
-    +card(`利益（${lab}・売却込み）`,L.life*d/yr,`毎月の分 ＋ 売却の分・1店あたり ${pl(L.life*d/yr/L.s)}`)
-    +card(`うち毎月の分（${lab}）`,L.mon*12*d,`月${pl(L.mon)} × ${12*d}`)
-    +card(`うち売却の分（${lab}）`,ex*d/yr,d===yr?`売値の合計 − 買戻の合計`:`${n}ヶ月分 ${pl(ex)} ÷ ${+yr.toFixed(1)}年`);
+  const row=(lab,d,unit)=>card(`売上 合計（${lab}）`,`${f1(L.rev*12*d+L.sale*d/yr)}<small>万</small>`,`レンタル ＋ 売却`,1)+card(`レンタル売上（${lab}）`,`${f1(L.rev*12*d)}<small>万</small>`,`月${f1(L.rev)}万 × ${12*d}`)+card(`売却売上（${lab}）`,`${f1(L.sale*d/yr)}<small>万</small>`,d===yr?`売値の合計（${L.q}台）`:`${n}ヶ月分 ÷ ${+yr.toFixed(1)}年`)
+    +card(`利益 合計（${lab}）`,L.life*d/yr,`1店あたり ${pl(L.life*d/yr/L.s)}`)
+    +card(`レンタル利益（${lab}）`,L.mon*12*d,`月${pl(L.mon)} × ${12*d}`)
+    +card(`売却利益（${lab}）`,ex*d/yr,d===yr?`売値の合計 − 買戻の合計`:`${n}ヶ月分 ${pl(ex)} ÷ ${+yr.toFixed(1)}年`);
   $("rmSH").innerHTML=`${n}ヶ月で見ると<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
   $("rmSum").innerHTML=row(`${n}ヶ月`,yr);
   $("rmYH").innerHTML=`年あたりで見ると<span>売却の分は${n}ヶ月分を年にならしています</span>`;
