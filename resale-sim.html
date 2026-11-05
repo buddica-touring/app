@@ -143,6 +143,16 @@ section{display:grid;gap:12px}
 .ed button{padding:2px 6px}
 
 .cmp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+#cmp{display:block}
+.eq{display:grid;grid-template-columns:1fr auto 1fr auto 1.1fr;gap:8px;align-items:stretch}
+.eq .op{align-self:center;font-size:22px;color:var(--mute)}
+.eq-b{background:var(--card);border:1px solid var(--refl,var(--line));border-radius:10px;padding:10px 12px}
+.eq-b.main{border:1.5px solid var(--fg)}
+.eq-b span{display:block;font-size:11px;color:var(--mute)}.eq-b b{font-size:26px}.eq-b b small{font-size:12px;color:var(--mute);font-weight:400}
+.eq-b i{display:block;font-style:normal;font-size:11px;color:var(--mute)}.eq-b i+i{margin-top:2px}
+.split{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:8px;font-size:12px;color:var(--mute)}
+.split b{color:var(--fg);font-weight:500}.split em{font-style:normal;font-weight:700;color:var(--fg)}.split em.neg{color:var(--red)}.split small{font-size:11px}.split .dim{flex-basis:100%;font-size:11px}
+@media(max-width:700px){.eq{grid-template-columns:1fr}.eq .op{text-align:center;font-size:16px;line-height:1}}
 @media (max-width:700px){.cmp{grid-template-columns:1fr 1fr}}
 .cmp .k{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .cmp .k.main{border:1.5px solid var(--fg)}
@@ -330,7 +340,10 @@ function render(rebuild){
   const T=totals(sim), B=totals(base), g=T.g, n=T.n;
   // 比較
   const dv=(a,b)=>{const d=a-b;return `<i class="${d<0?"neg":""}">${Math.abs(d)<0.05?"基準と同じ":"基準との差 "+pl(d)}</i>`};
-  $("cmp").innerHTML=[["全体の利益（"+n+"ヶ月）",T.all,B.all],["年あたり",T.all*12/n,B.all*12/B.n],["うち店舗",T.store,B.store],["うち本部",T.all-T.store,B.all-B.store]].map(([k,a,b],i)=>`<div class="k ${i===0?"main":""}"><span>${k}</span><b class="${a<0?"neg":""}">${pl(a).replace("万","<small>万</small>")}</b>${dv(a,b)}</div>`).join("");
+  {const mo=x=>x.rev-x.lease-x.mt-x.ins-x.fx, ex=x=>x.sell-x.buy, upT=x=>x.g.UP*x.Qall*x.n;
+   const box=(k,a,b,sub,cls)=>`<div class="eq-b ${cls||""}"><span>${k}</span><b class="${a<0?"neg":""}">${pl(a).replace("万","<small>万</small>")}</b><i>${sub}</i>${dv(a,b)}</div>`;
+   $("cmp").innerHTML=`<div class="eq">${box(`毎月の稼ぎ（${n}ヶ月分）`,mo(T),mo(B),`月${pl(mo(T)/n)} ＝ 売上−リース−維持保険−固定費`)}<div class="op">＋</div>${box("出口",ex(T),ex(B),"売値の合計 − 買戻の合計")}<div class="op">＝</div>${box(`全体の利益（${n}ヶ月）`,T.all,B.all,`年あたり ${pl(T.all*12/n)}`,"main")}</div>
+   <div class="split"><span>店舗と本部に分けると</span><b>店舗 <em class="${T.store<0?"neg":""}">${pl(T.store)}</em></b><small>本部への上乗せ ${f1(upT(T))}万を払う分を含む</small><b>本部 <em class="${T.all-T.store<0?"neg":""}">${pl(T.all-T.store)}</em></b><small>上乗せの受取 ${f1(upT(T))}万 ＋ 出口 ${pl(ex(T))}</small><span class="dim">上乗せは社内の移動なので、全体の利益は変わりません</span></div>`;}
   // 絵コンテ
   const st=storySteps(T);
   $("board").innerHTML=st.map((s,i)=>{const cls=(i===3?"rowend ":"")+(i===7?"last ":"")+(i%2===1?"r2":"");
