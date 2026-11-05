@@ -168,6 +168,12 @@ section{display:grid;gap:12px}
 .rb{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:8px;font-size:12px;margin:6px 0}
 .rb .tr{height:14px;background:var(--bg);border-radius:3px;position:relative}.rb .tr i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--fg)}.rb .tr i.neg{background:var(--red)}
 .rb b{text-align:right}
+.rb2{display:grid;grid-template-columns:110px 1fr 200px;align-items:center;gap:8px;font-size:12px;margin:8px 0}
+.rb2 .bars{display:grid;gap:3px}.rb2 .tr{height:11px;background:var(--bg);border-radius:3px;position:relative}.rb2 .tr i{position:absolute;top:0;bottom:0;left:0;border-radius:3px;background:var(--fg)}.rb2 .tr i.up{background:#8fa3b5}.rb2 .tr i.neg{background:var(--red)}
+.rb2 .vs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:right}.rb2 .vs b{font-size:12.5px}.rb2 .vs .u{color:#4f6273}.rb2 .vs i{font-style:normal;color:var(--mute)}
+.rblg{display:flex;gap:14px;font-size:11.5px;color:var(--mute);margin:2px 0 6px}.rblg span::before{content:"";display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;background:var(--fg)}.rblg span.u::before{background:#8fa3b5}
+.rbh{display:grid;grid-template-columns:110px 1fr 200px;gap:8px;font-size:11px;color:var(--mute)}.rbh div{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:right}
+
 .tabs{align-items:center}
 #biz{display:grid;gap:10px}
 .bz{display:grid;grid-template-columns:44px 1fr 220px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
@@ -498,8 +504,9 @@ function drawRoad(){
   $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万　入口・出口とも${X}万良いと ${n}ヶ月の利益 <b>${pl(L.life+dx*L.q)}</b>（${pl(dx*L.q)}）`;
   drawBiz();
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
-  $("rmBH").innerHTML=`${n}ヶ月の利益（売却込み）<span>段階ごと。上の表の「${n}ヶ月の利益」列と同じ数字。最後の段階＝上の「利益 合計（${n}ヶ月）」</span>`;
-  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}<small style="display:block;color:var(--mute);font-size:10.5px;font-weight:400;white-space:nowrap">${X}万良いと ${pl(r.life+dx*r.q)}</small></b></div>`).join("");
+  $("rmBH").innerHTML=`${n}ヶ月の利益（売却込み）：今 と 入口・出口${X}万良いと の比較<span>「今」は上の表の「${n}ヶ月の利益」列、最後の段階＝上の「利益 合計（${n}ヶ月）」</span>`;
+  {const mx2=Math.max(1,...rs.map(r=>Math.max(Math.abs(r.life),Math.abs(r.life+dx*r.q))));
+   $("rmBars").innerHTML=`<div class="rblg"><span>今</span><span class="u">入口・出口とも${X}万良いと</span></div><div class="rbh"><span></span><span></span><div><span>今</span><span>${X}万良いと</span><span>差</span></div></div>`+rs.map((r,i)=>{const u=r.life+dx*r.q;return `<div class="rb2"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="bars"><div class="tr"><i class="${r.life<0?"neg":""}" style="width:${Math.abs(r.life)/mx2*100}%"></i></div><div class="tr"><i class="up ${u<0?"neg":""}" style="width:${Math.abs(u)/mx2*100}%"></i></div></div><div class="vs"><b class="${r.life<0?"neg":""}">${pl(r.life)}</b><b class="u ${u<0?"neg":""}">${pl(u)}</b><i>${pl(u-r.life)}${r.life>0?`<br>${+(u/r.life).toFixed(1)}倍`:""}</i></div></div>`}).join("");}
 }
 $("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
