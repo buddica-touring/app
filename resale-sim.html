@@ -204,9 +204,11 @@ section{display:grid;gap:12px}
 
   <section id="v-road" hidden>
     <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmSH"></p>
     <div class="cmp" id="rmSum"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmYH"></p>
     <div class="cmp" id="rmYear"></div>
+    <p class="note3" id="rmInfo" style="margin:0"></p>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
     <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
   </section>
@@ -392,16 +394,16 @@ function drawRoad(){
   $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
-  $("rmSum").innerHTML=card(`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店 の${n}ヶ月の利益`,L.life,`月${pl(L.mon)}・年${pl(L.mon*12)}`,1)
-    +card("月で黒字が続くのは",fb<0?"—":`${NUM[fb]||fb+1}<small> ${rs[fb].q}台〜</small>`,fb<0?"どの段階も赤字が残る":`1店${Math.ceil(g.FIX/con)}台以上で黒字`)
-    +card("いちばん稼ぐ段階",`${NUM[best]||best+1}<small> ${rs[best].q}台・${rs[best].s}店</small>`,`${n}ヶ月 ${pl(rs[best].life)}`)
-    +card(`最終の月売上`,`${f1(L.rev)}<small>万</small>`,L.mon>0?`${f1(L.cut)}%落ちると赤字・仕入総額${f1(L.buy)}万`:`赤字・仕入総額${f1(L.buy)}万`);
-  const yr=n/12;
-  $("rmYH").innerHTML=`年あたりで見ると<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店。売却の分は${n}ヶ月を年にならしています</span>`;
-  $("rmYear").innerHTML=card("年の売上",`${f1(L.rev*12)}<small>万</small>`,`月${f1(L.rev)}万 × 12`,1)
-    +card("年の利益（売却込み）",L.life/yr,`${n}ヶ月の利益 ${pl(L.life)} ÷ ${+yr.toFixed(1)}年・1店あたり 年${pl(L.life/yr/L.s)}`)
-    +card("うち毎月の分（年）",L.mon*12,`月${pl(L.mon)} × 12`)
-    +card("うち売却の分（年）",(L.life-L.mon*n)/yr,`売値−買戻 ${pl(L.life-L.mon*n)} ÷ ${+yr.toFixed(1)}年`);
+  const yr=n/12, ex=L.life-L.mon*n;
+  const row=(lab,d,unit)=>card(`売上（${lab}）`,`${f1(L.rev*12*d)}<small>万</small>`,`月${f1(L.rev)}万 × ${12*d}`,1)
+    +card(`利益（${lab}・売却込み）`,L.life*d/yr,`毎月の分 ＋ 売却の分・1店あたり ${pl(L.life*d/yr/L.s)}`)
+    +card(`うち毎月の分（${lab}）`,L.mon*12*d,`月${pl(L.mon)} × ${12*d}`)
+    +card(`うち売却の分（${lab}）`,ex*d/yr,d===yr?`売値の合計 − 買戻の合計`:`${n}ヶ月分 ${pl(ex)} ÷ ${+yr.toFixed(1)}年`);
+  $("rmSH").innerHTML=`${n}ヶ月で見ると<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
+  $("rmSum").innerHTML=row(`${n}ヶ月`,yr);
+  $("rmYH").innerHTML=`年あたりで見ると<span>売却の分は${n}ヶ月分を年にならしています</span>`;
+  $("rmYear").innerHTML=row("年",1);
+  $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
   $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b></div>`).join("");
 }
