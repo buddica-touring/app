@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>リセール出口シミュレーター</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* layout: 上=舞台（5つの場所を車が移動）、中=いまの工程の説明と手元のお金、下=工程チップと条件 */
+:root{
+  --bg:#f6f4f0; --card:#ffffff; --line:#e6e2db; --fg:#2a2826; --mute:#8a857d; --faint:#d8d3ca; --red:#c23b32; --ok:#2a2826;
+  --sans:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1b19;--card:#252421;--line:#3a3834;--fg:#ece8e1;--mute:#9a958c;--faint:#4a4741;--red:#e0675d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1c1b19;--card:#252421;--line:#3a3834;--fg:#ece8e1;--mute:#9a958c;--faint:#4a4741;--red:#e0675d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-variant-numeric:tabular-nums;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 24px}
+.wrap{max-width:960px;margin:0 auto;display:grid;gap:12px}
+h1{font-size:16px;margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+/* 舞台 */
+.stage{position:relative;height:210px}
+.place{position:absolute;bottom:0;transform:translateX(-50%);width:17%;text-align:center}
+.place .box{height:64px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.place b{display:block;font-size:12px;margin-top:6px}
+.place span{display:block;font-size:10px;color:var(--mute)}
+.car{position:absolute;bottom:58px;transform:translateX(-50%);transition:left .9s cubic-bezier(.5,0,.3,1);text-align:center;z-index:2}
+.car svg{width:64px;height:auto;display:block;margin:0 auto}
+.tag{font-size:10px;background:var(--fg);color:var(--card);border-radius:4px;padding:1px 6px;white-space:nowrap;display:inline-block;margin-bottom:4px}
+.money{position:absolute;top:8px;transform:translateX(-50%);font-size:14px;font-weight:700;white-space:nowrap;transition:left .9s ease,opacity .4s;z-index:3;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1px 8px}
+.money.out{color:var(--red);border-color:var(--red)}
+/* 説明 */
+.now{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.now .st{font-size:11px;color:var(--mute)}
+.now h2{font-size:18px;margin:2px 0}
+.now p{margin:0;font-size:13px;color:var(--mute)}
+.wallet{text-align:right}
+.wallet span{font-size:11px;color:var(--mute);display:block}
+.wallet b{font-size:32px}
+.wallet b small{font-size:13px;color:var(--mute);font-weight:400;margin-left:2px}
+.ctrl{display:flex;gap:8px;margin-top:10px}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 14px;cursor:pointer}
+button.pri{background:var(--fg);color:var(--card);border-color:var(--fg)}
+button:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+/* 工程チップ */
+.chips{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+.chip{border:1px solid var(--line);border-radius:8px;padding:6px 8px;opacity:.35;transition:opacity .3s;cursor:pointer;background:var(--card)}
+.chip.on{opacity:1}
+.chip.cur{border-color:var(--fg)}
+.chip span{display:block;font-size:10px;color:var(--mute)}
+.chip b{font-size:13px}
+.res{border:1.5px solid var(--fg)}
+.wallets{display:flex;gap:24px}
+.wallet.sh b{font-size:22px}
+.sec{font-size:13px;font-weight:700;margin:0 0 8px}
+.sec span{font-size:11px;color:var(--mute);font-weight:400;margin-left:8px}
+.shop{display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start}
+@media (max-width:700px){.shop{grid-template-columns:1fr}.wallets{flex-direction:column;gap:4px}}
+.fx span{display:block;font-size:11px;color:var(--mute)}
+.fx b{font-size:24px}
+.tw{overflow-x:auto}
+.qt{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.qt th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:3px 8px}
+.qt td{text-align:right;padding:4px 8px;border-top:1px solid var(--line)}
+.qt th:first-child,.qt td:first-child{text-align:left;padding-left:0}
+.qt small{font-size:10px;color:var(--mute);font-weight:400}
+.qt td small.sm{display:block}
+.qt tr.me td{font-weight:700;background:var(--bg)}
+.stage .shopfix{position:absolute;top:44px;font-size:11px!important;left:72%;transform:translateX(-50%);font-size:10px;color:var(--mute);white-space:nowrap;text-align:center}
+@media (max-width:700px){.chips{grid-template-columns:repeat(4,1fr)}.place b{font-size:10px}.car svg{width:46px}.stage{height:190px}}
+/* 条件 */
+details summary{cursor:pointer;font-size:12px;color:var(--mute)}
+.cond{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 16px;margin-top:10px}
+@media (max-width:700px){.cond{grid-template-columns:1fr 1fr}}
+.cond label{font-size:11px;color:var(--mute);display:grid;grid-template-columns:1fr auto;gap:2px}
+.cond output{color:var(--fg);font-weight:700;font-size:12px}
+.cond input{grid-column:1/-1;width:100%;accent-color:var(--red)}
+.cond .u{grid-column:1/-1;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--mute)}
+.cond .u input{font:inherit;font-size:15px;font-weight:700;color:var(--fg);width:120px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);text-align:right}
+.neg{color:var(--red)!important}
+@media (prefers-reduced-motion:reduce){.car,.money{transition:none}}
+.lead{font-size:12px;color:var(--mute);margin:-6px 0 0}
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 22px}
+@media (max-width:900px){.board{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.board{grid-template-columns:1fr}}
+.pn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pn::after{content:"▶";position:absolute;right:-17px;top:50%;transform:translateY(-50%);color:var(--mute);font-size:12px}
+.pn.rowend::after{content:"";}
+.pn.last::after{content:""}
+@media (max-width:900px){.pn.rowend::after{content:"▶"}.pn.r2::after{content:""}}
+@media (max-width:520px){.pn::after,.pn.rowend::after{content:"▼";right:50%;top:auto;bottom:-18px;transform:translateX(50%)}.pn.last::after{content:""}}
+.pn .hd{display:flex;gap:6px;align-items:baseline}
+.pn .hd i{font-style:normal;font-size:11px;font-weight:700;border:1.5px solid var(--fg);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.pn .hd b{font-size:13px}
+.pn .own{font-size:10px;color:var(--mute)}
+.pn .own b{color:var(--fg);font-weight:500}
+.pn .txt{font-size:11px;color:var(--mute);line-height:1.5;min-height:3em}
+.pn .mv{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:4px}
+.pn .mv span{font-size:10px;color:var(--mute)}
+.pn .mv b{font-size:16px}
+.pn .bl{display:flex;justify-content:space-between;font-size:10px;color:var(--mute)}
+.pn .bl b{white-space:nowrap;font-size:12px;color:var(--fg)}
+.pn svg text{font-size:8px;fill:var(--mute);font-family:var(--sans)}
+.total{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:baseline;background:var(--card);border:1.5px solid var(--fg);border-radius:12px;padding:12px 16px}
+.total span{font-size:12px;color:var(--mute)}
+.total b{font-size:28px}
+.total b small{font-size:13px;color:var(--mute);font-weight:400;margin-left:2px}
+.total em{font-style:normal;font-size:16px;font-weight:700}
+
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px}
+.tabs a{font-size:13px;color:var(--mute);text-decoration:none;padding:4px 14px;border-radius:6px}
+.tabs a.on{background:var(--fg);color:var(--card)}
+section{display:grid;gap:12px}
+[hidden]{display:none!important}
+.ssum{overflow-x:auto}
+.ssum td i{display:block;font-style:normal;font-size:10px;color:var(--mute)}
+@media (max-width:700px){.ssum{grid-template-columns:1fr 1fr}}
+.ssum div span{display:block;font-size:11px;color:var(--mute)}
+.ssum div b{font-size:18px}
+.ssum div i{display:block;font-style:normal;font-size:10px;color:var(--mute)}
+.ssum .tt{border-left:1px solid var(--line);padding-left:10px}
+.pick{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px;color:var(--mute)}
+.pick select{font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+.cond.c3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:700px){.cond.c3{grid-template-columns:1fr}}
+.qt td.dim{color:var(--faint)}
+.qt tr.sum td{border-top:1px solid var(--fg);font-weight:700}
+.qt tr.fin td{border-top:1.5px solid var(--fg);font-size:14px}
+.note3{font-size:11px;color:var(--mute);margin:8px 0 0}
+.note3 b{color:var(--fg)}
+.ed{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%}
+.ed th{font-weight:400;color:var(--mute);font-size:10.5px;text-align:right;padding:3px 3px;white-space:normal;line-height:1.25;vertical-align:bottom}
+.ed th small{display:block;font-size:9.5px;white-space:nowrap}
+.ed th.o{white-space:nowrap}
+.ed th.grp{text-align:left;font-size:10px;border-bottom:1px solid var(--line);padding-bottom:2px}
+.ed th:first-child{text-align:left}
+.ed td{padding:4px 3px;border-top:1px solid var(--line);text-align:right}
+.ed td:first-child{text-align:left}
+.ed td.o{color:var(--fg);font-variant-numeric:tabular-nums}
+.ed td.o.k{font-weight:700}
+.ed .sep{border-left:1px solid var(--line)}
+.ed input{font:inherit;font-size:12.5px;width:50px;padding:3px 3px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right}
+.ed input[type=text]{width:104px;text-align:left}
+.ed button{padding:2px 6px}
+
+.cmp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:700px){.cmp{grid-template-columns:1fr 1fr}}
+.cmp .k{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.cmp .k.main{border:1.5px solid var(--fg)}
+.cmp .k span{display:block;font-size:11px;color:var(--mute)}
+.cmp .k b{font-size:24px}
+.cmp .k b small{font-size:12px;color:var(--mute);font-weight:400;margin-left:1px}
+.cmp .k i{display:block;font-style:normal;font-size:11px;color:var(--mute)}
+.qt .dif{color:var(--mute);border-left:1px solid var(--line)}
+.bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
+#ed-sim,#ed-base{display:grid;gap:12px}
+.tabs a{white-space:nowrap}@media(max-width:600px){.tabs{width:100%;display:flex;flex-wrap:wrap}.tabs a{flex:1 1 40%;text-align:center;font-size:11.5px;padding:6px 4px}}
+.rm td.o{font-size:12.5px}.rm tr.one td{background:var(--bg)}
+.rb{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:8px;font-size:12px;margin:6px 0}
+.rb .tr{height:14px;background:var(--bg);border-radius:3px;position:relative}.rb .tr i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--fg)}.rb .tr i.neg{background:var(--red)}
+.rb b{text-align:right}
+.tabs{align-items:center}
+.tgrp{display:flex;align-items:center;gap:2px;background:var(--ref);border:1px solid var(--refl);border-radius:7px;padding:2px;margin-left:6px}
+.tsep{font-size:10px;color:var(--refi);font-weight:700;padding:0 6px}
+.tgrp a{color:var(--refi)}.tgrp a.on{background:var(--refi);color:#fff}
+:root{--ref:#eef1f4;--refl:#d5dce3;--refi:#4f6273}
+@media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
+#v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
+</style>
+
+<div class="wrap">
+  <div class="top"><h1>リセール出口シミュレーター</h1>
+    <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
+
+  <section id="v-summary">
+    <div class="bar"><span>参考例：「参考シミュレーション」の数字で、全台の流れと収支を見ます。「基準値」は「基準との差」にだけ使います。ロードマップの①もこの数字です。</span></div>
+    <div class="cmp" id="cmp"></div>
+    <div class="board" id="board"></div>
+    <div class="total" id="total"></div>
+    <div class="card">
+      <p class="sec">グロス（全台）<span id="gH"></span></p>
+      <div class="tw"><table class="qt" id="gross"></table></div>
+      <p class="note3" id="gNote"></p>
+    </div>
+  </section>
+
+  <section id="v-sim" hidden>
+    <div class="bar"><span>ここを変えると参考例とロードマップ①に反映されます。基準値は変わりません。</span><button id="copy">基準値に戻す</button></div>
+    <div id="ed-sim"></div>
+  </section>
+
+  <section id="v-road" hidden>
+    <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数と店舗数だけ変えます（車種の割合・単価・条件は①と同じ。固定費は1店あたり×店舗数）。</span><button id="rmadd">＋ 段階を追加</button></div>
+    <div class="cmp" id="rmSum"></div>
+    <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
+    <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
+  </section>
+
+  <section id="v-base" hidden>
+    <div class="bar"><span>比べるための基準。参考例の「基準との差」はここと比べています。</span><button id="setbase">今のシミュレーションを基準値にする</button></div>
+    <div id="ed-base"></div>
+  </section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const f1=v=>(Math.abs(v)>=100?Math.round(Math.abs(v)).toLocaleString():+Math.abs(v).toFixed(1));
+const pl=v=>(v<0?"−":v>0?"+":"±")+f1(v)+"万";
+const COLS=[["name","車種",""],["q","台数","台"],["P","仕入額","万"],["REV","売上/月","万"],["SY","車検/年","万"],["TK","点検/年","万"],["SB","整備/年","万"],["INS","保険/月","万"],["DEP","値下がり/年","%"]];
+const GF=[["FIX","固定費・販管費 /月（店全体）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"]];
+const DEF={g:{FIX:400,HK:0,UP:4,N:24,RT:3,RV:80},rows:[
+  {name:"コンパクト（例）",q:20,P:80,REV:8,SY:10,TK:3,SB:5,INS:1.5,DEP:15},
+  {name:"ミニバン（例）",q:15,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1.5,DEP:15},
+  {name:"SUV（例）",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1.5,DEP:12}]};
+const clone=o=>JSON.parse(JSON.stringify(o));
+let base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:1},{t:"",q:120,s:2},{t:"",q:160,s:2},{t:"",q:200,s:2},{t:"",q:250,s:3},{t:"",q:300,s:3}];
+const KEY="resale-life-v7";
+try{const sv=JSON.parse(localStorage.getItem(KEY)||"null");
+  if(sv){base=sv.base||base;sim=sv.sim||sim;selI=sv.sel||0;if(sv.rm&&sv.rmv===2)rm=sv.rm}
+  else{const old=JSON.parse(localStorage.getItem("resale-life-v6")||"null");if(old&&old.rows){const g=clone(DEF.g);Object.keys(g).forEach(k=>{if(old.g&&old.g[k]!=null)g[k]=parseFloat(old.g[k])||0});base={g,rows:old.rows};sim=clone(base)}}
+}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({base,sim,sel:selI,rm,rmv:2}))}catch(e){}};
+
+function carCalc(r,g,Qall){
+  const n=Math.max(1,g.N),rr=g.RT/100/12,yrs=n/12;
+  const S=r.P*Math.max(0.2,1-r.DEP/100*yrs),R=S*g.RV/100;
+  const m=rr===0?(r.P-R)/n:(r.P-R/Math.pow(1+rr,n))*rr/(1-Math.pow(1+rr,-n));
+  r.INS=r.INS??1.5;const mt=(r.SY+r.TK+r.SB)/12+r.INS, fq=(g.FIX+(g.HK||0))/Qall, T=m+g.UP;
+  return {n,S,R,m,mt,fq,T,rev:r.REV*n,car:(r.REV-m-mt-fq)*n-R+S,shop:(r.REV-T-mt-fq)*n};
+}
+function totals(st){
+  const g=st.g,rows=st.rows,n=Math.max(1,g.N);
+  const Qall=rows.reduce((a,r)=>a+(+r.q||0),0)||1;
+  const cs=rows.map(r=>carCalc(r,g,Qall));
+  const sum=k=>rows.reduce((a,r,i)=>a+k(r,cs[i])*r.q,0);
+  const rev=sum((r,c)=>c.rev), lease=sum((r,c)=>c.m*n), ins=sum(r=>r.INS*n), mt=sum((r,c)=>c.mt*n)-ins, fx=(g.FIX+(g.HK||0))*n, sell=sum((r,c)=>c.S), buy=sum((r,c)=>c.R);
+  const all=rev-lease-mt-ins-fx+sell-buy;
+  const store=sum((r,c)=>(r.REV-c.T-c.mt)*n)-fx;
+  return {g,rows,n,Qall,cs,rev,lease,ins,mt,fx,sell,buy,all,store};
+}
+function fleet(T){
+  const g=T.g,Q=T.Qall,S=k=>T.rows.reduce((a,r)=>a+(+r[k]||0)*r.q,0),C=k=>T.rows.reduce((a,r,i)=>a+T.cs[i][k]*r.q,0);
+  const r={P:S("P"),REV:S("REV"),SY:S("SY"),TK:S("TK"),SB:S("SB"),INS:S("INS")};
+  const c={n:T.n,m:C("m"),mt:C("mt"),R:C("R"),S:C("S"),fq:g.FIX+(g.HK||0)};c.T=c.m+g.UP*Q;
+  return {r,c,Q};
+}
+function storySteps(T){
+  const {r,c,Q}=fleet(T),g=T.g,n=c.n,o1="持ち主：自社",o2="持ち主：リース会社";
+  const pm=r.REV-c.m-c.fq, sm=r.REV-c.T-c.fq, mtT=c.mt*n;
+  const st=[
+    {t:"買い付け",own:o1,d:-r.P,sd:0,txt:`中古車市場から${Q}台を合計${f1(r.P)}万で買う。持ち主は自社。`},
+    {t:"リース会社へ売却",own:o2,d:r.P,sd:0,txt:`同じ${f1(r.P)}万でリース会社に売る。払ったお金が全部戻る。持ち主はリース会社。`},
+    {t:"リースバック契約",own:o2+"／使う：自社",d:0,sd:0,txt:`${n}ヶ月のリースで借り戻す。リース代は${Q}台で月${f1(c.m)}万。この時点ではお金は動かない。`},
+    {t:"店舗へ配車",own:o2+"／使う：店舗",d:0,sd:0,txt:`店舗に${Q}台を預ける。店舗は本部に月${f1(c.T)}万（リース原価${f1(c.m)}＋上乗せ${g.UP}万×${Q}台）を払う。社内なので全体ではプラマイ0。`},
+    {t:"貸出",own:o2+"／使う：お客様",d:pm*n,sd:sm*n,txt:`毎月 売上${f1(r.REV)}万 − リース${f1(c.m)}万 − 固定費・販管費${f1(c.fq)}万 ＝ 月${pl(pm)}。`},
+    {t:"維持コスト（期間中）",own:o2+"／使う：店舗",d:-mtT,sd:-mtT,txt:`${Q}台分の車検${f1(r.SY)}万＋点検${f1(r.TK)}万＋整備${f1(r.SB)}万（年）と保険 月${f1(r.INS)}万。${+(n/12).toFixed(1)}年分で${f1(mtT)}万を店舗が払う。`},
+    {t:"満了・買い戻し",own:o1,d:-c.R,sd:0,txt:`リース満了。決めておいた合計${f1(c.R)}万で買い戻す。持ち主は自社に戻る。`},
+    {t:"売却",own:"持ち主：次の買い手",d:c.S,sd:0,txt:`${+(n/12).toFixed(1)}年分値下がりした相場の合計${f1(c.S)}万で売る。`},
+  ];
+  const SC=[
+    {from:"中古車市場",to:"自社",money:[["R",`${f1(r.P)}万 払う`,"out"]]},
+    {from:"自社",to:"リース会社",money:[["R",`${f1(r.P)}万 受け取る`,"in"]]},
+    {from:"リース会社",to:"自社（借りる）",money:[]},
+    {from:"自社",to:"店舗",money:[["R",`月${f1(c.T)}万（社内）`,"int"]]},
+    {from:"店舗",to:"お客様",money:[["R",`月${f1(r.REV)}万 受け取る`,"in"]]},
+    {from:"店舗",to:"整備工場",money:[["L",`${f1(mtT)}万 払う`,"out"]]},
+    {from:"リース会社",to:"自社（買い戻す）",money:[["R",`${f1(c.R)}万 払う`,"out"]]},
+    {from:"自社",to:"次の買い手",money:[["R",`${f1(c.S)}万 受け取る`,"in"]]},
+  ];
+  let b=0,sb=0;st.forEach((s,i)=>{b+=s.d;sb+=s.sd;s.bal=b;s.sbal=sb;s.sc=SC[i]});
+  return st;
+}
+// 2枠：現状 → 次。money: [支払う側 "L"|"R", ラベル, 色 "out"|"in"|"int"]
+function scene(sc){
+  const W=196,H=74,LX=44,RX=152;
+  const col={out:"var(--red)",in:"var(--fg)",int:"var(--mute)"};
+  let g=`<svg viewBox="0 0 ${W} ${H}"><defs>${["out","in","int"].map(k=>`<marker id="m${k}" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L6 3L0 6z" fill="${col[k]}"/></marker>`).join("")}</defs>`;
+  const box=(x,lab,sub)=>`<rect x="${x-38}" y="30" width="76" height="30" rx="6" fill="var(--bg)" stroke="var(--line)"/><text x="${x}" y="70" text-anchor="middle" style="font-size:9px;fill:var(--fg);font-weight:700">${lab}</text><text x="${x}" y="25" text-anchor="middle">${sub}</text>`;
+  g+=box(LX,sc.from,"現状")+box(RX,sc.to,"次");
+  const car=x=>`<g transform="translate(${x-11},38)"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--bg)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--bg)"/></g>`;
+  g+=`<g opacity=".3">${car(LX)}</g>`+car(RX);
+  g+=`<line x1="${LX+40}" y1="45" x2="${RX-42}" y2="45" stroke="var(--mute)" stroke-dasharray="2 2" marker-end="url(#mint)"/>`;
+  (sc.money||[]).forEach(([p,lab,k],j)=>{const y=8+j*0;const x1=p==="L"?LX+10:RX-10,x2=p==="L"?RX-10:LX+10;
+    g+=`<line x1="${x1}" y1="${y+2}" x2="${x2}" y2="${y+2}" stroke="${col[k]}" stroke-width="1.3" marker-end="url(#m${k})"/><text x="${W/2}" y="${y}" text-anchor="middle" style="fill:${col[k]};font-weight:700;font-size:9px">${lab}</text>`});
+  return g+"</svg>";
+}
+
+
+function editor(el,st){if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce((a,r)=>a+r.REV*r.q,0)*10)/10;
+  const g=st.g;
+  el.innerHTML=`
+  <div class="card"><p class="sec">店舗のコスト<span>数字を直接入力</span></p>
+    <div class="cond c3">${GF.slice(0,3).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
+  <div class="card"><p class="sec">店舗コストの合計<span>店全体・月／単年／期間</span></p><div class="ssum" data-ssum></div></div>
+  <div class="card"><p class="sec">リース・出口の条件<span>全車共通</span></p>
+    <div class="cond c3">${GF.slice(3).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
+  <div class="card"><p class="sec">車種ごとの単価<span>数字を直接書き換えられます</span></p>
+    <div class="tw"><table class="ed" data-ed></table></div><p class="note3" data-note></p><div class="ctrl"><button data-add>＋ 車種を追加</button></div></div>`;
+  const ed=el.querySelector("[data-ed]");
+  const OUT=[["m","リース","万/月"],["T","本部へ","万/月"],["mt","維持","万/月"],["fq","固定費","万/月"],["pm","利益","万/月"],["R","買戻","万"],["S","売値","万"],["car","生涯利益","万"]];el._OUT=OUT;
+  const drawRows=()=>{ed.innerHTML=`<tr><th class="grp" colspan="${COLS.length}">入力</th><th class="grp sep" colspan="${OUT.length}">計算結果（1台あたり）</th><th></th></tr><tr>${COLS.map(c=>`<th>${c[1].replace(/\/(.+)/,"")}${c[2]||c[1].includes("/")?`<small>${c[1].includes("/")?c[2]+"/"+c[1].split("/")[1]:c[2]}</small>`:""}</th>`).join("")}${OUT.map(([k,l,u],j)=>`<th class="o ${j===0?"sep":""}">${l}<small>${u}</small></th>`).join("")}<th></th></tr>`+st.rows.map((r,i)=>`<tr>${COLS.map(([k,l,u])=>`<td><input data-i="${i}" data-k="${k}" ${k==="name"?'type="text"':'type="number" step="any"'} value="${r[k]??""}" aria-label="${l}"></td>`).join("")}${OUT.map(([k],j)=>`<td class="o ${j===0?"sep ":""}${k==="car"?"k":""}" data-c="${k}"></td>`).join("")}<td><button data-del="${i}" aria-label="削除">×</button></td></tr>`).join("")};
+  drawRows();
+  el.addEventListener("input",e=>{const t=e.target;
+    if(t.dataset.g){g[t.dataset.g]=parseFloat(t.value)||0}
+    else if(t.dataset.k){const i=+t.dataset.i,k=t.dataset.k;st.rows[i][k]=k==="name"?t.value:(parseFloat(t.value)||0)}
+    render(false)});
+  el.addEventListener("click",e=>{
+    if(e.target.dataset.add!=null){st.rows.push({name:"新しい車種",q:5,P:100,REV:10,SY:10,TK:3,SB:5,INS:1.5,DEP:15});drawRows();render(false)}
+    const d=e.target.dataset.del;if(d!=null&&st.rows.length>1){st.rows.splice(+d,1);drawRows();render(false)}});
+  el._st=st;el._draw=drawRows;
+}
+function fillEditor(el){
+  const T=totals(el._st), g=T.g;
+  el.querySelector("[data-note]").textContent=`本部へ＝リース＋上乗せ${g.UP}万　維持＝（車検＋点検＋整備）÷12＋保険　固定費＝店全体${g.FIX}万÷${T.Qall}台　利益＝売上−リース−維持−固定費　買戻＝売値×${g.RV}%　売値＝仕入×（1−値下がり×年数）　生涯利益＝利益×${T.n}ヶ月−買戻＋売値`;
+  const trs=el.querySelectorAll("[data-ed] tr");T.rows.forEach((r,i)=>{const t=trs[i+2];if(!t)return;const c=T.cs[i],v={...c,pm:r.REV-c.m-c.mt-c.fq};el._OUT.forEach(([k])=>{const x=Math.round(v[k]*10)/10||0,td=t.querySelector(`[data-c="${k}"]`);td.textContent=k==="car"||k==="pm"?pl(x):(+x.toFixed(1)).toLocaleString();td.classList.toggle("neg",x<0)})});
+  const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
+  const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
+  const it=[["固定費・販管費",fx],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],["売上（参考・手入力）",+g.SALES||0,2]];
+  el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td>${t===1?"<b>":""}${f1(x)}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
+}
+function render(rebuild){
+  if(rebuild){editor($("ed-sim"),sim);editor($("ed-base"),base)}
+  fillEditor($("ed-sim"));fillEditor($("ed-base"));
+  const T=totals(sim), B=totals(base), g=T.g, n=T.n;
+  // 比較
+  const dv=(a,b)=>{const d=a-b;return `<i class="${d<0?"neg":""}">${Math.abs(d)<0.05?"基準と同じ":"基準との差 "+pl(d)}</i>`};
+  $("cmp").innerHTML=[["全体の利益（"+n+"ヶ月）",T.all,B.all],["年あたり",T.all*12/n,B.all*12/B.n],["うち店舗",T.store,B.store],["うち本部",T.all-T.store,B.all-B.store]].map(([k,a,b],i)=>`<div class="k ${i===0?"main":""}"><span>${k}</span><b class="${a<0?"neg":""}">${pl(a).replace("万","<small>万</small>")}</b>${dv(a,b)}</div>`).join("");
+  // 絵コンテ
+  const st=storySteps(T);
+  $("board").innerHTML=st.map((s,i)=>{const cls=(i===3?"rowend ":"")+(i===7?"last ":"")+(i%2===1?"r2":"");
+    return `<div class="pn ${cls}"><div class="hd"><i>${i+1}</i><b>${s.t}</b></div>${scene(s.sc)}
+      <div class="own">${s.own.replace(/：([^／]+)/g,"：<b>$1</b>")}</div><div class="txt">${s.txt}</div>
+      <div class="mv"><span>このコマのお金</span><b class="${s.d<0?"neg":""}">${s.d===0?"±0":pl(s.d)}</b></div>
+      <div class="bl"><span>手元（全体）<b class="${s.bal<0?"neg":""}">${pl(s.bal)}</b></span><span>うち店舗 <b class="${s.sbal<0?"neg":""}">${pl(s.sbal)}</b></span></div></div>`}).join("");
+  const last=st[7];
+  $("total").innerHTML=`<div><span>全${T.Qall}台の生涯の利益（${n}ヶ月）</span><br><b class="${last.bal<0?"neg":""}">${pl(last.bal).replace("万","<small>万</small>")}</b></div>
+    <div><span>うち店舗</span><br><em class="${last.sbal<0?"neg":""}">${pl(last.sbal)}</em></div>
+    <div><span>うち本部（上乗せ＋出口）</span><br><em class="${last.bal-last.sbal<0?"neg":""}">${pl(last.bal-last.sbal)}</em></div>`;
+  // グロス（基準との差つき）
+  const rowsG=T=>[["売上",T.rev,0],["リース（原価）",-T.lease,0],["車検・点検・整備",-T.mt,0],["保険料",-T.ins,0],["固定費・販管費",-T.fx,0],["毎月の利益",T.rev-T.lease-T.mt-T.ins-T.fx,1],["売る",T.sell,2],["買い戻す",-T.buy,2],["出口差額",T.sell-T.buy,4],["利益",T.all,3]];
+  const gt=rowsG(T), gb=rowsG(B);
+  const td=(v,b)=>`<td class="${v<0?"neg":""}">${b?"<b>":""}${pl(v)}${b?"</b>":""}</td>`;
+  $("gH").textContent=`${T.Qall}台・${n}ヶ月`;
+  $("gross").innerHTML=`<tr><th></th><th>月</th><th>年</th><th>${n}ヶ月</th><th class="dif">基準との差（${n}ヶ月）</th></tr>`+gt.map(([k,v,t],i)=>{const d=v-gb[i][1];return `<tr class="${t===1||t===4?"sum":t===3?"fin":""}"><td>${k}</td>${t===2||t===4?'<td class="dim">—</td><td class="dim">—</td>':td(v/n,t)+td(v*12/n,t)}${td(v,t)}<td class="dif ${d<0?"neg":""}">${Math.abs(d)<0.05?"—":pl(d)}</td></tr>`}).join("");
+  $("gNote").innerHTML=`店舗と本部に分けると　店舗 <b class="${T.store<0?"neg":""}">${pl(T.store)}</b>　本部 <b class="${T.all-T.store<0?"neg":""}">${pl(T.all-T.store)}</b>（上乗せ${g.UP}万×${T.Qall}台は社内の移動）。利益の月・年は${n}ヶ月でならした平均。`;
+  drawRoad();
+  save();
+}
+$("copy").onclick=()=>{sim=clone(base);render(true)};
+$("setbase").onclick=()=>{base=clone(sim);render(true)};
+
+const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
+function drawRoad(){
+  const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
+  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
+  rm[0].q=Q;rm[0].s=rm[0].s||1;
+  const rs=rm.map(x=>{const q=+x.q||0,s=+x.s||1,rev=revc*q,mon=con*q-fx*s,life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
+  $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費 1店 月${f1(fx)}万`;
+  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,"赤字まで<small>売上減</small>","仕入総額",""];
+  $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
+    <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
+    <td class="o" style="color:var(--mute);font-size:11px">${T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*r.q)}`).join("・")}</td>
+    <td>${`<input type="number" data-r="${i}" data-f="s" value="${rm[i].s}">`}</td>
+    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
+    <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
+  const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
+  $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(fx/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
+  const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
+  const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
+  $("rmSum").innerHTML=card(`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店 の${n}ヶ月の利益`,L.life,`月${pl(L.mon)}・年${pl(L.mon*12)}`,1)
+    +card("月で黒字が続くのは",fb<0?"—":`${NUM[fb]||fb+1}<small> ${rs[fb].q}台〜</small>`,fb<0?"どの段階も赤字が残る":`1店${Math.ceil(fx/con)}台以上で黒字`)
+    +card("いちばん稼ぐ段階",`${NUM[best]||best+1}<small> ${rs[best].q}台・${rs[best].s}店</small>`,`${n}ヶ月 ${pl(rs[best].life)}`)
+    +card(`最終の月売上`,`${f1(L.rev)}<small>万</small>`,L.mon>0?`${f1(L.cut)}%落ちると赤字・仕入総額${f1(L.buy)}万`:`赤字・仕入総額${f1(L.buy)}万`);
+  const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
+  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b></div>`).join("");
+}
+$("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();save()});
+$("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
+$("rmadd").onclick=()=>{const l=rm[rm.length-1];rm.push({t:"",q:Math.round((+l.q||40)*1.5),s:l.s||1});drawRoad();save()};
+function route(){const h=location.hash.slice(1),v=["sim","base","summary"].includes(h)?h:"road";["summary","sim","base","road"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
+window.addEventListener("hashchange",route);route();render(true);
+</script>

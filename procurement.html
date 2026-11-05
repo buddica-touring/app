@@ -219,6 +219,7 @@
     .wrap .tabbtn[data-v="insp"]{order:1}.wrap .tabbtn[data-v="tire"]{order:2}.wrap .tabbtn[data-v="proc"]{order:3}.wrap .tabbtn[data-v="etc"]{order:4}
     .wrap .tabbtn[data-v="sum"],.wrap .tabbtn[data-v="karte"],.wrap .tabbtn[data-v="kpi"],.wrap .tabbtn[data-v="insp"]{grid-column:span 3;order:0;min-height:48px;font-size:13.5px}
     .wrap .tabbtn[data-v="manual"]{grid-column:span 12;order:9;min-height:36px;font-size:12.5px}
+    .wrap .tabbtn[data-v="resale"]{grid-column:span 12;order:8;min-height:40px;font-size:13px}
     .wrap .tabbtn.on{background:#0f172a!important;color:#fff!important;border-color:#0f172a!important}
     #st{bottom:14px;left:8px;font-size:10px;padding:3px 8px;opacity:.75;pointer-events:none;max-width:calc(100% - 90px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .card small{font-size:10.5px;line-height:1.45}
@@ -767,6 +768,7 @@ tr.arcHide{display:none!important}
     <button class="tabbtn" data-v="karte">🚗 車両</button>
     <button class="tabbtn" data-v="kpi">📊 KPI</button>
     <button class="tabbtn on" data-v="insp">🔧 点検</button>
+    <button class="tabbtn" data-v="resale">💹 出口シミュ</button>
     <button class="tabbtn" data-v="manual">📖 使い方</button>
   </div>
   <div id="viewProc" style="display:none">
@@ -789,9 +791,10 @@ tr.arcHide{display:none!important}
   </div><!--/viewProc-->
 
   <div id="viewKarte" style="display:none"><div id="karteBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
+  <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1105" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html?v=1105" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
 <details class="mn-s" open><summary>全体</summary><div class="mn-b">
-<p>上のタブは「サマリ・車両・KPI・点検・使い方」の5つです。開くと最初にサマリが出ます。</p>
+<p>上のタブは「サマリ・車両・KPI・点検・出口シミュ・使い方」の6つです。開くと最初にサマリが出ます。</p>
 <ul><li>閲覧リンク（URLに view= が付いたもの）はログインなしで見られます。お客様の情報は出ません。</li><li>数字が変わらないときは、ページを再読み込みしてください（Macは Cmd+Shift+R）。</li><li>車は「車種＋ナンバー下4桁」で表示します（例：アクア 3710）。</li></ul>
 </div></details>
 <details class="mn-s"><summary>サマリ</summary><div class="mn-b">
@@ -818,6 +821,10 @@ tr.arcHide{display:none!important}
 </div></details>
 <details class="mn-s"><summary>操作（カテゴリ別）</summary><div class="mn-b">
 <div class="mn-t"><table><tr><th>カテゴリ</th><th>操作</th><th>場所</th></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">候補を追加（URLを貼ると自動取得）</td><td data-l="場所">車両 → 準備 → 仕入候補</td></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">仕入OK・整備・店舗回収・準備・名義・販売開始を進める</td><td data-l="場所">同上</td></tr><tr><td data-l="カテゴリ">仕入</td><td data-l="操作">アーカイブ 🗄／戻す ↩️</td><td data-l="場所">同上（行の右端）</td></tr><tr><td data-l="カテゴリ">準備</td><td data-l="操作">タイヤの写真・ステータス・交換予定日</td><td data-l="場所">車両 → 準備 → タイヤチェック</td></tr><tr><td data-l="カテゴリ">準備</td><td data-l="操作">ETCのセットアップ・管理番号表・予定日</td><td data-l="場所">車両 → 準備 → ETCセットアップ</td></tr><tr><td data-l="カテゴリ">入替</td><td data-l="操作">後継車の情報を入れる → 入替日にスライド実行</td><td data-l="場所">車両 → 入替車両</td></tr><tr><td data-l="カテゴリ">入替</td><td data-l="操作">10万km超の車：売止日を決める／リミットを決めて継続</td><td data-l="場所">同上</td></tr><tr><td data-l="カテゴリ">車両</td><td data-l="操作">仕入額・導入方法・現在の走行を入れる</td><td data-l="場所">車両 → 車両カルテ</td></tr><tr><td data-l="カテゴリ">車両</td><td data-l="操作">車検証の項目を入れる</td><td data-l="場所">配車表の車両マスタ</td></tr><tr><td data-l="カテゴリ">売却</td><td data-l="操作">売却額・売却日を入れる</td><td data-l="場所">車両 → 車両カルテ</td></tr><tr><td data-l="カテゴリ">設定</td><td data-l="操作">リミット距離・入替準備期間・車検の扱い</td><td data-l="場所">車両 → ルール</td></tr></table></div>
+</div></details>
+<details class="mn-s"><summary>出口シミュ</summary><div class="mn-b">
+<p>車を買ってリース会社に売り、リースバックで店舗が貸し出し、満了で買い戻して売る「出口で利益をとる」モデルの試算です。</p>
+<ul><li>ロードマップ（最初の画面）：①が今の試算です。②以降は台数と店舗数を入れると、段階ごとの月売上・利益・赤字になるまでの売上減・仕入総額が出ます。車種の割合と単価は①と同じです。</li><li>参考例：車1台の一生を8コマで追い、全台の合計（グロス）を出します。</li><li>参考シミュレーション：固定費・上乗せ・期間・金利・車種ごとの単価を入れる画面です。参考例とロードマップ①はここの数字で動きます。</li><li>基準値：比べるための数字です。参考例の「基準との差」に使います。</li><li>入れた数字は、見ている人のブラウザにだけ保存されます。ほかの人とは共有されません。</li><li>右上の「別タブで開く」で、大きな画面でも開けます。</li></ul>
 </div></details>
 <details class="mn-s"><summary>KPI・点検</summary><div class="mn-b">
 <ul><li>KPI：店舗KPIのページ（2026年下期MTG）をそのまま表示します。右上の「別タブで開く」でも開けます。</li><li>点検：これまでどおりの点検画面です。</li></ul>
@@ -1577,6 +1584,8 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewKpi").style.display=v==="kpi"?"":"none";
   $("viewSum").style.display=v==="sum"?"":"none";
   $("viewManual").style.display=v==="manual"?"":"none";
+  $("viewResale").style.display=v==="resale"?"":"none";
+  if(v==="resale"){const f=$("resaleFrame");if(!f.src)f.src=f.dataset.src;}   // 出口シミュ（オーナー指示 2026-11-05）：resale-sim.html を埋め込み、開いた時だけ読む
   if(v==="sum")BTSUM.show();   // サマリ（本部サマリの高松だけ）
   if(v==="kpi"){const f=$("kpiFrame");if(!f.src)f.src=f.dataset.src;}   // KPI（オーナー指示 2026-11-01）：別ページを埋め込み、開いた時だけ読む
   if(v==="karte")VL.show("karte");
