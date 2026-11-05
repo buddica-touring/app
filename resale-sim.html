@@ -165,6 +165,7 @@ section{display:grid;gap:12px}
 :root{--ref:#eef1f4;--refl:#d5dce3;--refi:#4f6273}
 @media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
+.chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
 </style>
 
 <div class="wrap">
@@ -174,6 +175,7 @@ section{display:grid;gap:12px}
   <section id="v-summary">
     <div class="bar"><span>参考例：「参考シミュレーション」の数字で、全台の流れと収支を見ます。「基準値」は「基準との差」にだけ使います。ロードマップの①もこの数字です。</span></div>
     <div class="cmp" id="cmp"></div>
+    <div class="card chk" id="chk1"></div>
     <div class="board" id="board"></div>
     <div class="total" id="total"></div>
     <div class="card">
@@ -186,6 +188,7 @@ section{display:grid;gap:12px}
   <section id="v-sim" hidden>
     <div class="bar"><span>ここを変えると参考例とロードマップ①に反映されます。基準値は変わりません。</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button id="exp">数字を書き出す</button><button id="imp">数字を読み込む</button><button id="copy">基準値に戻す</button></span></div>
     <div class="card" id="xbox" hidden><p class="sec">数字の受け渡し<span>別の画面へ移すときに使います</span></p><textarea id="xtxt" rows="3" style="width:100%;box-sizing:border-box;font:12px monospace;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg)"></textarea><p class="note3" id="xmsg"></p><div style="display:flex;gap:6px"><button id="xok" hidden>この数字を読み込む</button><button id="xclose">閉じる</button></div></div>
+    <div class="card chk" id="chk2"></div>
     <div id="ed-sim"></div>
   </section>
 
@@ -346,7 +349,7 @@ function render(rebuild){
   $("gH").textContent=`${T.Qall}台・${n}ヶ月`;
   $("gross").innerHTML=`<tr><th></th><th>月</th><th>年</th><th>${n}ヶ月</th><th class="dif">基準との差（${n}ヶ月）</th></tr>`+gt.map(([k,v,t],i)=>{const d=v-gb[i][1];return `<tr class="${t===1||t===4?"sum":t===3?"fin":""}"><td>${k}</td>${t===2||t===4?'<td class="dim">—</td><td class="dim">—</td>':td(v/n,t)+td(v*12/n,t)}${td(v,t)}<td class="dif ${d<0?"neg":""}">${Math.abs(d)<0.05?"—":pl(d)}</td></tr>`}).join("");
   $("gNote").innerHTML=`店舗と本部に分けると　店舗 <b class="${T.store<0?"neg":""}">${pl(T.store)}</b>　本部 <b class="${T.all-T.store<0?"neg":""}">${pl(T.all-T.store)}</b>（上乗せ${g.UP}万×${T.Qall}台は社内の移動）。利益の月・年は${n}ヶ月でならした平均。`;
-  drawRoad();
+  drawRoad();drawChk();
   save();
 }
 $("exp").onclick=()=>{const t=JSON.stringify({base,sim,rm});$("xbox").hidden=false;$("xtxt").value=t;$("xok").hidden=true;$("xtxt").select();let ok=false;try{navigator.clipboard.writeText(t).then(()=>{$("xmsg").textContent="コピーしました。もう一方の画面で「数字を読み込む」を押して貼り付けてください。"}).catch(()=>{$("xmsg").textContent="上の文字をすべてコピーして、もう一方の画面で「数字を読み込む」に貼り付けてください。"})}catch(e){$("xmsg").textContent="上の文字をすべてコピーして、もう一方の画面で「数字を読み込む」に貼り付けてください。"}};
@@ -381,9 +384,27 @@ function drawRoad(){
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
   $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b></div>`).join("");
 }
-$("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();save()});
+$("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
 $("rmadd").onclick=()=>{const l=rm[rm.length-1];rm.push({t:"",q:Math.round((+l.q||40)*1.5),s:l.s||1});drawRoad();save()};
+
+function drawChk(){
+  const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,rows=T.rows,cs=T.cs,fx=g.FIX+(g.HK||0),st=+(rm[0]&&rm[0].s)||1;
+  // 参考シミュ：車種表と店舗コスト表から直接
+  const sRev=rows.reduce((a,r)=>a+r.REV*r.q,0), sL=rows.reduce((a,r,i)=>a+cs[i].m*r.q,0), sM=rows.reduce((a,r)=>a+((r.SY+r.TK+r.SB)/12+(+r.INS||0))*r.q,0), sEx=rows.reduce((a,r,i)=>a+(cs[i].S-cs[i].R)*r.q,0), sUp=g.UP*Q;
+  const sMon=sRev-sL-sM-fx;
+  // 参考例：グロス表
+  const eMon=(T.rev-T.lease-T.mt-T.ins-T.fx)/n;
+  // ロードマップ①
+  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, rMon=con*Q-fx*st;
+  const R=[["台数",Q,Q,+(rm[0]&&rm[0].q)||Q,"台"],["売上 /月",sRev,T.rev/n,revc*Q],["リース原価 /月",-sL,-T.lease/n,null],["維持＋保険 /月",-sM,-(T.mt+T.ins)/n,null],["固定費・販管費 /月",-fx,-T.fx/n,-fx*st],["月の利益",sMon,eMon,rMon,"",1],["出口（売値−買戻）",sEx,T.sell-T.buy,exc*Q],[`${n}ヶ月の利益`,sMon*n+sEx,T.all,rMon*n+exc*Q,"",1]];
+  const fm=(v,u)=>v==null?"—":u==="台"?v+"台":pl(v);
+  const eq=a=>{const v=a.filter(x=>x!=null);return v.every(x=>Math.abs(x-v[0])<0.6)};
+  let bad=0;
+  const html=`<p class="sec">数字のつながり<span>3つの画面で同じ数字になっているか</span></p><table><tr><th></th><th>参考シミュレーション</th><th>参考例（グロス）</th><th>ロードマップ①</th><th></th></tr>`+R.map(([k,a,b,c,u,kk])=>{const ok=eq([a,b,c]);if(!ok)bad++;return `<tr class="${kk?"k":""}"><td>${k}</td><td>${fm(a,u)}</td><td>${fm(b,u)}</td><td>${fm(c,u)}</td><td class="${ok?"ok":"ng"}">${ok?"✓":"ずれ"}</td></tr>`}).join("")+`</table>
+  <p class="note3">参考シミュの「店舗コスト合計」${f1(sRev-sMon+sUp)}万/月には本部上乗せ ${f1(sUp)}万（${g.UP}万×${Q}台）が入っています。これは本部と店舗のあいだのお金の移動なので、参考例とロードマップでは差し引きゼロになります（${f1(sRev-sMon+sUp)}−${f1(sUp)}＝${f1(sRev-sMon)}万＝上の費用の合計）。${Math.abs((+g.SALES||0)-sRev)>0.6?`　売上（参考・手入力）${f1(+g.SALES||0)}万は計算に使っていません。使っているのは車種表の合計 ${f1(sRev)}万です。`:""}${st!==1?`　ロードマップ①は${st}店で計算しています。`:""}</p>`;
+  ["chk1","chk2"].forEach(id=>{const el=$(id);if(el)el.innerHTML=html});
+}
 function route(){const h=location.hash.slice(1),v=["sim","base","summary"].includes(h)?h:"road";["summary","sim","base","road"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
 window.addEventListener("hashchange",route);route();render(true);
 </script>
