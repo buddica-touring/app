@@ -176,8 +176,8 @@ section{display:grid;gap:12px}
 @media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
 .chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
-#rmSum,#rmYear{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4){border-left:3px solid var(--fg)}
-@media(max-width:700px){#rmSum,#rmYear{grid-template-columns:repeat(3,1fr)}}
+#rmSum,#rmYear,#rmStore{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b,#rmStore .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4),#rmStore .k:nth-child(4){border-left:3px solid var(--fg)}
+@media(max-width:700px){#rmSum,#rmYear,#rmStore{grid-template-columns:repeat(3,1fr)}}
 </style>
 
 <div class="wrap">
@@ -210,6 +210,8 @@ section{display:grid;gap:12px}
     <div class="cmp" id="rmSum"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmYH"></p>
     <div class="cmp" id="rmYear"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmTH"></p>
+    <div class="cmp" id="rmStore"></div>
     <p class="note3" id="rmInfo" style="margin:0"></p>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
     <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
@@ -337,8 +339,8 @@ function fillEditor(el){
   const trs=el.querySelectorAll("[data-ed] tr");T.rows.forEach((r,i)=>{const t=trs[i+2];if(!t)return;const c=T.cs[i],v={...c,pm:r.REV-c.m-c.mt-c.fq};el._OUT.forEach(([k])=>{const x=Math.round(v[k]*10)/10||0,td=t.querySelector(`[data-c="${k}"]`);td.textContent=k==="car"||k==="pm"?pl(x):(+x.toFixed(1)).toLocaleString();td.classList.toggle("neg",x<0)})});
   const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
   const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
-  const it=[["固定費・販管費",g.FIX],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],["売上（参考・手入力）",+g.SALES||0,2]];
-  el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td>${t===1?"<b>":""}${f1(x)}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
+  const it=[["固定費・販管費",g.FIX],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],[`売上（レンタル・車種表の合計）`,sr,2],["<b>店舗収支</b>（売上 − 店舗コスト）",sr-tot,1],["売上（参考・手入力・計算には未使用）",+g.SALES||0,2]];
+  el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
 }
 function render(rebuild){
   if(rebuild){editor($("ed-sim"),sim);editor($("ed-base"),base)}
@@ -405,6 +407,14 @@ function drawRoad(){
   $("rmSum").innerHTML=row(`${n}ヶ月`,yr);
   $("rmYH").innerHTML=`年あたりで見ると<span>売却の分は${n}ヶ月分を年にならしています</span>`;
   $("rmYear").innerHTML=row("年",1);
+  {const up=g.UP*L.q, sRev=L.rev, sCost=L.rev-L.mon+up, sp=L.mon-up, sub=v=>`年 ${pl(v*12)}・月 ${pl(v)}`;
+   $("rmTH").innerHTML=`店舗と本部に分けると（${n}ヶ月）<span>店舗収支 ＋ 本部の上乗せ収入 ＋ 売却利益 ＝ 利益 合計</span>`;
+   $("rmStore").innerHTML=card(`店舗 売上`,`${f1(sRev*n)}<small>万</small>`,`月${f1(sRev)}万（レンタル）`)
+    +card(`店舗 コスト`,`${f1(sCost*n)}<small>万</small>`,`月${f1(sCost)}万（上乗せ込み）`)
+    +card(`店舗収支`,sp*n,`${sub(sp)}・1店 月${pl(sp/L.s)}`,1)
+    +card(`本部 上乗せ収入`,up*n,`${g.UP}万×${L.q}台×${n}ヶ月`)
+    +card(`売却利益`,ex,`売値の合計 − 買戻の合計`)
+    +card(`利益 合計`,L.life,`${pl(sp*n)} ＋ ${pl(up*n)} ＋ ${pl(ex)}`);}
   $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
   $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b></div>`).join("");
