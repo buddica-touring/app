@@ -207,7 +207,7 @@ section{display:grid;gap:12px}
 .jr .seg .s2{border-color:#4f6273}.jr .seg .s3{border-color:#8fa3b5}.jr .seg .s4{border-color:var(--fg)}
 .jr .ctl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
 @media(max-width:700px){.jr .stops,.jr .seg{grid-template-columns:1fr 1fr}.jr .seg .s1,.jr .seg .s2,.jr .seg .s3,.jr .seg .s4{grid-column:auto}.jr .road{display:none}}
-.jr .tg{font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
+.jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
 .jr .jb .b{display:flex;align-items:center;gap:8px;margin-top:3px}.jr .jb .b span{display:flex;flex:1;height:13px}.jr .jb .b i{display:block;height:100%;border-radius:2px;box-sizing:border-box}.jr .jb .b b{font-size:13px;min-width:44px;text-align:right}.jr .jb .ft{font-size:11px;color:#4f6273;margin-top:8px}
 .jr .sp{padding:12px 12px 14px}.jr .sp .t{font-size:13px}.jr .sp .v{font-size:24px}
 
@@ -459,18 +459,19 @@ function drawJourney(){
   // 横棒（全カード共通スケール）。rows=[[ラベル,[[値,塗り,枠]...]]]
   // 横棒（全カード共通スケール）。rows=[[ラベル,数字,[[値,塗り,枠]...]]]
   const MX=Math.max(P,REV*n,(m+(+g.UP||0)+mt+fq)*n)||1,pc=v=>Math.max(0,v)/MX*100*0.72;
-  const bars=(rows,foot="")=>`<div class="jb">${rows.map(([lab,num,segs])=>`<div class="r">${lab}</div><div class="b"><span>${segs.map(([v,f,sk])=>`<i style="width:${pc(v)}%;background:${f};${sk?`border:1.5px dashed ${sk}`:""}"></i>`).join("")}</span><b>${num}</b></div>`).join("")}${foot?`<div class="ft">${foot}</div>`:""}</div>`;
+  // 内訳の表（項目＋右寄せの金額）。rows=[[項目,金額,_ ,太字]]
+  const bars=(rows,foot="")=>`<table class="jt">${rows.map(([lab,num,_,b])=>`<tr class="${b?"sum":""}"><td>${lab}</td><td>${num}</td></tr>`).join("")}</table>${foot?`<div class="ft">${foot}</div>`:""}`;
   const LG="#e2dbd1",CO=["#cfc7bb","#bdb4a7","#a69c8e"];
   const UP=+g.UP||0,sc_=(m+UP+mt+fq)*n,UPC="#7d93a8";
   const st=[
-   {t:"① 仕入",v:-P,g:bars([[`中古車 ${km0}万km`,f1(P),[[P,"var(--red)"]]]])},
-   {t:"② リース会社へ売る",v:+P,g:bars([[`同額で売る`,f1(P),[[P,"var(--fg)"]]]])},
-   {t:"③ リース組み直し",tag:"年",v:UP*12,g:bars([[`リース原価 月${f1(m)}`,f1(m*12),[[m*12,CO[0]]]],[`店舗上乗せ 月${f1(UP)}`,f1(UP*12),[[UP*12,UPC]]]],`上乗せ分が本部の収入`)},
-   {t:`④ 店舗で貸す`,tag:"年",v:REV*12,g:bars([[`月${f1(REV)}×12ヶ月`,f1(REV*12),[[REV*12,"var(--fg)"]]]])},
-   {t:`⑤ 店舗コスト`,tag:"年",v:-sc_/n*12,g:bars([[`リース原価`,f1(m*12),[[m*12,CO[0]]]],[`上乗せ（本部へ）`,f1(UP*12),[[UP*12,UPC]]],[`維持・保険`,f1(mt*12),[[mt*12,CO[1]]]],[`固定費・販管費`,f1(fq*12),[[fq*12,CO[2]]]]],`店舗収支 年${pl((REV-m-UP-mt-fq)*12)}`)},
-   {t:"⑥ リース会社から買い戻す",v:-R,g:bars([[`売る額の${g.RV}%`,f1(R),[[R,"var(--red)"]]]])},
-   {t:"⑦ 売る",v:S,g:bars([[`${+km1.toFixed(1)}万km・下落 年${f1(dep)}%`,f1(S),[[S,"var(--fg)"]]],[`仕入時`,f1(P),[[P,LG]]]])},
-   {t:"⑧ 着地",tag:`${n}ヶ月`,v:tot,end:1,g:bars([[`仕入に対して ${P?Math.round(tot/P*1000)/10:0}%`,pl(tot),[[Math.abs(tot),tot<0?"var(--red)":"var(--fg)"],[Math.max(0,P-Math.abs(tot)),"transparent","var(--mute)"]]]],`レンタル 年${pl(ren/n*12)} × ${+(n/12).toFixed(1)}年 ＋ 出口 ${pl(ex)}`)}];
+   {t:"① 仕入",v:-P,g:bars([[`中古車を買う`,`${f1(P)}万`],[`走行`,`${km0}万km`]])},
+   {t:"② リース会社へ売る",v:+P,g:bars([[`同額で売る`,`${f1(P)}万`],[`手元の現金`,`±0`,0,1]])},
+   {t:"③ リース組み直し",tag:"年",v:UP*12,g:bars([[`リース原価（リース会社へ）`,`月${f1(m)}万`],[`店舗上乗せ（本部へ）`,`月${f1(UP)}万`],[`店舗が払うリース代`,`月${f1(m+UP)}万`,0,1],[`本部の収入（上乗せ×12）`,`${pl(UP*12)}`]])},
+   {t:`④ 店舗で貸す`,tag:"年",v:REV*12,g:bars([[`純売上 / 月`,`${f1(REV)}万`],[`× 12ヶ月`,`${f1(REV*12)}万`,0,1]])},
+   {t:`⑤ 店舗コスト`,tag:"年",v:-sc_/n*12,g:bars([[`リース原価`,`${f1(m*12)}万`],[`上乗せ（本部へ）`,`${f1(UP*12)}万`],[`維持・保険`,`${f1(mt*12)}万`],[`固定費・販管費`,`${f1(fq*12)}万`],[`合計`,`${f1(sc_/n*12)}万`,0,1],[`店舗収支（④−⑤）`,`<span class="${REV-m-UP-mt-fq<0?"neg":""}">${pl((REV-m-UP-mt-fq)*12)}</span>`,0,1]])},
+   {t:"⑥ リース会社から買い戻す",tag:`${n}ヶ月目`,v:-R,g:bars([[`売る額 ${f1(S)}万 × ${g.RV}%`,`${f1(R)}万`],[`下落率`,`年${f1(dep)}%`]])},
+   {t:"⑦ 売る",tag:`${n}ヶ月目`,v:S,g:bars([[`仕入時`,`${f1(P)}万`],[`下落 年${f1(dep)}% × ${+(n/12).toFixed(1)}年`,`−${f1(P-S)}万`],[`売る額（${+km1.toFixed(1)}万km）`,`${f1(S)}万`,0,1],[`買戻との差`,`${pl(ex)}`]])},
+   {t:"⑧ 着地",tag:`${n}ヶ月`,v:tot,end:1,g:bars([[`レンタル 年${pl(ren/n*12)} × ${+(n/12).toFixed(1)}年`,`${pl(ren)}`],[`出口（⑦−⑥）`,`${pl(ex)}`],[`着地`,`<span class="${tot<0?"neg":""}">${pl(tot)}</span>`,0,1],[`仕入に対して`,`${P?Math.round(tot/P*1000)/10:0}%`]])}];
   const fmt=v=>v==null?`<span style="font-size:13px;color:var(--mute)">—</span>`:`<span class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</span>`;
   const xs=st.map((_,k)=>4+(92/(st.length-1))*k);
   $("journey").innerHTML=`<div class="jh"><b>1台の一生（平均的な1台）　<span>③〜⑤は1年あたり、⑥⑦は${n}ヶ月目、⑧は${n}ヶ月の合計</span></b><span class="ctl"><button id="jrPlay">▶ 再生</button>${Q}台の平均。合計は ×${Q}台 ＝ ${pl(tot*Q)}</span></div>
