@@ -168,9 +168,6 @@ section{display:grid;gap:12px}
 .rb{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:8px;font-size:12px;margin:6px 0}
 .rb .tr{height:14px;background:var(--bg);border-radius:3px;position:relative}.rb .tr i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--fg)}.rb .tr i.neg{background:var(--red)}
 .rb b{text-align:right}
-#rmK{grid-template-columns:repeat(4,1fr)}#rmK .k b{font-size:24px}
-@media(max-width:700px){#rmK{grid-template-columns:1fr 1fr}}
-.viz{width:100%;height:auto;display:block}.viz text{font-size:11px;fill:var(--mute)}.viz .lb{fill:var(--fg);font-weight:700;font-size:12px}.viz .lbu{fill:#4f6273;font-weight:700;font-size:12px}.viz .ng{fill:var(--red)}
 .rb2{display:grid;grid-template-columns:110px 1fr 200px;align-items:center;gap:8px;font-size:12px;margin:8px 0}
 .rb2 .bars{display:grid;gap:3px}.rb2 .tr{height:11px;background:var(--bg);border-radius:3px;position:relative}.rb2 .tr i{position:absolute;top:0;bottom:0;left:0;border-radius:3px;background:var(--fg)}.rb2 .tr i.up{background:#8fa3b5}.rb2 .tr i.neg{background:var(--red)}
 .rb2 .vs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:right}.rb2 .vs b{font-size:12.5px}.rb2 .vs .u{color:#4f6273}.rb2 .vs i{font-style:normal;color:var(--mute)}
@@ -241,11 +238,14 @@ section{display:grid;gap:12px}
 
   <section id="v-road" hidden>
     <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
-    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmKH"></p>
-    <div class="cmp" id="rmK"></div>
-    <div class="card"><p class="sec" id="rmCH"></p><div id="rmCurve"></div></div>
-    <div class="card"><p class="sec" id="rmTH2"></p><div id="rmTor"></div></div>
-    <div class="card"><p class="sec" id="rmWH"></p><div id="rmWater"></div><p class="note3" id="rmWN" style="margin:6px 0 0"></p></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmYH"></p>
+    <div class="cmp" id="rmYear"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmSH"></p>
+    <div id="rmSum"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmTH"></p>
+    <div class="cmp" id="rmStore"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmXH"></p>
+    <div class="cmp" id="rmIO"></div>
     <p class="note3" id="rmInfo" style="margin:0"></p>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
     <div class="card"><p class="sec" id="rmBH">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
@@ -479,63 +479,33 @@ function drawRoad(){
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
   const up=g.UP*L.q, sCost=L.rev-L.mon+up, sp=L.mon-up;
-  const yr=n/12, Lq=L.q/Q, lease24=T.lease*Lq, mt24=(T.mt+T.ins)*Lq, fix24=g.FIX*L.s*n, rev24=L.rev*n, ren24=L.mon*n, inP=inC*L.q, outS=X*L.q;
-  // KPI（4つだけ）
-  $("rmKH").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店　<span>入口・出口が <input id="rmX" type="number" step="1" value="${X}" style="width:44px;font:inherit;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万良いと（1台あたり 仕入が安い・売値が高い）</span>`;
-  $("rmK").innerHTML=card(`レンタル利益（年）`,L.y,`月${pl(L.mon)}・1店 年${pl(L.y/L.s)}`)
-    +card(`出口（${n}ヶ月目の売却）`,L.ex,`売値 ${f1(L.sale)}万 − 買戻 ${f1(L.sale-L.ex)}万`)
-    +card(`着地（${n}ヶ月）`,L.life,`レンタル ${pl(ren24)} ＋ 出口 ${pl(L.ex)}`,1)
-    +card(`${X}万良いと 着地`,L.u,`${pl(L.u-L.life)}${L.life>0?`（${+(L.u/L.life).toFixed(1)}倍）`:""}`);
-  // A) 累積利益カーブ（Jカーブ）
-  {const W=760,H=250,pl0=56,pr=150,pt=18,pb=34,iw=W-pl0-pr,ih=H-pt-pb;
-   const mU=L.mon+(inP*0)/n; // 仕入安い効果はリース代=毎月にも効くが、ここでは着地差で表示
-   const ptsA=[],ptsB=[];const dMon=(L.u-L.life-outS-0)/n; // 仕入が安い分（リース代）を毎月に配分
-   for(let m=0;m<=n;m++){ptsA.push([m,L.mon*m]);ptsB.push([m,(L.mon+dMon)*m]);}
-   ptsA.push([n,L.life]);ptsB.push([n,L.u]);
-   const ys=[0,...ptsA.map(p=>p[1]),...ptsB.map(p=>p[1])],ymin=Math.min(...ys),ymax=Math.max(...ys),pad=(ymax-ymin)*0.08||1;
-   const y0=ymin-pad,y1=ymax+pad,X_=m=>pl0+m/n*iw,Y_=v=>pt+(y1-v)/(y1-y0)*ih;
-   const path=pts=>pts.map((p,k)=>`${k?"L":"M"}${X_(p[0]).toFixed(1)},${Y_(p[1]).toFixed(1)}`).join("");
-   const grid=[...Array(5)].map((_,k)=>{const v=y0+(y1-y0)*k/4;return `<line x1="${pl0}" x2="${pl0+iw}" y1="${Y_(v)}" y2="${Y_(v)}" stroke="var(--line)"/><text x="${pl0-6}" y="${Y_(v)+4}" text-anchor="end">${Math.round(v).toLocaleString()}</text>`}).join("");
-   const xt=[0,...Array.from({length:Math.floor(n/12)},(_,k)=>(k+1)*12)].map(m=>`<line x1="${X_(m)}" x2="${X_(m)}" y1="${pt}" y2="${pt+ih}" stroke="var(--line)" stroke-dasharray="${m?"3 3":"0"}"/><text x="${X_(m)}" y="${H-12}" text-anchor="middle">${m===0?"開始":m+"ヶ月"}${m&&m%12===0?`（${m/12}年目末）`:""}</text>`).join("");
-   const yrM=Array.from({length:Math.floor(n/12)},(_,k)=>(k+1)*12).filter(m=>m<n).map(m=>`<circle cx="${X_(m)}" cy="${Y_(L.mon*m)}" r="3.5" fill="var(--fg)"/><text x="${X_(m)+6}" y="${Y_(L.mon*m)-8}" class="lb ${L.mon*m<0?"ng":""}">${pl(L.mon*m)}</text>`).join("");
-   const exA=`<line x1="${X_(n)}" x2="${X_(n)}" y1="${Y_(L.mon*n)}" y2="${Y_(L.life)}" stroke="var(--fg)" stroke-width="2.5"/>`;
-   $("rmCH").innerHTML=`利益の積み上がり：毎月のレンタル → ${n}ヶ月目の出口で跳ね上がって着地<span>縦軸は累積利益（万円）。黒＝今、青灰＝入口・出口とも${X}万良いと</span>`;
-   $("rmCurve").innerHTML=`<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="累積利益の推移">${grid}${xt}<line x1="${pl0}" x2="${pl0+iw}" y1="${Y_(0)}" y2="${Y_(0)}" stroke="var(--mute)"/>
-     <path d="${path(ptsB)}" fill="none" stroke="#8fa3b5" stroke-width="2.5"/><path d="${path(ptsA)}" fill="none" stroke="var(--fg)" stroke-width="2.5"/>${exA}${yrM}
-     <text x="${X_(n)-6}" y="${Y_((L.mon*n+L.life)/2)+4}" text-anchor="end" class="lb">出口 ${pl(L.ex)}</text>
-     <circle cx="${X_(n)}" cy="${Y_(L.life)}" r="4.5" fill="var(--fg)"/><circle cx="${X_(n)}" cy="${Y_(L.u)}" r="4.5" fill="#8fa3b5"/>
-     <text x="${X_(n)+10}" y="${Y_(L.life)+4}" class="lb ${L.life<0?"ng":""}">着地 ${pl(L.life)}</text><text x="${X_(n)+10}" y="${Y_(L.u)+4}" class="lbu">${X}万良いと ${pl(L.u)}</text></svg>`;}
-  // C) トルネード：どのレバーが着地を一番動かすか
-  {const lifeOf=(mod)=>{const c=clone(sim);let fx=c.g.FIX;mod(c);const t=totals(c),q=L.q,qq=t.Qall;const cn=(t.rev-t.lease-t.mt-t.ins)/n/qq,ex=(t.sell-t.buy)/qq;return cn*q*n-(c.g.FIX)*L.s*n+ex*q};
-   const base=lifeOf(()=>{});
-   const lv=[
-    [`1台の売上 月±1万`,c=>c.rows.forEach(r=>r.REV-=1),c=>c.rows.forEach(r=>r.REV+=1)],
-    [`固定費・販管費 1店±20万/月`,c=>c.g.FIX+=20,c=>c.g.FIX-=20],
-    [`値下がり率 ±5pt`,c=>c.rows.forEach(r=>r.DEP=(+r.DEP||0)+5),c=>c.rows.forEach(r=>r.DEP=Math.max(0,(+r.DEP||0)-5))],
-    [`仕入 1台±${X}万`,c=>c.rows.forEach(r=>r.P+=X),c=>c.rows.forEach(r=>r.P-=X)],
-    [`売値 1台±${X}万`,null,null],
-    [`リース金利 ±1pt`,c=>c.g.RT+=1,c=>c.g.RT=Math.max(0,c.g.RT-1)],
-    ];
-   const rows=lv.map(([k,lo,hi])=>{let a,b;
-     if(lo===null){a=base-X*L.q;b=base+X*L.q}
-     else if(lo==="cap-"){const s2=Math.ceil(L.q/Math.max(1,cap-5)),s3=Math.ceil(L.q/(cap+5));a=base-g.FIX*(s2-L.s)*n;b=base+g.FIX*(L.s-s3)*n}
-     else{a=lifeOf(lo);b=lifeOf(hi)}
-     return {k,a,b,r:Math.abs(b-a)}}).sort((x,y)=>y.r-x.r);
-   const W=760,rh=30,pt=26,H=pt+rows.length*rh+10,lw=190,vw=W-lw-90,all=rows.flatMap(r=>[r.a,r.b,base]),mn=Math.min(...all),mx=Math.max(...all),X_=v=>lw+(v-mn)/(mx-mn||1)*vw;
-   const svg=rows.map((r,i)=>{const y=pt+i*rh;const lo=Math.min(r.a,r.b),hi=Math.max(r.a,r.b);
-     return `<text x="${lw-8}" y="${y+18}" text-anchor="end" class="lb" style="font-weight:400">${r.k}</text><rect x="${X_(r.a<r.b?r.a:r.b)}" y="${y+6}" width="${Math.abs(X_(base)-X_(lo))}" height="${rh-12}" fill="var(--red)" opacity=".8"/><rect x="${X_(base)}" y="${y+6}" width="${Math.abs(X_(hi)-X_(base))}" height="${rh-12}" fill="#4f6273" opacity=".85"/><text x="${X_(lo)-4}" y="${y+19}" text-anchor="end">${pl(lo-base)}</text><text x="${X_(hi)+4}" y="${y+19}">${pl(hi-base)}</text>`}).join("");
-   $("rmTH2").innerHTML=`着地を動かすレバー（トルネード）<span>${n}ヶ月の着地 ${pl(base)} から、どの条件がどれだけ動かすか。上ほど効く。赤＝悪化、青＝改善（最終 ${L.q}台・${L.s}店）</span>`;
-   $("rmTor").innerHTML=`<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="着地の感度"><line x1="${X_(base)}" x2="${X_(base)}" y1="${pt-6}" y2="${H-6}" stroke="var(--fg)"/><text x="${X_(base)}" y="${pt-10}" text-anchor="middle" class="lb">今の着地 ${pl(base)}</text>${svg}</svg>`;}
-  // B) ウォーターフォール（24ヶ月）
-  {const st=[["レンタル売上",rev24,"t"],["リース代",-lease24,"d"],["維持・保険",-mt24,"d"],["固定費・販管費",-fix24,"d"],["レンタル利益",ren24,"s"],["出口（売却）",L.ex,"d"],["着地",L.life,"s"]];
-   const W=760,H=270,pl0=10,pt=22,pb=46,iw=W-pl0*2,ih=H-pt-pb,bw=iw/st.length;let run=0;const bars=[];
-   st.forEach(([k,v,t])=>{if(t==="t"){bars.push([k,0,v,v]);run=v}else if(t==="s"){bars.push([k,0,v,v]);run=v}else{bars.push([k,run,run+v,v]);run+=v}});
-   const all=bars.flatMap(b=>[b[1],b[2]]),mn=Math.min(0,...all),mx=Math.max(...all),Y_=v=>pt+(mx-v)/(mx-mn||1)*ih;
-   const svg=bars.map(([k,a,b,v],i)=>{const x=pl0+i*bw+bw*0.18,w=bw*0.64,top=Y_(Math.max(a,b)),h=Math.max(1.5,Math.abs(Y_(a)-Y_(b)));const sub=st[i][2]==="s"||st[i][2]==="t";const col=sub?"var(--fg)":(v<0?"var(--red)":"#4f6273");
-     return `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="2" fill="${col}" opacity="${sub?1:0.85}"/>`+(i<bars.length-1?`<line x1="${x+w}" x2="${x+bw}" y1="${Y_(b)}" y2="${Y_(b)}" stroke="var(--mute)" stroke-dasharray="2 2"/>`:"")+`<text x="${x+w/2}" y="${top-6}" text-anchor="middle" class="lb ${v<0&&sub?"ng":""}">${st[i][2]==="t"?f1(v)+"万":pl(v)}</text><text x="${x+w/2}" y="${H-24}" text-anchor="middle">${k}</text>`}).join("");
-   $("rmWH").innerHTML=`${n}ヶ月の着地までの階段（ウォーターフォール）<span>売上からコストを引いて、出口を足すと着地</span>`;
-   $("rmWater").innerHTML=`<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="着地までのウォーターフォール"><line x1="${pl0}" x2="${W-pl0}" y1="${Y_(0)}" y2="${Y_(0)}" stroke="var(--mute)"/>${svg}</svg>`;
-   $("rmWN").innerHTML=`年あたり：レンタル売上 ${f1(L.rev*12)}万 − コスト ${f1((lease24+mt24+fix24)/yr)}万 ＝ レンタル利益 ${pl(L.y)}。　店舗と本部に分けると、レンタル利益 ${pl(L.y)} ＝ 店舗収支 ${pl(sp*12)} ＋ 本部の上乗せ ${pl(up*12)}（年）。`;}
+  // 1) 年（レンタルだけ）
+  $("rmYH").innerHTML=`① 年で見ると（レンタル）<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店。売却は含みません（②の出口で別に計上）</span>`;
+  $("rmYear").innerHTML=card(`レンタル売上（年）`,`${f1(L.rev*12)}<small>万</small>`,`月${f1(L.rev)}万 × 12`,1)
+    +card(`店舗コスト（年）`,`${f1(sCost*12)}<small>万</small>`,`月${f1(sCost)}万（上乗せ込み）`)
+    +card(`店舗収支（年）`,sp*12,`1店 月${pl(sp/L.s)}`)
+    +card(`本部 上乗せ収入（年）`,up*12,`${g.UP}万×${L.q}台×12ヶ月`)
+    +card(`レンタル利益（年）`,L.y,`店舗収支 ＋ 上乗せ（月${pl(L.mon)}）`,1)
+    +card(`1店あたり（年）`,L.y/L.s,`レンタル利益 ÷ ${L.s}店`);
+  $("rmTH").hidden=true;$("rmStore").hidden=true;
+  // 2) 年推移 → 出口 → 着地
+  {const ys=yrs?Array.from({length:yrs},(_,k)=>k+1):[];
+   const box=(k,v,sub,cls)=>`<div class="eq-b ${cls||""}"><span>${k}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
+   const parts=(yrs?ys.map(y=>box(`${y}年目（レンタル）`,L.y,`月${pl(L.mon)} × 12`)):[box(`レンタル（${n}ヶ月）`,L.mon*n,`月${pl(L.mon)} × ${n}`)]).concat([box(`出口（${n}ヶ月目 売却）`,L.ex,`売値 ${f1(L.sale)}万 − 買戻 ${f1(L.sale-L.ex)}万`)]);
+   const cols=parts.map(()=>"1fr auto").join(" ")+" 1.1fr";
+   $("rmSH").hidden=false;$("rmSum").hidden=false;
+   $("rmSH").innerHTML=`② 年推移 → 出口 → ${n}ヶ月の着地<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
+   $("rmSum").className="";
+   $("rmSum").innerHTML=`<div class="eq" style="grid-template-columns:${cols}">${parts.map((x,k)=>x+`<div class="op">${k<parts.length-1?"＋":"＝"}</div>`).join("")}${box(`着地（${n}ヶ月）`,L.life,`売上合計 ${f1(L.rev*n+L.sale)}万（レンタル ${f1(L.rev*n)}万 ＋ 売却 ${f1(L.sale)}万）　1店 ${pl(L.life/L.s)}`,"main")}</div>`;}
+  // 3) 入口・出口（着地への効き）
+  {const inP=inC*L.q, outS=X*L.q, both=inP+outS;
+   $("rmXH").innerHTML=`③ 入口・出口が <input id="rmX" type="number" step="1" value="${X}" style="width:48px;font:inherit;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万良いと（${n}ヶ月の着地）<span>1台あたり 仕入が安い・売値が高い場合</span>`;
+   $("rmIO").innerHTML=card(`仕入が${X}万安い`,inP,`リース代が減る（売値も少し下がる）`)
+    +card(`売値が${X}万高い`,outS,`${X}万×${L.q}台（出口で効く）`)
+    +card(`両方`,both,`1店あたり ${pl(both/L.s)}`)
+    +card(`今の着地`,L.life,`1店あたり ${pl(L.life/L.s)}`)
+    +card(`入口・出口とも${X}万良いと`,L.u,`${L.life>0?`今の${+(L.u/L.life).toFixed(1)}倍`:""}`,1)
+    +card(`逆に${X}万悪いと`,L.life-both,`1店あたり ${pl((L.life-both)/L.s)}`);}
   $("rmInfo").innerHTML=`月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
   drawBiz();
   $("rmBH").innerHTML=`${n}ヶ月の着地：今 と 入口・出口${X}万良いと の比較<span>「今」は上の表の「着地」列、最後の段階＝②の着地</span>`;
