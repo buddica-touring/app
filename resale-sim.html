@@ -203,7 +203,7 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-road" hidden>
-    <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数と店舗数だけ変えます（車種の割合・単価・条件は①と同じ。固定費は1店あたり×店舗数）。</span><button id="rmadd">＋ 段階を追加</button></div>
+    <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
     <div class="cmp" id="rmSum"></div>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
     <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
@@ -226,16 +226,16 @@ const DEF={g:{FIX:260,HK:0,UP:3,N:24,RT:3,RV:80,KM0:5,KMY:1.5},rows:[
   {name:"ミニバン（例）",q:10,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1,DEP:18},
   {name:"SUV（例）",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1,DEP:14}]};
 const clone=o=>JSON.parse(JSON.stringify(o));
-let base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:1},{t:"",q:120,s:2},{t:"",q:160,s:2},{t:"",q:200,s:2},{t:"",q:250,s:3},{t:"",q:300,s:3}];
+let rmCap=40, base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:2},{t:"",q:120,s:3},{t:"",q:160,s:4},{t:"",q:200,s:5},{t:"",q:240,s:6},{t:"",q:280,s:7},{t:"",q:320,s:8}];
 const KEY="resale-life-v7";
 try{const sv=JSON.parse(localStorage.getItem(KEY)||"null");
-  if(sv){base=sv.base||base;sim=sv.sim||sim;selI=sv.sel||0;if(sv.rm&&sv.rmv===2)rm=sv.rm}
+  if(sv){base=sv.base||base;sim=sv.sim||sim;selI=sv.sel||0;if(sv.rm&&sv.rmv===3)rm=sv.rm;if(sv.rmCap)rmCap=sv.rmCap}
   else{const old=JSON.parse(localStorage.getItem("resale-life-v6")||"null");if(old&&old.rows){const g=clone(DEF.g);Object.keys(g).forEach(k=>{if(old.g&&old.g[k]!=null)g[k]=parseFloat(old.g[k])||0});base={g,rows:old.rows};sim=clone(base)}}
 }catch(e){}
 // 値下がり率＝仕入額の帯で決める（nosh 2026-11-05、走行 仕入5万km→出口8万km前提）。保存済みの値にも一度だけ当てる
 const depByP=P=>P<=100?20:P<=160?18:14;
 try{const sv2=JSON.parse(localStorage.getItem(KEY)||"null");if(!sv2||!sv2.depv){[base,sim].forEach(st=>st.rows.forEach(r=>{r.DEP=depByP(+r.P||0)}))}}catch(e){}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({base,sim,sel:selI,rm,rmv:2,depv:1}))}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({base,sim,sel:selI,rm,rmv:3,depv:1,rmCap}))}catch(e){}};
 
 function carCalc(r,g,Qall){
   const n=Math.max(1,g.N),rr=g.RT/100/12,yrs=n/12;
@@ -376,14 +376,14 @@ const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
 function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
   const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
-  rm[0].q=Q;rm[0].s=rm[0].s||1;
-  const rs=rm.map(x=>{const q=+x.q||0,s=+x.s||1,rev=revc*q,mon=con*q-fx*s,life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
+  rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
+  const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-fx*s,life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費 1店 月${f1(fx)}万`;
   const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
     <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
     <td class="o" style="color:var(--mute);font-size:11px">${T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*r.q)}`).join("・")}</td>
-    <td>${`<input type="number" data-r="${i}" data-f="s" value="${rm[i].s}">`}</td>
+    <td class="o">${r.s}店</td>
     <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
     <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
   const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
@@ -399,7 +399,8 @@ function drawRoad(){
 }
 $("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
-$("rmadd").onclick=()=>{const l=rm[rm.length-1];rm.push({t:"",q:Math.round((+l.q||40)*1.5),s:l.s||1});drawRoad();save()};
+$("rmcap").addEventListener("change",e=>{rmCap=Math.max(1,parseFloat(e.target.value)||40);drawRoad();drawChk();save()});
+$("rmadd").onclick=()=>{const l=rm[rm.length-1];rm.push({t:"",q:(+l.q||0)+Math.max(1,+rmCap||40),s:1});drawRoad();save()};
 
 function drawChk(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,rows=T.rows,cs=T.cs,fx=g.FIX+(g.HK||0),st=+(rm[0]&&rm[0].s)||1;
