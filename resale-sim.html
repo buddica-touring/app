@@ -242,7 +242,7 @@ section{display:grid;gap:12px}
     <div class="cmp" id="rmIO"></div>
     <p class="note3" id="rmInfo" style="margin:0"></p>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
-    <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
+    <div class="card"><p class="sec" id="rmBH">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
   </section>
 
   <section id="v-base" hidden>
@@ -459,12 +459,12 @@ function drawRoad(){
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
   const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,sale:sc*q,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費・販管費 1店 月${f1(g.FIX)}万`;
-  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,`入口出口<small>${X}万良いと</small>`,"赤字まで<small>売上減</small>","仕入総額",""];
+  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上",`月の利益<small>レンタル</small>`,`年の利益<small>売却込み</small>`,`${n}ヶ月の利益<small>売却込み</small>`,`入口出口<small>${X}万良いと</small>`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
     <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
     <td class="o" style="color:var(--mute);font-size:11px">${T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*r.q)}`).join("・")}</td>
     <td class="o">${r.s}店</td>
-    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.life+dx*r.q<0?"neg":""}">${pl(r.life+dx*r.q)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
+    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.life<0?"neg":""}">${pl(r.life*12/n)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.life+dx*r.q<0?"neg":""}">${pl(r.life+dx*r.q)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
     <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
   const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
   $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
@@ -498,7 +498,8 @@ function drawRoad(){
   $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万　入口・出口とも${X}万良いと ${n}ヶ月の利益 <b>${pl(L.life+dx*L.q)}</b>（${pl(dx*L.q)}）`;
   drawBiz();
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
-  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b><small style="color:var(--mute);font-size:11px;margin-left:6px">入口出口${X}万良いと ${pl(r.life+dx*r.q)}</small></div>`).join("");
+  $("rmBH").innerHTML=`${n}ヶ月の利益（売却込み）<span>段階ごと。上の表の「${n}ヶ月の利益」列と同じ数字。最後の段階＝上の「利益 合計（${n}ヶ月）」</span>`;
+  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}<small style="display:block;color:var(--mute);font-size:10.5px;font-weight:400;white-space:nowrap">${X}万良いと ${pl(r.life+dx*r.q)}</small></b></div>`).join("");
 }
 $("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
