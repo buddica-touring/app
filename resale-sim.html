@@ -238,10 +238,10 @@ section{display:grid;gap:12px}
 
   <section id="v-road" hidden>
     <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
-    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmSH"></p>
-    <div class="cmp" id="rmSum"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmYH"></p>
     <div class="cmp" id="rmYear"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmSH"></p>
+    <div id="rmSum"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmTH"></p>
     <div class="cmp" id="rmStore"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmXH"></p>
@@ -465,48 +465,52 @@ function drawRoad(){
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
   const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,sale:sc*q,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費・販管費 1店 月${f1(g.FIX)}万`;
-  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上",`月の利益<small>レンタル</small>`,`年の利益<small>売却込み</small>`,`${n}ヶ月の利益<small>売却込み</small>`,`入口出口<small>${X}万良いと</small>`,"赤字まで<small>売上減</small>","仕入総額",""];
+  rs.forEach(r=>{r.y=r.mon*12;r.ex=exc*r.q;r.u=r.life+dx*r.q});
+  const yrs=n%12===0?n/12:0;
+  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上",`月の利益<small>レンタル</small>`,`年の利益<small>レンタル</small>`,`出口<small>${n}ヶ月目 売却</small>`,`着地<small>${n}ヶ月</small>`,`着地<small>入口出口${X}万良いと</small>`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
     <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
     <td class="o" style="color:var(--mute);font-size:11px">${T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*r.q)}`).join("・")}</td>
     <td class="o">${r.s}店</td>
-    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.life<0?"neg":""}">${pl(r.life*12/n)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.life+dx*r.q<0?"neg":""}">${pl(r.life+dx*r.q)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
+    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o k ${r.y<0?"neg":""}">${pl(r.y)}</td><td class="o ${r.ex<0?"neg":""}">${pl(r.ex)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o k ${r.u<0?"neg":""}" style="color:#4f6273">${pl(r.u)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
     <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
   const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
-  $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
+  $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。　着地＝年の利益×${+(n/12).toFixed(1)}年＋出口。`;
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
-  const yr=n/12, ex=L.life-L.mon*n;
-  const row=(lab,d,unit)=>card(`売上 合計（${lab}）`,`${f1(L.rev*12*d+L.sale*d/yr)}<small>万</small>`,`レンタル ＋ 売却`,1)+card(`レンタル売上（${lab}）`,`${f1(L.rev*12*d)}<small>万</small>`,`月${f1(L.rev)}万 × ${12*d}`)+card(`売却売上（${lab}）`,`${f1(L.sale*d/yr)}<small>万</small>`,d===yr?`売値の合計（${L.q}台）`:`${n}ヶ月分 ÷ ${+yr.toFixed(1)}年`)
-    +card(`利益 合計（${lab}）`,L.life*d/yr,`1店あたり ${pl(L.life*d/yr/L.s)}`)
-    +card(`レンタル利益（${lab}）`,L.mon*12*d,`月${pl(L.mon)} × ${12*d}`)
-    +card(`売却利益（${lab}）`,ex*d/yr,d===yr?`売値の合計 − 買戻の合計`:`${n}ヶ月分 ${pl(ex)} ÷ ${+yr.toFixed(1)}年`);
-  $("rmSH").innerHTML=`${n}ヶ月で見ると<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
-  $("rmSum").innerHTML=row(`${n}ヶ月`,yr);
-  $("rmYH").innerHTML=`年あたりで見ると<span>売却の分は${n}ヶ月分を年にならしています</span>`;
-  $("rmYear").innerHTML=row("年",1);
-  {const up=g.UP*L.q, sRev=L.rev, sCost=L.rev-L.mon+up, sp=L.mon-up, sub=v=>`年 ${pl(v*12)}・月 ${pl(v)}`;
-   $("rmTH").innerHTML=`店舗と本部に分けると（${n}ヶ月）<span>店舗収支 ＋ 本部の上乗せ収入 ＋ 売却利益 ＝ 利益 合計</span>`;
-   $("rmStore").innerHTML=card(`店舗 売上`,`${f1(sRev*n)}<small>万</small>`,`月${f1(sRev)}万（レンタル）`)
-    +card(`店舗 コスト`,`${f1(sCost*n)}<small>万</small>`,`月${f1(sCost)}万（上乗せ込み）`)
-    +card(`店舗収支`,sp*n,`${sub(sp)}・1店 月${pl(sp/L.s)}`,1)
-    +card(`本部 上乗せ収入`,up*n,`${g.UP}万×${L.q}台×${n}ヶ月`)
-    +card(`売却利益`,ex,`売値の合計 − 買戻の合計`)
-    +card(`利益 合計`,L.life,`${pl(sp*n)} ＋ ${pl(up*n)} ＋ ${pl(ex)}`);}
+  const up=g.UP*L.q, sCost=L.rev-L.mon+up, sp=L.mon-up;
+  // 1) 年（レンタルだけ）
+  $("rmYH").innerHTML=`① 年で見ると（レンタル）<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店。売却は含みません（②の出口で別に計上）</span>`;
+  $("rmYear").innerHTML=card(`レンタル売上（年）`,`${f1(L.rev*12)}<small>万</small>`,`月${f1(L.rev)}万 × 12`,1)
+    +card(`店舗コスト（年）`,`${f1(sCost*12)}<small>万</small>`,`月${f1(sCost)}万（上乗せ込み）`)
+    +card(`店舗収支（年）`,sp*12,`1店 月${pl(sp/L.s)}`)
+    +card(`本部 上乗せ収入（年）`,up*12,`${g.UP}万×${L.q}台×12ヶ月`)
+    +card(`レンタル利益（年）`,L.y,`店舗収支 ＋ 上乗せ（月${pl(L.mon)}）`,1)
+    +card(`1店あたり（年）`,L.y/L.s,`レンタル利益 ÷ ${L.s}店`);
+  $("rmTH").hidden=true;$("rmStore").hidden=true;
+  // 2) 年推移 → 出口 → 着地
+  {const ys=yrs?Array.from({length:yrs},(_,k)=>k+1):[];
+   const box=(k,v,sub,cls)=>`<div class="eq-b ${cls||""}"><span>${k}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
+   const parts=(yrs?ys.map(y=>box(`${y}年目（レンタル）`,L.y,`月${pl(L.mon)} × 12`)):[box(`レンタル（${n}ヶ月）`,L.mon*n,`月${pl(L.mon)} × ${n}`)]).concat([box(`出口（${n}ヶ月目 売却）`,L.ex,`売値 ${f1(L.sale)}万 − 買戻 ${f1(L.sale-L.ex)}万`)]);
+   const cols=parts.map(()=>"1fr auto").join(" ")+" 1.1fr";
+   $("rmSH").hidden=false;$("rmSum").hidden=false;
+   $("rmSH").innerHTML=`② 年推移 → 出口 → ${n}ヶ月の着地<span>最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
+   $("rmSum").className="";
+   $("rmSum").innerHTML=`<div class="eq" style="grid-template-columns:${cols}">${parts.map((x,k)=>x+`<div class="op">${k<parts.length-1?"＋":"＝"}</div>`).join("")}${box(`着地（${n}ヶ月）`,L.life,`売上合計 ${f1(L.rev*n+L.sale)}万（レンタル ${f1(L.rev*n)}万 ＋ 売却 ${f1(L.sale)}万）　1店 ${pl(L.life/L.s)}`,"main")}</div>`;}
+  // 3) 入口・出口（着地への効き）
   {const inP=inC*L.q, outS=X*L.q, both=inP+outS;
-   $("rmXH").innerHTML=`入口・出口が <input id="rmX" type="number" step="1" value="${X}" style="width:48px;font:inherit;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万良いと（${n}ヶ月）<span>1台あたり 仕入が安い・売値が高い場合。最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
+   $("rmXH").innerHTML=`③ 入口・出口が <input id="rmX" type="number" step="1" value="${X}" style="width:48px;font:inherit;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万良いと（${n}ヶ月の着地）<span>1台あたり 仕入が安い・売値が高い場合</span>`;
    $("rmIO").innerHTML=card(`仕入が${X}万安い`,inP,`リース代が減る（売値も少し下がる）`)
-    +card(`売値が${X}万高い`,outS,`${X}万×${L.q}台（買戻額は変わらない）`)
+    +card(`売値が${X}万高い`,outS,`${X}万×${L.q}台（出口で効く）`)
     +card(`両方`,both,`1店あたり ${pl(both/L.s)}`)
-    +card(`今の利益 合計`,L.life,`${n}ヶ月`)
-    +card(`入口・出口とも${X}万良いと`,L.life+both,`${L.life>0?`今の${+((L.life+both)/L.life).toFixed(1)}倍`:""}`,1)
+    +card(`今の着地`,L.life,`1店あたり ${pl(L.life/L.s)}`)
+    +card(`入口・出口とも${X}万良いと`,L.u,`${L.life>0?`今の${+(L.u/L.life).toFixed(1)}倍`:""}`,1)
     +card(`逆に${X}万悪いと`,L.life-both,`1店あたり ${pl((L.life-both)/L.s)}`);}
-  $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万　入口・出口とも${X}万良いと ${n}ヶ月の利益 <b>${pl(L.life+dx*L.q)}</b>（${pl(dx*L.q)}）`;
+  $("rmInfo").innerHTML=`月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
   drawBiz();
-  const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
-  $("rmBH").innerHTML=`${n}ヶ月の利益（売却込み）：今 と 入口・出口${X}万良いと の比較<span>「今」は上の表の「${n}ヶ月の利益」列、最後の段階＝上の「利益 合計（${n}ヶ月）」</span>`;
-  {const mx2=Math.max(1,...rs.map(r=>Math.max(Math.abs(r.life),Math.abs(r.life+dx*r.q))));
-   $("rmBars").innerHTML=`<div class="rblg"><span>今</span><span class="u">入口・出口とも${X}万良いと</span></div><div class="rbh"><span></span><span></span><div><span>今</span><span>${X}万良いと</span><span>差</span></div></div>`+rs.map((r,i)=>{const u=r.life+dx*r.q;return `<div class="rb2"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="bars"><div class="tr"><i class="${r.life<0?"neg":""}" style="width:${Math.abs(r.life)/mx2*100}%"></i></div><div class="tr"><i class="up ${u<0?"neg":""}" style="width:${Math.abs(u)/mx2*100}%"></i></div></div><div class="vs"><b class="${r.life<0?"neg":""}">${pl(r.life)}</b><b class="u ${u<0?"neg":""}">${pl(u)}</b><i>${pl(u-r.life)}${r.life>0?`<br>${+(u/r.life).toFixed(1)}倍`:""}</i></div></div>`}).join("");}
+  $("rmBH").innerHTML=`${n}ヶ月の着地：今 と 入口・出口${X}万良いと の比較<span>「今」は上の表の「着地」列、最後の段階＝②の着地</span>`;
+  {const mx2=Math.max(1,...rs.map(r=>Math.max(Math.abs(r.life),Math.abs(r.u))));
+   $("rmBars").innerHTML=`<div class="rblg"><span>今</span><span class="u">入口・出口とも${X}万良いと</span></div><div class="rbh"><span></span><span></span><div><span>今</span><span>${X}万良いと</span><span>差</span></div></div>`+rs.map((r,i)=>`<div class="rb2"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="bars"><div class="tr"><i class="${r.life<0?"neg":""}" style="width:${Math.abs(r.life)/mx2*100}%"></i></div><div class="tr"><i class="up ${r.u<0?"neg":""}" style="width:${Math.abs(r.u)/mx2*100}%"></i></div></div><div class="vs"><b class="${r.life<0?"neg":""}">${pl(r.life)}</b><b class="u ${r.u<0?"neg":""}">${pl(r.u)}</b><i>${pl(r.u-r.life)}${r.life>0?`<br>${+(r.u/r.life).toFixed(1)}倍`:""}</i></div></div>`).join("");}
 }
 $("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
