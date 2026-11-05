@@ -218,7 +218,7 @@ section{display:grid;gap:12px}
 
   <section id="v-biz" hidden>
     <div class="bar"><span>事業構成：利益の出どころを3つに分けて見ます。数字は「参考シミュレーション」とロードマップから自動で入ります。</span></div>
-    <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「1 レンタルの売上」だけに絞る。</div>
+    <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「1 レンタルの売上」と「3 値下がり率」の2つに絞る。</div>
     <div id="biz"></div>
   </section>
 
@@ -404,6 +404,8 @@ function drawBiz(){
   const con=(T.rev-T.lease-T.mt-T.ins)/n, mon=con-g.FIX*s1, need=mon<0?-mon/Q:0, beQ=con>0?Math.ceil(g.FIX/(con/Q)):0;
   const P=T.rows.reduce((a,r)=>a+r.P*r.q,0), intr=T.lease+T.buy-P, ex=T.sell-T.buy;
   const L=rm[rm.length-1], qL=+L.q||0, k=qL/Q;
+  const dAll=dp=>{const c=clone(sim);c.rows.forEach(r=>r.DEP=Math.max(0,(+r.DEP||0)+dp));return totals(c).all-T.all};
+  const sens=[-5,5].map(dp=>`値下がり率${dp>0?"+":"−"}${Math.abs(dp)}pt（${T.rows.map(r=>Math.max(0,(+r.DEP||0)+dp)).join("・")}%）→ 利益 <b class="${dAll(dp)<0?"neg":""}">${pl(dAll(dp))}</b>`).join("　／　");
   const md=(m,d)=>`<div class="md"><div><em>メリット</em><ul>${m.map(x=>`<li>${x}</li>`).join("")}</ul></div><div class="dm"><em>デメリット</em><ul>${d.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>`;
   const val=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
   const yen=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b>${f1(v)}<small>万</small></b><i>${sub}</i></div>`;
@@ -415,7 +417,7 @@ function drawBiz(){
     <p>資金を使わずに台数を増やすための手段です。仕入れた車を同額でリース会社に売るので、仕入資金はすぐ戻ります。その代わり金利の分だけ利益が減り、${n}ヶ月後の買戻し（売値の${g.RV}%）の義務が残ります。</p>${md([`仕入資金（${f1(P)}万）がすぐ戻り、自己資金なしで台数を増やせる`,"毎月の支払いが一定で読みやすい"],[`金利の負担（${n}ヶ月で${f1(intr)}万）`,`${n}ヶ月後に買戻し資金（${f1(T.buy)}万）が必要`,"リース期間中は減車しにくい"])}</div>
     ${yen(`金利の負担（${n}ヶ月・${Q}台）`,intr,`仕入総額 ${f1(P)}万を自前で用意せずに済む${qL!==Q?`<br>${qL}台なら 金利${f1(intr*k)}万・仕入${f1(P*k)}万`:""}`)}</div>
   <div class="bz"><div class="no">3</div><div><h3>出口（売却）<small>おまけの利益</small></h3>
-    <p>${n}ヶ月後に買い戻して売る差額です（売値 − 買戻）。大手は自社の小売で業販相場より高く売るので、ここが厚くなります。今の計算は売値＝仕入×（1−値下がり×年数）の控えめな前提です。</p>${md(["10万km前に手放せて、常にフレッシュな車で回せる","自社で小売できれば利益が厚くなる"],["相場が下がるリスクは自社に残る（リース会社は持たない）","自社の小売がないと業販相場止まりで薄い"])}</div>
+    <p>${n}ヶ月後に買い戻して売る差額です（売値 − 買戻）。大手は自社の小売で業販相場より高く売るので、ここが厚くなります。今の計算は売値＝仕入×（1−値下がり×年数）の控えめな前提です。</p>${md(["10万km前に手放せて、常にフレッシュな車で回せる","自社で小売できれば利益が厚くなる"],["相場が下がるリスクは自社に残る（リース会社は持たない）","自社の小売がないと業販相場止まりで薄い",`値下がり率（今 ${T.rows.map(r=>r.DEP).join("・")}%）がブレると利益もブレる。値下がりが大きいほど買戻しは安くなるが、リース代が上がり売値も下がる`])}<p style="font-size:12.5px">ブレ幅（${n}ヶ月・${Q}台）：${sens}</p></div>
     ${val(`売却利益（${n}ヶ月・${Q}台）`,ex,`1台あたり ${pl(ex/Q)}${qL!==Q?`<br>${qL}台なら ${pl(ex*k)}`:""}`)}</div>
   <div class="bzc">1が黒字なら、2を使って自己資金なしで台数を増やせる。1が赤字のまま増やすと赤字が大きくなるだけ。<b>まず1を黒字に。</b>　狙いは「常にフレッシュ」：${n}ヶ月で入れ替えるので、いつも年式が新しく${f1((+g.KM0||0)+(+g.KMY||0)*n/12)}万km以下の車だけで回せる（単価・稼働・口コミに効く／故障・大きな整備が少ない）。この効果はまだ計算に入れていません。</div>`;
 }
