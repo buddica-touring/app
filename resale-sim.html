@@ -399,6 +399,8 @@ $("copy").onclick=()=>{sim=clone(base);render(true)};
 $("setbase").onclick=()=>{base=clone(sim);render(true)};
 
 const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
+let bizX=5;
+document.addEventListener("change",e=>{if(e.target.id==="bizX"){bizX=parseFloat(e.target.value)||0;drawRoad()}});
 function drawBiz(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,cap=Math.max(1,+rmCap||40),s1=Math.ceil(Q/cap);
   const con=(T.rev-T.lease-T.mt-T.ins)/n, mon=con-g.FIX*s1, need=mon<0?-mon/Q:0, beQ=con>0?Math.ceil(g.FIX/(con/Q)):0;
@@ -406,6 +408,8 @@ function drawBiz(){
   const L=rm[rm.length-1], qL=+L.q||0, k=qL/Q;
   const dAll=dp=>{const c=clone(sim);c.rows.forEach(r=>r.DEP=Math.max(0,(+r.DEP||0)+dp));return totals(c).all-T.all};
   const sens=[-5,5].map(dp=>`値下がり率${dp>0?"+":"−"}${Math.abs(dp)}pt（${T.rows.map(r=>Math.max(0,(+r.DEP||0)+dp)).join("・")}%）→ 利益 <b class="${dAll(dp)<0?"neg":""}">${pl(dAll(dp))}</b>`).join("　／　");
+  const X=+bizX||0, dPx=d=>{const c=clone(sim);c.rows.forEach(r=>r.P=(+r.P||0)+d);return totals(c).all-T.all}, inP=dPx(-X), outS=X*Q;
+  const xr=[[`仕入が${X}万安い`,inP],[`売値が${X}万高い`,outS],[`<b>両方（入口・出口とも${X}万良い）</b>`,inP+outS],[`<b>逆（入口・出口とも${X}万悪い）</b>`,dPx(X)-outS]];
   const md=(m,d)=>`<div class="md"><div><em>メリット</em><ul>${m.map(x=>`<li>${x}</li>`).join("")}</ul></div><div class="dm"><em>デメリット</em><ul>${d.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>`;
   const val=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
   const yen=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b>${f1(v)}<small>万</small></b><i>${sub}</i></div>`;
@@ -419,20 +423,25 @@ function drawBiz(){
   <div class="bz"><div class="no">3</div><div><h3>出口（売却）<small>おまけの利益</small></h3>
     <p>${n}ヶ月後に買い戻して売る差額です（売値 − 買戻）。大手は自社の小売で業販相場より高く売るので、ここが厚くなります。今の計算は売値＝仕入×（1−値下がり×年数）の控えめな前提です。</p>${md(["10万km前に手放せて、常にフレッシュな車で回せる","自社で小売できれば利益が厚くなる"],["相場が下がるリスクは自社に残る（リース会社は持たない）","自社の小売がないと業販相場止まりで薄い",`値下がり率（今 ${T.rows.map(r=>r.DEP).join("・")}%）がブレると利益もブレる。値下がりが大きいほど買戻しは安くなるが、リース代が上がり売値も下がる`])}<p style="font-size:12.5px">ブレ幅（${n}ヶ月・${Q}台）：${sens}</p></div>
     ${val(`売却利益（${n}ヶ月・${Q}台）`,ex,`1台あたり ${pl(ex/Q)}${qL!==Q?`<br>${qL}台なら ${pl(ex*k)}`:""}`)}</div>
+  <div class="bz main"><div class="no">4</div><div><h3>入口と出口（仕入・売値）<small>このモデルの生命線</small></h3>
+    <p>1台あたり <input id="bizX" type="number" step="1" value="${bizX}" style="width:52px;font:inherit;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万、仕入が安く／売値が高くなった場合の利益の変化です（${n}ヶ月・${Q}台）。売値は買戻額がリース契約で決まっているので、差がそのまま利益になります。仕入はリース代が減りますが、シミュ上は売値も少し下がります。</p>
+    <table class="qt" style="margin-top:6px"><tr><th></th><th>利益の変化</th><th>${n}ヶ月の利益</th>${qL!==Q?`<th>${qL}台なら</th>`:""}</tr>${xr.map(([l,d],i)=>`<tr class="${i>=2?"sum":""}"><td>${l}</td><td class="${d<0?"neg":""}">${pl(d)}</td><td class="${T.all+d<0?"neg":""}">${pl(T.all+d)}${i>=2&&T.all>0?`（今の${+((T.all+d)/T.all).toFixed(1)}倍）`:""}</td>${qL!==Q?`<td class="${d<0?"neg":""}">${pl(d*k)}</td>`:""}</tr>`).join("")}</table></div>
+    ${val(`入口・出口とも${bizX}万良いと`,xr[2][1],`${pl(T.all)} → ${pl(T.all+xr[2][1])}`)}</div>
   <div class="bzc">1が黒字なら、2を使って自己資金なしで台数を増やせる。1が赤字のまま増やすと赤字が大きくなるだけ。<b>まず1を黒字に。</b>　狙いは「常にフレッシュ」：${n}ヶ月で入れ替えるので、いつも年式が新しく${f1((+g.KM0||0)+(+g.KMY||0)*n/12)}万km以下の車だけで回せる（単価・稼働・口コミに効く／故障・大きな整備が少ない）。この効果はまだ計算に入れていません。</div>`;
 }
 function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
   const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, sc=T.sell/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
+  const X=+bizX||0,_c=clone(sim);_c.rows.forEach(r=>r.P=(+r.P||0)-X);const dx=(totals(_c).all-T.all+X*Q)/Q;
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
   const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,sale:sc*q,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費・販管費 1店 月${f1(g.FIX)}万`;
-  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,"赤字まで<small>売上減</small>","仕入総額",""];
+  const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,`入口出口<small>${X}万良いと</small>`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
     <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
     <td class="o" style="color:var(--mute);font-size:11px">${T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*r.q)}`).join("・")}</td>
     <td class="o">${r.s}店</td>
-    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
+    <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.life+dx*r.q<0?"neg":""}">${pl(r.life+dx*r.q)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
     <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
   const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
   $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
@@ -455,10 +464,10 @@ function drawRoad(){
     +card(`本部 上乗せ収入`,up*n,`${g.UP}万×${L.q}台×${n}ヶ月`)
     +card(`売却利益`,ex,`売値の合計 − 買戻の合計`)
     +card(`利益 合計`,L.life,`${pl(sp*n)} ＋ ${pl(up*n)} ＋ ${pl(ex)}`);}
-  $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
+  $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万　入口・出口とも${X}万良いと ${n}ヶ月の利益 <b>${pl(L.life+dx*L.q)}</b>（${pl(dx*L.q)}）`;
   drawBiz();
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
-  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b></div>`).join("");
+  $("rmBars").innerHTML=rs.map((r,i)=>`<div class="rb"><span>${NUM[i]||i+1} ${r.q}台・${r.s}店</span><div class="tr"><i class="${r.life<0?"neg":""}" style="left:0;width:${Math.abs(r.life)/mx*100}%"></i></div><b class="${r.life<0?"neg":""}">${pl(r.life)}</b><small style="color:var(--mute);font-size:11px;margin-left:6px">入口出口${X}万良いと ${pl(r.life+dx*r.q)}</small></div>`).join("");
 }
 $("rm").addEventListener("change",e=>{const t=e.target,i=+t.dataset.r,f=t.dataset.f;if(f==null)return;rm[i][f]=f==="t"?t.value:(parseFloat(t.value)||0);drawRoad();drawChk();save()});
 $("rm").addEventListener("click",e=>{const d=e.target.dataset.rdel;if(d!=null){rm.splice(+d,1);drawRoad();save()}});
