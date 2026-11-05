@@ -207,7 +207,7 @@ section{display:grid;gap:12px}
 .jr .seg .s2{border-color:#4f6273}.jr .seg .s3{border-color:#8fa3b5}.jr .seg .s4{border-color:var(--fg)}
 .jr .ctl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
 @media(max-width:700px){.jr .stops,.jr .seg{grid-template-columns:1fr 1fr}.jr .seg .s1,.jr .seg .s2,.jr .seg .s3,.jr .seg .s4{grid-column:auto}.jr .road{display:none}}
-.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
+.jr .tg{font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
 .jr .jb .b{display:flex;align-items:center;gap:8px;margin-top:3px}.jr .jb .b span{display:flex;flex:1;height:13px}.jr .jb .b i{display:block;height:100%;border-radius:2px;box-sizing:border-box}.jr .jb .b b{font-size:13px;min-width:44px;text-align:right}.jr .jb .ft{font-size:11px;color:#4f6273;margin-top:8px}
 .jr .sp{padding:12px 12px 14px}.jr .sp .t{font-size:13px}.jr .sp .v{font-size:24px}
 
@@ -465,18 +465,18 @@ function drawJourney(){
   const st=[
    {t:"① 仕入",v:-P,g:bars([[`中古車 ${km0}万km`,f1(P),[[P,"var(--red)"]]]])},
    {t:"② リース会社へ売る",v:+P,g:bars([[`同額で売る`,f1(P),[[P,"var(--fg)"]]]])},
-   {t:"③ リース組み直し",v:UP*n,g:bars([[`リース原価 月${f1(m)}`,f1(m*n),[[m*n,CO[0]]]],[`店舗上乗せ 月${f1(UP)}`,f1(UP*n),[[UP*n,UPC]]]],`上乗せ分が本部の収入`)},
-   {t:`④ 店舗で貸す`,v:REV*n,g:bars([[`月${f1(REV)}×${n}ヶ月`,f1(REV*n),[[REV*n,"var(--fg)"]]]])},
-   {t:`⑤ 店舗コスト`,v:-sc_,g:bars([[`リース原価`,f1(m*n),[[m*n,CO[0]]]],[`上乗せ（本部へ）`,f1(UP*n),[[UP*n,UPC]]],[`維持・保険`,f1(mt*n),[[mt*n,CO[1]]]],[`固定費・販管費`,f1(fq*n),[[fq*n,CO[2]]]]])},
+   {t:"③ リース組み直し",tag:"年",v:UP*12,g:bars([[`リース原価 月${f1(m)}`,f1(m*12),[[m*12,CO[0]]]],[`店舗上乗せ 月${f1(UP)}`,f1(UP*12),[[UP*12,UPC]]]],`上乗せ分が本部の収入`)},
+   {t:`④ 店舗で貸す`,tag:"年",v:REV*12,g:bars([[`月${f1(REV)}×12ヶ月`,f1(REV*12),[[REV*12,"var(--fg)"]]]])},
+   {t:`⑤ 店舗コスト`,tag:"年",v:-sc_/n*12,g:bars([[`リース原価`,f1(m*12),[[m*12,CO[0]]]],[`上乗せ（本部へ）`,f1(UP*12),[[UP*12,UPC]]],[`維持・保険`,f1(mt*12),[[mt*12,CO[1]]]],[`固定費・販管費`,f1(fq*12),[[fq*12,CO[2]]]]],`店舗収支 年${pl((REV-m-UP-mt-fq)*12)}`)},
    {t:"⑥ リース会社から買い戻す",v:-R,g:bars([[`売る額の${g.RV}%`,f1(R),[[R,"var(--red)"]]]])},
    {t:"⑦ 売る",v:S,g:bars([[`${+km1.toFixed(1)}万km・下落 年${f1(dep)}%`,f1(S),[[S,"var(--fg)"]]],[`仕入時`,f1(P),[[P,LG]]]])},
-   {t:"⑧ 着地",v:tot,end:1,g:bars([[`仕入に対して ${P?Math.round(tot/P*1000)/10:0}%`,pl(tot),[[Math.abs(tot),tot<0?"var(--red)":"var(--fg)"],[Math.max(0,P-Math.abs(tot)),"transparent","var(--mute)"]]]])}];
+   {t:"⑧ 着地",tag:`${n}ヶ月`,v:tot,end:1,g:bars([[`仕入に対して ${P?Math.round(tot/P*1000)/10:0}%`,pl(tot),[[Math.abs(tot),tot<0?"var(--red)":"var(--fg)"],[Math.max(0,P-Math.abs(tot)),"transparent","var(--mute)"]]]],`レンタル 年${pl(ren/n*12)} × ${+(n/12).toFixed(1)}年 ＋ 出口 ${pl(ex)}`)}];
   const fmt=v=>v==null?`<span style="font-size:13px;color:var(--mute)">—</span>`:`<span class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</span>`;
   const xs=st.map((_,k)=>4+(92/(st.length-1))*k);
-  $("journey").innerHTML=`<div class="jh"><b>1台の一生（平均的な1台・${n}ヶ月）</b><span class="ctl"><button id="jrPlay">▶ 再生</button>${Q}台の平均。合計は ×${Q}台 ＝ ${pl(tot*Q)}</span></div>
+  $("journey").innerHTML=`<div class="jh"><b>1台の一生（平均的な1台）　<span>③〜⑤は1年あたり、⑥⑦は${n}ヶ月目、⑧は${n}ヶ月の合計</span></b><span class="ctl"><button id="jrPlay">▶ 再生</button>${Q}台の平均。合計は ×${Q}台 ＝ ${pl(tot*Q)}</span></div>
    <div class="road"><div class="ln"></div><div class="fill" id="jrFill" style="width:0"></div>${xs.map((x,k)=>`<div class="dot" data-k="${k}" style="left:${x}%"></div>`).join("")}<div class="cr" id="jrCar" style="left:${xs[0]}%"><svg width="40" height="22" viewBox="0 0 22 13"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/></svg></div></div>
-   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
-   <div class="seg"><div class="s1">リースバック ①〜③<i>資金0で車を持つ／金利 ${f1((m*n+R-P))}万</i></div><div class="s2">店舗 ④〜⑤<i>店舗収支 ${pl(REV*n-sc_)}（本部上乗せを戻すと ${pl(ren)}）</i></div><div class="s3">出口 ⑥〜⑦<i>売る − 買い戻す ＝ ${pl(ex)}</i></div><div class="s4">着地 ⑧<i>1台あたり ${pl(tot)}</i></div>`;
+   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
+   <div class="seg"><div class="s1">リースバック ①〜②<i>資金0で車を持つ／金利 ${f1((m*n+R-P))}万</i></div><div class="s2">店舗 ③〜⑤（年）<i>店舗収支 年${pl((REV*n-sc_)/n*12)}（本部上乗せを戻すと 年${pl(ren/n*12)}）</i></div><div class="s3">出口 ⑥〜⑦（${n}ヶ月目）<i>売る − 買い戻す ＝ ${pl(ex)}</i></div><div class="s4">着地 ⑧<i>1台あたり ${pl(tot)}</i></div>`;
   const go=k=>{jrI=k;$("jrCar").style.left=xs[Math.max(0,k)]+"%";$("jrFill").style.width=(xs[Math.max(0,k)]-4)+"%";
     document.querySelectorAll("#journey .sp").forEach((e,i)=>{e.classList.toggle("on",i<=k);e.classList.toggle("cur",i===k)});
     document.querySelectorAll("#journey .dot").forEach((e,i)=>e.classList.toggle("on",i<=k))};
