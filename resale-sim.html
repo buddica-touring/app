@@ -178,6 +178,11 @@ section{display:grid;gap:12px}
 .bz .v{text-align:right}.bz .v span{display:block;font-size:11px;color:var(--mute)}.bz .v b{font-size:24px}.bz .v b small{font-size:12px;color:var(--mute);font-weight:400}.bz .v i{display:block;font-style:normal;font-size:11px;color:var(--mute)}
 .bz .md{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.bz .md div{font-size:12.5px;line-height:1.6;border-radius:8px;padding:6px 10px;background:var(--bg)}.bz .md em{display:block;font-style:normal;font-weight:700;font-size:11.5px}.bz .md .dm em{color:var(--neg,#c0392b)}.bz .md ul{margin:2px 0 0;padding-left:16px}
 @media(max-width:700px){.bz .md{grid-template-columns:1fr}}
+.syn{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.syn div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}
+.syn b{display:block;font-size:13.5px}.syn p{margin:3px 0 0;font-size:12.5px;line-height:1.6}
+.syn i{display:inline-block;margin-top:5px;font-style:normal;font-size:11px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+@media(max-width:700px){.syn{grid-template-columns:1fr}}
 .bzc{background:var(--fg);color:var(--card);border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.7}
 @media(max-width:700px){.bz{grid-template-columns:32px 1fr}.bz .v{grid-column:1/-1;text-align:left}}
 
@@ -220,6 +225,9 @@ section{display:grid;gap:12px}
     <div class="bar"><span>事業構成：利益の出どころを3つに分けて見ます。数字は「参考シミュレーション」とロードマップから自動で入ります。</span></div>
     <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「1 レンタルの売上」と「3 値下がり率」の2つに絞る。</div>
     <div id="biz"></div>
+    <div class="card" style="margin-top:10px"><p class="sec">レンタカーの役割<span>中古車事業（全国展開）とのシナジー。店舗収支の数字だけでは見えない価値</span></p>
+      <p class="note3" style="margin:0 0 8px">商品である車両に「レンタカー」という役割を持たせることで、販売までの時間が稼ぐ時間に変わります。各項目の「効く数字」はこのシミュのどこに効くかです（まだ数字には入れていません）。</p>
+      <div class="syn" id="syn"></div></div>
   </section>
 
   <section id="v-road" hidden>
@@ -403,6 +411,17 @@ $("setbase").onclick=()=>{base=clone(sim);render(true)};
 const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
 let bizX=5;
 document.addEventListener("change",e=>{if(e.target.id==="bizX"||e.target.id==="rmX"){bizX=parseFloat(e.target.value)||0;drawRoad()}});
+const SYN=[
+["在庫が稼ぐ","中古車の在庫は、売れるまで金利・保管費がかかるだけ。レンタカーとして走らせれば、売るまでの期間に毎月売上を生む。","効く数字：売上"],
+["長い試乗＝販売の入口","レンタルは数日間の試乗。気に入った車をそのまま購入（レンタル→購入）へつなげ、販売の成約率を上げる。","効く数字：売値・販売台数"],
+["集客と認知","観光客・地元客・OTA経由で、中古車店に来ない層と接点ができる。全国の店舗網とブランドが互いに露出し合う。","効く数字：売上・集客コスト"],
+["履歴の見える車＝高く売れる","自社で2年間管理した車は、整備・点検・走行の記録がそろう。記録つきの車は小売で信頼され、高く売れる。","効く数字：売値（出口）"],
+["全国の小売網が出口","業販に流さず自社の全国店舗で小売できる。入口・出口の5万がここで生まれる。","効く数字：売値（出口）"],
+["仕入の目利きにデータ","車種ごとの予約・稼働・単価・故障のデータが、中古車の仕入判断（何をいくらで仕入れるか）に使える。","効く数字：仕入・値下がり率"],
+["拠点・人・整備の共用","中古車店の敷地・スタッフ・整備工場をレンタカーと共用すれば、レンタカー単体の固定費が下がる。","効く数字：固定費・販管費"],
+["常にフレッシュな車","2年で入れ替えるので、年式の新しい車だけで回せる。故障が少なく、口コミ・単価・稼働に効く。","効く数字：売上・維持費"],
+["資金を寝かせない","リースバックで仕入資金がすぐ戻る。中古車事業の在庫資金を圧迫せずに台数を増やせる。","効く数字：仕入総額（資金）"],
+];
 function drawBiz(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,cap=Math.max(1,+rmCap||40),s1=Math.ceil(Q/cap);
   const con=(T.rev-T.lease-T.mt-T.ins)/n, mon=con-g.FIX*s1, need=mon<0?-mon/Q:0, beQ=con>0?Math.ceil(g.FIX/(con/Q)):0;
@@ -415,6 +434,7 @@ function drawBiz(){
   const md=(m,d)=>`<div class="md"><div><em>メリット</em><ul>${m.map(x=>`<li>${x}</li>`).join("")}</ul></div><div class="dm"><em>デメリット</em><ul>${d.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>`;
   const val=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
   const yen=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b>${f1(v)}<small>万</small></b><i>${sub}</i></div>`;
+  $("syn").innerHTML=SYN.map(([t,d,k])=>`<div><b>${t}</b><p>${d}</p><i>${k}</i></div>`).join("");
   $("biz").innerHTML=`
   <div class="bz main"><div class="no">1</div><div><h3>レンタル単体で黒字か<small>本業はここ</small></h3>
     <p>上乗せ（本部と店舗の間の移動）を除いた、レンタルだけの収支です。${mon<0?`今は${Q}台・${s1}店で<b class="neg">月${pl(mon)}</b>と赤字です。黒字にするには1台あたり月<b>＋${f1(need)}万</b>の売上、または固定費・販管費を1店<b>${f1(g.FIX+mon/s1)}万</b>以下にする必要があります（1店${beQ}台以上で黒字）。`:`今は${Q}台・${s1}店で月${pl(mon)}の黒字です。`}</p>${md(["毎月の現金が入る本業。台数を増やすほど売上が伸びる","新しい車なので単価・稼働を取りやすい"],[`固定費・販管費（1店 月${f1(g.FIX)}万）が重く、1店${beQ||"—"}台未満は赤字`,"稼働・単価が落ちると直撃。月の売上が担保されないと計画が崩れる"])}</div>
