@@ -222,7 +222,7 @@ const $=id=>document.getElementById(id);
 const f1=v=>(Math.abs(v)>=100?Math.round(Math.abs(v)).toLocaleString():+Math.abs(v).toFixed(1));
 const pl=v=>(v<0?"−":v>0?"+":"±")+f1(v)+"万";
 const COLS=[["name","車種",""],["q","台数","台"],["P","仕入額","万"],["REV","売上/月","万"],["SY","車検/年","万"],["TK","点検/年","万"],["SB","整備/年","万"],["INS","保険/月","万"],["DEP","値下がり/年","%"]];
-const GF=[["FIX","固定費・販管費 /月（店全体）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"],["KM0","仕入時の走行","万km"],["KMY","年間の走行","万km"]];
+const GF=[["FIX","店舗の固定費 /月（1店あたり）","万"],["HK","本部の販管費 /月（全体・店が増えても同じ）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"],["KM0","仕入時の走行","万km"],["KMY","年間の走行","万km"]];
 const DEF={g:{FIX:260,HK:0,UP:3,N:24,RT:3,RV:80,KM0:5,KMY:1.5},rows:[
   {name:"コンパクト（例）",q:25,P:100,REV:10,SY:10,TK:3,SB:5,INS:1,DEP:20},
   {name:"ミニバン（例）",q:10,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1,DEP:18},
@@ -253,7 +253,7 @@ function totals(st){
   const sum=k=>rows.reduce((a,r,i)=>a+k(r,cs[i])*r.q,0);
   const rev=sum((r,c)=>c.rev), lease=sum((r,c)=>c.m*n), ins=sum(r=>r.INS*n), mt=sum((r,c)=>c.mt*n)-ins, fx=(g.FIX+(g.HK||0))*n, sell=sum((r,c)=>c.S), buy=sum((r,c)=>c.R);
   const all=rev-lease-mt-ins-fx+sell-buy;
-  const store=sum((r,c)=>(r.REV-c.T-c.mt)*n)-fx;
+  const store=sum((r,c)=>(r.REV-c.T-c.mt)*n)-g.FIX*n;
   return {g,rows,n,Qall,cs,rev,lease,ins,mt,fx,sell,buy,all,store};
 }
 function fleet(T){
@@ -308,10 +308,10 @@ function editor(el,st){if(st.g.KM0==null)st.g.KM0=5;if(st.g.KMY==null)st.g.KMY=1
   const g=st.g;
   el.innerHTML=`
   <div class="card"><p class="sec">店舗のコスト<span>数字を直接入力</span></p>
-    <div class="cond c3">${GF.slice(0,3).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
+    <div class="cond c3">${GF.slice(0,4).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
   <div class="card"><p class="sec">店舗コストの合計<span>店全体・月／単年／期間</span></p><div class="ssum" data-ssum></div></div>
   <div class="card"><p class="sec">リース・出口の条件<span>全車共通</span></p>
-    <div class="cond c3">${GF.slice(3).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
+    <div class="cond c3">${GF.slice(4).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
   <div class="card"><p class="sec">車種ごとの単価<span>数字を直接書き換えられます</span></p>
     <div class="tw"><table class="ed" data-ed></table></div><p class="note3" data-note></p><div class="ctrl"><button data-add>＋ 車種を追加</button></div></div>`;
   const ed=el.querySelector("[data-ed]");
@@ -333,7 +333,7 @@ function fillEditor(el){
   const trs=el.querySelectorAll("[data-ed] tr");T.rows.forEach((r,i)=>{const t=trs[i+2];if(!t)return;const c=T.cs[i],v={...c,pm:r.REV-c.m-c.mt-c.fq};el._OUT.forEach(([k])=>{const x=Math.round(v[k]*10)/10||0,td=t.querySelector(`[data-c="${k}"]`);td.textContent=k==="car"||k==="pm"?pl(x):(+x.toFixed(1)).toLocaleString();td.classList.toggle("neg",x<0)})});
   const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
   const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
-  const it=[["固定費・販管費",fx],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],["売上（参考・手入力）",+g.SALES||0,2]];
+  const it=[["店舗の固定費",g.FIX],["本部の販管費",+g.HK||0],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],["売上（参考・手入力）",+g.SALES||0,2]];
   el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td>${t===1?"<b>":""}${f1(x)}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
 }
 function render(rebuild){
@@ -345,7 +345,7 @@ function render(rebuild){
   {const mo=x=>x.rev-x.lease-x.mt-x.ins-x.fx, ex=x=>x.sell-x.buy, upT=x=>x.g.UP*x.Qall*x.n;
    const box=(k,a,b,sub,cls)=>`<div class="eq-b ${cls||""}"><span>${k}</span><b class="${a<0?"neg":""}">${pl(a).replace("万","<small>万</small>")}</b><i>${sub}</i>${dv(a,b)}</div>`;
    const stF=x=>x.store, upF=x=>upT(x);
-   $("cmp").innerHTML=`<div class="eq">${box("店舗収益",stF(T),stF(B),`売上 − リース代（原価＋上乗せ）− 維持保険 − 固定費`)}<div class="op">＋</div>${box("リース収益（本部）",upF(T),upF(B),`上乗せ ${g.UP}万 × ${T.Qall}台 × ${n}ヶ月`)}<div class="op">＋</div>${box("売却",ex(T),ex(B),"売値の合計 − 買戻の合計")}<div class="op">＝</div>${box(`合計（${n}ヶ月）`,T.all,B.all,`年あたり ${pl(T.all*12/n)}`,"main")}</div>`;}
+   $("cmp").innerHTML=`<div class="eq">${box("店舗収益",stF(T),stF(B),`売上 − リース代（原価＋上乗せ）− 維持保険 − 固定費`)}<div class="op">＋</div>${box("リース収益（本部）",T.all-T.store-ex(T),B.all-B.store-ex(B),`上乗せ ${g.UP}万×${T.Qall}台×${n}ヶ月${+g.HK?` − 本部販管費 ${g.HK}万×${n}ヶ月`:""}`)}<div class="op">＋</div>${box("売却",ex(T),ex(B),"売値の合計 − 買戻の合計")}<div class="op">＝</div>${box(`合計（${n}ヶ月）`,T.all,B.all,`年あたり ${pl(T.all*12/n)}`,"main")}</div>`;}
   // 絵コンテ
   const st=storySteps(T);
   $("board").innerHTML=st.map((s,i)=>{const cls=(i===3?"rowend ":"")+(i===7?"last ":"")+(i%2===1?"r2":"");
@@ -379,8 +379,8 @@ function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
   const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
-  const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-fx*s,life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
-  $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費 1店 月${f1(fx)}万`;
+  const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
+  $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　店舗の固定費 1店 月${f1(g.FIX)}万・本部の販管費 月${f1(+g.HK||0)}万`;
   const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
     <td>${i===0?`<b>${r.q}</b>台`:`<input type="number" data-r="${i}" data-f="q" value="${rm[i].q}">`}</td>
@@ -389,11 +389,11 @@ function drawRoad(){
     <td class="o">${f1(r.per)}台</td><td class="o">${f1(r.rev)}万</td><td class="o k ${r.mon<0?"neg":""}">${pl(r.mon)}</td><td class="o ${r.mon<0?"neg":""}">${pl(r.mon*12)}</td><td class="o k ${r.life<0?"neg":""}">${pl(r.life)}</td><td class="o ${r.cut<0?"neg":""}">${r.mon<0?"赤字":f1(r.cut)+"%"}</td><td class="o">${f1(r.buy)}万</td>
     <td>${i===0?"":`<button data-rdel="${i}" aria-label="削除">×</button>`}</td></tr>`).join("");
   const ratio=T.rows.map(x=>`${x.name.replace(/（.*?）/,"")} ${Math.round(x.q/Q*100)}%`).join("・");
-  $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(fx/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
+  $("rmNote").textContent=`※②以降は車種の割合を①と同じ比率（${ratio}）のまま台数を増やしています。単価・条件も①と同じです。　`+`1店が月で黒字になる台数：${con>0?Math.ceil(g.FIX/con)+"台以上":"—（1台の稼ぎがマイナス）"}。仕入総額はリース会社に売るので手元資金としては戻ります。`;
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
   $("rmSum").innerHTML=card(`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店 の${n}ヶ月の利益`,L.life,`月${pl(L.mon)}・年${pl(L.mon*12)}`,1)
-    +card("月で黒字が続くのは",fb<0?"—":`${NUM[fb]||fb+1}<small> ${rs[fb].q}台〜</small>`,fb<0?"どの段階も赤字が残る":`1店${Math.ceil(fx/con)}台以上で黒字`)
+    +card("月で黒字が続くのは",fb<0?"—":`${NUM[fb]||fb+1}<small> ${rs[fb].q}台〜</small>`,fb<0?"どの段階も赤字が残る":`1店${Math.ceil(g.FIX/con)}台以上で黒字（店舗の固定費のみ）`)
     +card("いちばん稼ぐ段階",`${NUM[best]||best+1}<small> ${rs[best].q}台・${rs[best].s}店</small>`,`${n}ヶ月 ${pl(rs[best].life)}`)
     +card(`最終の月売上`,`${f1(L.rev)}<small>万</small>`,L.mon>0?`${f1(L.cut)}%落ちると赤字・仕入総額${f1(L.buy)}万`:`赤字・仕入総額${f1(L.buy)}万`);
   const yr=n/12;
@@ -418,8 +418,8 @@ function drawChk(){
   // 参考例：グロス表
   const eMon=(T.rev-T.lease-T.mt-T.ins-T.fx)/n;
   // ロードマップ①
-  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, rMon=con*Q-fx*st;
-  const R=[["台数",Q,Q,+(rm[0]&&rm[0].q)||Q,"台"],["売上 /月",sRev,T.rev/n,revc*Q],["リース原価 /月",-sL,-T.lease/n,null],["維持＋保険 /月",-sM,-(T.mt+T.ins)/n,null],["固定費・販管費 /月",-fx,-T.fx/n,-fx*st],["月の利益",sMon,eMon,rMon,"",1],["出口（売値−買戻）",sEx,T.sell-T.buy,exc*Q],[`${n}ヶ月の利益`,sMon*n+sEx,T.all,rMon*n+exc*Q,"",1]];
+  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, rMon=con*Q-g.FIX*st-(+g.HK||0);
+  const R=[["台数",Q,Q,+(rm[0]&&rm[0].q)||Q,"台"],["売上 /月",sRev,T.rev/n,revc*Q],["リース原価 /月",-sL,-T.lease/n,null],["維持＋保険 /月",-sM,-(T.mt+T.ins)/n,null],["固定費・販管費 /月",-fx,-T.fx/n,-(g.FIX*st+(+g.HK||0))],["月の利益",sMon,eMon,rMon,"",1],["出口（売値−買戻）",sEx,T.sell-T.buy,exc*Q],[`${n}ヶ月の利益`,sMon*n+sEx,T.all,rMon*n+exc*Q,"",1]];
   const fm=(v,u)=>v==null?"—":u==="台"?v+"台":pl(v);
   const eq=a=>{const v=a.filter(x=>x!=null);return v.every(x=>Math.abs(x-v[0])<0.6)};
   let bad=0;
