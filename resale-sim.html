@@ -379,9 +379,9 @@ $("setbase").onclick=()=>{base=clone(sim);render(true)};
 const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
 function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
-  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
+  const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, sc=T.sell/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
-  const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
+  const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,sale:sc*q,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費・販管費 1店 月${f1(g.FIX)}万`;
   const H=["段階","時期・メモ","台数","車種の内訳","店舗数","1店の台数","月の売上","月の利益","年の利益",`${n}ヶ月の利益`,"赤字まで<small>売上減</small>","仕入総額",""];
   $("rm").innerHTML=`<tr>${H.map(h=>`<th class="o">${h}</th>`).join("")}</tr>`+rs.map((r,i)=>`<tr class="${i===0?"one":""}"><td><b>${NUM[i]||i+1}</b></td><td><input type="text" data-r="${i}" data-f="t" value="${rm[i].t||""}" style="width:72px"></td>
@@ -395,7 +395,7 @@ function drawRoad(){
   const L=rs[rs.length-1],li=rs.length-1,fb=rs.findIndex((r,i)=>rs.slice(i).every(x=>x.mon>0)),best=rs.reduce((a,r,i)=>r.life>rs[a].life?i:a,0);
   const card=(k,v,sub,main)=>`<div class="k ${main?"main":""}"><span>${k}</span><b class="${typeof v==="number"&&v<0?"neg":""}">${typeof v==="number"?pl(v).replace("万","<small>万</small>"):v}</b><i>${sub}</i></div>`;
   const yr=n/12, ex=L.life-L.mon*n;
-  const row=(lab,d,unit)=>card(`売上（${lab}）`,`${f1(L.rev*12*d)}<small>万</small>`,`月${f1(L.rev)}万 × ${12*d}`,1)
+  const row=(lab,d,unit)=>card(`総売上（${lab}）`,`${f1(L.rev*12*d+L.sale*d/yr)}<small>万</small>`,`貸出 ${f1(L.rev*12*d)}万 ＋ 売却 ${f1(L.sale*d/yr)}万`,1)
     +card(`利益（${lab}・売却込み）`,L.life*d/yr,`毎月の分 ＋ 売却の分・1店あたり ${pl(L.life*d/yr/L.s)}`)
     +card(`うち毎月の分（${lab}）`,L.mon*12*d,`月${pl(L.mon)} × ${12*d}`)
     +card(`うち売却の分（${lab}）`,ex*d/yr,d===yr?`売値の合計 − 買戻の合計`:`${n}ヶ月分 ${pl(ex)} ÷ ${+yr.toFixed(1)}年`);
