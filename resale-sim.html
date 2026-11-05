@@ -188,8 +188,8 @@ section{display:grid;gap:12px}
 @media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
 .chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
-#rmSum,#rmYear,#rmStore{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b,#rmStore .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4),#rmStore .k:nth-child(4){border-left:3px solid var(--fg)}
-@media(max-width:700px){#rmSum,#rmYear,#rmStore{grid-template-columns:repeat(3,1fr)}}
+#rmSum,#rmYear,#rmStore,#rmIO{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b,#rmStore .k b,#rmIO .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4),#rmStore .k:nth-child(4),#rmIO .k:nth-child(4){border-left:3px solid var(--fg)}
+@media(max-width:700px){#rmSum,#rmYear,#rmStore,#rmIO{grid-template-columns:repeat(3,1fr)}}
 </style>
 
 <div class="wrap">
@@ -230,6 +230,8 @@ section{display:grid;gap:12px}
     <div class="cmp" id="rmYear"></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmTH"></p>
     <div class="cmp" id="rmStore"></div>
+    <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmXH"></p>
+    <div class="cmp" id="rmIO"></div>
     <p class="note3" id="rmInfo" style="margin:0"></p>
     <div class="card"><p class="sec">段階ごとの収支<span id="rmH"></span></p><div class="tw"><table class="ed rm" id="rm"></table></div><p class="note3" id="rmNote"></p></div>
     <div class="card"><p class="sec">期間の利益<span>段階ごと</span></p><div id="rmBars"></div></div>
@@ -400,7 +402,7 @@ $("setbase").onclick=()=>{base=clone(sim);render(true)};
 
 const NUM=["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
 let bizX=5;
-document.addEventListener("change",e=>{if(e.target.id==="bizX"){bizX=parseFloat(e.target.value)||0;drawRoad()}});
+document.addEventListener("change",e=>{if(e.target.id==="bizX"||e.target.id==="rmX"){bizX=parseFloat(e.target.value)||0;drawRoad()}});
 function drawBiz(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,cap=Math.max(1,+rmCap||40),s1=Math.ceil(Q/cap);
   const con=(T.rev-T.lease-T.mt-T.ins)/n, mon=con-g.FIX*s1, need=mon<0?-mon/Q:0, beQ=con>0?Math.ceil(g.FIX/(con/Q)):0;
@@ -433,6 +435,7 @@ function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
   const revc=T.rev/n/Q, con=(T.rev-T.lease-T.mt-T.ins)/n/Q, exc=(T.sell-T.buy)/Q, sc=T.sell/Q, pc=T.rows.reduce((a,r)=>a+r.P*r.q,0)/Q, fx=g.FIX+(g.HK||0);
   const X=+bizX||0,_c=clone(sim);_c.rows.forEach(r=>r.P=(+r.P||0)-X);const dx=(totals(_c).all-T.all+X*Q)/Q;
+  const inC=(totals(_c).all-T.all)/Q;
   rm[0].q=Q;const cap=Math.max(1,+rmCap||40);$("rmcap").value=cap;rm.forEach(x=>{x.s=Math.max(1,Math.ceil((+x.q||0)/cap))});
   const rs=rm.map(x=>{const q=+x.q||0,s=x.s,rev=revc*q,mon=con*q-g.FIX*s-(+g.HK||0),life=mon*n+exc*q;return {q,s,rev,sale:sc*q,mon,life,cut:rev>0?mon/rev*100:0,buy:pc*q,per:q/s}});
   $("rmH").textContent=`1台平均：売上 月${f1(revc)}万・固定費前の稼ぎ 月${f1(con)}万・出口 ${f1(exc)}万　固定費・販管費 1店 月${f1(g.FIX)}万`;
@@ -464,6 +467,14 @@ function drawRoad(){
     +card(`本部 上乗せ収入`,up*n,`${g.UP}万×${L.q}台×${n}ヶ月`)
     +card(`売却利益`,ex,`売値の合計 − 買戻の合計`)
     +card(`利益 合計`,L.life,`${pl(sp*n)} ＋ ${pl(up*n)} ＋ ${pl(ex)}`);}
+  {const inP=inC*L.q, outS=X*L.q, both=inP+outS;
+   $("rmXH").innerHTML=`入口・出口が <input id="rmX" type="number" step="1" value="${X}" style="width:48px;font:inherit;padding:1px 5px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万良いと（${n}ヶ月）<span>1台あたり 仕入が安い・売値が高い場合。最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店</span>`;
+   $("rmIO").innerHTML=card(`仕入が${X}万安い`,inP,`リース代が減る（売値も少し下がる）`)
+    +card(`売値が${X}万高い`,outS,`${X}万×${L.q}台（買戻額は変わらない）`)
+    +card(`両方`,both,`1店あたり ${pl(both/L.s)}`)
+    +card(`今の利益 合計`,L.life,`${n}ヶ月`)
+    +card(`入口・出口とも${X}万良いと`,L.life+both,`${L.life>0?`今の${+((L.life+both)/L.life).toFixed(1)}倍`:""}`,1)
+    +card(`逆に${X}万悪いと`,L.life-both,`1店あたり ${pl((L.life-both)/L.s)}`);}
   $("rmInfo").innerHTML=`最終 ${NUM[li]||li+1} ${L.q}台・${L.s}店の数字です。　月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万　入口・出口とも${X}万良いと ${n}ヶ月の利益 <b>${pl(L.life+dx*L.q)}</b>（${pl(dx*L.q)}）`;
   drawBiz();
   const mx=Math.max(1,...rs.map(r=>Math.abs(r.life)));
