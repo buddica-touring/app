@@ -206,7 +206,7 @@ const $=id=>document.getElementById(id);
 const f1=v=>(Math.abs(v)>=100?Math.round(Math.abs(v)).toLocaleString():+Math.abs(v).toFixed(1));
 const pl=v=>(v<0?"−":v>0?"+":"±")+f1(v)+"万";
 const COLS=[["name","車種",""],["q","台数","台"],["P","仕入額","万"],["REV","売上/月","万"],["SY","車検/年","万"],["TK","点検/年","万"],["SB","整備/年","万"],["INS","保険/月","万"],["DEP","値下がり/年","%"]];
-const GF=[["FIX","固定費・販管費 /月（店全体）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"]];
+const GF=[["FIX","固定費・販管費 /月（店全体）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"],["KM0","仕入時の走行","万km"],["KMY","年間の走行","万km"]];
 const DEF={g:{FIX:400,HK:0,UP:4,N:24,RT:3,RV:80},rows:[
   {name:"コンパクト（例）",q:20,P:80,REV:8,SY:10,TK:3,SB:5,INS:1.5,DEP:15},
   {name:"ミニバン（例）",q:15,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1.5,DEP:15},
@@ -253,7 +253,7 @@ function storySteps(T){
     {t:"店舗へ配車",own:o2+"／使う：店舗",d:0,sd:0,txt:`店舗に${Q}台を預ける。店舗は本部に月${f1(c.T)}万（リース原価${f1(c.m)}＋上乗せ${g.UP}万×${Q}台）を払う。社内なので全体ではプラマイ0。`},
     {t:"貸出",own:o2+"／使う：お客様",d:pm*n,sd:sm*n,txt:`毎月 売上${f1(r.REV)}万 − リース${f1(c.m)}万 − 固定費・販管費${f1(c.fq)}万 ＝ 月${pl(pm)}。`},
     {t:"維持コスト（期間中）",own:o2+"／使う：店舗",d:-mtT,sd:-mtT,txt:`${Q}台分の車検${f1(r.SY)}万＋点検${f1(r.TK)}万＋整備${f1(r.SB)}万（年）と保険 月${f1(r.INS)}万。${+(n/12).toFixed(1)}年分で${f1(mtT)}万を店舗が払う。`},
-    {t:"満了・買い戻し",own:o1,d:-c.R,sd:0,txt:`リース満了。決めておいた合計${f1(c.R)}万で買い戻す。持ち主は自社に戻る。`},
+    {t:"満了・買い戻し",own:o1,d:-c.R,sd:0,txt:`リース満了（走行 約${+((+g.KM0||0)+(+g.KMY||0)*n/12).toFixed(1)}万km）。決めておいた合計${f1(c.R)}万で買い戻す。持ち主は自社に戻る。`},
     {t:"売却",own:"持ち主：次の買い手",d:c.S,sd:0,txt:`${+(n/12).toFixed(1)}年分値下がりした相場の合計${f1(c.S)}万で売る。`},
   ];
   const SC=[
@@ -285,7 +285,7 @@ function scene(sc){
 }
 
 
-function editor(el,st){if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce((a,r)=>a+r.REV*r.q,0)*10)/10;
+function editor(el,st){if(st.g.KM0==null)st.g.KM0=5;if(st.g.KMY==null)st.g.KMY=1.5;if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce((a,r)=>a+r.REV*r.q,0)*10)/10;
   const g=st.g;
   el.innerHTML=`
   <div class="card"><p class="sec">店舗のコスト<span>数字を直接入力</span></p>
@@ -310,7 +310,7 @@ function editor(el,st){if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce(
 }
 function fillEditor(el){
   const T=totals(el._st), g=T.g;
-  el.querySelector("[data-note]").textContent=`本部へ＝リース＋上乗せ${g.UP}万　維持＝（車検＋点検＋整備）÷12＋保険　固定費＝店全体${g.FIX}万÷${T.Qall}台　利益＝売上−リース−維持−固定費　買戻＝売値×${g.RV}%　売値＝仕入×（1−値下がり×年数）　生涯利益＝利益×${T.n}ヶ月−買戻＋売値`;
+  const kmE=(+g.KM0||0)+(+g.KMY||0)*T.n/12;el.querySelector("[data-note]").innerHTML=`<b class="${kmE>=10?"neg":""}">出口の走行＝${g.KM0}万km＋${g.KMY}万km×${+(T.n/12).toFixed(1)}年＝${+kmE.toFixed(1)}万km${kmE>=10?"（10万km超え）":""}</b>（値下がり/年はこの走行を前提に入れてください）　本部へ＝リース＋上乗せ${g.UP}万　維持＝（車検＋点検＋整備）÷12＋保険　固定費＝店全体${g.FIX}万÷${T.Qall}台　利益＝売上−リース−維持−固定費　買戻＝売値×${g.RV}%　売値＝仕入×（1−値下がり×年数）　生涯利益＝利益×${T.n}ヶ月−買戻＋売値`;
   const trs=el.querySelectorAll("[data-ed] tr");T.rows.forEach((r,i)=>{const t=trs[i+2];if(!t)return;const c=T.cs[i],v={...c,pm:r.REV-c.m-c.mt-c.fq};el._OUT.forEach(([k])=>{const x=Math.round(v[k]*10)/10||0,td=t.querySelector(`[data-c="${k}"]`);td.textContent=k==="car"||k==="pm"?pl(x):(+x.toFixed(1)).toLocaleString();td.classList.toggle("neg",x<0)})});
   const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
   const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
