@@ -452,18 +452,24 @@ function drawJourney(){
   const T=totals(sim),g=T.g,n=T.n,{r,c,Q}=fleet(T),yrs=+(n/12).toFixed(1);
   const P=r.P/Q,REV=r.REV/Q,m=c.m/Q,mt=c.mt/Q,fq=c.fq/Q,R=c.R/Q,S=c.S/Q,ren=(REV-m-mt-fq)*n,ex=S-R,tot=ren+ex;
   const dep=T.rows.reduce((a,x)=>a+(+x.DEP||0)*x.q,0)/Q, km0=+g.KM0||0, km1=km0+(+g.KMY||0)*n/12;
+  // 横棒（全カード共通スケール）。rows=[[ラベル,[[値,塗り,枠]...]]]
+  const MX=Math.max(P,REV*n,m*n+mt*n+fq*n)||1,W=146,sc=v=>Math.max(0,v)/MX*W;
+  const lt=(x,y,t,a)=>`<text x="${x}" y="${y}" ${a?`text-anchor="${a}"`:""} style="font-size:9.5px;fill:var(--mute)">${t}</text>`;
+  const bars=(rows,extra="")=>{let o="";rows.forEach(([lab,segs],k)=>{const y=k*26;o+=lt(2,y+9,lab);let x=2;segs.forEach(([v,f,sk])=>{const w=sc(v);if(w>0)o+=`<rect x="${x}" y="${y+12}" width="${w}" height="11" rx="2" fill="${f}" ${sk?`stroke="${sk}" stroke-dasharray="3 2"`:""}/>`;x+=w})});
+    return `<svg viewBox="0 0 150 76" style="width:100%;height:auto;display:block;margin:8px 0 0">${o}${extra}</svg>`};
+  const LG="#e2dbd1",CO=["#cfc7bb","#bdb4a7","#a69c8e"];
   const st=[
-   {t:"① 仕入",v:-P,why:`中古車市場で買う<br>走行 ${km0}万km`,bal:-P},
-   {t:"② リース会社へ売る",v:+P,why:`同じ額で売る<br>→ 資金がすぐ戻る`,bal:0},
-   {t:`③ 店舗で貸す（${n}ヶ月）`,v:ren,why:`月 売上${f1(REV)} − リース${f1(m)}<br>− 維持${f1(mt)} − 固定費${f1(fq)}<br>＝ 月${pl(ren/n)} × ${n}`,bal:ren},
-   {t:`④ 走って戻る`,v:null,why:`年${g.KMY}万km × ${yrs}年<br>→ ${+km1.toFixed(1)}万km（10万km前）`,bal:ren},
-   {t:"⑤ 買い戻して売る",v:ex,why:`売値 ${f1(S)}万（年${f1(dep)}%下落）<br>− 買戻 ${f1(R)}万（売値の${g.RV}%）`,bal:tot},
-   {t:"⑥ 着地",v:tot,why:`自己資金 0円で<br>1台が残した利益`,bal:tot,end:1}];
+   {t:"① 仕入",v:-P,g:bars([[`${km0}万kmの中古車`,[[P,"var(--red)"]]]])},
+   {t:"② リース会社へ売る",v:+P,g:bars([[`払った`,[[P,"none","var(--red)"]]],[`同額で戻る`,[[P,"var(--fg)"]]]])},
+   {t:`③ 店舗で貸す`,v:ren,g:bars([[`売上 ${n}ヶ月`,[[REV*n,"var(--fg)"]]],[`リース・維持・固定費`,[[m*n,CO[0]],[mt*n,CO[1]],[fq*n,CO[2]]]]])},
+   {t:`④ 走って戻る`,big:`${f1(S)}<small>万</small>`,g:bars([[`買った時`,[[P,LG]]],[`${n}ヶ月後（${+km1.toFixed(1)}万km）`,[[S,"#8fa3b5"]]]])},
+   {t:"⑤ 買い戻して売る",v:ex,g:bars([[`売値`,[[R,LG],[ex,"var(--fg)"]]],[`買戻`,[[R,LG]]]])},
+   {t:"⑥ 着地",v:tot,end:1,g:bars([[`仕入に対して ${P?Math.round(tot/P*1000)/10:0}%`,[[Math.abs(tot),tot<0?"var(--red)":"var(--fg)"],[Math.max(0,P-Math.abs(tot)),"none","var(--mute)"]]]])}];
   const fmt=v=>v==null?`<span style="font-size:13px;color:var(--mute)">—</span>`:`<span class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</span>`;
   const xs=st.map((_,k)=>4+(92/(st.length-1))*k);
   $("journey").innerHTML=`<div class="jh"><b>1台の一生（平均的な1台・${n}ヶ月）</b><span class="ctl"><button id="jrPlay">▶ 再生</button>${Q}台の平均。合計は ×${Q}台 ＝ ${pl(tot*Q)}</span></div>
    <div class="road"><div class="ln"></div><div class="fill" id="jrFill" style="width:0"></div>${xs.map((x,k)=>`<div class="dot" data-k="${k}" style="left:${x}%"></div>`).join("")}<div class="cr" id="jrCar" style="left:${xs[0]}%"><svg width="40" height="22" viewBox="0 0 22 13"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/></svg></div></div>
-   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}</div><div class="v">${fmt(x.v)}</div><div class="why">${x.why}</div><div class="bal">手元 <b class="${x.bal<0?"neg":""}">${pl(x.bal)}</b></div></div>`).join("")}</div>
+   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
    <div class="seg"><div class="s1">リースバック<i>資金0で車を持つ／金利 ${f1((m*n+R-P))}万</i></div><div class="s2">レンタル（本業）<i>月${pl(ren/n)}・年${pl(ren/yrs)}</i></div><div class="s3">出口<i>${pl(ex)}</i></div><div class="s4">着地<i>1台あたり ${pl(tot)}</i></div></div>`;
   const go=k=>{jrI=k;$("jrCar").style.left=xs[Math.max(0,k)]+"%";$("jrFill").style.width=(xs[Math.max(0,k)]-4)+"%";
     document.querySelectorAll("#journey .sp").forEach((e,i)=>{e.classList.toggle("on",i<=k);e.classList.toggle("cur",i===k)});
