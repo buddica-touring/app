@@ -492,7 +492,7 @@ function drawBiz(){
     <p>1台あたり <input id="bizX" type="number" step="1" value="${bizX}" style="width:52px;font:inherit;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万、仕入が安く／売値が高くなった場合の利益の変化です（${n}ヶ月・${Q}台）。売値は買戻額がリース契約で決まっているので、差がそのまま利益になります。仕入はリース代が減りますが、シミュ上は売値も少し下がります。</p>
     <table class="qt" style="margin-top:6px"><tr><th></th><th>利益の変化（${n}ヶ月）</th><th>年あたり</th><th>${n}ヶ月の利益</th>${qL!==Q?`<th>${qL}台なら（${n}ヶ月）</th>`:""}</tr>${xr.map(([l,d],i)=>`<tr class="${i>=2?"sum":""}"><td>${l}</td><td class="${d<0?"neg":""}">${pl(d)}</td><td class="${d<0?"neg":""}">${pl(d*12/n)}</td><td class="${T.all+d<0?"neg":""}">${pl(T.all+d)}${i>=2&&T.all>0?`（今の${+((T.all+d)/T.all).toFixed(1)}倍）`:""}</td>${qL!==Q?`<td class="${d<0?"neg":""}">${pl(d*k)}</td>`:""}</tr>`).join("")}</table></div>
     ${val(`入口・出口とも${bizX}万良いと（${n}ヶ月・${Q}台）`,xr[2][1],`年あたり ${pl(xr[2][1]*12/n)}<br>利益 ${pl(T.all)} → ${pl(T.all+xr[2][1])}`)}</div>
-  <div class="bzc">レンタルが黒字なら、リースバックで自己資金なしに台数を増やせる。レンタルが赤字のまま増やすと赤字が大きくなるだけ。<b>まずレンタルを黒字に。</b>　狙いは「常にフレッシュ」：${n}ヶ月で入れ替えるので、いつも年式が新しく${f1((+g.KM0||0)+(+g.KMY||0)*n/12)}万km以下の車だけで回せる（単価・稼働・口コミに効く／故障・大きな整備が少ない）。この効果はまだ計算に入れていません。</div>`;
+  <div class="bzc">リースバックは、レンタルが赤字でも自己資金なしで台数を増やせる。ただし赤字なら、毎月の赤字分を出口まで手元資金で支える必要があり、台数を増やすほどその額も大きくなる。<b>レンタルが黒字なら、毎月の現金が増えながら出口も取れる。</b>　狙いは「常にフレッシュ」：${n}ヶ月で入れ替えるので、いつも年式が新しく${f1((+g.KM0||0)+(+g.KMY||0)*n/12)}万km以下の車だけで回せる（単価・稼働・口コミに効く／故障・大きな整備が少ない）。この効果はまだ計算に入れていません。</div>`;
 }
 function drawRoad(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall;
