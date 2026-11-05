@@ -184,7 +184,8 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-sim" hidden>
-    <div class="bar"><span>ここを変えると参考例とロードマップ①に反映されます。基準値は変わりません。</span><button id="copy">基準値に戻す</button></div>
+    <div class="bar"><span>ここを変えると参考例とロードマップ①に反映されます。基準値は変わりません。</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button id="exp">数字を書き出す</button><button id="imp">数字を読み込む</button><button id="copy">基準値に戻す</button></span></div>
+    <div class="card" id="xbox" hidden><p class="sec">数字の受け渡し<span>別の画面へ移すときに使います</span></p><textarea id="xtxt" rows="3" style="width:100%;box-sizing:border-box;font:12px monospace;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg)"></textarea><p class="note3" id="xmsg"></p><div style="display:flex;gap:6px"><button id="xok" hidden>この数字を読み込む</button><button id="xclose">閉じる</button></div></div>
     <div id="ed-sim"></div>
   </section>
 
@@ -207,10 +208,10 @@ const f1=v=>(Math.abs(v)>=100?Math.round(Math.abs(v)).toLocaleString():+Math.abs
 const pl=v=>(v<0?"−":v>0?"+":"±")+f1(v)+"万";
 const COLS=[["name","車種",""],["q","台数","台"],["P","仕入額","万"],["REV","売上/月","万"],["SY","車検/年","万"],["TK","点検/年","万"],["SB","整備/年","万"],["INS","保険/月","万"],["DEP","値下がり/年","%"]];
 const GF=[["FIX","固定費・販管費 /月（店全体）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"],["KM0","仕入時の走行","万km"],["KMY","年間の走行","万km"]];
-const DEF={g:{FIX:400,HK:0,UP:4,N:24,RT:3,RV:80},rows:[
-  {name:"コンパクト（例）",q:20,P:80,REV:8,SY:10,TK:3,SB:5,INS:1.5,DEP:20},
-  {name:"ミニバン（例）",q:15,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1.5,DEP:18},
-  {name:"SUV（例）",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1.5,DEP:14}]};
+const DEF={g:{FIX:260,HK:0,UP:3,N:24,RT:3,RV:80,KM0:5,KMY:1.5},rows:[
+  {name:"コンパクト（例）",q:25,P:100,REV:10,SY:10,TK:3,SB:5,INS:1,DEP:20},
+  {name:"ミニバン（例）",q:10,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1,DEP:18},
+  {name:"SUV（例）",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1,DEP:14}]};
 const clone=o=>JSON.parse(JSON.stringify(o));
 let base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:1},{t:"",q:120,s:2},{t:"",q:160,s:2},{t:"",q:200,s:2},{t:"",q:250,s:3},{t:"",q:300,s:3}];
 const KEY="resale-life-v7";
@@ -348,6 +349,10 @@ function render(rebuild){
   drawRoad();
   save();
 }
+$("exp").onclick=()=>{const t=JSON.stringify({base,sim,rm});$("xbox").hidden=false;$("xtxt").value=t;$("xok").hidden=true;$("xtxt").select();let ok=false;try{navigator.clipboard.writeText(t).then(()=>{$("xmsg").textContent="コピーしました。もう一方の画面で「数字を読み込む」を押して貼り付けてください。"}).catch(()=>{$("xmsg").textContent="上の文字をすべてコピーして、もう一方の画面で「数字を読み込む」に貼り付けてください。"})}catch(e){$("xmsg").textContent="上の文字をすべてコピーして、もう一方の画面で「数字を読み込む」に貼り付けてください。"}};
+$("imp").onclick=()=>{$("xbox").hidden=false;$("xtxt").value="";$("xok").hidden=false;$("xmsg").textContent="書き出した文字をここに貼り付けて「この数字を読み込む」を押してください。";$("xtxt").focus()};
+$("xok").onclick=()=>{try{const o=JSON.parse($("xtxt").value);if(!o.sim||!o.sim.rows)throw 0;sim=o.sim;base=o.base||clone(o.sim);if(o.rm)rm=o.rm;render(true);$("xmsg").textContent="読み込みました。";$("xok").hidden=true}catch(e){$("xmsg").textContent="読み込めませんでした。書き出した文字をそのまま全部貼り付けてください。"}};
+$("xclose").onclick=()=>{$("xbox").hidden=true};
 $("copy").onclick=()=>{sim=clone(base);render(true)};
 $("setbase").onclick=()=>{base=clone(sim);render(true)};
 
