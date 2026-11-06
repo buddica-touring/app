@@ -229,8 +229,8 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:00</small></h1>
-    <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:05</small></h1>
+    <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">コスト</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
     <div class="bar"><span>参考例：「参考シミュレーション」の数字で、全台の流れと収支を見ます。「基準値」は「基準との差」にだけ使います。ロードマップの①もこの数字です。</span></div>
@@ -257,13 +257,15 @@ section{display:grid;gap:12px}
     <div class="bar"><span>事業構成：利益の出どころを分けて見ます。右の大きい数字はすべて<b>リース期間（24ヶ月）</b>の合計で、下に年あたりを併記しています。数字は「参考シミュレーション」とロードマップから自動で入ります。</span></div>
     <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「レンタルの売上」と「値下がり率」の2つに絞る。</div>
     <div class="card jr" id="journey"></div>
-    <div class="card" id="fxCard"></div>
     <div id="biz"></div>
     <div class="card" style="margin-top:10px"><p class="sec">レンタカーの役割<span>中古車事業（全国展開）とのシナジー。店舗収支の数字だけでは見えない価値</span></p>
       <p class="note3" style="margin:0 0 8px">商品である車両に「レンタカー」という役割を持たせることで、販売までの時間が稼ぐ時間に変わります。各項目の「効く数字」はこのシミュのどこに効くかです（まだ数字には入れていません）。</p>
       <div class="syn" id="syn"></div></div>
   </section>
 
+  <section id="v-cost" hidden>
+    <div class="card" id="fxCard"></div>
+  </section>
   <section id="v-road" hidden>
     <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
     <p class="sec" style="margin:2px 0 -4px;font-size:12px" id="rmYH"></p>
@@ -488,7 +490,7 @@ function drawJourney(){
    <div class="req"><span>要件</span>走行距離 <b>${km0}万km → ${+km1.toFixed(1)}万km</b>（${n}ヶ月・年${g.KMY}万km）</div>
    <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
    <div class="fxb"><div class="h">店舗の固定費は台数で回収する<span>1台の一生の外</span></div><table class="jt">
-     <tr><td>固定費・販管費（1店 / 月）${window.FXS&&FXS.state==="ready"&&FXS.rows.length?"　下の内訳の合計":"　下の内訳で入力"}</td><td>${f1(FX)}万</td></tr>
+     <tr><td>固定費・販管費（1店 / 月）${window.FXS&&FXS.state==="ready"&&FXS.rows.length?"　コストタブの合計":"　コストタブで入力"}</td><td>${f1(FX)}万</td></tr>
      <tr><td>1台の稼ぎ（月）店舗：上乗せ後</td><td>${pl(ernS)}</td></tr>
      <tr><td>1台の稼ぎ（月）会社全体：上乗せ前</td><td>${pl(ern)}</td></tr>
      <tr class="sum"><td>損益分岐（1店）店舗で見ると</td><td>${ernS>0?beS+"台":"—"}</td></tr>
@@ -600,7 +602,7 @@ function drawChk(){
   <p class="note3">参考シミュの「店舗コスト合計」${f1(sRev-sMon+sUp)}万/月には本部上乗せ ${f1(sUp)}万（${g.UP}万×${Q}台）が入っています。これは本部と店舗のあいだのお金の移動なので、参考例とロードマップでは差し引きゼロになります（${f1(sRev-sMon+sUp)}−${f1(sUp)}＝${f1(sRev-sMon)}万＝上の費用の合計）。${Math.abs((+g.SALES||0)-sRev)>0.6?`　売上（参考・手入力）${f1(+g.SALES||0)}万は計算に使っていません。使っているのは車種表の合計 ${f1(sRev)}万です。`:""}${st!==1?`　ロードマップ①は${st}店で計算しています。`:""}</p>`;
   ["chk1","chk2"].forEach(id=>{const el=$(id);if(el)el.innerHTML=html});
 }
-function route(){const h=location.hash.slice(1),v=["sim","base","summary","biz"].includes(h)?h:"road";["summary","sim","base","road","biz"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
+function route(){const h=location.hash.slice(1),v=["sim","base","summary","biz","cost"].includes(h)?h:"road";["summary","sim","base","road","biz","cost"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
 window.addEventListener("hashchange",route);route();render(true);
 
 // 事業構成タブを1枚のPDFに
