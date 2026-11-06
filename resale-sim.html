@@ -229,7 +229,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 09:45</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:00</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -405,6 +405,7 @@ function fillEditor(el){
   el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
 }
 function render(rebuild){
+  if(window.FXS&&FXS.rows&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#fxCard")))setTimeout(fxDraw);
   if(rebuild){editor($("ed-sim"),sim);editor($("ed-base"),base)}
   fillEditor($("ed-sim"));fillEditor($("ed-base"));
   const T=totals(sim), B=totals(base), g=T.g, n=T.n;
@@ -622,18 +623,25 @@ window.addEventListener("hashchange",route);route();render(true);
 })();
 
 // 固定費・販管費の内訳（1店/月）：共有の保存先 Supabase bt_store_fixed_costs。合計を「固定費・販管費」に自動で入れる
-var FXS={rows:[],state:"init",at:null,sb:null};
+var FXS={rows:[],rev:[],state:"init",at:null,sb:null};
 const FX_URL="https://ggqugvyskyiblxiycpci.supabase.co",FX_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const FX_ITEMS=["給与手当","賞与","賞与引当金繰入額","業務委託費（内部）","業務委託費（外部）","法定福利費","福利厚生費","外注費","旅費交通費","調査費","通信費","交際費","会議費","減価償却費","地代家賃","水道光熱費","広告宣伝費","消耗品費","支払手数料","諸会費","新聞図書費","教育研修費","リース料","保険料","整備費用","雑費"],FX_VEH=["リース料","保険料","整備費用"];
-const fxVeh=x=>x.note==="veh";
+const fxVeh=x=>x.note==="veh",fxRev=x=>x.note==="rev";
+const fxDef=()=>FX_ITEMS.map((item,i)=>({item,amount:0,sort:i,note:FX_VEH.includes(item)?"veh":null}));
+FXS.rows=fxDef();
 const fxSum=()=>FXS.rows.reduce((a,x)=>a+(fxVeh(x)?0:(parseFloat(x.amount)||0)),0);
-function fxApply(){const t=Math.round(fxSum()*10)/10;if(FXS.rows.length&&t>0&&sim.g.FIX!==t){sim.g.FIX=t;render(true)}}
+let fxTm=null;const fxRe=()=>{clearTimeout(fxTm);fxTm=setTimeout(()=>render(true),350)};
+// 内訳の合計を固定費・販管費に入れる（0のままなら既存の入力値を残す）
+function fxApply(now){const t=Math.round(fxSum()*10)/10;if(t>0&&sim.g.FIX!==t){sim.g.FIX=t;now?render(true):fxRe()}}
+// 保存済みの売上（車種名で照合）を車種表へ
+function fxApplyRev(){let ch=0;FXS.rev.forEach(x=>{const r=sim.rows.find(r=>r.name===x.item);if(r&&+r.REV!==+x.amount){r.REV=+x.amount;ch=1}});if(ch)render(true)}
 function fxDraw(){const el=$("fxCard");if(!el)return;const t=fxSum(),ok=FXS.state==="ready";
-  const msg={init:"読み込み中…",nolib:"共有の保存先に接続できません（この画面では入力値を使います）",nologin:"進行管理にログインした状態で開くと、共有の内訳を読み書きできます（今は入力値を使っています）",notable:"保存先がまだありません。SQLを1回実行してください（sql/bt_store_fixed_costs.sql）",ready:FXS.at?`保存済み ${FXS.at}`:"未保存",saving:"保存中…",err:"保存できませんでした"}[FXS.state]||"";
-  el.innerHTML=`<p class="sec">固定費・販管費の内訳（1店 / 月）<span>保存すると合計が固定費・販管費（1店 / 月）に自動で入り、全体が再計算されます。全員で共有</span></p>
-   <table><tr><td class="msg">勘定科目</td><td class="msg">万円 / 月</td></tr>${FXS.rows.map((x,i)=>fxVeh(x)?`<tr class="veh"><td>${x.item}</td><td>車両側で計算済み（1台のコスト）</td></tr>`:`<tr><td><input class="it" data-fx="${i}" data-f="item" value="${(x.item||"").replace(/"/g,"&quot;")}" ${ok?"":"disabled"}></td><td><input class="am" type="number" step="0.1" data-fx="${i}" data-f="amount" value="${x.amount??0}" ${ok?"":"disabled"}> 万 ${ok?`<button data-fxdel="${i}" aria-label="削除">×</button>`:""}</td></tr>`).join("")}
+  const msg={init:"共有の保存先を確認中…",nolib:"共有の保存先に接続できません。入力はこの画面の計算にだけ反映されます",nologin:"進行管理にログインしていないため保存はできません。入力はこの画面の計算に反映されます",notable:"保存先がまだありません（sql/bt_store_fixed_costs.sql）",ready:FXS.at?`保存済み ${FXS.at}`:"未保存",saving:"保存中…",err:"保存できませんでした"}[FXS.state]||"";
+  el.innerHTML=`<p class="sec">売上・コストの入力（1店 / 月）<span>入力するとすぐ全体が再計算されます。保存すると全員で共有</span></p>
+   <table><tr><td class="msg">売上（1台あたり / 月）</td><td class="msg">万円 / 月</td></tr>${sim.rows.map((r,i)=>`<tr><td>${r.name}</td><td><input class="am" type="number" step="0.1" data-fxr="${i}" value="${+r.REV||0}"> 万</td></tr>`).join("")}</table>
+   <table style="margin-top:12px"><tr><td class="msg">固定費・販管費（勘定科目）</td><td class="msg">万円 / 月</td></tr>${FXS.rows.map((x,i)=>fxVeh(x)?`<tr class="veh"><td>${x.item}</td><td>車両側で計算済み（1台のコスト）</td></tr>`:`<tr><td><input class="it" data-fx="${i}" data-f="item" value="${(x.item||"").replace(/"/g,"&quot;")}"></td><td><input class="am" type="number" step="0.1" data-fx="${i}" data-f="amount" value="${x.amount??0}"> 万 <button data-fxdel="${i}" aria-label="削除">×</button></td></tr>`).join("")}
    <tr class="sum"><td>販管費合計（固定費）</td><td>${f1(t)}万 / 月</td></tr></table>
-   <div class="ops">${ok?`<button id="fxAdd" type="button">＋ 行を追加</button><button id="fxSave" type="button">保存</button>`:""}<span class="msg">${msg}</span></div>`;}
+   <div class="ops"><button id="fxAdd" type="button">＋ 行を追加</button>${ok?`<button id="fxSave" type="button">保存</button>`:""}<span class="msg">${msg}</span></div>`;}
 async function fxInit(){fxDraw();
   try{if(!window.supabase){await new Promise((ok,ng)=>{const e=document.createElement("script");e.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";e.onload=ok;e.onerror=ng;document.head.appendChild(e)})}
   }catch(e){FXS.state="nolib";return fxDraw()}
@@ -643,19 +651,23 @@ async function fxInit(){fxDraw();
   FXS.sb=window.supabase.createClient(FX_URL,FX_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${tok}`}}});
   const {data,error}=await FXS.sb.from("bt_store_fixed_costs").select("id,item,amount,sort,note,updated_at").order("sort");
   if(error){FXS.state=/does not exist|relation|schema cache/i.test(error.message||"")?"notable":"nolib";return fxDraw()}
-  FXS.rows=data.length?data:FX_ITEMS.map((item,i)=>({item,amount:0,sort:i,note:FX_VEH.includes(item)?"veh":null}));
+  const fx=data.filter(x=>!fxRev(x));FXS.rev=data.filter(fxRev);
+  if(fx.length)FXS.rows=fx;
   const last=data.reduce((a,x)=>x.updated_at>a?x.updated_at:a,"");FXS.at=last?new Date(last).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):null;
-  FXS.state="ready";fxDraw();fxApply();}
-document.addEventListener("input",e=>{const t=e.target;if(t.dataset.fx==null)return;const r=FXS.rows[+t.dataset.fx];r[t.dataset.f]=t.dataset.f==="amount"?(parseFloat(t.value)||0):t.value;
-  const sm=document.querySelector("#fxCard tr.sum td+td");if(sm)sm.textContent=f1(fxSum())+"万 / 月"});
+  FXS.state="ready";fxApplyRev();fxDraw();fxApply(1);}
+document.addEventListener("input",e=>{const t=e.target;
+  if(t.dataset.fxr!=null){const r=sim.rows[+t.dataset.fxr];if(r){r.REV=parseFloat(t.value)||0;fxRe()}return}
+  if(t.dataset.fx==null)return;const r=FXS.rows[+t.dataset.fx];r[t.dataset.f]=t.dataset.f==="amount"?(parseFloat(t.value)||0):t.value;
+  const sm=document.querySelector("#fxCard tr.sum td+td");if(sm)sm.textContent=f1(fxSum())+"万 / 月";if(t.dataset.f==="amount")fxApply()});
 document.addEventListener("click",async e=>{const t=e.target;
   if(t.id==="fxAdd"){FXS.rows.push({item:"",amount:0,sort:FXS.rows.length});fxDraw()}
-  else if(t.dataset&&t.dataset.fxdel!=null){FXS.rows.splice(+t.dataset.fxdel,1);fxDraw()}
+  else if(t.dataset&&t.dataset.fxdel!=null){FXS.rows.splice(+t.dataset.fxdel,1);fxDraw();fxApply()}
   else if(t.id==="fxSave"){FXS.state="saving";fxDraw();
-    try{const keep=FXS.rows.filter(x=>(x.item||"").trim());const ids=keep.filter(x=>x.id).map(x=>x.id);
+    try{const now=new Date().toISOString();
+      const fx=FXS.rows.filter(x=>(x.item||"").trim()).map((x,i)=>({...(x.id?{id:x.id}:{}),item:x.item.trim(),amount:fxVeh(x)?0:(parseFloat(x.amount)||0),note:x.note||null,sort:i,updated_at:now}));
+      const rv=sim.rows.map((r,i)=>{const o=FXS.rev.find(x=>x.item===r.name);return {...(o?{id:o.id}:{}),item:r.name,amount:+r.REV||0,note:"rev",sort:1000+i,updated_at:now}});
+      const up=fx.concat(rv),ids=up.filter(x=>x.id).map(x=>x.id);
       let q=FXS.sb.from("bt_store_fixed_costs").delete();q=ids.length?q.not("id","in",`(${ids.join(",")})`):q.gte("id",0);const d=await q;if(d.error)throw d.error;
-      const now=new Date().toISOString();
-      const up=keep.map((x,i)=>({...(x.id?{id:x.id}:{}),item:x.item.trim(),amount:fxVeh(x)?0:(parseFloat(x.amount)||0),note:x.note||null,sort:i,updated_at:now}));
       const old=up.filter(x=>x.id),nw=up.filter(x=>!x.id);
       if(old.length){const r=await FXS.sb.from("bt_store_fixed_costs").upsert(old);if(r.error)throw r.error}
       if(nw.length){const r=await FXS.sb.from("bt_store_fixed_costs").insert(nw);if(r.error)throw r.error}
