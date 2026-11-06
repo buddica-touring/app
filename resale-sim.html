@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:50</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 11:15</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">コスト</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -261,7 +261,6 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-cost" hidden>
-    <div class="card jr" id="costBe"></div>
     <div class="card" id="fxCard"></div>
     <div id="ed-sim"></div>
   </section>
@@ -490,15 +489,6 @@ function drawJourney(){
    <div class="road"><div class="ln"></div><div class="fill" id="jrFill" style="width:0"></div>${xs.map((x,k)=>`<div class="dot" data-k="${k}" style="left:${x}%"></div>`).join("")}<div class="cr" id="jrCar" style="left:${xs[0]}%"><svg width="40" height="22" viewBox="0 0 22 13"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/></svg></div></div>
    <div class="req"><span>要件</span>走行距離 <b>${km0}万km → ${+km1.toFixed(1)}万km</b>（${n}ヶ月・年${g.KMY}万km）</div>
    <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>`;
-  $("costBe").innerHTML=`<div class="fxb"><div class="h">店舗の固定費は台数で回収する<span>1台の一生の外</span></div><table class="jt">
-     <tr><td>固定費・販管費（1店 / 月）${window.FXS&&FXS.state==="ready"&&FXS.rows.length?"　下の内訳の合計":"　下の内訳で入力"}</td><td>${f1(FX)}万</td></tr>
-     <tr><td>1台の稼ぎ（月）店舗：上乗せ後</td><td>${pl(ernS)}</td></tr>
-     <tr><td>1台の稼ぎ（月）会社全体：上乗せ前</td><td>${pl(ern)}</td></tr>
-     <tr class="sum"><td>損益分岐（1店）店舗で見ると</td><td>${ernS>0?beS+"台":"—"}</td></tr>
-     <tr class="sum"><td>損益分岐（1店）会社全体で見ると</td><td>${ern>0?be+"台":"—"}</td></tr>
-     <tr><td>1店${cap}台なら 店舗の月利益</td><td class="${ernS*cap-FX<0?"neg":""}">${pl(ernS*cap-FX)}</td></tr>
-     <tr><td>1店${cap}台なら 会社全体の月利益（上乗せ ${f1(UP*cap)}万は本部へ）</td><td class="${ern*cap-FX<0?"neg":""}">${pl(ern*cap-FX)}</td></tr>
-     <tr><td>1店${cap}台なら ${n}ヶ月の着地（出口込み）</td><td class="${tot1*cap-FX*n<0?"neg":""}">${pl(tot1*cap-FX*n)}</td></tr></table></div>`;
   const go=k=>{jrI=k;$("jrCar").style.left=xs[Math.max(0,k)]+"%";$("jrFill").style.width=(xs[Math.max(0,k)]-4)+"%";
     document.querySelectorAll("#journey .sp").forEach((e,i)=>{e.classList.toggle("on",i<=k);e.classList.toggle("cur",i===k)});
     document.querySelectorAll("#journey .dot").forEach((e,i)=>e.classList.toggle("on",i<=k))};
@@ -661,8 +651,8 @@ async function fxInit(){fxDraw();
   }catch(e){FXS.state="nolib";return fxDraw()}
   // 進行管理のログイン（同じサイトの保存）をそのまま使う。トークンの更新は進行管理側に任せる
   let tok=null;try{const v=JSON.parse(localStorage.getItem("sb-ggqugvyskyiblxiycpci-auth-token")||"null");if(v&&v.access_token&&(!v.expires_at||v.expires_at*1000>Date.now()+30000))tok=v.access_token}catch(e){}
-  if(!tok){FXS.state="nologin";return fxDraw()}
-  FXS.sb=window.supabase.createClient(FX_URL,FX_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${tok}`}}});
+  // 進行管理と同じく、ログインがなければ公開キーで読み書きする（nosh 承認 11/06）
+  FXS.sb=window.supabase.createClient(FX_URL,FX_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},...(tok?{global:{headers:{Authorization:`Bearer ${tok}`}}}:{})});
   const {data,error}=await FXS.sb.from("bt_store_fixed_costs").select("id,item,amount,sort,note,updated_at").order("sort");
   if(error){FXS.state=/does not exist|relation|schema cache/i.test(error.message||"")?"notable":"nolib";return fxDraw()}
   const fx=data.filter(x=>!fxRev(x));FXS.rev=data.filter(fxRev);
