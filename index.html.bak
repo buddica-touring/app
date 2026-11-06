@@ -6843,31 +6843,133 @@ function HandoverBtn({rid,compact}){
       )));
 }
 const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車"]; // 引き継ぎボタン対象(返却後洗車は除く)
-/* ★2026-10-16 🔧点検ボタン（タスクサマリー・アルバイト用 staff.html と同じ）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。
-   その車両1台だけの点検を APP 内の「🔧点検」画面（tab=tenken・inspection.html を埋め込み）で開く（2026-10-23 オーナー指示「APPの中の機能として」）。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない） */
-/* ★2026-10-23 3店統一（オーナー確定）：洗車は出発前点検（11項目）を全部チェックするまで完了不可。
-   車両はナンバー＋タスク日で、その日以降に最初に出発する予約を引く（点検ページの1台表示と同じ）。
-   戻り値 {n,t}＝点検数／null＝対象の出発予約なし（点検対象なし→完了可）／-1＝読めない（安全側＝完了させない） */
-const BT_INSP_PRE_KEYS=["exterior","interior","fuel","washer","oil","coolant","tire_air","lights","warning","aircon","docs"];
-async function btInspPreCount(plate,d){
+/* ★2026-10-16 🔧点検ボタン（タスクサマリー）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない）
+   ★2026-11-06 オーナー指示：別画面（tab=tenken）に飛ぶと戻ってタスクを探し直す手間＝顧客取り違えの元 → その場のポップアップ（BtInspPop）に変更。距離（メーター）も同じポップアップで入力。
+   読む＝bt_inspection_targets／書く＝bt_inspection_set（1チェック＝1件・点検画面 inspection.html と同じ表・同じ鍵）。点検画面・点検記録・アルバイト用はそのまま（同じデータを表示）。
+   ★2026-10-23 3店統一（オーナー確定）＋2026-11-06：洗車＝出発前点検11項目＋出発メーター／返却系＝返却後点検9項目＋返却メーター が全部そろうまで完了チェック不可（btInspGate）。
+   点検対象の予約＝ナンバー＋タスク日で、その日以降に最初に出発（返却）する予約（点検画面の1台表示と同じ）。 */
+const BT_INSP_ITEMS={
+  pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
+  post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"]]
+};
+const BT_INSP_PRE_KEYS=BT_INSP_ITEMS.pre.map(x=>x[0]);
+function btInspKind(t){return !t?"":t.type==="洗車"?"pre":(["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0?"post":"");}
+function btInspProg(row,kind){const its=BT_INSP_ITEMS[kind]||[];const n=its.filter(([k])=>{const c=((row&&row.checks)||{})[k];return c&&c.checked;}).length;return {n,t:its.length};}
+/* 戻り値 行＝点検対象の予約／null＝対象の予約なし（点検対象なし→完了可）／-1＝読めない（安全側＝完了させない） */
+async function btInspTarget(kind,plate,d){
   try{
-    if(!plate||!/^\d{4}-\d{2}-\d{2}$/.test(d||""))return null;
+    if(!kind||!plate||!/^\d{4}-\d{2}-\d{2}$/.test(d||""))return null;
     const _sb=(typeof sb!=="undefined"?sb:null); if(!_sb)return -1;
-    const to=new Date(Date.parse(d+"T00:00:00Z")+7*864e5).toISOString().slice(0,10);
-    const {data,error}=await _sb.rpc("bt_inspection_targets",{p_kind:"pre",p_from:d,p_to:to});
+    const hi=new Date(Date.now()+9*3600e3+31*864e5).toISOString().slice(0,10); // RPC の上限（今日+31日）に合わせる
+    let to=new Date(Date.parse(d+"T00:00:00Z")+7*864e5).toISOString().slice(0,10); if(to>hi)to=hi;
+    const {data,error}=await _sb.rpc("bt_inspection_targets",{p_kind:kind,p_from:d,p_to:to});
     if(error)return -1;
-    const hit=(data||[]).filter(r=>String(r.plate_no||"")===String(plate)&&String(r.start_date||"")>=d)
-      .sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date))||String(a.start_time||"99").localeCompare(String(b.start_time||"99")))[0];
-    if(!hit)return null;
-    const n=BT_INSP_PRE_KEYS.filter(k=>{const c=(hit.checks||{})[k];return c&&c.checked;}).length;
-    return {n,t:BT_INSP_PRE_KEYS.length};
+    const dk=kind==="pre"?"start_date":"end_date", tk=kind==="pre"?"start_time":"end_time";
+    const hit=(data||[]).filter(r=>String(r.plate_no||"")===String(plate)&&String(r[dk]||"")>=d)
+      .sort((a,b)=>String(a[dk]).localeCompare(String(b[dk]))||String(a[tk]||"99").localeCompare(String(b[tk]||"99")))[0];
+    return hit||null;
   }catch(e){return -1;}
 }
+async function btInspPreCount(plate,d){const r=await btInspTarget("pre",plate,d);if(r===-1)return -1;if(!r)return null;return btInspProg(r,"pre");}
+/* 完了チェックの前に呼ぶ：点検（全項目）と距離がそろっていれば true。足りなければ警告→その場でポップアップを開いて false */
+async function btInspGate(t,d){
+  if(!t||t.done)return true;
+  const kind=btInspKind(t); if(!kind||!t.plateNo||!d)return true;
+  const row=await btInspTarget(kind,t.plateNo,d);
+  if(row===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return false;}
+  const miss=[];
+  if(row){const p=btInspProg(row,kind);if(p.n<p.t)miss.push("🔧 "+(kind==="pre"?"出発前点検":"返却後点検")+" "+p.n+" / "+p.t);}
+  const _sb=(typeof sb!=="undefined"?sb:null);
+  if(t.reservationId&&_sb){try{const r=await _sb.from("bt_reservations").select("start_odo,end_odo").eq("id",t.reservationId).single();
+    if(r&&!r.error&&r.data&&r.data[kind==="pre"?"start_odo":"end_odo"]==null)miss.push("📏 距離（"+(kind==="pre"?"出発":"返却")+"メーター） 未入力");}catch(_e){/* 距離が読めない時は業務を止めない（従来の距離ガードと同じ） */}}
+  if(!miss.length)return true;
+  alert("⚠️ まだ終わっていない点検があります\n\n"+miss.join("\n")+"\n\n全部終わるとチェックできます。");
+  if(window.__btInspPop)window.__btInspPop(t,d);
+  return false;
+}
 function InspBtn({t,d}){
-  const kind=t.type==="洗車"?"pre":(["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0?"post":"");
+  const kind=btInspKind(t);
   if(!kind||!t.plateNo||!d)return null;
   const u="inspection.html?insp="+kind+"&plate="+encodeURIComponent(t.plateNo)+"&d="+encodeURIComponent(d);
-  return React.createElement("a",{href:u,target:"_blank",rel:"noopener",onClick:e=>{e.stopPropagation();if(window.__btOpenInsp){e.preventDefault();window.__btOpenInsp(u.split("?")[1]);}},title:kind==="pre"?"出発前点検":"返却後点検",style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",textDecoration:"none",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #93c5fd",marginLeft:3}},"🔧 点検");
+  return React.createElement("a",{href:u,target:"_blank",rel:"noopener",onClick:e=>{e.stopPropagation();if(window.__btInspPop){e.preventDefault();window.__btInspPop(t,d);}else if(window.__btOpenInsp){e.preventDefault();window.__btOpenInsp(u.split("?")[1]);}},title:kind==="pre"?"出発前点検":"返却後点検",style:{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",textDecoration:"none",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #93c5fd",marginLeft:3}},"🔧 点検");
+}
+/* ポップアップの置き場（App に1つ）。window.__btInspPop(t,d) で開く */
+function BtInspPopHost({vehicles}){
+  const [st,setSt]=React.useState(null);
+  React.useEffect(()=>{window.__btInspPop=function(t,d){setSt({t,d,key:Date.now()});};return()=>{window.__btInspPop=null;};},[]);
+  if(!st)return null;
+  return <BtInspPop key={st.key} t={st.t} d={st.d} vehicles={vehicles} onClose={()=>setSt(null)}/>;
+}
+function BtInspPop({t,d,vehicles,onClose}){
+  const kind=btInspKind(t), its=BT_INSP_ITEMS[kind]||[], ttl=kind==="post"?"返却後点検":"出発前点検";
+  const _sb=(typeof sb!=="undefined"?sb:null);
+  const [row,setRow]=React.useState(undefined); // undefined=読込中 / null=対象なし / -1=読めない
+  const [busy,setBusy]=React.useState("");
+  const [odo,setOdo]=React.useState(undefined); // {start_odo,end_odo,driven_km}
+  const [odoIn,setOdoIn]=React.useState("");
+  const [odoBusy,setOdoBusy]=React.useState(false);
+  const fld=kind==="pre"?"start_odo":"end_odo";
+  const loadOdo=()=>{if(!t.reservationId||!_sb){setOdo(null);return;}_sb.from("bt_reservations").select("start_odo,end_odo,driven_km").eq("id",t.reservationId).single().then(r=>{if(r&&r.data){setOdo(r.data);setOdoIn(r.data[fld]!=null?String(r.data[fld]):"");}else setOdo(null);}).catch(()=>setOdo(null));};
+  React.useEffect(()=>{btInspTarget(kind,t.plateNo,d).then(setRow);loadOdo();},[]);
+  const save=async(item,checked,note)=>{
+    if(!row||row===-1)return;
+    setBusy(item);
+    try{const {data,error}=await _sb.rpc("bt_inspection_set",{p_k:row.k,p_kind:kind,p_item:item,p_checked:checked,p_note:note});if(error)throw error;
+      setRow(prev=>{if(!prev||prev===-1)return prev;const c=Object.assign({},prev.checks||{});c[item]=data;return Object.assign({},prev,{checks:c});});
+    }catch(e){alert("保存できませんでした："+((e&&e.message)||e)+"\n電波を確認してもう一度押してください");}
+    setBusy("");
+  };
+  const saveOdo=async()=>{
+    const v=parseInt(String(odoIn||"").replace(/[^0-9]/g,""));
+    if(isNaN(v)||v<0){alert("メーターの数字を入れてください");return;}
+    if(kind==="post"&&odo&&odo.start_odo!=null&&v<odo.start_odo&&!window.confirm("出発時（"+Number(odo.start_odo).toLocaleString()+"km）より小さい数字です。このまま保存しますか？"))return;
+    setOdoBusy(true);
+    try{const r=await _btOdoSave(t,_sb,vehicles,v,odo||null);if(!r||!r.ok)alert("距離を保存できませんでした："+((r&&r.error)||"")+"\n電波を確認してもう一度押してください");}catch(e){alert("距離を保存できませんでした："+((e&&e.message)||e));}
+    setOdoBusy(false);loadOdo();
+  };
+  const p=row&&row!==-1?btInspProg(row,kind):{n:0,t:its.length};
+  const odoCur=odo?odo[fld]:null, odoOk=odoCur!=null, needOdo=!!t.reservationId;
+  const allOk=row&&row!==-1&&p.n===p.t&&(!needOdo||odoOk);
+  const memo=row&&row!==-1&&row.checks&&row.checks._memo&&row.checks._memo.note||"";
+  const chg=row&&row!==-1?its.map(([k])=>(row.checks||{})[k]).find(c=>c&&c.checked&&c.vehicle_code&&row.vehicle_code&&c.vehicle_code!==row.vehicle_code):null;
+  const last=row&&row!==-1?Object.values(row.checks||{}).sort((a,b)=>String(b.updated_at||"").localeCompare(String(a.updated_at||"")))[0]:null;
+  const fmt=at=>{if(!at)return "";const x=new Date(at);return (x.getMonth()+1)+"/"+x.getDate()+" "+("0"+x.getHours()).slice(-2)+":"+("0"+x.getMinutes()).slice(-2);};
+  const vn=(vehicles||[]).find(v=>v.code===t.assignedVehicle);
+  const tm=(t.timeChange||t._ssTime||t.time)||"";
+  return <div onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)onClose();}} style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(15,23,42,.55)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+    <div style={{background:"#f8fafc",width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",borderRadius:"16px 16px 0 0",padding:"14px 14px 28px",boxSizing:"border-box",textAlign:"left"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:17,fontWeight:900,color:"#0f172a"}}>🔧 {ttl} <span style={{fontFamily:"monospace"}}>{t.plateNo}</span>{vn&&vn.name?<span style={{fontSize:13,color:"#047857",marginLeft:4}}>{vn.name}</span>:null}</div>
+          <div style={{fontSize:13,color:"#334155",fontWeight:800}}>{kind==="post"?"🔙":"🧽"} {t.type}{tm?" "+tm:""}{t.name?" ／ "+t.name+" 様":""}{t.assignee?" ／ 担当 "+t.assignee:""}</div>
+        </div>
+        <button onClick={onClose} style={{border:"none",background:"#e2e8f0",color:"#0f172a",borderRadius:10,padding:"9px 14px",fontSize:14,fontWeight:900,cursor:"pointer"}}>閉じる</button>
+      </div>
+      {needOdo&&<div style={{background:"#fff",border:"1px solid "+(odoOk?"#86efac":"#fde047"),borderRadius:12,padding:"10px 12px",marginBottom:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><b style={{fontSize:15}}>📏 距離（{kind==="pre"?"出発":"返却"}メーター）</b><span style={{fontSize:13,fontWeight:900,color:odoOk?"#166534":"#854d0e"}}>{odo===undefined?"…":odoOk?"✅ "+Number(odoCur).toLocaleString()+"km":"未入力"}</span></div>
+        {kind==="post"&&odo&&odo.start_odo!=null&&<div style={{fontSize:12,color:"#64748b",marginBottom:4}}>出発時 {Number(odo.start_odo).toLocaleString()}km{odo.driven_km!=null?" ／ 走行 "+Number(odo.driven_km).toLocaleString()+"km":""}</div>}
+        <div style={{display:"flex",gap:8}}>
+          <input type="number" inputMode="numeric" value={odoIn} onChange={e=>setOdoIn(e.target.value)} placeholder="km" style={{flex:1,minWidth:0,border:"1px solid #cbd5e1",borderRadius:8,padding:"9px 10px",fontSize:16,fontFamily:"inherit"}}/>
+          <button disabled={odoBusy||odo===undefined} onClick={saveOdo} style={{border:"none",background:"#1d4ed8",color:"#fff",borderRadius:8,padding:"9px 16px",fontSize:14,fontWeight:900,cursor:"pointer",opacity:odoBusy?.5:1}}>{odoBusy?"保存中…":"保存"}</button>
+        </div>
+      </div>}
+      {row===undefined?<div style={{color:"#64748b",fontSize:13,padding:10}}>読み込み中…</div>:
+       row===-1?<div style={{color:"#b91c1c",fontWeight:800,fontSize:13,padding:10}}>点検の記録を読めませんでした。電波を確認して開き直してください。</div>:
+       row===null?<div style={{color:"#64748b",fontSize:13,padding:10}}>この車両の{kind==="pre"?"出発":"返却"}予定が見つかりません（配車が変わった可能性があります）</div>:
+      <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"10px 12px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><b style={{fontSize:15}}>🔧 {ttl}</b><span style={{fontSize:13,fontWeight:900,color:p.n===p.t?"#166534":"#64748b"}}>{p.n} / {p.t}</span></div>
+        {chg&&<div style={{background:"#fef3c7",color:"#92400e",fontSize:12,fontWeight:800,borderRadius:8,padding:"6px 8px",marginBottom:6}}>⚠️ 点検後に配車が変わりました（点検した車：{chg.vehicle_code}）</div>}
+        {!row.vehicle_code&&<div style={{background:"#fef3c7",color:"#92400e",fontSize:12,fontWeight:800,borderRadius:8,padding:"6px 8px",marginBottom:6}}>未配車です。配車後に点検してください。</div>}
+        {its.map(([k,lb])=>{const c=(row.checks||{})[k];const on=!!(c&&c.checked);const IH=kind==="pre"&&window.InspHowto&&window.InspHowto.has(k)?window.InspHowto:null;/* 出発前点検の「やり方」（insp-howto.js・表示のみ・点検画面と同じ） */
+          return <React.Fragment key={k}><div className="ih-row" style={{borderTop:"1px solid #f1f5f9"}}><label style={{display:"flex",alignItems:"center",gap:10,padding:"9px 4px",fontSize:14,fontWeight:700,color:on?"#166534":"#0f172a",cursor:"pointer",opacity:busy===k?.5:1,flex:1,minWidth:0}}>
+            <input type="checkbox" checked={on} disabled={!!busy} onChange={e=>save(k,e.target.checked,null)} style={{width:22,height:22,flex:"0 0 auto"}}/>{lb}</label>{IH?<span dangerouslySetInnerHTML={{__html:IH.btn(k)}}/>:null}</div>{IH?<div dangerouslySetInnerHTML={{__html:IH.panel(k)}}/>:null}</React.Fragment>;})}
+        <textarea key={"m"+memo} rows={2} defaultValue={memo} placeholder="メモ（気づいた点など）" onBlur={e=>{if(String(e.target.value||"")!==String(memo))save("_memo",null,String(e.target.value||""));}} style={{width:"100%",boxSizing:"border-box",border:"1px solid #cbd5e1",borderRadius:8,padding:8,fontSize:14,fontFamily:"inherit",marginTop:8}}/>
+        {last&&<div style={{fontSize:11,color:"#64748b",fontWeight:700,marginTop:4}}>最終更新 {fmt(last.updated_at)}</div>}
+        <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>写真は <span onClick={()=>{onClose();if(window.__btOpenInsp)window.__btOpenInsp("insp="+kind+"&plate="+encodeURIComponent(t.plateNo)+"&d="+encodeURIComponent(d));}} style={{color:"#1d4ed8",textDecoration:"underline",cursor:"pointer"}}>点検画面</span> から付けられます</div>
+      </div>}
+      {allOk&&<div style={{marginTop:10,background:"#dcfce7",color:"#166534",fontSize:14,fontWeight:900,borderRadius:10,padding:"10px 12px",textAlign:"center"}}>✅ 点検と距離がそろいました。閉じてチェックを押してください</div>}
+    </div>
+  </div>;
 }
 function OdometerManager({vehicles}){
   // Slack Bot Token: localStorage に運用環境で設定（公開リポにハードコードしない）
@@ -23335,10 +23437,7 @@ function App(){
                   // ★ 2026-05-10: タスクサマリーのチェックボックス機能実装（旧コードは onClick 欠落）
                   const _toggleDone=async function(_t){
                     const _newDone=!_t.done;
-                    // ★2026-10-23 3店統一：洗車は出発前点検 全項目チェックまで完了不可（読めない時も完了させない）
-                    if(_newDone&&_t.type==="洗車"&&_t.plateNo){const _ic=await btInspPreCount(_t.plateNo,dateStr);
-                      if(_ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
-                      if(_ic&&_ic.n<_ic.t){alert("🔧 出発前点検が "+_ic.n+" / "+_ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}}
+                    // ★2026-11-06 点検（洗車＝出発前／返却系＝返却後）と距離のチェックは、チェック欄の onClick の btInspGate に統合（足りなければ警告→その場でポップアップ）
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     // 楽観的UI更新
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
@@ -23357,7 +23456,7 @@ function App(){
                     {isHdmTask(t)&&<HdmRibbon m="-6px -9px 0" style={{flexBasis:"calc(100% + 18px)",borderRadius:"6px 6px 0 0"}}/>}
                     <span
                       style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
-                      onClick={async function(_e){_e.preventDefault();_e.stopPropagation();if(typeof _btPayGate!=="undefined"&&!(await _btPayGate(t,(typeof sb!=="undefined"?sb:null))))return;if(typeof _btOdoGate!=="undefined"&&!(await _btOdoGate(t,(typeof sb!=="undefined"?sb:null),(typeof vehicles!=="undefined"?vehicles:null))))return;_toggleDone(t);}}
+                      onClick={async function(_e){_e.preventDefault();_e.stopPropagation();if(typeof _btPayGate!=="undefined"&&!(await _btPayGate(t,(typeof sb!=="undefined"?sb:null))))return;if(!(await btInspGate(t,dateStr)))return;if(typeof _btOdoGate!=="undefined"&&!(await _btOdoGate(t,(typeof sb!=="undefined"?sb:null),(typeof vehicles!=="undefined"?vehicles:null))))return;_toggleDone(t);}}
                       title={t.done?"クリックで未完了に":"クリックで完了"}
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:taskColor(t.type).solid,color:taskColor(t.type).on,minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0,whiteSpace:"nowrap"}}>{washCat(t)||legTypeLabel(t.type)}</span>
@@ -23488,10 +23587,7 @@ function App(){
                   // ★ 2026-05-10: 翌日タスクサマリーもチェック実装
                   const _toggleDone2=async function(_t){
                     const _newDone=!_t.done;
-                    // ★2026-10-23 3店統一：翌日欄も洗車は出発前点検 全項目チェックまで完了不可（今日欄 _toggleDone と同じ）
-                    if(_newDone&&_t.type==="洗車"&&_t.plateNo){const _ic=await btInspPreCount(_t.plateNo,dateStr);
-                      if(_ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
-                      if(_ic&&_ic.n<_ic.t){alert("🔧 出発前点検が "+_ic.n+" / "+_ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}}
+                    // ★2026-11-06 点検（洗車＝出発前／返却系＝返却後）と距離のチェックは、チェック欄の onClick の btInspGate に統合（足りなければ警告→その場でポップアップ）
                     if(_newDone&&typeof celebrateDone==="function"){try{celebrateDone();}catch(_e){}}
                     setDbTasks(function(_prev){return _prev.map(function(_x){return _x._id===_t._id?Object.assign({},_x,{done:_newDone}):_x;});});
                     try{
@@ -23508,7 +23604,7 @@ function App(){
                     {isHdmTask(t)&&<HdmRibbon m="-6px -9px 0" style={{flexBasis:"calc(100% + 18px)",borderRadius:"6px 6px 0 0"}}/>}
                     <span
                       style={{fontSize:18,width:24,textAlign:"center",cursor:"pointer",userSelect:"none",padding:"4px 0"}}
-                      onClick={async function(_e){_e.preventDefault();_e.stopPropagation();if(typeof _btPayGate!=="undefined"&&!(await _btPayGate(t,(typeof sb!=="undefined"?sb:null))))return;if(typeof _btOdoGate!=="undefined"&&!(await _btOdoGate(t,(typeof sb!=="undefined"?sb:null),(typeof vehicles!=="undefined"?vehicles:null))))return;_toggleDone2(t);}}
+                      onClick={async function(_e){_e.preventDefault();_e.stopPropagation();if(typeof _btPayGate!=="undefined"&&!(await _btPayGate(t,(typeof sb!=="undefined"?sb:null))))return;if(!(await btInspGate(t,dateStr)))return;if(typeof _btOdoGate!=="undefined"&&!(await _btOdoGate(t,(typeof sb!=="undefined"?sb:null),(typeof vehicles!=="undefined"?vehicles:null))))return;_toggleDone2(t);}}
                       title={t.done?"クリックで未完了に":"クリックで完了"}
                     >{t.done?"✅":"⬜"}</span>
                     <span style={{padding:"2px 8px",borderRadius:5,fontSize:13,fontWeight:900,background:taskColor(t.type).solid,color:taskColor(t.type).on,minWidth:46,textAlign:"center",letterSpacing:.3,flexShrink:0,whiteSpace:"nowrap"}}>{washCat(t)||legTypeLabel(t.type)}</span>
@@ -23879,6 +23975,7 @@ function App(){
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
           {tab==="mileage"&&<MileageLogTab sb={sb}/>}
+          <BtInspPopHost vehicles={vehicles}/>
           {tab==="tenken"&&<div style={{padding:"0 0 16px"}}>
             {inspQ&&<div style={{marginBottom:6}}><button onClick={()=>setInspQ("")} style={{padding:"4px 12px",fontSize:12,fontWeight:700,color:"#1d4ed8",background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:8,cursor:"pointer"}}>🔧 点検の一覧を見る</button></div>}
             <iframe key={inspQ||"all"} src={`./inspection.html?embed=1${inspQ?"&"+inspQ:""}&v=${APP_VERSION}`} style={{width:"100%",height:"calc(100vh - 150px)",minHeight:620,border:"none",borderRadius:8,background:"#f1f5f9",display:"block"}} title="点検"/>
@@ -24334,7 +24431,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.569-BT";
+const APP_VERSION="v1.0.570-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -26883,13 +26980,26 @@ async function _btOdoCapture(_t, sb, vehicles, showMsgFn){
     if(_in===null||String(_in).trim()==="")return;
     var _v=parseInt(String(_in).replace(/[^0-9]/g,""));
     if(isNaN(_v)||_v<0)return;
-    var _s=_isWash?_v:_c.start_odo,_e=_isRet?_v:_c.end_odo;
-    var _dk=(_s!=null&&_e!=null&&_e>=_s)?(_e-_s):null;
-    var _p={};_p[_fld]=_v;_p[_isWash?"start_odo_at":"end_odo_at"]=new Date().toISOString();_p.driven_km=_dk;
-    await sb.from("bt_reservations").update(_p).eq("id",_t.reservationId);
-    if(_isRet&&_t.assignedVehicle&&vehicles){var _vv=vehicles.find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v&&(!_vv.current_mileage||_v-_vv.current_mileage<=5000)){/* 5,000km以上の飛びは入力ミス扱い（DBトリガーと同じ） */try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
-    if(_dk!=null&&showMsgFn){try{showMsgFn("走行 "+_dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
+    var _sv=await _btOdoSave(_t,sb,vehicles,_v,_c);
+    if(_sv&&_sv.dk!=null&&showMsgFn){try{showMsgFn("走行 "+_sv.dk.toLocaleString()+"km を記録しました");}catch(_e3){}}
   }catch(_eo){console.warn("[odo]",_eo);}
+}
+/* 🚗 ★2026-11-06 メーター値の保存だけを切り出し（入力ポップ _btOdoCapture と 🔧点検ポップアップ BtInspPop の共通）。中身は従来と同じ：
+   予約1件の start_odo|end_odo＋記録時刻＋driven_km を更新／返却時は車両の current_mileage を進める（5,000km超の飛びは入力ミス扱い）。戻り値 {ok,dk,error} */
+async function _btOdoSave(_t, sb, vehicles, _v, _c){
+  var _isWash=(_t&&_t.type==="洗車");
+  var _isRet=(_t&&["COL","BD","BDB","返却","返却待"].indexOf(_t.type)>=0);
+  if(!_t||!_t.reservationId||!sb||!(_isWash||_isRet))return {ok:false,error:"対象外"};
+  if(!_c){var _cr=await sb.from("bt_reservations").select("start_odo,end_odo").eq("id",_t.reservationId).single();if(_cr&&_cr.error)return {ok:false,error:_cr.error.message};_c=(_cr&&_cr.data)||{};}
+  var _fld=_isWash?"start_odo":"end_odo";
+  var _s=_isWash?_v:_c.start_odo,_e=_isRet?_v:_c.end_odo;
+  var _dk=(_s!=null&&_e!=null&&_e>=_s)?(_e-_s):null;
+  var _p={};_p[_fld]=_v;_p[_isWash?"start_odo_at":"end_odo_at"]=new Date().toISOString();_p.driven_km=_dk;
+  var _ur=await sb.from("bt_reservations").update(_p).eq("id",_t.reservationId);
+  if(_ur&&_ur.error)return {ok:false,error:_ur.error.message};
+  if(_isRet&&_t.assignedVehicle&&vehicles){var _vv=vehicles.find(function(x){return x.code===_t.assignedVehicle;});if(_vv&&(_vv.current_mileage||0)<_v&&(!_vv.current_mileage||_v-_vv.current_mileage<=5000)){/* 5,000km以上の飛びは入力ミス扱い（DBトリガーと同じ） */try{await sb.from("bt_vehicles").update({current_mileage:_v}).eq("code",_t.assignedVehicle);}catch(_e2){}}}
+  try{window.dispatchEvent(new CustomEvent("bt-odo-changed",{detail:_t.reservationId}));}catch(_e4){}
+  return {ok:true,dk:_dk};
 }
 /* 🚗 ★2026-10-09 距離未入力ではチェック不可（洗車=出発／BD・返却・COL=返却）。未入力でチェック→注意→入力ポップ→DBで記録確認できた時だけtrue */
 async function _btOdoGate(_t, sb, vehicles){
@@ -26932,7 +27042,8 @@ function OdoSub({t,sb,vehicles,inline}){
   var isRet=(t&&["COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0);
   if(!t||!t.reservationId||!(isWash||isRet))return null;
   var _s=React.useState(null),odo=_s[0],setOdo=_s[1];
-  React.useEffect(function(){var a=true;if(sb)sb.from("bt_reservations").select("start_odo,end_odo,driven_km").eq("id",t.reservationId).single().then(function(r){if(a&&r&&r.data)setOdo(r.data);}).catch(function(){});return function(){a=false;};},[t.reservationId]);
+  React.useEffect(function(){var a=true;var ld=function(){if(sb)sb.from("bt_reservations").select("start_odo,end_odo,driven_km").eq("id",t.reservationId).single().then(function(r){if(a&&r&&r.data)setOdo(r.data);}).catch(function(){});};ld();
+    /* ★2026-11-06 🔧点検ポップアップで距離を入れた時もこの札を最新に */var h=function(e){if(!e||!e.detail||e.detail===t.reservationId)ld();};window.addEventListener("bt-odo-changed",h);return function(){a=false;window.removeEventListener("bt-odo-changed",h);};},[t.reservationId]);
   var cur=odo?(isWash?odo.start_odo:odo.end_odo):null;
   var rec=(cur!=null);
   var tap=async function(e){e.stopPropagation();await _btOdoCapture(t,sb,vehicles,null);try{var r=await sb.from("bt_reservations").select("start_odo,end_odo,driven_km").eq("id",t.reservationId).single();if(r&&r.data)setOdo(r.data);}catch(_){}};
