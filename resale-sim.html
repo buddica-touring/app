@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 17:40</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 17:45</small></h1>
     <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav><button id="pdfBtn" type="button" style="margin-left:8px">PDF（横）</button></div>
   <div class="bestbar" id="bestbar"></div>
 
@@ -659,7 +659,7 @@ window.addEventListener("hashchange",route);route();render(true);
       if(!(window.jspdf&&window.jspdf.jsPDF))await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
       const el=document.getElementById("wrap");el.classList.add("pdfmode");
       const bg=getComputedStyle(document.body).backgroundColor||"#fff";
-      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="pdfBtn"||x.id==="jrPlay"||x.id==="rmadd"});
+      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="pdfBtn"||x.id==="jrPlay"||x.id==="rmadd",onclone:d=>{d.querySelectorAll("details").forEach(dt=>{const sm=dt.querySelector(":scope>summary");if(!dt.open)[...dt.children].forEach(c=>{if(c!==sm)c.remove()});if(sm){sm.style.display="block";sm.style.listStyle="none";sm.insertAdjacentText("afterbegin",dt.open?"▾ ":"▸ ")}})}});
       el.classList.remove("pdfmode");
       // A4横。1ページに収まる高さならそのまま1枚、長い画面は幅いっぱいで横ページを続ける
       const PW=297,PH=210,M=6,cw=PW-2*M,ch=PH-2*M,pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"l"}),fc=(bg.match(/\d+/g)||[255,255,255]).map(Number);
