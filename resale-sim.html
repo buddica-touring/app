@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 11:30</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 11:35</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -292,14 +292,17 @@ const pl=v=>(v<0?"−":v>0?"+":"±")+f1(v)+"万";
 const COLS=[["name","車種",""],["q","台数","台"],["P","仕入額","万"],["REV","売上/月","万"],["SY","車検/年","万"],["TK","点検/年","万"],["SB","整備/年","万"],["INS","保険/月","万"],["DEP","値下がり/年","%"]];
 const GF=[["FIX","固定費・販管費 /月（1店あたり）","万"],["UP","本部→店舗の上乗せ /台/月","万"],["SALES","売上（参考） /月（店全体）","万"],["N","期間","ヶ月"],["RT","リース金利（年）","%"],["RV","買い戻す額（売る額の）","%"],["KM0","仕入時の走行","万km"],["KMY","年間の走行","万km"]];
 const DEF={g:{FIX:260,HK:0,UP:3,N:24,RT:3,RV:80,KM0:5,KMY:1.5},rows:[
-  {name:"コンパクト（例）",q:25,P:100,REV:10,SY:10,TK:3,SB:5,INS:1,DEP:20},
-  {name:"ミニバン（例）",q:10,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1,DEP:18},
-  {name:"SUV（例）",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1,DEP:14}]};
+  {name:"コンパクト",q:25,P:100,REV:10,SY:10,TK:3,SB:5,INS:1,DEP:20},
+  {name:"ミニバン",q:10,P:150,REV:13.5,SY:10,TK:3,SB:5,INS:1,DEP:18},
+  {name:"セダン/SUV",q:5,P:200,REV:15,SY:10,TK:3,SB:5,INS:1,DEP:14}]};
 const clone=o=>JSON.parse(JSON.stringify(o));
+// 車種は3つに固定（nosh 11/06）
+const CLS=["コンパクト","ミニバン","セダン/SUV"],clsOf=n=>/コンパクト/.test(n||"")?0:/ミニバン/.test(n||"")?1:/SUV|セダン/.test(n||"")?2:-1;
+function fixRows(st){if(!st||!st.rows)return;st.rows=CLS.map((nm,i)=>({...(st.rows.find(r=>clsOf(r.name)===i)||DEF.rows[i]),name:nm}))}
 let rmCap=40, base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:2},{t:"",q:120,s:3},{t:"",q:160,s:4},{t:"",q:200,s:5},{t:"",q:240,s:6},{t:"",q:280,s:7},{t:"",q:320,s:8}];
 const KEY="resale-life-v7";
 try{const sv=JSON.parse(localStorage.getItem(KEY)||"null");
-  if(sv){base=sv.base||base;sim=sv.sim||sim;[sim,base].forEach(x=>{if(x&&x.g&&+x.g.FIX>=10000)x.g.FIX=Math.round(x.g.FIX/1000)/10});selI=sv.sel||0;if(sv.rm&&sv.rmv===3)rm=sv.rm;if(sv.rmCap)rmCap=sv.rmCap}
+  if(sv){base=sv.base||base;sim=sv.sim||sim;fixRows(sim);fixRows(base);[sim,base].forEach(x=>{if(x&&x.g&&+x.g.FIX>=10000)x.g.FIX=Math.round(x.g.FIX/1000)/10});selI=sv.sel||0;if(sv.rm&&sv.rmv===3)rm=sv.rm;if(sv.rmCap)rmCap=sv.rmCap}
   else{const old=JSON.parse(localStorage.getItem("resale-life-v6")||"null");if(old&&old.rows){const g=clone(DEF.g);Object.keys(g).forEach(k=>{if(old.g&&old.g[k]!=null)g[k]=parseFloat(old.g[k])||0});base={g,rows:old.rows};sim=clone(base)}}
 }catch(e){}
 // 値下がり率＝仕入額の帯で決める（nosh 2026-11-05、走行 仕入5万km→出口8万km前提）。保存済みの値にも一度だけ当てる
@@ -372,17 +375,17 @@ function scene(sc){
 }
 
 
-function editor(el,st){st.g.HK=0;if(st.g.KM0==null)st.g.KM0=5;if(st.g.KMY==null)st.g.KMY=1.5;if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce((a,r)=>a+r.REV*r.q,0)*10)/10;
+function editor(el,st){fixRows(st);st.g.HK=0;if(st.g.KM0==null)st.g.KM0=5;if(st.g.KMY==null)st.g.KMY=1.5;if(st.g.SALES==null)st.g.SALES=Math.round(st.rows.reduce((a,r)=>a+r.REV*r.q,0)*10)/10;
   const g=st.g;
   el.innerHTML=`
   <div class="card"><p class="sec">店舗コストの合計<span>店全体・月／単年／期間</span></p><div class="ssum" data-ssum></div></div>
   <div class="card"><p class="sec">リース・出口の条件<span>全車共通</span></p>
     <div class="cond c3">${GF.filter(x=>x[0]==="UP").concat(GF.slice(3)).map(([k,l,u])=>`<label>${l}<span class="u"><input data-g="${k}" type="number" step="any" value="${g[k]}">${u}</span></label>`).join("")}</div></div>
   <div class="card"><p class="sec">車種ごとの単価<span>数字を直接書き換えられます</span></p>
-    <div class="tw"><table class="ed" data-ed></table></div><p class="note3" data-note></p><div class="ctrl"><button data-add>＋ 車種を追加</button></div></div>`;
+    <div class="tw"><table class="ed" data-ed></table></div><p class="note3" data-note></p></div>`;
   const ed=el.querySelector("[data-ed]");
   const OUT=[["m","リース","万/月"],["T","本部へ","万/月"],["mt","維持","万/月"],["fq","固定費","万/月"],["pm","利益","万/月"],["R","買戻","万"],["S","売値","万"],["car","生涯利益","万"]];el._OUT=OUT;
-  const drawRows=()=>{ed.innerHTML=`<tr><th class="grp" colspan="${COLS.length}">入力</th><th class="grp sep" colspan="${OUT.length}">計算結果（1台あたり）</th><th></th></tr><tr>${COLS.map(c=>`<th>${c[1].replace(/\/(.+)/,"")}${c[2]||c[1].includes("/")?`<small>${c[1].includes("/")?c[2]+"/"+c[1].split("/")[1]:c[2]}</small>`:""}</th>`).join("")}${OUT.map(([k,l,u],j)=>`<th class="o ${j===0?"sep":""}">${l}<small>${u}</small></th>`).join("")}<th></th></tr>`+st.rows.map((r,i)=>`<tr>${COLS.map(([k,l,u])=>`<td><input data-i="${i}" data-k="${k}" ${k==="name"?'type="text"':'type="number" step="any"'} value="${r[k]??""}" aria-label="${l}"></td>`).join("")}${OUT.map(([k],j)=>`<td class="o ${j===0?"sep ":""}${k==="car"?"k":""}" data-c="${k}"></td>`).join("")}<td><button data-del="${i}" aria-label="削除">×</button></td></tr>`).join("")};
+  const drawRows=()=>{ed.innerHTML=`<tr><th class="grp" colspan="${COLS.length}">入力</th><th class="grp sep" colspan="${OUT.length}">計算結果（1台あたり）</th><th></th></tr><tr>${COLS.map(c=>`<th>${c[1].replace(/\/(.+)/,"")}${c[2]||c[1].includes("/")?`<small>${c[1].includes("/")?c[2]+"/"+c[1].split("/")[1]:c[2]}</small>`:""}</th>`).join("")}${OUT.map(([k,l,u],j)=>`<th class="o ${j===0?"sep":""}">${l}<small>${u}</small></th>`).join("")}<th></th></tr>`+st.rows.map((r,i)=>`<tr>${COLS.map(([k,l,u])=>k==="name"?`<td style="font-weight:700;white-space:nowrap;padding:0 8px">${r.name}</td>`:`<td><input data-i="${i}" data-k="${k}" type="number" step="any" value="${r[k]??""}" aria-label="${l}"></td>`).join("")}${OUT.map(([k],j)=>`<td class="o ${j===0?"sep ":""}${k==="car"?"k":""}" data-c="${k}"></td>`).join("")}<td></td></tr>`).join("")};
   drawRows();
   el.addEventListener("input",e=>{const t=e.target;
     if(t.dataset.g){g[t.dataset.g]=parseFloat(t.value)||0}
@@ -636,7 +639,7 @@ let fxTm=null;const fxRe=()=>{clearTimeout(fxTm);fxTm=setTimeout(()=>render(true
 // 内訳の合計を固定費・販管費に入れる（0のままなら既存の入力値を残す）
 function fxApply(now){const t=Math.round(fxSum()*10)/10;if(t>0&&sim.g.FIX!==t){sim.g.FIX=t;now?render(true):fxRe()}}
 // 保存済みの売上（車種名で照合）を車種表へ
-function fxApplyRev(){let ch=0;FXS.rev.forEach(x=>{const r=sim.rows.find(r=>r.name===x.item);if(r&&+r.REV!==+x.amount){r.REV=+x.amount;ch=1}});if(ch)render(true)}
+function fxApplyRev(){let ch=0;FXS.rev.forEach(x=>{const r=sim.rows.find(r=>clsOf(r.name)===clsOf(x.item));if(r&&+r.REV!==+x.amount){r.REV=+x.amount;ch=1}});if(ch)render(true)}
 function fxDraw(){const el=$("fxCard");if(!el)return;const t=fxSum(),ok=FXS.state==="ready";
   const msg={init:"共有の保存先を確認中…",nolib:"共有の保存先に接続できません。入力はこの画面の計算にだけ反映されます",nologin:"進行管理にログインしていないため保存はできません。入力はこの画面の計算に反映されます",notable:"保存先がまだありません（sql/bt_store_fixed_costs.sql）",ready:FXS.at?`自動保存済み ${FXS.at}`:"入力すると自動で保存されます",saving:"保存中…",err:"保存できませんでした"}[FXS.state]||"";
   el.innerHTML=`<p class="sec">売上・コストの入力（1店 / 月）<span>入力するとすぐ全体が再計算されます。保存すると全員で共有</span></p>
@@ -674,7 +677,7 @@ async function fxSaveNow(){if(fxBusy){fxAgain=true;return}fxBusy=true;FXS.state=
   try{const now=new Date().toISOString(),T_="bt_store_fixed_costs";
     const src=FXS.rows.filter(x=>(x.item||"").trim());
     const fx=src.map((x,i)=>({...(x.id?{id:x.id}:{}),item:x.item.trim(),amount:fxVeh(x)?0:(parseFloat(x.amount)||0),note:x.note||null,sort:i,updated_at:now}));
-    const rsrc=sim.rows.map(r=>{let o=FXS.rev.find(x=>x.item===r.name);if(!o){o={item:r.name,note:"rev"};FXS.rev.push(o)}o.amount=+r.REV||0;return o});
+    const rsrc=sim.rows.map(r=>{let o=FXS.rev.find(x=>clsOf(x.item)===clsOf(r.name));if(!o){o={item:r.name,note:"rev"};FXS.rev.push(o)}o.item=r.name;o.amount=+r.REV||0;return o});
     const rv=rsrc.map((o,i)=>({...(o.id?{id:o.id}:{}),item:o.item,amount:o.amount,note:"rev",sort:1000+i,updated_at:now}));
     const all=fx.concat(rv),allSrc=src.concat(rsrc),ids=all.filter(x=>x.id).map(x=>x.id);
     let q=FXS.sb.from(T_).delete();q=ids.length?q.not("id","in",`(${ids.join(",")})`):q.gte("id",0);const d=await q;if(d.error)throw d.error;
