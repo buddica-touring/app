@@ -207,7 +207,7 @@ section{display:grid;gap:12px}
 .jr .seg .s2{border-color:#4f6273}.jr .seg .s3{border-color:#8fa3b5}.jr .seg .s4{border-color:var(--fg)}
 .jr .ctl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
 @media(max-width:700px){.jr .stops,.jr .seg{grid-template-columns:1fr 1fr}.jr .seg .s1,.jr .seg .s2,.jr .seg .s3,.jr .seg .s4{grid-column:auto}.jr .road{display:none}}
-.jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .req{margin:4px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}.jr .req span{font-size:11px;color:var(--mute);margin-right:10px}.jr .req b{font-size:15px}.jr .fxb{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:520px}.jr .fxb .h{font-size:13px;font-weight:700}.jr .fxb .h span{font-size:11px;font-weight:400;color:var(--mute);margin-left:8px}.pdfmode .jr .sp{opacity:1!important}.pdfmode .jr .road{display:none}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
+.jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .req{margin:4px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}.jr .req span{font-size:11px;color:var(--mute);margin-right:10px}.jr .req b{font-size:15px}.jr .fxb{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:520px}.jr .fxb .h{font-size:13px;font-weight:700}.jr .fxb .h span{font-size:11px;font-weight:400;color:var(--mute);margin-left:8px}.pdfmode .jr .sp{opacity:1!important}.pdfmode .jr .road{display:none}.jr .ft{font-size:11px;color:#4f6273;margin-top:8px}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
 .jr .jb .b{display:flex;align-items:center;gap:8px;margin-top:3px}.jr .jb .b span{display:flex;flex:1;height:13px}.jr .jb .b i{display:block;height:100%;border-radius:2px;box-sizing:border-box}.jr .jb .b b{font-size:13px;min-width:44px;text-align:right}.jr .jb .ft{font-size:11px;color:#4f6273;margin-top:8px}
 .jr .sp{padding:12px 12px 14px}.jr .sp .t{font-size:13px}.jr .sp .v{font-size:24px}
 
@@ -463,17 +463,17 @@ function drawJourney(){
   // 内訳の表（項目＋右寄せの金額）。rows=[[項目,金額,_ ,太字]]
   const bars=(rows,foot="")=>`<table class="jt">${rows.map(([lab,num,_,b])=>`<tr class="${b?"sum":""}"><td>${lab}</td><td>${num}</td></tr>`).join("")}</table>${foot?`<div class="ft">${foot}</div>`:""}`;
   const LG="#e2dbd1",CO=["#cfc7bb","#bdb4a7","#a69c8e"];
-  const ern=REV-m-mt, tot1=ern*n+ex, FX=(+g.FIX||0)+(+g.HK||0), cap=Math.max(1,+rmCap||40), be=ern>0?Math.ceil(FX/ern):0;
+  const ern=REV-m-mt, ernS=ern-(+g.UP||0), tot1=ern*n+ex, FX=(+g.FIX||0)+(+g.HK||0), cap=Math.max(1,+rmCap||40), be=ern>0?Math.ceil(FX/ern):0, beS=ernS>0?Math.ceil(FX/ernS):0;
   const UP=+g.UP||0,sc_=(m+UP+mt+fq)*n,UPC="#7d93a8";
   const st=[
    {t:"① 仕入",v:-P,g:bars([[`中古車を買う`,`${f1(P)}万`],[`走行`,`${km0}万km`]])},
    {t:"② リース会社へ売る",v:+P,g:bars([[`同額で売る`,`${f1(P)}万`],[`手元の現金`,`±0`,0,1]])},
-   {t:"③ リース組み直し",big:`月${f1(m)}<small>万</small>`,g:bars([[`リースの元本（仕入額）`,`${f1(P)}万`],[`うち${n}ヶ月目に買い戻す残り`,`${f1(R)}万`],[`${n}ヶ月で返す元本`,`${f1(P-R)}万`],[`金利（年${g.RT}%・${n}ヶ月）`,`${f1(m*n-(P-R))}万`],[`リース原価 / 月`,`${f1(m)}万`,0,1]])},
+   {t:"③ リース組み直し",big:`月${f1(m+UP)}<small>万</small>`,g:bars([[`リースの元本（仕入額）`,`${f1(P)}万`],[`うち${n}ヶ月目に買い戻す残り`,`${f1(R)}万`],[`${n}ヶ月で返す元本`,`${f1(P-R)}万`],[`金利（年${g.RT}%・${n}ヶ月）`,`${f1(m*n-(P-R))}万`],[`リース原価 / 月`,`${f1(m)}万`,0,1],[`＋ 本部上乗せ / 月`,`${f1(UP)}万`],[`店舗が払うリース代 / 月`,`${f1(m+UP)}万`,0,1]],`上乗せは本部の収入（会社全体では相殺）`)},
    {t:`④ 店舗で貸す`,tag:"年",v:REV*12,g:bars([[`純売上 / 月`,`${f1(REV)}万`],[`× 12ヶ月`,`${f1(REV*12)}万`,0,1]])},
-   {t:`⑤ 1台のコスト`,tag:"年",v:-(m+mt)*12,g:bars([[`リース 元本`,`${f1((P-R)/n*12)}万`],[`リース 金利`,`${f1((m*n-(P-R))/n*12)}万`],[`車検`,`${f1(r.SY/Q)}万`],[`点検`,`${f1(r.TK/Q)}万`],[`整備`,`${f1(r.SB/Q)}万`],[`保険（月${f1(r.INS/Q)}万×12）`,`${f1(r.INS/Q*12)}万`],[`合計`,`${f1((m+mt)*12)}万`,0,1],[`1台の稼ぎ（④−⑤）`,`<span class="${ern<0?"neg":""}">${pl(ern*12)}</span>`,0,1]])},
+   {t:`⑤ 1台のコスト`,tag:"年",v:-(m+UP+mt)*12,g:bars([[`リース 元本`,`${f1((P-R)/n*12)}万`],[`リース 金利`,`${f1((m*n-(P-R))/n*12)}万`],[`本部上乗せ（月${f1(UP)}万×12）`,`${f1(UP*12)}万`],[`車検/点検/整備`,`${f1((r.SY+r.TK+r.SB)/Q)}万`],[`保険（月${f1(r.INS/Q)}万×12）`,`${f1(r.INS/Q*12)}万`],[`合計`,`${f1((m+UP+mt)*12)}万`,0,1],[`1台の稼ぎ（④−⑤）店舗`,`<span class="${ernS<0?"neg":""}">${pl(ernS*12)}</span>`,0,1]])},
    {t:"⑥ リース会社から買い戻す",tag:`${n}ヶ月目`,v:-R,g:bars([[`売る額 ${f1(S)}万 × ${g.RV}%`,`${f1(R)}万`],[`下落率`,`年${f1(dep)}%`]])},
    {t:"⑦ 売る",tag:`${n}ヶ月目`,v:S,g:bars([[`仕入時`,`${f1(P)}万`],[`下落 年${f1(dep)}% × ${+(n/12).toFixed(1)}年`,`−${f1(P-S)}万`],[`売る額（${+km1.toFixed(1)}万km）`,`${f1(S)}万`,0,1],[`買戻との差`,`${pl(ex)}`]])},
-   {t:"⑧ 着地",tag:`${n}ヶ月`,v:tot1,end:1,g:bars([[`1台の稼ぎ 年${pl(ern*12)} × ${+(n/12).toFixed(1)}年`,`${pl(ern*n)}`],[`出口（⑦−⑥）`,`${pl(ex)}`],[`着地`,`<span class="${tot1<0?"neg":""}">${pl(tot1)}</span>`,0,1],[`仕入に対して`,`${P?Math.round(tot1/P*1000)/10:0}%`]])}];
+   {t:"⑧ 着地",tag:`${n}ヶ月`,v:tot1,end:1,g:bars([[`店舗の取り分（稼ぎ 年${pl(ernS*12)}×${+(n/12).toFixed(1)}年）`,`<span class="${ernS<0?"neg":""}">${pl(ernS*n)}</span>`],[`本部の取り分（上乗せ ${f1(UP*n)}＋出口 ${pl(ex)}）`,`${pl(UP*n+ex)}`],[`会社全体`,`<span class="${tot1<0?"neg":""}">${pl(tot1)}</span>`,0,1],[`仕入に対して`,`${P?Math.round(tot1/P*1000)/10:0}%`]])}];
   const fmt=v=>v==null?`<span style="font-size:13px;color:var(--mute)">—</span>`:`<span class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</span>`;
   const xs=st.map((_,k)=>4+(92/(st.length-1))*k);
   $("journey").innerHTML=`<div class="jh"><b>1台の一生（平均的な1台）　<span>④⑤は1年あたり、⑥⑦は${n}ヶ月目、⑧は${n}ヶ月の合計。店舗の固定費は下で別に</span></b><span class="ctl"><button id="jrPlay">▶ 再生</button>${Q}台の平均</span></div>
@@ -482,9 +482,12 @@ function drawJourney(){
    <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
    <div class="fxb"><div class="h">店舗の固定費は台数で回収する<span>1台の一生の外</span></div><table class="jt">
      <tr><td>固定費・販管費（1店 / 月）</td><td>${f1(FX)}万</td></tr>
-     <tr><td>1台の稼ぎ（月）</td><td>${pl(ern)}</td></tr>
-     <tr class="sum"><td>損益分岐（1店）</td><td>${ern>0?be+"台":"—"}</td></tr>
-     <tr><td>1店${cap}台なら 店の月利益</td><td class="${ern*cap-FX<0?"neg":""}">${pl(ern*cap-FX)}</td></tr>
+     <tr><td>1台の稼ぎ（月）店舗：上乗せ後</td><td>${pl(ernS)}</td></tr>
+     <tr><td>1台の稼ぎ（月）会社全体：上乗せ前</td><td>${pl(ern)}</td></tr>
+     <tr class="sum"><td>損益分岐（1店）店舗で見ると</td><td>${ernS>0?beS+"台":"—"}</td></tr>
+     <tr class="sum"><td>損益分岐（1店）会社全体で見ると</td><td>${ern>0?be+"台":"—"}</td></tr>
+     <tr><td>1店${cap}台なら 店舗の月利益</td><td class="${ernS*cap-FX<0?"neg":""}">${pl(ernS*cap-FX)}</td></tr>
+     <tr><td>1店${cap}台なら 会社全体の月利益（上乗せ ${f1(UP*cap)}万は本部へ）</td><td class="${ern*cap-FX<0?"neg":""}">${pl(ern*cap-FX)}</td></tr>
      <tr><td>1店${cap}台なら ${n}ヶ月の着地（出口込み）</td><td class="${tot1*cap-FX*n<0?"neg":""}">${pl(tot1*cap-FX*n)}</td></tr></table></div>`;
   const go=k=>{jrI=k;$("jrCar").style.left=xs[Math.max(0,k)]+"%";$("jrFill").style.width=(xs[Math.max(0,k)]-4)+"%";
     document.querySelectorAll("#journey .sp").forEach((e,i)=>{e.classList.toggle("on",i<=k);e.classList.toggle("cur",i===k)});
