@@ -221,17 +221,18 @@ section{display:grid;gap:12px}
 .tgrp{display:flex;align-items:center;gap:2px;background:var(--ref);border:1px solid var(--refl);border-radius:7px;padding:2px;margin-left:6px}
 .tsep{font-size:10px;color:var(--refi);font-weight:700;padding:0 6px}
 .tgrp a{color:var(--refi)}.tgrp a.on{background:var(--refi);color:#fff}
-:root{--ref:#eef1f4;--refl:#d5dce3;--refi:#4f6273}
-@media(max-width:600px){.tgrp{flex:1 1 100%;margin:4px 0 0}.tgrp a{flex:1}}
+:root{--ref:#eef1f4;--refl:#c9d3dd;--refi:#4f6273}.tgrp.now{background:var(--bg);border-color:var(--line);margin-left:0}.tgrp.now .tsep{color:var(--mute)}.tgrp.now a{color:var(--mute)}.tgrp.now a.on{background:var(--fg);color:var(--card)}.tabs{gap:6px}.wrap.best section .card,.wrap.best .rmst .st,.wrap.best .kp,.wrap.best .jr{border-color:var(--refl)}.wrap.best .bestbar{display:flex}.bestbar{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border:1px solid var(--refl);background:var(--ref);border-radius:8px;font-size:12.5px;color:var(--refi)}.bestbar b{font-size:15px}.wrap.best #v-cost input:not([data-fxr]),.wrap.best #v-cost button{pointer-events:none;opacity:.55}
+@media(max-width:600px){.tgrp,.tgrp.now{flex:1 1 100%;margin:2px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
 .chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
 #rmSum,#rmYear,#rmStore,#rmIO{grid-template-columns:repeat(6,1fr);gap:8px}#rmSum .k b,#rmYear .k b,#rmStore .k b,#rmIO .k b{font-size:19px}#rmSum .k:nth-child(4),#rmYear .k:nth-child(4),#rmStore .k:nth-child(4),#rmIO .k:nth-child(4){border-left:3px solid var(--fg)}
 @media(max-width:700px){#rmSum,#rmYear,#rmStore,#rmIO{grid-template-columns:repeat(3,1fr)}}
 </style>
 
-<div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 12:25</small></h1>
-    <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></nav></div>
+<div class="wrap" id="wrap">
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 12:45</small></h1>
+    <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav></div>
+  <div class="bestbar" id="bestbar"></div>
 
   <section id="v-summary" hidden>
     <div class="bar"><span>参考例：「参考シミュレーション」の数字で、全台の流れと収支を見ます。「基準値」は「基準との差」にだけ使います。ロードマップの①もこの数字です。</span></div>
@@ -313,7 +314,12 @@ try{const sv=JSON.parse(localStorage.getItem(KEY)||"null");
 // 値下がり率＝仕入額の帯で決める（nosh 2026-11-05、走行 仕入5万km→出口8万km前提）。保存済みの値にも一度だけ当てる
 const depByP=P=>P<=100?20:P<=160?18:14;
 try{const sv2=JSON.parse(localStorage.getItem(KEY)||"null");if(!sv2||!sv2.depv){[base,sim].forEach(st=>st.rows.forEach(r=>{r.DEP=depByP(+r.P||0)}))}}catch(e){}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({base,sim,sel:selI,rm,rmv:3,depv:1,rmCap}))}catch(e){}};
+// ベスト設計：コストは現状路線と共通、売上（車種ごと 1台/月）だけ目標値（nosh 11/06）
+let simNow=sim,MODE="now",BEST=null;try{BEST=JSON.parse(localStorage.getItem("resale-best")||"null")}catch(e){}
+const bestDef=()=>{const t=simNow.rows.reduce((a,r)=>a+(+r.REV||0)*(+r.q||0),0)||1;return simNow.rows.map(r=>Math.round((+r.REV||0)*580/t*10)/10)};
+const mkBest=()=>{let B=BEST;if(!B||B.length!==simNow.rows.length){B=bestDef();if(window.FXS&&FXS.state==="ready")BEST=B}const c=clone(simNow);c.rows.forEach((r,i)=>{r.REV=+B[i]||0});return c};
+const bestSave=()=>{try{localStorage.setItem("resale-best",JSON.stringify(BEST))}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({base,sim:simNow,sel:selI,rm,rmv:3,depv:1,rmCap}))}catch(e){}};
 
 function carCalc(r,g,Qall){
   const n=Math.max(1,g.N),rr=g.RT/100/12,yrs=n/12;
@@ -411,7 +417,7 @@ function fillEditor(el){
   const ssT=rows=>`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+rows.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`,ssH=ssT(it);
   el.querySelector("[data-ssum]").innerHTML=ssH;if(el.id==="ed-sim"){const b=document.querySelector("#bizSsum [data-ss]");if(b)b.innerHTML=ssT(it.filter(x=>!x[2]));const b3=document.querySelector("#bizSsum [data-ss3]");if(b3)b3.innerHTML=ssT(it.filter(x=>x[2]))}
 }
-function render(rebuild){
+function render(rebuild){if(MODE==="best")sim=mkBest();else sim=simNow;bestBar();
   if(window.FXS&&FXS.rows&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#fxCard")))setTimeout(fxDraw);
   if(rebuild){editor($("ed-sim"),sim);editor($("ed-base"),base)}
   fillEditor($("ed-sim"));fillEditor($("ed-base"));
@@ -625,7 +631,8 @@ function drawChk(){
   <p class="note3">参考シミュの「店舗コスト合計」${f1(sRev-sMon+sUp)}万/月には本部上乗せ ${f1(sUp)}万（${g.UP}万×${Q}台）が入っています。これは本部と店舗のあいだのお金の移動なので、参考例とロードマップでは差し引きゼロになります（${f1(sRev-sMon+sUp)}−${f1(sUp)}＝${f1(sRev-sMon)}万＝上の費用の合計）。${Math.abs((+g.SALES||0)-sRev)>0.6?`　売上（参考・手入力）${f1(+g.SALES||0)}万は計算に使っていません。使っているのは車種表の合計 ${f1(sRev)}万です。`:""}${st!==1?`　ロードマップ①は${st}店で計算しています。`:""}</p>`;
   ["chk1","chk2"].forEach(id=>{const el=$(id);if(el)el.innerHTML=html});
 }
-function route(){const h=location.hash.slice(1),v=["biz","cost"].includes(h)?h:"road";["summary","sim","base"].forEach(k=>{$("v-"+k).hidden=true});["road","biz","cost"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
+function route(){const h=location.hash.slice(1),b=h.startsWith("b-"),k=b?h.slice(2):h,v=["biz","cost"].includes(k)?k:"road",m=b?"best":"now";["summary","sim","base"].forEach(k=>{$("v-"+k).hidden=true});["road","biz","cost"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",!b&&k===v);$("tb-"+k).classList.toggle("on",b&&k===v)});$("wrap").classList.toggle("best",b);if(m!==MODE){MODE=m;render(true)}}
+function bestBar(){const el=$("bestbar");if(!el)return;if(MODE!=="best"){el.innerHTML="";return}const st=mkBest(),t=st.rows.reduce((a,r)=>a+r.REV*r.q,0),t0=simNow.rows.reduce((a,r)=>a+(+r.REV||0)*(+r.q||0),0);el.innerHTML=`<span>ベスト設計：コストは現状路線と同じ、<b>売上だけ目標値</b></span><span>店舗売上 月 <b>${f1(t)}万</b>（現状 ${f1(t0)}万 / ${t-t0>=0?"+":"−"}${f1(Math.abs(t-t0))}万）</span><span>目標の売上は「ベスト設計 → 店舗設計」で車種ごとに変えられます</span>`}
 window.addEventListener("hashchange",route);route();render(true);
 
 // 事業構成タブを1枚のPDFに
@@ -651,7 +658,7 @@ window.addEventListener("hashchange",route);route();render(true);
 var FXS={rows:[],rev:[],state:"init",at:null,sb:null};
 const FX_URL="https://ggqugvyskyiblxiycpci.supabase.co",FX_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 const FX_ITEMS=["給与手当","賞与","賞与引当金繰入額","業務委託費（内部）","業務委託費（外部）","法定福利費","福利厚生費","外注費","旅費交通費","調査費","通信費","交際費","会議費","減価償却費","地代家賃","水道光熱費","広告宣伝費","消耗品費","支払手数料","諸会費","新聞図書費","教育研修費","リース料","保険料","整備費用","雑費"],FX_VEH=["リース料","保険料","整備費用"];
-const fxVeh=x=>x.note==="veh",fxRev=x=>x.note==="rev"||/^u:/.test(x.note||"");
+const fxVeh=x=>x.note==="veh",fxRev=x=>x.note==="rev"||x.note==="best"||/^u:/.test(x.note||"");
 // 車種ごとの値（共有）：売上・台数・保険/月・車検/年・点検/年・整備/年（万円で保存）
 const FXK=["REV","q","INS","SY","TK","SB"],fxKey=x=>x.note==="rev"?"REV":(x.note||"").slice(2),fxNote=k=>k==="REV"?"rev":"u:"+k;
 const fxDef=()=>FX_ITEMS.map((item,i)=>({item,amount:0,sort:i,note:FX_VEH.includes(item)?"veh":null}));
@@ -660,9 +667,9 @@ FXS.rows=fxDef();try{const lb=JSON.parse(localStorage.getItem("resale-fx-rows")|
 const fxSum=()=>FXS.rows.reduce((a,x)=>a+(fxVeh(x)?0:(parseFloat(x.amount)||0)),0)/10000;
 let fxTm=null;const fxRe=()=>{clearTimeout(fxTm);fxTm=setTimeout(()=>render(true),350)};
 // 内訳の合計を固定費・販管費に入れる（0のままなら既存の入力値を残す）
-function fxApply(now){const t=Math.round(fxSum()*10)/10;if(t>0&&sim.g.FIX!==t){sim.g.FIX=t;now?render(true):fxRe()}}
+function fxApply(now){const t=Math.round(fxSum()*10)/10;if(t>0&&simNow.g.FIX!==t){simNow.g.FIX=t;now?render(true):fxRe()}}
 // 保存済みの売上（車種名で照合）を車種表へ
-function fxApplyRev(){let ch=0;FXS.rev.forEach(x=>{const r=sim.rows.find(r=>clsOf(r.name)===clsOf(x.item)),k=fxKey(x);if(r&&FXK.includes(k)&&+r[k]!==+x.amount){r[k]=+x.amount;ch=1}});if(ch)render(true)}
+function fxApplyRev(){let ch=0;const bx=FXS.rev.filter(x=>x.note==="best");if(bx.length){const nb=simNow.rows.map((r,i)=>{const o=bx.find(x=>clsOf(x.item)===i);return o?+o.amount:(BEST&&BEST[i]!=null?BEST[i]:null)});if(nb.every(v=>v!=null)&&JSON.stringify(nb)!==JSON.stringify(BEST)){BEST=nb;bestSave();ch=1}}FXS.rev.forEach(x=>{const r=simNow.rows.find(r=>clsOf(r.name)===clsOf(x.item)),k=fxKey(x);if(r&&FXK.includes(k)&&+r[k]!==+x.amount){r[k]=+x.amount;ch=1}});if(ch)render(true)}
 function fxVehCalc(){const T=totals(sim),Q=sim.rows.reduce((a,r)=>a+(+r.q||0),0),s=(f)=>sim.rows.reduce((a,r,i)=>a+f(r,i)*(+r.q||0),0);
   const m=sim.rows.map((r,i)=>T.cs[i]?T.cs[i].m:0),o={Q,m,INS:s(r=>+r.INS||0),SY:s(r=>(+r.SY||0)/12),TK:s(r=>(+r.TK||0)/12),SB:s(r=>(+r.SB||0)/12),L:s((r,i)=>m[i])};o.T=o.INS+o.SY+o.TK+o.SB+o.L;return o}
 function fxVehRefresh(){const V=fxVehCalc(),yen=v=>Math.round(v*10000).toLocaleString(),q=k=>document.querySelector(`#fxCard [data-vt="${k}"]`);
@@ -671,7 +678,7 @@ function fxVehRefresh(){const V=fxVehCalc(),yen=v=>Math.round(v*10000).toLocaleS
 function fxDraw(){const el=$("fxCard");if(!el)return;const t=fxSum(),ok=FXS.state==="ready";
   const msg={init:"共有の保存先を確認中…",nolib:"共有の保存先に接続できません。入力はこの画面の計算にだけ反映されます",nologin:"進行管理にログインしていないため保存はできません。入力はこの画面の計算に反映されます",notable:"保存先がまだありません（sql/bt_store_fixed_costs.sql）",ready:FXS.at?`自動保存済み ${FXS.at}`:"入力すると自動で保存されます",saving:"保存中…",err:"保存できませんでした"}[FXS.state]||"";
   const V=fxVehCalc(),yen=v=>Math.round(v*10000).toLocaleString();
-  el.innerHTML=`<p class="sec">売上・コストの入力（1店 / 月）<span>入力するとすぐ全体が再計算されます。保存すると全員で共有</span></p>
+  el.innerHTML=`<p class="sec">${MODE==="best"?"目標の売上（ベスト設計）":"売上・コストの入力（1店 / 月）"}<span>${MODE==="best"?"ここでは売上だけ変えられます。コストは現状路線の店舗設計と共通":"入力するとすぐ全体が再計算されます。保存すると全員で共有"}</span></p>
    <table><tr><td class="msg">売上（1台あたり / 月）</td><td class="msg">万円 / 月</td></tr>${sim.rows.map((r,i)=>`<tr><td>${r.name}</td><td><input class="am" type="number" step="0.1" data-fxr="${i}" value="${+r.REV||0}"> 万</td></tr>`).join("")}</table>
    <table class="vt" style="margin-top:12px"><tr><td class="msg">車両コスト（単価 × 台数で自動計算）</td>${sim.rows.map(r=>`<td class="msg">${r.name}</td>`).join("")}<td class="msg">月額（${V.Q}台）</td></tr>
     <tr><td>台数</td>${sim.rows.map((r,i)=>`<td><input class="am s" type="number" step="1" data-fxu="q" data-i="${i}" value="${+r.q||0}"> 台</td>`).join("")}<td data-vt="Q">${V.Q}台</td></tr>
@@ -695,8 +702,8 @@ async function fxInit(){fxDraw();
   const last=data.reduce((a,x)=>x.updated_at>a?x.updated_at:a,"");FXS.at=last?new Date(last).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):null;
   FXS.state="ready";fxApplyRev();fxDraw();fxApply(1);}
 document.addEventListener("input",e=>{const t=e.target;
-  if(t.dataset.fxr!=null){const r=sim.rows[+t.dataset.fxr];if(r){r.REV=parseFloat(t.value)||0;fxRe()}return}
-  if(t.dataset.fxu!=null){const r=sim.rows[+t.dataset.i],k=t.dataset.fxu;if(r){r[k]=k==="q"?(parseFloat(t.value)||0):(parseFloat(t.value)||0)/10000;fxVehRefresh();fxRe()}return}
+  if(t.dataset.fxr!=null){const i=+t.dataset.fxr,v=parseFloat(t.value)||0;if(MODE==="best"){if(!BEST)BEST=bestDef();BEST[i]=v;bestSave();fxRe();return}const r=simNow.rows[i];if(r){r.REV=v;fxRe()}return}
+  if(t.dataset.fxu!=null){if(MODE==="best")return;const r=simNow.rows[+t.dataset.i],k=t.dataset.fxu;if(r){r[k]=k==="q"?(parseFloat(t.value)||0):(parseFloat(t.value)||0)/10000;fxVehRefresh();fxRe()}return}
   if(t.dataset.fx==null)return;const r=FXS.rows[+t.dataset.fx];r[t.dataset.f]=t.dataset.f==="amount"?(parseFloat(t.value)||0):t.value;
   const sm=document.querySelector("#fxCard tr.sum td+td");if(sm)sm.innerHTML=Math.round(fxSum()*10000).toLocaleString()+"円 / 月<br><small>＝ "+f1(fxSum())+"万</small>";if(t.dataset.f==="amount")fxApply()});
 document.addEventListener("click",async e=>{const t=e.target;
@@ -712,7 +719,7 @@ async function fxSaveNow(){if(fxBusy){fxAgain=true;return}fxBusy=true;FXS.state=
   try{const now=new Date().toISOString(),T_="bt_store_fixed_costs";
     const src=FXS.rows.filter(x=>(x.item||"").trim());
     const fx=src.map((x,i)=>({...(x.id?{id:x.id}:{}),item:x.item.trim(),amount:fxVeh(x)?0:(parseFloat(x.amount)||0),note:x.note||null,sort:i,updated_at:now}));
-    const rsrc=[];sim.rows.forEach(r=>FXK.forEach(k=>{const nt=fxNote(k);let o=FXS.rev.find(x=>clsOf(x.item)===clsOf(r.name)&&x.note===nt);if(!o){o={item:r.name,note:nt};FXS.rev.push(o)}o.item=r.name;o.amount=+r[k]||0;rsrc.push(o)}));
+    const rsrc=[];simNow.rows.forEach((r,ri)=>FXK.concat(BEST?["best"]:[]).forEach(k=>{const nt=k==="best"?"best":fxNote(k);let o=FXS.rev.find(x=>clsOf(x.item)===clsOf(r.name)&&x.note===nt);if(!o){o={item:r.name,note:nt};FXS.rev.push(o)}o.item=r.name;o.amount=k==="best"?(+BEST[ri]||0):(+r[k]||0);rsrc.push(o)}));
     const rv=rsrc.map((o,i)=>({...(o.id?{id:o.id}:{}),item:o.item,amount:o.amount,note:o.note,sort:1000+i,updated_at:now}));
     const all=fx.concat(rv),allSrc=src.concat(rsrc),ids=all.filter(x=>x.id).map(x=>x.id);
     let q=FXS.sb.from(T_).delete();q=ids.length?q.not("id","in",`(${ids.join(",")})`):q.gte("id",0);const d=await q;if(d.error)throw d.error;
