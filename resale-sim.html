@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 12:45</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 13:05</small></h1>
     <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav></div>
   <div class="bestbar" id="bestbar"></div>
 
@@ -589,10 +589,10 @@ function drawRoad(){
     +card(`入口・出口とも${X}万良いと`,L.u,`${L.life>0?`今の${+(L.u/L.life).toFixed(1)}倍`:""}`,1)
     +card(`逆に${X}万悪いと`,L.life-both,`1店あたり ${pl((L.life-both)/L.s)}`);}
   $("rmInfo").innerHTML=`月で黒字が続くのは <b>${fb<0?"—（どの段階も赤字が残る）":`${NUM[fb]||fb+1} ${rs[fb].q}台〜`}</b>（1店${con>0?Math.ceil(g.FIX/con):"—"}台以上で黒字）　いちばん稼ぐ段階 <b>${NUM[best]||best+1} ${rs[best].q}台・${rs[best].s}店</b>　${L.mon>0?`売上が${f1(L.cut)}%落ちると赤字`:"毎月は赤字"}　仕入総額 ${f1(L.buy)}万`;
-  {const yr=n/12,fy=v=>`<td class="${v<0?"neg":""}">${pl(v)}</td>`;
+  {const yr=n/12,ok=(v,sg)=>{const a=Math.abs(v),t=a>=10000?`${(+(a/10000).toFixed(2)).toLocaleString()}億`:`${Math.round(a).toLocaleString()}万`;return (v<0?"−":sg&&v>0?"+":"")+t},fy=v=>`<td class="${v<0?"neg":""}">${ok(v,1)}</td>`,tg=t=>`<span class="tg">${t}</span>`;
    $("rmSt").innerHTML=rs.map((r,i)=>{const gy=r.mon*12+r.ex/yr,hq=(g.UP*r.q)*12+r.ex/yr,sp=(r.mon-g.UP*r.q)*12;
-    return `<div class="st"><h3>${NUM[i]||i+1} ${r.q}台<span>${r.s}店${rm[i].t?"・"+rm[i].t:""}</span></h3><p class="big">単年グロス<b class="${gy<0?"neg":""}">${pl(gy).replace("万","<small>万</small>")}</b></p>
-    <table class="qt"><tr class="sum"><td>${n}ヶ月グロス</td>${fy(r.life)}</tr><tr><td>売上（年）</td><td>${f1(r.rev*12)}万</td></tr><tr><td>仕入総額</td><td>${f1(r.buy)}万</td></tr></table></div>`}).join("");
+    return `<div class="st"><h3>${NUM[i]||i+1} ${r.q}台<span>${r.s}店${rm[i].t?"・"+rm[i].t:""}</span></h3><p class="big">利益（単年グロス）<b class="${gy<0?"neg":""}">${ok(gy,1).replace(/(万|億)$/,"<small>$1</small>")}</b></p>
+    <table class="qt"><tr class="sum"><td>利益（${n}ヶ月グロス）</td>${fy(r.life)}</tr><tr><td>売上（年）</td><td>${ok(r.rev*12)}</td></tr><tr><td>仕入総額</td><td>${ok(r.buy)}</td></tr></table></div>`}).join("");
    const kpO=[...document.querySelectorAll("#rmKp details")].map(d=>d.open);
    const be=con>0?Math.ceil(g.FIX/con):0,full=cap*con*12-g.FIX*12+exc*cap/yr,per=con*12+exc/yr;
    const inP=inC*L.q,outS=X*L.q,both=inP+outS;
