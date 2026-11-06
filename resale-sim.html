@@ -221,7 +221,7 @@ section{display:grid;gap:12px}
 .tgrp{display:flex;align-items:center;gap:2px;background:var(--ref);border:1px solid var(--refl);border-radius:7px;padding:2px;margin-left:6px}
 .tsep{font-size:10px;color:var(--refi);font-weight:700;padding:0 6px}
 .tgrp a{color:var(--refi)}.tgrp a.on{background:var(--refi);color:#fff}
-:root{--ref:#eef1f4;--refl:#c9d3dd;--refi:#4f6273}.tgrp.now{background:var(--bg);border-color:var(--line);margin-left:0}.tgrp.now .tsep{color:var(--mute)}.tgrp.now a{color:var(--mute)}.tgrp.now a.on{background:var(--fg);color:var(--card)}.tabs{gap:6px}.wrap.best section .card,.wrap.best .rmst .st,.wrap.best .kp,.wrap.best .jr{border-color:var(--refl)}.wrap.best .bestbar{display:flex}.bestbar{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border:1px solid var(--refl);background:var(--ref);border-radius:8px;font-size:12.5px;color:var(--refi)}.bestbar b{font-size:15px}.wrap.best #v-cost input:not([data-fxr]),.wrap.best #v-cost button{pointer-events:none;opacity:.55}
+:root{--ref:#eef1f4;--refl:#c9d3dd;--refi:#4f6273}.tgrp.now{background:var(--bg);border-color:var(--line);margin-left:0}.tgrp.now .tsep{color:var(--mute)}.tgrp.now a{color:var(--mute)}.tgrp.now a.on{background:var(--fg);color:var(--card)}.tabs{gap:6px}.wrap.best section .card,.wrap.best .rmst .st,.wrap.best .kp,.wrap.best .jr{border-color:var(--refl)}.bestbar{display:flex;border-color:var(--line)!important;background:var(--card)!important;color:var(--mute)!important}.bestbar b{color:var(--fg)}.wrap.best .bestbar{border-color:var(--refl)!important;background:var(--ref)!important;color:var(--refi)!important}.wrap.best .bestbar b{color:var(--refi)}.bestbar{align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border:1px solid var(--refl);background:var(--ref);border-radius:8px;font-size:12.5px;color:var(--refi)}.bestbar b{font-size:15px}.wrap.best #v-cost input:not([data-fxr]),.wrap.best #v-cost button{pointer-events:none;opacity:.55}
 @media(max-width:600px){.tgrp,.tgrp.now{flex:1 1 100%;margin:2px 0 0}.tgrp a{flex:1}}
 #v-summary .card,#v-summary .cmp .k,#v-summary .pn,#v-summary .total,#v-sim .card,#v-base .card{border-color:var(--refl)}
 .chk table{width:100%;border-collapse:collapse;font-size:12.5px}.chk th{font-weight:400;color:var(--mute);font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.chk th:first-child,.chk td:first-child{text-align:left}.chk td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.chk td.ok{color:var(--mute)}.chk td.ng{color:var(--red);font-weight:700}.chk tr.k td{font-weight:700}
@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 13:05</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 13:10</small></h1>
     <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav></div>
   <div class="bestbar" id="bestbar"></div>
 
@@ -632,7 +632,9 @@ function drawChk(){
   ["chk1","chk2"].forEach(id=>{const el=$(id);if(el)el.innerHTML=html});
 }
 function route(){const h=location.hash.slice(1),b=h.startsWith("b-"),k=b?h.slice(2):h,v=["biz","cost"].includes(k)?k:"road",m=b?"best":"now";["summary","sim","base"].forEach(k=>{$("v-"+k).hidden=true});["road","biz","cost"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",!b&&k===v);$("tb-"+k).classList.toggle("on",b&&k===v)});$("wrap").classList.toggle("best",b);if(m!==MODE){MODE=m;render(true)}}
-function bestBar(){const el=$("bestbar");if(!el)return;if(MODE!=="best"){el.innerHTML="";return}const st=mkBest(),t=st.rows.reduce((a,r)=>a+r.REV*r.q,0),t0=simNow.rows.reduce((a,r)=>a+(+r.REV||0)*(+r.q||0),0);el.innerHTML=`<span>ベスト設計：コストは現状路線と同じ、<b>売上だけ目標値</b></span><span>店舗売上 月 <b>${f1(t)}万</b>（現状 ${f1(t0)}万 / ${t-t0>=0?"+":"−"}${f1(Math.abs(t-t0))}万）</span><span>目標の売上は「ベスト設計 → 店舗設計」で車種ごとに変えられます</span>`}
+function bestBar(){const el=$("bestbar");if(!el)return;const t=mkBest().rows.reduce((a,r)=>a+r.REV*r.q,0),t0=simNow.rows.reduce((a,r)=>a+(+r.REV||0)*(+r.q||0),0),d=t-t0;
+  el.innerHTML=MODE==="best"?`<span>ベスト設計：コストは現状路線と同じ、<b>売上だけ目標値</b></span><span>店舗売上 月 <b>${f1(t)}万</b>（現状 ${f1(t0)}万 / ${d>=0?"+":"−"}${f1(Math.abs(d))}万）</span><span>目標の売上は「ベスト設計 → 店舗設計」で車種ごとに変えられます</span>`
+  :`<span>現状路線：<b>今の売上とコスト</b>で計算</span><span>店舗売上 月 <b>${f1(t0)}万</b>（ベスト ${f1(t)}万 / ${-d>=0?"+":"−"}${f1(Math.abs(d))}万）</span><span>売上・コストは「現状路線 → 店舗設計」で変えられます</span>`}
 window.addEventListener("hashchange",route);route();render(true);
 
 // 事業構成タブを1枚のPDFに
