@@ -207,7 +207,7 @@ section{display:grid;gap:12px}
 .jr .seg .s2{border-color:#4f6273}.jr .seg .s3{border-color:#8fa3b5}.jr .seg .s4{border-color:var(--fg)}
 .jr .ctl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
 @media(max-width:700px){.jr .stops,.jr .seg{grid-template-columns:1fr 1fr}.jr .seg .s1,.jr .seg .s2,.jr .seg .s3,.jr .seg .s4{grid-column:auto}.jr .road{display:none}}
-.jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .req{margin:4px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}.jr .req span{font-size:11px;color:var(--mute);margin-right:10px}.jr .req b{font-size:15px}.jr .fxb{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:520px}.jr .fxb .h{font-size:13px;font-weight:700}.jr .fxb .h span{font-size:11px;font-weight:400;color:var(--mute);margin-left:8px}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
+.jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .req{margin:4px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}.jr .req span{font-size:11px;color:var(--mute);margin-right:10px}.jr .req b{font-size:15px}.jr .fxb{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:520px}.jr .fxb .h{font-size:13px;font-weight:700}.jr .fxb .h span{font-size:11px;font-weight:400;color:var(--mute);margin-left:8px}.pdfmode .jr .sp{opacity:1!important}.pdfmode .jr .road{display:none}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
 .jr .jb .b{display:flex;align-items:center;gap:8px;margin-top:3px}.jr .jb .b span{display:flex;flex:1;height:13px}.jr .jb .b i{display:block;height:100%;border-radius:2px;box-sizing:border-box}.jr .jb .b b{font-size:13px;min-width:44px;text-align:right}.jr .jb .ft{font-size:11px;color:#4f6273;margin-top:8px}
 .jr .sp{padding:12px 12px 14px}.jr .sp .t{font-size:13px}.jr .sp .v{font-size:24px}
 
@@ -250,6 +250,7 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-biz" hidden>
+    <div style="text-align:right;margin:0 0 6px"><button id="bizPdf" type="button">PDFでダウンロード</button></div>
     <div class="bar"><span>事業構成：利益の出どころを分けて見ます。右の大きい数字はすべて<b>リース期間（24ヶ月）</b>の合計で、下に年あたりを併記しています。数字は「参考シミュレーション」とロードマップから自動で入ります。</span></div>
     <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「レンタルの売上」と「値下がり率」の2つに絞る。</div>
     <div class="card jr" id="journey"></div>
@@ -593,4 +594,23 @@ function drawChk(){
 }
 function route(){const h=location.hash.slice(1),v=["sim","base","summary","biz"].includes(h)?h:"road";["summary","sim","base","road","biz"].forEach(k=>{$("v-"+k).hidden=k!==v;$("t-"+k).classList.toggle("on",k===v)})}
 window.addEventListener("hashchange",route);route();render(true);
+
+// 事業構成タブを1枚のPDFに
+(function(){
+  const load=u=>new Promise((ok,ng)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=ng;document.head.appendChild(e)});
+  document.addEventListener("click",async ev=>{if(ev.target.id!=="bizPdf")return;const b=ev.target,t=b.textContent;b.disabled=true;b.textContent="作成中…";
+    try{
+      if(!window.html2canvas)await load("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+      if(!(window.jspdf&&window.jspdf.jsPDF))await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      const el=document.getElementById("v-biz");el.classList.add("pdfmode");
+      const bg=getComputedStyle(document.body).backgroundColor||"#fff";
+      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="bizPdf"||x.id==="jrPlay"});
+      el.classList.remove("pdfmode");
+      const W=210,H=W*cv.height/cv.width,pdf=new window.jspdf.jsPDF({unit:"mm",format:[W,H],orientation:H>W?"p":"l"});
+      pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,W,H);
+      const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+      pdf.save(`事業構成_${ds}.pdf`);
+    }catch(e){alert("PDFを作れませんでした");console.error(e)}
+    finally{document.getElementById("v-biz").classList.remove("pdfmode");b.disabled=false;b.textContent=t}});
+})();
 </script>
