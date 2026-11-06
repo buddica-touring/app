@@ -229,7 +229,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:05</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:12</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">コスト</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -246,10 +246,9 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-sim" hidden>
-    <div class="bar"><span>ここを変えると参考例とロードマップ①に反映されます。基準値は変わりません。</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button id="exp">数字を書き出す</button><button id="imp">数字を読み込む</button><button id="copy">基準値に戻す</button></span></div>
+    <div class="bar"><span>コストや車種ごとの単価は「コスト」タブで入力します（参考例とロードマップ①に反映。基準値は変わりません）。</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button id="exp">数字を書き出す</button><button id="imp">数字を読み込む</button><button id="copy">基準値に戻す</button></span></div>
     <div class="card" id="xbox" hidden><p class="sec">数字の受け渡し<span>別の画面へ移すときに使います</span></p><textarea id="xtxt" rows="3" style="width:100%;box-sizing:border-box;font:12px monospace;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg)"></textarea><p class="note3" id="xmsg"></p><div style="display:flex;gap:6px"><button id="xok" hidden>この数字を読み込む</button><button id="xclose">閉じる</button></div></div>
     <div class="card chk" id="chk2"></div>
-    <div id="ed-sim"></div>
   </section>
 
   <section id="v-biz" hidden>
@@ -264,7 +263,9 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-cost" hidden>
+    <div class="card jr" id="costBe"></div>
     <div class="card" id="fxCard"></div>
+    <div id="ed-sim"></div>
   </section>
   <section id="v-road" hidden>
     <div class="bar"><span>①は「参考シミュレーション」の数字。②以降は台数だけ変えます（車種の割合・単価・条件は①と同じ）。店舗数＝台数÷1店の上限（切り上げ）、固定費＝1店あたり×店舗数。</span><span style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">1店の上限 <input id="rmcap" type="number" step="1" style="width:56px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 台</label><button id="rmadd">＋ 段階を追加</button></span></div>
@@ -488,9 +489,9 @@ function drawJourney(){
   $("journey").innerHTML=`<div class="jh"><b>${cname}クラス シミュレーション（実績ベース）</b></div>
    <div class="road"><div class="ln"></div><div class="fill" id="jrFill" style="width:0"></div>${xs.map((x,k)=>`<div class="dot" data-k="${k}" style="left:${x}%"></div>`).join("")}<div class="cr" id="jrCar" style="left:${xs[0]}%"><svg width="40" height="22" viewBox="0 0 22 13"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/></svg></div></div>
    <div class="req"><span>要件</span>走行距離 <b>${km0}万km → ${+km1.toFixed(1)}万km</b>（${n}ヶ月・年${g.KMY}万km）</div>
-   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>
-   <div class="fxb"><div class="h">店舗の固定費は台数で回収する<span>1台の一生の外</span></div><table class="jt">
-     <tr><td>固定費・販管費（1店 / 月）${window.FXS&&FXS.state==="ready"&&FXS.rows.length?"　コストタブの合計":"　コストタブで入力"}</td><td>${f1(FX)}万</td></tr>
+   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>`;
+  $("costBe").innerHTML=`<div class="fxb"><div class="h">店舗の固定費は台数で回収する<span>1台の一生の外</span></div><table class="jt">
+     <tr><td>固定費・販管費（1店 / 月）${window.FXS&&FXS.state==="ready"&&FXS.rows.length?"　下の内訳の合計":"　下の内訳で入力"}</td><td>${f1(FX)}万</td></tr>
      <tr><td>1台の稼ぎ（月）店舗：上乗せ後</td><td>${pl(ernS)}</td></tr>
      <tr><td>1台の稼ぎ（月）会社全体：上乗せ前</td><td>${pl(ern)}</td></tr>
      <tr class="sum"><td>損益分岐（1店）店舗で見ると</td><td>${ernS>0?beS+"台":"—"}</td></tr>
