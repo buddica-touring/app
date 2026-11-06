@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:45</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:50</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">コスト</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -514,6 +514,10 @@ function drawBiz(){
   const sens=[-5,5].map(dp=>`値下がり率${dp>0?"+":"−"}${Math.abs(dp)}pt（${T.rows.map(r=>Math.max(0,(+r.DEP||0)+dp)).join("・")}%）→ 利益 <b class="${dAll(dp)<0?"neg":""}">${pl(dAll(dp))}</b>`).join("　／　");
   const X=+bizX||0, dPx=d=>{const c=clone(sim);c.rows.forEach(r=>r.P=(+r.P||0)+d);return totals(c).all-T.all}, inP=dPx(-X), outS=X*Q;
   const xr=[[`仕入が${X}万安い`,inP],[`売値が${X}万高い`,outS],[`<b>両方（入口・出口とも${X}万良い）</b>`,inP+outS],[`<b>逆（入口・出口とも${X}万悪い）</b>`,dPx(X)-outS]];
+  // 1台（コンパクト）で見る入口・出口
+  const ci1=Math.max(0,T.rows.findIndex(x=>/コンパクト/.test(x.name||""))),cn1=(T.rows[ci1].name||"").replace(/（.*?）/,"");
+  const life1=(dp,ds)=>{const c=clone(sim);c.rows[ci1].P=(+c.rows[ci1].P||0)+dp;const t=totals(c),cc=t.cs[ci1],rr=t.rows[ci1];return (+rr.REV-cc.m-cc.mt)*n+cc.S+ds-cc.R};
+  const b1=life1(0,0),x1=[[`仕入が${X}万安い`,life1(-X,0)-b1],[`売値が${X}万高い`,X],[`<b>両方</b>`,life1(-X,X)-b1],[`<b>逆（両方${X}万悪い）</b>`,life1(X,-X)-b1]];
   const md=(m,d)=>`<div class="md"><div><em>メリット</em><ul>${m.map(x=>`<li>${x}</li>`).join("")}</ul></div><div class="dm"><em>デメリット</em><ul>${d.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>`;
   const val=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b class="${v<0?"neg":""}">${pl(v).replace("万","<small>万</small>")}</b><i>${sub}</i></div>`;
   const yen=(lab,v,sub)=>`<div class="v"><span>${lab}</span><b>${f1(v)}<small>万</small></b><i>${sub}</i></div>`;
@@ -527,9 +531,9 @@ function drawBiz(){
    <details><summary>④ レンタカーの役割（中古車事業とのシナジー）</summary><p>商品の車に「レンタカー」の役割を持たせると、売るまでの時間が稼ぐ時間に変わる（まだ数字には入れていません）。</p><div class="syn">${SYN.map(([t,d,k])=>`<div><b>${t}</b><p>${d}</p><i>${k}</i></div>`).join("")}</div></details>
    <details><summary>⑤ 入口と出口（仕入・売値）＝このモデルの生命線</summary>
   <div class="bz main in"><div>
-    <p>1台あたり <input id="bizX" type="number" step="1" value="${bizX}" style="width:52px;font:inherit;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万、仕入が安く／売値が高くなった場合の利益の変化です（${n}ヶ月・${Q}台）。売値は買戻額がリース契約で決まっているので、差がそのまま利益になります。仕入はリース代が減りますが、シミュ上は売値も少し下がります。</p>
-    <table class="qt" style="margin-top:6px"><tr><th></th><th>利益の変化（${n}ヶ月）</th><th>年あたり</th><th>${n}ヶ月の利益</th>${qL!==Q?`<th>${qL}台なら（${n}ヶ月）</th>`:""}</tr>${xr.map(([l,d],i)=>`<tr class="${i>=2?"sum":""}"><td>${l}</td><td class="${d<0?"neg":""}">${pl(d)}</td><td class="${d<0?"neg":""}">${pl(d*12/n)}</td><td class="${T.all+d<0?"neg":""}">${pl(T.all+d)}${i>=2&&T.all>0?`（今の${+((T.all+d)/T.all).toFixed(1)}倍）`:""}</td>${qL!==Q?`<td class="${d<0?"neg":""}">${pl(d*k)}</td>`:""}</tr>`).join("")}</table></div>
-    ${val(`入口・出口とも${bizX}万良いと（${n}ヶ月・${Q}台）`,xr[2][1],`年あたり ${pl(xr[2][1]*12/n)}<br>利益 ${pl(T.all)} → ${pl(T.all+xr[2][1])}`)}</div></details></div></div>`;
+    <p>${cn1} 1台・${n}ヶ月　入口・出口が <input id="bizX" type="number" step="1" value="${bizX}" style="width:52px;font:inherit;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);text-align:right"> 万 動くと</p>
+    <table class="qt" style="margin-top:6px"><tr><th></th><th>利益の変化</th><th>1台の利益</th></tr><tr><td>今</td><td></td><td>${pl(b1)}</td></tr>${x1.map(([l,d],i)=>`<tr class="${i>=2?"sum":""}"><td>${l}</td><td class="${d<0?"neg":""}">${pl(d)}</td><td class="${b1+d<0?"neg":""}">${pl(b1+d)}</td></tr>`).join("")}</table></div>
+    ${val(`両方${bizX}万良いと（1台・${n}ヶ月）`,x1[2][1],`1台の利益 ${pl(b1)} → ${pl(b1+x1[2][1])}`)}</div></details></div></div>`;
   document.querySelectorAll("#biz .kp details").forEach((d,i)=>{if(kpOpen[i])d.open=true});
 }
 function drawRoad(){
