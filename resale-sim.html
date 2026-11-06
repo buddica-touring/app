@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 12:10</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 12:15</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></nav></div>
 
   <section id="v-summary" hidden>
@@ -403,7 +403,7 @@ function fillEditor(el){
   const trs=el.querySelectorAll("[data-ed] tr");T.rows.forEach((r,i)=>{const t=trs[i+2];if(!t)return;const c=T.cs[i],v={...c,pm:r.REV-c.m-c.mt-c.fq};el._OUT.forEach(([k])=>{const x=Math.round(v[k]*10)/10||0,td=t.querySelector(`[data-c="${k}"]`);td.textContent=k==="car"||k==="pm"?pl(x):(+x.toFixed(1)).toLocaleString();td.classList.toggle("neg",x<0)})});
   const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
   const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
-  const it=[["固定費・販管費",g.FIX],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],[`売上（レンタル・車種表の合計）`,sr,2],["<b>店舗収支</b>（売上 − 店舗コスト）",sr-tot,1]];
+  const it=[["固定費・販管費",g.FIX],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],[`売上（レンタル・車種表の合計）`,sr,2],["<b>店舗収支</b>（売上 − 店舗コスト）",sr-tot,1],[`本部（上乗せ＋出口${T.n}ヶ月分を按分）`,lu+T.rows.reduce((a,r,i)=>a+(T.cs[i].S-T.cs[i].R)*r.q,0)/T.n,2],["<b>グロス</b>（店舗収支 ＋ 本部）",sr-tot+lu+T.rows.reduce((a,r,i)=>a+(T.cs[i].S-T.cs[i].R)*r.q,0)/T.n,1]];
   const ssT=rows=>`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+rows.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`,ssH=ssT(it);
   el.querySelector("[data-ssum]").innerHTML=ssH;if(el.id==="ed-sim"){const b=document.querySelector("#bizSsum [data-ss]");if(b)b.innerHTML=ssT(it.filter(x=>!x[2]));const b3=document.querySelector("#bizSsum [data-ss3]");if(b3)b3.innerHTML=ssT(it.filter(x=>x[2]))}
 }
