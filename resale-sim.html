@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 17:50</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 18:10</small></h1>
     <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav><button id="pdfBtn" type="button" style="margin-left:8px">PDF</button></div>
   <div class="bestbar" id="bestbar"></div>
 
@@ -659,14 +659,21 @@ window.addEventListener("hashchange",route);route();render(true);
       if(!(window.jspdf&&window.jspdf.jsPDF))await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
       const el=document.getElementById("wrap");el.classList.add("pdfmode");
       const bg=getComputedStyle(document.body).backgroundColor||"#fff";
-      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="pdfBtn"||x.id==="jrPlay"||x.id==="rmadd",onclone:d=>{d.querySelectorAll("details").forEach(dt=>{const sm=dt.querySelector(":scope>summary");if(!dt.open)[...dt.children].forEach(c=>{if(c!==sm)c.remove()});if(sm){sm.style.display="block";sm.style.listStyle="none";sm.insertAdjacentText("afterbegin",dt.open?"▾ ":"▸ ")}})}});
+      // 改ページ位置の候補：カード・表の行・ブロックの下端（どの塊の途中にもならない位置だけ）
+      let r0,BIG=[],BRK=[];const calcBrk=el=>{r0=el.getBoundingClientRect();const vis=x=>x.offsetParent!==null&&x.getBoundingClientRect().height>0;
+      const AT=[...el.querySelectorAll(".card,.bar,.bzc,.bestbar,.top,.rmst .st,.jr .sp,.jr .req,.kp details,.kp .kh,.cmpc,.k,.eq-b,tr,summary,p,h3,.syn>div")].filter(vis).map(x=>{const r=x.getBoundingClientRect();return [r.top-r0.top,r.bottom-r0.top]});
+      const SOLID=[...el.querySelectorAll(".rmst .st,.jr .sp,.jr .req,.k,.eq-b,tr,summary,p,h3,.syn>div,.top,.bestbar,.bar,.bzc")].filter(vis).map(x=>{const r=x.getBoundingClientRect();return [r.top-r0.top,r.bottom-r0.top]});
+      const okY=ys=>[...new Set(ys.map(y=>Math.round(y+4)))].filter(y=>!SOLID.some(([t,b])=>t<y-1&&y+1<b)).sort((a,b)=>a-b);
+      const BIGs=[...el.querySelectorAll(".card,.bar,.bzc,.bestbar,.top,.rmst .st,.jr .sp,.jr .req,.kp details,.cmpc,.rmst,.kp")].filter(vis).filter(x=>!x.closest(".card")||x.classList.contains("card")||x.matches(".jr .sp,.jr .req,.rmst .st")).map(x=>x.getBoundingClientRect().bottom-r0.top);
+      BIG=okY(BIGs.filter(y=>!AT.some(()=>0))).filter(y=>![...el.querySelectorAll(".card")].filter(vis).some(c=>{const r=c.getBoundingClientRect(),t=r.top-r0.top,b=r.bottom-r0.top;return t<y-1&&y+1<b&&!c.querySelector(".stops,.rmst")}));BRK=okY(AT.map(a=>a[1]));};
+      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,onclone:d=>{["pdfBtn","jrPlay","rmadd"].forEach(k=>{const x=d.getElementById(k);if(x)x.style.visibility="hidden"});d.querySelectorAll("details").forEach(dt=>{const sm=dt.querySelector(":scope>summary");if(!dt.open)[...dt.children].forEach(c=>{if(c!==sm)c.remove()});if(sm){sm.style.display="block";sm.style.listStyle="none";sm.insertAdjacentText("afterbegin",dt.open?"▾ ":"▸ ")}});calcBrk(d.getElementById("wrap"))}});
       el.classList.remove("pdfmode");
       // ロードマップはA4横、事業構成・店舗設計はA4縦。収まれば1枚、長い画面は幅いっぱいでページを続ける
       const LS=!$("v-road").hidden,OR=LS?"l":"p",PW=LS?297:210,PH=LS?210:297,M=6,cw=PW-2*M,ch=PH-2*M,pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:OR}),fc=(bg.match(/\d+/g)||[255,255,255]).map(Number);
       const bgp=()=>{pdf.setFillColor(fc[0],fc[1],fc[2]);pdf.rect(0,0,PW,PH,"F")};
       const kFit=Math.min(cw/cv.width,ch/cv.height),kW=cw/cv.width;
       if(kFit>=kW*0.62){const w=cv.width*kFit,h=cv.height*kFit;bgp();pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",(PW-w)/2,M,w,h)}
-      else{const sh=Math.floor(ch/kW);for(let y=0,pg=0;y<cv.height;y+=sh,pg++){const c2=document.createElement("canvas"),hh=Math.min(sh,cv.height-y);c2.width=cv.width;c2.height=hh;const x=c2.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,c2.width,hh);x.drawImage(cv,0,y,cv.width,hh,0,0,cv.width,hh);if(pg)pdf.addPage("a4",OR);bgp();pdf.addImage(c2.toDataURL("image/jpeg",0.92),"JPEG",M,M,cw,hh*kW)}}
+      else{const sh=Math.floor(ch/kW),px=cv.width/r0.width;for(let y=0,pg=0,nx;y<cv.height;y=nx,pg++){let cut=cv.height;if(y+sh<cv.height){const pick=L=>L.map(v=>v*px).filter(v=>v>y+sh*0.12&&v<=y+sh),o1=pick(BIG),o2=pick(BRK);cut=o1.length?o1[o1.length-1]:o2.length?o2[o2.length-1]:y+sh}cut=Math.round(cut);nx=cut;const c2=document.createElement("canvas"),hh=cut-y;c2.width=cv.width;c2.height=hh;const x=c2.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,c2.width,hh);x.drawImage(cv,0,y,cv.width,hh,0,0,cv.width,hh);if(pg)pdf.addPage("a4",OR);bgp();pdf.addImage(c2.toDataURL("image/jpeg",0.92),"JPEG",M,M,cw,hh*kW)}}
       const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
       const on=document.querySelector(".tabs a.on"),grp=MODE==="best"?"ベスト設計":"現状路線";pdf.save(`出口シミュ_${grp}_${on?on.textContent:""}_${ds}.pdf`);
     }catch(e){alert("PDFを作れませんでした");console.error(e)}
