@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 11:50</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 11:55</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -257,6 +257,7 @@ section{display:grid;gap:12px}
     <div class="bar"><span>事業構成：利益の出どころを分けて見ます。右の大きい数字はすべて<b>リース期間（24ヶ月）</b>の合計で、下に年あたりを併記しています。数字は「参考シミュレーション」とロードマップから自動で入ります。</span></div>
     <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「レンタルの売上」と「値下がり率」の2つに絞る。</div>
     <div class="card jr" id="journey"></div>
+    <div class="card" id="bizSsum"><p class="sec">店舗コストの合計<span>店全体・月／単年／期間。数字は「店舗設計」タブの入力から</span></p><div data-ss></div></div>
     <div id="biz"></div>
   </section>
 
@@ -403,7 +404,8 @@ function fillEditor(el){
   const lm=T.rows.reduce((a,r,i)=>a+T.cs[i].m*r.q,0), lu=g.UP*T.Qall, mtm=T.rows.reduce((a,r,i)=>a+T.cs[i].mt*r.q,0), fx=g.FIX+(g.HK||0);
   const tot=fx+lm+lu+mtm, sr=T.rows.reduce((a,r)=>a+r.REV*r.q,0), pn=g.N%12===0?`${g.N/12}年`:`${g.N}ヶ月`;
   const it=[["固定費・販管費",g.FIX],[`リース原価（${T.Qall}台）`,lm],[`本部上乗せ（${g.UP}万×${T.Qall}台）`,lu],...[["車検","SY",12],["点検","TK",12],["整備","SB",12],["保険","INS",1]].map(([l,k,d])=>[`${l}（${T.Qall}台）`,T.rows.reduce((a,r)=>a+(+r[k]||0)/d*r.q,0)]),["<b>店舗コスト 合計</b>",tot,1],[`売上（レンタル・車種表の合計）`,sr,2],["<b>店舗収支</b>（売上 − 店舗コスト）",sr-tot,1]];
-  el.querySelector("[data-ssum]").innerHTML=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
+  const ssH=`<table class="qt"><tr><th></th><th>月</th><th>単年</th><th>${pn}</th></tr>`+it.map(([k,v,t])=>`<tr class="${t===1?"sum":""}"><td>${k}</td>${[v,v*12,v*g.N].map(x=>`<td class="${x<0?"neg":""}">${t===1?"<b>":""}${x<0?"−":""}${f1(Math.abs(x))}万${t===1?"</b>":""}</td>`).join("")}</tr>`).join("")+`</table>`;
+  el.querySelector("[data-ssum]").innerHTML=ssH;if(el.id==="ed-sim"){const b=document.querySelector("#bizSsum [data-ss]");if(b)b.innerHTML=ssH}
 }
 function render(rebuild){
   if(window.FXS&&FXS.rows&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#fxCard")))setTimeout(fxDraw);
