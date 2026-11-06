@@ -18,7 +18,6 @@ drop policy if exists tirep_anon_ins on public.bt_tire_photos;
 drop policy if exists tirep_anon_upd on public.bt_tire_photos;
 create policy tirep_anon_ins on public.bt_tire_photos for insert to anon with check ((code in (select c.code from public.bt_etc_vehicles() c) or code in (select 'proc_'||p.id::text from public.bt_procurement p)) and path ~ '^[0-9a-f-]{36}\.(jpg|png|webp)$' and deleted = false);
 create policy tirep_anon_upd on public.bt_tire_photos for update to anon using (true) with check ((code in (select c.code from public.bt_etc_vehicles() c) or code in (select 'proc_'||p.id::text from public.bt_procurement p)) and path ~ '^[0-9a-f-]{36}\.(jpg|png|webp)$');
-grant execute on function public.bt_company_vehicles() to anon;
 -- 車両タブ（PR #143）の公開キー
 update public.bt_view_keys set key='tourism-public' where name='vehicle_dashboard';
 commit;
