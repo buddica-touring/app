@@ -209,7 +209,7 @@ section{display:grid;gap:12px}
 @media(max-width:700px){.jr .stops,.jr .seg{grid-template-columns:1fr 1fr}.jr .seg .s1,.jr .seg .s2,.jr .seg .s3,.jr .seg .s4{grid-column:auto}.jr .road{display:none}}
 .jr .tg{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:400;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px}.jr .jh b span{font-size:12px;font-weight:400;color:var(--mute)}.jr .req{margin:6px 0 8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}.jr .req span{font-size:11px;color:var(--mute);margin-right:10px}.jr .req b{font-size:15px}.jr .fxb{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:520px}.jr .fxb .h{font-size:13px;font-weight:700}.jr .fxb .h span{font-size:11px;font-weight:400;color:var(--mute);margin-left:8px}.pdfmode .jr .sp{opacity:1!important}.pdfmode .jr .road{display:none}.kp{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 14px}.kp .kh{margin:0 0 4px;font-size:13px;font-weight:700}.kp details{border-top:1px solid var(--line)}.kp summary{cursor:pointer;color:var(--fg);padding:8px 0;font-size:13.5px;font-weight:700}.kp details p{margin:0 0 10px;font-size:12.5px;color:var(--mute);line-height:1.7}
 #fxCard table{width:100%;max-width:560px;border-collapse:collapse;font-size:13px}#fxCard td{padding:4px 0;border-bottom:1px solid var(--line)}#fxCard td+td{text-align:right;white-space:nowrap}
-#fxCard input{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}#fxCard input.it{width:100%;max-width:300px}#fxCard input.am{width:80px;text-align:right}
+#fxCard input{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}#fxCard input.it{width:100%;max-width:300px}#fxCard input.am{width:110px;text-align:right}
 #fxCard td{padding:2px 0}#fxCard td button{padding:1px 7px;font-size:12px;min-height:0}#fxCard input{padding:2px 6px}#fxCard tr.veh td{color:var(--mute);font-size:12px}#fxCard tr.sum td{border-top:1.5px solid var(--fg);font-weight:700}#fxCard .ops{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}#fxCard .msg{font-size:12px;color:var(--mute)}
 .jr .ft{font-size:11px;color:#4f6273;margin-top:8px}.jr .jt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.jr .jt td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--mute)}.jr .jt td+td{text-align:right;color:var(--fg);white-space:nowrap;padding-left:8px}.jr .jt tr.sum td{border-top:1.5px solid var(--fg);font-weight:700;color:var(--fg)}.jr .jb{margin-top:8px}.jr .jb .r{font-size:11.5px;color:var(--mute);margin-top:8px}
 .jr .jb .b{display:flex;align-items:center;gap:8px;margin-top:3px}.jr .jb .b span{display:flex;flex:1;height:13px}.jr .jb .b i{display:block;height:100%;border-radius:2px;box-sizing:border-box}.jr .jb .b b{font-size:13px;min-width:44px;text-align:right}.jr .jb .ft{font-size:11px;color:#4f6273;margin-top:8px}
@@ -230,7 +230,7 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:30</small></h1>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 10:35</small></h1>
     <nav class="tabs"><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">コスト</a><span class="tgrp"><span class="tsep">参考</span><a href="#summary" id="t-summary">参考例</a><a href="#sim" id="t-sim">参考シミュレーション</a><a href="#base" id="t-base">基準値</a></span></nav></div>
 
   <section id="v-summary">
@@ -303,7 +303,7 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 let rmCap=40, base=clone(DEF), sim=clone(DEF), selI=0, rm=[{t:"今",q:40,s:1},{t:"",q:80,s:2},{t:"",q:120,s:3},{t:"",q:160,s:4},{t:"",q:200,s:5},{t:"",q:240,s:6},{t:"",q:280,s:7},{t:"",q:320,s:8}];
 const KEY="resale-life-v7";
 try{const sv=JSON.parse(localStorage.getItem(KEY)||"null");
-  if(sv){base=sv.base||base;sim=sv.sim||sim;selI=sv.sel||0;if(sv.rm&&sv.rmv===3)rm=sv.rm;if(sv.rmCap)rmCap=sv.rmCap}
+  if(sv){base=sv.base||base;sim=sv.sim||sim;[sim,base].forEach(x=>{if(x&&x.g&&+x.g.FIX>=10000)x.g.FIX=Math.round(x.g.FIX/1000)/10});selI=sv.sel||0;if(sv.rm&&sv.rmv===3)rm=sv.rm;if(sv.rmCap)rmCap=sv.rmCap}
   else{const old=JSON.parse(localStorage.getItem("resale-life-v6")||"null");if(old&&old.rows){const g=clone(DEF.g);Object.keys(g).forEach(k=>{if(old.g&&old.g[k]!=null)g[k]=parseFloat(old.g[k])||0});base={g,rows:old.rows};sim=clone(base)}}
 }catch(e){}
 // 値下がり率＝仕入額の帯で決める（nosh 2026-11-05、走行 仕入5万km→出口8万km前提）。保存済みの値にも一度だけ当てる
@@ -638,7 +638,8 @@ const FX_ITEMS=["給与手当","賞与","賞与引当金繰入額","業務委託
 const fxVeh=x=>x.note==="veh",fxRev=x=>x.note==="rev";
 const fxDef=()=>FX_ITEMS.map((item,i)=>({item,amount:0,sort:i,note:FX_VEH.includes(item)?"veh":null}));
 FXS.rows=fxDef();
-const fxSum=()=>FXS.rows.reduce((a,x)=>a+(fxVeh(x)?0:(parseFloat(x.amount)||0)),0);
+// 内訳は円で入力・保存。合計は万円で返す
+const fxSum=()=>FXS.rows.reduce((a,x)=>a+(fxVeh(x)?0:(parseFloat(x.amount)||0)),0)/10000;
 let fxTm=null;const fxRe=()=>{clearTimeout(fxTm);fxTm=setTimeout(()=>render(true),350)};
 // 内訳の合計を固定費・販管費に入れる（0のままなら既存の入力値を残す）
 function fxApply(now){const t=Math.round(fxSum()*10)/10;if(t>0&&sim.g.FIX!==t){sim.g.FIX=t;now?render(true):fxRe()}}
@@ -648,9 +649,9 @@ function fxDraw(){const el=$("fxCard");if(!el)return;const t=fxSum(),ok=FXS.stat
   const msg={init:"共有の保存先を確認中…",nolib:"共有の保存先に接続できません。入力はこの画面の計算にだけ反映されます",nologin:"進行管理にログインしていないため保存はできません。入力はこの画面の計算に反映されます",notable:"保存先がまだありません（sql/bt_store_fixed_costs.sql）",ready:FXS.at?`保存済み ${FXS.at}`:"未保存",saving:"保存中…",err:"保存できませんでした"}[FXS.state]||"";
   el.innerHTML=`<p class="sec">売上・コストの入力（1店 / 月）<span>入力するとすぐ全体が再計算されます。保存すると全員で共有</span></p>
    <table><tr><td class="msg">売上（1台あたり / 月）</td><td class="msg">万円 / 月</td></tr>${sim.rows.map((r,i)=>`<tr><td>${r.name}</td><td><input class="am" type="number" step="0.1" data-fxr="${i}" value="${+r.REV||0}"> 万</td></tr>`).join("")}</table>
-   <table style="margin-top:12px"><tr><td class="msg">固定費・販管費（勘定科目）</td><td class="msg">万円 / 月</td></tr>${FXS.rows.map((x,i)=>fxVeh(x)?`<tr class="veh"><td>${x.item}</td><td>車両側で計算済み（1台のコスト）</td></tr>`:`<tr><td><input class="it" data-fx="${i}" data-f="item" value="${(x.item||"").replace(/"/g,"&quot;")}"></td><td><input class="am" type="number" step="0.1" data-fx="${i}" data-f="amount" value="${x.amount??0}"> 万 <button data-fxdel="${i}" aria-label="削除">×</button></td></tr>`).join("")}
-   <tr class="sum"><td>販管費合計（固定費）</td><td>${f1(t)}万 / 月</td></tr></table>
-   <div class="ops"><button id="fxAdd" type="button">＋ 行を追加</button>${ok?`<button id="fxSave" type="button">保存</button>`:""}<span class="msg">${msg}</span></div>${FXS.rows.some(x=>!fxVeh(x)&&(parseFloat(x.amount)||0)>=1000)?`<p class="msg" style="color:var(--red)">単位は「万円」です（例：50万円 → 50）。1000万以上の行があります</p>`:""}`;}
+   <table style="margin-top:12px"><tr><td class="msg">固定費・販管費（勘定科目）</td><td class="msg">円 / 月</td></tr>${FXS.rows.map((x,i)=>fxVeh(x)?`<tr class="veh"><td>${x.item}</td><td>車両側で計算済み（1台のコスト）</td></tr>`:`<tr><td><input class="it" data-fx="${i}" data-f="item" value="${(x.item||"").replace(/"/g,"&quot;")}"></td><td><input class="am" type="number" step="0.1" data-fx="${i}" data-f="amount" step="1000" value="${x.amount??0}"> 円 <button data-fxdel="${i}" aria-label="削除">×</button></td></tr>`).join("")}
+   <tr class="sum"><td>販管費合計（固定費）</td><td>${Math.round(t*10000).toLocaleString()}円 / 月<br><small>＝ ${f1(t)}万</small></td></tr></table>
+   <div class="ops"><button id="fxAdd" type="button">＋ 行を追加</button>${ok?`<button id="fxSave" type="button">保存</button>`:""}<span class="msg">${msg}</span></div>`;}
 async function fxInit(){fxDraw();
   try{if(!window.supabase){await new Promise((ok,ng)=>{const e=document.createElement("script");e.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";e.onload=ok;e.onerror=ng;document.head.appendChild(e)})}
   }catch(e){FXS.state="nolib";return fxDraw()}
@@ -667,7 +668,7 @@ async function fxInit(){fxDraw();
 document.addEventListener("input",e=>{const t=e.target;
   if(t.dataset.fxr!=null){const r=sim.rows[+t.dataset.fxr];if(r){r.REV=parseFloat(t.value)||0;fxRe()}return}
   if(t.dataset.fx==null)return;const r=FXS.rows[+t.dataset.fx];r[t.dataset.f]=t.dataset.f==="amount"?(parseFloat(t.value)||0):t.value;
-  const sm=document.querySelector("#fxCard tr.sum td+td");if(sm)sm.textContent=f1(fxSum())+"万 / 月";if(t.dataset.f==="amount")fxApply()});
+  const sm=document.querySelector("#fxCard tr.sum td+td");if(sm)sm.innerHTML=Math.round(fxSum()*10000).toLocaleString()+"円 / 月<br><small>＝ "+f1(fxSum())+"万</small>";if(t.dataset.f==="amount")fxApply()});
 document.addEventListener("click",async e=>{const t=e.target;
   if(t.id==="fxAdd"){FXS.rows.push({item:"",amount:0,sort:FXS.rows.length});fxDraw()}
   else if(t.dataset&&t.dataset.fxdel!=null){FXS.rows.splice(+t.dataset.fxdel,1);fxDraw();fxApply()}
