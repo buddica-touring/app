@@ -230,8 +230,8 @@ section{display:grid;gap:12px}
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 17:30</small></h1>
-    <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav></div>
+  <div class="top"><h1>リセール出口シミュレーター <small style="font-size:11px;font-weight:400;color:var(--mute)">版 11/06 17:40</small></h1>
+    <nav class="tabs"><span class="tgrp now"><span class="tsep">現状路線</span><a href="#road" id="t-road">ロードマップ</a><a href="#biz" id="t-biz">事業構成</a><a href="#cost" id="t-cost">店舗設計</a></span><span class="tgrp"><span class="tsep">ベスト設計</span><a href="#b-road" id="tb-road">ロードマップ</a><a href="#b-biz" id="tb-biz">事業構成</a><a href="#b-cost" id="tb-cost">店舗設計</a></span></nav><button id="pdfBtn" type="button" style="margin-left:8px">PDF（横）</button></div>
   <div class="bestbar" id="bestbar"></div>
 
   <section id="v-summary" hidden>
@@ -254,7 +254,6 @@ section{display:grid;gap:12px}
   </section>
 
   <section id="v-biz" hidden>
-    <div style="text-align:right;margin:0 0 6px"><button id="bizPdf" type="button">PDFでダウンロード</button></div>
     <div class="bar"><span>事業構成：利益の出どころを分けて見ます。右の大きい数字はすべて<b>リース期間（24ヶ月）</b>の合計で、下に年あたりを併記しています。数字は「店舗設計」とロードマップから自動で入ります。</span></div>
     <div class="bzc" style="font-size:15px;margin-bottom:10px"><b>コンセプト：固いビジネス</b>　自己資本を寝かせない（リースバック）・2年で車を入れ替える（常にフレッシュ）・出口で利益を確定させる。残るリスクは「レンタルの売上」と「値下がり率」の2つに絞る。</div>
     <div class="card cmpc" id="bizCmp"></div>
@@ -473,6 +472,9 @@ const SYN=[
 ["資金を寝かせない","リースバックで仕入資金がすぐ戻る。中古車事業の在庫資金を圧迫せずに台数を増やせる。","効く数字：仕入総額（資金）"],
 ];
 let jrI=-1,jrTm=null;
+function oneCar(st){const T=totals(st),g=T.g,n=T.n,ci=Math.max(0,T.rows.findIndex(x=>/コンパクト/.test(x.name||""))),r=T.rows[ci],c=T.cs[ci],REV=+r.REV,ern=REV-c.m-c.mt,ernS=ern-(+g.UP||0);return {n,REV,y:REV*12,s2:ernS*n,tot:ern*n+c.S-c.R}}
+function jrCmp(){const a=oneCar(simNow),b=oneCar(mkBest()),n=a.n,td=(v,sg)=>`<td class="${v<0?"neg":""}">${okF(v,sg)}</td>`;
+  return `<div class="cmpc" style="margin-top:12px"><p class="sec">現状とベストの比較<span>1台</span></p><table class="qt"><tr><th></th><th>現状路線</th><th>ベスト設計</th><th>差</th></tr>`+[["売上（月）",a.REV,b.REV,0],["④ 店舗で貸す（年）",a.y,b.y,0],[`⑥ 店舗（${n}ヶ月）`,a.s2,b.s2,1],[`⑩ 着地 会社全体（${n}ヶ月）`,a.tot,b.tot,1]].map(([l,x,y,sg])=>`<tr><td>${l}</td>${td(x,sg)}<td style="color:var(--refi)">${okF(y,sg)}</td>${td(y-x,1)}</tr>`).join("")+`</table></div>`}
 function drawJourney(){
   const T=totals(sim),g=T.g,n=T.n,Q=T.Qall,yrs=+(n/12).toFixed(1);
   // コンパクトクラス1台（車種表の入力値）
@@ -503,7 +505,7 @@ function drawJourney(){
   $("journey").innerHTML=`<div class="jh"><b>${cname}クラス シミュレーション（実績ベース）</b></div>
    <div class="road"><div class="ln"></div><div class="fill" id="jrFill" style="width:0"></div>${xs.map((x,k)=>`<div class="dot" data-k="${k}" style="left:${x}%"></div>`).join("")}<div class="cr" id="jrCar" style="left:${xs[0]}%"><svg width="40" height="22" viewBox="0 0 22 13"><path d="M2 9 L4 4 Q5 2 7 2 L15 2 Q17 2 18 4 L21 8 Q22 9 22 11 L0 11 L0 10Z" fill="var(--fg)"/><circle cx="6" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/><circle cx="17" cy="11" r="2.2" fill="var(--fg)" stroke="var(--card)"/></svg></div></div>
    <div class="req"><span>要件</span>走行距離 <b>${km0}万km → ${+km1.toFixed(1)}万km</b>（${n}ヶ月・年${g.KMY}万km）</div>
-   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>`;
+   <div class="stops">${st.map((x,k)=>`<div class="sp" data-k="${k}" style="${x.end?"background:var(--bg)":""}"><div class="t">${x.t}${x.tag?`<em class="tg">${x.tag}</em>`:""}</div><div class="v">${x.big||fmt(x.v)}</div>${x.g}</div>`).join("")}</div>`+jrCmp();
   const go=k=>{jrI=k;$("jrCar").style.left=xs[Math.max(0,k)]+"%";$("jrFill").style.width=(xs[Math.max(0,k)]-4)+"%";
     document.querySelectorAll("#journey .sp").forEach((e,i)=>{e.classList.toggle("on",i<=k);e.classList.toggle("cur",i===k)});
     document.querySelectorAll("#journey .dot").forEach((e,i)=>e.classList.toggle("on",i<=k))};
@@ -651,20 +653,24 @@ window.addEventListener("hashchange",route);route();render(true);
 // 事業構成タブを1枚のPDFに
 (function(){
   const load=u=>new Promise((ok,ng)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=ng;document.head.appendChild(e)});
-  document.addEventListener("click",async ev=>{if(ev.target.id!=="bizPdf")return;const b=ev.target,t=b.textContent;b.disabled=true;b.textContent="作成中…";
+  document.addEventListener("click",async ev=>{if(ev.target.id!=="pdfBtn")return;const b=ev.target,t=b.textContent;b.disabled=true;b.textContent="作成中…";
     try{
       if(!window.html2canvas)await load("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
       if(!(window.jspdf&&window.jspdf.jsPDF))await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-      const el=document.getElementById("v-biz");el.classList.add("pdfmode");
+      const el=document.getElementById("wrap");el.classList.add("pdfmode");
       const bg=getComputedStyle(document.body).backgroundColor||"#fff";
-      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="bizPdf"||x.id==="jrPlay"});
+      const cv=await html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,ignoreElements:x=>x.id==="pdfBtn"||x.id==="jrPlay"||x.id==="rmadd"});
       el.classList.remove("pdfmode");
-      const W=210,H=W*cv.height/cv.width,pdf=new window.jspdf.jsPDF({unit:"mm",format:[W,H],orientation:H>W?"p":"l"});
-      pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,W,H);
+      // A4横。1ページに収まる高さならそのまま1枚、長い画面は幅いっぱいで横ページを続ける
+      const PW=297,PH=210,M=6,cw=PW-2*M,ch=PH-2*M,pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"l"}),fc=(bg.match(/\d+/g)||[255,255,255]).map(Number);
+      const bgp=()=>{pdf.setFillColor(fc[0],fc[1],fc[2]);pdf.rect(0,0,PW,PH,"F")};
+      const kFit=Math.min(cw/cv.width,ch/cv.height),kW=cw/cv.width;
+      if(kFit>=kW*0.62){const w=cv.width*kFit,h=cv.height*kFit;bgp();pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",(PW-w)/2,M,w,h)}
+      else{const sh=Math.floor(ch/kW);for(let y=0,pg=0;y<cv.height;y+=sh,pg++){const c2=document.createElement("canvas"),hh=Math.min(sh,cv.height-y);c2.width=cv.width;c2.height=hh;const x=c2.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,c2.width,hh);x.drawImage(cv,0,y,cv.width,hh,0,0,cv.width,hh);if(pg)pdf.addPage("a4","l");bgp();pdf.addImage(c2.toDataURL("image/jpeg",0.92),"JPEG",M,M,cw,hh*kW)}}
       const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
-      pdf.save(`事業構成_${ds}.pdf`);
+      const on=document.querySelector(".tabs a.on"),grp=MODE==="best"?"ベスト設計":"現状路線";pdf.save(`出口シミュ_${grp}_${on?on.textContent:""}_${ds}.pdf`);
     }catch(e){alert("PDFを作れませんでした");console.error(e)}
-    finally{document.getElementById("v-biz").classList.remove("pdfmode");b.disabled=false;b.textContent=t}});
+    finally{document.getElementById("wrap").classList.remove("pdfmode");b.disabled=false;b.textContent=t}});
 })();
 
 // 固定費・販管費の内訳（1店/月）：共有の保存先 Supabase bt_store_fixed_costs。合計を「固定費・販管費」に自動で入れる
