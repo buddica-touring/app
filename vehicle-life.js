@@ -9,14 +9,15 @@
 //       クラスや車種で分けない。開くたびに最新の実績で計算し直すので、営業日数が増えるほど精度が上がる。メーター実測は 2026-09-05〜。
 const VL=(()=>{
   const DAY=864e5, MON=30.44*DAY;
-  // 閲覧専用リンク（?view=キー）。一度開いた端末はキーを覚え、配車表にログインしていない時はそのキーで表示（2026-11-06：ログインなしでも0台にしない）
+  // ログインなし表示（オーナー指示 2026-11-06「チームメンバーが見れない、ログインはずせ」）：
+  // 配車表にログインしていない端末は、公開キーで閲覧用の関数から読む（車両単位のデータのみ・お客様情報なし）。
+  // ?view= 付きで開いた時もこのキー（旧キーのリンクもそのまま見られる）。
+  const PUBLIC_KEY="tourism-public";
   const VIEW_KEY=(()=>{try{
-    const q=new URLSearchParams(location.search).get("view")||"";
-    if(q){try{localStorage.setItem("vl_view_key",q);}catch(_){}return q;}
+    if(new URLSearchParams(location.search).get("view"))return PUBLIC_KEY;
     let tok=null;try{tok=JSON.parse(localStorage.getItem("sb-ggqugvyskyiblxiycpci-auth-token")||"null");}catch(_){}
-    if(tok&&(tok.refresh_token||tok.access_token))return "";   // ログイン中＝通常どおり
-    return localStorage.getItem("vl_view_key")||"";
-  }catch(e){return "";}})();
+    return (tok&&(tok.refresh_token||tok.access_token))?"":PUBLIC_KEY;
+  }catch(e){return PUBLIC_KEY;}})();
   if(VIEW_KEY)document.documentElement.classList.add("vl-view");   // 閲覧リンク：ルール設定・リレーはログイン時だけ（ボタンを出さない）
   const DATA_FROM="2026-08-03";          // 予約・売上データの開始日
   const KM_MAX=3000, KM_PER_DAY_MAX=1000; // これを超える1予約の走行は入力ミス扱い（予測から外す）
@@ -314,7 +315,7 @@ const VL=(()=>{
     const lb=x=>x[1]+' '+x[2], bd=x=>{const n=secBadge(x[0]);return n?n:0;};
     let h='<div class="vl-dash"><nav class="vl-side">'+SECS.map(([g,items])=>'<div class="g">'+e(g)+'</div>'+items.map(x=>'<button class="'+(S.sec===x[0]?"on":"")+'" data-sec="'+x[0]+'"><span>'+lb(x)+'</span>'+(bd(x)?'<i>'+bd(x)+'</i>':'')+'</button>').join("")).join("")+'</nav>';
     h+='<div class="vl-main"><label class="vl-pick"><select class="vl-secsel" aria-label="画面を選ぶ">'+SECS.map(([g,items])=>'<optgroup label="'+e(g)+'">'+items.map(x=>'<option value="'+x[0]+'"'+(S.sec===x[0]?" selected":"")+'>'+x[2]+(bd(x)?' 🔴'+bd(x):'')+'</option>').join("")+'</optgroup>').join("")+'</select></label>';
-    h+='<div class="vl-sec">'+(S.v.length?secHtml():'<div class="vl-empty err">車両が0台です。この端末は配車表にログインしていません。<br><a href="index.html" target="_blank" rel="noopener">配車表でログイン ↗</a> するか、閲覧リンク（URLに view= が付いたもの）を一度開くと、以後この端末はログインなしで表示されます。</div>')+'</div>';
+    h+='<div class="vl-sec">'+(S.v.length?secHtml():'<div class="vl-empty err">車両が0台です。ページを再読み込みしてください（Macは Cmd+Shift+R）。</div>')+'</div>';
     h+=(VIEW_KEY?'':'<div class="vl-foot live">🟢 リアルタイム共有（配車表・点検の更新が自動で反映されます）'+(S.updated?'　最終更新 '+String(S.updated.getHours()).padStart(2,"0")+':'+String(S.updated.getMinutes()).padStart(2,"0"):'')+'</div>')+'</div></div>';
     if(window.VL_PARK)window.VL_PARK();   // 差し込んだ画面を書き換えで消さないよう、先に退避
     body.innerHTML=h;
