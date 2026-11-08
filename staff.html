@@ -183,7 +183,7 @@ function taskCard(x){
   return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'">'
     +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t,x.customer))+'</span>'
-    +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
+    +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'
     +opStr
     +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
@@ -514,11 +514,20 @@ function load(){
     if(!d||d.ok===false){showErr(d&&d.error==="invalid_token"?"このURLは無効です（担当者へ連絡してください）":"読み込みに失敗しました");return;}
     try{CUR_STAFF=(d.staff&&d.staff.name)?d.staff.name:(typeof d.staff==="string"?d.staff:"");}catch(e){}
     try{SUE.ready(d.staff);}catch(e){}
-    saLoadHO(function(){saLoadLic(d,function(){render(d);});});})
+    saLoadHO(function(){saLoadLic(d,function(){nudgeLoad(d,"tkm",function(){render(d);});});});})
   .catch(function(e){clearTimeout(to);showErr("通信エラー。電波を確認して再読み込みしてください");});
 }
 /* ★2026-09-23 引き継ぎ(申し送り) */
 var HO_MAP={}, CUR_STAFF="";
+// ★2026-11-08 nosh：マイページ「スタッフに知らせる」（着きました・遅れます等）をバイトURLにも。種類と時刻だけ（12時間以内の最新1件）
+var NUDGE={};
+function nudgeLoad(d,st,cb){try{var ids={};(d.tasks||[]).forEach(function(x){if(x.resv)ids[x.resv]=1;});var l=Object.keys(ids);if(!l.length){cb();return;}
+  var K="sb_publishable_aTVhlY0YD-5BBfI03ZNnsg_MzO_vsIe";
+  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",{method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:st,p_ids:l})})
+  .then(function(r){return r.json();}).then(function(rows){var m={};(Array.isArray(rows)?rows:[]).forEach(function(w){m[w.reservation_id]=w;});NUDGE=m;cb();}).catch(function(){cb();});}catch(e){cb();}}
+function nudgeB(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived:"着きました",late:"遅れます",lost:"見つからない",parked:"停めました"}[w.kind]||"";if(!k)return "";
+  var t="";try{t=new Date(new Date(w.created_at).getTime()+9*3600e3).toISOString().slice(11,16);}catch(e){}
+  return ' <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#fef3c7;color:#b45309;border:1px solid #fcd34d">🙋 '+(w.leg==="back"?"返却 ":"")+k+' '+t+'</span>';}
 /* ★2026-10-11 免許証の登録枚数・人数(license_uploads)をOP/タスクサマリーと同じく表示 */
 var LIC_MAP={};
 function saLoadLic(d,cb){
