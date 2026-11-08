@@ -22316,7 +22316,8 @@ function BtShuttleLog({t,size}){
 /* ★2026-11-08 nosh：マイページ「スタッフに知らせる」（着きました・遅れます等）をタスクサマリーにも。種類と時刻だけ（12時間以内の最新1件・mypage_nudges） */
 window._ngIds=window._ngIds||{};window._ngMap=window._ngMap||{};
 function _ngFetch(){clearTimeout(window._ngT);window._ngT=setTimeout(()=>{const l=Object.keys(window._ngIds);if(!l.length||!window._ngSt)return;const K="sb_publishable_aTVhlY0YD-5BBfI03ZNnsg_MzO_vsIe";
-  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",{method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:window._ngSt,p_ids:l})})
+  const H={method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:window._ngSt,p_ids:l})};
+  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent2",H).then(r=>r.ok?r:fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",H))
   .then(r=>r.json()).then(rows=>{const m={};(Array.isArray(rows)?rows:[]).forEach(w=>{m[w.reservation_id]=w;});window._ngMap=m;window.dispatchEvent(new Event("nudgeUpdate"));}).catch(()=>{});},400);}
 if(!window._ngTick){window._ngTick=setInterval(()=>{if(document.visibilityState==="visible")_ngFetch();},60000);}
 function NudgeBadge({resvNo,st}){
@@ -24463,7 +24464,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.573-BT";
+const APP_VERSION="v1.0.574-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
