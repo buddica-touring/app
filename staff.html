@@ -526,8 +526,15 @@ function nudgeLoad(d,st,cb){try{var ids={};(d.tasks||[]).forEach(function(x){if(
   // 確認時刻つきの新しい一覧（mypage_nudges_recent2）→無ければ従来の一覧
   var H={method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:st,p_ids:l})};
   fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent2",H).then(function(r){return r.ok?r:fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",H);})
-  .then(function(r){return r.json();}).then(function(rows){var m={};(Array.isArray(rows)?rows:[]).forEach(function(w){m[w.reservation_id]=w;});NUDGE=m;cb();}).catch(function(){cb();});}catch(e){cb();}}
-function nudgeB(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived:"着きました",late:"遅れます",lost:"見つからない",parked:"停めました"}[w.kind]||"";if(!k)return "";
+  .then(function(r){return r.json();}).then(function(rows){var m={};(Array.isArray(rows)?rows:[]).forEach(function(w){m[w.reservation_id]=w;});NUDGE=m;})
+  .then(function(){return fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_info_get",H).then(function(r){return r.ok?r.json():[];});})
+  .then(function(rows){var m={};(Array.isArray(rows)?rows:[]).forEach(function(w){m[w.reservation_id]=w;});MINFO=m;cb();}).catch(function(){cb();});}catch(e){cb();}}
+// ★2026-11-08 お客様がマイページで入れた人数・帰りの便・前日の確認（mypage_info）
+var MINFO={};
+function minfoB(x){var w=x&&x.resv&&MINFO[x.resv];if(!w)return "";var a=[];if(w.people)a.push("👥"+w.people+"名");if(w.flight_out)a.push("✈帰り "+w.flight_out);if(w.confirmed_at)a.push("✓前日確認");if(!a.length)return "";
+  return ' <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+esc(a.join(" "))+'</span>';}
+function nudgeB(x){return minfoB(x)+nudgeB0(x);}
+function nudgeB0(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived:"着きました",late:"遅れます",lost:"見つからない",parked:"停めました"}[w.kind]||"";if(!k)return "";
   var hm=function(v){try{return new Date(new Date(v).getTime()+9*3600e3).toISOString().slice(11,16);}catch(e){return "";}};
   var lb='🙋 '+(w.leg==="back"?"返却 ":"")+k+' '+hm(w.created_at);
   if(w.acked_at)return ' <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">'+lb+' ✓確認済</span>';
