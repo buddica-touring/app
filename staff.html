@@ -82,7 +82,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.12-bt";
+var VER="staff-v2.13-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -202,10 +202,10 @@ function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-
 function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function shBtns(x){
   var tid=esc(x._id||""),list=SH_BTNS[x.type]||[];
-  return list.map(function(b){
+  return shvChip(x)+list.map(function(b){
     var d=shLog(x,b[0]);
     return '<button class="abtn sh'+(d?' acted':'')+'" onclick="saShuttle(\''+tid+'\',\''+b[0]+'\')">'+b[1]+(d?('<br><span style="font-size:11px">'+shHm(d.at)+'</span>'):'')+'</button>';
-  }).join("");
+  }).join("")+shJamBtn(x);
 }
 function shToast(m){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span>'+esc(m)+'</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1500);}catch(e){}}
 function shPos(cb){
@@ -224,23 +224,136 @@ window.saShuttle=function(tid,a){
   /* 同じ便（同じ種類・日付・時間）の自分のタスクはまとめて記録（1回押せば全組） */
   if(SH_GROUP[a]){ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
   if(a==="pu_at_stop"&&!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;
+  shvBeforeDepart(me,a,ids,function(vid){
   shPos(function(pos){
-    var ng=0,k=0;
+    var ng=0,k=0,needV=0;
     function next(){
       if(k>=ids.length){
-        if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
+        if(needV)alert("⚠️ 送迎車が決まっていません。🚐送迎車を選ぶ を押してから出発してください");
+        else if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
         else shToast("✓ 記録しました"+(ids.length>1?"（"+ids.length+"組）":""));
         load();return;
       }
       var id=ids[k++];
-      fetch(SB+"/rest/v1/rpc/bt_staff_shuttle",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:id,p_action:a,p_lat:pos?pos.lat:null,p_lng:pos?pos.lng:null})})
-        .then(function(r){return r.json();})
-        .then(function(d){if(!d||d.ok===false)ng++;next();})
-        .catch(function(){ng++;next();});
+      SH_SEND(id,a,pos,vid?{vehicle:vid}:null,function(d){if(!d||d.ok===false){ng++;if(d&&d.error==="need_vehicle")needV=1;}next();});
     }
     next();
   });
+  });
 };
+/* 高松：送迎ボタンの送り先（bt_staff_shuttle）。extra={vehicle} / {min} */
+var SHV_STORE="tkm";
+function SH_SEND(id,a,pos,extra,cb){
+  var b={p_token:TOKEN,p_task_id:id,p_action:a,p_lat:pos?pos.lat:null,p_lng:pos?pos.lng:null};
+  if(extra&&extra.vehicle)b.p_vehicle=extra.vehicle;
+  if(extra&&extra.min)b.p_min=extra.min;
+  fetch(SB+"/rest/v1/rpc/bt_staff_shuttle",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify(b)})
+    .then(function(r){return r.json();}).then(function(d){cb(d);}).catch(function(){cb(null);});
+}
+/* ★2026-11-08 送迎車（nosh「バスがいない・来ない」→送迎車をタスクの必須情報に）＋渋滞ボタン（3店統一）。
+   ・出発を押すとき送迎車が未設定なら、写真つきの一覧から選ぶ（選ぶと同じ便の自分のタスク全部に入る＝OP・タスクサマリー・マイページに同じ車が出る）。
+   ・車のチップを押すと変更できる。
+   ・出発後〜乗り場着/空港着の前は「🚦渋滞」（+10分／+20分）。お客様のマイページの到着見込みが延びる。
+   正本はタスクの sh_vehicle（車）と sa_log（押した記録）。書くのはサーバーだけ。 */
+var SHV_LIST=null, SHV_WAIT=[];
+function shvLoad(cb){
+  if(SHV_LIST){cb(SHV_LIST);return;}
+  SHV_WAIT.push(cb); if(SHV_WAIT.length>1)return;
+  fetch(SB+"/rest/v1/hdm_shuttle_vehicles?select=id,label,model,color,plate,photo_url&store=eq."+SHV_STORE+"&active=eq.true&order=sort.asc",{headers:{"apikey":ANON,"Authorization":"Bearer "+ANON}})
+    .then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+    .then(function(L){SHV_LIST=Array.isArray(L)?L:[];var w=SHV_WAIT;SHV_WAIT=[];w.forEach(function(f){f(SHV_LIST);});});
+}
+function shvOf(id){if(!id||!SHV_LIST)return null;for(var i=0;i<SHV_LIST.length;i++)if(SHV_LIST[i].id===id)return SHV_LIST[i];return null;}
+function shvName(v){return v?(v.label+(v.plate?(" "+v.plate):"")):"";}
+function shvChip(x){
+  var tid=esc(x._id||""),v=shvOf(x.sh_vehicle);
+  if(x.sh_vehicle&&!SHV_LIST){shvLoad(function(){try{if(LASTD)render(LASTD);}catch(e){}});}
+  if(x.sh_vehicle)return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="background:#eef2ff;color:#002063;border:1px solid #c7d2fe;font-weight:800">🚐 '+esc(v?shvName(v):"送迎車")+'</button>';
+  return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="background:#FABE00;color:#002063;border:1px solid #eab308;font-weight:900">🚐 送迎車を選ぶ</button>';
+}
+function shvSheet(title,items,cb){
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,31,69,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+  var h='<div style="background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px 16px 22px;max-height:85vh;overflow:auto">'
+    +'<div style="font-size:17px;font-weight:900;color:#002063;margin-bottom:10px">'+esc(title)+'</div>';
+  items.forEach(function(it,i){
+    h+='<button data-i="'+i+'" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px;margin-bottom:8px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;font-size:17px;font-weight:800;color:#0F1F45">'
+      +(it.img?'<img src="'+esc(it.img)+'" style="width:84px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0">':(it.icon?'<span style="font-size:28px;width:40px;text-align:center">'+it.icon+'</span>':''))
+      +'<span>'+esc(it.label)+(it.sub?'<br><span style="font-size:13px;color:#64748b;font-weight:700">'+esc(it.sub)+'</span>':'')+'</span></button>';
+  });
+  h+='<button data-x="1" style="width:100%;padding:12px;border:none;border-radius:12px;background:#f1f5f9;color:#475569;font-size:15px;font-weight:800">やめる</button></div>';
+  ov.innerHTML=h;
+  ov.addEventListener("click",function(e){
+    var b=e.target.closest?e.target.closest("button"):null;
+    if(e.target===ov||(b&&b.getAttribute("data-x"))){ov.remove();return;}
+    if(b&&b.getAttribute("data-i")!=null){var it=items[+b.getAttribute("data-i")];ov.remove();cb(it);}
+  });
+  document.body.appendChild(ov);
+}
+function shvPick(cb){
+  shvLoad(function(L){
+    if(!L.length){alert("送迎車が登録されていません。運営に連絡してください");return;}
+    shvSheet("どの送迎車で行きますか？",L.map(function(v){return {id:v.id,label:shvName(v),sub:[v.color,v.model].filter(Boolean).join("・"),img:v.photo_url||"",icon:"🚐"};}),function(it){cb(it.id);});
+  });
+}
+function shvGroupIds(me){
+  var all=(LASTD&&LASTD.tasks)||[];
+  var ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});
+  if(ids.indexOf(me._id)<0)ids.push(me._id);
+  return ids;
+}
+function shvFind(tid){var all=(LASTD&&LASTD.tasks)||[];for(var i=0;i<all.length;i++)if(String(all[i]._id)===String(tid))return all[i];return null;}
+function shvRun(ids,a,extra,pos,done){
+  var ng=0,k=0,err="";
+  function next(){
+    if(k>=ids.length){done(ng,err);return;}
+    var id=ids[k++];
+    SH_SEND(id,a,pos,extra,function(d){if(!d||d.ok===false){ng++;err=(d&&d.error)||err;}next();});
+  }
+  next();
+}
+window.shvChange=function(tid){
+  var me=shvFind(tid); if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
+  shvPick(function(vid){
+    var ids=shvGroupIds(me);
+    shvRun(ids,"sh_vehicle",{vehicle:vid},null,function(ng){
+      if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
+      else shToast("✓ 送迎車を登録しました"+(ids.length>1?"（"+ids.length+"組）":""));
+      load();
+    });
+  });
+};
+window.shJam=function(tid){
+  var me=shvFind(tid); if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
+  var a=/^(BD|BDB)$/.test(me.type)?"bd_jam":"pu_jam";
+  shvSheet("渋滞で遅れますか？",[{min:10,label:"+10分",icon:"🚦",sub:"お客様に「約10分遅れています」と出ます"},{min:20,label:"+20分",icon:"🚦",sub:"お客様に「約20分遅れています」と出ます"}],function(it){
+    var ids=shvGroupIds(me);
+    shPos(function(pos){
+      shvRun(ids,a,{min:it.min},pos,function(ng){
+        if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
+        else shToast("✓ 渋滞 +"+it.min+"分 をお客様に表示しました");
+        load();
+      });
+    });
+  });
+};
+/* 出発の前に送迎車を必ず決める（未設定なら選ぶ画面）。決まった車は出発と一緒にサーバーへ送る */
+function shvBeforeDepart(me,a,ids,go){
+  if(!/_depart$/.test(a)){go(null);return;}
+  var have="",miss=0;
+  ids.forEach(function(id){var y=shvFind(id)||{};if(y.sh_vehicle){if(!have)have=y.sh_vehicle;}else miss++;});
+  if(me.sh_vehicle)have=me.sh_vehicle;
+  if(!miss){go(null);return;}          // 全組に車が入っている
+  if(have){go(have);return;}           // 同じ便の誰かに入っている車をそろえる
+  shvPick(function(vid){go(vid);});    // 未設定：選ぶ
+}
+function shJamBtn(x){
+  var dep=/^(BD|BDB)$/.test(x.type)?"bd_depart":"pu_depart", arr=/^(BD|BDB)$/.test(x.type)?"bd_at_airport":"pu_at_stop", jam=/^(BD|BDB)$/.test(x.type)?"bd_jam":"pu_jam";
+  if(!shLog(x,dep)||shLog(x,arr))return "";
+  var j=shLog(x,jam);
+  return '<button class="abtn" onclick="shJam(\''+esc(x._id||"")+'\')" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-weight:800">🚦渋滞'+(j?('<br><span style="font-size:11px">+'+(j.min||"")+'分</span>'):'')+'</button>';
+}
+
 function saIsWash(t){return t==='洗車';}
 function saIsRet(t){return ['COL','BD','BDB','返却','返却待'].indexOf(t)>=0;}
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
