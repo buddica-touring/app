@@ -323,10 +323,26 @@ window.shvChange=function(tid){
     });
   });
 };
+/* ★2026-11-08 nosh「渋滞は5分刻みで」：+5〜+60分を3列のボタンで（那覇・札幌のスタッフ画面と同じ） */
+function jamSheet(title,items,cb){
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(15,31,69,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+  var h='<div style="background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px 16px 22px">'
+    +'<div style="font-size:17px;font-weight:900;color:#002063;margin-bottom:10px">'+esc(title)+'</div>';
+  /* ★2026-11-08 nosh「渋滞は5分刻みで」：+5〜+60分を3列のボタンで */
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+  items.forEach(function(it,i){h+='<button data-i="'+i+'" style="padding:12px 4px;border:2px solid #fdba74;border-radius:12px;background:#fff7ed;font-size:18px;font-weight:900;color:#c2410c">'+esc(it.label)+(it.sub?'<br><span style="font-size:12px;color:#64748b;font-weight:700">'+esc(it.sub)+'</span>':'')+'</button>';});
+  h+='</div>';
+  h+='<button data-x="1" style="width:100%;padding:12px;border:none;border-radius:12px;background:#f1f5f9;color:#475569;font-size:15px;font-weight:800">やめる</button></div>';
+  ov.innerHTML=h;
+  ov.addEventListener("click",function(e){var b=e.target.closest?e.target.closest("button"):null;if(e.target===ov||(b&&b.getAttribute("data-x"))){ov.remove();return;}if(b&&b.getAttribute("data-i")!=null){var it=items[+b.getAttribute("data-i")];ov.remove();cb(it);}});
+  document.body.appendChild(ov);
+}
+function jamItems(sub){var a=[];for(var m=5;m<=60;m+=5)a.push({min:m,label:"+"+m+"分",sub:sub?sub(m):""});return a;}
 window.shJam=function(tid){
   var me=shvFind(tid); if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
   var a=/^(BD|BDB)$/.test(me.type)?"bd_jam":"pu_jam";
-  shvSheet("渋滞で遅れますか？",[{min:10,label:"+10分",icon:"🚦",sub:"お客様に「約10分遅れています」と出ます"},{min:20,label:"+20分",icon:"🚦",sub:"お客様に「約20分遅れています」と出ます"}],function(it){
+  jamSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",jamItems(null),function(it){
     var ids=shvGroupIds(me);
     shPos(function(pos){
       shvRun(ids,a,{min:it.min},pos,function(ng){
