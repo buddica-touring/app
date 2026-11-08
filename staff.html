@@ -529,11 +529,11 @@ function nudgeB(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived
   var hm=function(v){try{return new Date(new Date(v).getTime()+9*3600e3).toISOString().slice(11,16);}catch(e){return "";}};
   var lb='🙋 '+(w.leg==="back"?"返却 ":"")+k+' '+hm(w.created_at);
   if(w.acked_at)return ' <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">'+lb+' ✓確認済</span>';
-  return ' <button onclick="event.stopPropagation();nudgeAck('+(+w.id||0)+',this)" title="タップでお客様に「スタッフが確認しました」と出ます" style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#fef3c7;color:#b45309;border:1px solid #f59e0b;cursor:pointer">'+lb+' ・ 見ました</button>';}
+  return ' <button onclick="event.stopPropagation();nudgeAck('+(+w.id||0)+',\''+esc(String(x.resv))+'\',this)" title="タップでお客様に「スタッフが確認しました」と出ます" style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#fef3c7;color:#b45309;border:1px solid #f59e0b;cursor:pointer">'+lb+' ・ 見ました</button>';}
 // ★2026-11-08 nosh：お客様のアクション→運営のリアクション。ワンタップでお客様の画面が「スタッフが確認しました（時刻）」に変わる
-function nudgeAck(id,el){if(!id)return;try{el.disabled=true;el.textContent="✓確認済";}catch(e){}
+function nudgeAck(id,rid,el){if(!id)return;try{el.disabled=true;el.textContent="✓確認済";}catch(e){}
   var K="sb_publishable_aTVhlY0YD-5BBfI03ZNnsg_MzO_vsIe";
-  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudge_ack",{method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_id:id})})
+  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudge_ack",{method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_id:id,p_resv:rid})})
   .then(function(r){if(!r.ok)throw 0;Object.keys(NUDGE).forEach(function(k){if(NUDGE[k].id===id)NUDGE[k].acked_at=new Date().toISOString();});})
   .catch(function(){try{el.disabled=false;el.textContent="もう一度タップ";}catch(e){}});}
 /* ★2026-10-11 免許証の登録枚数・人数(license_uploads)をOP/タスクサマリーと同じく表示 */
