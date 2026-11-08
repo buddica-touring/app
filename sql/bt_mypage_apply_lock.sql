@@ -431,14 +431,7 @@ as $function$
 $function$;
 
 -- ===== 権限：新しい関数は service_role だけ（EF から呼ぶ）。bt_staff_view / mpadmin_pending_bt は現行の権限のまま（replace は権限を保つ） =====
-revoke all on function public.bt_cj(text) from public, anon, authenticated;
-revoke all on function public.bt_ok_place(text) from public, anon, authenticated;
-revoke all on function public.bt_airport_bus(text) from public, anon, authenticated;
-revoke all on function public.bt_task_eff_type(public.bt_tasks, public.bt_reservations) from public, anon, authenticated;
-revoke all on function public.bt_task_eff_time(public.bt_tasks, public.bt_reservations) from public, anon, authenticated;
-revoke all on function public.bt_task_eff_place(public.bt_tasks, public.bt_reservations) from public, anon, authenticated;
-revoke all on function public.bt_task_mplock() from public, anon, authenticated;
-revoke all on function public.bt_res_mplock() from public, anon, authenticated;
+-- 注意：bt_cj・eff・トリガー関数は OPシート（anon/authenticated）の保存中にトリガーから呼ばれるので権限を絞らない
 revoke all on function public.bt_apply_mypage_change(text,text,text,text,bigint,text) from public, anon, authenticated;
 revoke all on function public.bt_res_effective(text) from public, anon, authenticated;
 revoke all on function public.bt_mp_sync_check(int) from public, anon, authenticated;
