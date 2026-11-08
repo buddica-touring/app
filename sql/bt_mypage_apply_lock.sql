@@ -1,5 +1,5 @@
 -- 2026-11-08 高松 HDM ブランド：マイページの送迎変更を「依頼 → アクションタブで承認 → DB関数1回で反映」にする（那覇 nha_mypage_apply_lock.sql と同じ設計）
--- ※下書き（未適用）。BUDDICA ブランドの動きは変えない（反映関数は brand='HDM' 以外を拒否）。
+-- 2026-11-08 本番適用済み（noshのOK）。BUDDICA ブランドの動きは変えない（反映関数は brand='HDM' 以外を拒否）。
 --
 -- 1) bt_cj                       : changed_json(text) を安全に jsonb 化
 -- 2) bt_task_eff_type/time/place  : OPシート(_fromDbTask＋表示式)と同じ読み方。個別URL(bt_staff_view)・マイページもこれを使う
@@ -383,7 +383,7 @@ begin
     select t._id, t."内容" as type, t."予約者" as cust,
       coalesce(nullif(v.name,''),nullif(t."車種",''),t.assigned_vehicle) as veh_name,
       t."No" as plate, (t."確認"='true') as done, t."OTA" as ota,
-      t."予約番号" as resv, t."担当" as assignee, r.mypage_token,
+      t."予約番号" as resv, t."担当" as assignee, r.mypage_token, coalesce(t.sa_log,'[]'::jsonb) as sa_log,
       r.paid as paid, r.pay_url as pay_url, r.payment as payment,
       coalesce(nullif(r.final_price,0),r.price,0) as price,
       r.start_odo as start_odo, r.end_odo as end_odo, r.driven_km as driven_km,
@@ -401,7 +401,7 @@ begin
     where coalesce(t.deleted,false)=false
   ),
   mine as (select * from base where ( replace(coalesce(assignee,''),' ','')=replace(v_name,' ','') or replace(coalesce(assignee,''),' ','')=v_sur ) and eff_date between v_today and v_today+14)
-  select coalesce(jsonb_agg(jsonb_build_object('_id',_id,'type',type,'date',eff_date,'time',eff_time,'customer',cust,'vehicle',veh_name,'plate',plate,'place',eff_place,'done',done,'ota',ota,'resv',resv,'mypage',mypage_token,'paid',paid,'pay_url',pay_url,'payment',payment,'price',price,'opt_b',opt_b,'opt_c',opt_c,'opt_j',opt_j,'opt_usb',opt_usb,'lic',lic,'terms',terms,'damage',dmg,'start_odo',start_odo,'end_odo',end_odo,'driven_km',driven_km) order by eff_date,eff_time),'[]'::jsonb)
+  select coalesce(jsonb_agg(jsonb_build_object('_id',_id,'type',type,'date',eff_date,'time',eff_time,'customer',cust,'vehicle',veh_name,'plate',plate,'place',eff_place,'done',done,'ota',ota,'resv',resv,'mypage',mypage_token,'paid',paid,'pay_url',pay_url,'payment',payment,'price',price,'opt_b',opt_b,'opt_c',opt_c,'opt_j',opt_j,'opt_usb',opt_usb,'lic',lic,'terms',terms,'damage',dmg,'start_odo',start_odo,'end_odo',end_odo,'driven_km',driven_km,'sa_log',sa_log) order by eff_date,eff_time),'[]'::jsonb)
   into v_res from mine;
   return jsonb_build_object('ok',true,'staff',v_name,'today',v_today,'tasks',v_res,'requests','[]'::jsonb,'skips','[]'::jsonb);
 end $function$;
