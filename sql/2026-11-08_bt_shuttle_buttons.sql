@@ -103,3 +103,31 @@ AS $function$
 $function$;
 REVOKE ALL ON FUNCTION public.bt_shuttle_status(text) FROM public;
 GRANT EXECUTE ON FUNCTION public.bt_shuttle_status(text) TO anon, authenticated;
+
+-- マイページ管理（mypage-active.html）用：今日の送迎ボタンを マイページの鍵ごとに「何を何時に押したか」だけ返す（札幌・那覇の mpadmin_handoff と同じ形）
+CREATE OR REPLACE FUNCTION public.mpadmin_handoff_bt(p_tokens text[])
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH tk AS (
+    SELECT DISTINCT x AS token FROM unnest(coalesce(p_tokens,'{}'::text[])) x
+     WHERE length(coalesce(x,'')) >= 20 LIMIT 500
+  ),
+  d AS (SELECT (((now() at time zone 'Asia/Tokyo')::date)::timestamp at time zone 'Asia/Tokyo') AS from_ts),
+  ev AS (
+    SELECT r.mypage_token::text AS token, e->>'a' AS k, (e->>'at')::timestamptz AS at
+      FROM bt_reservations r JOIN tk ON tk.token = r.mypage_token::text
+      JOIN bt_tasks t ON t."予約番号" = r.id, d,
+           jsonb_array_elements(coalesce(t.sa_log,'[]'::jsonb)) e
+     WHERE coalesce(t.deleted,false) = false AND t."内容" IN ('PU','PUB','BD','BDB')
+       AND (e->>'at') IS NOT NULL AND (e->>'at')::timestamptz >= d.from_ts
+  ),
+  m AS (SELECT token, k, max(at) AS at FROM ev GROUP BY 1,2)
+  SELECT coalesce(jsonb_object_agg(token, acts), '{}'::jsonb)
+    FROM (SELECT token, jsonb_object_agg(k, to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')) AS acts FROM m GROUP BY token) x;
+$function$;
+REVOKE ALL ON FUNCTION public.mpadmin_handoff_bt(text[]) FROM public;
+GRANT EXECUTE ON FUNCTION public.mpadmin_handoff_bt(text[]) TO anon, authenticated;

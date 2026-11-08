@@ -9,3 +9,4 @@ BEGIN
 END $do$;
 REVOKE EXECUTE ON FUNCTION public.bt_staff_shuttle(uuid,text,text,double precision,double precision) FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.bt_shuttle_status(text) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.mpadmin_handoff_bt(text[]) FROM anon, authenticated;
