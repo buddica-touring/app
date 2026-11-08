@@ -59,7 +59,7 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 // 項目名は inspection.html の INSP_ITEMS（procurement.html の点検タブにも同じ定義が残っている） と同じキー（項目を増減したら両方を揃える）。キーが無い古い項目はキー名のまま表示。
 const ITEMS={
-  pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
+  pre:[["exterior","外装の傷・へこみ確認"],["interior","車内清掃・ゴミなし"],["fuel","燃料 満タン"],["washer","ウォッシャー液"],["wiper","ワイパー動作（ゴムの状態）"],["oil","エンジンオイル量"],["coolant","冷却水量"],["tire_air","タイヤ空気圧・外観（亀裂・釘）"],["lights","ライト類（前照灯・ブレーキ・ウインカー）"],["warning","警告灯なし（エンジン始動）"],["aircon","エアコン作動"],["docs","車検証・自賠責・取扱説明書"]],
   post:[["damage","外装の新しい傷・へこみ"],["tire_tread","タイヤ溝（スリップサイン）"],["tire_damage","タイヤ損傷（パンク・亀裂）"],["lost","忘れ物なし"],["dirt","車内の汚れ・臭い（喫煙・ペット）"],["fuel","燃料（満タン返却）"],["warning","警告灯なし"],["etc_card","ETCカード抜き取り"],["key","鍵・付属品の返却"]]
 };
 const $=id=>document.getElementById(id);
@@ -87,7 +87,7 @@ async function load(){
   const paths=[];Object.values(g).forEach(x=>x.photos.forEach(p=>paths.push(p.path)));
   const urls={};
   for(let i=0;i<paths.length;i+=100){const {data}=await sb.storage.from("bt-inspections").createSignedUrls(paths.slice(i,i+100),3600);(data||[]).forEach(d=>{if(d.signedUrl)urls[d.path]=d.signedUrl;});}
-  REC=Object.values(g).map(x=>{const r=resv[x.rid]||{};const items=ITEMS[x.kind]||[];const vc=(Object.values(x.checks).map(c=>c.vehicle_code).find(Boolean))||(x.photos[0]&&x.photos[0].vehicle_code)||r.assigned_vehicle||"";const v=veh[vc]||{};
+  REC=Object.values(g).map(x=>{const r=resv[x.rid]||{};const items=(ITEMS[x.kind]||[]).filter(([k])=>!(k==="wiper"&&String(r.start_date||x.last||"").slice(0,10)<"2026-11-08"));/* ワイパーは2026-11-08追加＝それより前の記録は11項目で数える */const vc=(Object.values(x.checks).map(c=>c.vehicle_code).find(Boolean))||(x.photos[0]&&x.photos[0].vehicle_code)||r.assigned_vehicle||"";const v=veh[vc]||{};
     const n=items.filter(([k])=>x.checks[k]&&x.checks[k].checked).length;
     return Object.assign(x,{r,v,vc,n,t:items.length,ng:items.filter(([k])=>!(x.checks[k]&&x.checks[k].checked)).map(([,l])=>l),memo:(x.checks._memo&&x.checks._memo.note)||"",
       date:(x.kind==="pre"?r.start_date:r.end_date)||String(x.last||"").slice(0,10),time:(x.kind==="pre"?r.start_time:r.end_time)||"",urls});});
