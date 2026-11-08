@@ -523,7 +523,9 @@ var HO_MAP={}, CUR_STAFF="";
 var NUDGE={};
 function nudgeLoad(d,st,cb){try{var ids={};(d.tasks||[]).forEach(function(x){if(x.resv)ids[x.resv]=1;});var l=Object.keys(ids);if(!l.length){cb();return;}
   var K="sb_publishable_aTVhlY0YD-5BBfI03ZNnsg_MzO_vsIe";
-  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",{method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:st,p_ids:l})})
+  // 確認時刻つきの新しい一覧（mypage_nudges_recent2）→無ければ従来の一覧
+  var H={method:"POST",headers:{"apikey":K,"Authorization":"Bearer "+K,"Content-Type":"application/json"},body:JSON.stringify({p_store:st,p_ids:l})};
+  fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent2",H).then(function(r){return r.ok?r:fetch("https://ckrxttbnawkclshczsia.supabase.co/rest/v1/rpc/mypage_nudges_recent",H);})
   .then(function(r){return r.json();}).then(function(rows){var m={};(Array.isArray(rows)?rows:[]).forEach(function(w){m[w.reservation_id]=w;});NUDGE=m;cb();}).catch(function(){cb();});}catch(e){cb();}}
 function nudgeB(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived:"着きました",late:"遅れます",lost:"見つからない",parked:"停めました"}[w.kind]||"";if(!k)return "";
   var hm=function(v){try{return new Date(new Date(v).getTime()+9*3600e3).toISOString().slice(11,16);}catch(e){return "";}};
