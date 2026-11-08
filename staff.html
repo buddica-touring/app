@@ -52,6 +52,9 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .r3{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
 .abtn{font-size:13px;font-weight:800;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;color:#fff}
 .abtn.done{background:#0f172a;color:#fff;margin-left:auto}
+/* ★2026-11-08 送迎ボタン（那覇と同じ・3店統一） */
+.abtn.sh{background:#0e7a6b;color:#fff;line-height:1.25}
+.abtn.sh.acted{background:#dcfce7;color:#15803d;border:1px solid #86efac}
 a.place{color:#1d4ed8;text-decoration:underline;font-size:13px}
 a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:3px 8px;text-decoration:none;white-space:nowrap;margin-left:auto}
 a.myp.hdm{background:#0369a1}
@@ -79,7 +82,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.11-bt";
+var VER="staff-v2.12-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -169,6 +172,7 @@ function taskCard(x){
     btns+='<a class="abtn" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;text-decoration:none" href="inspection.html?insp='+(saIsWash(t)?'pre':'post')+'&plate='+encodeURIComponent(x.plate)+'&d='+encodeURIComponent(x.date)+'" onclick="return saInspOpen(this.href)">🔧 点検</a>';
   }
   btns+=odoRow;
+  if(SH_BTNS[t]&&tid&&!x.done){ btns+=shBtns(x); } /* ★2026-11-08 送迎ボタン（出発・乗り場着・合流／出発・空港着） */
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
     var _hc=HO_MAP[x.resv]||0;
@@ -184,6 +188,59 @@ function taskCard(x){
     +opStr
     +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
 }
+/* ★2026-11-08 送迎（PU/BD）ボタン：那覇と同じ設計（3店統一）。
+   押した記録は bt_tasks.sa_log（全スタッフ画面・OP・タスクサマリー・マイページに同じ時刻で出る）。
+   お客様へは「乗り場着」だけメール（高松は LINE なし・HANDYMAN 予約のみ）。他は記録のみ。 */
+var SH_BTNS={
+  PU:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
+  PUB:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
+  BD:[["bd_depart","🚐出発"],["bd_at_airport","🛬空港着"]],
+  BDB:[["bd_depart","🚐出発"],["bd_at_airport","🛬空港着"]]
+};
+var SH_GROUP={pu_depart:1,pu_at_stop:1,bd_depart:1,bd_at_airport:1};
+function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}catch(e){return "✓済";}}
+function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
+function shBtns(x){
+  var tid=esc(x._id||""),list=SH_BTNS[x.type]||[];
+  return list.map(function(b){
+    var d=shLog(x,b[0]);
+    return '<button class="abtn sh'+(d?' acted':'')+'" onclick="saShuttle(\''+tid+'\',\''+b[0]+'\')">'+b[1]+(d?('<br><span style="font-size:11px">'+shHm(d.at)+'</span>'):'')+'</button>';
+  }).join("");
+}
+function shToast(m){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span>'+esc(m)+'</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1500);}catch(e){}}
+function shPos(cb){
+  var done=false;function fin(p){if(done)return;done=true;cb(p);}
+  try{
+    if(!navigator.geolocation)return fin(null);
+    setTimeout(function(){fin(null);},5000);
+    navigator.geolocation.getCurrentPosition(function(p){fin({lat:p.coords.latitude,lng:p.coords.longitude});},function(){fin(null);},{enableHighAccuracy:true,timeout:4500,maximumAge:60000});
+  }catch(e){fin(null);}
+}
+window.saShuttle=function(tid,a){
+  var all=(LASTD&&LASTD.tasks)||[], me=null;
+  for(var i=0;i<all.length;i++)if(String(all[i]._id)===String(tid)){me=all[i];break;}
+  if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
+  var ids=[tid];
+  /* 同じ便（同じ種類・日付・時間）の自分のタスクはまとめて記録（1回押せば全組） */
+  if(SH_GROUP[a]){ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
+  if(a==="pu_at_stop"&&!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;
+  shPos(function(pos){
+    var ng=0,k=0;
+    function next(){
+      if(k>=ids.length){
+        if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
+        else shToast("✓ 記録しました"+(ids.length>1?"（"+ids.length+"組）":""));
+        load();return;
+      }
+      var id=ids[k++];
+      fetch(SB+"/rest/v1/rpc/bt_staff_shuttle",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:id,p_action:a,p_lat:pos?pos.lat:null,p_lng:pos?pos.lng:null})})
+        .then(function(r){return r.json();})
+        .then(function(d){if(!d||d.ok===false)ng++;next();})
+        .catch(function(){ng++;next();});
+    }
+    next();
+  });
+};
 function saIsWash(t){return t==='洗車';}
 function saIsRet(t){return ['COL','BD','BDB','返却','返却待'].indexOf(t)>=0;}
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
