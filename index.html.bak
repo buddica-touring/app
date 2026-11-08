@@ -600,7 +600,7 @@ const DB = {
       if(cur&&cur.source==="ota"){if(!(cur.pickup_time&&String(cur.pickup_time).trim()))delete changes.visitType;if(!(cur.dropoff_time&&String(cur.dropoff_time).trim()))delete changes.returnType;}
       const dbChanges={};
       Object.entries(changes).forEach(([k,v])=>{const col=colMap[k]||k;dbChanges[col]=v;});
-      dbChanges.changed_json=JSON.stringify({_src:(source==='op_sheet'?'human':(source==='spreadsheet'?'customer':'system'))});
+      dbChanges.changed_json=JSON.stringify({_src:(source==='spreadsheet'?'customer':'human')})/* 2026-11-08 OPでのスタッフ変更(manual/op_edit/op_master/fleet)を取込扱い('system')にしていたため、取込ガードに止められていた。受付シート以外は全て人の変更 */;
       const{error}=await sb.from("bt_reservations").update(dbChanges).eq("id",resId);
       if(error){dbLog("updateResField",false,error.message);return;}
       dbLog("updateResField",true,resId+" "+changeType);
@@ -24492,7 +24492,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.575-BT";
+const APP_VERSION="v1.0.576-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
