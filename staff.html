@@ -205,7 +205,8 @@ function taskCard(x){
 /* ★2026-11-08 送迎（PU/BD）ボタン：那覇と同じ設計（3店統一）。
    押した記録は bt_tasks.sa_log（全スタッフ画面・OP・タスクサマリー・マイページに同じ時刻で出る）。
    お客様へは「乗り場着」だけメール（高松は LINE なし・HANDYMAN 予約のみ）。他は記録のみ。 */
-var SH_PU_BTNS=[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]], SH_BD_BTNS=[["bd_at_airport","🛬空港着"]];
+/* ★2026-11-09 nosh「高松はこっちからお迎えに行く（駐車場に止めて迎えに行く）ので乗り場着はいらない。出発と合流だけ」 */
+var SH_PU_BTNS=[["pu_depart","🚐出発"],["pu_met","🤝合流"]], SH_BD_BTNS=[["bd_at_airport","🛬空港着"]];
 /* ★2026-11-09 nosh「バディカは押すだけ無駄」「貸出(不明)も出さないとダメ」：送迎ボタン・送迎車は HANDYMAN 予約だけ（APP のタスクサマリー・サーバーと同じ条件）。
    BUDDICA は押してもお客様に何も届かない＝出さない。HDM は 貸出(不明)/返却(不明) も出す（押さないとお客様のマイページが進まない）。 */
 var SH_PU_T=['PU','PUB','貸出','DEL'], SH_BD_T=['BD','BDB','返却待','COL'];
@@ -230,7 +231,7 @@ function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-
 function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function shBtns(x){
   var tid=esc(x._id||""),list=shIsBd(x)?SH_BD_BTNS:SH_PU_BTNS;
-  var isPu=!shIsBd(x), off=isPu?1:4;   // お迎えは①が送迎車。★2026-11-09 nosh：お見送りはお迎え（①〜④合流）の続き＝⑤空港着（APPのタスクサマリーと同じ）
+  var isPu=!shIsBd(x), off=isPu?1:3;   /* ①送迎車②出発③合流 → お見送りは④空港着 */   // お迎えは①が送迎車。★2026-11-09 nosh：お見送りはお迎え（①〜④合流）の続き＝⑤空港着（APPのタスクサマリーと同じ）
   var nextA=null;if(!isPu||shEffVeh(x)){for(var i=0;i<list.length;i++)if(!shLog(x,list[i][0])){nextA=list[i][0];break;}}
   return (isPu?shvChip(x):"")+list.map(function(b,i){
     var d=shLog(x,b[0]);
@@ -413,7 +414,7 @@ function shvBeforeDepart(me,a,ids,go){
   shvPick(function(vid){go(vid);});    // 未設定：選ぶ
 }
 function shJamBtn(x){
-  var bd=shIsBd(x), dep=bd?"bd_depart":"pu_depart", arr=bd?"bd_at_airport":"pu_at_stop", jam=bd?"bd_jam":"pu_jam";
+  var bd=shIsBd(x), dep=bd?"bd_depart":"pu_depart", arr=bd?"bd_at_airport":"pu_met", jam=bd?"bd_jam":"pu_jam";
   if(bd)return "";   // お見送りは出発ボタンがないので渋滞も出さない
   if(shLog(x,arr))return "";
   if(!shLog(x,dep))return '<button class="abtn" onclick="alert(\'🚦渋滞は「出発」を押したあとに押せます\')" style="background:#f8fafc;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:800">🚦渋滞</button>';

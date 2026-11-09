@@ -22417,7 +22417,8 @@ function HsaDeliveryBtns({t}){
   return <>{step("collect","回収に向かう",1,nx==="collect")}{step("col_arrival","到着",2,nx==="col_arrival")}{dly("delay_col")}{jam("delay_col")}<HsaBtn st={dp?HSA_DONE:HSA_PLAIN} done={dp} onClick={()=>hsaAction(t,"dropoff")}>🚗乗捨</HsaBtn></>;
 }
 /* 送迎（那覇）：個別URLと同じ ②出発 ③乗り場着 ④合流 🚦渋滞（①は🚐送迎車）／お見送りは ①空港着 だけ。押したボタンをもう一度押すと取り消し */
-const HSA_SH_PU=[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],HSA_SH_BD=[["bd_at_airport","空港着"]];
+/* ★2026-11-09 nosh「高松はこっちからお迎えに行く（駐車場に止めて迎えに行く）ので乗り場着はいらない。出発と合流だけ」 */
+const HSA_SH_PU=[["pu_depart","出発"],["pu_met","合流"]],HSA_SH_BD=[["bd_at_airport","空港着"]];
 const HSA_SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_at_airport:"空港着"};
 const HSA_SH_GROUP={pu_depart:1,pu_at_stop:1,bd_at_airport:1};
 function hsaShLog(x,a){const L=(x&&Array.isArray(x.saLog))?x.saLog:[];for(let i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
@@ -22464,11 +22465,11 @@ function HsaShuttleBtns({t,all}){
   React.useEffect(()=>{if(!window._shvList)_shvLoad(()=>setTick(x=>x+1));},[]);
   if(!shOn(t)||!t._id||t.done)return null;const list=shIsBd(t)?HSA_SH_BD:HSA_SH_PU;
   /* ★2026-11-09 nosh「BDはもう戻ってくる方＝①ではなくその先」：お見送りの空港着はお迎え（①送迎車②出発③乗り場着④合流）の続き＝⑤。「1番大事なボタン」なので大きく */
-  const isPu=!shIsBd(t),off=isPu?1:4;
+  const isPu=!shIsBd(t),off=isPu?1:3;/* ①送迎車②出発③合流 → お見送りは④空港着 */
   let nextA=null;if(!isPu||shEffVeh(t)){for(const b of list)if(!hsaShLog(t,b[0])){nextA=b[0];break;}}
   const btns=list.map((b,i)=>{const d=hsaShLog(t,b[0]);return <HsaBtn key={b[0]} big={b[0]==="bd_at_airport"} st={d?HSA_DONE:(b[0]===nextA?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaShuttle(t,all,b[0])}>{HSA_NO[i+1+off]}{b[1]}</HsaBtn>;});
   let jam=null;
-  if(isPu&&!hsaShLog(t,"pu_at_stop")){
+  if(isPu&&!hsaShLog(t,"pu_met")){
     if(!hsaShLog(t,"pu_depart"))jam=<HsaBtn st={HSA_OFF} onClick={()=>alert("🚦渋滞は「出発」を押したあとに押せます")}>🚦渋滞</HsaBtn>;
     else{const j=hsaShLog(t,"pu_jam");jam=<HsaBtn st={HSA_JAM} onClick={()=>hsaShJam(t,all)}>🚦渋滞{j&&<><br/><span style={{fontSize:8}}>+{j.min||""}分</span></>}</HsaBtn>;}
   }
@@ -24654,7 +24655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.580-BT";
+const APP_VERSION="v1.0.581-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
