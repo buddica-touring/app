@@ -55,6 +55,7 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 /* ★2026-11-08 送迎ボタン（那覇と同じ・3店統一） */
 .abtn.sh{background:#0e7a6b;color:#fff;line-height:1.25}
 .abtn.sh.acted{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+.abtn[data-fut]{opacity:.35;filter:grayscale(1)}
 a.place{color:#1d4ed8;text-decoration:underline;font-size:13px}
 a.myp{background:#7c2d12;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:3px 8px;text-decoration:none;white-space:nowrap;margin-left:auto}
 a.myp.hdm{background:#0369a1}
@@ -109,6 +110,9 @@ var app=document.getElementById("app");
 function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
 function shortDate(d){var p=(d||"").split("-");return p.length===3?(+p[1])+"/"+(+p[2]):d;}
 function jstToday(){var n=new Date(Date.now()+9*3600*1000);return n.toISOString().slice(0,10);}
+/* ★2026-11-09 nosh「通知飛ぶだろこれ 間違ったらやばい」：未来の日のタスクのボタンは押せない（当日に押せる）。サーバー側でも止める */
+function saFuture(d){d=String(d||"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>jstToday();}
+window.saFut=function(d){var m=String(d||"").split("-");alert("📅 "+(m.length===3?(+m[1])+"/"+(+m[2]):d)+" のタスクです。\nボタンは当日に押せます。");};
 function jpWd(d){var p=(d||"").split("-");if(p.length!==3)return"";return "日月火水木金土"[new Date(+p[0],+p[1]-1,+p[2]).getDay()];}
 function addDays(d,n){var p=(d||"").split("-");if(p.length!==3)return d;var dt=new Date(+p[0],+p[1]-1,+p[2]+n);return dt.getFullYear()+"-"+("0"+(dt.getMonth()+1)).slice(-2)+"-"+("0"+dt.getDate()).slice(-2);}
 function dayHead(d,today){var tag=(d===today)?'<span class="ttag">本日</span>':(d===addDays(today,1))?'<span class="ttag" style="background:#0284c7">明日</span>':'';return '<div class="dayhd">📅 '+shortDate(d)+'（'+jpWd(d)+'）'+tag+'</div>';}
@@ -179,6 +183,7 @@ function taskCard(x){
     btns+='<button class="abtn" style="'+(_hc>0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0')+'" onclick="saHandover(\''+esc(x.resv)+'\')">📌 引継'+(_hc>0?' '+_hc:'')+'</button>';
   }
   btns+='</div>';
+  if(saFuture(x.date)){var _fd=esc(String(x.date||"").slice(0,10));btns=btns.replace(/onclick="(?!shvChange|return saInspOpen|saHandover)/g,'data-fut="1" onclick="saFut(\''+_fd+'\');return false;');}
   var _hx=isHdmS(x.ota)&&t!=='洗車'&&t!=='返却後洗車';
   return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'">'
     +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
@@ -194,17 +199,26 @@ function taskCard(x){
 var SH_BTNS={
   PU:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
   PUB:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
-  BD:[["bd_depart","🚐出発"],["bd_at_airport","🛬空港着"]],
-  BDB:[["bd_depart","🚐出発"],["bd_at_airport","🛬空港着"]]
+  BD:[["bd_at_airport","🛬空港着"]],
+  BDB:[["bd_at_airport","🛬空港着"]]
 };
+/* ★2026-11-09 nosh「不要なものは至急削除」：お見送りの出発は消す（お客様は車内にいる）。お見送りは「空港着」だけ・渋滞も出さない。
+   nosh「ステップわかるようにして」：①②③…の番号。次に押すボタンは紺＋黄色の枠、押したものは緑、まだ先のものは白 */
+var STEP_NO=["","①","②","③","④","⑤"];
+var STEP_NEXT=' style="background:#002063;color:#fff;border:none;box-shadow:0 0 0 3px #FABE00;font-weight:900"';
+var STEP_LATER=' style="background:#fff;color:#002063;border:1px solid #C9CED6;font-weight:700"';
+var STEP_DONE=' style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800"';
 var SH_GROUP={pu_depart:1,pu_at_stop:1,bd_depart:1,bd_at_airport:1};
 function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}catch(e){return "✓済";}}
 function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function shBtns(x){
   var tid=esc(x._id||""),list=SH_BTNS[x.type]||[];
-  return shvChip(x)+list.map(function(b){
+  var isPu=!/^(BD|BDB)$/.test(x.type), off=isPu?1:0;   // お迎えは①が送迎車、お見送りは①が空港着
+  var nextA=null;if(!isPu||x.sh_vehicle){for(var i=0;i<list.length;i++)if(!shLog(x,list[i][0])){nextA=list[i][0];break;}}
+  return (isPu?shvChip(x):"")+list.map(function(b,i){
     var d=shLog(x,b[0]);
-    return '<button class="abtn sh'+(d?' acted':'')+'" onclick="saShuttle(\''+tid+'\',\''+b[0]+'\')">'+b[1]+(d?('<br><span style="font-size:11px">'+shHm(d.at)+'</span>'):'')+'</button>';
+    var st=d?STEP_DONE:(b[0]===nextA?STEP_NEXT:STEP_LATER);
+    return '<button class="abtn sh'+(d?' acted':'')+'" onclick="saShuttle(\''+tid+'\',\''+b[0]+'\')"'+st+'>'+STEP_NO[i+1+off]+b[1].replace(/^[^\u3000-\u9fff]+/,"")+(d?('<br><span style="font-size:11px">'+shHm(d.at)+'</span>'):'')+'</button>';
   }).join("")+shJamBtn(x);
 }
 function shToast(m){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span>'+esc(m)+'</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1500);}catch(e){}}
@@ -220,10 +234,21 @@ window.saShuttle=function(tid,a){
   var all=(LASTD&&LASTD.tasks)||[], me=null;
   for(var i=0;i<all.length;i++)if(String(all[i]._id)===String(tid)){me=all[i];break;}
   if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
+  if(saFuture(me.date)){saFut(me.date);return;}
+  var SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_depart:"出発",bd_at_airport:"空港着"};
+  /* ★2026-11-09 nosh「空港着おしたら戻らない」：押したボタンをもう一度押すと取り消し（同じ便でまとめて押した分も一緒に） */
+  if(shLog(me,a)){
+    var uids=all.filter(function(y){return String(y._id)===String(tid)||(SH_GROUP[a]&&y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&shLog(y,a));}).map(function(y){return y._id;});
+    if(!confirm("「"+(SH_LBL[a]||a)+"」を取り消しますか？"+(uids.length>1?"\n（同じ便の"+uids.length+"組まとめて）":"")+"\n・押した記録を消し、お客様のマイページの表示も戻ります\n・送ったメールは取り消せません"))return;
+    var uk=0,ung=0;(function un(){if(uk>=uids.length){if(ung)alert("⚠️ "+ung+"件 取り消せませんでした。もう一度押してください");else shToast("↩︎ 取り消しました");load();return;}
+      SH_SEND(uids[uk++],"undo:"+a,null,null,function(d){if(!d||d.ok===false)ung++;un();});})();
+    return;
+  }
   var ids=[tid];
   /* 同じ便（同じ種類・日付・時間）の自分のタスクはまとめて記録（1回押せば全組） */
   if(SH_GROUP[a]){ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
-  if(a==="pu_at_stop"&&!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;
+  if(a==="pu_at_stop"){if(!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;}
+  else if(!confirm("「"+(SH_LBL[a]||a)+"」を押しますか？"+(ids.length>1?"\n（同じ便の"+ids.length+"組まとめて）":"")+"\n"+(a==="pu_met"?"社内に記録します（お客様には送りません）":"お客様のマイページに表示され、メールでもお知らせします")+"\n間違えたら、もう一度押すと取り消せます"))return;
   shvBeforeDepart(me,a,ids,function(vid){
   shPos(function(pos){
     var ng=0,k=0,needV=0;
@@ -268,8 +293,10 @@ function shvName(v){return v?(v.label+(v.plate?(" "+v.plate):"")):"";}
 function shvChip(x){
   var tid=esc(x._id||""),v=shvOf(x.sh_vehicle);
   if(x.sh_vehicle&&!SHV_LIST){shvLoad(function(){try{if(LASTD)render(LASTD);}catch(e){}});}
-  if(x.sh_vehicle)return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="background:#eef2ff;color:#002063;border:1px solid #c7d2fe;font-weight:800">🚐 '+esc(v?shvName(v):"送迎車")+'</button>';
-  return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="background:#FABE00;color:#002063;border:1px solid #eab308;font-weight:900">🚐 送迎車を選ぶ</button>';
+  /* ★2026-11-09 nosh「文字はみ出てる」：2行（上に車の名前を小さく・下にナンバー）。未選択は①として黄色＋紺の枠 */
+  var col='display:inline-flex;flex-direction:column;align-items:center;justify-content:center;white-space:normal;line-height:1.2;';
+  if(x.sh_vehicle)return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="'+col+'background:#eef2ff;color:#002063;border:1px solid #c7d2fe;font-weight:800;overflow:hidden">'+(v?('<span style="font-size:11px;font-weight:700;max-width:100%">①'+esc(v.label||"送迎車")+'</span>'+(v.plate?'<span style="font-size:15px;font-weight:900">'+esc(v.plate)+'</span>':'')):'<span style="font-size:12px">①送迎車</span>')+'</button>';
+  return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="'+col+'background:#FABE00;color:#002063;border:1px solid #eab308;font-weight:900;box-shadow:0 0 0 3px #002063">①送迎車<span>を選ぶ</span></button>';
 }
 function shvSheet(title,items,cb){
   var ov=document.createElement("div");
@@ -341,6 +368,7 @@ function jamSheet(title,items,cb){
 function jamItems(sub){var a=[];for(var m=5;m<=60;m+=5)a.push({min:m,label:"+"+m+"分",sub:sub?sub(m):""});return a;}
 window.shJam=function(tid){
   var me=shvFind(tid); if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
+  if(saFuture(me.date)){saFut(me.date);return;}
   var a=/^(BD|BDB)$/.test(me.type)?"bd_jam":"pu_jam";
   jamSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",jamItems(null),function(it){
     var ids=shvGroupIds(me);
@@ -365,7 +393,9 @@ function shvBeforeDepart(me,a,ids,go){
 }
 function shJamBtn(x){
   var dep=/^(BD|BDB)$/.test(x.type)?"bd_depart":"pu_depart", arr=/^(BD|BDB)$/.test(x.type)?"bd_at_airport":"pu_at_stop", jam=/^(BD|BDB)$/.test(x.type)?"bd_jam":"pu_jam";
-  if(!shLog(x,dep)||shLog(x,arr))return "";
+  if(/^(BD|BDB)$/.test(x.type))return "";   // お見送りは出発ボタンがないので渋滞も出さない
+  if(shLog(x,arr))return "";
+  if(!shLog(x,dep))return '<button class="abtn" onclick="alert(\'🚦渋滞は「出発」を押したあとに押せます\')" style="background:#f8fafc;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:800">🚦渋滞</button>';
   var j=shLog(x,jam);
   return '<button class="abtn" onclick="shJam(\''+esc(x._id||"")+'\')" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-weight:800">🚦渋滞'+(j?('<br><span style="font-size:11px">+'+(j.min||"")+'分</span>'):'')+'</button>';
 }
