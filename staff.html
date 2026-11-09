@@ -112,6 +112,15 @@ function shortDate(d){var p=(d||"").split("-");return p.length===3?(+p[1])+"/"+(
 function jstToday(){var n=new Date(Date.now()+9*3600*1000);return n.toISOString().slice(0,10);}
 /* ★2026-11-09 nosh「通知飛ぶだろこれ 間違ったらやばい」：未来の日のタスクのボタンは押せない（当日に押せる）。サーバー側でも止める */
 function saFuture(d){d=String(d||"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>jstToday();}
+/* ★2026-11-09 nosh「押し間違い防止」「全店」：お客様に届くボタンは、タスクの時刻の2時間より前は押せない */
+function saTooEarly(x){try{
+  var jd=new Date(Date.now()+9*3600e3),today=jd.toISOString().slice(0,10),d=String(x&&x.date||"").slice(0,10);
+  if(d&&d!==today)return false;
+  var m=String(x&&x.time||"").match(/(\d{1,2}):(\d{2})/);if(!m)return false;
+  var mins=(+m[1])*60+(+m[2]),now=jd.getUTCHours()*60+jd.getUTCMinutes();
+  if(mins-now<=120)return false;
+  var ok=mins-120;alert("⏰ "+("0"+m[1]).slice(-2)+":"+m[2]+" のタスクです。\nこのボタンは "+("0"+Math.floor(ok/60)).slice(-2)+":"+("0"+(ok%60)).slice(-2)+" ごろから押せます。\n（早く押すと、お客様に「出発しました」などが早く届いてしまいます）");return true;
+}catch(e){return false;}}
 window.saFut=function(d){var m=String(d||"").split("-");alert("📅 "+(m.length===3?(+m[1])+"/"+(+m[2]):d)+" のタスクです。\nボタンは当日に押せます。");};
 function jpWd(d){var p=(d||"").split("-");if(p.length!==3)return"";return "日月火水木金土"[new Date(+p[0],+p[1]-1,+p[2]).getDay()];}
 function addDays(d,n){var p=(d||"").split("-");if(p.length!==3)return d;var dt=new Date(+p[0],+p[1]-1,+p[2]+n);return dt.getFullYear()+"-"+("0"+(dt.getMonth()+1)).slice(-2)+"-"+("0"+dt.getDate()).slice(-2);}
@@ -235,6 +244,7 @@ window.saShuttle=function(tid,a){
   for(var i=0;i<all.length;i++)if(String(all[i]._id)===String(tid)){me=all[i];break;}
   if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
   if(saFuture(me.date)){saFut(me.date);return;}
+  if(!shLog(me,a)&&saTooEarly(me))return;   // 取り消しは時刻に関係なくできる
   var SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_depart:"出発",bd_at_airport:"空港着"};
   /* ★2026-11-09 nosh「空港着おしたら戻らない」：押したボタンをもう一度押すと取り消し（同じ便でまとめて押した分も一緒に） */
   if(shLog(me,a)){
