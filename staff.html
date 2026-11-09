@@ -519,6 +519,10 @@ window.saDone=function(tid,_inspOk){
       if(ic===-1){alert("点検の記録を読めませんでした。電波を確認してもう一度押してください");return;}
       if(ic&&ic.n<ic.t){alert("🔧 出発前点検が "+ic.n+" / "+ic.t+" です。\n全部チェックしてから完了にしてください（🔧点検ボタン）");return;}
       window.saDone(tid,true);});return;}
+  /* 🚐 ★2026-11-09 nosh：送迎ボタン（お迎え＝②出発・③合流／お見送り＝④空港着）を押すまで完了にできない（点検・距離と同じ）。HANDYMAN 予約だけ */
+  if(tk&&!tk.done&&shOn(tk)){var _L=tk.sa_log||[],_nd=shIsBd(tk)?[["bd_at_airport","④空港着"]]:[["pu_depart","②出発"],["pu_met","③合流"]];
+    var _ms=_nd.filter(function(n){return !_L.some(function(e){return e&&e.a===n[0];});}).map(function(n){return n[1];});
+    if(_ms.length){alert("🚐 送迎のステータスが進んでいません。\n先に「"+_ms.join("」「")+"」を押してください（お客様のマイページが進みます）。\n押したらチェックできます。");return;}}
   if(tk&&tk.resv){
     if(saIsWash(tk.type)&&tk.start_odo==null){alert("先に「📏 距離」（出発メーター）を登録してください");return;}
     if(saIsRet(tk.type)&&tk.end_odo==null){alert("先に「📏 距離」（返却メーター）を登録してください");return;}

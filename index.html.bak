@@ -24655,7 +24655,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.581-BT";
+const APP_VERSION="v1.0.582-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -27245,8 +27245,24 @@ async function _btOdoGate(_t, sb, vehicles){
 }
 /* 💳 ★2026-10-16 決済完了を押すまで 貸出/PU/来店/返却/BD/返却(送迎不要) はチェック不可（決済抜け防止・オーナー指示）。洗車系は対象外。
    対象予約＝PayBadge と同じ（じゃらん/SP/payment=現地決済）で paid=false のもの。未決済なら注意→決済完了ポップを開いて false */
+/* 🚐 ★2026-11-09 nosh「行きも帰りも送迎ボタンを押さないとお客様のステータスが進まない＝点検・距離と同じく、押すまでタスクを完了にできないように」
+   HANDYMAN 予約の送迎（shOn）だけ：お迎え＝②出発・③合流、お見送り＝④空港着 が記録されるまでチェック不可。記録が読めない時は業務を止めない（距離ガードと同じ） */
+async function _btShGate(_t, sb){
+  try{
+    if(!_t||_t.done||!_t._id||!sb||typeof shOn!=="function"||!shOn(_t))return true;
+    const bd=shIsBd(_t),need=bd?[["bd_at_airport","④空港着"]]:[["pu_depart","②出発"],["pu_met","③合流"]];
+    const r=await sb.from("bt_tasks").select("sa_log").eq("_id",_t._id).single();
+    if(!r||r.error||!r.data)return true;
+    const L=Array.isArray(r.data.sa_log)?r.data.sa_log:[];
+    const miss=need.filter(n=>!L.some(e=>e&&e.a===n[0])).map(n=>n[1]);
+    if(!miss.length)return true;
+    alert("🚐 送迎のステータスが進んでいません。\n先に「"+miss.join("」「")+"」を押してください（お客様のマイページが進みます）。\n押したらチェックできます。");
+    return false;
+  }catch(_e){console.warn("[shGate]",_e);return true;}
+}
 async function _btPayGate(_t, sb){
   try{
+    if(!(await _btShGate(_t,sb)))return false;
     if(!_t||_t.done||!_t.reservationId||!sb)return true;
     if(["DEL","貸出","PU","PUB","来店","PUB来店","COL","返却待","BD","BDB","返却"].indexOf(_t.type)<0)return true;
     var _r=await sb.from("bt_reservations").select("id,name,ota,payment,paid,price,final_price").eq("id",_t.reservationId).single();
