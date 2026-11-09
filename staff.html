@@ -138,6 +138,16 @@ function mypLink(x){if(!x.mypage)return '';var u=_mypIsHdm(x)?('https://nosh2318
 function otaAbbrS(o){var m={"HANDYMAN":"HDM","じゃらん":"JLN","楽天":"RKT","エアトリ":"ART","スカイチケット":"SKT","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","たびらい":"TBR","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","HP":"BDC","direct":"直接","DIRECT":"直接"};var k=String(o==null?"":o).trim();if(!k)return "";return m[k]||k;}
 /* ★2026-10-14 HDM判定をじゃらんのみ→じゃらん/楽天/スカイ/HANDYMAN公式（本体APP isHdmOta と同一） */
 function isHdmS(o){var k=String(o==null?"":o).trim();var ku=k.toUpperCase();return k==="J"||k.indexOf("じゃらん")>=0||k.indexOf("楽天")>=0||k.indexOf("スカイチケット")>=0||ku.indexOf("SKY")>=0||ku.indexOf("HANDYMAN")>=0;}
+/* ★2026-11-09 nosh「前日の確認はしない。やっていない場合は当日全て行う。送迎はフライトを目安」：お迎え（HANDYMAN 予約）に到着便を出す。
+   お客様がお迎え時間を登録していなければ「便の到着に合わせて」と出す（登録済みならその時間）。便名タップで運航状況を検索 */
+function fltRow(x){
+  if(!x||!shOn(x)||shIsBd(x))return "";
+  if(x.visit_type==="来店")return "";
+  var f=String(x.flight||"").split(/[\/／]/)[0].trim(), pt=String(x.pu_time||"").trim();
+  var fl=f?('<a href="https://www.google.com/search?q='+encodeURIComponent(f+" フライト 運航状況")+'" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:800;text-decoration:underline">✈ '+esc(f)+'</a>'):'<span style="color:#b91c1c;font-weight:800">✈ 便 未登録</span>';
+  var tx=pt?('お迎え時間 '+esc(pt)+'（お客様登録）'):(f?'お迎え時間 未登録 → 便の到着に合わせてお迎え':'お迎え時間・便 未登録 → 当日お客様に確認');
+  return '<div class="r2" style="margin-top:4px;font-size:13px">'+fl+' <span style="color:'+(pt?'#166534':'#92400e')+';font-weight:700">'+tx+'</span></div>';
+}
 function taskCard(x){
   var t=x.type||"";
   var plate=x.plate?(" "+x.plate):"";
@@ -199,6 +209,7 @@ function taskCard(x){
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t,x.customer))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+'</div>'
+    +fltRow(x)
     +opStr
     +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
 }
