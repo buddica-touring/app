@@ -22330,6 +22330,152 @@ function ShuttleVehicleChip({t,size}){
   </select>;
 }
 function _shvJam(t){const L=(t&&Array.isArray(t.saLog))?t.saLog:[];const isBd=["BD","BDB"].indexOf(t&&t.type)>=0;const dep=L.filter(e=>e&&e.a===(isBd?"bd_depart":"pu_depart")).pop();const arr=L.find(e=>e&&e.a===(isBd?"bd_at_airport":"pu_at_stop"));if(!dep||arr)return null;const j=L.filter(e=>e&&e.a===(isBd?"bd_jam":"pu_jam")&&e.at>=dep.at).pop();return j||null;}
+/* ★2026-11-09 nosh「こべつURLと同じか？ボタンあるか？」：タスクサマリーのお届け・回収・送迎ボタンを個別URL（バイトURL）と同じにする。
+   送り先も個別URLと同じ staff-action（ログイン中の鍵で本人確認）＝同じ文面・同じ確認・同じ「完了」表示・同じ連打防止（15分に1通）。 */
+const HSA_EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-action";
+const HSA_NEXT={background:"#002063",color:"#fff",border:"none",boxShadow:"0 0 0 2px #FABE00",fontWeight:900};
+const HSA_LATER={background:"#fff",color:"#002063",border:"1px solid #C9CED6",fontWeight:700};
+const HSA_DONE={background:"#dcfce7",color:"#15803d",border:"1px solid #86efac",fontWeight:800};
+const HSA_JAM={background:"#fff7ed",color:"#c2410c",border:"1px solid #fdba74",fontWeight:800};
+const HSA_OFF={background:"#f8fafc",color:"#94a3b8",border:"1px dashed #cbd5e1",fontWeight:800};
+const HSA_PLAIN={background:"#fff",color:"#334155",border:"1px solid #cbd5e1",fontWeight:700};
+const HSA_NO=["","①","②","③","④","⑤"];
+function hsaHm(at){try{const d=new Date(at);return "✓"+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}catch(e){return "✓済";}}
+function hsaSentMsg(d){const c=(d&&d.channel)||"";return c==="mail"?"メールで送りました":c==="rakuten"?"楽天の画面から送ります":"LINEで送りました";}
+function hsaPop(main,sub){try{const el=document.createElement("div");el.style.cssText="position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:10000;background:#15803d;color:#fff;border-radius:18px;padding:18px 26px;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;font-weight:900;font-size:22px;max-width:86vw";
+  const a=document.createElement("span");a.style.whiteSpace="nowrap";a.textContent="✅ "+main;el.appendChild(a);if(sub){const b=document.createElement("span");b.style.fontSize="15px";b.textContent=sub;el.appendChild(b);}
+  document.body.appendChild(el);setTimeout(()=>el.remove(),2200);}catch(e){}}
+function hsaSheet(title,items,cb){const ov=document.createElement("div");ov.style.cssText="position:fixed;inset:0;background:rgba(15,31,69,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+  const box=document.createElement("div");box.style.cssText="background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px 16px 22px";
+  const h=document.createElement("div");h.style.cssText="font-size:17px;font-weight:900;color:#002063;margin-bottom:10px";h.textContent=title;box.appendChild(h);
+  const g=document.createElement("div");g.style.cssText="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px";
+  items.forEach(it=>{const b=document.createElement("button");b.type="button";b.style.cssText="padding:12px 4px;border:2px solid #fdba74;border-radius:12px;background:#fff7ed;font-size:17px;font-weight:900;color:#c2410c;cursor:pointer";b.textContent=it.label;if(it.sub){const s=document.createElement("div");s.style.cssText="font-size:12px;color:#64748b;font-weight:700";s.textContent=it.sub;b.appendChild(s);}b.onclick=(e)=>{e.stopPropagation();ov.remove();cb(it);};g.appendChild(b);});
+  box.appendChild(g);const x=document.createElement("button");x.type="button";x.textContent="やめる";x.style.cssText="width:100%;padding:12px;border:none;border-radius:12px;background:#f1f5f9;color:#475569;font-size:15px;font-weight:800;cursor:pointer";x.onclick=(e)=>{e.stopPropagation();ov.remove();};box.appendChild(x);
+  ov.appendChild(box);ov.onclick=(e)=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+function hsaEta(defTm,min){const now=new Date(Date.now()+9*3600e3);let base=now.getUTCHours()*60+now.getUTCMinutes();const m=String(defTm||"").match(/(\d{1,2}):(\d{2})/);if(m){const s=(+m[1])*60+(+m[2]);if(s>base)base=s;}const t=(base+min)%1440;return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0");}
+async function hsaCall(body){
+  try{const a=body.action==="sh_undo"?("undo:"+body.target):body.action;
+    const r=await sb.rpc("bt_staff_shuttle_auth",{p_task_id:body.task_id,p_action:a,p_vehicle:body.vehicle||null,p_min:body.min||null});
+    if(r.error)return{ok:false,error:r.error.message||"エラー"};
+    const d=r.data||{};if(d.ok!==false&&d.mailed===false&&d.message)d.sent=false;return d;
+  }catch(e){return{ok:false,error:"通信エラー"};}
+}
+const HSA_DONEKEY={depart:"mypage_depart",collect:"mypage_collect",arrival:"arrival",col_arrival:"col_arrival",dropoff:"dropoff",delay_del:"del_delay",delay_col:"col_delay"};
+function hsaDoneOf(rid,act){return HSA_DONE_OF(rid,HSA_DONEKEY[act]||act);}
+async function hsaAction(t,action,mode){
+  const rid=t.reservationId;if(!rid){alert("予約に紐づいていません");return;}
+  if(action==="collect"&&!mode){hsaSheet("何で向かう？",[{label:"徒歩",v:"walk"},{label:"車",v:"car"},{label:"バス・モノレール",v:"transit"}],it=>hsaAction(t,action,it.v));return;}
+  const lbl={depart:"出発",collect:"回収に向かう",arrival:"到着",col_arrival:"到着",dropoff:"乗り捨て依頼"}[action]||action;
+  const isDrv=(action==="depart"||action==="collect");
+  if(action!=="dropoff"&&window._pressTooEarly&&window._pressTooEarly(t))return;
+  const prev=hsaDoneOf(rid,action);
+  if(!window.confirm((prev?"既に "+hsaHm(prev.at).replace("✓","")+" に押しています。\n":"")+lbl+"しますか？\n"+(isDrv?"（お客様へマイページ案内を送ります：LINE／なければメール／楽天の方は楽天から）":"（お客様へ「"+lbl+"」を送ります：LINE／なければメール／楽天の方は楽天から）")+(prev?"\n※15分以内の同じお知らせは送りません":"")))return;
+  const d=await hsaCall({resv_no:rid,action,mode:mode||"",by:HSA_ME()});
+  if(!d||d.ok===false){alert("⚠️ 実行できませんでした（"+((d&&d.error)||"エラー")+"）");return;}
+  HSA_MARK(rid,HSA_DONEKEY[action],!!d.sent);
+  if(d.sent)hsaPop(lbl+" 完了",hsaSentMsg(d));
+  else{const m=d.message||"";try{await navigator.clipboard.writeText(m);}catch(e){}alert("🚚 "+lbl+"を記録しました。\n⚠️ このお客様はLINE未登録です（"+(d.reason||"")+"）。\n案内文をコピーしました→LINE/エルメに貼り付けて送ってください。");}
+  if(isDrv&&d.driver_url&&/iPhone|iPad|iPod|Android/i.test(navigator.userAgent||""))location.href=d.driver_url;
+}
+async function hsaDelay(t,action,presetTm){
+  const rid=t.reservationId;if(!rid){alert("予約に紐づいていません");return;}
+  const kind=(action==="delay_col")?"回収":"お届け";let tm=presetTm||"";
+  if(!presetTm){tm=window.prompt(kind+"の到着予定時間を入力してください（例 18:30）",(t.timeChange||t.time||""));if(tm===null)return;tm=String(tm).trim();if(!tm){alert("時間が未入力です");return;}
+    if(!window.confirm(kind+"遅延のご案内を送信しますか？\n到着予定：「"+tm+"」\n（お客様へ送ります：LINE／なければメール／楽天の方は楽天から）"))return;}
+  const d=await hsaCall({resv_no:rid,action,time:tm,by:HSA_ME()});
+  if(!d||d.ok===false){alert("⚠️ 実行できませんでした（"+((d&&d.error)||"エラー")+"）");return;}
+  HSA_MARK(rid,HSA_DONEKEY[action],!!d.sent);
+  if(d.sent)hsaPop(kind+"遅延 完了",hsaSentMsg(d));
+  else{const m=d.message||"";try{await navigator.clipboard.writeText(m);}catch(e){}alert("⚠️ LINE未登録（"+(d.reason||"")+"）。案内文をコピーしました→手動で送ってください。");}
+}
+function hsaJam(t,action){const def=t.timeChange||t.time||"";const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分",sub:"着 "+hsaEta(def,m)});hsaSheet("🚦 渋滞で遅れますか？",items,it=>hsaDelay(t,action,hsaEta(def,it.min)));}
+function HsaBtn({st,onClick,children,done}){
+  return <button onClick={e=>{e.preventDefault();e.stopPropagation();onClick();}} style={{...st,fontSize:9,padding:"3px 8px",borderRadius:6,cursor:"pointer",lineHeight:1.25,whiteSpace:"nowrap"}}>{children}{done&&<><br/><span style={{fontSize:8}}>{hsaHm(done.at)}</span></>}</button>;
+}
+/* お届け・回収（個別URLと同じ並び：①出発 ②到着 ⏳遅延 🚦渋滞／①回収に向かう ②到着 ⏳遅延 🚦渋滞 🚗乗捨） */
+function HsaDeliveryBtns({t}){
+  const[,setTick]=React.useState(0);
+  React.useEffect(()=>{const f=()=>setTick(x=>x+1);window.addEventListener("actionDoneUpdate",f);return()=>window.removeEventListener("actionDoneUpdate",f);},[]);
+  const rid=t&&t.reservationId;if(!rid||t.done||(t.type!=="DEL"&&t.type!=="COL"))return null;
+  const D=a=>hsaDoneOf(rid,a);
+  const step=(a,lbl,n,isNext)=>{const d=D(a);return <HsaBtn key={a} st={d?HSA_DONE:(isNext?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaAction(t,a)}>{HSA_NO[n]}{lbl}</HsaBtn>;};
+  const dly=(a)=>{const d=D(a);return <HsaBtn key={a} st={d?HSA_DONE:HSA_PLAIN} done={d} onClick={()=>hsaDelay(t,a)}>⏳遅延</HsaBtn>;};
+  const jam=(a)=>{const d=D(a);return <HsaBtn key={a+"j"} st={d?HSA_DONE:HSA_JAM} done={d} onClick={()=>hsaJam(t,a)}>🚦渋滞</HsaBtn>;};
+  if(t.type==="DEL"){const nx=!D("depart")?"depart":(!D("arrival")?"arrival":"");
+    return <>{step("depart","出発",1,nx==="depart")}{step("arrival","到着",2,nx==="arrival")}{dly("delay_del")}{jam("delay_del")}</>;}
+  const nx=D("dropoff")?"":(!D("collect")?"collect":(!D("col_arrival")?"col_arrival":""));
+  const dp=D("dropoff");
+  return <>{step("collect","回収に向かう",1,nx==="collect")}{step("col_arrival","到着",2,nx==="col_arrival")}{dly("delay_col")}{jam("delay_col")}<HsaBtn st={dp?HSA_DONE:HSA_PLAIN} done={dp} onClick={()=>hsaAction(t,"dropoff")}>🚗乗捨</HsaBtn></>;
+}
+/* 送迎（那覇）：個別URLと同じ ②出発 ③乗り場着 ④合流 🚦渋滞（①は🚐送迎車）／お見送りは ①空港着 だけ。押したボタンをもう一度押すと取り消し */
+const HSA_SH={PUB:[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],PU:[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],BDB:[["bd_at_airport","空港着"]],BD:[["bd_at_airport","空港着"]]};
+const HSA_SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_at_airport:"空港着"};
+const HSA_SH_GROUP={pu_depart:1,pu_at_stop:1,bd_at_airport:1};
+function hsaShLog(x,a){const L=(x&&Array.isArray(x.saLog))?x.saLog:[];for(let i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
+function hsaShSame(all,me){return (all||[]).filter(y=>y&&y._id&&y.type===me.type&&(y._taskDate||y.date||"")===(me._taskDate||me.date||"")&&(y.time||"")===(me.time||""));}
+function hsaShApply(all,ids,fn){(all||[]).forEach(y=>{if(y&&ids.indexOf(y._id)>=0){const L=Array.isArray(y.saLog)?y.saLog:[];y.saLog=fn(L);}});try{window.dispatchEvent(new Event("actionDoneUpdate"));}catch(e){}}
+async function hsaShRun(ids,body){let ng=0,err="";const res=[];for(const id of ids){const d=await hsaCall(Object.assign({task_id:id,by:HSA_ME()},body));res.push(d);if(!d||d.ok===false){ng++;err=(d&&d.error)||err;}}return{ng,err,res};}
+async function hsaShuttle(t,all,a){
+  const me=t;if(!me._id){alert("タスクが見つかりません。再読み込みしてください");return;}
+  const lbl=HSA_SH_LBL[a]||a;
+  if(hsaShLog(me,a)){
+    const uids=(HSA_SH_GROUP[a]?hsaShSame(all,me).filter(y=>hsaShLog(y,a)):[]).map(y=>y._id);if(uids.indexOf(me._id)<0)uids.push(me._id);
+    if(!window.confirm("「"+lbl+"」を取り消しますか？"+(uids.length>1?"\n（同じ便の"+uids.length+"組まとめて）":"")+"\n・押した記録を消し、お客様のマイページの表示も戻ります\n・送ったLINE／メールは取り消せません"))return;
+    const r=await hsaShRun(uids,{action:"sh_undo",target:a});
+    if(r.ng)alert("⚠️ "+r.ng+"件 取り消せませんでした（"+r.err+"）。もう一度押してください");else hsaPop("取り消しました","");
+    hsaShApply(all,uids,L=>L.filter(e=>!(e&&e.a===a)));return;
+  }
+  if(window._pressTooEarly&&window._pressTooEarly(me))return;
+  let ids=[me._id];if(HSA_SH_GROUP[a]){ids=hsaShSame(all,me).filter(y=>!y.done).map(y=>y._id);if(ids.indexOf(me._id)<0)ids.push(me._id);}
+  if(a==="pu_depart"&&!me.shVehicle&&!hsaShSame(all,me).some(y=>y.shVehicle)){alert("⚠️ 送迎車が決まっていません。🚐送迎車 を選んでから出発してください");return;}
+  if(a==="pu_at_stop"){if(!window.confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」を送ります（LINE／なければメール）"))return;}
+  else if(!window.confirm("「"+lbl+"」を押しますか？"+(ids.length>1?"\n（同じ便の"+ids.length+"組まとめて）":"")+"\nお客様のマイページに表示されます。\n間違えたら、もう一度押すと取り消せます"))return;
+  const veh=me.shVehicle||((hsaShSame(all,me).find(y=>y.shVehicle)||{}).shVehicle)||"";
+  const r=await hsaShRun(ids,Object.assign({action:a},(a==="pu_depart"&&veh)?{vehicle:veh}:{}));
+  const okIds=ids.filter((id,i)=>r.res[i]&&r.res[i].ok!==false);
+  hsaShApply(all,okIds,L=>L.filter(e=>!(e&&e.a===a)).concat([{a,at:new Date().toISOString(),by:HSA_ME()}]));
+  if(r.ng)alert("⚠️ "+r.ng+"件 記録できませんでした（"+r.err+"）。もう一度押してください");
+  else hsaPop(lbl+" 完了"+(ids.length>1?"（"+ids.length+"組）":""),a==="pu_met"?"社内に記録":"お客様にお知らせ");
+  const miss=r.res.filter(d=>d&&d.ok!==false&&d.message&&d.sent===false).map(d=>d.message);
+  if(miss.length){try{await navigator.clipboard.writeText(miss.join("\n\n"));}catch(e){}alert("⚠️ LINE未登録のお客様がいます（"+miss.length+"組）。\n案内文をコピーしました→LINE/エルメに貼り付けて送ってください。");}
+}
+function hsaShJam(t,all){
+  const isBd=/^(BD|BDB)$/.test(t.type);const a=isBd?"bd_jam":"pu_jam";
+  const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分"});
+  hsaSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",items,async it=>{
+    const ids=hsaShSame(all,t).filter(y=>!y.done).map(y=>y._id);if(ids.indexOf(t._id)<0)ids.push(t._id);
+    const r=await hsaShRun(ids,{action:a,min:it.min});
+    hsaShApply(all,ids.filter((id,i)=>r.res[i]&&r.res[i].ok!==false),L=>L.concat([{a,at:new Date().toISOString(),min:it.min}]));
+    if(r.ng)alert("⚠️ "+r.ng+"件 記録できませんでした（"+r.err+"）。もう一度押してください");else hsaPop("渋滞 +"+it.min+"分 完了","お客様のマイページに表示");
+  });
+}
+function HsaShuttleBtns({t,all}){
+  const[,setTick]=React.useState(0);
+  React.useEffect(()=>{const f=()=>setTick(x=>x+1);window.addEventListener("actionDoneUpdate",f);return()=>window.removeEventListener("actionDoneUpdate",f);},[]);
+  const list=t&&HSA_SH[t.type];if(!list||!t._id||t.done)return null;
+  const isPu=!/^(BD|BDB)$/.test(t.type),off=isPu?1:0;
+  let nextA=null;if(!isPu||t.shVehicle){for(const b of list)if(!hsaShLog(t,b[0])){nextA=b[0];break;}}
+  const btns=list.map((b,i)=>{const d=hsaShLog(t,b[0]);return <HsaBtn key={b[0]} st={d?HSA_DONE:(b[0]===nextA?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaShuttle(t,all,b[0])}>{HSA_NO[i+1+off]}{b[1]}</HsaBtn>;});
+  let jam=null;
+  if(isPu&&!hsaShLog(t,"pu_at_stop")){
+    if(!hsaShLog(t,"pu_depart"))jam=<HsaBtn st={HSA_OFF} onClick={()=>alert("🚦渋滞は「出発」を押したあとに押せます")}>🚦渋滞</HsaBtn>;
+    else{const j=hsaShLog(t,"pu_jam");jam=<HsaBtn st={HSA_JAM} onClick={()=>hsaShJam(t,all)}>🚦渋滞{j&&<><br/><span style={{fontSize:8}}>+{j.min||""}分</span></>}</HsaBtn>;}
+  }
+  return <>{btns}{jam}</>;
+}
+const HSA_STORE="tkm";
+function HSA_DONE_OF(rid,k){return null;}
+function HSA_MARK(rid,k,sent){}
+function HSA_ME(){return "";}
+/* 押し間違い防止（個別URLと同じ）：未来の日は押せない・時刻の2時間前から */
+window._pressTooEarly=window._pressTooEarly||function(t){try{
+  const jd=new Date(Date.now()+9*3600e3),today=jd.toISOString().slice(0,10);
+  const d=String((t&&(t._taskDate||t.date))||"").slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&d>today){const m=d.split("-");alert("📅 "+(+m[1])+"/"+(+m[2])+" のタスクです。\nボタンは当日に押せます。");return true;}
+  const hm=String((t&&(t.timeChange||t.time))||"").match(/(\d{1,2}):(\d{2})/);if(!hm)return false;
+  const mins=(+hm[1])*60+(+hm[2]),now=jd.getUTCHours()*60+jd.getUTCMinutes();
+  if((!d||d===today)&&mins-now>120){const ok=mins-120;alert("⏰ "+hm[1].padStart(2,"0")+":"+hm[2]+" のタスクです。\nこのボタンは "+String(Math.floor(ok/60)).padStart(2,"0")+":"+String(ok%60).padStart(2,"0")+" ごろから押せます。\n（早く押すと、お客様に「向かっています」などが早く届いてしまいます）");return true;}
+  return false;}catch(e){return false;}};
 function BtShuttleLog({t,size}){
   const L=(t&&Array.isArray(t.saLog))?t.saLog:[];
   const vc=(t&&["PU","PUB","BD","BDB"].indexOf(t.type)>=0)?<ShuttleVehicleChip t={t} size={size}/>:null;   /* ★2026-11-08 送迎車（必須・未選択は赤） */
@@ -23531,6 +23677,7 @@ function App(){
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&<InsBadge ins={t.insurance}/>}
+                    {["PU","PUB","BD","BDB"].indexOf(t.type)>=0&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>BS×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>CS×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>JS×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
                     {(t.type==="その他"||t.type==="洗車"||t.type==="返却後洗車")&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
                   </div>;
@@ -23679,6 +23826,7 @@ function App(){
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&<InsBadge ins={t.insurance}/>}
+                    {["PU","PUB","BD","BDB"].indexOf(t.type)>=0&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>BS×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>CS×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>JS×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
                     {(t.type==="その他"||t.type==="洗車"||t.type==="返却後洗車")&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
                   </div>;
@@ -24495,7 +24643,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.577-BT";
+const APP_VERSION="v1.0.578-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
