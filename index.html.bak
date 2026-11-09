@@ -4307,8 +4307,9 @@ function generateTasks(reservations,date,fleet,vehicles){
     if(sD(r.lendDate,date)){const lTask={...base,_id:"d-"+r.id,type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);}
     if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:"c-"+r.id,type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:r.colFlight||""};tasks.push(rTask);
       /* ★2026-08-09 返却後洗車: 返却日に返却車両の洗車タスクを自動生成。役割はRWASH(別枠)＝前日洗車(WASH)とDBのcollapse/担当ガードで衝突しない。 */
-      const _rveh=fv?vehicles.find(v=>v.code===fv):null;
-      tasks.push({...base,_id:"rw-"+r.id,type:"返却後洗車",time:"",name:`返却後洗車: ${r.name||""}`,people:0,place:"",vehicle:_rveh?_rveh.type:r.vehicle,insurance:"",flight:"",memo:`${fmtD(r.returnDate)} 返却 ${r.colTime||r.returnTime||""} ${r.name||""}`,assignedVehicle:fv||"",plateNo:_rveh?_rveh.no:"",returnDate:"",returnTime:"",returnType:"",colPlace:""});
+      /* ★2026-11-09 オーナー指示: 2026-11-11以降の返却後洗車は自動生成しない（未実施が溜まり必要なタスクが見づらい→洗車済みはワイパー片方上げの目印＋現場指示へ。必要時は手動で個別作成）。11/10以前は従来どおり。 */
+      if(norm(date)<"2026-11-11"){const _rveh=fv?vehicles.find(v=>v.code===fv):null;
+      tasks.push({...base,_id:"rw-"+r.id,type:"返却後洗車",time:"",name:`返却後洗車: ${r.name||""}`,people:0,place:"",vehicle:_rveh?_rveh.type:r.vehicle,insurance:"",flight:"",memo:`${fmtD(r.returnDate)} 返却 ${r.colTime||r.returnTime||""} ${r.name||""}`,assignedVehicle:fv||"",plateNo:_rveh?_rveh.no:"",returnDate:"",returnTime:"",returnType:"",colPlace:""});}
     }
   });
   // 洗車タスク: 翌日DELの配車済み車両のみ（未配車分はloadTasks内で追加管理）
@@ -24655,7 +24656,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.582-BT";
+const APP_VERSION="v1.0.583-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
