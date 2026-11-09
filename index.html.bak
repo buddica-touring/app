@@ -22304,6 +22304,14 @@ async function _licRecentMap(sb,resTable,lendCol){ let rows=[],from=0; while(tru
    正本は bt_tasks.sa_log（bt_staff_shuttle だけが書く）。この画面からは書かない＝上書きしない。 */
 const BT_SA_LABEL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_depart:"出発",bd_at_airport:"空港着"};
 const BT_SA_ORDER=["pu_depart","pu_at_stop","pu_met","bd_depart","bd_at_airport"];
+/* ★2026-11-09 nosh「バディカは押すだけ無駄」「貸出(不明)も出さないとダメ」：送迎ボタン・送迎車・押した記録は HANDYMAN 予約だけ。
+   BUDDICA は押してもお客様に何も届かない（メールは HDM だけ・ご利用ガイドは送迎表示なし）＝出さない。
+   HDM は 貸出(不明)/返却(不明) も出す（押さないとお客様のマイページが進まない）。サーバー（bt_staff_shuttle_by 等）も同じ条件。 */
+const SH_PU_T=["PU","PUB","貸出","DEL"],SH_BD_T=["BD","BDB","返却待","COL"];
+function shIsBd(t){return SH_BD_T.indexOf(t&&t.type)>=0;}
+function shOn(t){if(!t||(SH_PU_T.indexOf(t.type)<0&&SH_BD_T.indexOf(t.type)<0))return false;const r=(t.reservationId&&DB._resIdx)?DB._resIdx[t.reservationId]:null;const b=normBrand(r&&r.brand);return b?b==="HDM":isHdmOta(t.ota);}
+/* 送迎車が1台だけの時は、その車が入っているものとして扱う（出発を押した時にサーバーがその1件に書く） */
+function shEffVeh(t){return (t&&t.shVehicle)||((window._shvList&&window._shvList.length===1)?window._shvList[0].id:"");}
 /* ★2026-11-08 送迎車（nosh：送迎タスクの必須情報）。OP・タスクサマリー・スケジュールで同じ表示・同じ選択。
    正本はタスクの sh_vehicle。この画面からは bt_set_sh_vehicle だけで書く（保存処理は列を持たない＝上書きしない）。未選択は赤。 */
 window._shvList=window._shvList||null;
@@ -22316,20 +22324,21 @@ function ShuttleVehicleChip({t,size}){
   const[busy,setBusy]=React.useState(false);
   React.useEffect(()=>{if(!list)_shvLoad(setList);},[]);
   React.useEffect(()=>{setV(t&&t.shVehicle||"");},[t&&t.shVehicle]);
-  if(!t||["PU","PUB","BD","BDB"].indexOf(t.type)<0||!t._id)return null;
+  if(!shOn(t)||!t._id)return null;
   const fs=size||9;
-  const cur=(list||[]).find(x=>x.id===v);
+  const v0=v||((list&&list.length===1)?list[0].id:"");
+  const cur=(list||[]).find(x=>x.id===v0);
   const onCh=async(e)=>{e.stopPropagation();const nv=e.target.value;if(nv===v)return;setBusy(true);
     try{const r=await sb.rpc("bt_set_sh_vehicle",{p_task_ids:[t._id],p_vehicle:nv});if(r.error||!r.data||r.data.ok===false){alert("送迎車を保存できませんでした（"+((r.error&&r.error.message)||(r.data&&r.data.error)||"エラー")+"）");}else{setV(nv);t.shVehicle=nv;}}catch(err){alert("送迎車を保存できませんでした");}
     setBusy(false);};
-  const st=v?{color:"#002063",background:"#eef2ff",border:"1px solid #c7d2fe"}:{color:"#b91c1c",background:"#fee2e2",border:"1px solid #fca5a5"};
-  return <select value={v} disabled={busy} onClick={e=>e.stopPropagation()} onChange={onCh} title="送迎車（お客様のマイページに写真つきで出ます）" style={{...st,fontSize:fs,fontWeight:800,borderRadius:4,padding:"0 2px",maxWidth:150,flexShrink:0,cursor:"pointer"}}>
+  const st=v0?{color:"#002063",background:"#eef2ff",border:"1px solid #c7d2fe"}:{color:"#b91c1c",background:"#fee2e2",border:"1px solid #fca5a5"};
+  return <select value={v0} disabled={busy} onClick={e=>e.stopPropagation()} onChange={onCh} title="送迎車（お客様のマイページに写真つきで出ます）" style={{...st,fontSize:fs,fontWeight:800,borderRadius:4,padding:"0 2px",maxWidth:150,flexShrink:0,cursor:"pointer"}}>
     <option value="">🚐送迎車 未選択</option>
     {(list||[]).map(x=><option key={x.id} value={x.id}>🚐{x.label}{x.plate?" "+x.plate:""}</option>)}
-    {v&&!cur&&list&&<option value={v}>🚐{v}</option>}
+    {v0&&!cur&&list&&<option value={v0}>🚐{v0}</option>}
   </select>;
 }
-function _shvJam(t){const L=(t&&Array.isArray(t.saLog))?t.saLog:[];const isBd=["BD","BDB"].indexOf(t&&t.type)>=0;const dep=L.filter(e=>e&&e.a===(isBd?"bd_depart":"pu_depart")).pop();const arr=L.find(e=>e&&e.a===(isBd?"bd_at_airport":"pu_at_stop"));if(!dep||arr)return null;const j=L.filter(e=>e&&e.a===(isBd?"bd_jam":"pu_jam")&&e.at>=dep.at).pop();return j||null;}
+function _shvJam(t){const L=(t&&Array.isArray(t.saLog))?t.saLog:[];const isBd=shIsBd(t);const dep=L.filter(e=>e&&e.a===(isBd?"bd_depart":"pu_depart")).pop();const arr=L.find(e=>e&&e.a===(isBd?"bd_at_airport":"pu_at_stop"));if(!dep||arr)return null;const j=L.filter(e=>e&&e.a===(isBd?"bd_jam":"pu_jam")&&e.at>=dep.at).pop();return j||null;}
 /* ★2026-11-09 nosh「こべつURLと同じか？ボタンあるか？」：タスクサマリーのお届け・回収・送迎ボタンを個別URL（バイトURL）と同じにする。
    送り先も個別URLと同じ staff-action（ログイン中の鍵で本人確認）＝同じ文面・同じ確認・同じ「完了」表示・同じ連打防止（15分に1通）。 */
 const HSA_EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-action";
@@ -22408,11 +22417,11 @@ function HsaDeliveryBtns({t}){
   return <>{step("collect","回収に向かう",1,nx==="collect")}{step("col_arrival","到着",2,nx==="col_arrival")}{dly("delay_col")}{jam("delay_col")}<HsaBtn st={dp?HSA_DONE:HSA_PLAIN} done={dp} onClick={()=>hsaAction(t,"dropoff")}>🚗乗捨</HsaBtn></>;
 }
 /* 送迎（那覇）：個別URLと同じ ②出発 ③乗り場着 ④合流 🚦渋滞（①は🚐送迎車）／お見送りは ①空港着 だけ。押したボタンをもう一度押すと取り消し */
-const HSA_SH={PUB:[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],PU:[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],BDB:[["bd_at_airport","空港着"]],BD:[["bd_at_airport","空港着"]]};
+const HSA_SH_PU=[["pu_depart","出発"],["pu_at_stop","乗り場着"],["pu_met","合流"]],HSA_SH_BD=[["bd_at_airport","空港着"]];
 const HSA_SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_at_airport:"空港着"};
 const HSA_SH_GROUP={pu_depart:1,pu_at_stop:1,bd_at_airport:1};
 function hsaShLog(x,a){const L=(x&&Array.isArray(x.saLog))?x.saLog:[];for(let i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
-function hsaShSame(all,me){return (all||[]).filter(y=>y&&y._id&&y.type===me.type&&(y._taskDate||y.date||"")===(me._taskDate||me.date||"")&&(y.time||"")===(me.time||""));}
+function hsaShSame(all,me){return (all||[]).filter(y=>y&&y._id&&shOn(y)&&shIsBd(y)===shIsBd(me)&&(y._taskDate||y.date||"")===(me._taskDate||me.date||"")&&(y.time||"")===(me.time||""));}
 function hsaShApply(all,ids,fn){(all||[]).forEach(y=>{if(y&&ids.indexOf(y._id)>=0){const L=Array.isArray(y.saLog)?y.saLog:[];y.saLog=fn(L);}});try{window.dispatchEvent(new Event("actionDoneUpdate"));}catch(e){}}
 async function hsaShRun(ids,body){let ng=0,err="";const res=[];for(const id of ids){const d=await hsaCall(Object.assign({task_id:id,by:HSA_ME()},body));res.push(d);if(!d||d.ok===false){ng++;err=(d&&d.error)||err;}}return{ng,err,res};}
 async function hsaShuttle(t,all,a){
@@ -22427,7 +22436,7 @@ async function hsaShuttle(t,all,a){
   }
   if(window._pressTooEarly&&window._pressTooEarly(me))return;
   let ids=[me._id];if(HSA_SH_GROUP[a]){ids=hsaShSame(all,me).filter(y=>!y.done).map(y=>y._id);if(ids.indexOf(me._id)<0)ids.push(me._id);}
-  if(a==="pu_depart"&&!me.shVehicle&&!hsaShSame(all,me).some(y=>y.shVehicle)){alert("⚠️ 送迎車が決まっていません。🚐送迎車 を選んでから出発してください");return;}
+  if(a==="pu_depart"&&!shEffVeh(me)&&!hsaShSame(all,me).some(y=>y.shVehicle)){alert("⚠️ 送迎車が決まっていません。🚐送迎車 を選んでから出発してください");return;}
   if(a==="pu_at_stop"){if(!window.confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」を送ります（LINE／なければメール）"))return;}
   else if(!window.confirm("「"+lbl+"」を押しますか？"+(ids.length>1?"\n（同じ便の"+ids.length+"組まとめて）":"")+"\nお客様のマイページに表示されます。\n間違えたら、もう一度押すと取り消せます"))return;
   const veh=me.shVehicle||((hsaShSame(all,me).find(y=>y.shVehicle)||{}).shVehicle)||"";
@@ -22440,7 +22449,7 @@ async function hsaShuttle(t,all,a){
   if(miss.length){try{await navigator.clipboard.writeText(miss.join("\n\n"));}catch(e){}alert("⚠️ LINE未登録のお客様がいます（"+miss.length+"組）。\n案内文をコピーしました→LINE/エルメに貼り付けて送ってください。");}
 }
 function hsaShJam(t,all){
-  const isBd=/^(BD|BDB)$/.test(t.type);const a=isBd?"bd_jam":"pu_jam";
+  const isBd=shIsBd(t);const a=isBd?"bd_jam":"pu_jam";
   const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分"});
   hsaSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",items,async it=>{
     const ids=hsaShSame(all,t).filter(y=>!y.done).map(y=>y._id);if(ids.indexOf(t._id)<0)ids.push(t._id);
@@ -22452,10 +22461,11 @@ function hsaShJam(t,all){
 function HsaShuttleBtns({t,all}){
   const[,setTick]=React.useState(0);
   React.useEffect(()=>{const f=()=>setTick(x=>x+1);window.addEventListener("actionDoneUpdate",f);return()=>window.removeEventListener("actionDoneUpdate",f);},[]);
-  const list=t&&HSA_SH[t.type];if(!list||!t._id||t.done)return null;
+  React.useEffect(()=>{if(!window._shvList)_shvLoad(()=>setTick(x=>x+1));},[]);
+  if(!shOn(t)||!t._id||t.done)return null;const list=shIsBd(t)?HSA_SH_BD:HSA_SH_PU;
   /* ★2026-11-09 nosh「BDはもう戻ってくる方＝①ではなくその先」：お見送りの空港着はお迎え（①送迎車②出発③乗り場着④合流）の続き＝⑤。「1番大事なボタン」なので大きく */
-  const isPu=!/^(BD|BDB)$/.test(t.type),off=isPu?1:4;
-  let nextA=null;if(!isPu||t.shVehicle){for(const b of list)if(!hsaShLog(t,b[0])){nextA=b[0];break;}}
+  const isPu=!shIsBd(t),off=isPu?1:4;
+  let nextA=null;if(!isPu||shEffVeh(t)){for(const b of list)if(!hsaShLog(t,b[0])){nextA=b[0];break;}}
   const btns=list.map((b,i)=>{const d=hsaShLog(t,b[0]);return <HsaBtn key={b[0]} big={b[0]==="bd_at_airport"} st={d?HSA_DONE:(b[0]===nextA?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaShuttle(t,all,b[0])}>{HSA_NO[i+1+off]}{b[1]}</HsaBtn>;});
   let jam=null;
   if(isPu&&!hsaShLog(t,"pu_at_stop")){
@@ -22479,9 +22489,9 @@ window._pressTooEarly=window._pressTooEarly||function(t){try{
   return false;}catch(e){return false;}};
 function BtShuttleLog({t,size}){
   const L=(t&&Array.isArray(t.saLog))?t.saLog:[];
-  const vc=(t&&["PU","PUB","BD","BDB"].indexOf(t.type)>=0)?<ShuttleVehicleChip t={t} size={size}/>:null;   /* ★2026-11-08 送迎車（必須・未選択は赤） */
+  const vc=shOn(t)?<ShuttleVehicleChip t={t} size={size}/>:null;   /* ★2026-11-08 送迎車（必須・未選択は赤） */
   const jam=_shvJam(t);
-  if(!L.length||["PU","PUB","BD","BDB"].indexOf(t.type)<0)return vc;
+  if(!L.length||!shOn(t))return vc;
   const hm=(iso)=>{try{const d=new Date(new Date(iso).getTime()+9*3600*1000);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}catch(e){return "";}};
   const ev=L.filter(e=>e&&BT_SA_LABEL[e.a]).slice().sort((a,b)=>BT_SA_ORDER.indexOf(a.a)-BT_SA_ORDER.indexOf(b.a));
   if(!ev.length)return vc;
@@ -23678,7 +23688,7 @@ function App(){
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&<InsBadge ins={t.insurance}/>}
-                    {["PU","PUB","BD","BDB"].indexOf(t.type)>=0&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
+                    {shOn(t)&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>BS×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>CS×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>JS×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
                     {(t.type==="その他"||t.type==="洗車"||t.type==="返却後洗車")&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
                   </div>;
@@ -23827,7 +23837,7 @@ function App(){
                     <span style={{fontWeight:700,fontSize:12,whiteSpace:"nowrap",flexShrink:0,textDecoration:t.done?"line-through":"none",color:t.done?"#94a3b8":"#1e293b"}}>{t.name}</span>
                     {legPlace(t.type,t.place)&&<a href={"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(legPlace(t.type,t.place))} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Googleマップで開く" style={{color:"#2563eb",fontSize:8,textDecoration:"underline"}}>📍{legPlace(t.type,t.place)}</a>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&<InsBadge ins={t.insurance}/>}
-                    {["PU","PUB","BD","BDB"].indexOf(t.type)>=0&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
+                    {shOn(t)&&!t.done&&<div style={{flexBasis:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:4}} onClick={e=>e.stopPropagation()}><HsaShuttleBtns t={t} all={dbTasks}/></div>}
                     {["DEL","PU","PUB","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待"].indexOf(t.type)>=0&&t.opts&&(t.opts.b>0||t.opts.c>0||t.opts.j>0||t.opts.usb>0)&&<span style={{display:"inline-flex",gap:3,flexShrink:0,flexWrap:"wrap"}}>{t.opts.b>0&&<span style={{background:"#fef3c7",color:"#92400e",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>BS×{t.opts.b}</span>}{t.opts.c>0&&<span style={{background:"#dbeafe",color:"#1e40af",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>CS×{t.opts.c}</span>}{t.opts.j>0&&<span style={{background:"#e0e7ff",color:"#4338ca",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>JS×{t.opts.j}</span>}{t.opts.usb>0&&<span style={{background:"#dcfce7",color:"#166534",padding:"1px 5px",borderRadius:4,fontWeight:800,fontSize:10}}>🔌×{t.opts.usb}</span>}</span>}
                     {(t.type==="その他"||t.type==="洗車"||t.type==="返却後洗車")&&String(t.memo||"").split("\n##BCJ:")[0].trim()&&<span style={{flexBasis:"100%",fontSize:11,color:t.done?"#94a3b8":"#475569",whiteSpace:"pre-wrap",lineHeight:1.4,marginTop:2}}>📝 {String(t.memo).split("\n##BCJ:")[0].trim()}</span>}
                   </div>;
@@ -24644,7 +24654,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.579-BT";
+const APP_VERSION="v1.0.580-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

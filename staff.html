@@ -185,7 +185,7 @@ function taskCard(x){
     btns+='<a class="abtn" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;text-decoration:none" href="inspection.html?insp='+(saIsWash(t)?'pre':'post')+'&plate='+encodeURIComponent(x.plate)+'&d='+encodeURIComponent(x.date)+'" onclick="return saInspOpen(this.href)">🔧 点検</a>';
   }
   btns+=odoRow;
-  if(SH_BTNS[t]&&tid&&!x.done){ btns+=shBtns(x); } /* ★2026-11-08 送迎ボタン（出発・乗り場着・合流／出発・空港着） */
+  if(shOn(x)&&tid&&!x.done){ btns+=shBtns(x); } /* ★2026-11-08 送迎ボタン（出発・乗り場着・合流／出発・空港着） */
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
   if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
     var _hc=HO_MAP[x.resv]||0;
@@ -205,12 +205,20 @@ function taskCard(x){
 /* ★2026-11-08 送迎（PU/BD）ボタン：那覇と同じ設計（3店統一）。
    押した記録は bt_tasks.sa_log（全スタッフ画面・OP・タスクサマリー・マイページに同じ時刻で出る）。
    お客様へは「乗り場着」だけメール（高松は LINE なし・HANDYMAN 予約のみ）。他は記録のみ。 */
-var SH_BTNS={
-  PU:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
-  PUB:[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]],
-  BD:[["bd_at_airport","🛬空港着"]],
-  BDB:[["bd_at_airport","🛬空港着"]]
-};
+var SH_PU_BTNS=[["pu_depart","🚐出発"],["pu_at_stop","📍乗り場着"],["pu_met","🤝合流"]], SH_BD_BTNS=[["bd_at_airport","🛬空港着"]];
+/* ★2026-11-09 nosh「バディカは押すだけ無駄」「貸出(不明)も出さないとダメ」：送迎ボタン・送迎車は HANDYMAN 予約だけ（APP のタスクサマリー・サーバーと同じ条件）。
+   BUDDICA は押してもお客様に何も届かない＝出さない。HDM は 貸出(不明)/返却(不明) も出す（押さないとお客様のマイページが進まない）。 */
+var SH_PU_T=['PU','PUB','貸出','DEL'], SH_BD_T=['BD','BDB','返却待','COL'];
+function shIsBd(x){return SH_BD_T.indexOf(x&&x.type)>=0;}
+function shOn(x){
+  if(!x||(SH_PU_T.indexOf(x.type)<0&&SH_BD_T.indexOf(x.type)<0))return false;
+  if(x.brand)return x.brand==='HDM';
+  var o=String(x.ota||''), ou=o.toUpperCase();   // ブランドが届かない古い応答の時だけ OTA で判定（APP の isHdmOta と同じ）
+  return o==='J'||o.indexOf('じゃらん')>=0||o.indexOf('楽天')>=0||o.indexOf('スカイチケット')>=0||ou.indexOf('SKY')>=0||ou.indexOf('HANDYMAN')>=0;
+}
+function shSame(y,me){return shOn(y)&&shIsBd(y)===shIsBd(me)&&y.date===me.date&&(y.time||"")===(me.time||"");}
+/* 送迎車が1台だけの時は、その車が入っているものとして扱う（出発を押した時にサーバーがその1件に書く） */
+function shEffVeh(x){return (x&&x.sh_vehicle)||((SHV_LIST&&SHV_LIST.length===1)?SHV_LIST[0].id:"");}
 /* ★2026-11-09 nosh「不要なものは至急削除」：お見送りの出発は消す（お客様は車内にいる）。お見送りは「空港着」だけ・渋滞も出さない。
    nosh「ステップわかるようにして」：①②③…の番号。次に押すボタンは紺＋黄色の枠、押したものは緑、まだ先のものは白 */
 var STEP_NO=["","①","②","③","④","⑤"];
@@ -221,9 +229,9 @@ var SH_GROUP={pu_depart:1,pu_at_stop:1,bd_depart:1,bd_at_airport:1};
 function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}catch(e){return "✓済";}}
 function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function shBtns(x){
-  var tid=esc(x._id||""),list=SH_BTNS[x.type]||[];
-  var isPu=!/^(BD|BDB)$/.test(x.type), off=isPu?1:4;   // お迎えは①が送迎車。★2026-11-09 nosh：お見送りはお迎え（①〜④合流）の続き＝⑤空港着（APPのタスクサマリーと同じ）
-  var nextA=null;if(!isPu||x.sh_vehicle){for(var i=0;i<list.length;i++)if(!shLog(x,list[i][0])){nextA=list[i][0];break;}}
+  var tid=esc(x._id||""),list=shIsBd(x)?SH_BD_BTNS:SH_PU_BTNS;
+  var isPu=!shIsBd(x), off=isPu?1:4;   // お迎えは①が送迎車。★2026-11-09 nosh：お見送りはお迎え（①〜④合流）の続き＝⑤空港着（APPのタスクサマリーと同じ）
+  var nextA=null;if(!isPu||shEffVeh(x)){for(var i=0;i<list.length;i++)if(!shLog(x,list[i][0])){nextA=list[i][0];break;}}
   return (isPu?shvChip(x):"")+list.map(function(b,i){
     var d=shLog(x,b[0]);
     var st=d?STEP_DONE:(b[0]===nextA?STEP_NEXT:STEP_LATER);
@@ -250,7 +258,7 @@ window.saShuttle=function(tid,a){
   var SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_depart:"出発",bd_at_airport:"空港着"};
   /* ★2026-11-09 nosh「空港着おしたら戻らない」：押したボタンをもう一度押すと取り消し（同じ便でまとめて押した分も一緒に） */
   if(shLog(me,a)){
-    var uids=all.filter(function(y){return String(y._id)===String(tid)||(SH_GROUP[a]&&y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&shLog(y,a));}).map(function(y){return y._id;});
+    var uids=all.filter(function(y){return String(y._id)===String(tid)||(SH_GROUP[a]&&shSame(y,me)&&shLog(y,a));}).map(function(y){return y._id;});
     if(!confirm("「"+(SH_LBL[a]||a)+"」を取り消しますか？"+(uids.length>1?"\n（同じ便の"+uids.length+"組まとめて）":"")+"\n・押した記録を消し、お客様のマイページの表示も戻ります\n・送ったメールは取り消せません"))return;
     var uk=0,ung=0;(function un(){if(uk>=uids.length){if(ung)alert("⚠️ "+ung+"件 取り消せませんでした。もう一度押してください");else shToast("↩︎ 取り消しました");load();return;}
       SH_SEND(uids[uk++],"undo:"+a,null,null,function(d){if(!d||d.ok===false)ung++;un();});})();
@@ -258,7 +266,7 @@ window.saShuttle=function(tid,a){
   }
   var ids=[tid];
   /* 同じ便（同じ種類・日付・時間）の自分のタスクはまとめて記録（1回押せば全組） */
-  if(SH_GROUP[a]){ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
+  if(SH_GROUP[a]){ids=all.filter(function(y){return shSame(y,me)&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
   if(a==="pu_at_stop"){if(!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;}
   else if(!confirm("「"+(SH_LBL[a]||a)+"」を押しますか？"+(ids.length>1?"\n（同じ便の"+ids.length+"組まとめて）":"")+"\n"+(a==="pu_met"?"社内に記録します（お客様には送りません）":"お客様のマイページに表示され、メールでもお知らせします")+"\n間違えたら、もう一度押すと取り消せます"))return;
   shvBeforeDepart(me,a,ids,function(vid){
@@ -303,11 +311,11 @@ function shvLoad(cb){
 function shvOf(id){if(!id||!SHV_LIST)return null;for(var i=0;i<SHV_LIST.length;i++)if(SHV_LIST[i].id===id)return SHV_LIST[i];return null;}
 function shvName(v){return v?(v.label+(v.plate?(" "+v.plate):"")):"";}
 function shvChip(x){
-  var tid=esc(x._id||""),v=shvOf(x.sh_vehicle);
-  if(x.sh_vehicle&&!SHV_LIST){shvLoad(function(){try{if(LASTD)render(LASTD);}catch(e){}});}
+  if(!SHV_LIST){shvLoad(function(){try{if(LASTD)render(LASTD);}catch(e){}});}
+  var tid=esc(x._id||""),ev=shEffVeh(x),v=shvOf(ev);
   /* ★2026-11-09 nosh「文字はみ出てる」：2行（上に車の名前を小さく・下にナンバー）。未選択は①として黄色＋紺の枠 */
   var col='display:inline-flex;flex-direction:column;align-items:center;justify-content:center;white-space:normal;line-height:1.2;';
-  if(x.sh_vehicle)return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="'+col+'background:#eef2ff;color:#002063;border:1px solid #c7d2fe;font-weight:800;overflow:hidden">'+(v?('<span style="font-size:11px;font-weight:700;max-width:100%">①'+esc(v.label||"送迎車")+'</span>'+(v.plate?'<span style="font-size:15px;font-weight:900">'+esc(v.plate)+'</span>':'')):'<span style="font-size:12px">①送迎車</span>')+'</button>';
+  if(ev)return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="'+col+'background:#eef2ff;color:#002063;border:1px solid #c7d2fe;font-weight:800;overflow:hidden">'+(v?('<span style="font-size:11px;font-weight:700;max-width:100%">①'+esc(v.label||"送迎車")+'</span>'+(v.plate?'<span style="font-size:15px;font-weight:900">'+esc(v.plate)+'</span>':'')):'<span style="font-size:12px">①送迎車</span>')+'</button>';
   return '<button class="abtn" onclick="shvChange(\''+tid+'\')" style="'+col+'background:#FABE00;color:#002063;border:1px solid #eab308;font-weight:900;box-shadow:0 0 0 3px #002063">①送迎車<span>を選ぶ</span></button>';
 }
 function shvSheet(title,items,cb){
@@ -337,7 +345,7 @@ function shvPick(cb){
 }
 function shvGroupIds(me){
   var all=(LASTD&&LASTD.tasks)||[];
-  var ids=all.filter(function(y){return y.type===me.type&&y.date===me.date&&(y.time||"")===(me.time||"")&&!y.done;}).map(function(y){return y._id;});
+  var ids=all.filter(function(y){return shSame(y,me)&&!y.done;}).map(function(y){return y._id;});
   if(ids.indexOf(me._id)<0)ids.push(me._id);
   return ids;
 }
@@ -381,7 +389,7 @@ function jamItems(sub){var a=[];for(var m=5;m<=60;m+=5)a.push({min:m,label:"+"+m
 window.shJam=function(tid){
   var me=shvFind(tid); if(!me){alert("タスクが見つかりません。再読み込みしてください");return;}
   if(saFuture(me.date)){saFut(me.date);return;}
-  var a=/^(BD|BDB)$/.test(me.type)?"bd_jam":"pu_jam";
+  var a=shIsBd(me)?"bd_jam":"pu_jam";
   jamSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",jamItems(null),function(it){
     var ids=shvGroupIds(me);
     shPos(function(pos){
@@ -401,11 +409,12 @@ function shvBeforeDepart(me,a,ids,go){
   if(me.sh_vehicle)have=me.sh_vehicle;
   if(!miss){go(null);return;}          // 全組に車が入っている
   if(have){go(have);return;}           // 同じ便の誰かに入っている車をそろえる
+  if(SHV_LIST&&SHV_LIST.length===1){go(SHV_LIST[0].id);return;}   // 送迎車が1台だけ＝その車
   shvPick(function(vid){go(vid);});    // 未設定：選ぶ
 }
 function shJamBtn(x){
-  var dep=/^(BD|BDB)$/.test(x.type)?"bd_depart":"pu_depart", arr=/^(BD|BDB)$/.test(x.type)?"bd_at_airport":"pu_at_stop", jam=/^(BD|BDB)$/.test(x.type)?"bd_jam":"pu_jam";
-  if(/^(BD|BDB)$/.test(x.type))return "";   // お見送りは出発ボタンがないので渋滞も出さない
+  var bd=shIsBd(x), dep=bd?"bd_depart":"pu_depart", arr=bd?"bd_at_airport":"pu_at_stop", jam=bd?"bd_jam":"pu_jam";
+  if(bd)return "";   // お見送りは出発ボタンがないので渋滞も出さない
   if(shLog(x,arr))return "";
   if(!shLog(x,dep))return '<button class="abtn" onclick="alert(\'🚦渋滞は「出発」を押したあとに押せます\')" style="background:#f8fafc;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:800">🚦渋滞</button>';
   var j=shLog(x,jam);
