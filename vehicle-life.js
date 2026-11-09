@@ -299,7 +299,7 @@ const VL=(()=>{
   function render(){ renderDash(); }
 
   // ---------- ダッシュボード（オーナー指示 2026-10-31：管理APPと同じ形。上にサマリ、メニューはスマホ＝上のプルダウン／PC＝左） ----------
-  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["def","📘","アルゴリズム"],["rule","⚙","ルール"]]]];
+  const SECS0=[["全体",[["sum","📊","サマリ"]]],["売却・入替",[["relay","🔁","入替車両"],["forecast","📅","入替予測"]]],["車両",[["karte","🚗","車両カルテ"],["shaken","📋","車検証"]]],["準備",[["proc","🛒","仕入候補"],["tire","🛞","タイヤチェック"],["etc","📡","ETCセットアップ"],["coat","✨","コーティング"]]],["お金",[["kpi","💰","クラス実績"],["market","📈","相場"]]],["設定",[["def","📘","アルゴリズム"],["rule","⚙","ルール"]]]];
   const secBadge=k=>{const a=S.v.filter(v=>S.calc[v.code].st!=="sold");
     if(k==="relay")return a.filter(v=>inPrep(v)&&!v.relay_to).length;
     if(k==="forecast")return planSoon().length;
@@ -307,7 +307,7 @@ const VL=(()=>{
     if(k==="market")return a.filter(v=>holdSell(v)||S.calc[v.code].overBuy).length;
     return 0;};
   // 仕入候補・タイヤ・ETC（オーナー指示 2026-11-01：上のタブから車両ダッシュボードの中へ）＝procurement.html の既存画面をここに差し込む
-  const HOSTED=["proc","tire","etc"];
+  const HOSTED=["proc","tire","etc","coat"];
   function renderDash(){
     const body=$("karteBody"); if(!body)return;
     const SECS=SECS0;   // 閲覧リンクでも仕入候補・タイヤ・ETCを出す（以前の上のタブと同じ。オーナー指示 2026-11-01）
@@ -332,7 +332,7 @@ const VL=(()=>{
       case "shaken":return shakenHtml();
       case "rule":return cfgHtml(true);
       case "def":return defHtml();
-      case "proc":case "tire":case "etc":return '<div class="vl-host"></div>';
+      case "proc":case "tire":case "etc":case "coat":return '<div class="vl-host"></div>';
       default:return sumHtml();
     }
   }
