@@ -230,6 +230,8 @@ function shBtns(x){
     return '<button class="abtn sh'+(d?' acted':'')+'" onclick="saShuttle(\''+tid+'\',\''+b[0]+'\')"'+st+'>'+STEP_NO[i+1+off]+b[1].replace(/^[^\u3000-\u9fff]+/,"")+(d?('<br><span style="font-size:11px">'+shHm(d.at)+'</span>'):'')+'</button>';
   }).join("")+shJamBtn(x);
 }
+/* ★2026-11-09 nosh「スタッフも押したことがわかるように 完了など 視覚的にも必須」：押したら画面中央に大きく「✅ ◯◯ 完了」 */
+function shDonePop(t){try{var el=document.createElement("div");el.className="sa-pop";el.style.cssText="position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:99999;pointer-events:none;background:linear-gradient(135deg,#10b981,#0891b2);color:#fff;font-size:22px;font-weight:900;padding:18px 26px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center";var _i=String(t).indexOf("・");el.innerHTML='✅ '+esc(_i>0?String(t).slice(0,_i):t)+(_i>0?'<div style="font-size:15px;font-weight:800;margin-top:4px">'+esc(String(t).slice(_i+1))+'</div>':'');document.body.appendChild(el);setTimeout(function(){el.remove();},2200);}catch(e){}}
 function shToast(m){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span>'+esc(m)+'</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1500);}catch(e){}}
 function shPos(cb){
   var done=false;function fin(p){if(done)return;done=true;cb(p);}
@@ -266,7 +268,7 @@ window.saShuttle=function(tid,a){
       if(k>=ids.length){
         if(needV)alert("⚠️ 送迎車が決まっていません。🚐送迎車を選ぶ を押してから出発してください");
         else if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");
-        else shToast("✓ 記録しました"+(ids.length>1?"（"+ids.length+"組）":""));
+        else shDonePop((SH_LBL[a]||"")+" 完了"+(ids.length>1?"（"+ids.length+"組）":"")+(a==="pu_met"?"・社内に記録":"・お客様のマイページに表示"));
         load();return;
       }
       var id=ids[k++];
