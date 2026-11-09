@@ -22389,8 +22389,8 @@ async function hsaDelay(t,action,presetTm){
   else{const m=d.message||"";try{await navigator.clipboard.writeText(m);}catch(e){}alert("⚠️ LINE未登録（"+(d.reason||"")+"）。案内文をコピーしました→手動で送ってください。");}
 }
 function hsaJam(t,action){const def=t.timeChange||t.time||"";const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分",sub:"着 "+hsaEta(def,m)});hsaSheet("🚦 渋滞で遅れますか？",items,it=>hsaDelay(t,action,hsaEta(def,it.min)));}
-function HsaBtn({st,onClick,children,done}){
-  return <button onClick={e=>{e.preventDefault();e.stopPropagation();onClick();}} style={{...st,fontSize:9,padding:"3px 8px",borderRadius:6,cursor:"pointer",lineHeight:1.25,whiteSpace:"nowrap"}}>{children}{done&&<><br/><span style={{fontSize:8}}>{hsaHm(done.at)}</span></>}</button>;
+function HsaBtn({st,onClick,children,done,big}){
+  return <button onClick={e=>{e.preventDefault();e.stopPropagation();onClick();}} style={{...st,fontSize:big?16:9,padding:big?"10px 28px":"3px 8px",borderRadius:big?10:6,cursor:"pointer",lineHeight:1.25,whiteSpace:"nowrap"}}>{children}{done&&<><br/><span style={{fontSize:big?12:8}}>{hsaHm(done.at)}</span></>}</button>;
 }
 /* お届け・回収（個別URLと同じ並び：①出発 ②到着 ⏳遅延 🚦渋滞／①回収に向かう ②到着 ⏳遅延 🚦渋滞 🚗乗捨） */
 function HsaDeliveryBtns({t}){
@@ -22453,9 +22453,10 @@ function HsaShuttleBtns({t,all}){
   const[,setTick]=React.useState(0);
   React.useEffect(()=>{const f=()=>setTick(x=>x+1);window.addEventListener("actionDoneUpdate",f);return()=>window.removeEventListener("actionDoneUpdate",f);},[]);
   const list=t&&HSA_SH[t.type];if(!list||!t._id||t.done)return null;
-  const isPu=!/^(BD|BDB)$/.test(t.type),off=isPu?1:0;
+  /* ★2026-11-09 nosh「BDはもう戻ってくる方＝①ではなくその先」：お見送りの空港着はお迎え（①送迎車②出発③乗り場着④合流）の続き＝⑤。「1番大事なボタン」なので大きく */
+  const isPu=!/^(BD|BDB)$/.test(t.type),off=isPu?1:4;
   let nextA=null;if(!isPu||t.shVehicle){for(const b of list)if(!hsaShLog(t,b[0])){nextA=b[0];break;}}
-  const btns=list.map((b,i)=>{const d=hsaShLog(t,b[0]);return <HsaBtn key={b[0]} st={d?HSA_DONE:(b[0]===nextA?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaShuttle(t,all,b[0])}>{HSA_NO[i+1+off]}{b[1]}</HsaBtn>;});
+  const btns=list.map((b,i)=>{const d=hsaShLog(t,b[0]);return <HsaBtn key={b[0]} big={b[0]==="bd_at_airport"} st={d?HSA_DONE:(b[0]===nextA?HSA_NEXT:HSA_LATER)} done={d} onClick={()=>hsaShuttle(t,all,b[0])}>{HSA_NO[i+1+off]}{b[1]}</HsaBtn>;});
   let jam=null;
   if(isPu&&!hsaShLog(t,"pu_at_stop")){
     if(!hsaShLog(t,"pu_depart"))jam=<HsaBtn st={HSA_OFF} onClick={()=>alert("🚦渋滞は「出発」を押したあとに押せます")}>🚦渋滞</HsaBtn>;
@@ -24643,7 +24644,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.578-BT";
+const APP_VERSION="v1.0.579-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
