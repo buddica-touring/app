@@ -162,6 +162,7 @@ function taskCard(x){
   var _pamt=Number(x.price)||0; var _pas=_pamt>0?(' ¥'+_pamt.toLocaleString()):'';
   var _isJ=(x.ota==='じゃらん'); var _isSP=(x.ota==='SP'||x.payment==='現地決済');
   if(_isJ&&x.pay_url){ jpay = x.paid ? '<span class="jpay ok" title="じゃらん事前決済 入金済み">💳入金済</span>' : '<a class="jpay no" href="'+esc(x.pay_url)+'" target="_blank" rel="noopener" title="じゃらん事前決済 未決済（クリックで決済リンク）">💳未決済'+_pas+'</a>'; }
+  else if((x.ota==='楽天'||x.ota==='R')&&!_isSP){ jpay='<span class="jpay ok" title="楽天：オンラインカード決済（楽天が事前に徴収済み）">💳決済</span>'; } // ★2026-11-10 楽天は必ず表示（札幌・那覇と同じ）
   else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no jtap" title="タップで現地決済を完了にする" onclick="saPay(\''+esc(x.resv||'')+'\','+_pamt+',\''+esc((x.customer||'').replace(/\x27/g,''))+'\')">💳未決済'+_pas+'</span>'; }
   var chk='';
   if(x.resv&&(t==='DEL'||t==='PU'||t==='PUB'||t==='来店'||t==='PUB来店'||t==='貸出')){
