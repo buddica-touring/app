@@ -6,7 +6,7 @@
 2. **対象**：Supabase（ggqugvyskyiblxiycpci）の `bt_vehicles` で `active` かつ `market_code` がある車。条件は車両マスタの値を優先し、空の項目だけ `tools/carsensor-targets.json` の値（推定）を使う。
    - 年式：`specs.first_reg` の西暦、なければ `year`
    - 排気量：`specs.displacement`（L）をカーセンサーの区分（cc）に直す。例 1.49→1500、2.48→2500、0.65→660、1.99→2000
-   - 動力：ガソリン（レギュラー／ハイオク）=1、軽油=2、ハイブリッド=3、電気=4
+   - 動力：`specs.hybrid` が true ならハイブリッド=3（2026-11-11 から油種とハイブリッドは別の欄）。それ以外は `specs.fuel` で ガソリン（レギュラー／ハイオク）=1、軽油（ディーゼル）または軽油=2、電気=4。旧い値で `specs.fuel` が「ハイブリッド」の車も=3
    - 駆動：2WD=4WD0、4WD=4WD1
    - 定員：`seats`
    - 走行：`current_mileage`。リミットは `life_limit_km`、空なら 100000

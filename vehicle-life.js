@@ -165,7 +165,7 @@ const VL=(()=>{
     return SHAKEN_ITEMS.map(([k,l])=>({k,l,x:val(k)})).map(o=>Object.assign(o,{miss:o.x==null||String(o.x).trim()===""}));}
   function surveySpec(v,c){const sp=(v.specs&&typeof v.specs==="object")?v.specs:{};
     const fr=String(sp.first_reg||"").match(/^(\d{4})/), y=fr?+fr[1]:wYear(v.year), ys=y?[y-1,y+1]:null, now=band(c.odo), end=c.ride?null:band(c.kmEnd);
-    const must=[sp.displacement?sp.displacement+"L":null,sp.fuel||null,sp.drive||null,v.seats?v.seats+"人乗り":null];
+    const must=[sp.displacement?sp.displacement+"L":null,(sp.hybrid||sp.fuel==="ハイブリッド")?"ハイブリッド":(sp.fuel||null),sp.drive||null,v.seats?v.seats+"人乗り":null];
     return {name:v.name,year:y,years:ys,now,end,must,mustMiss:must.filter(x=>!x).length,code:v.market_code||null,urlNow:csUrl(v.market_code,ys,now),urlEnd:csUrl(v.market_code,ys,end)};}
   // 安い順で25%・50%・75%の順位と、それが載るページ（カーセンサーは1ページ30台）。調査で開くのはこのページと1ページ目だけ
   function rankTxt(N){if(!(N>0))return "";const r=[.25,.5,.75].map(p=>Math.max(1,Math.ceil(N*p))),pg=[...new Set([1].concat(r.map(x=>Math.ceil(x/30))))];
