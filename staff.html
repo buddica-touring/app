@@ -238,7 +238,8 @@ var STEP_NO=["","①","②","③","④","⑤"];
 var STEP_NEXT=' style="background:#002063;color:#fff;border:none;box-shadow:0 0 0 3px #FABE00;font-weight:900"';
 var STEP_LATER=' style="background:#fff;color:#002063;border:1px solid #C9CED6;font-weight:700"';
 var STEP_DONE=' style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800"';
-var SH_GROUP={pu_depart:1,pu_at_stop:1,bd_depart:1,bd_at_airport:1};
+/* ★2026-11-11 依頼者「お客様が何もせず早め戻りが多い→ボタンは1組ずつ動いてほしい・お迎えも1組ずつ」：同じ時刻の組をまとめて記録しない（押した1組だけ） */
+var SH_GROUP={};
 function shHm(at){try{var d=new Date(at);return "✓"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}catch(e){return "✓済";}}
 function shLog(x,a){var L=(x&&x.sa_log)||[];for(var i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function shBtns(x){
@@ -278,7 +279,7 @@ window.saShuttle=function(tid,a){
     return;
   }
   var ids=[tid];
-  /* 同じ便（同じ種類・日付・時間）の自分のタスクはまとめて記録（1回押せば全組） */
+  /* SH_GROUP に入れた操作だけ同じ便をまとめる（2026-11-11 から空＝全部1組ずつ） */
   if(SH_GROUP[a]){ids=all.filter(function(y){return shSame(y,me)&&!y.done;}).map(function(y){return y._id;});if(ids.indexOf(tid)<0)ids.push(tid);}
   if(a==="pu_at_stop"){if(!confirm("乗り場に着きましたか？\nお客様"+(ids.length>1?"（"+ids.length+"組）":"")+"へ「乗り場に着きました」をメールで送ります（HANDYMAN 予約のみ）"))return;}
   else if(!confirm("「"+(SH_LBL[a]||a)+"」を押しますか？"+(ids.length>1?"\n（同じ便の"+ids.length+"組まとめて）":"")+"\n"+(a==="pu_met"?"社内に記録します（お客様には送りません）":"お客様のマイページに表示され、メールでもお知らせします")+"\n間違えたら、もう一度押すと取り消せます"))return;
@@ -404,7 +405,7 @@ window.shJam=function(tid){
   if(saFuture(me.date)){saFut(me.date);return;}
   var a=shIsBd(me)?"bd_jam":"pu_jam";
   jamSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",jamItems(null),function(it){
-    var ids=shvGroupIds(me);
+    var ids=[me._id];   /* ★2026-11-11 渋滞も押した1組だけ */
     shPos(function(pos){
       shvRun(ids,a,{min:it.min},pos,function(ng){
         if(ng)alert("⚠️ "+ng+"件 記録できませんでした。もう一度押してください");

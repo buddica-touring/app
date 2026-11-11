@@ -22421,7 +22421,8 @@ function HsaDeliveryBtns({t}){
 /* ★2026-11-09 nosh「高松はこっちからお迎えに行く（駐車場に止めて迎えに行く）ので乗り場着はいらない。出発と合流だけ」 */
 const HSA_SH_PU=[["pu_depart","出発"],["pu_met","合流"]],HSA_SH_BD=[["bd_at_airport","空港着"]];
 const HSA_SH_LBL={pu_depart:"出発",pu_at_stop:"乗り場着",pu_met:"合流",bd_at_airport:"空港着"};
-const HSA_SH_GROUP={pu_depart:1,pu_at_stop:1,bd_at_airport:1};
+/* ★2026-11-11 依頼者「お客様が何もせず早め戻りが多い→ボタンは1組ずつ動いてほしい・お迎えも1組ずつ」：同じ時刻の組をまとめて記録しない（押した1組だけ） */
+const HSA_SH_GROUP={};
 function hsaShLog(x,a){const L=(x&&Array.isArray(x.saLog))?x.saLog:[];for(let i=L.length-1;i>=0;i--)if(L[i]&&L[i].a===a)return L[i];return null;}
 function hsaShSame(all,me){return (all||[]).filter(y=>y&&y._id&&shOn(y)&&shIsBd(y)===shIsBd(me)&&(y._taskDate||y.date||"")===(me._taskDate||me.date||"")&&(y.time||"")===(me.time||""));}
 function hsaShApply(all,ids,fn){(all||[]).forEach(y=>{if(y&&ids.indexOf(y._id)>=0){const L=Array.isArray(y.saLog)?y.saLog:[];y.saLog=fn(L);}});try{window.dispatchEvent(new Event("actionDoneUpdate"));}catch(e){}}
@@ -22454,7 +22455,7 @@ function hsaShJam(t,all){
   const isBd=shIsBd(t);const a=isBd?"bd_jam":"pu_jam";
   const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分"});
   hsaSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",items,async it=>{
-    const ids=hsaShSame(all,t).filter(y=>!y.done).map(y=>y._id);if(ids.indexOf(t._id)<0)ids.push(t._id);
+    const ids=[t._id];/* ★2026-11-11 渋滞も押した1組だけ */
     const r=await hsaShRun(ids,{action:a,min:it.min});
     hsaShApply(all,ids.filter((id,i)=>r.res[i]&&r.res[i].ok!==false),L=>L.concat([{a,at:new Date().toISOString(),min:it.min}]));
     if(r.ng)alert("⚠️ "+r.ng+"件 記録できませんでした（"+r.err+"）。もう一度押してください");else hsaPop("渋滞 +"+it.min+"分 完了","お客様のマイページに表示");
@@ -24656,7 +24657,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.584-BT";
+const APP_VERSION="v1.0.585-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
