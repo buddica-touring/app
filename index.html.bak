@@ -16932,7 +16932,8 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   // ★2026-11-11 組み替えモード（オーナー依頼）: モード中の移動は画面の下書きだけ(DBに書かない)・重なりと「仮置き」列を許す。
   //   「確定」で RPC bt_fleet_apply_moves を1回呼び、最新DBで重なりを確かめてから動かした予約だけを一度に保存(1件でもだめなら何も保存しない)。
   //   rb=null:通常 / rb={moves:{予約ID:{from:動かし始めた時の車,to:移動先(仮置き=RB_HOLD)}}}
-  const RB_HOLD="__RB_HOLD__";
+  const RB_HOLD="__RB_HOLD__"; /* 仮置きはブランドごとに1列（BT=BUDDICA運用車の F の下／HDM=HDM運用車の F の下）。値は RB_HOLD+ブランド */
+  const rbHoldOf=b=>RB_HOLD+(b==="HDM"?"HDM":"BUDDICA");const isRbHold=c=>typeof c==="string"&&c.indexOf(RB_HOLD)===0;
   const[rb,setRb]=useState(null);const[rbPick,setRbPick]=useState(null);const[rbSaving,setRbSaving]=useState(false);
   const effFleet=useMemo(()=>{if(!rb)return fleet;const f={...fleet};Object.entries(rb.moves).forEach(([id,m])=>{f[id]=m.to;});return f;},[fleet,rb]);
   // ★ 月別稼働フラグ
@@ -16977,7 +16978,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   const toggleClass=(t)=>setCollapsed(p=>({...p,[t]:!p[t]}));
 
   const vehicleBars=useMemo(()=>{
-    const bars={};vehicles.forEach(v=>{bars[v.code]=[];});if(rb)bars[RB_HOLD]=[];
+    const bars={};vehicles.forEach(v=>{bars[v.code]=[];});if(rb){bars[rbHoldOf("BUDDICA")]=[];bars[rbHoldOf("HDM")]=[];}
     const dFirst=dates[0],dLast=dates[dates.length-1];data.forEach(r=>{if(r.status==="cancelled")return;const vc=effFleet[r.id];if(!vc||!bars[vc])return;const ld=norm(r.lendDate),rd=norm(r.returnDate);if(rd<dFirst||ld>dLast)return;const si=dates.indexOf(ld),ei=dates.indexOf(rd);const s=si>=0?si:0;const e=ei>=0?ei:dates.length-1;bars[vc].push({type:"reservation",r,startI:s,endI:e,left:s*COL_W,width:(e-s+1)*COL_W-2});});
     (maintenance||[]).forEach(m=>{if(!bars[m.vehicleCode])return;const dFirst=dates[0],dLast=dates[dates.length-1];if(m.endDate<dFirst||m.startDate>dLast)return;const si=dates.indexOf(m.startDate),ei=dates.indexOf(m.endDate);const s=si>=0?si:0;const e=ei>=0?ei:dates.length-1;bars[m.vehicleCode].push({type:"maintenance",m,startI:s,endI:e,left:s*COL_W,width:(e-s+1)*COL_W-2});});
     return bars;
@@ -16990,14 +16991,14 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
   const markStaffAssigned=(id)=>setAssignerKinds(p=>({...p,[String(id)]:"staff"}));
   // ★2026-11-11 組み替えモードの下書き操作（DBに書かない）
   const rbChanged=useMemo(()=>rb?Object.entries(rb.moves).filter(([id,m])=>m.to!==m.from):[],[rb]);
-  const rbHoldIds=useMemo(()=>rbChanged.filter(([id,m])=>m.to===RB_HOLD).map(([id])=>id),[rbChanged]);
+  const rbHoldIds=useMemo(()=>rbChanged.filter(([id,m])=>isRbHold(m.to)).map(([id])=>id),[rbChanged]);
   // 重なり: 動かした予約ごとに、下書き後の配車で 他予約/入庫 と重なるか・入替車の貸せる期間外か（確定時はDBでも同じ判定をする）
-  const rbConflicts=useMemo(()=>{const s=new Set();if(!rb)return s;rbChanged.forEach(([id,m])=>{if(m.to===RB_HOLD)return;const r=data.find(x=>x.id===id);if(!r)return;const tv=vehicles.find(x=>x.code===m.to);if(tv&&!vehInService(tv,r.lendDate,r.returnDate))s.add(id);const ld=norm(r.lendDate),rd=norm(r.returnDate);data.forEach(o=>{if(o.id!==id&&o.status!=="cancelled"&&effFleet[o.id]===m.to&&norm(o.lendDate)<=rd&&norm(o.returnDate)>=ld){s.add(id);s.add(o.id);}});const c=checkVehicleConflict(m.to,id,data,effFleet,maintenance);if(c&&c._isMaint)s.add(id);});return s;},[rb,rbChanged,data,effFleet,maintenance,vehicles]);
+  const rbConflicts=useMemo(()=>{const s=new Set();if(!rb)return s;rbChanged.forEach(([id,m])=>{if(isRbHold(m.to))return;const r=data.find(x=>x.id===id);if(!r)return;const tv=vehicles.find(x=>x.code===m.to);if(tv&&!vehInService(tv,r.lendDate,r.returnDate))s.add(id);const ld=norm(r.lendDate),rd=norm(r.returnDate);data.forEach(o=>{if(o.id!==id&&o.status!=="cancelled"&&effFleet[o.id]===m.to&&norm(o.lendDate)<=rd&&norm(o.returnDate)>=ld){s.add(id);s.add(o.id);}});const c=checkVehicleConflict(m.to,id,data,effFleet,maintenance);if(c&&c._isMaint)s.add(id);});return s;},[rb,rbChanged,data,effFleet,maintenance,vehicles]);
   const rbStart=()=>{setTooltip(null);setCellAction&&setCellAction(null);setRb({moves:{}});};
   const rbCancel=()=>{if(rbChanged.length&&!window.confirm("組み替えをやめますか？\n\n動かした "+rbChanged.length+" 件は保存されず、元の配車に戻ります。"))return;setRb(null);setRbPick(null);};
   const rbMove=(resId,toVc)=>{if(!rb||!resId||!toVc)return;const r=data.find(x=>x.id===resId);if(!r)return;
     if(!rb.moves[resId]&&!fleet[resId]){alert("未配車の予約は組み替えでは動かせません。\n組み替えを確定した後に、いつもの配車で入れてください。");return;} /* omni-review 条件3: 確定処理は配車済みの予約だけを動かす */
-    if(toVc!==RB_HOLD){const tv=vehicles.find(v=>v.code===toVc);if(tv){const rbr=resBrand(r),vb=normBrand(tv.brand);const prevTo=(rb.moves[resId]||{}).to;const prevV=vehicles.find(v=>v.code===prevTo);const sameBrandAsPrev=prevV&&normBrand(prevV.brand)===vb;if(rbr&&vb&&rbr!==vb&&!sameBrandAsPrev){const rl=rbr==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA",vl=vb==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA";if(!window.confirm("⚠ ブランドが一致しません。\n\n予約: "+rl+"\n車両: "+tv.name+"（"+vl+"運用車）\n\nHDMとBUDDICAは運用車両が分かれています。それでも置きますか？"))return;}}}
+    if(!isRbHold(toVc)){const tv=vehicles.find(v=>v.code===toVc);if(tv){const rbr=resBrand(r),vb=normBrand(tv.brand);const prevTo=(rb.moves[resId]||{}).to;const prevV=vehicles.find(v=>v.code===prevTo);const sameBrandAsPrev=prevV&&normBrand(prevV.brand)===vb;if(rbr&&vb&&rbr!==vb&&!sameBrandAsPrev){const rl=rbr==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA",vl=vb==="HDM"?"HDM(HANDYMAN高松)":"BUDDICA";if(!window.confirm("⚠ ブランドが一致しません。\n\n予約: "+rl+"\n車両: "+tv.name+"（"+vl+"運用車）\n\nHDMとBUDDICAは運用車両が分かれています。それでも置きますか？"))return;}}}
     setRb(p=>{if(!p)return p;const cur=p.moves[resId];const from=cur?cur.from:(fleet[resId]||"");const mv={...p.moves};if(toVc===from)delete mv[resId];else mv[resId]={from,to:toVc};return{...p,moves:mv};});};
   const rbCommit=async()=>{if(!rb||rbSaving)return;
     if(rbHoldIds.length){alert("仮置きに "+rbHoldIds.length+" 件残っています。\n全部を車に戻してから確定してください。");return;}
@@ -17230,11 +17231,11 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
     if(brandView==="all")return[...mk("BUDDICA"),...mk("HDM")];
     return mk(brandView);
   },[vehicles,vehicleClasses,hiddenVeh,brandView,dates,today]);
-  // ★2026-11-11 組み替えの「仮置き」列＝Fクラスの直後（Gクラスの前）に1列。F が無ければ G の前、どちらも無ければ先頭。
-  const rbHoldIdx=useMemo(()=>{const f=groups.findIndex(g=>g.type==="F");if(f>=0)return f;const g=groups.findIndex(x=>x.type==="G");return g>=0?g-1:-1;},[groups]);
-  const renderRbHoldRow=()=>{const bars=vehicleBars[RB_HOLD]||[];const _ln=rbLanes(bars);const _rh=ROW_H*_ln.n;const isDT=dropTarget&&dropTarget.vc===RB_HOLD;
-    return <tr key="__rb_hold__" onDragOver={e=>handleDragOver(e,RB_HOLD)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,RB_HOLD)} style={{outline:isDT?"2px solid #f59e0b":"none"}}>
-      <td style={{position:"sticky",left:0,zIndex:5,height:_rh,background:isDT?"#fde68a":"#fef3c7",borderTop:"2px dashed #f59e0b",borderBottom:"2px dashed #f59e0b",borderRight:"2px solid #94a3b8",padding:isMobile?"0 4px":"0 10px",overflow:"hidden",whiteSpace:"nowrap",...(isMobile?{width:LEFT_W,minWidth:LEFT_W,maxWidth:LEFT_W,textOverflow:"ellipsis"}:{})}}><span style={{fontSize:isMobile?9:11,fontWeight:800,color:"#92400e"}}>🅿 仮置き{!isMobile&&"（組み替え用）"}</span>{bars.length>0&&<span style={{fontSize:8,fontWeight:700,marginLeft:4,color:"#b45309"}}>{rbHoldIds.length}件</span>}</td>
+  // ★2026-11-11 組み替えの「仮置き」列＝ブランドごと（BT・HDM の各ブロック）に、Fクラスの直後（Gクラスの前）に1列。F が無ければ G の前、どちらも無ければそのブランドの先頭。
+  const rbHoldPos=useMemo(()=>{const after={},before={};[...new Set(groups.map(g=>g._brand))].forEach(br=>{const idx=groups.map((g,i)=>g._brand===br?i:-1).filter(i=>i>=0);const f=idx.find(i=>groups[i].type==="F");if(f!==undefined){after[f]=br;return;}const g=idx.find(i=>groups[i].type==="G");before[g!==undefined?g:idx[0]]=br;});return{after,before};},[groups]);
+  const renderRbHoldRow=(brand)=>{const HC=rbHoldOf(brand);const bars=vehicleBars[HC]||[];const _ln=rbLanes(bars);const _rh=ROW_H*_ln.n;const isDT=dropTarget&&dropTarget.vc===HC;const cnt=rbChanged.filter(([id,m])=>m.to===HC).length;
+    return <tr key={"__rb_hold__"+HC} onDragOver={e=>handleDragOver(e,HC)} onDragLeave={()=>{if(dropTargetRef.current){dropTargetRef.current=null;setDropTarget(null);}}} onDrop={e=>handleDrop(e,HC)} style={{outline:isDT?"2px solid #f59e0b":"none"}}>
+      <td style={{position:"sticky",left:0,zIndex:5,height:_rh,background:isDT?"#fde68a":"#fef3c7",borderTop:"2px dashed #f59e0b",borderBottom:"2px dashed #f59e0b",borderRight:"2px solid #94a3b8",padding:isMobile?"0 4px":"0 10px",overflow:"hidden",whiteSpace:"nowrap",...(isMobile?{width:LEFT_W,minWidth:LEFT_W,maxWidth:LEFT_W,textOverflow:"ellipsis"}:{})}}><span style={{fontSize:isMobile?9:11,fontWeight:800,color:"#92400e"}}>🅿 仮置き{brand==="HDM"?"（HDM）":"（BT）"}{!isMobile&&" 組み替え用"}</span>{cnt>0&&<span style={{fontSize:8,fontWeight:700,marginLeft:4,color:"#b45309"}}>{cnt}件</span>}</td>
       {dates.map((d,di)=><td key={d} style={{position:"relative",height:_rh,background:isDT?"#fef3c7":"#fffbeb",borderTop:"2px dashed #f59e0b",borderBottom:"2px dashed #f59e0b",borderRight:"1px solid #fde68a",padding:0}}>
         {di===0&&bars.map((b,bi)=><div key={bi} className="tl-bar" draggable onDragStart={e=>handleDragStart(e,b.r.id)} onDragEnd={handleDragEnd} onClick={e=>{e.stopPropagation();setRbPick(b.r.id);}} title="タップで移動先を選ぶ／車の行へドラッグ" style={{position:"absolute",left:b.left,width:Math.max(b.width,20),top:(_ln.lane.get(b)||0)*ROW_H+3,height:ROW_H-6,background:"#d97706",color:"#fff",fontSize:9,fontWeight:700,borderRadius:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap",cursor:"grab",zIndex:2,boxShadow:"0 1px 3px rgba(0,0,0,.2)",boxSizing:"border-box",opacity:dragInfo===b.r.id?0.7:1}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{`${fleetOtaTag(b.r.ota)}${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`}</span></div>)}
       </td>)}
@@ -17394,9 +17395,9 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
           {dates.map(d=>{const dt=new Date(d);const dow=dt.getDay();const isToday=d===today;return <th key={d} style={{width:COL_W,minWidth:COL_W,height:44,textAlign:"center",borderRight:"1px solid #cbd5e1",background:isToday?"#dbeafe":"#f1f5f9",borderBottom:"2px solid #94a3b8",padding:0}}><div style={{fontSize:isMobile?9:11,fontWeight:600,color:isToday?"#1d4ed8":"#334155"}}>{dt.getDate()}<span style={{fontSize:isMobile?8:9,fontWeight:dow===0||dow===6?700:400,color:dow===0?"#dc2626":dow===6?"#2563eb":"#64748b",marginLeft:1}}>{WK[dow]}</span></div></th>;})}
         </tr></thead>
         <tbody>
-          {rb&&rbHoldIdx<0&&renderRbHoldRow()}
           {groups.map((g,gi)=><React.Fragment key={g._key||g.type}>
             {brandView==="all"&&(gi===0||groups[gi-1]._brand!==g._brand)&&<tr><td colSpan={1+dates.length} style={{position:"sticky",left:0,zIndex:6,height:26,background:g._brand==="HDM"?"linear-gradient(90deg,#1e3a8a,#2b4ba0)":"linear-gradient(90deg,#047857,#059669)",color:"#fff",fontWeight:900,fontSize:isMobile?11:13,padding:isMobile?"0 8px":"0 12px",letterSpacing:".08em"}}>{g._brand==="HDM"?"🔵 HDM ／ HANDYMAN高松 運用車":"🟢 BT ／ BUDDICA 運用車"}</td></tr>}
+            {rb&&rbHoldPos.before[gi]&&renderRbHoldRow(rbHoldPos.before[gi])}
             <tr onClick={()=>toggleClass(g._key||g.type)} style={{cursor:"pointer",userSelect:"none"}}>
               <td style={{position:"sticky",left:0,zIndex:5,height:CLASS_H,background:"#dbe3ec",borderTop:"3px solid #475569",borderBottom:"1px solid #e2e8f0",borderRight:"2px solid #94a3b8",padding:"0 6px",...(isMobile?{width:LEFT_W,minWidth:LEFT_W,maxWidth:LEFT_W,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}:{})}}><span style={{fontSize:10,color:"#64748b",marginRight:3}}>{collapsed[g._key||g.type]?"▶":"▼"}</span><span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#334155"}}>{isMobile?g.type:g.type+"クラス（"+g.label+"）"}</span>{!isMobile&&<span style={{fontSize:8,color:"#64748b",marginLeft:4}}>稼働{g.items.filter(v=>isKpiActive(v.code)).length}/{g.items.length}台</span>}{classRevenue[g.type]>0&&<span title={"クラス売上 ¥"+Math.round(classRevenue[g.type]).toLocaleString()+" (配車表 表示期間内)"} style={{fontSize:isMobile?8:9,fontWeight:800,marginLeft:5,padding:"1px 6px",borderRadius:4,background:"linear-gradient(135deg,#dcfce7,#bbf7d0)",color:"#15803d",border:"1px solid #86efac"}}>💰 {fmtRev(classRevenue[g.type])}</span>}{g.hiddenCount>0&&<span onClick={e=>{e.stopPropagation();if(window.confirm(g.type+"クラスの折りたたみ中"+g.hiddenCount+"台を全て表示しますか？"))restoreAllInClass(g.type);}} title={"折りたたみ中 "+g.hiddenCount+"台 / クリックで全て表示に戻す"} style={{fontSize:8,fontWeight:700,marginLeft:4,padding:"1px 5px",borderRadius:3,cursor:"pointer",background:"#fef3c7",color:"#92400e",border:"1px solid #fbbf24"}}>👁 {g.hiddenCount}台折りたたみ中</span>}</td>
               {dates.map(d=><td key={d} style={{height:CLASS_H,borderTop:"3px solid #475569",borderBottom:"1px solid #e2e8f0",background:"#dbe3ec",borderRight:"1px solid #e2e8f0"}}/>)}
@@ -17416,7 +17417,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
                 {di===0&&bars.map((b,bi)=>{const isRes=b.type==="reservation";const isMaint=b.type==="maintenance";const isSafety=isMaint&&(String(b.m?.id||"").startsWith("sf_")||b.m?.label==="予備車"||b.m?.label==="安全在庫");const isDragging=dragInfo===b.r?.id;const isSearchHit=isRes&&searchResult&&searchResult.found&&searchResult.hitSet.has(b.r.id);const brandMM=isRes&&b.r&&(()=>{const rb=resBrand(b.r),vb=normBrand(v.brand);return !!(rb&&vb&&rb!==vb);})();return <div key={bi} title={brandMM?("⚠ ブランド不一致: 予約="+resBrand(b.r)+" / 車両="+normBrand(v.brand)+"運用車。配車表で正しいブランドの車へ移してください。"):undefined} className={isMaint?"":(isSearchHit?"tl-bar tl-bar-hit":(brandMM?"tl-bar tl-bar-mm":"tl-bar"))} draggable={isRes} onDragStart={isRes?e=>handleDragStart(e,b.r.id):undefined} onDragEnd={handleDragEnd} onClick={e=>handleBarClick(e,b)} style={{left:b.left,width:Math.max(b.width,20),background:isSafety?"repeating-linear-gradient(45deg,#facc15,#facc15 6px,#fde047 6px,#fde047 12px)":isMaint?(b.m?.status==="approved"?"repeating-linear-gradient(135deg,#15803d,#15803d 3px,#16a34a 3px,#16a34a 6px)":"repeating-linear-gradient(135deg,#d97706,#d97706 3px,#f59e0b 3px,#f59e0b 6px)"):(isRes?(isDragging?"#f87171":brandMM?"repeating-linear-gradient(135deg,#db2777,#db2777 6px,#9d174d 6px,#9d174d 12px)":(FLEET_ASSIGNER_BG[assignerKinds[String(b.r.id)]]||FLEET_ASSIGNER_BG.unknown)):"#2563eb"),color:isSafety?"#713f12":"#fff",fontSize:isMaint?9.5:9,fontWeight:isMaint?800:600,boxShadow:isSearchHit?"0 0 8px 3px rgba(250,204,21,.8),0 0 16px 6px rgba(250,204,21,.4)":(isDragging?"0 4px 12px rgba(0,0,0,.3)":(isMaint?"none":"0 1px 3px rgba(0,0,0,.2)")),outline:(rb&&isRes&&rbConflicts.has(b.r.id))?"3px solid #dc2626":(rb&&isRes&&rb.moves[b.r.id]&&rb.moves[b.r.id].to!==rb.moves[b.r.id].from)?"2px dashed #7c3aed":isSearchHit?"3px solid #facc15":(brandMM?"2px solid #831843":"none"),outlineOffset:(rb&&isRes)?-1:undefined,position:"absolute",top:isMaint?0:(rb?(_ln.lane.get(b)||0)*ROW_H+3:3),height:isMaint?17:(rb?ROW_H-6:undefined),bottom:(isMaint||rb)?undefined:3,zIndex:isMaint?3:(isSearchHit?15:(brandMM?12:(isDragging?10:(rb?4:2)))),opacity:isDragging?0.7:(isSafety?1:(isMaint?0.9:1)),cursor:isRes?"grab":"pointer",transition:"opacity .15s, box-shadow .15s",borderRadius:isMaint?0:4,display:"flex",alignItems:"center",padding:"0 4px",overflow:"hidden",whiteSpace:"nowrap",border:isSafety?"1px solid #ca8a04":undefined,boxSizing:"border-box"}}><span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{isRes?`${brandMM?"⚠":""}${b.r.ota==="HANDYMAN"&&b.r.site==="hdm2"?"🆕2":""}${fleetOtaTag(b.r.ota)}${b.r.lendTime}-${b.r.returnTime} ${b.r.name} 様`:isSafety?"🛡安全在庫":("🔧"+b.m.label+(b.m.status==="approved"?"〔FIX〕":"〔仮〕"))}</span></div>;})}
               </td>;})}
             </tr>;})}
-            {rb&&gi===rbHoldIdx&&renderRbHoldRow()}
+            {rb&&rbHoldPos.after[gi]&&renderRbHoldRow(rbHoldPos.after[gi])}
           </React.Fragment>)}
         </tbody>
       </table>
@@ -17426,7 +17427,7 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
       return <div className="modal-overlay" onClick={()=>setRbPick(null)}><div className="modal-box" style={{maxWidth:340,padding:18}} onClick={e=>e.stopPropagation()}>
         <div style={{fontSize:13,fontWeight:800,color:"#4c1d95",marginBottom:4}}>🔀 {r.name} 様の移動先</div>
         <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>{fmtD(r.lendDate)}〜{fmtD(r.returnDate)}　元の車：{ov?ov.name+" "+(ov.no||""):"—"}</div>
-        <button onClick={()=>pick(RB_HOLD)} disabled={cur===RB_HOLD} style={{width:"100%",padding:"8px",marginBottom:6,background:cur===RB_HOLD?"#f1f5f9":"#fef3c7",color:"#92400e",border:"1px solid #f59e0b",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer"}}>🅿 仮置きへ逃がす</button>
+        <button onClick={()=>pick(rbHoldOf(brandView!=="all"?brandView:resBrand(r)))} disabled={isRbHold(cur)} style={{width:"100%",padding:"8px",marginBottom:6,background:isRbHold(cur)?"#f1f5f9":"#fef3c7",color:"#92400e",border:"1px solid #f59e0b",borderRadius:6,fontSize:12,fontWeight:800,cursor:"pointer"}}>🅿 仮置きへ逃がす</button>
         {m&&m.to!==m.from&&<button onClick={()=>pick(orig)} style={{width:"100%",padding:"8px",marginBottom:6,background:"#fff",color:"#475569",border:"1px solid #cbd5e1",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>↩ 元の車に戻す</button>}
         <select value="" onChange={e=>{if(e.target.value)pick(e.target.value);}} style={{width:"100%",border:"1px solid #c4b5fd",borderRadius:6,padding:"8px 6px",fontSize:12,fontWeight:700,color:"#4c1d95"}}>
           <option value="">車を選ぶ（×＝重なる・選ぶことはできます）</option>
@@ -24770,7 +24771,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.589-BT";
+const APP_VERSION="v1.0.590-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
