@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.15-bt";
+var VER="staff-v2.16-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -571,7 +571,7 @@ function render(d){
   h+='<a href="https://nosh2318.github.io/spk-task/company3d.html" target="_blank" rel="noopener" class="tbBlinkBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#0e7490,#0891b2);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #22d3ee;">📊 リアルタイム/チーム状況 <span style="font-weight:700;font-size:12px;opacity:.9;">（3Dバーチャル本社）</span></a>';
   h+='<a href="https://rent-handyman.com/official-data-protection.html" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#334155,#475569);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #94a3b8;">🔐 個人情報・セキュリティの統一回答 <span style="font-weight:700;font-size:12px;opacity:.9;">（お客様に聞かれたらこれを見せる→閉じるで戻る）</span></a>';
   h+='<a href="https://nosh2318.github.io/spk-task/staff-guide.html?only=1#tkm" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:#FABE00;color:#002063;font-weight:900;font-size:15px;text-decoration:none">📘 スタッフ操作マニュアル</a>'; // ★2026-11-11 nosh「操作マニュアルに店舗別に」：ステップ説明書（高松）
-  h+='<div id="mpReq"></div><div id="pushBar"></div>'; // ★2026-11-11 お客様からの通知（那覇・札幌と同じ）
+  h+='<div id="tkPunch"></div><div id="taskChk"></div><div id="mpReq"></div><div id="pushBar"></div>'; // ★2026-11-11 お客様からの通知（那覇・札幌と同じ）
   h+='<div class="tabs">'
     +tab("today","📋本日",tdy.length)
     +tab("future","🗓未来",fut.length)
@@ -873,7 +873,7 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
 </style>
 <script>
 /* ★2026-11-11 nosh「まず全店個別URLを登録すれば通知が届くように」：高松も那覇・札幌と同じ「お客様からの通知」。
-   「ONにする」→ この端末を本人（個別URLのトークン）として登録。勤務中（打刻／打刻がない日は確定シフトの時間・その日の担当）だけ届く。 */
+   「ONにする」→ この端末を本人（個別URLのトークン）として登録。勤務中（★2026-11-11 打刻必須：個別URLの出勤打刻〜退勤打刻）だけ届く。 */
 (function(){
   var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/push-test";
   var VAPID="BIxO6xrQ9U3IH8A1k4_cUMmbzPl5N9JN4f1k081w2jKVDg4UTdLZV3dPbuiYAr-lUmzScFd46-_JZVUx-NIY3Ag";
@@ -891,8 +891,8 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){show("rest","この端末は通知に対応していません","");return;}
     if(!SUB||Notification.permission!=="granted"){show("off","お客様からの通知：OFF",Notification.permission==="denied"?"設定アプリ→通知で許可してください":"「着きました」「見つからない」などがスマホに届きます","ONにする",turnOn);return;}
     if(!ST){show("rest","お客様からの通知：確認中…","");return;}
-    if(ST.on_duty)show("on","✅ 通知ON：勤務中なので届きます","勤務の時間だけ届きます","テスト",function(){post({action:"send",endpoint:SUB.endpoint,delay:0}).then(function(){alert("テスト通知を送りました");});});
-    else show("rest","🌙 通知ON：勤務外なので止まっています","勤務の時間（シフト・担当の日）に届き始めます");
+    if(ST.on_duty)show("on","✅ 通知ON：勤務中なので届きます","出勤打刻〜退勤打刻の間だけ届きます","テスト",function(){post({action:"send",endpoint:SUB.endpoint,delay:0}).then(function(){alert("テスト通知を送りました");});});
+    else show("rest","🌙 通知ON：勤務外なので止まっています","出勤打刻をすると届き始めます（打刻しないと届きません）");
   }
   function save(){
     try{caches.open("staff-push").then(function(c){return c.put("/__staff_push_me_bt",new Response(location.href));}).catch(function(){});}catch(e){}
@@ -942,10 +942,89 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     Array.prototype.forEach.call(b.querySelectorAll("button[data-seen]"),function(btn){btn.onclick=function(){var id=+btn.getAttribute("data-seen");btn.disabled=true;btn.textContent="…";post({action:"seen",id:id}).then(function(){INBOX=INBOX.filter(function(n){return n.id!==id;});draw();}).catch(function(){btn.disabled=false;btn.textContent="確認しました";});};});
     try{if(navigator.setAppBadge){if(INBOX.length)navigator.setAppBadge(INBOX.length);else navigator.clearAppBadge();}}catch(e){}
   }
-  function load(){if(!TOKEN)return;post({action:"list"}).then(function(d){if(d&&d.ok){INBOX=d.inbox||[];draw();}}).catch(function(){});}
+  function load(){if(!TOKEN)return;post({action:"list"}).then(function(d){if(d&&d.ok){INBOX=(d.inbox||[]).filter(function(n){return !(n.kind==="task_today"&&/付きました|割り当て|変更/.test(n.title||""));});draw();}}).catch(function(){});}
   try{new MutationObserver(function(){var b=document.getElementById("mpReq");if(b&&!b.firstChild&&INBOX.length)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
   document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
   setInterval(function(){if(!document.hidden)load();},30000);
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
+})();
+</script>
+<script>
+/* ★2026-11-11 nosh「全店同じに」：高松も打刻必須。個別URLの一番上に出勤・退勤の打刻ボタン（管理APPの打刻と同じ記録）。
+   通知は出勤打刻〜退勤打刻の間だけ届く。打刻するとスタッフログ（Slack）にも出る。 */
+(function(){
+  var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-task-check";
+  var S=null,busy=false,MSG="";
+  function post(o){o.token=TOKEN;o.store="tkm";return fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+  function el(){return document.getElementById("tkPunch");}
+  function draw(){var b=el();if(!b||!S)return;var h='<div class="tkp">';
+    if(!S.in){h+='<div class="tkp-h">⚠ まだ出勤打刻していません</div><div class="tkp-s">出勤したら、まず打刻。打刻しないと通知が1件も届きません（打刻必須）。</div><button class="tkp-b in" data-p="in"'+(busy?' disabled':'')+'>'+(busy?"…":"🟢 出勤打刻")+'</button>';}
+    else if(!S.out){h+='<div class="tkp-row"><span>🟢 出勤 <b>'+S.in+'</b>　勤務中（通知が届きます）</span></div><button class="tkp-b out" data-p="out"'+(busy?' disabled':'')+'>'+(busy?"…":"🔴 退勤打刻")+'</button>';}
+    else{h+='<div class="tkp-row"><span>✅ 出勤 <b>'+S.in+'</b> ／ 退勤 <b>'+S.out+'</b>　本日の打刻は完了（通知は止まっています）</span></div>';}
+    if(MSG)h+='<div class="tkp-s" style="color:#b4232c">'+MSG+'</div>';
+    b.innerHTML=h+'</div>';
+    var bt=b.querySelector("[data-p]");if(bt)bt.onclick=function(){var k=bt.getAttribute("data-p");if(k==="out"&&!confirm("退勤打刻しますか？（このあと通知は止まります）"))return;punch(k);};
+  }
+  function punch(k){if(busy)return;busy=true;MSG="";draw();post({action:"punch",kind:k}).then(function(d){busy=false;if(d&&(d.in!=null))S={in:d.in||"",out:d.out||""};if(!d||!d.ok)MSG=(d&&d.error)||"打刻できませんでした。もう一度押してください";draw();try{window.dispatchEvent(new Event("tkPunched"));}catch(e){}}).catch(function(){busy=false;MSG="通信エラー。電波を確認してもう一度押してください";draw();});}
+  function load(){if(!TOKEN||busy)return;post({action:"punch_state"}).then(function(d){if(d&&d.ok){S={in:d.in||"",out:d.out||""};draw();}}).catch(function(){});}
+  var css=document.createElement("style");
+  css.textContent=".tkp{border-radius:14px;padding:12px 14px;margin:10px 0;background:#fff;border:1.5px solid #cbd5e1;font-size:14px}.tkp-h{font-weight:900;font-size:16px;color:#b4232c}.tkp-s{font-size:12px;color:#64748b;margin:2px 0 6px}.tkp-row{font-weight:700;color:#0f172a}"
+    +".tkp-b{width:100%;margin-top:8px;padding:14px;border:0;border-radius:12px;color:#fff;font-size:17px;font-weight:900}.tkp-b.in{background:#059669}.tkp-b.out{background:#dc2626}.tkp-b:disabled{opacity:.6}";
+  document.head.appendChild(css);
+  try{new MutationObserver(function(){var b=el();if(b&&!b.firstChild&&S)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
+})();
+</script>
+<script>
+/* ★2026-11-11 nosh「出勤時にタスクチェックからスタートし、新規割当て・変更ごとにスタッフ通知→承認→承認してない通知」
+   一番上に「今日のタスク」の確認カード。未確認（新しく割り当て・変更）は赤、全部確認したら緑。
+   確認の記録・スタッフログ（Slack）への共有・30分未確認の知らせは EF staff-task-check。 */
+(function(){
+  var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-task-check",STORE="tkm";
+  var ITEMS=null,busy=false,MSG="";
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+  function post(o){o.token=TOKEN;o.store=STORE;return fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+  function el(){return document.getElementById("taskChk");}
+  function hm(iso){var d=new Date(iso);return isNaN(d)?"":("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}
+  function draw(){
+    var b=el();if(!b||!ITEMS)return;
+    if(!ITEMS.length){b.innerHTML="";return;}
+    var ng=ITEMS.filter(function(x){return x.state!=="ok";}),h="";
+    if(ng.length){
+      h+='<div class="tck ng"><div class="tck-h">今日のタスク '+ng.length+'件　まだ確認していません</div>'
+        +'<div class="tck-s">中身を見て「確認しました」を押してください（30分押さないとスタッフログに「未確認」と出ます）</div>';
+      ng.forEach(function(x){
+        h+='<div class="tck-i"><span class="tck-t '+(x.state==="new"?"nw":"ch")+'">'+(x.state==="new"?"新しく割り当て":"変更あり")+'</span>'
+          +'<div class="tck-n">'+esc(x.head)+'</div>'+(x.when?'<div class="tck-w">'+esc(x.when)+'</div>':'')
+          +(x.changes&&x.changes.length?'<div class="tck-c">'+x.changes.map(function(c){return esc(c.k)+'：<s>'+esc(c.o)+'</s> → <b>'+esc(c.n)+'</b>';}).join("<br>")+'</div>':'')
+          +'</div>';
+      });
+      h+='<button class="tck-b" data-ack="1"'+(busy?' disabled':'')+'>'+(busy?"…":(ng.length>1?ng.length+"件とも":"")+"確認しました")+'</button>'+(MSG?'<div class="tck-s" style="color:#b4232c;margin-top:6px">'+esc(MSG)+'</div>':'')+'</div>';
+    }else{
+      var last=ITEMS.reduce(function(a,x){return x.acked_at&&x.acked_at>a?x.acked_at:a;},"");
+      h+='<div class="tck ok">✅ 今日のタスク '+ITEMS.length+'件　確認済み'+(last?'（'+hm(last)+'）':'')+'</div>';
+    }
+    b.innerHTML=h;
+    var bt=b.querySelector("[data-ack]");if(bt)bt.onclick=ack;
+  }
+  function ack(){
+    if(busy)return;busy=true;MSG="";draw();
+    var its=ITEMS.filter(function(x){return x.state!=="ok";}).map(function(x){return {id:x.id,sig:x.sig};});
+    post({action:"ack",items:its}).then(function(d){busy=false;if(d&&d.items)ITEMS=d.items;if(!d||!d.ok)MSG=(d&&d.error)||"送れませんでした。もう一度押してください";draw();})
+      .catch(function(){busy=false;MSG="通信エラー。電波を確認してもう一度押してください";draw();});
+  }
+  function load(){if(!TOKEN||busy)return;post({action:"tasks"}).then(function(d){if(d&&d.ok){ITEMS=d.items||[];draw();}}).catch(function(){});}
+  var css=document.createElement("style");
+  css.textContent=".tck{border-radius:14px;padding:12px 14px;margin:10px 0;font-size:14px}.tck.ng{background:#fff1f2;border:2px solid #b4232c}.tck.ok{background:#ecfdf5;border:1.5px solid #10b981;color:#065f46;font-weight:800}"
+    +".tck-h{font-weight:900;font-size:17px;color:#b4232c}.tck-s{font-size:12px;color:#64748b;margin:2px 0 6px}.tck-i{border-top:1px solid #fecdd3;padding:8px 0}"
+    +".tck-t{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 7px;color:#fff}.tck-t.nw{background:#002063}.tck-t.ch{background:#d97706}"
+    +".tck-n{font-weight:800;color:#002063;margin-top:3px}.tck-w{color:#334155}.tck-c{margin-top:3px;background:#fff7ed;border-radius:8px;padding:4px 8px;color:#7c2d12}.tck-c s{color:#94a3b8}"
+    +".tck-b{width:100%;margin-top:8px;padding:13px;border:0;border-radius:12px;background:#b4232c;color:#fff;font-size:16px;font-weight:900}.tck-b:disabled{opacity:.6}";
+  document.head.appendChild(css);
+  try{new MutationObserver(function(){var b=el();if(b&&!b.firstChild&&ITEMS)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+  setInterval(load,60000);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
 })();
 </script>
