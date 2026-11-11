@@ -871,7 +871,7 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
 </style>
 <script>
 /* ★2026-11-11 nosh「まず全店個別URLを登録すれば通知が届くように」：高松も那覇・札幌と同じ「お客様からの通知」。
-   「ONにする」→ この端末を本人（個別URLのトークン）として登録。勤務中（打刻／打刻がない日は確定シフトの時間・その日の担当）だけ届く。 */
+   「ONにする」→ この端末を本人（個別URLのトークン）として登録。出勤打刻をしている間（出勤打刻〜退勤打刻）だけ届く（2026-11-11 nosh「打刻必須」）。 */
 (function(){
   var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/push-test";
   var VAPID="BIxO6xrQ9U3IH8A1k4_cUMmbzPl5N9JN4f1k081w2jKVDg4UTdLZV3dPbuiYAr-lUmzScFd46-_JZVUx-NIY3Ag";
@@ -889,8 +889,8 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){show("rest","この端末は通知に対応していません","");return;}
     if(!SUB||Notification.permission!=="granted"){show("off","お客様からの通知：OFF",Notification.permission==="denied"?"設定アプリ→通知で許可してください":"「着きました」「見つからない」などがスマホに届きます","ONにする",turnOn);return;}
     if(!ST){show("rest","お客様からの通知：確認中…","");return;}
-    if(ST.on_duty)show("on","✅ 通知ON：勤務中なので届きます","勤務の時間だけ届きます","テスト",function(){post({action:"send",endpoint:SUB.endpoint,delay:0}).then(function(){alert("テスト通知を送りました");});});
-    else show("rest","🌙 通知ON：勤務外なので止まっています","勤務の時間（シフト・担当の日）に届き始めます");
+    if(ST.on_duty)show("on","✅ 通知ON：出勤中なので届きます","退勤打刻で止まります","テスト",function(){post({action:"send",endpoint:SUB.endpoint,delay:0}).then(function(){alert("テスト通知を送りました");});});
+    else show("rest","🌙 通知ON：出勤打刻をしていないので止まっています","出勤打刻をしている間だけ届きます");
   }
   function save(){
     try{caches.open("staff-push").then(function(c){return c.put("/__staff_push_me_bt",new Response(location.href));}).catch(function(){});}catch(e){}
