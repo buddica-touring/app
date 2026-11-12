@@ -73,10 +73,29 @@ window.BTSUM=(function(){
     svg.addEventListener('mouseleave',()=>{tip.style.display='none';xh.style.display='none';});
   }
   let timer=null, busy=false;
+  // 着地見込み（オーナー指示 2026-11-12「ここのサマリに着地予測を・直近3ヶ月同じ数値を出す」）：店舗KPI画面の「📈 着地見込み」タブと同じ数字。
+  // KPI画面を隠し iframe（?embed=1&tab=land&landpost=1）で開き、タブの計算結果を postMessage で受け取る（別々に計算しない＝数字がずれない）。
+  let landT=null, landMsg=null, landTimer=null;
+  function landPaint(){
+    document.querySelectorAll('#bsM3 [data-land]').forEach(el=>{const k=el.getAttribute('data-land'),b=el.querySelector('b'),d=landMsg&&landMsg.mon&&landMsg.mon[k];
+      if(!d){if(landMsg&&landMsg.ready)b.innerHTML='<span class="bs-m">—</span>';return;}
+      const t=d.t||(landT?landT.revT(k):0),cur=landMsg.cur===k,rng=cur&&landMsg.fx&&landMsg.lo!=null?' <small>幅 '+yen(landMsg.lo)+'〜'+yen(landMsg.hi)+'</small>':'';
+      b.innerHTML=yen(d.L)+(t?' <small>目標比 <i style="font-style:normal;font-weight:700;color:'+(d.L>=t?'#15803d':'#c0392b')+'">'+pct(d.L,t)+'</i></small>':'')+(landMsg.ready?'':' <small>計算中…</small>')+(rng?'<br>'+rng:'');
+      b.style.textAlign='right';});
+  }
+  function landing(T){
+    landT=T; if(landMsg)landPaint();
+    if(!window._bsLandOn){window._bsLandOn=1;window.addEventListener('message',e=>{if(e.origin!=='https://nosh2318.github.io')return;const d=e.data;if(!d||d.type!=='hdm-land'||d.store!=='bt'||!d.mon)return;if(landMsg&&landMsg.ready&&!d.ready)return;landMsg=d;landPaint();});}
+    const old=document.getElementById('bsLandFr'); if(old)old.remove(); if(landMsg)landMsg.ready=false;
+    const f=document.createElement('iframe'); f.id='bsLandFr'; f.setAttribute('aria-hidden','true'); f.tabIndex=-1;
+    f.style.cssText='position:absolute;left:-9999px;top:0;width:1200px;height:800px;border:0;visibility:hidden';
+    f.src=KPI_PAGE+'?embed=1&tab=land&landpost=1&_='+Date.now(); document.body.appendChild(f);
+    clearTimeout(landTimer); landTimer=setTimeout(()=>{if(!landMsg||!landMsg.ready)document.querySelectorAll('#bsM3 [data-land] b').forEach(b=>{if(/計算中/.test(b.textContent)&&!landMsg)b.innerHTML='<span class="bs-m">取得できませんでした</span>';});},45000);
+  }
   async function show(){
     const body=document.getElementById("sumBody"); if(!body||busy)return; busy=true;
     const ym=ymNow(), yr=ym.slice(0,4), M3=[[ym,'当月'],[addYm(ym,1),'翌月'],[addYm(ym,2),'翌々月']];
-    if(!body.dataset.done)body.innerHTML='<div class="bs-n">売上＝返却月（予約＋予約外）／件数＝返却月の予約数／稼働率＝貸出日数÷稼働可能日数。翌月以降は今日時点で入っている予約の分です。</div>'
+    if(!body.dataset.done)body.innerHTML='<div class="bs-n">売上＝返却月（予約＋予約外）／件数＝返却月の予約数／稼働率＝貸出日数÷稼働可能日数。翌月以降は今日時点で入っている予約の分です。着地見込み＝店舗KPI画面の「📈 着地見込み」タブと同じ数字（当月＝実績と傾向からの予測／翌月以降＝今の予約＋これから入る見込み）。</div>'
       +'<div class="bs-h">本日の状況 <small>1分ごとに自動更新</small></div><div class="bs-c" id="bsToday"><span class="bs-m">読み込み中…</span></div>'
       +'<div class="bs-h">直近3か月</div><div class="bs-g" id="bsM3"><div class="bs-c"><span class="bs-m">読み込み中…</span></div></div>'
       +'<div class="bs-h">推移 <small>2026年8月〜・月の上にマウス（スマホはタップ）で4つの数字</small></div><div id="bsTr"><div class="bs-c"><span class="bs-m">読み込み中…</span></div></div>'
@@ -90,12 +109,14 @@ window.BTSUM=(function(){
         return '<div class="bs-c"><div class="bs-ch">'+l+'<small>'+(+k.slice(5))+'月</small></div>'
           +'<div class="bs-kpi"><b>'+yen(m.tot_r)+'</b><span>'+(t?'目標 '+yen(t)+'・<em>'+pct(m.tot_r||0,t)+'</em>':'目標 未設定')+'</span></div>'
           +'<div class="bs-bar"><i style="width:'+(t?Math.min(100,Math.round((m.tot_r||0)/t*100)):0)+'%"></i></div>'
+          +'<div class="bs-r" data-land="'+k+'" style="background:#fff7ed;margin:0 -6px;padding:7px 6px;border-radius:6px"><span>着地見込み</span><b><span class="bs-m">計算中…</span></b></div>'
           +row('稼働率',(u.p==null?'—':Math.round(u.p*100)+'%')+' <small>/ 目標 '+Math.round(T_UTIL*100)+'%</small>')
           +row('予約件数',(m.tot_c||0)+'件'+(c?' <small>/ 目標 '+c+'件</small>':''))
           +row('設定単価',su?yen(su):'—')
           +row('現在単価',cu==null?'—':yen(cu))
           +row('乖離',gp==null?'—':'<i style="font-style:normal;color:'+(gp<0?'#c0392b':'#15803d')+'">'+(gp<0?'−':'+')+yen(Math.abs(gp))+' <small>（'+(gp<0?'−':'+')+Math.round(Math.abs(gp)/su*100)+'%）</small></i>')
           +row('稼働台数',(m.nveh||0)+'台')+'</div>';}).join('');
+      landing(T);
       const tr=document.getElementById("bsTr"); tr.innerHTML=trendHtml(o,ym,tr.clientWidth); trendHover(tr.querySelector(".bs-tr"));
       const a={tR:0,aR:0,aRall:0,fR:0,tC:0,aC:0,aCall:0,rd:0,ad:0};
       for(let i=1;i<=12;i++){const k=yr+'-'+String(i).padStart(2,'0');a.tR+=T.revT(k);a.tC+=T.cntT(k);}
