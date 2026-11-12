@@ -80,8 +80,7 @@ window.BTSUM=(function(){
     document.querySelectorAll('#bsM3 [data-land]').forEach(el=>{const k=el.getAttribute('data-land'),b=el.querySelector('b'),d=landMsg&&landMsg.mon&&landMsg.mon[k];
       if(!d){if(landMsg&&landMsg.ready)b.innerHTML='<span class="bs-m">—</span>';return;}
       const t=d.t||(landT?landT.revT(k):0),cur=landMsg.cur===k,rng=cur&&landMsg.fx&&landMsg.lo!=null?' <small>幅 '+yen(landMsg.lo)+'〜'+yen(landMsg.hi)+'</small>':'';
-      b.innerHTML=yen(d.L)+(t?' <small>目標比 <i style="font-style:normal;font-weight:700;color:'+(d.L>=t?'#15803d':'#c0392b')+'">'+pct(d.L,t)+'</i></small>':'')+(landMsg.ready?'':' <small>計算中…</small>')+(rng?'<br>'+rng:'');
-      b.style.textAlign='right';});
+      b.innerHTML='<u>'+yen(d.L)+'</u>'+(t?'<i class="'+(d.L>=t?'ok':'ng')+'">目標比 '+pct(d.L,t)+'</i>':'')+(landMsg.ready?'':' <small>計算中…</small>')+(rng?'<small class="rg">'+rng.replace(/<\/?small>/g,'')+'</small>':'');});
   }
   function landing(T){
     landT=T; if(landMsg)landPaint();
@@ -109,7 +108,7 @@ window.BTSUM=(function(){
         return '<div class="bs-c"><div class="bs-ch">'+l+'<small>'+(+k.slice(5))+'月</small></div>'
           +'<div class="bs-kpi"><b>'+yen(m.tot_r)+'</b><span>'+(t?'目標 '+yen(t)+'・<em>'+pct(m.tot_r||0,t)+'</em>':'目標 未設定')+'</span></div>'
           +'<div class="bs-bar"><i style="width:'+(t?Math.min(100,Math.round((m.tot_r||0)/t*100)):0)+'%"></i></div>'
-          +'<div class="bs-r" data-land="'+k+'" style="background:#fff7ed;margin:0 -6px;padding:7px 6px;border-radius:6px"><span>着地見込み</span><b><span class="bs-m">計算中…</span></b></div>'
+          +'<div class="bs-land" data-land="'+k+'"><span>📈 着地見込み</span><b><span class="bs-m">計算中…</span></b></div>'
           +row('稼働率',(u.p==null?'—':Math.round(u.p*100)+'%')+' <small>/ 目標 '+Math.round(T_UTIL*100)+'%</small>')
           +row('予約件数',(m.tot_c||0)+'件'+(c?' <small>/ 目標 '+c+'件</small>':''))
           +row('設定単価',su?yen(su):'—')
