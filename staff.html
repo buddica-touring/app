@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.17-bt";
+var VER="staff-v2.18-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -571,7 +571,7 @@ function render(d){
   h+='<a href="https://nosh2318.github.io/spk-task/company3d.html" target="_blank" rel="noopener" class="tbBlinkBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#0e7490,#0891b2);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #22d3ee;">📊 リアルタイム/チーム状況 <span style="font-weight:700;font-size:12px;opacity:.9;">（3Dバーチャル本社）</span></a>';
   h+='<a href="https://rent-handyman.com/official-data-protection.html" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#334155,#475569);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #94a3b8;">🔐 個人情報・セキュリティの統一回答 <span style="font-weight:700;font-size:12px;opacity:.9;">（お客様に聞かれたらこれを見せる→閉じるで戻る）</span></a>';
   h+='<a href="https://nosh2318.github.io/spk-task/staff-guide.html?only=1#tkm" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:#FABE00;color:#002063;font-weight:900;font-size:15px;text-decoration:none">📘 スタッフ操作マニュアル</a>'; // ★2026-11-11 nosh「操作マニュアルに店舗別に」：ステップ説明書（高松）
-  h+='<div id="tkPunch"></div><div id="pressChk"></div><div id="taskChk"></div><div id="mpReq"></div><div id="pushBar"></div>'; // ★2026-11-11 お客様からの通知（那覇・札幌と同じ）
+  h+='<div id="punchFirst"></div><div id="tkPunch"></div><div id="pressChk"></div><div id="taskChk"></div><div id="mpReq"></div><div id="pushBar"></div>'; // ★2026-11-11 お客様からの通知（那覇・札幌と同じ）
   h+='<div class="tabs">'
     +tab("today","📋本日",tdy.length)
     +tab("future","🗓未来",fut.length)
@@ -970,7 +970,7 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     b.innerHTML=h+'</div>';
     var bt=b.querySelector("[data-p]");if(bt)bt.onclick=function(){var k=bt.getAttribute("data-p");if(k==="out"&&!confirm("退勤打刻しますか？（このあと通知は止まります）"))return;punch(k);};
   }
-  function punch(k){if(busy)return;busy=true;MSG="";draw();post({action:"punch",kind:k}).then(function(d){busy=false;if(d&&(d.in!=null))S={in:d.in||"",out:d.out||""};if(!d||!d.ok)MSG=(d&&d.error)||"打刻できませんでした。もう一度押してください";draw();try{window.dispatchEvent(new Event("tkPunched"));}catch(e){}}).catch(function(){busy=false;MSG="通信エラー。電波を確認してもう一度押してください";draw();});}
+  function punch(k){if(busy)return;busy=true;MSG="";draw();post({action:"punch",kind:k}).then(function(d){busy=false;if(d&&(d.in!=null))S={in:d.in||"",out:d.out||""};if(window.__pfReload)window.__pfReload();if(!d||!d.ok)MSG=(d&&d.error)||"打刻できませんでした。もう一度押してください";draw();try{window.dispatchEvent(new Event("tkPunched"));}catch(e){}}).catch(function(){busy=false;MSG="通信エラー。電波を確認してもう一度押してください";draw();});}
   function load(){if(!TOKEN||busy)return;post({action:"punch_state"}).then(function(d){if(d&&d.ok){S={in:d.in||"",out:d.out||""};draw();}}).catch(function(){});}
   var css=document.createElement("style");
   css.textContent=".tkp{border-radius:14px;padding:12px 14px;margin:10px 0;background:#fff;border:1.5px solid #cbd5e1;font-size:14px}.tkp-h{font-weight:900;font-size:16px;color:#b4232c}.tkp-s{font-size:12px;color:#64748b;margin:2px 0 6px}.tkp-row{font-weight:700;color:#0f172a}"
@@ -1031,6 +1031,34 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
   document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
   setInterval(load,60000);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
+})();
+</script>
+<script>
+/* ★2026-11-11 nosh「出勤したらまず個別URLで打刻 をURLに出すべき」「いかに無駄なコミュニケーションを減らすか」
+   今日まだ出勤打刻していない時だけ、一番上に「まず打刻」。打刻したら消える（退勤後も出さない）。EF staff-task-check（duty）。 */
+(function(){
+  var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-task-check",STORE="tkm";
+  var D=null;
+  function el(){return document.getElementById("punchFirst");}
+  function go(){}
+  function draw(){
+    var b=el();if(!b||!D)return;
+    if(D.started){b.innerHTML="";return;}
+    b.innerHTML='<div class="pf"><div class="pf-h">⏰ 出勤したら、まず打刻</div>'
+      +'<div class="pf-s">打刻するまで、タスクの変更やお客様からの知らせはスマホに届きません</div>'
+      +(STORE==="tkm"?'':'<button class="pf-b" type="button">打刻する</button>')+'</div>';
+    var bt=b.querySelector(".pf-b");if(bt)bt.onclick=go;
+  }
+  function load(){if(!TOKEN)return;fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"duty",token:TOKEN,store:STORE})}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){D=d;draw();}}).catch(function(){});}
+  var css=document.createElement("style");
+  css.textContent=".pf{border-radius:14px;padding:12px 14px;margin:10px 0;background:#fff1f2;border:2px solid #b4232c}.pf-h{font-weight:900;font-size:18px;color:#b4232c}.pf-s{font-size:13px;color:#334155;margin:3px 0 0}"
+    +".pf-b{width:100%;margin-top:8px;padding:13px;border:0;border-radius:12px;background:#b4232c;color:#fff;font-size:17px;font-weight:900}";
+  document.head.appendChild(css);
+  try{new MutationObserver(function(){var b=el();if(b&&!b.firstChild&&D&&!D.started)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+  setInterval(function(){if(!D||!D.started)load();},20000);
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
+  window.__pfReload=load;
 })();
 </script>
 <script>
