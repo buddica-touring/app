@@ -27,6 +27,7 @@ function q(tbl){const st={tbl,f:[],op:'select'};
     then(res,rej){return Promise.resolve(exec()).then(res,rej)}};
   return b;}
 global.sb={from:q};
+if(typeof global.window==='undefined')global.window={};global.window.HDMStale=global.window.HDMStale||{quiet:f=>f(),read(){},now:()=>Date.now()}; /* 2026-11-12 古い画面の上書き止め：試験では素通し */
 eval(helpers+'\nfunction dbLog(){}\nfunction _btAirportBus(p){return /空港/.test(String(p||""))}\nfunction _btOkPlace(){return false}\n'+dbSrc.replace('const DB = {','global.DB = {'));
 
 const clone=o=>JSON.parse(JSON.stringify(o));
