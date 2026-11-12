@@ -166,11 +166,51 @@ const SB_ENABLED = !!(SUPABASE_URL && SUPABASE_KEY);
       h.set("X-Client-Info",ci+"; hdm="+S.cid+"."+ra);
       S.auth={apikey:hdrGet(h,"apikey"),authz:hdrGet(h,"Authorization")};
       var i2=Object.assign({},init||{},{headers:h});
-      return base(input,i2).then(function(r){try{if(r&&r.ok)check(base);}catch(e){}return r;});
+      return vGate(function(){return base(input,i2).then(function(r){try{if(r&&r.ok)check(base);}catch(e){}return r;});});
     };
   }
   function quiet(fn){S.quietN++;var done=function(){S.quietN=Math.max(0,S.quietN-1);};var p;try{p=Promise.resolve(fn());}catch(e){done();throw e;}return p.then(function(v){done();return v;},function(e){done();throw e;});}
-  var api={wrap:wrap,quiet:quiet,read:mark,now:now,_s:S,_idsFromUrl:idsFromUrl,_readAtFor:readAtFor};
+  /* 版の見張り（2026-11-12）：公開中の index.html の版と、この画面を開いた時の版が違えば、保存を送らずに読み込み直す。
+     開きっぱなしの古い画面を残さないため（定期・画面に戻った時・保存の直前に確かめる）。通信できない時は止めない。 */
+  var V={my:null,re:null,stale:false,newV:null,last:0,p:null};
+  function vJust(v){var l="";try{l=sessionStorage.getItem("hdm_ver_reload")||"";}catch(e){}var a=l.split("|");return a[0]===String(v)&&Date.now()-Number(a[1]||0)<120000;}
+  function vShow(){
+    try{if(document.getElementById("hdm-ver-ov"))return;var d=document.createElement("div");d.id="hdm-ver-ov";
+    d.style.cssText="position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center";
+    d.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:300px;text-align:center;font-size:14px;line-height:1.6"><div style="font-weight:800;margin-bottom:4px">🔄 APPが新しくなりました</div><div style="color:#475569;font-size:13px">読み込み直します</div></div>';
+    document.body.appendChild(d);}catch(e){}
+    setTimeout(function(){try{sessionStorage.setItem("hdm_ver_reload",V.newV+"|"+Date.now());}catch(e){}try{location.reload();}catch(e){}},3000);
+  }
+  function vCheck(){
+    if(!V.my||!V.re)return Promise.resolve(false);
+    if(V.stale)return Promise.resolve(true);
+    if(V.p)return V.p;
+    var ctl=typeof AbortController!=="undefined"?new AbortController():null;
+    var tm=setTimeout(function(){try{ctl&&ctl.abort();}catch(e){}},4000);
+    V.p=window.fetch("./index.html?vc="+Date.now(),{cache:"no-store",signal:ctl?ctl.signal:undefined})
+      .then(function(r){return r&&r.ok?r.text():"";})
+      .then(function(t){var m=V.re.exec(t);if(m)V.last=Date.now();
+        if(m&&m[1]!==V.my&&!vJust(m[1])){V.stale=true;V.newV=m[1];try{console.warn("[HDMStale] 古い版の画面: "+V.my+" → 公開中 "+m[1]);}catch(e){}vShow();}
+        return V.stale;})
+      .catch(function(){return false;})
+      .then(function(v){clearTimeout(tm);V.p=null;return v;});
+    return V.p;
+  }
+  function vBlocked(){return new Response(JSON.stringify({code:"HDM_OLD_SCREEN",message:"APPが新しくなりました。読み込み直してから、もう一度操作してください（保存していません）。",details:null,hint:null}),{status:409,headers:{"Content-Type":"application/json"}});}
+  function vGate(send){
+    if(!V.my)return send();
+    if(V.stale)return Promise.resolve(vBlocked());
+    if(Date.now()-V.last<60000)return send();
+    return vCheck().then(function(st){return st?vBlocked():send();});
+  }
+  function versionGuard(re,my){
+    try{V.re=re;if(my){V.my=String(my);}else{var m=re.exec(document.documentElement.innerHTML);V.my=m?m[1]:null;}
+      if(!V.my)return;V.last=Date.now();
+      setInterval(function(){vCheck();},180000);
+      document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")vCheck();});
+    }catch(e){}
+  }
+  var api={wrap:wrap,quiet:quiet,read:mark,now:now,_s:S,_idsFromUrl:idsFromUrl,_readAtFor:readAtFor,versionGuard:versionGuard,_v:V,_vCheck:vCheck};
   if(typeof window!=="undefined")window.HDMStale=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })();
@@ -188,6 +228,7 @@ const sbAuthPromise = (async () => {
       Object.keys(localStorage).filter(k=>k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k));
     }
   } catch(e) {}
+try{window.HDMStale.versionGuard(/var BASE_V\s*=\s*'(\d+)'/);}catch(e){} /* ★2026-11-12 古い版の画面は保存を送らず読み込み直す */
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
     global: { fetch: window.HDMStale.wrap(null,{url:SUPABASE_URL,key:SUPABASE_KEY,tables:["bt_tasks","bt_reservations"]}) } /* ★2026-11-12 古い画面の上書き止め */
@@ -24848,7 +24889,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.591-BT";
+const APP_VERSION="v1.0.592-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
