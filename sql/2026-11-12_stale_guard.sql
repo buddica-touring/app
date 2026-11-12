@@ -59,6 +59,8 @@ begin
   end loop;
   if hit then new := jsonb_populate_record(new, nv); end if;
   return new;
+exception when others then
+  return new;   -- この止め自体の不具合で保存を失敗させない（素通し）
 end $$;
 
 create or replace function public._hdm_touch() returns trigger language plpgsql security definer set search_path=public as $$
@@ -73,6 +75,8 @@ begin
       on conflict (tbl,row_id,field) do update set changed_at = excluded.changed_at, client_id = excluded.client_id, actor = excluded.actor;
   end loop;
   return null;
+exception when others then
+  return null;  -- 記録の失敗で元の保存を失敗させない
 end $$;
 
 -- 画面が「自分の保存が止められたか」を確かめる（止められたら画面が最新を読み直す）
