@@ -103,6 +103,78 @@ const {useState,useMemo,useCallback,useEffect,useRef}=React;
 const SUPABASE_URL = "https://ggqugvyskyiblxiycpci.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18"; // anon key（RLSで保護）
 const SB_ENABLED = !!(SUPABASE_URL && SUPABASE_KEY);
+/* 古い画面の上書き止め（画面側）2026-11-12
+   nosh「何回やるんだ」「他にパターンあるだろ？全部潰して」
+   - 予約・タスクを丸ごと読んだ時刻を行ごとに覚える（select=* の読み込みだけ）
+   - 保存のたびに「画面ID.その行を読んだ時刻」を x-client-info に付けて送る → DB が、読んだ後にほかの人が変えた項目だけ保存させない
+   - 止められたら知らせを出して最新を読み直す
+   使い方: createClient(url,key,{global:{fetch:HDMStale.wrap(元のfetch,{url,tables:[...]})}})
+           保存直前の確認読み（画面に映さない読み）は await HDMStale.quiet(()=>sb.from(..).select("*")...) で包む */
+(function(){
+  var S={cid:"",off:0,read:{},quietN:0,cfg:null,chk:null,auth:null,loadAt:Date.now()};
+  try{var a=new Uint8Array(9);crypto.getRandomValues(a);S.cid=Array.prototype.map.call(a,function(x){return ("0"+x.toString(16)).slice(-2)}).join("");}catch(e){S.cid=("c"+Math.random().toString(36).slice(2)+Date.now().toString(36)).replace(/[^A-Za-z0-9]/g,"").slice(0,24);}
+  function now(){return Date.now()+S.off;}
+  function tblOf(url){var m=/\/rest\/v1\/([A-Za-z0-9_]+)(\?|$)/.exec(url);return m?m[1]:"";}
+  function idKey(){return function(r){return r&&(r._id!=null?r._id:r.id);};}
+  function mark(tbl,rows,t0){if(!rows)return;if(!Array.isArray(rows))rows=[rows];var m=S.read[tbl]||(S.read[tbl]={});var t=t0||now();for(var i=0;i<rows.length;i++){var id=idKey()(rows[i]);if(id!=null&&id!=="")m[String(id)]=t;}}
+  function idsFromUrl(url){var q=url.split("?")[1]||"";var out=null;q.split("&").forEach(function(p){var kv=p.split("=");var k=decodeURIComponent(kv[0]||"");if(k!=="_id"&&k!=="id")return;var v=decodeURIComponent((kv.slice(1).join("=")||"").replace(/\+/g," "));var m;if((m=/^eq\.(.*)$/.exec(v)))out=(out||[]).concat([m[1]]);else if((m=/^in\.\((.*)\)$/.exec(v)))out=(out||[]).concat(m[1].split(",").map(function(s){return s.replace(/^"|"$/g,"");}));});return out;}
+  function readAtFor(tbl,ids){if(!ids||!ids.length)return 0;var m=S.read[tbl]||{};var mn=Infinity;for(var i=0;i<ids.length;i++){var t=m[String(ids[i])];if(t==null)return 0;if(t<mn)mn=t;}return mn===Infinity?0:Math.floor(mn);}
+  function hdrGet(h,k){try{return h.get(k);}catch(e){return null;}}
+  function banner(n){try{if(document.getElementById("hdm-stale-bn"))return;var d=document.createElement("div");d.id="hdm-stale-bn";d.style.cssText="position:fixed;left:0;right:0;top:0;z-index:2147483645;background:#b45309;color:#fff;font-size:14px;font-weight:700;padding:10px 14px;text-align:center;line-height:1.5";d.textContent="ほかの人が先に変えた項目がありました（"+n+"件）。その項目は保存していません。最新を読み込みます…";document.body.appendChild(d);}catch(e){}}
+  function onStale(rows){
+    try{console.warn("[HDMStale] 止められた保存",rows);}catch(e){}
+    if(S.cfg&&typeof S.cfg.onStale==="function"){try{if(S.cfg.onStale(rows)===true)return;}catch(e){}}
+    banner(rows.length);
+    var last=0;try{last=+sessionStorage.getItem("hdm_stale_reload")||0;}catch(e){}
+    if(Date.now()-last<60000){setTimeout(function(){var d=document.getElementById("hdm-stale-bn");if(d)d.textContent="ほかの人が先に変えた項目があり、保存していません。画面を読み込み直してから、もう一度入れてください。";},100);return;}
+    try{sessionStorage.setItem("hdm_stale_reload",String(Date.now()));}catch(e){}
+    setTimeout(function(){try{location.reload();}catch(e){}},2500);
+  }
+  function check(base){
+    clearTimeout(S.chk);
+    S.chk=setTimeout(function(){
+      if(!S.auth||!S.cfg)return;
+      var h={"Content-Type":"application/json","apikey":S.auth.apikey||"","Authorization":S.auth.authz||""};
+      base(S.cfg.url+"/rest/v1/rpc/hdm_stale_mine",{method:"POST",headers:h,body:JSON.stringify({p_client:S.cid,p_since_ms:20000})})
+        .then(function(r){return r&&r.ok?r.json():[];}).then(function(rows){
+          if(!rows||!rows.length)return;var fresh=rows.filter(function(x){var k=x.tbl+"|"+x.row_id+"|"+x.field+"|"+x.ts;if(S.seen[k])return false;S.seen[k]=1;return true;});
+          if(fresh.length)onStale(fresh);
+        }).catch(function(){});
+    },1500);
+  }
+  S.seen={};
+  function wrap(base,cfg){
+    base=base||window.fetch.bind(window);S.cfg=cfg||{};var tables=(S.cfg.tables||[]);
+    try{base(S.cfg.url+"/rest/v1/rpc/hdm_now_ms",{method:"POST",headers:{"Content-Type":"application/json","apikey":S.cfg.key||""},body:"{}"}).then(function(r){return r.ok?r.json():null;}).then(function(v){if(typeof v==="number"&&v>1e12){S.off=v-Date.now();}}).catch(function(){});}catch(e){}
+    return function(input,init){
+      var url=typeof input==="string"?input:(input&&input.url)||String(input||"");
+      if(url.indexOf(S.cfg.url+"/rest/v1/")!==0)return base(input,init);
+      var tbl=tblOf(url);if(tables.indexOf(tbl)<0)return base(input,init);
+      var method=String((init&&init.method)||(input&&input.method)||"GET").toUpperCase();
+      if(method==="GET"){
+        var full=/[?&]select=(\*|%2A)(&|$)/.test(url);var q=S.quietN>0;var t0=now();
+        var p=base(input,init);
+        if(!full||q)return p;
+        return p.then(function(r){try{if(r&&r.ok){r.clone().json().then(function(d){mark(tbl,d,t0);}).catch(function(){});}}catch(e){}return r;});
+      }
+      if(method!=="PATCH"&&method!=="POST"&&method!=="PUT")return base(input,init);
+      var ids=idsFromUrl(url);
+      if(!ids&&method==="POST"&&init&&typeof init.body==="string"){try{var b=JSON.parse(init.body);var arr=Array.isArray(b)?b:[b];ids=arr.map(idKey()).filter(function(x){return x!=null&&x!=="";}).map(String);}catch(e){ids=null;}}
+      var ra=readAtFor(tbl,ids);
+      var h=new Headers((init&&init.headers)||(typeof input!=="string"&&input&&input.headers)||{});
+      var ci=(hdrGet(h,"X-Client-Info")||"hdm-app").replace(/;?\s*hdm=[A-Za-z0-9.]+/g,"");
+      h.set("X-Client-Info",ci+"; hdm="+S.cid+"."+ra);
+      S.auth={apikey:hdrGet(h,"apikey"),authz:hdrGet(h,"Authorization")};
+      var i2=Object.assign({},init||{},{headers:h});
+      return base(input,i2).then(function(r){try{if(r&&r.ok)check(base);}catch(e){}return r;});
+    };
+  }
+  function quiet(fn){S.quietN++;var done=function(){S.quietN=Math.max(0,S.quietN-1);};var p;try{p=Promise.resolve(fn());}catch(e){done();throw e;}return p.then(function(v){done();return v;},function(e){done();throw e;});}
+  var api={wrap:wrap,quiet:quiet,read:mark,now:now,_s:S,_idsFromUrl:idsFromUrl,_readAtFor:readAtFor};
+  if(typeof window!=="undefined")window.HDMStale=api;
+  if(typeof module!=="undefined"&&module.exports)module.exports=api;
+})();
+
 let sb = null;
 let sbAuthReady = false;
 let sbCurrentUser = null;
@@ -117,7 +189,8 @@ const sbAuthPromise = (async () => {
     }
   } catch(e) {}
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+    global: { fetch: window.HDMStale.wrap(null,{url:SUPABASE_URL,key:SUPABASE_KEY,tables:["bt_tasks","bt_reservations"]}) } /* ★2026-11-12 古い画面の上書き止め */
   });
   // exec_sql RPCは本番に存在しない(404連打の原因)。自動テーブル作成は無効化し即resolve(2026-10-03)
   window.__noExecSql = () => Promise.resolve({ data: null, error: null });
@@ -391,7 +464,7 @@ const DB = {
     const ids=rows.map(r=>r._id).filter(Boolean);
     const fresh={};
     for(let i=0;i<ids.length;i+=150){
-      const{data,error}=await sb.from("bt_tasks").select("*").in("_id",ids.slice(i,i+150));
+      const{data,error}=await window.HDMStale.quiet(()=>sb.from("bt_tasks").select("*").in("_id",ids.slice(i,i+150)));/* 保存直前の確認読み＝「読んだ」に数えない */
       if(error){dbLog(label,false,"現在値の取得失敗(書込中止): "+error.message);DB._dbSaveOk=false;return;}
       (data||[]).forEach(r=>{fresh[r._id]=r;});
     }
@@ -478,7 +551,7 @@ const DB = {
         try{
           const ids=tasks.map(t=>t._id).filter(Boolean);
           if(ids.length){
-            const{data:exRows}=await sb.from("bt_tasks").select("*").in("_id",ids);
+            const{data:exRows}=await window.HDMStale.quiet(()=>sb.from("bt_tasks").select("*").in("_id",ids));
             if(exRows&&exRows.length){
               const exMap={};exRows.forEach(r=>{exMap[r._id]=DB._fromDbTask(r);});
               toSave=tasks.map(t=>exMap[t._id]?DB._mergeUserInput(t,exMap[t._id]):t);
@@ -591,7 +664,7 @@ const DB = {
   async updateReservationField(resId,changes,changeType,source){
     if(!sb||!resId)return;
     try{
-      const{data:cur}=await sb.from("bt_reservations").select("*").eq("id",resId).single();
+      const{data:cur}=await window.HDMStale.quiet(()=>sb.from("bt_reservations").select("*").eq("id",resId).single());
       const colMap={lendTime:"start_time",returnTime:"end_time",delTime:"del_time",colTime:"col_time",
         delPlace:"del_place",colPlace:"col_place",vehicle:"vehicle_class",insurance:"insurance",
         optB:"opt_b",optC:"opt_c",optJ:"opt_j",optUSB:"opt_usb",visitType:"visit_type",returnType:"return_type",
@@ -18128,6 +18201,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const CONTENT_OPTIONS=["PU","BD","来店","洗車","DEL","COL","送り","迎え","回収","点検","入庫","その他","マニュアル入力"];
   const[timeLoading,setTimeLoading]=useState(false);
   const updateTimes=async()=>{
+    alert("受付フォームは閉じました。時間はマイページの登録が予約に直接入ります。");return;
     const resIds=[...new Set(tasks.filter(t=>t.reservationId).map(t=>t.reservationId))];
     if(!resIds.length){alert("予約がありません");return;}
     setTimeLoading(true);
@@ -18183,6 +18257,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   const[placeLoading,setPlaceLoading]=useState(false);
   const[lineModal,setLineModal]=useState(null);
   const updatePlaces=async()=>{
+    alert("受付フォームは閉じました。場所はマイページの登録が予約に直接入ります。");return;
     const resIds=[...new Set(tasks.filter(t=>t.reservationId).map(t=>t.reservationId))];
     if(!resIds.length){alert("予約がありません");return;}
     setPlaceLoading(true);
@@ -18238,6 +18313,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
   };
   // ★ 時間・場所を日付切替時＋5分間隔で自動取得（SPKと同仕様）
   useEffect(()=>{
+    return; /* ★2026-11-12 受付フォームは閉じた。古い答えを5分おきに読んで時間・場所を書き直す動きを止める */
     if(!PLACE_SHEET_CSV)return; // URL未設定なら何もしない
     const doAutoFetch=async()=>{
       const resIds=[...new Set(tasks.filter(t=>t.reservationId).map(t=>t.reservationId))];
@@ -23088,6 +23164,7 @@ function App(){
       .on("postgres_changes",{event:"*",schema:"public",table:"bt_reservations"},payload=>{
         if(importingRef.current)return;
         if(payload.eventType==="INSERT"||payload.eventType==="UPDATE"){
+          try{window.HDMStale.read("bt_reservations",[payload.new]);}catch(_e){}
           const r=DB._fromDbRes(payload.new);
           setData(prev=>{
             const idx=prev.findIndex(x=>x.id===r.id);
@@ -24771,7 +24848,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.590-BT";
+const APP_VERSION="v1.0.591-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
