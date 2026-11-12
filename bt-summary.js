@@ -79,7 +79,7 @@ window.BTSUM=(function(){
   function landPaint(){
     document.querySelectorAll('#bsM3 [data-land]').forEach(el=>{const k=el.getAttribute('data-land'),b=el.querySelector('b'),d=landMsg&&landMsg.mon&&landMsg.mon[k];
       if(!d){if(landMsg&&landMsg.ready)b.innerHTML='<span class="bs-m">—</span>';return;}
-      const t=d.t||(landT?landT.revT(k):0),cur=landMsg.cur===k,rng=cur&&landMsg.fx&&landMsg.lo!=null?' <small>幅 '+yen(landMsg.lo)+'〜'+yen(landMsg.hi)+'</small>':'';
+      const t=d.t||(landT?landT.revT(k):0),cur=landMsg.cur===k,lo=d.lo!=null?d.lo:(cur&&landMsg.fx?landMsg.lo:null),hi=d.hi!=null?d.hi:landMsg.hi,rng=lo!=null?' <small>幅 '+yen(lo)+'〜'+yen(hi)+'</small>':'';
       b.innerHTML='<u>'+yen(d.L)+'</u>'+(t?'<i class="'+(d.L>=t?'ok':'ng')+'">目標比 '+pct(d.L,t)+'</i>':'')+(landMsg.ready?'':' <small>計算中…</small>')+(rng?'<small class="rg">'+rng.replace(/<\/?small>/g,'')+'</small>':'');});
   }
   function landing(T){
