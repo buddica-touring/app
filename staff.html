@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.20-bt";
+var VER="staff-v2.21-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -212,7 +212,7 @@ function taskCard(x){
     +'<div class="r2">'+veh+pl+(tid?'<span class="tchg" data-tid="'+tid+'"></span>':'')+'</div>'
     +fltRow(x)
     +opStr
-    +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
+    +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+(x.done||!window.okqSupBtn?'':window.okqSupBtn(x,typeLabel(t),tm,x.vehicle?(x.vehicle+plate):'',x.place||''))+'</div>';
 }
 /* ★2026-11-08 送迎（PU/BD）ボタン：那覇と同じ設計（3店統一）。
    押した記録は bt_tasks.sa_log（全スタッフ画面・OP・タスクサマリー・マイページに同じ時刻で出る）。
@@ -857,8 +857,10 @@ window.saPay=function(resv,amount,cust){
   document.body.appendChild(ov); draw();
 };
 load();
-setInterval(function(){if(!document.hidden&&TOKEN&&MODE==="tasks")load();},30000);
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&MODE==="tasks")load();});
+// ★2026-11-14 サポート欄を開いている間は描き直さない（書いている途中で消えないように）
+function okqOpen(){return !!document.querySelector(".okq-f");}
+setInterval(function(){if(!document.hidden&&TOKEN&&MODE==="tasks"&&!okqOpen())load();},30000);
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&MODE==="tasks"&&!okqOpen())load();});
 </script>
 <style>
 #pushBar{margin:8px 0 6px}
@@ -1072,30 +1074,47 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function post(o){o.token=TOKEN;o.store=STORE;return fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(function(r){return r.json();});}
   function el(){return document.getElementById("pressChk");}
+  /* ★2026-11-14 nosh：大丈夫ですか？ → タスク（時刻・種類・車・場所）→ 終わる目安（+10分・+30分・+60分・もう終わった）→ サポートが必要な場合はお知らせ下さい！＋自由入力 → 送る。
+     目安は本部画面と Slack に1行で出る。目安を過ぎてもまだなら、もう一度だけ聞く */
+  var SEL={};
   function draw(){
     var b=el();if(!b||!ITEMS)return;
     if(!ITEMS.length){b.innerHTML="";return;}
     var h="";
     ITEMS.forEach(function(x){
-      h+='<div class="prs"><div class="prs-h">⏰ 大丈夫ですか？</div><div class="prs-t">'+esc(x.title)+'</div>'
-        +'<div class="prs-s">問題なければ「OK」を押してください。何かあれば書いて送ってください（本部に届きます）</div>'
-        +'<button class="prs-ok" data-ok="'+x.id+'"'+(busy?' disabled':'')+'>'+(busy===x.id?"…":"OK")+'</button>'
-        +(OPEN[x.id]?'<textarea class="prs-in" data-in="'+x.id+'" maxlength="300" placeholder="例：お客様と連絡がつかない／少し遅れます"></textarea><button class="prs-send" data-send="'+x.id+'"'+(busy?' disabled':'')+'>本部に送る</button>'
-          :'<button class="prs-more" data-more="'+x.id+'">何かあれば書いて送る</button>')
-        +(MSG[x.id]?'<div class="prs-e">'+esc(MSG[x.id])+'</div>':'')+'</div>';
+      var k=x.id+(x.again?"a":""),sel=SEL[k];
+      h+='<div class="prs"><div class="prs-h">'+(x.again?"⏰ 目安を過ぎました。大丈夫ですか？":"⏰ 大丈夫ですか？")+'</div><div class="prs-t">'+esc(x.task_txt||x.title)+'</div>'
+        +'<div class="prs-q">終わる目安を教えてください</div><div class="prs-c">'
+        +[[10,"+10分"],[30,"+30分"],[60,"+60分"],[0,"もう終わった"]].map(function(m){return '<button type="button" class="prs-m'+(sel===m[0]?' on':'')+'" data-k="'+k+'" data-min="'+m[0]+'">'+m[1]+'</button>';}).join("")+'</div>'
+        +'<div class="prs-q">サポートが必要な場合はお知らせ下さい！</div>'
+        +'<textarea class="prs-in" data-in="'+k+'" maxlength="300" placeholder="例：渋滞しています／お客様と連絡がつかない"></textarea>'
+        +'<button class="prs-ok" data-go="'+k+'" data-id="'+x.id+'"'+(busy?' disabled':'')+'>'+(busy===x.id?"…":"送る")+'</button>'
+        +(MSG[k]?'<div class="prs-e">'+esc(MSG[k])+'</div>':'')+'</div>';
     });
     b.innerHTML=h;
-    [].forEach.call(b.querySelectorAll("[data-ok]"),function(e){e.onclick=function(){act("press_ok",+e.getAttribute("data-ok"));};});
-    [].forEach.call(b.querySelectorAll("[data-more]"),function(e){e.onclick=function(){OPEN[+e.getAttribute("data-more")]=1;draw();var t=b.querySelector("[data-in]");if(t)t.focus();};});
-    [].forEach.call(b.querySelectorAll("[data-send]"),function(e){e.onclick=function(){var id=+e.getAttribute("data-send"),t=b.querySelector('[data-in="'+id+'"]');var v=t?t.value.trim():"";if(!v){MSG[id]="ひとこと書いてから送ってください";draw();return;}act("press_msg",id,v);};});
+    [].forEach.call(b.querySelectorAll("[data-min]"),function(e){e.onclick=function(){var k=e.getAttribute("data-k");SEL[k]=+e.getAttribute("data-min");MSG[k]="";keepDraw();};});
+    [].forEach.call(b.querySelectorAll("[data-go]"),function(e){e.onclick=function(){var k=e.getAttribute("data-go"),id=+e.getAttribute("data-id"),t=b.querySelector('[data-in="'+k+'"]');var v=t?t.value.trim():"";
+      if(SEL[k]==null){if(!v){MSG[k]="終わる目安を選んでください";keepDraw();return;}act("press_msg",id,v,k);return;}
+      act("press_eta",id,v,k,SEL[k]);};});
   }
-  function act(a,id,text){
-    if(busy)return;busy=id;MSG[id]="";
-    var keep={};[].forEach.call(document.querySelectorAll("#pressChk [data-in]"),function(t){keep[t.getAttribute("data-in")]=t.value;});
-    draw();[].forEach.call(document.querySelectorAll("#pressChk [data-in]"),function(t){t.value=keep[t.getAttribute("data-in")]||"";});
-    post({action:a,id:id,text:text||""}).then(function(d){busy=0;if(d&&d.items)ITEMS=d.items;if(!d||!d.ok)MSG[id]=(d&&d.error)||"送れませんでした。もう一度押してください";draw();})
-      .catch(function(){busy=0;MSG[id]="通信エラー。電波を確認してもう一度押してください";draw();});
+  function keepDraw(){var keep={};[].forEach.call(document.querySelectorAll("#pressChk [data-in]"),function(t){keep[t.getAttribute("data-in")]=t.value;});
+    draw();[].forEach.call(document.querySelectorAll("#pressChk [data-in]"),function(t){t.value=keep[t.getAttribute("data-in")]||"";});}
+  function act(a,id,text,k,min){
+    if(busy)return;busy=id;MSG[k]="";keepDraw();
+    post({action:a,id:id,text:text||"",min:min}).then(function(d){busy=0;if(d&&d.items)ITEMS=d.items;if(!d||!d.ok)MSG[k]=(d&&d.error)||"送れませんでした。もう一度押してください";else{delete SEL[k];okqToast(min?"送りました。目安 "+(d.eta||"")+"ごろ と本部に出ます":"送りました");}keepDraw();})
+      .catch(function(){busy=0;MSG[k]="通信エラー。電波を確認してもう一度押してください";keepDraw();});
   }
+  function okqToast(m){var t=document.createElement("div");t.className="okq-toast";t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},2600);}
+  /* 全タスクのカードに常設：「サポートが必要な場合はお知らせ下さい！」（押すと入力欄→送る＝本部と店の Slack へ。これを送ったタスクは20分後に聞き直さない） */
+  window.okqSupBtn=function(x,tl,tm,car,pl){var task=[tm,tl,car,pl].filter(Boolean).join("・");
+    return '<div class="okq-sup"><button type="button" class="okq-sb" data-task="'+esc(task)+'" data-resv="'+esc(x.resv||"")+'">サポートが必要な場合はお知らせ下さい！</button></div>';};
+  try{if(typeof LASTD!=="undefined"&&LASTD&&!okqOpen())render(LASTD);}catch(e){} /* 先に描いたタスクカードにもボタンを出す */
+  document.addEventListener("click",function(ev){var e=ev.target&&ev.target.closest?ev.target.closest(".okq-sb"):null;if(e){var w=e.parentNode,f=w.querySelector(".okq-f");if(f){f.remove();return;}
+      f=document.createElement("div");f.className="okq-f";f.innerHTML='<textarea class="prs-in" maxlength="300" placeholder="例：渋滞しています／お客様と連絡がつかない"></textarea><button type="button" class="okq-go">送る</button><div class="prs-e"></div>';w.appendChild(f);f.querySelector("textarea").focus();return;}
+    var g=ev.target&&ev.target.closest?ev.target.closest(".okq-go"):null;if(!g)return;var f2=g.parentNode,sb=f2.parentNode.querySelector(".okq-sb"),v=f2.querySelector("textarea").value.trim(),er=f2.querySelector(".prs-e");
+    if(!v){er.textContent="ひとこと書いてから送ってください";return;}if(g.disabled)return;g.disabled=true;g.textContent="…";
+    post({action:"support",text:v,task:sb.getAttribute("data-task"),resv:sb.getAttribute("data-resv")}).then(function(d){if(d&&d.ok){f2.remove();okqToast("本部に送りました");}else{g.disabled=false;g.textContent="送る";er.textContent=(d&&d.error)||"送れませんでした。もう一度押してください";}})
+      .catch(function(){g.disabled=false;g.textContent="送る";er.textContent="通信エラー。電波を確認してもう一度押してください";});});
   function load(){if(!TOKEN||busy||document.querySelector("#pressChk [data-in]:focus"))return;post({action:"press"}).then(function(d){if(d&&d.ok){ITEMS=d.items||[];draw();}}).catch(function(){});}
   var css=document.createElement("style");
   css.textContent=".prs{border-radius:14px;padding:12px 14px;margin:10px 0;background:#fffbeb;border:2px solid #d97706;font-size:14px}"
@@ -1103,7 +1122,10 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     +".prs-ok{width:100%;padding:13px;border:0;border-radius:12px;background:#002063;color:#fff;font-size:17px;font-weight:900}.prs-ok:disabled,.prs-send:disabled{opacity:.6}"
     +".prs-more{width:100%;margin-top:6px;padding:9px;border:1.5px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:13px;font-weight:700}"
     +".prs-in{width:100%;box-sizing:border-box;margin-top:8px;min-height:64px;border:1.5px solid #cbd5e1;border-radius:10px;padding:8px;font-size:15px}"
-    +".prs-send{width:100%;margin-top:6px;padding:11px;border:0;border-radius:10px;background:#d97706;color:#fff;font-size:15px;font-weight:900}.prs-e{color:#b4232c;font-size:12px;margin-top:6px}";
+    +".prs-send{width:100%;margin-top:6px;padding:11px;border:0;border-radius:10px;background:#d97706;color:#fff;font-size:15px;font-weight:900}.prs-e{color:#b4232c;font-size:12px;margin-top:6px}"
+    +".prs-q{font-weight:800;font-size:13px;color:#334155;margin:10px 0 6px}.prs-c{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.prs-m{padding:11px 4px;border:1.5px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;font-weight:900}.prs-m.on{background:#d97706;border-color:#d97706;color:#fff}.prs .prs-ok{margin-top:8px}"
+    +".okq-sup{margin-top:6px}.okq-sb{border:0;background:none;color:#64748b;font-size:12px;font-weight:700;text-decoration:underline;padding:4px 0;cursor:pointer}.okq-f{margin-top:4px}.okq-go{width:100%;margin-top:6px;padding:10px;border:0;border-radius:10px;background:#002063;color:#fff;font-size:15px;font-weight:900}.okq-go:disabled{opacity:.6}"
+    +".okq-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0a1f44;color:#fff;padding:10px 16px;border-radius:10px;font-weight:800;z-index:9999;font-size:14px}";
   document.head.appendChild(css);
   try{new MutationObserver(function(){var b=el();if(b&&!b.firstChild&&ITEMS&&ITEMS.length)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
   document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
