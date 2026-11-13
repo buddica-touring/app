@@ -405,6 +405,8 @@ window.shJam=function(tid){
   if(saFuture(me.date)){saFut(me.date);return;}
   var a=shIsBd(me)?"bd_jam":"pu_jam";
   jamSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",jamItems(null),function(it){
+    /* ★2026-11-13 nosh「遅延 渋滞も必ず 送信していいか確認だして」「ダイレクトに飛ぶ 間違え防止」：送る前に必ず確認 */
+    if(!confirm("お客様に送信していいですか？\n\n🚦 渋滞 +"+it.min+"分\nお客様のマイページに「約"+it.min+"分遅れています」と出ます\n\nキャンセルなら何も送りません"))return;
     var ids=[me._id];   /* ★2026-11-11 渋滞も押した1組だけ */
     shPos(function(pos){
       shvRun(ids,a,{min:it.min},pos,function(ng){

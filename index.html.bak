@@ -22599,8 +22599,9 @@ async function hsaAction(t,action,mode){
 async function hsaDelay(t,action,presetTm){
   const rid=t.reservationId;if(!rid){alert("予約に紐づいていません");return;}
   const kind=(action==="delay_col")?"回収":"お届け";let tm=presetTm||"";
-  if(!presetTm){tm=window.prompt(kind+"の到着予定時間を入力してください（例 18:30）",(t.timeChange||t.time||""));if(tm===null)return;tm=String(tm).trim();if(!tm){alert("時間が未入力です");return;}
-    if(!window.confirm(kind+"遅延のご案内を送信しますか？\n到着予定：「"+tm+"」\n（お客様へ送ります：LINE／なければメール／楽天の方は楽天から）"))return;}
+  if(!presetTm){tm=window.prompt(kind+"の到着予定時間を入力してください（例 18:30）",(t.timeChange||t.time||""));if(tm===null)return;tm=String(tm).trim();if(!tm){alert("時間が未入力です");return;}}
+  /* ★2026-11-13 nosh「遅延 渋滞も必ず 送信していいか確認だして」「ダイレクトに飛ぶ 間違え防止」：送る前に必ず確認 */
+  if(!window.confirm("お客様に送信していいですか？\n\n"+(presetTm?"🚦 渋滞のご案内（"+kind+"）":"⏳ "+kind+"遅延のご案内")+"\n到着予定：「"+tm+"」前後\n（LINE／なければメール／楽天の方は楽天から）\n\nキャンセルなら何も送りません"))return;
   const d=await hsaCall({resv_no:rid,action,time:tm,by:HSA_ME()});
   if(!d||d.ok===false){alert("⚠️ 実行できませんでした（"+((d&&d.error)||"エラー")+"）");return;}
   HSA_MARK(rid,HSA_DONEKEY[action],!!d.sent);
@@ -22664,6 +22665,8 @@ function hsaShJam(t,all){
   const isBd=shIsBd(t);const a=isBd?"bd_jam":"pu_jam";
   const items=[];for(let m=5;m<=60;m+=5)items.push({min:m,label:"+"+m+"分"});
   hsaSheet("🚦 渋滞で遅れますか？（お客様に「約◯分遅れています」と出ます）",items,async it=>{
+    /* ★2026-11-13 nosh「遅延 渋滞も必ず 送信していいか確認だして」「ダイレクトに飛ぶ 間違え防止」：送る前に必ず確認 */
+    if(!window.confirm("お客様に送信していいですか？\n\n🚦 渋滞 +"+it.min+"分\nお客様のマイページに「約"+it.min+"分遅れています」と出ます\n\nキャンセルなら何も送りません"))return;
     const ids=[t._id];/* ★2026-11-11 渋滞も押した1組だけ */
     const r=await hsaShRun(ids,{action:a,min:it.min});
     hsaShApply(all,ids.filter((id,i)=>r.res[i]&&r.res[i].ok!==false),L=>L.concat([{a,at:new Date().toISOString(),min:it.min}]));
@@ -24889,7 +24892,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.592-BT";
+const APP_VERSION="v1.0.593-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
