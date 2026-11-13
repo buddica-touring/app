@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.18-bt";
+var VER="staff-v2.19-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -209,7 +209,7 @@ function taskCard(x){
     +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t,x.customer))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
-    +'<div class="r2">'+veh+pl+'</div>'
+    +'<div class="r2">'+veh+pl+(tid?'<span class="tchg" data-tid="'+tid+'"></span>':'')+'</div>'
     +fltRow(x)
     +opStr
     +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+'</div>';
@@ -1106,6 +1106,23 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     +".prs-send{width:100%;margin-top:6px;padding:11px;border:0;border-radius:10px;background:#d97706;color:#fff;font-size:15px;font-weight:900}.prs-e{color:#b4232c;font-size:12px;margin-top:6px}";
   document.head.appendChild(css);
   try{new MutationObserver(function(){var b=el();if(b&&!b.firstChild&&ITEMS&&ITEMS.length)draw();}).observe(document.body,{childList:true,subtree:true});}catch(e){}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+  setInterval(load,60000);
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
+})();
+</script>
+<script>
+/* ★2026-11-13 nosh「担当タスクに関しての変更履歴だけでいい」「最新の情報だけ出てればいい」「意味のない履歴は DB だけ」
+   タスクの付いた・変わった・外れたは「未確認のお知らせ」に出さない。自分の担当タスクのカードに、直近24時間の変更を1行だけ（同じ項目の付け替えは最初→最後、元に戻ったものは出さない）。EF staff-decide（chg） */
+(function(){
+  var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-decide",STORE="tkm",C={};
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+  function fill(){[].forEach.call(document.querySelectorAll(".tchg[data-tid]"),function(e){var x=C[e.getAttribute("data-tid")],h=x?esc(x.text):"";if(e.innerHTML!==h)e.innerHTML=h;});}
+  function load(){if(!TOKEN)return;fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"chg",token:TOKEN,store:STORE})}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){C=d.chg||{};fill();}}).catch(function(){});}
+  var css=document.createElement("style");
+  css.textContent=".tchg{flex-basis:100%;font-size:11px;font-weight:700;color:#b45309;line-height:1.4}.tchg:empty{display:none}";
+  document.head.appendChild(css);
+  try{new MutationObserver(fill).observe(document.body,{childList:true,subtree:true});}catch(e){}
   document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
   setInterval(load,60000);
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
