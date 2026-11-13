@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.19-bt";
+var VER="staff-v2.20-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -1117,10 +1117,10 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
 (function(){
   var EF="https://ckrxttbnawkclshczsia.supabase.co/functions/v1/staff-decide",STORE="tkm",C={};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
-  function fill(){[].forEach.call(document.querySelectorAll(".tchg[data-tid]"),function(e){var x=C[e.getAttribute("data-tid")],h=x?esc(x.text):"";if(e.innerHTML!==h)e.innerHTML=h;});}
+  function fill(){[].forEach.call(document.querySelectorAll(".tchg[data-tid]"),function(e){var x=C[e.getAttribute("data-tid")],h=x?esc(x.text):"",c="tchg"+(x&&x.kind?" "+x.kind:"");if(e.innerHTML!==h)e.innerHTML=h;if(e.className!==c)e.className=c;});}
   function load(){if(!TOKEN)return;fetch(EF,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"chg",token:TOKEN,store:STORE})}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){C=d.chg||{};fill();}}).catch(function(){});}
   var css=document.createElement("style");
-  css.textContent=".tchg{flex-basis:100%;font-size:11px;font-weight:700;color:#b45309;line-height:1.4}.tchg:empty{display:none}";
+  css.textContent=".tchg{flex-basis:100%;font-size:11px;font-weight:700;color:#b45309;line-height:1.4}.tchg:empty{display:none}.tchg.new{color:#002063}.tchg.swap{color:#7c3aed}";
   document.head.appendChild(css);
   try{new MutationObserver(fill).observe(document.body,{childList:true,subtree:true});}catch(e){}
   document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
