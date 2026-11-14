@@ -1150,4 +1150,67 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load);else load();
 })();
 </script>
+<script>window.HDM_CONFIRM_X={bt:true};</script>
+<script>/* 2026-11-14 nosh「確認は全ての押すアクションに必要。小さなボタンでも『いいですか』」
+   スタッフ画面で、押す・選ぶと記録や通知が飛ぶもののうち、まだ確認が無かったものに「よろしいですか？」を出す（3店共通）。
+   「キャンセル」なら何もしない（選んだ値・チェックも元に戻す）。元から確認があるボタン（引き受け・完了・出発・遅延・渋滞など）はそのまま。 */
+(function(){
+  var X=window.HDM_CONFIRM_X||{};  /* 店ごとの追加（高松：元から確認の無いボタン） */
+  function txt(el){return String((el&&(el.innerText||el.textContent))||"").replace(/\s+/g," ").trim().slice(0,40);}
+  function selTxt(el){try{var o=el.options[el.selectedIndex];return o?txt(o):"";}catch(e){return "";}}
+  function oc(el,ev){return String((el&&el.getAttribute&&el.getAttribute("on"+ev))||"");}
+  /* 押すボタン：関数名 → 確認の文 */
+  var CLICK={
+    nudgeAck:function(){return "お客様の知らせを「確認済」にします。よろしいですか？";},
+    clSet:function(b){return "「"+txt(b)+"」で記録します。よろしいですか？";},
+    clRemainToggle:function(b){return "残っているスタッフ「"+txt(b)+"」を記録します。よろしいですか？";},
+    pettyAdd:function(){return "この内容で記録します。よろしいですか？";},
+    sendWishTime:function(){return "この時間で休み希望を登録します。よろしいですか？";},
+    sendWish:function(b){return "シフトの希望「"+txt(b)+"」を送ります。よろしいですか？";},
+    submitFixReq:function(){return "打刻の修正を申請します。よろしいですか？";},
+    saEscortVeh:function(b){return "車「"+txt(b)+"」にします。よろしいですか？";},
+    /* 本部（マイページ管理・チャット管理） */
+    askStaff:function(){return "スタッフ画面に「大丈夫ですか？」を出します。よろしいですか？";},
+    refDone:function(){return "返金済みにします。よろしいですか？";},
+    altOther:function(){return "このメッセージでお客様に返します（依頼はお断り）。よろしいですか？";},
+    altKeep:function(){return "今のご予約のままでお客様に返します（依頼はお断り）。よろしいですか？";}
+  };
+  if(X.admin){
+    CLICK.send=function(){var i=document.getElementById("inp");return (i&&String(i.value||"").trim())||(function(){try{return pendingImg;}catch(e){return null;}})()?"お客様に送ります。よろしいですか？":null;};
+    CLICK.setStatus=function(b){var w=txt(b);return w==="完了"?null:"「"+w+"」にします。よろしいですか？";};
+  }
+  /* 選ぶ・チェック：関数名 → 確認の文 */
+  var CHANGE={
+    saMove:function(el){return "「"+selTxt(el)+"」にします。よろしいですか？";},
+    wcCheck:function(el){var l=el.closest&&el.closest("label");return (el.checked?"チェックします":"チェックを外します")+(l?"：「"+txt(l)+"」":"")+"\nよろしいですか？";},
+    wcTire:function(el){return "タイヤの記録を「"+(el.tagName==="SELECT"?selTxt(el):el.value)+"」にします。よろしいですか？";},
+    clOther:function(el){return "「"+String(el.value||"").slice(0,40)+"」で記録します。よろしいですか？";}
+  };
+  function fnOf(s,map){for(var k in map){if(new RegExp("(^|[^\\w$.])"+k+"\\(").test(s))return k;}return null;}
+  /* 選ぶ前の値を覚えておく（キャンセルで戻すため） */
+  document.addEventListener("focusin",function(e){var t=e.target;if(t&&(t.tagName==="SELECT"||t.tagName==="INPUT"))t.__prev=t.type==="checkbox"?t.checked:t.value;},true);
+  document.addEventListener("pointerdown",function(e){var t=e.target&&e.target.closest&&e.target.closest("select,input");if(t)t.__prev=t.type==="checkbox"?t.checked:t.value;},true);
+  document.addEventListener("click",function(e){
+    var b=e.target&&e.target.closest?e.target.closest("button,[onclick]"):null;if(!b||b.disabled)return;
+    var m=null,s=oc(b,"click"),k=fnOf(s,CLICK);
+    if(k)m=CLICK[k](b);
+    else if(b.hasAttribute("data-ack"))m="今日のタスクを「確認しました」にします。よろしいですか？";
+    else if(b.id==="hsave"){var nt=document.querySelector("#hnote");if(nt&&String(nt.value||"").trim())m="引き継ぎメモを保存します。よろしいですか？";}
+    else if(X.bt&&b.getAttribute("data-p")==="in")m="出勤打刻します。よろしいですか？";
+    else if(X.bt&&b.hasAttribute("data-go"))m="本部に送ります。よろしいですか？";
+    else if(X.bt&&b.hasAttribute("data-nr"))m="お客様に「"+txt(b)+"」と返します。よろしいですか？";
+    else if(X.bt&&b.hasAttribute("data-seen"))m="「確認しました」にします。よろしいですか？";
+    else if(b.classList.contains("okq-go")){var ta=b.parentNode&&b.parentNode.querySelector("textarea");if(ta&&ta.value.trim())m="サポートのお知らせを送ります。よろしいですか？";}
+    else if(b.hasAttribute("data-i")){var ov=b.closest("div[style*='position:fixed']");if(ov&&/送迎車で/.test(txt(ov.firstElementChild&&ov.firstElementChild.firstElementChild)))m="送迎車「"+txt(b)+"」にします。よろしいですか？";}
+    if(m&&!window.confirm(m)){e.preventDefault();e.stopImmediatePropagation();}
+  },true);
+  document.addEventListener("change",function(e){
+    var el=e.target;if(!el)return;var m=null;
+    if(el.id==="wcfile"){var n=(el.files||[]).length;if(n)m="写真を"+n+"枚送ります。よろしいですか？";}
+    else{var k=fnOf(oc(el,"change"),CHANGE);if(k)m=CHANGE[k](el);}
+    if(m&&!window.confirm(m)){e.preventDefault();e.stopImmediatePropagation();
+      try{if(el.type==="checkbox")el.checked=!el.checked;else if(el.type==="file")el.value="";else if(el.__prev!==undefined)el.value=el.__prev;}catch(_){}}
+  },true);
+})();
+</script>
 </body></html>
