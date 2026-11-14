@@ -83,7 +83,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.21-bt";
+var VER="staff-v2.22-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -205,7 +205,7 @@ function taskCard(x){
   btns+='</div>';
   if(saFuture(x.date)){var _fd=esc(String(x.date||"").slice(0,10));btns=btns.replace(/onclick="(?!shvChange|return saInspOpen|saHandover)/g,'data-fut="1" onclick="saFut(\''+_fd+'\');return false;');}
   var _hx=isHdmS(x.ota)&&t!=='洗車'&&t!=='返却後洗車';
-  return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'">'
+  return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'" data-tid="'+esc(x._id||"")+'">'
     +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t,x.customer))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
@@ -1004,7 +1004,7 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
       h+='<div class="tck ng"><div class="tck-h">今日のタスク '+ng.length+'件　まだ確認していません</div>'
         +'<div class="tck-s">中身を見て「確認しました」を押してください（30分押さないとスタッフログに「未確認」と出ます）</div>';
       ng.forEach(function(x){
-        h+='<div class="tck-i"><span class="tck-t '+(x.state==="new"?"nw":"ch")+'">'+(x.state==="new"?"新しく割り当て":"変更あり")+'</span>'
+        h+='<div class="tck-i"><span class="tck-t '+tkK(x)+'">'+TKL[tkK(x)]+'</span>'
           +'<div class="tck-n">'+esc(x.head)+'</div>'+(x.when?'<div class="tck-w">'+esc(x.when)+'</div>':'')
           +(x.changes&&x.changes.length?'<div class="tck-c">'+x.changes.map(function(c){return esc(c.k)+'：<s>'+esc(c.o)+'</s> → <b>'+esc(c.n)+'</b>';}).join("<br>")+'</div>':'')
           +'</div>';
@@ -1016,6 +1016,7 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     }
     b.innerHTML=h;
     var bt=b.querySelector("[data-ack]");if(bt)bt.onclick=ack;
+    mark();
   }
   function ack(){
     if(busy)return;busy=true;MSG="";draw();
@@ -1023,9 +1024,28 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
     post({action:"ack",items:its}).then(function(d){busy=false;if(d&&d.items)ITEMS=d.items;if(!d||!d.ok)MSG=(d&&d.error)||"送れませんでした。もう一度押してください";draw();})
       .catch(function(){busy=false;MSG="通信エラー。電波を確認してもう一度押してください";draw();});
   }
+  /* ★2026-11-14 nosh「スタッフページでわかるように表示されてるか 点滅など 変更 新規 タスクを」：
+     確認ボタンを押すまで、未確認のタスクに札（🆕新規＝24時間以内に作られた／✏️変更／👤割り当て）・色の帯・脈打つ枠を付け、画面の一番上に件数の帯を固定。押したら元に戻る。 */
+  var TKL={nw:"🆕新規",ch:"✏️変更",as:"👤割り当て"};
+  function tkK(x){return x.state==="changed"?"ch":x.fresh?"nw":"as";}
+  function mark(){
+    var ng=(ITEMS||[]).filter(function(x){return x.state!=="ok";}),M={};ng.forEach(function(x){M[x.id]=tkK(x);});
+    Array.prototype.forEach.call(document.querySelectorAll(".card[data-tid]"),function(c){
+      var k=M[c.getAttribute("data-tid")],old=c.querySelector(".tkm-tag");
+      c.classList.remove("tkm","tkm-nw","tkm-ch","tkm-as");if(old&&(!k||old.getAttribute("data-k")!==k))old.parentNode.removeChild(old);
+      if(!k)return;c.classList.add("tkm","tkm-"+k);
+      if(!c.querySelector(".tkm-tag")){var g=document.createElement("div");g.className="tkm-tag";g.setAttribute("data-k",k);g.textContent=TKL[k]+"・未確認";c.insertBefore(g,c.firstChild);}
+    });
+    var bar=document.getElementById("tkmBar");
+    if(!ng.length){if(bar)bar.parentNode.removeChild(bar);return;}
+    if(!bar){bar=document.createElement("div");bar.id="tkmBar";bar.onclick=function(){var t=el();if(t)t.scrollIntoView({behavior:"smooth",block:"start"});};document.body.insertBefore(bar,document.body.firstChild);}
+    var n={nw:0,ch:0,as:0};ng.forEach(function(x){n[tkK(x)]++;});
+    var tx="🔔 まだ確認していないタスク "+ng.length+"件（"+["nw","ch","as"].filter(function(k){return n[k];}).map(function(k){return TKL[k]+" "+n[k];}).join("・")+"）　タップで確認へ";if(bar.textContent!==tx)bar.textContent=tx; // 同じ文なら触らない（見張りが自分の書き換えで回り続けないように）
+  }
+  try{var _mt=null;new MutationObserver(function(){if(_mt)return;_mt=setTimeout(function(){_mt=null;if(ITEMS)mark();},150);}).observe(document.body,{childList:true,subtree:true});}catch(e){}
   function load(){if(!TOKEN||busy)return;post({action:"tasks"}).then(function(d){if(d&&d.ok){ITEMS=d.items||[];draw();}}).catch(function(){});}
   var css=document.createElement("style");
-  css.textContent=".tck{border-radius:14px;padding:12px 14px;margin:10px 0;font-size:14px}.tck.ng{background:#fff1f2;border:2px solid #b4232c}.tck.ok{background:#ecfdf5;border:1.5px solid #10b981;color:#065f46;font-weight:800}"
+  css.textContent="@keyframes tkmP{0%,100%{box-shadow:0 0 0 0 rgba(180,35,44,.55)}50%{box-shadow:0 0 0 6px rgba(180,35,44,0)}}"+"#tkmBar{position:sticky;top:0;z-index:20;background:#b4232c;color:#fff;font-weight:900;font-size:14px;padding:10px 12px;text-align:center;cursor:pointer;animation:tkmP 1.6s infinite}"+"@keyframes tkmO{0%,100%{outline-color:rgba(180,35,44,1)}50%{outline-color:rgba(180,35,44,.15)}}"+".card.tkm{outline:3px solid #b4232c;outline-offset:-3px;animation:tkmO 1.2s infinite}"+".card.tkm-nw{box-shadow:inset 8px 0 0 #002063 !important;background:#eef2ff !important}.card.tkm-ch{box-shadow:inset 8px 0 0 #d97706 !important;background:#fff7ed !important}.card.tkm-as{box-shadow:inset 8px 0 0 #7c3aed !important;background:#f5f3ff !important}"+".card.tkm.tkm:not(.open):not(.tkmx)>.tkm-tag.tkm-tag.tkm-tag,.card>.tkm-tag{display:block !important;order:0 !important}"+".tkm-tag{font-size:12px;font-weight:900;color:#b4232c;margin:-2px 0 5px}.tck-t.nw{background:#002063}.tck-t.ch{background:#d97706}.tck-t.as{background:#7c3aed}"+".tck{border-radius:14px;padding:12px 14px;margin:10px 0;font-size:14px}.tck.ng{background:#fff1f2;border:2px solid #b4232c;animation:tkmP 1.6s infinite}.tck.ok{background:#ecfdf5;border:1.5px solid #10b981;color:#065f46;font-weight:800}"
     +".tck-h{font-weight:900;font-size:17px;color:#b4232c}.tck-s{font-size:12px;color:#64748b;margin:2px 0 6px}.tck-i{border-top:1px solid #fecdd3;padding:8px 0}"
     +".tck-t{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 7px;color:#fff}.tck-t.nw{background:#002063}.tck-t.ch{background:#d97706}"
     +".tck-n{font-weight:800;color:#002063;margin-top:3px}.tck-w{color:#334155}.tck-c{margin-top:3px;background:#fff7ed;border-radius:8px;padding:4px 8px;color:#7c2d12}.tck-c s{color:#94a3b8}"
