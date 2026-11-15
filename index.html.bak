@@ -4551,6 +4551,61 @@ function genIdleWash(date,reservations,fleet,vehicles,washMap,tomb,existing){
   return out;
 }
 
+/* ★2026-11-15 低稼働車の走行タスク（高松・ORG-20261115-171707-906）
+   対象＝1715 Gクラス／1698 Eカブリオレ／1700 イヴォーク／1714 ウルス。返却日（または前回の走行の復路日）から14日で表示。
+   タスクと自動担当は DB 関数 bt_vehicle_run_list が毎回計算（表示だけ・システムは書かない）。
+   bt_vehicle_runs に書くのは人の操作だけ（担当の手動変更・往路済み・復路済み）＝1操作1行。手動の担当は自動で戻さない。 */
+function VehicleRunCard({date,staff,isMob}){
+  const todayJst=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"});
+  const isToday=norm(date)===todayJst;
+  const[d,setD]=useState(null);const[busy,setBusy]=useState("");
+  const load=React.useCallback(async()=>{if(!sb||!isToday)return;try{const{data,error}=await sb.rpc("bt_vehicle_run_list",{p_date:todayJst});if(error){dbLog("vehicleRunList",false,error.message);return;}setD(data);}catch(e){dbLog("vehicleRunList",false,String(e&&e.message||e));}},[isToday,todayJst]);
+  useEffect(()=>{load();const iv=setInterval(load,60000);return()=>clearInterval(iv);},[load]);
+  if(!isToday||!d||!d.ok||!(d.runs||[]).length)return null;
+  const md=(s)=>{if(!s)return"";const p=String(s).slice(0,10).split("-");return (+p[1])+"/"+(+p[2]);};
+  const ddiff=(a,b)=>Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000);
+  const save=async(r,patch,okMsg)=>{
+    if(!sb)return;setBusy(r.code);
+    try{const{error}=await sb.from("bt_vehicle_runs").upsert({vehicle_code:r.code,base_date:r.base,...patch,updated_at:new Date().toISOString()},{onConflict:"vehicle_code,base_date"});
+      if(error){dbLog("vehicleRunSave",false,error.message);alert("保存できませんでした："+error.message);}else{dbLog("vehicleRunSave",true,r.code+" "+okMsg);}
+    }catch(e){alert("保存できませんでした");}
+    setBusy("");load();
+  };
+  const names=(staff||[]).filter(s=>s&&s.active!==false&&s.name).map(s=>s.name);
+  const label=(r)=>"［"+(r.plate||"")+"・"+(r.name||"")+"］";
+  return <div style={{background:"#fff",borderRadius:8,border:"2px solid #0891b2",marginBottom:8,overflow:"hidden"}}>
+    <div style={{background:"#ecfeff",padding:isMob?"8px 12px":"6px 12px",fontWeight:800,fontSize:isMob?13:12,color:"#155e75"}}>🚗 走行タスク（14日走っていない車）</div>
+    <div style={{padding:"4px 12px",fontSize:10,color:"#64748b",borderBottom:"1px solid #f1f5f9"}}>GL組がマンスリーまで乗って帰り、翌日店舗へ戻す（片道約30分・往復約60分）。夜間はエンジン停止。アイドリングだけでは完了にしません。走行後は状態確認と必要な給油、貸出前にも燃料を確認。</div>
+    {d.runs.map(r=>{
+      const diesel=/軽油|ディーゼル/.test(r.fuel||"");
+      const st=r.stage==="done"?{t:"✅ 走行実施済み",c:"#166534",bg:"#dcfce7"}:r.stage==="out"?{t:"往路済み／復路待ち",c:"#9a3412",bg:"#ffedd5"}:{t:"未実施",c:"#475569",bg:"#f1f5f9"};
+      const over=(r.due&&r.stage!=="done")?ddiff(r.due,todayJst):0;
+      const isManual=r.assignee_src==="manual";
+      return <div key={r.code} style={{padding:isMob?"8px 12px":"6px 12px",borderBottom:"1px solid #f1f5f9",opacity:busy===r.code?.5:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontWeight:800,fontSize:isMob?13:12,color:"#0f172a"}}>{label(r)}走行してください</span>
+          <span style={{fontSize:10,fontWeight:800,color:st.c,background:st.bg,borderRadius:4,padding:"1px 6px"}}>{st.t}</span>
+          <span style={{fontSize:10,fontWeight:800,color:diesel?"#fff":"#475569",background:diesel?"#dc2626":"#f1f5f9",borderRadius:4,padding:"1px 6px"}}>⛽ {diesel?"軽油":(r.fuel||"燃料未登録")}</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:4,fontSize:isMob?12:11,color:"#334155"}}>
+          <span>担当</span>
+          {r.stage==="done"?<b>{r.assignee||"—"}</b>:
+          <select value={isManual?(r.assignee||""):""} disabled={busy===r.code} onChange={e=>{const v=e.target.value;save(r,{assignee:v||null,assignee_at:new Date().toISOString()},"担当→"+(v||"自動"));}} style={{fontSize:isMob?12:11,padding:"2px 4px",border:"1px solid "+(r.assignee?"#cbd5e1":"#dc2626"),borderRadius:4,color:r.assignee?"#0f172a":"#dc2626",fontWeight:700}}>
+            <option value="">{r.assignee?((r.assignee_src==="out"?"往路：":"自動：")+r.assignee):"担当要確認"}</option>
+            {names.map(n=><option key={n} value={n}>{n}</option>)}
+          </select>}
+          {r.stage!=="done"&&r.due&&<span>期限 <b style={{color:over>0?"#dc2626":"#0f172a"}}>{md(r.due)}{over>0?"（"+over+"日超過）":""}</b></span>}
+          {r.stage!=="done"&&<span style={{color:"#64748b"}}>最終稼働 {md(r.base)}（{r.idle}日）</span>}
+          {r.stage!=="done"&&r.next_lend&&<span style={{color:ddiff(todayJst,r.next_lend)<=1?"#dc2626":"#64748b",fontWeight:ddiff(todayJst,r.next_lend)<=1?800:400}}>次の貸出 {md(r.next_lend)}{ddiff(todayJst,r.next_lend)<=1?"（翌朝までに店舗へ）":""}</span>}
+          {r.stage==="out"&&r.out_at&&<span style={{color:"#9a3412"}}>往路 {new Date(r.out_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>}
+          {r.stage==="done"&&r.back_at&&<span style={{color:"#166534"}}>復路 {new Date(r.back_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}（次は14日後）</span>}
+          {r.stage==="todo"&&<button disabled={busy===r.code} onClick={()=>{if(!window.confirm(label(r)+"\n往路済み（マンスリーまで乗って帰った）にしますか？"))return;save(r,{out_at:new Date().toISOString(),out_by:r.assignee||""},"往路済み");}} style={{marginLeft:"auto",fontSize:isMob?12:11,fontWeight:800,padding:"4px 10px",borderRadius:6,border:"none",background:"#ea580c",color:"#fff",cursor:"pointer"}}>往路済み</button>}
+          {r.stage==="out"&&<button disabled={busy===r.code} onClick={()=>{if(!window.confirm(label(r)+"\n店舗へ戻しましたか？（往復約60分の走行・アイドリングのみは不可）\n状態確認と必要な給油"+(diesel?"（軽油）":"")+"も済みましたか？\n\n「OK」で走行実施済みにします。"))return;save(r,{back_at:new Date().toISOString(),back_by:r.assignee||r.out_by||""},"復路済み");}} style={{marginLeft:"auto",fontSize:isMob?12:11,fontWeight:800,padding:"4px 10px",borderRadius:6,border:"none",background:"#16a34a",color:"#fff",cursor:"pointer"}}>復路済み（完了）</button>}
+        </div>
+      </div>;})}
+  </div>;
+}
+
 /* ===== 自動配車ロジック ===== */
 function autoAssign(reservations,vehicles,existingFleet,maintenance){
   const fleet={...existingFleet};
@@ -18714,6 +18769,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
             <div style={{fontWeight:900,fontSize:isMob?16:18,marginBottom:2}}>📊 本日のサマリー</div>
             <div style={{fontSize:isMob?10:11,opacity:.7}}>{fmtFull(selDate)} ・ 出勤{staffCount}名 ・ 全{sortedTasks.length}タスク</div>
           </div>
+          {/* 🚗 低稼働車の走行タスク（当日のみ・DB関数で導出） */}
+          <VehicleRunCard date={selDate} staff={staff} isMob={isMob}/>
           {/* じゃらん決済状況 */}
           {(()=>{const jTasks=sortedTasks.filter(t=>(t.type==="DEL"||t.type==="PU")&&(t.ota==="J"||t.ota==="じゃらん"));if(jTasks.length===0)return null;const paid=jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return njp&&njp.status==="paid";}).length;const unpaid=jTasks.length-paid;return <div style={{background:"#fff",borderRadius:8,border:"1px solid "+(unpaid>0?"#fecaca":"#bbf7d0"),padding:isMob?"10px 12px":"8px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{fontSize:14}}>💳</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#1e293b"}}>じゃらん決済</span><span style={{fontWeight:800,fontSize:isMob?13:12,color:"#059669"}}>{paid}件 入金済</span>{unpaid>0&&<span style={{fontWeight:800,fontSize:isMob?13:12,color:"#dc2626"}}>{unpaid}件 未入金</span>}{unpaid===0&&jTasks.length>0&&<span style={{fontSize:10,color:"#059669",fontWeight:700}}>✅ 全件入金済</span>}{unpaid>0&&<div style={{width:"100%",display:"flex",flexWrap:"wrap",gap:4,marginTop:2}}>{jTasks.filter(t=>{const njp=t.reservationId?nhaJpMap[t.reservationId]:null;return !njp||njp.status!=="paid";}).map(t=><span key={t._id} style={{fontSize:9,fontWeight:700,color:"#dc2626",background:"#fef2f2",padding:"1px 6px",borderRadius:4}}>{t.name}</span>)}</div>}</div>;})()}
           {/* 🚐 お迎え送迎（お客様がマイページで選択した希望時間・読取のみ） */}
@@ -24944,7 +25001,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.595-BT";
+const APP_VERSION="v1.0.596-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
