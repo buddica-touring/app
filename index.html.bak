@@ -957,8 +957,8 @@ const DB = {
     /* ★2026-11-15 サマリの「💳現地決済の完了」でSquareレシート番号を入れた予約＝表示だけ「現地」扱い（onsite_receipt に番号）。
        判定＝bt_reservations が paid・payment=現地決済・square_order_id がリンクの注文IDと違う（RPC bt_complete_onsite_payment が番号で上書き）。DBのstatusは変えない・読むだけ */
     try{const open=(data||[]).filter(p=>["new","link_created","email_sent"].includes(p.status)).map(p=>p.reservation_id).filter(Boolean);
-      if(open.length){const{data:rs}=await sb.from("bt_reservations").select("id,paid,payment,square_order_id").in("id",open);const m={};(rs||[]).forEach(r=>{m[r.id]=r;});
-        (data||[]).forEach(p=>{const r=m[p.reservation_id];if(r&&r.paid&&r.payment==="現地決済"&&r.square_order_id&&r.square_order_id!==p.square_order_id)p.onsite_receipt=r.square_order_id;});}
+      if(open.length){const{data:rs}=await sb.from("bt_reservations").select("id,status,paid,payment,square_order_id").in("id",open);const m={};(rs||[]).forEach(r=>{m[r.id]=r;});
+        (data||[]).forEach(p=>{const r=m[p.reservation_id];if(r&&["cancelled","キャンセル","cancel"].includes(r.status)&&!r.paid)p.res_cancelled=true;if(r&&r.paid&&r.payment==="現地決済"&&r.square_order_id&&r.square_order_id!==p.square_order_id)p.onsite_receipt=r.square_order_id;});}
     }catch(e){dbLog("fetchNhaJP_onsite",false,String(e&&e.message||e));}
     return data||[];
   },
@@ -15106,7 +15106,7 @@ function SqFailedModal({onClose,onResolved}){
 function NhaJalanPaymentWidget({onGoJalan}){
   const[jpNew,setJpNew]=useState([]);
   useEffect(()=>{(async()=>{try{const d=await DB.fetchNhaJalanPayments();setJpNew(d);}catch(e){}})();},[]);
-  const stOf=p=>p.onsite_receipt?"onsite":p.status; /* ★2026-11-15 レシート番号入りの現地決済＝現地 */
+  const stOf=p=>p.onsite_receipt?"onsite":(p.res_cancelled?"cancelled":p.status); /* ★2026-11-15 予約がキャンセル済み(APPで手動キャンセル等)＝決済行が未入金のままでもキャンセル表示 */ /* ★2026-11-15 レシート番号入りの現地決済＝現地 */
   const counts={};jpNew.forEach(p=>{const k=stOf(p);counts[k]=(counts[k]||0)+1;});
   const total=jpNew.length;
   const needAction=(counts.new||0)+(counts.link_created||0)+(counts.email_sent||0);
@@ -15173,7 +15173,7 @@ function NhaJalanPaymentNew(){
   const toggleSort=(k)=>{if(sortKey===k)setSortAsc(a=>!a);else{setSortKey(k);setSortAsc(true);}};
   const sIcon=(k)=>sortKey===k?(sortAsc?"▲":"▼"):"↕";
   const STATUS_ORD={new:0,link_created:1,email_sent:2,paid:3,onsite:3.5,cancelled:4,refund:5,refunded:6};
-  const stOf=p=>p.onsite_receipt?"onsite":p.status; /* ★2026-11-15 サマリでSquareレシート番号を入れた予約＝現地（表示だけ・DBのstatusは変えない） */
+  const stOf=p=>p.onsite_receipt?"onsite":(p.res_cancelled?"cancelled":p.status); /* ★2026-11-15 予約がキャンセル済み(APPで手動キャンセル等)＝決済行が未入金のままでもキャンセル表示 */ /* ★2026-11-15 サマリでSquareレシート番号を入れた予約＝現地（表示だけ・DBのstatusは変えない） */
   const load=async()=>{const d=await DB.fetchNhaJalanPayments();setPayments(d);setLoading(false);};
   useEffect(()=>{load();},[]);
   useEffect(()=>{
@@ -25001,7 +25001,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.597-BT";
+const APP_VERSION="v1.0.598-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
