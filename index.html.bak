@@ -954,6 +954,12 @@ const DB = {
     const{data,error}=await sb.from("bt_jalan_payments").select("*").order("created_at",{ascending:false});
     if(error){dbLog("fetchNhaJP",false,error.message);return[];}
     dbLog("fetchNhaJP",true,(data||[]).length+"件");
+    /* ★2026-11-15 サマリの「💳現地決済の完了」でSquareレシート番号を入れた予約＝表示だけ「現地」扱い（onsite_receipt に番号）。
+       判定＝bt_reservations が paid・payment=現地決済・square_order_id がリンクの注文IDと違う（RPC bt_complete_onsite_payment が番号で上書き）。DBのstatusは変えない・読むだけ */
+    try{const open=(data||[]).filter(p=>["new","link_created","email_sent"].includes(p.status)).map(p=>p.reservation_id).filter(Boolean);
+      if(open.length){const{data:rs}=await sb.from("bt_reservations").select("id,paid,payment,square_order_id").in("id",open);const m={};(rs||[]).forEach(r=>{m[r.id]=r;});
+        (data||[]).forEach(p=>{const r=m[p.reservation_id];if(r&&r.paid&&r.payment==="現地決済"&&r.square_order_id&&r.square_order_id!==p.square_order_id)p.onsite_receipt=r.square_order_id;});}
+    }catch(e){dbLog("fetchNhaJP_onsite",false,String(e&&e.message||e));}
     return data||[];
   },
   async updateNhaJalanPaymentMemo(id,memo){
@@ -15045,17 +15051,18 @@ function SqFailedModal({onClose,onResolved}){
 function NhaJalanPaymentWidget({onGoJalan}){
   const[jpNew,setJpNew]=useState([]);
   useEffect(()=>{(async()=>{try{const d=await DB.fetchNhaJalanPayments();setJpNew(d);}catch(e){}})();},[]);
-  const counts={};jpNew.forEach(p=>{counts[p.status]=(counts[p.status]||0)+1;});
+  const stOf=p=>p.onsite_receipt?"onsite":p.status; /* ★2026-11-15 レシート番号入りの現地決済＝現地 */
+  const counts={};jpNew.forEach(p=>{const k=stOf(p);counts[k]=(counts[k]||0)+1;});
   const total=jpNew.length;
   const needAction=(counts.new||0)+(counts.link_created||0)+(counts.email_sent||0);
   // 未入金金額合計（new/link_created/email_sent の amount 合算）
-  const unpaidTotal=jpNew.filter(p=>["new","link_created","email_sent"].includes(p.status)).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  const unpaidTotal=jpNew.filter(p=>["new","link_created","email_sent"].includes(stOf(p))).reduce((s,p)=>s+(Number(p.amount)||0),0);
   const paidTotal=jpNew.filter(p=>p.status==="paid").reduce((s,p)=>s+(Number(p.amount)||0),0);
   // 出発3日前未決済アラート
   const todayMs=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();})();
   const alerts=jpNew.filter(p=>{
     if(!p.lend_date)return false;
-    if(!["new","link_created","email_sent"].includes(p.status))return false;
+    if(!["new","link_created","email_sent"].includes(stOf(p)))return false;
     const ld=new Date(p.lend_date+"T00:00:00").getTime();
     return Math.ceil((ld-todayMs)/86400000)<=3;
   }).sort((a,b)=>(a.lend_date||"").localeCompare(b.lend_date||""));
@@ -15110,7 +15117,8 @@ function NhaJalanPaymentNew(){
   const[sortAsc,setSortAsc]=useState(true);
   const toggleSort=(k)=>{if(sortKey===k)setSortAsc(a=>!a);else{setSortKey(k);setSortAsc(true);}};
   const sIcon=(k)=>sortKey===k?(sortAsc?"▲":"▼"):"↕";
-  const STATUS_ORD={new:0,link_created:1,email_sent:2,paid:3,cancelled:4,refund:5,refunded:6};
+  const STATUS_ORD={new:0,link_created:1,email_sent:2,paid:3,onsite:3.5,cancelled:4,refund:5,refunded:6};
+  const stOf=p=>p.onsite_receipt?"onsite":p.status; /* ★2026-11-15 サマリでSquareレシート番号を入れた予約＝現地（表示だけ・DBのstatusは変えない） */
   const load=async()=>{const d=await DB.fetchNhaJalanPayments();setPayments(d);setLoading(false);};
   useEffect(()=>{load();},[]);
   useEffect(()=>{
@@ -15124,23 +15132,24 @@ function NhaJalanPaymentNew(){
     link_created:{label:"リンク作成済",bg:"#dbeafe",c:"#1d4ed8"},
     email_sent:{label:"メール送信済",bg:"#fef3c7",c:"#92400e"},
     paid:{label:"入金済",bg:"#dcfce7",c:"#166534"},
+    onsite:{label:"現地",bg:"#ccfbf1",c:"#0f766e"},
     cancelled:{label:"キャンセル",bg:"#fef2f2",c:"#dc2626"},
     refund:{label:"返金待ち",bg:"#ffedd5",c:"#c2410c"},
     refunded:{label:"返金済",bg:"#f3e8ff",c:"#7c3aed"}
   };
   const filtered=useMemo(()=>{
-    const base=filter==="all"?payments:payments.filter(p=>p.status===filter);
+    const base=filter==="all"?payments:payments.filter(p=>stOf(p)===filter);
     return [...base].sort((a,b)=>{
       let va,vb;
       if(sortKey==="amount"){va=a.amount||0;vb=b.amount||0;}
-      else if(sortKey==="status"){va=STATUS_ORD[a.status]??99;vb=STATUS_ORD[b.status]??99;}
+      else if(sortKey==="status"){va=STATUS_ORD[stOf(a)]??99;vb=STATUS_ORD[stOf(b)]??99;}
       else if(sortKey==="lend_date"){va=a.lend_date||"";vb=b.lend_date||"";}
       else if(sortKey==="created_at"){va=a.created_at||"";vb=b.created_at||"";}
       else return 0;
       if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;
     });
   },[payments,filter,sortKey,sortAsc]);
-  const counts={};payments.forEach(p=>{counts[p.status]=(counts[p.status]||0)+1;});
+  const counts={};payments.forEach(p=>{const k=stOf(p);counts[k]=(counts[k]||0)+1;});
   const saveMemo=async(id)=>{await DB.updateNhaJalanPaymentMemo(id,memoText);setEditMemoId(null);load();};
   const cardS={background:"#fff",borderRadius:14,border:"1px solid #e2e8f0",boxShadow:"0 1px 3px rgba(0,0,0,.05)"};
   const thS=(k,sortable)=>({padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:10,color:sortable?"#1e40af":"#475569",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap",cursor:sortable?"pointer":"default",userSelect:"none",background:sortKey===k?"#eff6ff":"transparent"});
@@ -15150,6 +15159,7 @@ function NhaJalanPaymentNew(){
       <h3 style={{fontSize:16,fontWeight:800,margin:0}}>じゃらん事前決済</h3>
       <div style={{display:"flex",gap:6,fontSize:10,fontWeight:700}}>
         <span style={{padding:"2px 8px",borderRadius:8,background:"#dcfce7",color:"#166534"}}>入金済 {counts.paid||0}</span>
+        {counts.onsite?<span style={{padding:"2px 8px",borderRadius:8,background:"#ccfbf1",color:"#0f766e"}}>現地 {counts.onsite}</span>:null}
         <span style={{padding:"2px 8px",borderRadius:8,background:"#fef3c7",color:"#92400e"}}>処理中 {(counts.new||0)+(counts.link_created||0)+(counts.email_sent||0)}</span>
         <span style={{padding:"2px 8px",borderRadius:8,background:"#fef2f2",color:"#dc2626"}}>CXL {(counts.cancelled||0)+(counts.refund||0)+(counts.refunded||0)}</span>
       </div>
@@ -15172,15 +15182,15 @@ function NhaJalanPaymentNew(){
         <th style={thS(null,false)}>メモ</th>
       </tr></thead>
       <tbody>{filtered.map(p=>{
-        const sm=statusMeta[p.status]||statusMeta.new;
+        const st=stOf(p);const sm=statusMeta[st]||statusMeta.new;
         return <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
           <td style={{padding:"4px 8px",fontFamily:"monospace",fontSize:10,fontWeight:600}}>{p.reservation_id}</td>
           <td style={{padding:"4px 8px",fontWeight:600}}>{p.customer_name||"-"}</td>
           <td style={{padding:"4px 8px",fontWeight:700,color:"#1e40af"}}>{"\u00A5"}{(p.amount||0).toLocaleString()}</td>
-          <td style={{padding:"4px 8px"}}><span style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:4,background:sm.bg,color:sm.c}}>{sm.label}</span></td>
+          <td style={{padding:"4px 8px"}}><span title={p.onsite_receipt?"現地決済 Squareレシート "+p.onsite_receipt:undefined} style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:4,background:sm.bg,color:sm.c}}>{sm.label}</span></td>
           <td style={{padding:"4px 8px",fontSize:10}}>{p.square_payment_url?<a href={p.square_payment_url} target="_blank" rel="noreferrer" style={{color:"#2563eb"}}>リンク</a>:"-"}</td>
           <td style={{padding:"4px 8px",fontSize:10,color:"#64748b"}}>{p.lend_date||"-"}{p.lend_date&&p.return_date?" ~ ":""}{p.return_date||""}{(()=>{
-            if(!p.lend_date||["paid","cancelled","refund","refunded"].includes(p.status))return null;
+            if(!p.lend_date||["paid","onsite","cancelled","refund","refunded"].includes(st))return null;
             const ld=new Date(p.lend_date+"T00:00:00");const now=new Date();
             const days=Math.ceil((ld-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
             const c=days<=3?"#dc2626":days<=7?"#d97706":"#64748b";
@@ -24934,7 +24944,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.594-BT";
+const APP_VERSION="v1.0.595-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
