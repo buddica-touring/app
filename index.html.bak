@@ -510,7 +510,7 @@ const DB = {
   async fetchTasksForDay(date){
     const cur=await DB.fetchTasks(date);
     const isW=t=>!!t&&(t.type==="洗車"||t.type==="返却後洗車");
-    const curEff=(cur||[]).filter(t=>!(isW(t)&&t._nextDayWash));
+    const curEff=(cur||[]).filter(t=>!(isW(t)&&t._nextDayWash)&&!btRecvHide(t,date));/* ★2026-11-16 受付は予約が今もPU/BDの時だけ（OPシートと同じ） */
     let prevOv=[];
     try{
       const prev=await DB.fetchTasks(dOff(date,-1));
@@ -743,7 +743,7 @@ const DB = {
   async deleteTask(id,date){if(!sb)return;/* ★2026-07-04 墓標方式: 物理削除せず deleted=true。復活不能。 */const{error}=await sb.from("bt_tasks").update({deleted:true}).eq("_id",id);if(error)dbLog("deleteTask",false,error.message);else dbLog("deleteTask",true,id);try{const ls=DB._lsLoad(date);if(ls){const next=ls.filter(t=>t._id!==id);localStorage.setItem(DB._lsKey(date),JSON.stringify(next));}}catch(e){}},
   async fetchTasksRange(fromDate,toDate){if(!sb)return[];const{data,error}=await sb.from("bt_tasks").select("*").gte("date",fromDate).lte("date",toDate).neq("deleted",true).order("date",{ascending:false}).order("sort_order").limit(5000);if(error){dbLog("fetchTasksRange",false,error.message);return[];}return(data||[]).map(r=>{DB._setBase(r);return{...DB._fromDbTask(r),_date:r.date};});},
   _toDbTask(t,date,i,src){return{_id:t._id,date:(t._taskDate||date),"内容":t.type||"","時間":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&t.reservationId&&!t.manual&&!((t.timeChange&&String(t.timeChange).trim())||(t._ssTime&&String(t._ssTime).trim())||(t._manualTimeAt&&String(t._manualTimeAt).trim())))?"":(t.time||"")),"変更":t.timeChange||"","内案":t.typeChange||"","予約者":t.name||"","担当":t.assignee||"","確認":!!t.done,"メモ":t.memo||"","予約番号":t.reservationId||"","OTA":t.ota||"","TEL":t.tel||"","MAIL":t.mail||"",assigned_vehicle:t.assignedVehicle||"","No":t.plateNo||"","人数":t.people||0,"送迎場所":((["DEL","PU","PUB","来店","PUB来店","COL","BD","BDB","返却"].indexOf(t.type)>=0&&t.reservationId&&!t.manual&&!(t._placeSource==="manual"||t._placeSource==="customer"||(t._ssPlace&&String(t._ssPlace).trim())))?"":(t.place||"")),"クラス":t.vehicle||"","確定":t.insurance||"","便名":t.flight||"","返却日":t.returnDate||"","返却":t.returnTime||"","送迎":t.returnType||"","集客":t.colPlace||"","B":+(t.opts?.b||0),"C":+(t.opts?.c||0),"J":+(t.opts?.j||0),"USB":+(t.opts?.usb||0),"約款":!!t.yakkan,"LINE":!!t.line,"決済":!!t.payment,sort_order:(t._sortOrder!=null&&t._sortOrder!==""?+t._sortOrder:i),changed_json:JSON.stringify({...(t._changed||{}),_src:(src||'human'),_timeFromSheet:!!t._timeFromSheet,_timeChangeSource:t._timeChangeSource||"",_placeSource:t._placeSource||"",_ssTime:t._ssTime||"",_ssPlace:t._ssPlace||"",_ssTimeAt:t._ssTimeAt||"",_ssPlaceAt:t._ssPlaceAt||"",_manualTimeAt:t._manualTimeAt||"",_manualPlaceAt:t._manualPlaceAt||"",_manual:!!t.manual,_taskDate:(t._taskDate||date),_nextDayWash:!!t._nextDayWash,_nextDayWashAt:t._nextDayWashAt||""})};},
-  _fromDbTask(d){const ch=(()=>{try{const p=JSON.parse(d.changed_json||"{}");return Object.keys(p).length?p:undefined;}catch(e){return undefined;}})();const tfs=ch&&ch._timeFromSheet;const tcs=ch&&ch._timeChangeSource;const ps=ch&&ch._placeSource;const sst=ch&&ch._ssTime;const ssp=ch&&ch._ssPlace;const sstAt=ch&&ch._ssTimeAt;const sspAt=ch&&ch._ssPlaceAt;const mtAt=ch&&ch._manualTimeAt;const mpAt=ch&&ch._manualPlaceAt;const isManual=ch&&ch._manual;const td=ch&&ch._taskDate;const ndw=!!(ch&&ch._nextDayWash);const ndwAt=(ch&&ch._nextDayWashAt)||"";if(ch){delete ch._timeFromSheet;delete ch._timeChangeSource;delete ch._placeSource;delete ch._ssTime;delete ch._ssPlace;delete ch._ssTimeAt;delete ch._ssPlaceAt;delete ch._manualTimeAt;delete ch._manualPlaceAt;delete ch._manual;delete ch._taskDate;delete ch._nextDayWash;delete ch._nextDayWashAt;delete ch._src;}return{_id:d._id,type:(()=>{/* ★2026-08-15 区分の正本は予約。人間の種別変更(内案)がある時だけタスク値、無ければleg種別を予約から導出。洗車/その他/引取/入庫等は導出しない。 */var _t=d["内容"];if(d["内案"]&&String(d["内案"]).trim())return _t;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _t;if(["COL","BD","BDB","返却","返却待"].indexOf(_t)>=0)return deriveRetType(_r);if(["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_t)>=0)return deriveLendType(_r);return _t;})(),time:(()=>{/* ★2026-07-15 STEP2横展開: 時間の正本は予約(del/col_time)。人間編集(変更/_ssTime/手動)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。洗車/その他はタスク値。 */var _tm=d["時間"];if((d["変更"]&&String(d["変更"]).trim())||(sst&&String(sst).trim())||tcs==="manual"||(mtAt&&String(mtAt).trim()))return _tm;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _tm;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _tm;var _rt=_isCol?(_r.colTime||_r.returnTime):(_r.delTime||_r.lendTime);return (_rt&&String(_rt).trim())?_rt:_tm;})(),name:d["予約者"],assignee:d["担当"],done:d["確認"]===true||d["確認"]==="true",memo:d["メモ"],reservationId:d["予約番号"],ota:d["OTA"],tel:d["TEL"],mail:d["MAIL"],assignedVehicle:d.assigned_vehicle,plateNo:d["No"],people:d["人数"],place:(()=>{/* ★2026-07-15 STEP2横展開: 場所の正本は予約(del/col_place)。人間編集(手動/顧客/_ssPlace)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。空はタスク値。 */var _p=d["送迎場所"];if(ps==="manual"||ps==="customer"||(ssp&&String(ssp).trim()))return _p;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _p;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _p;var _fb=_isCol?_r.colPlace:_r.delPlace;return (_fb&&String(_fb).trim())?_fb:_p;})(),vehicle:d["クラス"],insurance:d["確定"],insuranceChange:"",timeChange:d["変更"]||"",typeChange:d["内案"]||"",flight:d["便名"],returnDate:norm(d["返却日"]),returnTime:d["返却"],returnType:d["送迎"],colPlace:d["集客"],opts:(()=>{var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;return _r?{b:+(_r.optB||0),c:+(_r.optC||0),j:+(_r.optJ||0),usb:+(_r.optUSB||0)}:{b:+(d["B"]||0),c:+(d["C"]||0),j:+(d["J"]||0),usb:+(d["USB"]||0)};})(),yakkan:d["約款"]===true||d["約款"]==="true"||/^同意/.test(String(d["約款"]||""))/* ★2026-10-17 お客様署名の写し「同意(氏名) 日時」を同意済みとして読む(未同意と読んで全行保存でfalseを書き戻していた) */,line:d["LINE"]===true||d["LINE"]==="true",payment:d["決済"]===true||d["決済"]==="true",_sortOrder:d.sort_order,_assigneeCustom:false,_timeChanged:false,_changed:ch,_timeFromSheet:!!tfs,_timeChangeSource:tcs||"",_placeSource:ps||"",_ssTime:sst||"",_ssPlace:ssp||"",_ssTimeAt:sstAt||"",_ssPlaceAt:sspAt||"",_manualTimeAt:mtAt||"",_manualPlaceAt:mpAt||"",manual:!!isManual,_taskDate:(td||d.date),_nextDayWash:ndw,_nextDayWashAt:ndwAt,saLog:(Array.isArray(d.sa_log)?d.sa_log:[]),shVehicle:(d.sh_vehicle||"")};},
+  _fromDbTask(d){const ch=(()=>{try{const p=JSON.parse(d.changed_json||"{}");return Object.keys(p).length?p:undefined;}catch(e){return undefined;}})();const tfs=ch&&ch._timeFromSheet;const tcs=ch&&ch._timeChangeSource;const ps=ch&&ch._placeSource;const sst=ch&&ch._ssTime;const ssp=ch&&ch._ssPlace;const sstAt=ch&&ch._ssTimeAt;const sspAt=ch&&ch._ssPlaceAt;const mtAt=ch&&ch._manualTimeAt;const mpAt=ch&&ch._manualPlaceAt;const isManual=ch&&ch._manual;const td=ch&&ch._taskDate;const ndw=!!(ch&&ch._nextDayWash);const ndwAt=(ch&&ch._nextDayWashAt)||"";if(ch){delete ch._timeFromSheet;delete ch._timeChangeSource;delete ch._placeSource;delete ch._ssTime;delete ch._ssPlace;delete ch._ssTimeAt;delete ch._ssPlaceAt;delete ch._manualTimeAt;delete ch._manualPlaceAt;delete ch._manual;delete ch._taskDate;delete ch._nextDayWash;delete ch._nextDayWashAt;delete ch._src;}return{_id:d._id,type:(()=>{/* ★2026-08-15 区分の正本は予約。人間の種別変更(内案)がある時だけタスク値、無ければleg種別を予約から導出。洗車/その他/引取/入庫等は導出しない。 */var _t=d["内容"];if(d["内案"]&&String(d["内案"]).trim())return _t;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _t;if(["COL","BD","BDB","返却","返却待"].indexOf(_t)>=0)return deriveRetType(_r);if(["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_t)>=0)return deriveLendType(_r);return _t;})(),time:(()=>{/* ★2026-07-15 STEP2横展開: 時間の正本は予約(del/col_time)。人間編集(変更/_ssTime/手動)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。洗車/その他はタスク値。 */var _tm=d["時間"];if((d["変更"]&&String(d["変更"]).trim())||(sst&&String(sst).trim())||tcs==="manual"||(mtAt&&String(mtAt).trim()))return _tm;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _tm;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待","返却受付"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出","出発受付"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _tm;var _rt=_isCol?(_r.colTime||_r.returnTime):(_r.delTime||_r.lendTime);return (_rt&&String(_rt).trim())?_rt:_tm;})(),name:d["予約者"],assignee:d["担当"],done:d["確認"]===true||d["確認"]==="true",memo:d["メモ"],reservationId:d["予約番号"],ota:d["OTA"],tel:d["TEL"],mail:d["MAIL"],assignedVehicle:d.assigned_vehicle,plateNo:d["No"],people:d["人数"],place:(()=>{/* ★2026-07-15 STEP2横展開: 場所の正本は予約(del/col_place)。人間編集(手動/顧客/_ssPlace)がある時だけタスク値、無ければDEL/COL系のみ予約から導出。空はタスク値。 */var _p=d["送迎場所"];if(ps==="manual"||ps==="customer"||(ssp&&String(ssp).trim()))return _p;var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;if(!_r)return _p;var _c=d["内容"];var _isCol=["COL","BD","BDB","返却","返却待"].indexOf(_c)>=0;var _isDel=["DEL","PU","PUB","来店","PUB来店","貸出"].indexOf(_c)>=0;if(!_isCol&&!_isDel)return _p;var _fb=_isCol?_r.colPlace:_r.delPlace;return (_fb&&String(_fb).trim())?_fb:_p;})(),vehicle:d["クラス"],insurance:d["確定"],insuranceChange:"",timeChange:d["変更"]||"",typeChange:d["内案"]||"",flight:d["便名"],returnDate:norm(d["返却日"]),returnTime:d["返却"],returnType:d["送迎"],colPlace:d["集客"],opts:(()=>{var _r=(d["予約番号"]&&DB._resIdx)?DB._resIdx[d["予約番号"]]:null;return _r?{b:+(_r.optB||0),c:+(_r.optC||0),j:+(_r.optJ||0),usb:+(_r.optUSB||0)}:{b:+(d["B"]||0),c:+(d["C"]||0),j:+(d["J"]||0),usb:+(d["USB"]||0)};})(),yakkan:d["約款"]===true||d["約款"]==="true"||/^同意/.test(String(d["約款"]||""))/* ★2026-10-17 お客様署名の写し「同意(氏名) 日時」を同意済みとして読む(未同意と読んで全行保存でfalseを書き戻していた) */,line:d["LINE"]===true||d["LINE"]==="true",payment:d["決済"]===true||d["決済"]==="true",_sortOrder:d.sort_order,_assigneeCustom:false,_timeChanged:false,_changed:ch,_timeFromSheet:!!tfs,_timeChangeSource:tcs||"",_placeSource:ps||"",_ssTime:sst||"",_ssPlace:ssp||"",_ssTimeAt:sstAt||"",_ssPlaceAt:sspAt||"",_manualTimeAt:mtAt||"",_manualPlaceAt:mpAt||"",manual:!!isManual,_taskDate:(td||d.date),_nextDayWash:ndw,_nextDayWashAt:ndwAt,saLog:(Array.isArray(d.sa_log)?d.sa_log:[]),shVehicle:(d.sh_vehicle||"")};},
   // --- 予約変更管理 ---
   async updateReservationField(resId,changes,changeType,source){
     if(!sb||!resId)return;
@@ -4022,9 +4022,9 @@ const NHA_PLACE_OPTIONS=["来店","高松空港","DEL","COL"];
 /* ★2026-10-17 命名規則・色統一(オーナー確定)：カテゴリごとにテーマカラー1つ。貸出=緑／返却=赤／洗車=黄／その他=灰。
    色の正本はここだけ（taskColor）。c=白地の文字色・solid=札の地色・on=札の文字色・bg=淡色地・b=枠。表示のみ＝DBの内容(type)値は不変。 */
 const TASK_CAT_COLOR={lend:{c:"#15803d",solid:"#16a34a",on:"#fff",bg:"#dcfce7",b:"#86efac"},ret:{c:"#b91c1c",solid:"#dc2626",on:"#fff",bg:"#fee2e2",b:"#fca5a5"},wash:{c:"#a16207",solid:"#facc15",on:"#422006",bg:"#fef9c3",b:"#fde047"},other:{c:"#475569",solid:"#64748b",on:"#fff",bg:"#f1f5f9",b:"#cbd5e1"},cxl:{c:"#9ca3af",solid:"#9ca3af",on:"#fff",bg:"#e5e7eb",b:"#d1d5db"}};
-function taskCat(tp){if(["PU","PUB","来店","PUB来店","貸出","DEL"].indexOf(tp)>=0)return"lend";if(["BD","BDB","返却","返却待","COL"].indexOf(tp)>=0)return"ret";if(tp==="洗車"||tp==="返却後洗車")return"wash";if(tp==="CXL")return"cxl";return"other";}
+function taskCat(tp){if(["PU","PUB","来店","PUB来店","貸出","DEL","出発受付"].indexOf(tp)>=0)return"lend";if(["BD","BDB","返却","返却待","COL","返却受付"].indexOf(tp)>=0)return"ret";if(tp==="洗車"||tp==="返却後洗車")return"wash";if(tp==="CXL")return"cxl";return"other";}
 function taskColor(tp){return TASK_CAT_COLOR[taskCat(tp)];}
-const TASK_META=(()=>{const o={};["PU", "BD", "洗車", "返却後洗車", "DEL", "COL", "送り", "迎え", "回収", "点検", "入庫", "その他", "マニュアル入力", "来店", "返却", "貸出", "返却待", "CXL"].forEach(k=>{const x=taskColor(k);o[k]={c:x.c,bg:x.bg};});return o;})();
+const TASK_META=(()=>{const o={};["PU", "BD", "洗車", "返却後洗車", "DEL", "COL", "送り", "迎え", "回収", "点検", "入庫", "その他", "マニュアル入力", "来店", "返却", "貸出", "返却待", "CXL", "出発受付", "返却受付"].forEach(k=>{const x=taskColor(k);o[k]={c:x.c,bg:x.bg};});return o;})();
 /* ★2026-08-13 送迎3状態の表示ラベル統一（全画面同表記）
    ① 未選択(visit_type空) → 中立: 貸出 / 返却（内部key: 貸出 / 返却待）
    ② 送迎あり選択 → PU / BD
@@ -4047,6 +4047,9 @@ function _btOkPlace(p){return p&&p.trim()&&!/^(来店|店舗|店頭|ヤード|�
 function _btAirportBus(p){return p&&/送迎バス|14番のりば|11番|レンタカー送迎バス|高松空港|空港/.test(p);}
 function deriveRetType(r){if(r.returnType==="返却")return"返却";if(["PU","BD","DEL","COL"].indexOf(r.returnType)>=0)return r.returnType;if(["PUB","BDB"].indexOf(r.returnType)>=0)return"BD";if(_btAirportBus(r.colPlace))return"BD";if(_btOkPlace(r.colPlace))return"COL";return"返却待";}
 function deriveLendType(r){if(r.visitType==="来店")return"来店";if(["PU","BD","DEL","COL"].indexOf(r.visitType)>=0)return r.visitType;if(["PUB","BDB"].indexOf(r.visitType)>=0)return"PU";if(_btAirportBus(r.delPlace))return"PU";if(_btOkPlace(r.delPlace))return"DEL";return"貸出";}
+/* ★2026-11-16 nosh「出発受付・返却受付を追加（PU/BDと同数）」：受付は予約が今も PU（BD）で、その日が貸出（返却）日の時だけ表示する（表示だけの導出・行は消さない＝PUに戻れば復活） */
+const RECV_TYPES=["出発受付","返却受付"];
+function btRecvHide(t,dateStr){if(!t||RECV_TYPES.indexOf(t.type)<0)return false;const r=(t.reservationId&&DB._resIdx)?DB._resIdx[t.reservationId]:null;if(!r)return false;if(r.status==="cancelled")return true;const lend=t.type==="出発受付";const d=norm(dateStr||t._taskDate||"");if(d&&norm(lend?r.lendDate:r.returnDate)!==d)return true;return lend?deriveLendType(r)!=="PU":deriveRetType(r)!=="BD";}
 
 // ★ バス運行は廃止（高松店はハイエース送迎のみ）。後方互換のため定数・関数は残存させ「常時無効」化
 const BUS_CAPACITY=20;
@@ -4467,8 +4470,12 @@ function generateTasks(reservations,date,fleet,vehicles){
     else if(isAirportOrBus(r.colPlace))retType="BD";  // ハイエース送迎
     else if(cpOk)retType="COL";
     else retType="返却待";  // ★2026-08-13 送迎未選択は中立「返却」(内部key=返却待)。旧: BD
-    if(sD(r.lendDate,date)){const lTask={...base,_id:"d-"+r.id,type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);}
+    if(sD(r.lendDate,date)){const lTask={...base,_id:"d-"+r.id,type:lendType,time:r.delTime||r.lendTime,name:r.name,people:r.people,place:r.delPlace||"",vehicle:r.vehicle,insurance:r.insurance,flight:r.flight,returnDate:r.returnDate,returnTime:r.returnTime,returnType:retType,colPlace:r.colPlace||""};tasks.push(lTask);
+      /* ★2026-11-16 出発受付：PU の予約に1件（PUと同数）。時間はPUと同じ（予約から導出）・場所なし・担当は空（手動で選ぶ） */
+      if(lendType==="PU")tasks.push({...base,_id:"dr-"+r.id,type:"出発受付",time:r.delTime||r.lendTime,name:r.name,people:r.people,place:"",vehicle:r.vehicle,insurance:r.insurance,flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:""});}
     if(sD(r.returnDate,date)){const place=r.colPlace||"";const rTask={...base,_id:"c-"+r.id,type:retType,time:r.colTime||r.returnTime,name:r.name,people:r.people,place,vehicle:r.vehicle,insurance:r.insurance,flight:r.colFlight||""};tasks.push(rTask);
+      /* ★2026-11-16 返却受付：BD の予約に1件（BDと同数）。時間はBDと同じ（予約から導出）・場所なし・担当は空（手動で選ぶ） */
+      if(retType==="BD")tasks.push({...base,_id:"cr-"+r.id,type:"返却受付",time:r.colTime||r.returnTime,name:r.name,people:r.people,place:"",vehicle:r.vehicle,insurance:r.insurance,flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:""});
       /* ★2026-08-09 返却後洗車: 返却日に返却車両の洗車タスクを自動生成。役割はRWASH(別枠)＝前日洗車(WASH)とDBのcollapse/担当ガードで衝突しない。 */
       /* ★2026-11-09 オーナー指示: 2026-11-11以降の返却後洗車は自動生成しない（未実施が溜まり必要なタスクが見づらい→洗車済みはワイパー片方上げの目印＋現場指示へ。必要時は手動で個別作成）。11/10以前は従来どおり。 */
       if(norm(date)<"2026-11-11"){const _rveh=fv?vehicles.find(v=>v.code===fv):null;
@@ -7078,7 +7085,7 @@ function HandoverBtn({rid,compact}){
           React.createElement("div",{style:{fontSize:12,color:"#1f2937",whiteSpace:"pre-wrap"}},r.note)))
       )));
 }
-const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車"]; // 引き継ぎボタン対象(返却後洗車は除く)
+const HO_TASK_TYPES=["PU","PUB","DEL","来店","PUB来店","貸出","COL","BD","BDB","返却","返却待","洗車","出発受付","返却受付"]; // 引き継ぎボタン対象(返却後洗車は除く)
 /* ★2026-10-16 🔧点検ボタン（タスクサマリー）：洗車(当日/翌日貸出)=出発前点検／返却・BD・返却(送迎不要)=返却後点検。返却後洗車は対象外。車両はナンバー＋タスク日で特定（予約番号はURLに出さない）
    ★2026-11-06 オーナー指示：別画面（tab=tenken）に飛ぶと戻ってタスクを探し直す手間＝顧客取り違えの元 → その場のポップアップ（BtInspPop）に変更。距離（メーター）も同じポップアップで入力。
    読む＝bt_inspection_targets／書く＝bt_inspection_set（1チェック＝1件・点検画面 inspection.html と同じ表・同じ鍵）。点検画面・点検記録・アルバイト用はそのまま（同じデータを表示）。
@@ -17947,7 +17954,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
       const washMap=(norm(date)===_todayJst)?await DB.fetchVehicleWash():{};
       // 不足予約を追加
       const gen=generateTasks(reservations,date,fleetRef.current,vehicles);
-      const _sd=(ty)=>["BD","BDB","COL","返却","返却待"].includes(ty)?"R":(ty==="洗車"?"W":(ty==="返却後洗車"?"RW":"L"));const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));/* ★2026-08-13 中立ラベル(返却待=返却レッグ/貸出=貸出レッグ default L)をレッグ判定に含める。含めないと生成した返却待がLに誤分類→保存済BD(R)と別レッグ扱い→同一予約COLが二重pushされる(ミサトサクラコ二重表示の根治)。 */
+      const _sd=(ty)=>ty==="出発受付"?"LU":ty==="返却受付"?"RU":["BD","BDB","COL","返却","返却待"].includes(ty)?"R":(ty==="洗車"?"W":(ty==="返却後洗車"?"RW":"L"));/* ★2026-11-16 受付は PU/BD と別のレッグ（同じ "L"/"R" にすると受付が生成されない） */const existIds=new Set(fixed.filter(t=>t.reservationId).map(t=>t.reservationId+":"+_sd(t.type)));/* ★2026-08-13 中立ラベル(返却待=返却レッグ/貸出=貸出レッグ default L)をレッグ判定に含める。含めないと生成した返却待がLに誤分類→保存済BD(R)と別レッグ扱い→同一予約COLが二重pushされる(ミサトサクラコ二重表示の根治)。 */
       // ★ 新規生成タスクにsheetPlacesの場所情報を補完
       gen.forEach(g=>{
         if(g.reservationId&&!existIds.has(g.reservationId+":"+_sd(g.type))&&!_tomb.has(g._id)){
@@ -18573,7 +18580,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
     //   「関係ない日に返却タスクが乱立」を構造的に不能化(SPK STEP2/3 と同型:悪い表示は正本を導出/防ぐ)。
     //   _taskDate 未設定(手入力直後でまだ永続化前の manual タスク等)は selDate 所属として絶対に落とさない。
     const _sd=norm(selDate);
-    const dayTasks=tasks.filter(t=>!t._taskDate||norm(t._taskDate)===_sd);
+    const dayTasks=tasks.filter(t=>(!t._taskDate||norm(t._taskDate)===_sd)&&!btRecvHide(t,_sd));/* ★2026-11-16 受付は予約が今もPU/BDの時だけ */
     if(dayTasks.length!==tasks.length)console.log("[Tasks] 日付ガード: 他日付タスク除外",tasks.length-dayTasks.length,"件 (selDate="+_sd+")");
     const groups=new Map();
     const others=[];
@@ -18762,6 +18769,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           {key:"del",label:"DEL",sub:"配送",icon:"🚗",tasks:delTasks,color:taskColor("DEL").c,bg:"#e3f2fd",people:pplSum(delTasks)},
           {key:"col",label:"COL",sub:"回収",icon:"🚛",tasks:colTasks,color:taskColor("COL").c,bg:"#fff3e0",people:pplSum(colTasks)},
           {key:"raiten",label:"来店",sub:"来店/返却",icon:"🏪",tasks:raitenTasks,color:taskColor("その他").c,bg:"#f5f3ff",people:pplSum(raitenTasks)},
+          {key:"recv",label:"受付",sub:"出発受付/返却受付",icon:"📝",tasks:sortedTasks.filter(t=>t.type==="出発受付"||t.type==="返却受付"),color:taskColor("出発受付").c,bg:"#f0fdf4",people:0},/* ★2026-11-16 */
           {key:"wash",label:"洗車",sub:"洗車/返洗",icon:"🧽",tasks:washTasks,color:taskColor("洗車").c,bg:"#f5f5f5",people:0},
         ];
         return <div style={{padding:isMob?4:8}}>
@@ -18794,7 +18802,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           <div style={{display:"grid",gridTemplateColumns:isMob?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMob?6:8,marginBottom:8}}>
             {categories.filter(c=>c.tasks.length>0).map(c=>{
               const done=doneSum(c.tasks);
-              return <div key={c.key} onClick={()=>setOpView(c.key==="pu"||c.key==="bd"?"hia":c.key==="del"||c.key==="col"?"tasks":"wash")} style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",padding:isMob?"10px":"12px",cursor:"pointer",transition:"all .15s",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+              return <div key={c.key} onClick={()=>setOpView(c.key==="pu"||c.key==="bd"?"hia":c.key==="del"||c.key==="col"?"tasks":c.key==="recv"?"master":"wash")} style={{background:"#fff",borderRadius:8,border:"1px solid #e2e8f0",padding:isMob?"10px":"12px",cursor:"pointer",transition:"all .15s",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <span style={{fontSize:isMob?18:22}}>{c.icon}</span>
                   <span style={{fontSize:isMob?22:28,fontWeight:900,color:c.color}}>{c.tasks.length}</span>
@@ -23695,7 +23703,7 @@ function App(){
     await DB.updateReservationField(id,{status:"confirmed"},"キャンセル復元","manual");
     // ★ タスクのCXL状態を解除
     const res=data.find(r=>r.id===id);
-    if(res){try{const rd=norm(res.returnDate);const _restore=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks||!tks.length)return;const updated=tks.map(t=>t.reservationId===id&&t.type==="CXL"?{...t,type:d===rd?"COL":"DEL",done:false}:t);if(JSON.stringify(updated)!==JSON.stringify(tks))await DB.upsertTasks(updated,d);};const ld=norm(res.lendDate);await _restore(ld);if(rd!==ld)await _restore(rd);await _restore(dOff(ld,-1));}catch(e){console.error("[restore task]",e);}}
+    if(res){try{const rd=norm(res.returnDate);const _restore=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks||!tks.length)return;const updated=tks.map(t=>t.reservationId===id&&t.type==="CXL"?{...t,type:/^dr-/.test(t._id||"")?"出発受付":/^cr-/.test(t._id||"")?"返却受付":(d===rd?"COL":"DEL"),done:false}:t);if(JSON.stringify(updated)!==JSON.stringify(tks))await DB.upsertTasks(updated,d);};const ld=norm(res.lendDate);await _restore(ld);if(rd!==ld)await _restore(rd);await _restore(dOff(ld,-1));}catch(e){console.error("[restore task]",e);}}
   },[data]);
   // ★ 物理削除（DBから完全削除・復元不可）
   const deleteReservation=useCallback(async(id)=>{
@@ -25002,7 +25010,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.599-BT";
+const APP_VERSION="v1.0.600-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止

@@ -21,8 +21,8 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .sechd .cnt{margin-left:auto;font-size:12px;color:var(--slate);font-weight:700}
 .card{background:#fff;border-radius:12px;padding:11px 12px;margin-bottom:9px;box-shadow:0 1px 3px rgba(0,0,0,.07);border-left:5px solid var(--slate)}
 /* ★2026-10-17 命名規則・色統一(オーナー確定)：貸出=緑／返却=赤／洗車=黄／その他=灰（本体APP taskColor と同じ） */
-.card.DEL,.card.PU,.card.PUB,.card.来店,.card.PUB来店,.card.貸出{border-left-color:var(--lend)}
-.card.COL,.card.BD,.card.BDB,.card.返却,.card.返却待{border-left-color:var(--ret)}
+.card.DEL,.card.PU,.card.PUB,.card.来店,.card.PUB来店,.card.貸出,.card.出発受付{border-left-color:var(--lend)}
+.card.COL,.card.BD,.card.BDB,.card.返却,.card.返却待,.card.返却受付{border-left-color:var(--ret)}
 .card.洗車,.card.返却後洗車{border-left-color:var(--wash)}
 .card.done{opacity:.5}
 .r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -31,8 +31,8 @@ body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif
 .jpay.ok{background:#f0fdf4;color:#059669;border:1px solid #bbf7d0}
 .jpay.no{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
 .jpay.jtap{cursor:pointer}
-.badge.DEL,.badge.PU,.badge.PUB,.badge.来店,.badge.PUB来店,.badge.貸出{background:var(--lend)}
-.badge.COL,.badge.BD,.badge.BDB,.badge.返却,.badge.返却待{background:var(--ret)}
+.badge.DEL,.badge.PU,.badge.PUB,.badge.来店,.badge.PUB来店,.badge.貸出,.badge.出発受付{background:var(--lend)}
+.badge.COL,.badge.BD,.badge.BDB,.badge.返却,.badge.返却待,.badge.返却受付{background:var(--ret)}
 .badge.洗車,.badge.返却後洗車{background:var(--wash);color:var(--washon)}
 .tm{font-size:19px;font-weight:800}
 .cust{font-size:15px;font-weight:700}
@@ -165,7 +165,7 @@ function taskCard(x){
   else if((x.ota==='楽天'||x.ota==='R')&&!_isSP){ jpay='<span class="jpay ok" title="楽天：オンラインカード決済（楽天が事前に徴収済み）">💳決済</span>'; } // ★2026-11-10 楽天は必ず表示（札幌・那覇と同じ）
   else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no jtap" title="タップで現地決済を完了にする" onclick="saPay(\''+esc(x.resv||'')+'\','+_pamt+',\''+esc((x.customer||'').replace(/\x27/g,''))+'\')">💳未決済'+_pas+'</span>'; }
   var chk='';
-  if(x.resv&&(t==='DEL'||t==='PU'||t==='PUB'||t==='来店'||t==='PUB来店'||t==='貸出')){
+  if(x.resv&&(t==='DEL'||t==='PU'||t==='PUB'||t==='来店'||t==='PUB来店'||t==='貸出'||t==='出発受付')){/* ★2026-11-16 出発受付にも免許/約款/傷 */
     var _L=LIC_MAP[x.resv]||null, _lok=!!(x.lic||(_L&&_L.c>0)), _cu=saCustUrl(x);
     var _lt=_lok?('🪪免許 '+((_L&&_L.d)||1)+'人・'+((_L&&_L.c)||1)+'枚'):'🪪免許 未'; // ★2026-11-08 3店同じ表記
     function _ck(ok,txt,ttl){var a='<span class="chk '+(ok?'ok':'no')+'" title="'+ttl+(_cu?'（タップでお客様ページを開き代理で登録）':'')+'">'+txt+'</span>';return _cu?('<a href="'+_cu+'" target="_blank" style="text-decoration:none">'+a+'</a>'):a;}
@@ -198,7 +198,7 @@ function taskCard(x){
   btns+=odoRow;
   if(shOn(x)&&tid&&!x.done){ btns+=shBtns(x); } /* ★2026-11-08 送迎ボタン（出発・乗り場着・合流／出発・空港着） */
   if(tid&&!x.done){ btns+='<button class="abtn done" onclick="saDone(\''+tid+'\')">✅完了</button>'; }
-  if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車'].indexOf(t)>=0){
+  if(x.resv && ['DEL','PU','PUB','来店','PUB来店','貸出','COL','BD','BDB','返却','返却待','洗車','出発受付','返却受付'].indexOf(t)>=0){
     var _hc=HO_MAP[x.resv]||0;
     btns+='<button class="abtn" style="'+(_hc>0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0')+'" onclick="saHandover(\''+esc(x.resv)+'\')">📌 引継'+(_hc>0?' '+_hc:'')+'</button>';
   }
@@ -532,7 +532,7 @@ window.saDone=function(tid,_inspOk){
     if(saIsRet(tk.type)&&tk.end_odo==null){alert("先に「📏 距離」（返却メーター）を登録してください");return;}
   }
   /* ③ 決済未完了ガード（2026-10-16）：貸出/PU/来店/返却/BD/返却(送迎不要) は決済完了まで完了不可。洗車は対象外 */
-  if(tk&&tk.resv&&!tk.paid&&['DEL','貸出','PU','PUB','来店','PUB来店','COL','返却待','BD','BDB','返却'].indexOf(tk.type)>=0&&(tk.ota==='じゃらん'||tk.ota==='J'||tk.ota==='SP'||tk.payment==='現地決済')){
+  if(tk&&tk.resv&&!tk.paid&&['DEL','貸出','PU','PUB','来店','PUB来店','COL','返却待','BD','BDB','返却','出発受付','返却受付'].indexOf(tk.type)>=0&&(tk.ota==='じゃらん'||tk.ota==='J'||tk.ota==='SP'||tk.payment==='現地決済')){
     var _pa=Number(tk.price)||0;
     alert("💳 決済が未完了です"+(_pa>0?"（¥"+_pa.toLocaleString()+"）":"")+"。\n先に「決済完了」を押してください。\n決済完了が確認できたらチェックできます。");
     saPay(tk.resv,_pa,String(tk.customer||'').replace(/\x27/g,''));
