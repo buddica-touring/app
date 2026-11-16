@@ -1292,6 +1292,8 @@ async function loadEtc(){
   ETC_V=(vres.data||[]).map(v=>Object.assign({},v,{type:v.vtype,name:nm[v.plate_no]||pnm(v.plate_no)})).filter(v=>!ETC_EXCLUDE.has(v.code)); ETC={}; (eres.data||[]).forEach(e=>{ETC[e.code]=e;});
   await procCarry("bt_etc_setup",ETC_V,prow,ETC); procArcMark(ETC_V,prow); ETC_V=ETC_V.concat(procExtra(ETC_V,prow)); renderEtc();
 }
+// 全台完了のお祝い（表示だけ・保存しない）
+const CELE_HTML=t=>'<style>@keyframes celePop{0%{transform:scale(.9);opacity:0}60%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}</style><div style="margin:0 0 10px;padding:12px 14px;border-radius:12px;background:linear-gradient(90deg,#dcfce7,#fef9c3);border:1.5px solid #86efac;color:#166534;font-size:15px;font-weight:900;text-align:center;animation:celePop .5s ease-out">'+t+'</div>';
 function renderEtc(){
   if(!ETC_V){loadEtc();return;}
   if(!ETC_V.length){$("etcBody").innerHTML='<div style="color:#94a3b8;padding:16px;text-align:center">車両がありません</div>';return;}
@@ -1300,6 +1302,7 @@ function renderEtc(){
   const list=ETC_V.filter(v=>!v.arc).sort((a,b)=>(isHdm(a)-isHdm(b))||(cix(a)-cix(b))||String(a.plate_no||"").localeCompare(String(b.plate_no||"")));
   const done=list.filter(v=>ETC[v.code]&&ETC[v.code].done).length;
   let html='<div class="fl-sumbar"><span class="fl-total">セットアップ済 <b>'+done+'</b> / '+list.length+' 台</span><span class="fl-sc">未 '+(list.length-done)+'台</span></div>';
+  if(list.length&&done===list.length)html+=CELE_HTML("🎉 全"+list.length+"台 セットアップ完了です！おつかれさまでした ✨");
   html+='<div class="fltblwrap"><table class="fltbl"><thead><tr><th style="width:150px">車種</th><th style="width:110px">ナンバー</th><th style="width:90px">管理番号表</th><th style="width:90px">セットアップ</th><th style="width:150px">予定日</th><th style="width:170px">入庫先</th><th>備考</th></tr></thead><tbody>';
   const rowE=v=>{let html='';
     const e=ETC[v.code]||{}, bd=isHdm(v);
@@ -1543,6 +1546,7 @@ function renderTire(){
   let html='<div class="fl-sumbar"><span class="fl-total">確認済 <b>'+ok+'</b> / '+list.length+' 台</span><span class="fl-sc" style="color:#b91c1c">交換 '+chg+'台</span><span class="fl-sc" style="color:#7e22ce">相談 '+sdn+'台</span><span class="fl-sc">未確認 '+(list.length-ok-chg-sdn)+'台</span></div>';
   // 並び替え：選んだステータスの車を先頭に（番号は車両順のまま＝車の番号として固定）。画面だけの切替・保存しない
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-size:12px;font-weight:800;color:#64748b">並び替え'+[["","車両順"],["交換","交換"],["相談","相談"],["未確認","未確認"],["確認済","確認済"]].map(([k,l])=>'<button data-tire-sort="'+k+'" style="border:1px solid '+(TIRE_SORT===k?'#0f172a':'#cbd5e1')+';background:'+(TIRE_SORT===k?'#0f172a':'#fff')+';color:'+(TIRE_SORT===k?'#fff':'#334155')+';border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer">'+l+'</button>').join("")+'</div>';
+  if(list.length&&ok===list.length)html+=CELE_HTML("🎉 全"+list.length+"台 タイヤチェック完了です！おつかれさまでした ✨");
   const no={};list.forEach((v,i)=>no[v.code]=i+1);arcL.forEach(v=>no[v.code]='—');
   const stOf=v=>(TIRE[v.code]&&TIRE[v.code].status)||"未確認";
   const view=TIRE_SORT?list.filter(v=>stOf(v)===TIRE_SORT).concat(list.filter(v=>stOf(v)!==TIRE_SORT)):list;
