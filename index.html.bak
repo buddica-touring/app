@@ -17154,8 +17154,10 @@ function TimeTable({tasks,staffCount}){
 const FLEET_ASSIGNER_BG={system:"#7c3aed",staff:"#dc2626",direct:"#0f766e",unknown:"#6b7280"};
 const FLEET_OTA_SET=new Set(["J","R","O","A","S","RC","G","TBR","たびらい","じゃらん","楽天","エアトリ","スカイチケット","レンタカードットコム","レンタカー.com","GOO"]);
 const fleetOtaTag=(ota)=>FLEET_OTA_SET.has(String(ota==null?"":ota).trim())?"OTA ":"HP ";
-function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenanceChange,vehicles,vehicleClasses,onAddReservation,onBulkAddReservation,onCancelReservation,onDeleteReservation,onReassignVehicle,unassignedReasons,hmReload,onVehiclesChange,onRebuildApplied}){
+function FleetTimeline({data,fleet,onFleetChange,onChangeSchedule,today,maintenance,onMaintenanceChange,vehicles,vehicleClasses,onAddReservation,onBulkAddReservation,onCancelReservation,onDeleteReservation,onReassignVehicle,unassignedReasons,hmReload,onVehiclesChange,onRebuildApplied}){
   const scrollRef=useRef(null);const[tooltip,setTooltip]=useState(null);const[viewMode,setViewMode]=useState("month");const[baseDate,setBaseDate]=useState(today);const[collapsed,setCollapsed]=useState(()=>window.innerWidth<=768?{unassignedAlert:true}:{});const[showMaintForm,setShowMaintForm]=useState(null);const[showResForm,setShowResForm]=useState(null);const[maintSaving,setMaintSaving]=useState(false);
+  const[schedForm,setSchedForm]=useState(null); // ★2026-11-18 配車表から日程変更/延長（成瀬様依頼）{id,lendDate,lendTime,returnDate,returnTime,extra,busy}
+  useEffect(()=>{setSchedForm(null);},[tooltip&&tooltip.id]);
   const[dragInfo,setDragInfo]=useState(null);const[dropTarget,setDropTarget]=useState(null);const dropTargetRef=useRef(null);
   const[brandView,setBrandView]=useState("all"); // ★2026-09-01 配車表 全体/HDM/BT 切替（宣言漏れ修正）
   // ★2026-11-11 組み替えモード（オーナー依頼）: モード中の移動は画面の下書きだけ(DBに書かない)・重なりと「仮置き」列を許す。
@@ -17688,6 +17690,21 @@ function FleetTimeline({data,fleet,onFleetChange,today,maintenance,onMaintenance
             {vehicleClasses.map(cls=><optgroup key={cls.type} label={cls.type+"クラス"}>{vehicles.filter(v=>v.type===cls.type).map(v=><option key={v.code} value={v.code}>{v.name} ({v.no}) {v.seats}名</option>)}</optgroup>)}
           </select>
         </div>
+        {onChangeSchedule&&tooltip.status!=="cancelled"&&(!schedForm?
+          <button onClick={()=>setSchedForm({id:tooltip.id,lendDate:norm(tooltip.lendDate),lendTime:tooltip.lendTime||"",returnDate:norm(tooltip.returnDate),returnTime:tooltip.returnTime||"",extra:"",busy:false})} style={{marginTop:8,width:"100%",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #bfdbfe",borderRadius:6,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer"}}>📅 日程変更・延長</button>
+          :<div style={{marginTop:8,padding:8,border:"1px solid #bfdbfe",borderRadius:6,background:"#f8fafc"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              <label style={{fontSize:10,fontWeight:700}}>貸出日<input type="date" value={schedForm.lendDate} onChange={e=>setSchedForm({...schedForm,lendDate:e.target.value})} className="input-s" style={{width:"100%",marginTop:2}}/></label>
+              <label style={{fontSize:10,fontWeight:700}}>貸出時刻<input type="time" value={schedForm.lendTime} onChange={e=>setSchedForm({...schedForm,lendTime:e.target.value})} className="input-s" style={{width:"100%",marginTop:2}}/></label>
+              <label style={{fontSize:10,fontWeight:700}}>返却日<input type="date" value={schedForm.returnDate} onChange={e=>setSchedForm({...schedForm,returnDate:e.target.value})} className="input-s" style={{width:"100%",marginTop:2}}/></label>
+              <label style={{fontSize:10,fontWeight:700}}>返却時刻<input type="time" value={schedForm.returnTime} onChange={e=>setSchedForm({...schedForm,returnTime:e.target.value})} className="input-s" style={{width:"100%",marginTop:2}}/></label>
+            </div>
+            <label style={{fontSize:10,fontWeight:700,display:"block",marginTop:6}}>追加料金（円・現地決済済みなら会計に登録）<input type="number" value={schedForm.extra} onChange={e=>setSchedForm({...schedForm,extra:e.target.value})} placeholder="なければ空欄" className="input-s" style={{width:"100%",marginTop:2}}/></label>
+            <div style={{display:"flex",gap:6,marginTop:6}}>
+              <button disabled={schedForm.busy} onClick={async()=>{const f=schedForm;setSchedForm({...f,busy:true});const ok=await onChangeSchedule(f);if(ok){setTooltip(null);}else setSchedForm({...f,busy:false});}} style={{flex:1,background:"#2563eb",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:800,padding:"6px 8px",cursor:"pointer",opacity:schedForm.busy?0.6:1}}>{schedForm.busy?"保存中…":"保存"}</button>
+              <button onClick={()=>setSchedForm(null)} style={{background:"#e5e7eb",color:"#374151",border:"none",borderRadius:6,fontSize:11,fontWeight:700,padding:"6px 10px",cursor:"pointer"}}>やめる</button>
+            </div>
+          </div>)}
         <div style={{marginTop:8,display:"flex",gap:6}}>
           {onCancelReservation&&tooltip.status!=="cancelled"&&<button onClick={()=>{
             // ★ 2026-05-11: 誤キャンセル防止 2段階確認（SP-20260507-0004/0005 障害対策）
@@ -23697,6 +23714,32 @@ function App(){
     // ★ 関連タスクをCXLに変更（削除ではなくグレー表示用）
     if(res){try{const _cxl=async(d)=>{if(!d)return;const tks=await DB.fetchTasks(d);if(!tks)return;const updated=tks.map(tk=>tk.reservationId===id?{...tk,type:"CXL",done:true,assignee:"",assignedVehicle:"",plateNo:""}:tk);if(JSON.stringify(updated)!==JSON.stringify(tks))await DB.upsertTasks(updated,d);};const ld=norm(res.lendDate),rd=norm(res.returnDate);await _cxl(ld);if(rd!==ld)await _cxl(rd);await _cxl(dOff(ld,-1));}catch(e){console.error("[cancel task CXL]",e);}}
   },[data]);
+  // ★2026-11-18 配車表から日程変更・延長（成瀬様依頼）。1予約だけ・変えた項目だけ書く／配車中の車と重なれば保存しない／追加料金は会計(bt_accounting)へ1件
+  const changeSchedule=useCallback(async(f)=>{
+    const res=data.find(r=>r.id===f.id);if(!res)return false;
+    if(!f.lendDate||!f.returnDate){alert("貸出日と返却日を入れてください");return false;}
+    if(f.returnDate<f.lendDate||(f.returnDate===f.lendDate&&f.lendTime&&f.returnTime&&f.returnTime<=f.lendTime)){alert("返却が貸出より前になっています。日付・時刻を確認してください");return false;}
+    const vc=fleet[f.id];
+    if(vc){const cf=checkVehicleConflict(vc,f.id,data.map(r=>r.id===f.id?{...r,lendDate:f.lendDate,returnDate:f.returnDate}:r),fleet,maintenance);
+      if(cf){alert("⚠️ "+(cf._isMaint?"入庫予定":"他の予約")+"と重なるため変更できません。\n\n"+fmtD(cf.lendDate)+"〜"+fmtD(cf.returnDate)+" 「"+cf.name+"」"+(cf._isMaint?"":" 様")+"\n\n先に配車を別の車へ移してから変更してください。");return false;}}
+    const ch={};
+    if(f.lendDate!==norm(res.lendDate))ch.lendDate=f.lendDate;
+    if(f.lendTime&&f.lendTime!==res.lendTime)ch.lendTime=f.lendTime;
+    if(f.returnDate!==norm(res.returnDate))ch.returnDate=f.returnDate;
+    if(f.returnTime&&f.returnTime!==res.returnTime)ch.returnTime=f.returnTime;
+    const extra=parseInt(f.extra,10)||0;
+    if(!Object.keys(ch).length&&!extra){alert("変更がありません");return false;}
+    const msg=res.name+" 様\n貸出 "+fmtD(f.lendDate)+" "+(f.lendTime||res.lendTime)+" ／ 返却 "+fmtD(f.returnDate)+" "+(f.returnTime||res.returnTime)+(extra?"\n追加料金 "+extra.toLocaleString()+"円（会計に登録）":"")+"\n\nに変更しますか？（お客様への自動送信はありません）";
+    if(!window.confirm(msg))return false;
+    if(Object.keys(ch).length){
+      await DB.updateReservationField(f.id,ch,"日程変更(配車表)","manual");
+      setData(prev=>prev.map(r=>r.id===f.id?{...r,...ch}:r));
+    }
+    if(extra>0){
+      await DB.saveAccounting({id:"acct_ext_"+f.id+"_"+Date.now(),date:toLD(new Date()),type:"extra_sales",category:"延長料金",subCategory:"",description:"日程変更・延長（配車表）",amount:extra,inputBy:"",memo:"",payMethod:"カード",resvNo:f.id,url:"",paid:true,staffName:"",userName:res.name||"",payee:"",payContent:""});
+    }
+    return true;
+  },[data,fleet,maintenance]);
   // ★ キャンセル復元
   const restoreReservation=useCallback(async(id)=>{
     setData(prev=>prev.map(r=>r.id===id?{...r,status:"confirmed"}:r));
@@ -23764,7 +23807,7 @@ function App(){
         <button onClick={()=>setShowFloatFleet(false)} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",fontSize:12,fontWeight:800,padding:"2px 8px",borderRadius:4,cursor:"pointer"}}>✕</button>
       </div>
       <div style={{flex:1,minWidth:0,overflow:"hidden"}}>
-        <FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} onRebuildApplied={applyRebuildLocal} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>
+        <FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} onChangeSchedule={changeSchedule} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} onRebuildApplied={applyRebuildLocal} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>
       </div>
     </div>;})()}
     <div style={{display:showOP?"none":"flex",flex:1,overflow:"hidden",flexDirection:"column"}}>
@@ -24549,7 +24592,7 @@ function App(){
           {tab==="staff"&&<PASGuard label="スタッフ情報"><StaffManager staff={staff} onStaffChange={setStaffSync} onDeleteStaff={(name)=>DB.deleteStaff(name)}/></PASGuard>}
           {tab==="shift"&&<ShiftCalendar shifts={shifts} onShiftsChange={setShiftsSync} today={today} staff={staff} sbSaveShift={DB.saveShift} reservations={data} fleet={fleet} vehicles={vehicles}/>}
           {tab==="attendance"&&<PASGuard label="給与計算" code="1173"><AttendanceManager shifts={shifts} staff={staff} today={today} attendance={attendance} onAttendanceChange={setAttendance}/></PASGuard>}
-          {tab==="fleet"&&<FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} onRebuildApplied={applyRebuildLocal} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>}
+          {tab==="fleet"&&<FleetTimeline data={data} fleet={fleet} onFleetChange={setFleetSync} onChangeSchedule={changeSchedule} today={today} maintenance={maintenance} onMaintenanceChange={setMaintenance} vehicles={vehicles} vehicleClasses={vehicleClasses} onAddReservation={addReservation} onBulkAddReservation={bulkAddReservation} onCancelReservation={cancelReservation} onDeleteReservation={deleteReservation} onReassignVehicle={reassignVehicle} onRebuildApplied={applyRebuildLocal} unassignedReasons={unassignedReasons} hmReload={hmReload} onVehiclesChange={setVehiclesSync}/>}
           {tab==="vehicle"&&<VehicleTab vehicles={vehicles} onVehiclesChange={setVehiclesSync} vehicleClasses={vehicleClasses} onDeleteVehicle={(code)=>{DB.deleteVehicle(code);/* 車両削除→fleet残留エントリ除去 */const nf={...fleetRefApp.current};let cleaned=false;Object.entries(nf).forEach(([rid,vc])=>{if(vc===code){delete nf[rid];cleaned=true;}});if(cleaned){setFleet(nf);fleetRefApp.current=nf;markLocalChange("fleet");DB.upsertFleet(nf,fleetRefApp.current).catch(e=>console.error("fleet cleanup error:",e));}}} hmCars={hmCars} hmCarData={hmCarData} hmLogs={hmLogs} hmClasses={hmClasses} hmReload={hmReload} maintenance={maintenance} onMaintenanceChange={setMaintenance} data={data} fleet={fleet}/>}
           {tab==="jalanpay"&&<JalanPayment data={data} jalanPay={jalanPay} onJalanPayChange={(id,d)=>{setJalanPay(p=>({...p,[id]:d}));DB.saveJalanPayment(id,d);}}/>}
           {tab==="vehicle_rank"&&<VehicleRankingTab vehicles={vehicles} data={data} fleet={fleet} store="bt" maintenance={maintenance}/>}
@@ -25010,7 +25053,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.600-BT";
+const APP_VERSION="v1.0.601-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
