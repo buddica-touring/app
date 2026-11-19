@@ -98,11 +98,11 @@ window.BTSUM=(function(){
     document.querySelectorAll('#bsM3 [data-ib]').forEach(el=>{const m=D&&D[el.getAttribute('data-ib')],b=el.querySelector('b');
       b.innerHTML=!D?'<span class="bs-m">—</span>':(!m||!m.c)?'<span class="bs-m">予約なし</span>':pct(m.ic,m.c)+' <small>（'+m.ic+'/'+m.c+'件）・売上 '+pct(m.ir,m.r)+'</small>';});
   }
-  // 支出合計・損益（オーナー指示 2026-11-20）＝PLタブと同じ計算（FIN.summary）。支出合計＝売上原価＋販管費合計、損益＝売上−支出合計。財務の数字なのでログインした端末だけ
+  // 支出合計・損益（オーナー指示 2026-11-20）＝PLタブと同じ計算（FIN.summary）。支出合計＝売上原価＋販管費合計、損益＝売上−支出合計。ログインなしでも表示（bt_fin_view）
   async function profit(yms){
     const P=window.FIN?await FIN.summary(yms):null;
     document.querySelectorAll('#bsM3 [data-pl]').forEach(el=>{const m=P&&P[el.getAttribute('data-pl')],f=el.getAttribute('data-f'),b=el.querySelector('b');
-      if(!P){b.innerHTML='<span class="bs-m">ログインした端末で表示</span>';return;}
+      if(!P){b.innerHTML='<span class="bs-m">—</span>';return;}
       const v=m?m[f]:0; b.innerHTML=f==='profit'?'<i style="font-style:normal;color:'+(v<0?'#c0392b':'#15803d')+'">'+(v<0?'−':'+')+yen(Math.abs(v))+'</i>':yen(v);});
   }
   async function show(){
