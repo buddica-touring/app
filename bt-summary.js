@@ -91,6 +91,20 @@ window.BTSUM=(function(){
     f.src=KPI_PAGE+'?embed=1&tab=land&landpost=1&_='+Date.now(); document.body.appendChild(f);
     clearTimeout(landTimer); landTimer=setTimeout(()=>{if(!landMsg||!landMsg.ready)document.querySelectorAll('#bsM3 [data-land] b').forEach(b=>{if(/計算中/.test(b.textContent)&&!landMsg)b.innerHTML='<span class="bs-m">取得できませんでした</span>';});},45000);
   }
+  // インバウンド比率（オーナー確定 2026-11-20「媒体で限定しない・氏名・電話・住所などあらゆる可能性」）＝DB関数 bt_inbound_monthly（件数と金額だけ返す・個人情報なし）
+  //   予約メールが繁体字/韓国語・海外の電話番号・日本人名以外の氏名・海外の住所・国際/外国免許・ガイドを日本語以外で操作 のどれかに当たる予約。返却月・売上の数え方はサマリと同じ
+  async function inbound(){
+    const d=await rpc("bt_inbound_monthly"), D=(d&&d.data)||null;
+    document.querySelectorAll('#bsM3 [data-ib]').forEach(el=>{const m=D&&D[el.getAttribute('data-ib')],b=el.querySelector('b');
+      b.innerHTML=!D?'<span class="bs-m">—</span>':(!m||!m.c)?'<span class="bs-m">予約なし</span>':pct(m.ic,m.c)+' <small>（'+m.ic+'/'+m.c+'件）・売上 '+pct(m.ir,m.r)+'</small>';});
+  }
+  // 支出合計・損益（オーナー指示 2026-11-20）＝PLタブと同じ計算（FIN.summary）。支出合計＝売上原価＋販管費合計、損益＝売上−支出合計。財務の数字なのでログインした端末だけ
+  async function profit(yms){
+    const P=window.FIN?await FIN.summary(yms):null;
+    document.querySelectorAll('#bsM3 [data-pl]').forEach(el=>{const m=P&&P[el.getAttribute('data-pl')],f=el.getAttribute('data-f'),b=el.querySelector('b');
+      if(!P){b.innerHTML='<span class="bs-m">ログインした端末で表示</span>';return;}
+      const v=m?m[f]:0; b.innerHTML=f==='profit'?'<i style="font-style:normal;color:'+(v<0?'#c0392b':'#15803d')+'">'+(v<0?'−':'+')+yen(Math.abs(v))+'</i>':yen(v);});
+  }
   async function show(){
     const body=document.getElementById("sumBody"); if(!body||busy)return; busy=true;
     const ym=ymNow(), yr=ym.slice(0,4), M3=[[ym,'当月'],[addYm(ym,1),'翌月'],[addYm(ym,2),'翌々月']];
@@ -114,8 +128,11 @@ window.BTSUM=(function(){
           +row('設定単価',su?yen(su):'—')
           +row('現在単価',cu==null?'—':yen(cu))
           +row('乖離',gp==null?'—':'<i style="font-style:normal;color:'+(gp<0?'#c0392b':'#15803d')+'">'+(gp<0?'−':'+')+yen(Math.abs(gp))+' <small>（'+(gp<0?'−':'+')+Math.round(Math.abs(gp)/su*100)+'%）</small></i>')
-          +row('稼働台数',(m.nveh||0)+'台')+'</div>';}).join('');
-      landing(T);
+          +row('稼働台数',(m.nveh||0)+'台')
+          +'<div class="bs-r" data-ib="'+k+'"><span>インバウンド比率</span><b><span class="bs-m">計算中…</span></b></div>'
+          +'<div class="bs-r" data-pl="'+k+'" data-f="cost"><span>支出合計</span><b><span class="bs-m">計算中…</span></b></div>'
+          +'<div class="bs-r bs-pf" data-pl="'+k+'" data-f="profit"><span>損益</span><b><span class="bs-m">計算中…</span></b></div></div>';}).join('');
+      landing(T); inbound(); profit(M3.map(x=>x[0]));
       const tr=document.getElementById("bsTr"); tr.innerHTML=trendHtml(o,ym,tr.clientWidth); trendHover(tr.querySelector(".bs-tr"));
       const a={tR:0,aR:0,aRall:0,fR:0,tC:0,aC:0,aCall:0,rd:0,ad:0};
       for(let i=1;i<=12;i++){const k=yr+'-'+String(i).padStart(2,'0');a.tR+=T.revT(k);a.tC+=T.cntT(k);}
