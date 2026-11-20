@@ -147,10 +147,14 @@ window.FIN=(function(){
     ["法定福利費","man"],["福利厚生費","man"],["外注費","mix",["外注費"]],["旅費交通費","mix",["旅費交通費"]],["調査費","man"],["通信費","mix",["通信費"]],
     ["交際費","man"],["会議費","man"],["減価償却費","man"],["地代家賃","mix",["駐車場代"]],["水道光熱費","mix",["水道光熱費"]],["広告宣伝費","mix",["広告宣伝費"]],
     ["消耗品費","mix",["消耗品費"]],["燃料費","mix",["燃料費"]],["支払手数料","auto",["支払手数料"]],["租税公課","mix",["租税公課"]],["諸会費","man"],["新聞図書費","man"],["教育研修費","man"],
-    ["リース料","veh","lease"],["保険料","veh","ins"],["車検","veh","shaken"],["点検","veh","tenken"],
+    ["リース料","veh","lease"],["保険料","veh","ins",["保険料"]],["車検","veh","shaken",["車検費"]],["点検","veh","tenken",["点検費"]],
     ["整備費用","mix",["車両整備費","修理費"]],["雑費","mix",["雑費","その他"]],
     ["販管費合計","calc"],["営業利益","calc"]];
-  const NOT_IN_PL=["車検費","点検費","保険料"];
+  // 会計・カードは全科目を PL に入れる（オーナー指示 2026-11-20「カードコストがPL内に全て格納するのが前提。科目で例外があれば別枠で表示し解消確認できるように」）
+  //   科目→PL行の割当は下の PL 定義から作る。割当のない科目は雑費に入れ、PL の下の「会計・カードの照合」に例外として出す
+  const CAT2PL={}; PL.forEach(([a,k,x,y])=>{if(k==="mix"||(k==="auto"&&a==="支払手数料"))(x||[]).forEach(c=>CAT2PL[c]=a);if(k==="veh")(y||[]).forEach(c=>CAT2PL[c]=a);});
+  const unmapped=D=>Object.keys(D.A).filter(c=>!CAT2PL[c]);
+  const OVERLAP={"車検費":"車検","点検費":"点検","保険料":"保険料"};   // 車両リストの金額と同じ行に入る科目＝二重になっていないか確認する
   // 起算＝2026年10月（オーナー指示 2026-11-20「起算開始を 2026 10月から」）：PL は10月〜翌9月を1期として表示
   const PL_START=2026;
   const pfOf=ym=>Math.max(PL_START,+ym.slice(5)>=10?+ym.slice(0,4):+ym.slice(0,4)-1);
@@ -173,11 +177,12 @@ window.FIN=(function(){
   function vehCost(V,ym){const s={lease:0,ins:0,shaken:0,tenken:0};const k0=Object.keys(V.K).sort()[0];if(!k0||ym<k0)return s;fleetOf(V,ym).forEach(v=>{if(!isAct(V,ym,v.code))return;const p=costParts(v);s.lease+=p.lease;s.ins+=p.ins;s.shaken+=p.shaken;s.tenken+=p.tenken;});return s;}
   // 1か月分の PL（行ごとの値）。サマリの「支出合計・損益」もここから出す（数字を別々に計算しない）
   function plMonth(D,ym){
-    const o={}, auto={}, vc=vehCost(D.V,ym), ac=cs=>(cs||[]).reduce((s,c)=>s+((D.A[c]&&D.A[c][ym]&&D.A[c][ym].all)||0),0), mn=a=>D.MAN[ym+':'+a];
-    PL.forEach(([a,k,x])=>{
+    const o={}, auto={}, vc=vehCost(D.V,ym), mn=a=>D.MAN[ym+':'+a]; let used=0;
+    const ac=cs=>{const v=(cs||[]).reduce((s,c)=>s+((D.A[c]&&D.A[c][ym]&&D.A[c][ym].all)||0),0);used+=v;return v;};
+    PL.forEach(([a,k,x,y])=>{
       if(k==="auto"){o[a]=a==="売上高"?((D.sales[ym]&&D.sales[ym].tot_r)||0):Math.round(D.fee[ym]||0)+ac(x);auto[a]=o[a];}
-      else if(k==="veh"){o[a]=Math.round(vc[x]);auto[a]=o[a];}
-      else if(k==="mix"){auto[a]=ac(x);o[a]=auto[a]+(mn(a)||0);
+      else if(k==="veh"){o[a]=Math.round(vc[x])+ac(y);auto[a]=o[a];}
+      else if(k==="mix"){auto[a]=ac(x)+(a==="雑費"?ac(unmapped(D)):0);o[a]=auto[a]+(mn(a)||0);
         if(a===SAL)salNames(D).forEach(n=>{const v=mn(SAL+"/"+n)||0;o[SAL+"/"+n]=v;o[a]+=v;});}
       else if(k==="man"){o[a]=mn(a)||0;}
     });
@@ -185,7 +190,30 @@ window.FIN=(function(){
     o["販管費合計"]=PL.filter(([a,k])=>k!=="calc"&&a!=="売上高"&&a!=="売上原価").reduce((s,[a])=>s+(o[a]||0),0);
     o["営業利益"]=o["粗利"]-o["販管費合計"];
     o._cost=o["売上原価"]+o["販管費合計"];   // 支出合計＝売上原価＋販管費合計
+    o._acctIn=used; o._acctAll=Object.keys(D.A).reduce((s,c)=>s+((D.A[c][ym]&&D.A[c][ym].all)||0),0);   // 照合：PL に入った会計額／会計・カードの合計（店舗支出と同じ）
     return {o,auto};
+  }
+  // 会計・カードの照合（PL の下）：月ごとに 会計・カード合計＝PL に入った額 か、例外の科目は何か
+  function reconHtml(M,R){
+    const sumM=f=>M.map((m,i)=>f(m,i)), tot=a=>a.reduce((s,v)=>s+v,0), cell=v=>'<td'+(v?'':' class="z"')+'>'+num(v)+'</td>';
+    const all=sumM((m,i)=>R[i].o._acctAll), inn=sumM((m,i)=>R[i].o._acctIn), dif=all.map((v,i)=>v-inn[i]), bad=dif.some(v=>v!==0);
+    const amt=(c,m)=>(PLD.A[c]&&PLD.A[c][m]&&PLD.A[c][m].all)||0;
+    let h='<h4 class="fn-h">🔎 会計・カードの照合 '+(bad?'<span class="fn-st ng">⚠️ 差があります</span>':'<span class="fn-st ok">✅ 全額 PL に入っています</span>')+'</h4>'
+      +'<div class="fn-tw"><table class="fn-t fn-m"><thead><tr><th></th>'+M.map(m=>'<th>'+(+m.slice(5))+'月</th>').join('')+'<th>合計</th></tr></thead><tbody>'
+      +'<tr><th>会計・カード合計（店舗支出と同じ）</th>'+all.map(cell).join('')+'<td class="b">'+num(tot(all))+'</td></tr>'
+      +'<tr><th>PL に入った額</th>'+inn.map(cell).join('')+'<td class="b">'+num(tot(inn))+'</td></tr>'
+      +'<tr class="tot"><th>差</th>'+dif.map(cell).join('')+'<td class="b">'+num(tot(dif))+'</td></tr>';
+    // 例外①：科目の割当がない（雑費に入れた）／例外②：車両リストの金額と同じ行に入る（二重になっていないか確認）
+    const ex=[];
+    unmapped(PLD).forEach(c=>{const v=sumM(m=>amt(c,m));if(tot(v))ex.push(['「'+c+'」→ 雑費に入れました（科目の割当なし）',v]);});
+    Object.keys(OVERLAP).forEach(c=>{const v=sumM(m=>amt(c,m));if(tot(v))ex.push(['「'+c+'」→ '+OVERLAP[c]+'（車両リストの'+OVERLAP[c]+'と二重になっていないか確認）',v]);});
+    ex.forEach(([t,v])=>{h+='<tr class="ex"><th>⚠️ '+esc(t)+'</th>'+v.map(cell).join('')+'<td class="b">'+num(tot(v))+'</td></tr>';});
+    h+='</tbody></table></div>';
+    // 期の外（起算前）の会計・カード
+    let before=0; Object.keys(PLD.A).forEach(c=>Object.keys(PLD.A[c]).forEach(m=>{if(m<PL_START+'-10')before+=PLD.A[c][m].all||0;}));
+    h+='<div class="fn-note">'+(ex.length?'例外の科目は上の ⚠️ の行です。会計の科目を直すか、PL の割当を決めると消えます。':'例外の科目はありません。')
+      +(before&&PL_FY===PL_START?'　起算（2026年10月）より前の会計・カード '+yen(before)+' は PL の期の外です（店舗支出の前の期にも出ません）。':'')+'</div>';
+    return h;
   }
   async function showPL(){
     const body=$("finPL"); if(!body)return;
@@ -194,7 +222,6 @@ window.FIN=(function(){
   }
   function renderPL(){
     const body=$("finPL"); if(PL_FY==null)PL_FY=pfOf(ymNow()); const M=pfMonths(PL_FY), cur=ymNow(), R=M.map(m=>plMonth(PLD,m));
-    const ex=NOT_IN_PL.reduce((s,c)=>s+M.reduce((t,m)=>t+((PLD.A[c]&&PLD.A[c][m]&&PLD.A[c][m].all)||0),0),0);
     let h='<div class="fn-bar">'+pfSel("plFy",PL_FY)+'<button class="btn" id="plReload">🔄 最新に更新</button></div>'
       +'<div class="fn-note"><b class="lg a">自動</b> 売上高＝サマリと同じ（返却月・予約＋予約外）／支払手数料＝OTA手数料（HANDYMAN 18%・BUDDICA 16%）＋会計の支払手数料／リース料・保険料・車検・点検＝車両リストの金額×その月の稼働車　'
       +'<b class="lg m">会計</b> 業務APPの会計（出納帳の出金・カード）を科目ごとに反映。手入力欄に入れた分は上乗せ　<b class="lg w">空欄</b> 手入力（自動にする定義が決まったら順次自動に）</div>';
@@ -213,7 +240,7 @@ window.FIN=(function(){
         h+='<tr class="w sub"><th colspan="14"><input id="salNew" class="fn-sal" maxlength="20" placeholder="枠の名前（例：パート）"> <button class="btn" id="salAdd">＋給与枠</button></th></tr>';
       }});
     h+='</tbody></table></div><div class="fn-note">出所：売上＝bt_mtg_h2（'+esc(PLD.gen||'')+'）・OTA手数料＝bt_ota_brand_split・会計＝bt_accounting・車両＝bt_vehicles×bt_vehicle_monthly_kpi・手入力＝bt_pl_manual。車両の金額は今の登録値で各月を計算します。'
-      +(ex?'<br>⚠️ 会計・カードの「車検費・点検費・保険料」計 '+yen(ex)+' は、車両リストの車検・点検・保険と重なるため PL には足していません（店舗支出タブには出ています）。':'')+'</div>';
+      +'</div>'+reconHtml(M,R);
     body.innerHTML=h;
     $("plFy").onchange=e=>{PL_FY=+e.target.value;renderPL();};
     $("salAdd").onclick=addSal;
