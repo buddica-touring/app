@@ -416,6 +416,8 @@ window._dbErrors = window._dbErrors || [];
 function dbLog(op,ok,detail){
   console.log(`[DB ${ok?"✓":"✗"}] ${op}`,detail||"");
   if(!ok){
+    /* ★2026-11-21 DB の決済ガード（bt_tasks トリガー）が完了を止めた時の案内 */
+    if(/BT_UNPAID/.test(String(detail||""))&&!(window._btUnpaidAt&&Date.now()-window._btUnpaidAt<3000)){window._btUnpaidAt=Date.now();setTimeout(function(){alert("💳 決済が未完了のため、完了にできませんでした。\n先に「決済完了」を押してください。");},0);}
     window._dbErrors.push({op,detail,ts:Date.now()});
     // 直近1時間のエラーのみ保持
     const cutoff=Date.now()-3600*1000;
@@ -25053,7 +25055,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.601-BT";
+const APP_VERSION="v1.0.602-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
@@ -27662,11 +27664,12 @@ async function _btPayGate(_t, sb){
   try{
     if(!(await _btShGate(_t,sb)))return false;
     if(!_t||_t.done||!_t.reservationId||!sb)return true;
-    if(["DEL","貸出","PU","PUB","来店","PUB来店","COL","返却待","BD","BDB","返却"].indexOf(_t.type)<0)return true;
+    if(["DEL","貸出","PU","PUB","来店","PUB来店","COL","返却待","BD","BDB","返却","出発受付","返却受付"].indexOf(_t.type)<0)return true;
     var _r=await sb.from("bt_reservations").select("id,name,ota,payment,paid,price,final_price").eq("id",_t.reservationId).single();
     if(!_r||_r.error||!_r.data)return true; // 読めない時は業務を止めない（距離ガードと同じ）
     var d=_r.data,o=String(d.ota||"");
-    var isJ=o==="J"||o.indexOf("じゃらん")>=0,isSP=o==="SP"||d.payment==="現地決済";
+    var _to=String(_t.ota||"");/* ★2026-11-21 タスク側の OTA も見る（個別URL・DB の止めと同じ条件） */
+    var isJ=o==="J"||o.indexOf("じゃらん")>=0||_to==="J"||_to==="じゃらん",isSP=o==="SP"||_to==="SP"||d.payment==="現地決済";
     if(!(isJ||isSP)||d.paid)return true;
     var a=(Number(d.final_price)>0?Number(d.final_price):Number(d.price||0))||0;
     alert("💳 決済が未完了です"+(a>0?"（¥"+a.toLocaleString()+"）":"")+"。\n先に「決済完了」を押してください。\n決済完了が確認できたらチェックできます。");
