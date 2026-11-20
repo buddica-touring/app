@@ -3,7 +3,7 @@
 // 書く（人が入力した1項目だけ）：bt_vehicles の lease_monthly・insurance_annual・shaken_cost・tenken_cost（配車表の車両マスタと同じ列）／bt_pl_manual の1セル
 // 金額の数字は書き写さない。開くたび・🔄で正本から読み直す。
 // ログインなしで見る（オーナー指示 2026-11-20「ログインなしで見るのが必須」）：車両ダッシュボードと同じ公開キーで閲覧用関数 bt_fin_view から読む（メモ・支払先・入力者は返さない）。
-// 入力（車両の金額・PLの手入力）の保存はログインした端末だけ（RLS）。ログインしていない端末は数字を表示するだけ。
+// 入力（車両の金額・PLの手入力）もログインなしで可（オーナー指示 2026-11-20「入力できない　支出」）：同じ公開キーで書込用関数 bt_fin_set_vehicle_cost／bt_fin_set_manual を呼び、1回に1セルだけ書く（audit_log に残る）。
 window.FIN=(function(){
   const yen=n=>(n<0?'−':'')+'¥'+Math.abs(Math.round(+n||0)).toLocaleString();
   const num=n=>Math.round(+n||0).toLocaleString();
@@ -25,9 +25,8 @@ window.FIN=(function(){
 
   async function session(){try{const {data}=await sb.auth.getSession();return data&&data.session||null;}catch(e){return null;}}
   const VIEW_KEY="tourism-public";   // vehicle-life.js の PUBLIC_KEY と同じ（bt_view_keys name='vehicle_dashboard'）
-  let CAN_EDIT=false;
-  const roNote='<div class="fn-note">✏️ 金額の入力・修正は、業務APPにログインした端末で行えます（この端末は表示のみ）。</div>';
-  async function view(){CAN_EDIT=!!(await session());const {data,error}=await sb.rpc("bt_fin_view",{p_key:VIEW_KEY});if(error)throw error;return data||{};}
+  const CAN_EDIT=true;   // ログインなしでも入力できる（書込は関数側で科目・列・金額の範囲を確認）
+  async function view(){const {data,error}=await sb.rpc("bt_fin_view",{p_key:VIEW_KEY});if(error)throw error;return data||{};}
   async function all(make){let out=[],from=0;for(;;){const {data,error}=await make().range(from,from+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;from+=1000;}return out;}
   const rpc=async(fn)=>{try{const {data,error}=await sb.rpc(fn,{});return error?null:data;}catch(e){return null;}};
 
@@ -85,7 +84,7 @@ window.FIN=(function(){
             +'<td class="b" data-mo="'+esc(v.code)+'">'+yen(m)+'</td><td data-yr="'+esc(v.code)+'">'+yen(m*12)+'</td></tr>';});
       });
       h+='</tbody></table></div>';});
-    body.innerHTML=(CAN_EDIT?'':roNote)+h;
+    body.innerHTML=h;
   }
   // 1台の1項目だけ書く（他の列・他の車は送らない）
   document.addEventListener("change",async ev=>{
@@ -94,10 +93,10 @@ window.FIN=(function(){
     const v=FV&&FV.vs.find(x=>x.code===code); if(!v)return;
     if((+v[col]||0)===n){el.value=n?num(n):"";return;}
     el.disabled=true;
-    const {data,error}=await sb.from("bt_vehicles").update({[col]:n}).eq("code",code).select("code,"+col);
+    const {data,error}=await sb.rpc("bt_fin_set_vehicle_cost",{p_key:VIEW_KEY,p_code:code,p_col:col,p_amount:n});
     el.disabled=false;
-    if(error||!data||!data.length){el.classList.add("ng");setStatus("保存できませんでした："+((error&&error.message)||"権限がありません"));el.value=+v[col]?num(v[col]):"";return;}
-    v[col]=data[0][col]; el.classList.remove("ng"); el.classList.add("ok"); setTimeout(()=>el.classList.remove("ok"),1200);
+    if(error||!data||data.amount==null){el.classList.add("ng");setStatus("保存できませんでした："+((error&&error.message)||"権限がありません"));el.value=+v[col]?num(v[col]):"";return;}
+    v[col]=+data.amount; el.classList.remove("ng"); el.classList.add("ok"); setTimeout(()=>el.classList.remove("ok"),1200);
     el.value=+v[col]?num(v[col]):"";
     const m=monthlyOf(v); const mo=document.querySelector('[data-mo="'+CSS.escape(code)+'"]'),yr=document.querySelector('[data-yr="'+CSS.escape(code)+'"]');
     if(mo)mo.textContent=yen(m); if(yr)yr.textContent=yen(m*12);
@@ -201,7 +200,7 @@ window.FIN=(function(){
       h+='<td class="b'+(tot<0?' neg':'')+'">'+(tot<0?'('+num(-tot)+')':num(tot))+'</td></tr>';});
     h+='</tbody></table></div><div class="fn-note">出所：売上＝bt_mtg_h2（'+esc(PLD.gen||'')+'）・OTA手数料＝bt_ota_brand_split・会計＝bt_accounting・車両＝bt_vehicles×bt_vehicle_monthly_kpi・手入力＝bt_pl_manual。車両の金額は今の登録値で各月を計算します。'
       +(ex?'<br>⚠️ 会計・カードの「車検費・点検費・保険料」計 '+yen(ex)+' は、車両リストの車検・点検・保険と重なるため PL には足していません（店舗支出タブには出ています）。':'')+'</div>';
-    body.innerHTML=(CAN_EDIT?'':roNote)+h;
+    body.innerHTML=h;
     $("plFy").onchange=e=>{PL_FY=+e.target.value;renderPL();};
     $("plReload").onclick=showPL;
   }
@@ -210,11 +209,11 @@ window.FIN=(function(){
     const el=ev.target; if(!el.matches||!el.matches("#finPL .fn-in.pl"))return;
     const ym=el.dataset.ym, ac=el.dataset.ac, id=ym+':'+ac, raw=el.value.replace(/[^\d-]/g,""), n=raw===""||raw==="-"?null:parseInt(raw,10);
     const old=PLD.MAN[id]; if((old==null&&n==null)||old===n){el.value=n==null?"":num(n);return;}
-    const s=await session(); el.disabled=true;
-    const {data,error}=await sb.from("bt_pl_manual").upsert({id,ym,account:ac,amount:n,updated_by:(s&&s.user&&s.user.email)||null,updated_at:new Date().toISOString()},{onConflict:"id"}).select("id,amount");
+    el.disabled=true;
+    const {data,error}=await sb.rpc("bt_fin_set_manual",{p_key:VIEW_KEY,p_ym:ym,p_account:ac,p_amount:n});
     el.disabled=false;
-    if(error||!data||!data.length){el.classList.add("ng");setStatus("保存できませんでした："+((error&&error.message)||"権限がありません"));el.value=old==null?"":num(old);return;}
-    if(data[0].amount==null)delete PLD.MAN[id]; else PLD.MAN[id]=+data[0].amount;
+    if(error||!data||data.id!==id){el.classList.add("ng");setStatus("保存できませんでした："+((error&&error.message)||"権限がありません"));el.value=old==null?"":num(old);return;}
+    if(data.amount==null)delete PLD.MAN[id]; else PLD.MAN[id]=+data.amount;
     const sx=window.scrollX,sy=window.scrollY,sl=(document.querySelector("#finPL .fn-tw")||{}).scrollLeft||0;
     renderPL(); const tw=document.querySelector("#finPL .fn-tw"); if(tw)tw.scrollLeft=sl; window.scrollTo(sx,sy);
     setStatus("保存しました："+(+ym.slice(5))+"月 "+ac);
