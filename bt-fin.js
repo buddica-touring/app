@@ -111,7 +111,7 @@ window.FIN=(function(){
   async function loadAcct(){return (await view()).acct||[];}
   // rows＝bt_fin_view の acct（月×種類×科目の合計：ym・type・category・amount・n）
   function acctAgg(rows){const A={};rows.forEach(r=>{const ym=String(r.ym||"").slice(0,7),c=catOf(r.category);if(!ym)return;const a=(A[c]=A[c]||{});const x=(a[ym]=a[ym]||{all:0,card:0,cash:0});x.all+=+r.amount||0;x[r.type==="card_pay"?"card":"cash"]+=+r.amount||0;});return A;}
-  let SP_FY=null;
+  let SP_FY=null;   // 店舗支出も PL と同じ 2026年10月起算・10月〜翌9月（オーナー指示 2026-11-20「店舗支出も10月起算に」）
   async function showSpend(){
     const body=$("finSpend"); if(!body)return;
     body.innerHTML='<div class="fn-empty">読み込み中…</div>';
@@ -119,11 +119,11 @@ window.FIN=(function(){
   }
   function fySel(id,fy){const now=fyOf(ymNow());let o='';for(let y=2026;y<=now+1;y++)o+='<option value="'+y+'"'+(y===fy?' selected':'')+'>'+y+'年度（'+y+'年4月〜'+(y+1)+'年3月）</option>';return '<select class="fn-fy" id="'+id+'">'+o+'</select>';}
   function renderSpend(rows){
-    const body=$("finSpend"); if(SP_FY==null)SP_FY=fyOf(ymNow()); const M=fyMonths(SP_FY), A=acctAgg(rows), cur=ymNow();
+    const body=$("finSpend"); if(SP_FY==null)SP_FY=pfOf(ymNow()); const M=pfMonths(SP_FY), A=acctAgg(rows), cur=ymNow();
     const cats=ACCT_ORDER.filter(c=>A[c]).concat(Object.keys(A).filter(c=>!ACCT_ORDER.includes(c)));
     const cell=(c,m,k)=>(A[c]&&A[c][m]&&A[c][m][k])||0;
     const colTot=(m,k)=>cats.reduce((s,c)=>s+cell(c,m,k),0);
-    let h='<div class="fn-bar">'+fySel("spFy",SP_FY)+'<button class="btn" id="spReload">🔄 最新に更新</button></div>'
+    let h='<div class="fn-bar">'+pfSel("spFy",SP_FY)+'<button class="btn" id="spReload">🔄 最新に更新</button></div>'
       +'<div class="fn-note">業務APPの「会計」の出納帳（出金）と「カード」を、勘定科目ごと・月ごとに合計しています（日付の月で集計）。入力・修正は業務APPの会計で行ってください。</div>';
     h+='<div class="fn-tw"><table class="fn-t fn-m"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+(+m.slice(5))+'月</th>').join('')+'<th>合計</th></tr></thead><tbody>';
     if(!cats.length)h+='<tr><td colspan="14" class="fn-empty">この年度の支出はまだありません</td></tr>';
