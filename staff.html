@@ -74,6 +74,19 @@ a.myp.hdm{background:#0369a1}
 .err button{margin-top:10px;background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-size:14px}
 .ver{text-align:center;color:#94a3b8;font-size:10px;margin-top:16px}
 .note{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;border-radius:10px;padding:9px 11px;margin-bottom:12px}
+/* ★2026-11-20 日付の横並び・種類の絞り込み（札幌 staff.html と同じ土台） */
+.tfilt{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
+.tfbtn{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;font-weight:800;cursor:pointer}
+.tfbtn.on{background:#1e40af;border-color:#1e40af;color:#fff}
+.tfbtn .tfc{font-size:11px;font-weight:800;background:#e2e8f0;color:#1d4ed8;border-radius:8px;padding:0 6px}
+.tfbtn.on .tfc{background:rgba(255,255,255,.25);color:#fff}
+.dsel{display:flex;gap:7px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch}
+.dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px;padding:8px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-size:15px;font-weight:900;cursor:pointer;line-height:1.1}
+.dchip.on{background:#1e3a8a;border-color:#1e3a8a;color:#fff}
+.dchip .dwd{font-size:10px;font-weight:700;color:#64748b}
+.dchip.on .dwd{color:#c7d2fe}
+.dchip .dcnt{font-size:11px;font-weight:800;background:#dbeafe;color:#1d4ed8;border-radius:8px;padding:0 7px;margin-top:2px}
+.dchip.on .dcnt{background:rgba(255,255,255,.25);color:#fff}
 </style></head>
 <body>
 <style>@keyframes tbBlink{0%,100%{box-shadow:0 0 0 0 rgba(34,211,238,0)}50%{box-shadow:0 0 16px 2px rgba(34,211,238,.9)}}.tbBlinkBtn{animation:tbBlink 1.1s ease-in-out infinite;box-shadow:0 4px 14px rgba(8,145,178,.35)}</style>
@@ -83,7 +96,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v2.22-bt";
+var VER="staff-v3.0-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -132,7 +145,9 @@ function groupByDate(list,cardFn,today){var by={},order=[];list.forEach(function
 /* ★2026-10-17 命名規則統一(オーナー確定・本体APP legTypeLabel/washCat と同一)：貸出(不明)/来店/PU ・ 返却(不明)/返却/BD ・ 洗車/当洗/事洗/返洗/内洗/外洗 */
 function typeLabel(t,nm){if(t==="PU"||t==="PUB")return"PU";if(t==="BD"||t==="BDB")return"BD";if(t==="来店"||t==="PUB来店")return"来店";if(t==="返却")return"返却";if(t==="DEL"||t==="貸出")return"貸出(不明)";if(t==="COL"||t==="返却待")return"返却(不明)";if(t==="返却後洗車")return"返洗";if(t==="洗車"){var n=String(nm||"").trim();var mp=[["当日洗車","当洗"],["事前洗車","事洗"],["返却洗車","返洗"],["返却後洗車","返洗"],["内装洗車","内洗"],["外装洗車","外洗"]];for(var i=0;i<mp.length;i++){if(n.indexOf(mp[i][0])===0)return mp[i][1];}var old=["出発/フル","緊急洗車","引渡前洗車","内装メンテ/美装","外装メンテ/美装"];for(var j=0;j<old.length;j++){if(n.indexOf(old[j])===0)return old[j];}if(n.indexOf("無稼働")>=0)return"無稼働洗車";return"洗車";}return t||"";}
 /* ★2026-10-10 HDM(楽天/じゃらん/スカイ/HANDYMAN公式・予約番号HDMT)は HANDYMAN マイページ my-tkm.html へ（本体APP custPageUrl と同じ判定）。BUDDICA は guide/。旧=全件 guide/ で HDM が「読み込みに失敗」 */
-function _mypIsHdm(x){var o=String(x.ota==null?"":x.ota);var ou=o.toUpperCase();return o.indexOf("じゃらん")>=0||o.indexOf("楽天")>=0||o.indexOf("スカイチケット")>=0||ou.indexOf("SKY")>=0||ou.indexOf("HANDYMAN")>=0||/^HDMT/i.test(String(x.resv||""));}
+/* ★2026-11-20 依頼者「重要は対象予約のブランド別認識」：ブランドは予約の brand（bt_reservations.brand＝正本・サーバーが返す）で決める。届かない古い応答の時だけ OTA で判定 */
+function brandHdm(x){if(x&&x.brand)return x.brand==='HDM';return isHdmS(x&&x.ota)||/^HDMT/i.test(String((x&&x.resv)||""));}
+function _mypIsHdm(x){if(x&&x.brand)return x.brand==='HDM';var o=String(x.ota==null?"":x.ota);var ou=o.toUpperCase();return o.indexOf("じゃらん")>=0||o.indexOf("楽天")>=0||o.indexOf("スカイチケット")>=0||ou.indexOf("SKY")>=0||ou.indexOf("HANDYMAN")>=0||/^HDMT/i.test(String(x.resv||""));}
 function mypLink(x){if(!x.mypage)return '';var u=_mypIsHdm(x)?('https://nosh2318.github.io/spk-task/my-tkm.html?t='+encodeURIComponent(x.mypage)+'&staff=1'):('guide/?t='+encodeURIComponent(x.mypage)+'&staff=1');var h=_mypIsHdm(x);return h?('<a class="myp hdm" href="'+u+'" target="_blank" rel="noopener" title="HANDYMAN のお客様マイページ">📄 マイページ</a>'):('<a class="myp" href="'+u+'" target="_blank" rel="noopener" title="BUDDICA のお客様ご利用ガイド">📄 ご利用ガイド</a>');}
 
 function otaAbbrS(o){var m={"HANDYMAN":"HDM","じゃらん":"JLN","楽天":"RKT","エアトリ":"ART","スカイチケット":"SKT","レンタカードットコム":"RDC","レンタカー.com":"RDC","オフィシャル":"BDC","たびらい":"TBR","J":"JLN","R":"RKT","O":"ART","A":"ART","S":"SKT","RC":"RDC","HP":"BDC","direct":"直接","DIRECT":"直接"};var k=String(o==null?"":o).trim();if(!k)return "";return m[k]||k;}
@@ -146,7 +161,7 @@ function fltRow(x){
   var f=String(x.flight||"").split(/[\/／]/)[0].trim(), pt=String(x.pu_time||"").trim();
   var fl=f?('<a href="https://www.google.com/search?q='+encodeURIComponent(f+" フライト 運航状況")+'" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:800;text-decoration:underline">✈ '+esc(f)+'</a>'):'<span style="color:#b91c1c;font-weight:800">✈ 便 未登録</span>';
   var tx=pt?('お迎え時間 '+esc(pt)+'（お客様登録）'):(f?'お迎え時間 未登録 → 便の到着に合わせてお迎え':'お迎え時間・便 未登録 → 当日お客様に確認');
-  return '<div class="r2" style="margin-top:4px;font-size:13px">'+fl+' <span style="color:'+(pt?'#166534':'#92400e')+';font-weight:700">'+tx+'</span></div>';
+  return '<div class="r2b" style="margin-top:4px;font-size:13px">'+fl+' <span style="color:'+(pt?'#166534':'#92400e')+';font-weight:700">'+tx+'</span></div>';
 }
 function taskCard(x){
   var t=x.type||"";
@@ -161,9 +176,9 @@ function taskCard(x){
   var jpay='';
   var _pamt=Number(x.price)||0; var _pas=_pamt>0?(' ¥'+_pamt.toLocaleString()):'';
   var _isJ=(x.ota==='じゃらん'); var _isSP=(x.ota==='SP'||x.payment==='現地決済');
-  if(_isJ&&x.pay_url){ jpay = x.paid ? '<span class="jpay ok" title="じゃらん事前決済 入金済み">💳入金済</span>' : '<a class="jpay no" href="'+esc(x.pay_url)+'" target="_blank" rel="noopener" title="じゃらん事前決済 未決済（クリックで決済リンク）">💳未決済'+_pas+'</a>'; }
+  if(_isJ&&x.pay_url){ jpay = x.paid ? '<span class="jpay ok" title="じゃらん事前決済 入金済み">💳入金済</span>' : '<a class="jpay no pk" href="'+esc(x.pay_url)+'" target="_blank" rel="noopener" title="じゃらん事前決済 未決済（クリックで決済リンク）">💳未決済'+_pas+'</a>'; }
   else if((x.ota==='楽天'||x.ota==='R')&&!_isSP){ jpay='<span class="jpay ok" title="楽天：オンラインカード決済（楽天が事前に徴収済み）">💳決済</span>'; } // ★2026-11-10 楽天は必ず表示（札幌・那覇と同じ）
-  else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no jtap" title="タップで現地決済を完了にする" onclick="saPay(\''+esc(x.resv||'')+'\','+_pamt+',\''+esc((x.customer||'').replace(/\x27/g,''))+'\')">💳未決済'+_pas+'</span>'; }
+  else if(_isJ||_isSP){ jpay = x.paid ? '<span class="jpay ok" title="決済 入金済み">💳入金済</span>' : '<span class="jpay no pk jtap" title="タップで現地決済を完了にする" onclick="saPay(\''+esc(x.resv||'')+'\','+_pamt+',\''+esc((x.customer||'').replace(/\x27/g,''))+'\')">💳未決済'+_pas+'</span>'; }
   var chk='';
   if(x.resv&&(t==='DEL'||t==='PU'||t==='PUB'||t==='来店'||t==='PUB来店'||t==='貸出'||t==='出発受付')){/* ★2026-11-16 出発受付にも免許/約款/傷 */
     var _L=LIC_MAP[x.resv]||null, _lok=!!(x.lic||(_L&&_L.c>0)), _cu=saCustUrl(x);
@@ -180,7 +195,7 @@ function taskCard(x){
     if(+(x.opt_c||0)>0)op.push('<span style="'+os+';background:#dbeafe;color:#1e40af">CS×'+(+x.opt_c)+'</span>');
     if(+(x.opt_j||0)>0)op.push('<span style="'+os+';background:#e0e7ff;color:#4338ca">JS×'+(+x.opt_j)+'</span>');
     if(+(x.opt_usb||0)>0)op.push('<span style="'+os+';background:#dcfce7;color:#166534">🔌×'+(+x.opt_usb)+'</span>');
-    if(op.length)opStr='<div class="r2" style="margin-top:5px">'+op.join('')+'</div>';
+    if(op.length)opStr='<div class="r2b" style="margin-top:5px">'+op.join('')+'</div>';
   }
   /* 📏 距離登録（洗車=出発 / 返却=返却）— メインAPPのOdoSubと同等。予約に紐づくもののみ */
   var odoRow='';
@@ -204,15 +219,15 @@ function taskCard(x){
   }
   btns+='</div>';
   if(saFuture(x.date)){var _fd=esc(String(x.date||"").slice(0,10));btns=btns.replace(/onclick="(?!shvChange|return saInspOpen|saHandover)/g,'data-fut="1" onclick="saFut(\''+_fd+'\');return false;');}
-  var _hx=isHdmS(x.ota)&&t!=='洗車'&&t!=='返却後洗車';
-  return '<div class="card '+esc(t)+(isHdmS(x.ota)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'" data-tid="'+esc(x._id||"")+'">'
+  var _hx=brandHdm(x)&&t!=='洗車'&&t!=='返却後洗車';
+  return '<div class="card '+esc(t)+(brandHdm(x)?' hdm':'')+(_hx?' hdmx':'')+(x.done?' done':'')+'" data-tid="'+esc(x._id||"")+'">'
     +(_hx?'<div class="hdmrib" title="HANDYMAN予約 — 送迎プラカード・問い合わせ対応・支払いツールが異なるため要注意">HANDYMAN 予約</div>':'')
     +'<div class="r1"><span class="badge '+esc(t)+'">'+esc(typeLabel(t,x.customer))+'</span>'
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+(tid?'<span class="tchg" data-tid="'+tid+'"></span>':'')+'</div>'
     +fltRow(x)
     +opStr
-    +(chk?'<div class="r2" style="margin-top:5px">'+chk+'</div>':'')+btns+(x.done||!window.okqSupBtn?'':window.okqSupBtn(x,typeLabel(t),tm,x.vehicle?(x.vehicle+plate):'',x.place||''))+'</div>';
+    +(chk?'<div class="r2b" style="margin-top:5px">'+chk+'</div>':'')+btns+(x.done||!window.okqSupBtn?'':window.okqSupBtn(x,typeLabel(t),tm,x.vehicle?(x.vehicle+plate):'',x.place||''))+'</div>';
 }
 /* ★2026-11-08 送迎（PU/BD）ボタン：那覇と同じ設計（3店統一）。
    押した記録は bt_tasks.sa_log（全スタッフ画面・OP・タスクサマリー・マイページに同じ時刻で出る）。
@@ -441,9 +456,9 @@ function saIsWash(t){return t==='洗車';}
 function saIsRet(t){return ['COL','BD','BDB','返却','返却待'].indexOf(t)>=0;}
 function ymShift(ym,delta){var p=(ym||jstToday().slice(0,7)).split("-");var y=+p[0],m=+p[1]-1+delta;var d=new Date(Date.UTC(y,m,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
 window.openHistory=function(ym){
-  MODE="history";
+  MODE="history";STAB="history";
   ym=ym||jstToday().slice(0,7);
-  app.innerHTML='<div class="loading"><div class="spin"></div>対応履歴を読み込み中…</div>';
+  shell('<div class="loading"><div class="spin"></div>対応履歴を読み込み中…</div>');  /* メニューの色を「履歴」に */
   fetch(SB+"/rest/v1/rpc/bt_staff_history",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_ym:ym})})
     .then(function(r){return r.json();})
     .then(function(d){ if(!d||d.ok===false){showErr("履歴の読み込みに失敗しました");return;} renderHistory(d); })
@@ -452,10 +467,7 @@ window.openHistory=function(ym){
 function renderHistory(d){
   var ym=d.ym||jstToday().slice(0,7);var tk=(d.tasks||[]);
   var name=String(d.staff||"").replace(/\s*さん\s*$/,"");
-  var h='<div class="hero" style="background:linear-gradient(135deg,#7c2d12,#b45309)"><div class="brand">対応履歴（給与の基礎）</div>'
-    +'<div class="name">'+esc(name)+' さん</div></div>';
-  h+='<div class="wrap">';
-  h+='<button class="parkbtn" onclick="load()">← タスクに戻る</button>';
+  var h='<div class="sechd">対応履歴（給与の基礎）</div>';  /* ★2026-11-20 上部・メニューは常設の枠（札幌と同じ） */
   h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0">'
     +'<button class="abtn" style="background:#e2e8f0;color:#334155" onclick="openHistory(\''+ymShift(ym,-1)+'\')">‹ 前月</button>'
     +'<div style="flex:1;text-align:center;font-weight:800;font-size:16px">'+ym.replace("-","年")+'月</div>'
@@ -467,13 +479,12 @@ function renderHistory(d){
   h+='<div class="sechd">✅ 完了したタスク<span class="cnt">'+tk.length+'件</span></div>';
   if(!tk.length){h+='<div class="empty">この月の完了タスクはありません</div>';}
   else{h+=tk.map(function(x){
-    return '<div class="card '+esc(x.type)+'"><div class="r1"><span class="badge '+esc(x.type)+'">'+esc(typeLabel(x.type,x.customer))+'</span>'
+    return '<div class="card '+esc(x.type)+' done hist"><div class="r1"><span class="badge '+esc(x.type)+'">'+esc(typeLabel(x.type,x.customer))+'</span>'
       +'<span style="font-size:12px;color:#64748b;font-weight:700">'+shortDate(x.date)+(x.time?" "+esc(x.time):"")+'</span>'
       +(x.customer?'<span class="cust">'+esc(x.customer)+'</span>':'')+'</div>'
       +(x.vehicle?'<div class="r2"><span class="veh">🚗 '+esc(x.vehicle)+(x.plate?" "+esc(x.plate):"")+'</span></div>':'')+'</div>';
   }).join("");}
-  h+='<div class="ver">'+VER+'</div></div>';
-  app.innerHTML=h;
+  setContent(h);
 }
 function saCelebrate(){try{var el=document.createElement("div");el.className="sa-pop";el.innerHTML='<span class="ic">✅</span><span>お疲れ様 Good Job !!!</span><span class="ic">🎉</span>';document.body.appendChild(el);setTimeout(function(){el.remove();},1650);}catch(e){}}
 /* 📏 距離登録（洗車=出発 / 返却=返却）— サーバRPC経由でbt_reservationsに記録 */
@@ -553,44 +564,69 @@ window.saDone=function(tid,_inspOk){
 };
 
 var STAB="today";var LASTD=null;var MODE="tasks";
+/* ★2026-11-20 依頼者「BUDDICAの個別URLをHDMと同じ基本設計・デザインに（色調・ロゴはそのまま／足りない機能・データ連携はそのまま）」：
+   札幌 staff.html（HDM）と同じ骨組み＝①上部（ロゴ・店の帯・名前・件数）②リンク3つを1段 ③大きなメニューボタン ④日付を横に並べて選ぶ ⑤種類で絞り込む ⑥行をタップで開く。
+   ボタンの中身・送信先・判定（完了の決済ガード・送迎ボタン等）は今のまま。BUDDICA に無い機能（打刻画面・駐車場・小口現金・依頼・スキップ・給与明細・チャット）は足さない。 */
+var TFILT="all";
+var SDATE="";
+window.setSDate=function(d){SDATE=d;if(LASTD)setContent(tasksContent(LASTD));};
+function _tcat(t){if(['DEL','PU','PUB','来店','PUB来店','貸出','出発受付'].indexOf(t)>=0)return "L";if(['COL','BD','BDB','返却','返却待','返却受付'].indexOf(t)>=0)return "R";if(t==="洗車"||t==="返却後洗車")return "W";return "other";}
+function _applyTFilt(list){return TFILT==="all"?list:list.filter(function(x){return _tcat(x.type)===TFILT;});}
+function _tfiltBar(list){var fc=function(id){return id==="all"?list.length:list.filter(function(x){return _tcat(x.type)===id;}).length;};var b=function(id,label){return '<button class="tfbtn'+(TFILT===id?" on":"")+'" onclick="setTFilt(\''+id+'\')">'+label+'<span class="tfc">'+fc(id)+'</span></button>';};return '<div class="tfilt">'+b("all","すべて")+b("L","貸出")+b("R","返却")+b("W","洗車")+b("other","その他")+'</div>';}
+window.setTFilt=function(f){TFILT=f;if(LASTD)setContent(tasksContent(LASTD));};
 window.setTab=function(tab){
   if(tab==="history"){ openHistory(""); return; }
   if(tab==="shift"){ openShift(""); return; }
   STAB=tab;if(LASTD)render(LASTD);
 };
-function render(d){
-  MODE="tasks";
-  LASTD=d;
+/* 中身だけ差し替える（上部・メニューはそのまま） */
+function setContent(html){var c=document.getElementById("content");if(c)c.innerHTML=html;else shell(html);}
+var BT_TIC={"today":'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg>',"shift":'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',"history":'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'};
+/* 常設の枠：上部＋リンク＋お知らせ欄＋メニュー＋#content */
+function shell(contentHtml){
+  var d=LASTD||{};
   var today=jstToday();
   var tk=(d.tasks||[]);
   var tdy=tk.filter(function(x){return x.date===today;});
   var fut=tk.filter(function(x){return x.date>today;});
   var name=esc(String(d.staff||"").replace(/\s*さん\s*$/,""));
-  var h='<div class="hero"><div class="brand">BUDDICA TOURISM 高松空港店</div>'
-    +'<div class="name">'+name+' さん</div>'
+  var h='<div class="hero"><img class="hero-logo" src="guide/bc-brand.png?v=2" alt="BUDDICA TOURISM"><div class="hero-stores"><span>那覇店</span><span>札幌店</span><span>高松店</span><span class="on">BUDDICA高松店</span></div><div class="brand">BUDDICA TOURISM 高松空港店</div>'
+    +'<div class="name-row"><div class="name">'+(name||"スタッフ")+' さん</div></div>'
     +'<div class="sub">本日 '+tdy.length+'件 ／ 未来 '+fut.length+'件</div></div>';
-  function tab(id,label,cnt){return '<button class="tab'+(STAB===id?" on":"")+'" onclick="setTab(\''+id+'\')">'+label+(cnt!=null?'<span class="tb">'+cnt+'</span>':'')+'</button>';}
-  h+='<a href="https://nosh2318.github.io/spk-task/company3d.html" target="_blank" rel="noopener" class="tbBlinkBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#0e7490,#0891b2);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #22d3ee;">📊 リアルタイム/チーム状況 <span style="font-weight:700;font-size:12px;opacity:.9;">（3Dバーチャル本社）</span></a>';
-  h+='<a href="https://rent-handyman.com/official-data-protection.html" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#334155,#475569);color:#fff;font-weight:900;font-size:15px;text-decoration:none;border:2px solid #94a3b8;">🔐 個人情報・セキュリティの統一回答 <span style="font-weight:700;font-size:12px;opacity:.9;">（お客様に聞かれたらこれを見せる→閉じるで戻る）</span></a>';
-  h+='<a href="https://nosh2318.github.io/spk-task/staff-guide.html?only=1#tkm" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 6px;padding:14px 16px;border-radius:14px;background:#FABE00;color:#002063;font-weight:900;font-size:15px;text-decoration:none">📘 スタッフ操作マニュアル</a>'; // ★2026-11-11 nosh「操作マニュアルに店舗別に」：ステップ説明書（高松）
+  h+='<div class="c-links"><a class="y" href="https://nosh2318.github.io/spk-task/staff-guide.html?only=1#tkm" target="_blank" rel="noopener">スタッフ操作<br>マニュアル</a><a href="https://nosh2318.github.io/spk-task/company3d.html" target="_blank" rel="noopener">リアルタイム<br>チーム状況</a><a href="https://rent-handyman.com/official-data-protection.html" target="_blank">個人情報の<br>統一回答</a></div>'; // ★2026-11-11 nosh「操作マニュアルに店舗別に」：ステップ説明書（高松）
   h+='<div id="punchFirst"></div><div id="tkPunch"></div><div id="pressChk"></div><div id="taskChk"></div><div id="mpReq"></div><div id="pushBar"></div>'; // ★2026-11-11 お客様からの通知（那覇・札幌と同じ）
-  h+='<div class="tabs">'
-    +tab("today","📋本日",tdy.length)
-    +tab("future","🗓未来",fut.length)
-    +tab("shift","🗓出勤簿")
-    +tab("history","📋履歴")
-    +'</div>';
-  h+='<div class="wrap">';
-  if(STAB==="future"){
-    h+='<div class="sechd">🗓 未来の担当タスク（本日以外）<span class="cnt">'+fut.length+'件</span></div>';
-    h+= fut.length?groupByDate(fut,taskCard,today):'<div class="empty">本日以外の担当タスクはありません</div>';
-  }else{
-    h+='<div class="note">OPシートで担当・時間が変わると、この画面も自動で最新になります（30秒ごと）。</div>';
-    h+='<div class="sechd">📋 本日 <span style="color:#94a3b8;font-weight:600;font-size:12px">'+shortDate(today)+'</span><span class="cnt">'+tdy.length+'件</span></div>';
-    h+= tdy.length?tdy.map(taskCard).join(""):'<div class="empty">本日の担当タスクはありません</div>';
-  }
-  h+='<div class="ver">'+VER+'</div></div>';
+  function tab(id,label,cnt){return '<button class="tab'+(STAB===id?" on":"")+'" onclick="setTab(\''+id+'\')">'+(BT_TIC[id]||"")+label+(cnt!=null?'<span class="tb">'+cnt+'</span>':'')+'</button>';}
+  h+='<div class="tabs-wrap"><div class="tabs tabs-main">'
+    +tab("today","タスク",tk.filter(function(x){return x.date>=today&&!x.done;}).length)
+    +tab("shift","出勤簿")
+    +tab("history","履歴")
+    +'</div></div>';
+  h+='<div class="wrap"><div id="content">'+contentHtml+'</div><div class="ver">'+VER+'</div></div>';
   app.innerHTML=h;
+}
+/* タスク：本日以降の日付を横に並べて選ぶ→その日のタスクだけ。種類で絞り込み（札幌と同じ） */
+function tasksContent(d){
+  var today=jstToday();
+  var tk=(d.tasks||[]);
+  var cnt={},order=[];
+  tk.forEach(function(x){ if(x.date>=today){ if(cnt[x.date]==null){cnt[x.date]=0;order.push(x.date);} cnt[x.date]++; } });
+  order.sort();
+  var sd=(SDATE&&cnt[SDATE]!=null)?SDATE:(cnt[today]!=null?today:(order[0]||today));
+  var h='<div class="dsel">'+order.map(function(dd){
+    var on=(dd===sd); var lb=(dd===today?'本日':(dd===addDays(today,1)?'明日':shortDate(dd)));
+    return '<button class="dchip'+(on?' on':'')+'" onclick="setSDate(\''+dd+'\')">'+lb+'<span class="dwd">'+jpWd(dd)+'</span><span class="dcnt">'+cnt[dd]+'</span></button>';
+  }).join('')+'</div>';
+  var dayTasks=tk.filter(function(x){return x.date===sd;});
+  h+='<div class="sechd">'+shortDate(sd)+'（'+jpWd(sd)+'）'+(sd===today?' <span class="sd-today">本日</span>':'')+'<span class="cnt">'+dayTasks.length+'件</span></div>';
+  h+=_tfiltBar(dayTasks);
+  var _shown=_applyTFilt(dayTasks).slice().sort(_timeSort);
+  h+= _shown.length?_shown.map(taskCard).join(""):'<div class="empty">'+(dayTasks.length?'この種類のタスクはありません':'この日の担当タスクはありません')+'</div>';
+  return h;
+}
+function render(d){
+  MODE="tasks";STAB="today";
+  LASTD=d;
+  shell(tasksContent(d));
 }
 
 function showErr(msg){
@@ -601,9 +637,9 @@ function showErr(msg){
 var SHSYM={'●':{l:'出勤',c:'#2563eb',bg:'#D4EBFA'},'公':{l:'公休',c:'#64748b',bg:'#E8E8E8'},'希':{l:'希望休',c:'#b45309',bg:'#FFF3CD'},'有':{l:'有休',c:'#15803d',bg:'#dcfce7'},'出':{l:'出張',c:'#6d28d9',bg:'#ede9fe'},'欠':{l:'欠勤',c:'#dc2626',bg:'#fee2e2'}}; /* ★2026-10-19 本体出勤簿のステータス「欠勤」＝symbol欠 */
 var SHDATA=null;
 window.openShift=function(ym){
-  MODE="shift";
+  MODE="shift";STAB="shift";
   ym=ym||jstToday().slice(0,7);
-  app.innerHTML='<div class="loading"><div class="spin"></div>出勤簿を読み込み中…</div>';
+  shell('<div class="loading"><div class="spin"></div>出勤簿を読み込み中…</div>');  /* メニューの色を「出勤簿」に */
   fetch(SB+"/rest/v1/rpc/bt_staff_shifts",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_ym:ym})})
     .then(function(r){return r.json();})
     .then(function(d){ if(!d||d.ok===false){showErr("出勤簿の読み込みに失敗しました");return;} MODE="shift"; SHDATA=d; renderShift(d); })
@@ -661,10 +697,7 @@ function renderShift(d){
   var first=new Date(yy,mm-1,1),ndays=new Date(yy,mm,0).getDate(),off=first.getDay();
   var work=(d.shifts||[]).filter(function(s){return s.symbol==='●'||(!s.symbol&&s.start);}).length;
   var wish=(d.shifts||[]).filter(function(s){return s.symbol==='希';}).length;
-  var h='<div class="hero" style="background:linear-gradient(135deg,#0f172a,#059669)"><div class="brand">🗓 出勤簿</div>'
-    +'<div class="name">'+name+' さん</div></div>';
-  h+='<div class="wrap">';
-  h+='<button class="parkbtn" onclick="load()">← タスクに戻る</button>';
+  var h='<div class="sechd">出勤簿</div>';  /* ★2026-11-20 上部・メニューは常設の枠（札幌と同じ） */
   h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0">'
     +'<button class="abtn" style="background:#e2e8f0;color:#334155" onclick="openShift(\''+ymShift(ym,-1)+'\')">‹ 前月</button>'
     +'<div style="flex:1;text-align:center;font-weight:800;font-size:16px">'+ym.replace("-","年")+'月</div>'
@@ -701,8 +734,7 @@ function renderShift(d){
   h+='<div style="margin-top:12px;display:flex;gap:8px;text-align:center">'
     +'<div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px"><div style="font-size:11px;color:#1d4ed8;font-weight:700">出勤予定</div><div style="font-size:22px;font-weight:900;color:#1d4ed8">'+work+'<span style="font-size:12px">日</span></div></div>'
     +'<div style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px"><div style="font-size:11px;color:#b45309;font-weight:700">希望休</div><div style="font-size:22px;font-weight:900;color:#b45309">'+wish+'<span style="font-size:12px">日</span></div></div></div>';
-  h+='<div class="ver">'+VER+'</div></div>';
-  app.innerHTML=h;
+  setContent(h);
 }
 
 function load(){
@@ -1233,4 +1265,323 @@ document.addEventListener("visibilitychange",function(){if(!document.hidden&&MOD
   },true);
 })();
 </script>
+<!-- ===== ★2026-11-20 依頼者「BUDDICAの個別URLをHDMと同じ基本設計・デザインに（色調・ロゴはそのまま）」：札幌 staff.html の見た目層（C案・A案・行の開閉・線のアイコン）を写し、色だけ BUDDICA（黒・オレンジ）に。種類の色は高松の決まり（貸出=緑／返却=赤／洗車=黄・2026-10-17 オーナー確定）のまま ===== -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style id="bdc-theme-c">
+body{font-family:"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;background:#F4F5F7;color:#14181F;font-size:16px}
+.hero{background:#1c1c1f !important;padding:14px 16px 12px;box-shadow:none;border-bottom:4px solid #ee6a1c}
+.hero .brand{font-size:13px;opacity:.85;letter-spacing:0}
+.hero-logo{display:block;height:24px;width:auto;margin:0 0 10px}
+.hero-stores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0 0 12px;padding:6px;background:#121214;border-radius:999px}
+.hero-stores span{min-height:30px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:999px;color:rgba(255,255,255,.45);font-size:11px;line-height:1.2;padding:0 2px;white-space:nowrap;letter-spacing:-.02em}
+.hero-pay .hp-row{display:flex;gap:6px;margin-top:12px}
+.hero-pay .hp-box{flex:1 1 0;min-width:0;background:rgba(255,255,255,.08);border-radius:12px;padding:8px 6px;text-align:center}
+.hero-pay .hp-y{background:#ee6a1c;color:#1c1c1f}
+.hero-pay .hp-l{font-size:11px;opacity:.85;white-space:nowrap}
+.hero-pay .hp-v{font-size:22px;font-weight:700;line-height:1.2}
+.hero-pay .hp-v small{font-size:12px;font-weight:700;margin:0 1px}
+.hero-pay .hp-y .hp-l{white-space:normal;line-height:1.25;font-size:10px}
+.hero-pay .hp-note{font-size:11px;opacity:.75;margin-top:6px;line-height:1.5}
+.hero-stores span.on{background:#ee6a1c;color:#1c1c1f;font-weight:700;animation:bdcPulse 1.6s ease-in-out infinite}
+@keyframes bdcPulse{0%,100%{box-shadow:0 0 0 0 rgba(238,106,28,.9);opacity:1}50%{box-shadow:0 0 0 6px rgba(238,106,28,0);opacity:.75}}
+.hero .name{font-size:24px;font-weight:700}
+.hero .sub{font-size:14px;opacity:.9}
+.manualbtn{background:#ee6a1c !important;border:none !important;color:#1c1c1f !important;font-weight:700 !important;font-size:16px !important;min-height:48px;border-radius:12px !important}
+.c-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px 0}
+.c-links a{min-height:48px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:12px;border:1px solid #C9CED6;background:#fff;color:#1c1c1f;font-size:15px;font-weight:700;text-decoration:none;padding:4px 8px;line-height:1.3}
+.c-links a.y{background:#ee6a1c;border-color:#ee6a1c;grid-column:1/-1}
+.tabs{background:#fff;gap:0;padding:0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid #E3E6EA}
+.tab{background:transparent !important;border-radius:0;color:#5A6270;font-size:16px;font-weight:700;padding:14px 12px 10px;border-bottom:4px solid transparent}
+.tab.on{color:#1c1c1f;border-bottom-color:#ee6a1c}
+/* 2026-11-07 メニュー整理（札幌・那覇共通）：毎日使う4つを大きなボタン、ときどき使うものを下の段に。押すと今と同じ画面が開く */
+.tabs-wrap{position:sticky;top:0;z-index:6;background:#fff;border-bottom:1px solid #E3E6EA;padding:10px 8px 0}
+.tabs-wrap .tabs{position:static;border:0;background:transparent;overflow:visible;padding:0}
+.tabs-main{display:flex;gap:6px;flex-wrap:nowrap}
+.tabs-main .tab{flex:1 1 0;min-width:0}
+.tabs-main .tab{position:relative;flex-direction:column;justify-content:center;gap:4px;min-height:68px;padding:8px 2px !important;border:1px solid #C9CED6 !important;border-radius:12px !important;font-size:13px !important;color:#1c1c1f !important;background:#fff !important}
+.tabs-main .tab.on{background:#1c1c1f !important;color:#fff !important;border-color:#1c1c1f !important;box-shadow:inset 0 -4px 0 #ee6a1c}
+.tabs-main .tab .tb{position:absolute;top:4px;right:4px;margin:0}
+.tabs-sub{display:flex;justify-content:space-around;flex-wrap:nowrap}
+.tabs-sub .tab{font-size:14px !important;padding:12px 4px 8px !important;flex:1 1 0;justify-content:center}
+.tabs-sub .tab svg{display:none}
+/* リンク3つは1段にまとめる */
+.c-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.c-links a{font-size:13px;min-height:44px;padding:4px 4px}
+.c-links a.y{grid-column:auto}
+.tab .tb{font-size:12px;background:#FDEEE4;color:#1c1c1f}
+.tab.on .tb{background:#1c1c1f;color:#fff}
+.tab .tb.alert{background:#C0392B;color:#fff}
+.wrap{padding:12px}
+.card{border-radius:16px;padding:14px;box-shadow:none;border-left:6px solid #5A6270;margin-bottom:12px}
+.card.DEL,.card.PU,.card.PUB,.card.来店,.card.PUB来店{border-left-color:#1c1c1f}
+.card.COL,.card.BD,.card.BDB,.card.返却,.card.乗捨回収{border-left-color:#B45309}
+.card.洗車{border-left-color:#1E7B4F}
+.card.req{border-left-color:#ee6a1c;background:#fff}
+.badge{border-radius:8px;font-size:15px;font-weight:700;padding:4px 10px;background:#5A6270}
+.badge.DEL,.badge.PU,.badge.PUB,.badge.来店{background:#1c1c1f}
+.badge.COL,.badge.BD,.badge.BDB,.badge.返却{background:#B45309}
+.badge.洗車{background:#1E7B4F}
+.tm{font-size:26px;font-weight:700}
+.cust{font-size:18px;font-weight:700}
+.r1{gap:10px}
+.r2{gap:10px;margin-top:8px}
+.veh{background:transparent;border:none;color:#1c1c1f;font-size:17px;font-weight:700;padding:0}
+.veh.nov{background:#FBEBEB;color:#C0392B;padding:3px 10px;border-radius:8px}
+a.place,.place{color:#1c1c1f;font-size:16px;font-weight:700}
+.r2b{gap:6px;margin-top:8px}
+.ib{font-size:14px;font-weight:700;padding:4px 10px;border-radius:8px;border:none !important}
+.ib.opt{background:#FDF3E7;color:#8A4B0A}
+.ib.ins,.ib.fl,.ib.ppl{background:#FDEEE4;color:#1c1c1f}
+.licok,.licng{font-size:14px;font-weight:700;border:none;padding:4px 10px;border-radius:8px}
+.licok{background:#E5F4E4;color:#1E7B4F}
+.licng{background:#C0392B;color:#fff}
+a.myp{background:#fff;color:#1c1c1f;border:1px solid #C9CED6;font-size:14px;font-weight:700;padding:8px 12px;border-radius:10px}
+.r3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.abtn{min-height:56px;font-family:inherit;font-size:16px;font-weight:700;border-radius:12px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fff;color:#3A414D;border:1px solid #C9CED6;line-height:1.2;text-align:center}
+.abtn svg{flex-shrink:0}
+.abtn.dep,.abtn.col{background:#1c1c1f;color:#fff;border:none}
+.abtn.arr,.abtn.drp,.abtn.car{background:#fff;color:#1c1c1f;border:2px solid #1c1c1f}
+.abtn.dly{background:#fff;color:#B45309;border:2px solid #B45309}
+.abtn.lic{background:#fff;color:#3A414D;border:1px solid #C9CED6}
+.abtn.done{background:#ee6a1c;color:#1c1c1f;border:none;margin-left:0}
+.abtn.acted{background:#E5F4E4 !important;color:#1E7B4F !important;border:2px solid #1E7B4F !important}
+.abtn.appr{background:#ee6a1c;color:#1c1c1f;grid-column:1/-1;font-size:17px}
+.abtn.skip{grid-column:1/-1;min-height:48px;font-size:15px}
+.spotsw{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr}
+.spotsw .abtn{border-radius:0}
+.dayhd{background:#fff;color:#14181F;font-size:18px;font-weight:700;border-radius:12px;padding:10px 14px}
+.dayhd .ttag{background:#1c1c1f;font-size:12px}
+.sechd{font-size:18px;font-weight:700}
+.sechd .cnt{font-size:15px}
+.note{background:#FDEEE4;border:none;color:#1c1c1f;font-size:15px;border-radius:12px}
+.tmemo{font-size:15px;font-weight:500;background:#F4F5F7;border:none;border-left:none;border-radius:10px;color:#14181F}
+.vcaution{font-size:15px}
+.dchip{min-height:56px;font-size:16px}
+.dchip.on{background:#1c1c1f;border-color:#1c1c1f}
+.dchip .dwd{font-size:12px}
+.dchip .dcnt{font-size:12px;background:#FDEEE4;color:#1c1c1f}
+.tfbtn{min-height:44px;font-size:15px;border-radius:999px}
+.tfbtn.on{background:#1c1c1f;border-color:#1c1c1f}
+.mv-banner{background:#FDEEE4 !important;color:#1c1c1f;box-shadow:none;animation:none}
+.mv-banner::after{display:none}
+.mv-banner .mv-ic,.mv-banner .mv-chevron{animation:none;filter:none}
+.mv-banner .mv-nm{text-shadow:none}
+.mv-sel{font-size:16px;min-height:48px}
+.empty{font-size:16px}
+.ver{color:#7A818C;font-size:11px}
+.pc-btn{box-shadow:none}
+.pc-btn.in{background:#1c1c1f}
+.pc-btn.out{background:#B45309}
+.pc-btn.bs{background:#7c2d12}
+.pc-btn.be{background:#5A6270}
+.reload-fab{background:#1c1c1f !important;font-family:inherit}
+.reload-fab .ic{display:none}
+
+/* 2026-11-07 スマホ最適化：上部は固定しない（メニューだけ固定）・名前の横に日数・カードを詰める */
+.hero{position:static !important;padding:10px 14px 10px}
+.hero-logo{height:20px;margin:0 0 8px}
+.hero-stores{margin:0 0 8px;padding:4px}
+.hero-stores span{min-height:24px;font-size:10px}
+.hero .brand{display:none}
+.name-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px}
+.hero .name{font-size:20px;line-height:1.3;margin-right:2px}
+.hero .sub{font-size:12px;margin-top:2px}
+.hero-pay{display:contents}
+.hero-pay .hp-i{display:inline-flex;align-items:baseline;gap:3px;background:rgba(255,255,255,.12);border-radius:999px;padding:3px 10px;font-size:12px;white-space:nowrap}
+.hero-pay .hp-i b{font-size:16px;font-weight:700}
+.hero-pay .hp-y{background:#ee6a1c;color:#1c1c1f}
+.hero-pay .hp-note{flex-basis:100%;font-size:10px;opacity:.7;line-height:1.4}
+.tabs-wrap{padding:6px 6px 0}
+.tabs-main{gap:4px}
+.tabs-main .tab{flex-direction:row !important;min-height:42px !important;gap:4px !important;padding:4px 2px !important;font-size:13px !important;border-radius:10px !important}
+.tabs-main .tab svg{width:18px;height:18px;flex-shrink:0}
+.tabs-main .tab .tb{top:-6px !important;right:-2px !important;transform:scale(.85)}
+.tabs-sub .tab{font-size:13px !important;padding:7px 4px 6px !important}
+.dayhd{position:static !important}
+.card{padding:10px 12px;margin-bottom:8px}
+.card .r1{gap:6px 8px;flex-wrap:wrap;align-items:center}
+.tm{font-size:22px !important}
+.cust{font-size:16px !important}
+a.myp{font-size:12px !important;padding:4px 9px !important;border-radius:8px !important}
+.card .r2{margin-top:4px}
+.card .r2b{margin-top:4px}
+.ib{font-size:12px !important;padding:3px 8px !important}
+.abtn{flex-direction:row !important;gap:5px !important;min-height:42px !important;font-size:14px !important;border-radius:10px !important}
+.abtn svg{width:17px;height:17px;flex-shrink:0}
+.c-links{gap:6px !important;padding:6px 8px 0 !important}
+.c-links a{min-height:34px !important;font-size:11px !important;line-height:1.25 !important;padding:3px 4px !important;border-radius:10px !important}
+</style>
+<style id="bdc-theme-a">
+/* 2026-11-07 A案の見た目：タスクは一覧の行（左に時刻と種類）、最初の未完了を「今やること」として強調。ボタンと押し方は今のまま */
+.card{position:relative;background:#fff;border:none !important;border-left:none !important;border-radius:0 !important;margin:0 !important;padding:12px 12px 12px 74px !important;border-bottom:1px solid #EEF0F3 !important;box-shadow:none !important}
+:not(.card)+.card{border-top-left-radius:16px !important;border-top-right-radius:16px !important;margin-top:4px !important}
+.card:not(:has(+.card)){border-bottom-left-radius:16px !important;border-bottom-right-radius:16px !important;border-bottom:none !important;margin-bottom:12px !important}
+.card .r1{gap:4px 8px}
+.card .tm{position:absolute;left:14px;top:11px;font-size:17px !important;font-weight:700;line-height:1.2}
+.card .badge{position:absolute;left:14px;top:14px;background:none !important;padding:0 !important;font-size:11px !important;font-weight:700;color:#5A6270}
+.card .badge:has(+.tm){top:36px}
+.card .badge.DEL,.card .badge.PU,.card .badge.PUB,.card .badge.来店{color:#1c1c1f}
+.card .badge.COL,.card .badge.BD,.card .badge.BDB,.card .badge.返却{color:#B45309}
+.card .badge.洗車{color:#1E7B4F}
+.card .cust{font-size:15px !important;font-weight:700;line-height:1.35}
+.card a.myp{margin-left:auto;font-size:11px !important;padding:3px 8px !important;border-radius:999px !important}
+.card .r2{margin-top:2px !important;gap:6px}
+.card .veh{font-size:13px !important;font-weight:500 !important;color:#5A6270 !important}
+.card .veh.nov{color:#C0392B !important;background:none !important;padding:0 !important}
+.card .r2b{margin-top:4px !important;gap:4px}
+.card .ib{font-size:11px !important;padding:2px 7px !important;border-radius:6px !important}
+.card .r3{display:flex !important;flex-wrap:wrap;gap:6px !important;margin-top:8px !important}
+.card .r3 .abtn{flex:0 0 auto;min-height:34px !important;padding:4px 12px !important;font-size:13px !important;border-radius:999px !important}
+.card .r3 .abtn svg{width:15px;height:15px}
+.card.done{opacity:.55}
+/* 今やること＝最初の未完了 */
+.card:not(.done){background:#fff}
+.card:not(.done):not(.card:not(.done) ~ .card){border:2px solid #1c1c1f !important;border-radius:16px !important;margin:6px 0 12px !important;padding-top:34px !important}
+.card:not(.done):not(.card:not(.done) ~ .card)::before{content:"今やること";position:absolute;left:14px;top:10px;font-size:12px;font-weight:700;color:#1c1c1f}
+.card:not(.done):not(.card:not(.done) ~ .card) .tm{top:32px}
+.card:not(.done):not(.card:not(.done) ~ .card) .badge{top:35px}
+.card:not(.done):not(.card:not(.done) ~ .card) .badge:has(+.tm){top:57px}
+.card:not(.done):not(.card:not(.done) ~ .card) .r3 .abtn{flex:1 1 0;min-height:44px !important;border-radius:12px !important;font-size:14px !important}
+.card:not(.done):not(.card:not(.done) ~ .card)+.card{border-top-left-radius:16px !important;border-top-right-radius:16px !important}
+.sechd{font-size:15px !important;margin:12px 2px 6px !important}
+.dayhd{font-size:13px !important;background:none !important;padding:4px 2px !important;margin:10px 0 4px !important;color:#5A6270 !important}
+/* 2026-11-07 ボタンを同じ幅のマス目に・赤札/住所/移動手段/小口のお知らせを小さく */
+.card{padding-left:66px !important}
+.card .tm{left:12px !important;font-size:16px !important}
+.card .badge{left:12px !important}
+.card .r3{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px !important}
+.card .r3 .abtn{min-height:38px !important;padding:3px 4px !important;font-size:13px !important;border-radius:10px !important;white-space:nowrap}
+.card .r3 .spotsw{grid-column:span 2;display:grid !important;grid-template-columns:1fr 1fr;gap:0}
+.card .r3 .spotsw .abtn{border-radius:0 !important}
+.card .r3 .spotsw .abtn:first-child{border-radius:10px 0 0 10px !important}
+.card .r3 .spotsw .abtn:last-child{border-radius:0 10px 10px 0 !important}
+.card .licok,.card .licng{font-size:11px !important;padding:2px 8px !important;border-radius:999px !important}
+.card a.place,.card .place{font-size:13px !important;font-weight:500 !important}
+.card .mv-edit{margin:6px 0 0 !important}
+.card .mv-sel{min-height:36px !important;font-size:13px !important;padding:6px 10px !important;border-radius:10px !important}
+.card .r3 .abtn.col svg{display:none}
+#pettyBanner{position:static !important;font-size:12px !important;padding:7px 12px !important;border-width:1px !important;margin:6px 8px !important;animation:none !important}
+</style>
+<style id="bdc-theme-fold">
+.card .r2b{display:flex;flex-wrap:wrap;align-items:center;gap:4px !important}
+.card .r2b>span{font-size:12px !important;font-weight:700 !important;padding:3px 9px !important;border-radius:999px !important;margin:0 !important;border:none !important;line-height:1.4}
+/* 2026-11-07 一覧は「時間・種類・車両」だけ。行をタップで詳細とボタンを開く（今やること は最初から開く） */
+.card{cursor:pointer;display:flex;flex-direction:column}
+.card>.r1{order:2}.card>.r2{order:1}.card>*{order:3}
+.card .r2 .veh{font-size:16px !important;font-weight:700 !important;color:#14181F !important}
+.card:not(.open) .r1 .cust{font-size:12px !important;font-weight:500 !important;color:#5A6270}
+.card:not(.open) .r1>:not(.badge):not(.tm):not(.cust):not(.pk){display:none !important}
+.card:not(.open)>:not(.r1):not(.r2):not(.vcaution):not(.r3):not(.hdmrib){display:none !important}
+.card:not(.open) .r3{display:block !important;position:absolute;right:12px;top:50%;transform:translateY(-50%);margin:0 !important}
+.card:not(.open) .r3>*:not(.done){display:none !important}
+.card:not(.open) .r3 .abtn.done{min-height:40px !important;min-width:84px;padding:4px 12px !important;border-radius:10px !important}
+.card:not(.open):has(.r3 .abtn.done){padding-right:110px !important}
+.card:not(.open):has(.r3 .abtn.done)::after{display:none}
+.card:not(.open) .r2 a.place,.card:not(.open) .r2 .place{font-size:12px !important;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card:not(.open){padding-top:10px !important;padding-bottom:10px !important;min-height:58px}
+.card:not(.open)::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:2px solid #9AA1AC;border-bottom:2px solid #9AA1AC;transform:translateY(-50%) rotate(-45deg)}
+.card.open::after{content:"";position:absolute;right:14px;top:18px;width:8px;height:8px;border-right:2px solid #9AA1AC;border-bottom:2px solid #9AA1AC;transform:rotate(45deg)}
+.card.open .r1 a.myp{margin-right:18px}
+/* タップできると分かるように「詳細」札と押した時の色 */
+.card:not(.open)::after,.card.open::after{display:none !important}
+.card .r1::after{content:"詳細 ▼";display:inline-flex;align-items:center;margin-left:6px;padding:2px 9px;border:1.5px solid #1c1c1f;border-radius:999px;font-size:11px;font-weight:700;color:#1c1c1f;background:#fff;line-height:1.5;white-space:nowrap}
+.card.open .r1::after{content:"閉じる ▲";border-color:#C9CED6;color:#5A6270}
+.card:active{background:#EEF1F6 !important}
+/* 種類（DEL・COLなど）を色付きの札で大きく */
+.card .badge{background:#5A6270 !important;color:#fff !important;font-size:13px !important;font-weight:700 !important;padding:2px 7px !important;border-radius:6px !important;line-height:1.4;max-width:52px;text-align:center;overflow:hidden;white-space:nowrap}
+.card .badge.DEL,.card .badge.PU,.card .badge.PUB,.card .badge.来店{background:#1c1c1f !important}
+.card .badge.COL,.card .badge.BD,.card .badge.BDB,.card .badge.返却,.card .badge.乗捨回収{background:#B45309 !important}
+.card .badge.洗車{background:#1E7B4F !important}
+.card .badge:has(+.tm){top:38px !important}
+.card:not(.done):not(.card:not(.done) ~ .card) .badge:has(+.tm){top:60px !important}
+/* 開いた時は 車両／場所／お客様／状態 を段で分ける */
+.card.open .r2{display:flex !important;flex-direction:column;align-items:flex-start;gap:0}
+.card.open .r2 .place{display:block;width:100%;margin-top:8px;padding-top:6px;border-top:1px solid #E6E9EE;white-space:normal;font-size:14px !important}
+.card.open .r2 .place::before{content:"場所";display:inline-block;width:100%;font-size:11px;font-weight:600;color:#5A6270;text-decoration:none}
+.card.open .r1{display:flex !important;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid #E6E9EE}
+.card.open .r1::before{content:"お客様";flex-basis:100%;font-size:11px;font-weight:600;color:#5A6270;line-height:1.2}
+.card.open .r1 .cust{font-size:16px !important;font-weight:700 !important}
+.card.open .r1::after{margin-left:auto !important}
+.card.open .r2b{margin-top:8px !important;padding-top:8px;border-top:1px solid #E6E9EE}
+.card.open .r2b+*,.card.open .r3{margin-top:10px !important}
+.card .r2 .place.nopl,.card .r2 span.place.nopl{color:#C0392B !important;font-weight:700 !important;text-decoration:none !important}
+/* 2026-11-07 タスクごとに薄い枠（カードを1件ずつ分ける） */
+.card{border:1px solid #DDE2EA !important;border-radius:12px !important;margin:0 0 8px !important;box-shadow:0 1px 2px rgba(28,28,31,.05) !important}
+.card:not(.done):not(.card:not(.done) ~ .card){border:2px solid #1c1c1f !important}
+</style>
+<script>
+/* 行タップで開閉。30秒ごとの再描画でも開いた行を覚えておく */
+(function(){
+  var OPEN={};
+  function key(c){var a=c.querySelector(".r1"),b=c.querySelector(".r2");return (a?a.textContent:"")+"|"+(b?b.textContent:"");}
+  function first(c){var cs=document.querySelectorAll("#app .card:not(.done)");return cs.length&&cs[0]===c;}
+  function apply(){var cs=document.querySelectorAll("#app .card");for(var i=0;i<cs.length;i++){var c=cs[i],k=key(c);if(OPEN[k]===undefined?first(c):OPEN[k])c.classList.add("open");else c.classList.remove("open");}}
+  document.addEventListener("click",function(e){var c=e.target.closest&&e.target.closest("#app .card");if(!c)return;if(e.target.closest("button,a,select,input,textarea,label,.spotsw"))return;var k=key(c);OPEN[k]=!c.classList.contains("open");c.classList.toggle("open");},true);
+  function start(){var a=document.getElementById("app");if(!a)return;apply();new MutationObserver(function(){apply();}).observe(a,{childList:true,subtree:true});}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
+})();
+</script>
+
+<script>
+/* C案：ボタン・タブの絵文字を絵（線のアイコン）に置き換える。文字は今と同じ。描画のたびに未処理の要素だけ処理 */
+(function(){
+  var P={go:'<path d="M5 12h13M13 6l6 6-6 6"/>',pin:'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',key:'<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>',card:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>',note:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/>',check:'<path d="M4 12l5 5L20 6"/>',tool:'<path d="M14 6a4 4 0 0 0 5 5l-9 9-3-3 9-9"/>',tire:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',hand:'<path d="M7 11V6a1.5 1.5 0 0 1 3 0v5M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4.5a1.5 1.5 0 0 1 2.6-1.5L7 13"/>'};
+  var M=[["回収に向かう","go"],["出発","go"],["到着","pin"],["遅延","clock"],["乗捨","key"],["免許","card"],["引継","note"],["完了","check"],["点検","tool"],["タイヤ","tire"],["承認","hand"]];
+  var EMO=/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2460}-\u{2712}\u{2714}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+  function strip(el){for(var n=el.firstChild;n;n=n.nextSibling){if(n.nodeType===3){var t=n.nodeValue.replace(EMO,"");if(t!==n.nodeValue)n.nodeValue=t.replace(/^\s+/,"");}}}
+  function run(root){
+    try{
+      var bs=root.querySelectorAll(".abtn:not([data-ic]),.manualbtn:not([data-ic]),.ib:not([data-ic]),.licok:not([data-ic]),.licng:not([data-ic]),a.myp:not([data-ic]),.veh:not([data-ic]),a.place:not([data-ic]),.tab:not([data-ic]),.tfbtn:not([data-ic]),.dayhd:not([data-ic]),.sechd:not([data-ic])");
+      for(var i=0;i<bs.length;i++){var b=bs[i];b.setAttribute("data-ic","1");strip(b);
+        if(b.classList.contains("abtn")){var tx=b.textContent||"",k=null;for(var j=0;j<M.length;j++){if(tx.indexOf(M[j][0])>=0){k=M[j][1];break;}}
+          if(k){b.insertAdjacentHTML("afterbegin",'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[k]+'</svg>');}}}
+    }catch(e){}
+  }
+  function start(){var a=document.getElementById("app");if(!a)return;run(a);new MutationObserver(function(){run(a);}).observe(a,{childList:true,subtree:true});}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
+})();
+</script>
+<style id="bdc-theme-bt">
+/* 上部：BUDDICA の黒〜茶のグラデーション＋オレンジの線（ロゴは BUDDICA のまま） */
+.hero{background:linear-gradient(120deg,#121214 0%,#1c1c1f 60%,#241a12 100%) !important;border-bottom:4px solid #ee6a1c}
+.hero-logo{height:16px !important}
+.hero-stores span.on{color:#fff}
+.c-links a.y{color:#fff}
+.tabs-main .tab{color:#1c1c1f !important}
+.tabs-main .tab.on{color:#fff !important}
+.tab .tb{color:#9a3412}
+.dchip .dcnt{color:#9a3412}
+.tfbtn .tfc{color:#9a3412}
+.sechd .sd-today{color:#ee6a1c;font-size:12px;font-weight:800}
+.abtn.done{color:#fff}
+#pushBar .pb.off{border-color:#ee6a1c}
+/* 種類の色（高松の決まり）：貸出=緑／返却=赤／洗車=黄 */
+.card .badge.DEL,.card .badge.PU,.card .badge.PUB,.card .badge.来店,.card .badge.PUB来店,.card .badge.貸出,.card .badge.出発受付{background:#16a34a !important;color:#fff !important}
+.card .badge.COL,.card .badge.BD,.card .badge.BDB,.card .badge.返却,.card .badge.返却待,.card .badge.返却受付{background:#dc2626 !important;color:#fff !important}
+.card .badge.洗車,.card .badge.返却後洗車{background:#facc15 !important;color:#422006 !important}
+.card .badge{max-width:58px !important;white-space:normal !important;font-size:11px !important;line-height:1.25 !important;padding:2px 4px !important}
+/* HANDYMAN 予約：紺の太枠＋上の帯（2026-10-14 オーナー確定）を、行を閉じていても必ず出す */
+.card.hdm{background:#eef2ff !important}
+.card.hdmx{border:2px solid #1e3a8a !important}
+.card.hdmx:not(.done):not(.card:not(.done) ~ .card){border:3px solid #1e3a8a !important}
+.card.hdmx .hdmrib{position:absolute;left:0;right:0;top:0;margin:0 !important;border-radius:10px 10px 0 0;padding:2px 12px;font-size:11px;line-height:16px;height:20px;z-index:1}
+.card.hdmx{padding-top:30px !important}
+.card.hdmx .tm{top:31px !important}
+.card.hdmx .badge:has(+.tm){top:58px !important}
+.card.hdmx:not(.done):not(.card:not(.done) ~ .card){padding-top:54px !important}
+.card.hdmx:not(.done):not(.card:not(.done) ~ .card)::before{top:30px !important}
+.card.hdmx:not(.done):not(.card:not(.done) ~ .card) .tm{top:52px !important}
+.card.hdmx:not(.done):not(.card:not(.done) ~ .card) .badge:has(+.tm){top:80px !important}
+/* 決済：未決済は行を閉じていても名前の横に出す */
+.card .jpay{font-size:11px !important;padding:2px 7px !important;border-radius:999px !important;margin-left:0 !important}
+.card:not(.open) .r1>.jpay.pk{display:inline-block !important}
+/* お客様ページのボタン：BUDDICA=ご利用ガイド 茶／HANDYMAN=マイページ 青（2026-10-10 確定の色分けを残す） */
+.card a.myp:not(.hdm){background:#7c2d12 !important;color:#fff !important;border-color:#7c2d12 !important}
+.card a.myp.hdm{background:#0369a1 !important;color:#fff !important;border-color:#0369a1 !important}
+/* 履歴は完了済みの一覧：「今やること」は付けず、薄くもしない */
+.card.done.hist{opacity:1}
+/* 免許・約款・傷の札 */
+.card .chk{font-size:11px !important;padding:2px 8px !important;border-radius:999px !important;margin-left:0 !important}
+</style>
+
 </body></html>
