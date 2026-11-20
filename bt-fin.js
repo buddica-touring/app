@@ -222,7 +222,7 @@ window.FIN=(function(){
   async function addSal(){
     const el=$("salNew"), n=(el&&el.value||"").trim();
     if(!n)return;
-    if(!/^[^\/:\u0000-\u001f\u007f]{1,20}$/.test(n)){setStatus("枠の名前に / や : は使えません（20文字まで）");return;}
+    if(!/^[0-9A-Za-zぁ-んァ-ヶー一-鿿々〆・（）()＿_０-９Ａ-Ｚａ-ｚ-]{1,20}$/.test(n)){setStatus("枠の名前は、かな・カナ・漢字・英数字で20文字まで（空白・記号は使えません）");return;}   // DB の bt_fin_set_manual と同じ文字
     if(salNames(PLD).indexOf(n)>=0){setStatus("「"+n+"」はもうあります");return;}
     const b=$("salAdd"); if(b)b.disabled=true;
     const {data,error}=await sb.rpc("bt_fin_set_manual",{p_key:VIEW_KEY,p_ym:PL_FY+"-10",p_account:SAL+"/"+n,p_amount:null});
