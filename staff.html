@@ -96,7 +96,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v3.1-bt";
+var VER="staff-v3.2-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -553,7 +553,8 @@ window.saDone=function(tid,_inspOk){
   fetch(SB+"/rest/v1/rpc/bt_staff_done",{method:"POST",headers:{"apikey":ANON,"Authorization":"Bearer "+ANON,"Content-Type":"application/json"},body:JSON.stringify({p_token:TOKEN,p_task_id:tid})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(!d||d.ok===false){
+      if(d&&d.ok!==true&&!d.error&&/BT_UNPAID/.test(String(d.message||"")))d={ok:false,error:"unpaid",amount:Number((String(d.message).match(/¥(\d+)/)||[])[1])||0};  /* ★2026-11-21 DB トリガーが止めた時（例外で返る）も未決済の案内 */
+      if(!d||d.ok!==true){
         if(d&&d.error==="odo_required"){alert("先に「📏 "+(d.need==="end"?"返却":"出発")+"」の距離を登録してください");load();return;}
         if(d&&d.error==="unpaid"){var _ua=Number(d.amount)||0;alert("💳 決済が未完了です"+(_ua>0?"（¥"+_ua.toLocaleString()+"）":"")+"。\n先に「決済完了」を押してください。\n決済完了が確認できたらチェックできます。");if(tk&&tk.resv)saPay(tk.resv,_ua,String(tk.customer||'').replace(/\x27/g,''));return;}  /* ★2026-11-20 サーバー側の決済ガード（bt_staff_done）が止めた時も画面と同じ案内 */
         alert("⚠️ 完了にできませんでした（"+((d&&d.error)||"エラー")+"）");return;
