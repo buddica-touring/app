@@ -198,7 +198,7 @@ window.FIN=(function(){
     let h='<div class="fn-bar">'+pfSel("plFy",PL_FY)+'<button class="btn" id="plReload">🔄 最新に更新</button></div>'
       +'<div class="fn-note"><b class="lg a">自動</b> 売上高＝サマリと同じ（返却月・予約＋予約外）／支払手数料＝OTA手数料（HANDYMAN 18%・BUDDICA 16%）＋会計の支払手数料／リース料・保険料・車検・点検＝車両リストの金額×その月の稼働車　'
       +'<b class="lg m">会計</b> 業務APPの会計（出納帳の出金・カード）を科目ごとに反映。手入力欄に入れた分は上乗せ　<b class="lg w">空欄</b> 手入力（自動にする定義が決まったら順次自動に）</div>';
-    h+='<div class="fn-tw"><table class="fn-t fn-m fn-pl"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+m.slice(0,4)+'年'+(+m.slice(5))+'月</th>').join('')+'<th>合計</th></tr></thead><tbody>';
+    h+='<div class="fn-tw"><table class="fn-t fn-m fn-pl"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+m.slice(0,4)+'年'+(+m.slice(5))+'月<br><button class="fn-cp" data-cp="'+m+'" title="この月の手入力を、翌月の空欄にコピーします（翌月に入っている金額はそのまま）">翌月へ→</button></th>').join('')+'<th>合計</th></tr></thead><tbody>';
     PL.forEach(([a,k])=>{
       const tot=R.reduce((s,r)=>s+(r.o[a]||0),0), cls=k==="calc"?(a==="営業利益"?"tot pf":"tot"):(k==="auto"||k==="veh")?"a":k==="mix"?"m":"w";
       h+='<tr class="'+cls+'"><th>'+esc(a)+(k==="auto"||k==="veh"?' <small>自動</small>':'')+'</th>';
@@ -219,6 +219,25 @@ window.FIN=(function(){
     $("salAdd").onclick=addSal;
     $("plReload").onclick=showPL;
   }
+  // 翌月コピー（オーナー指示 2026-11-20「支出を翌月コピ機能追加」）：その月の手入力（bt_pl_manual）を翌月の空欄にだけ写す。翌月に入っている金額は上書きしない
+  document.addEventListener("click",async ev=>{
+    const b=ev.target&&ev.target.closest&&ev.target.closest("#finPL .fn-cp"); if(!b||!PLD)return;
+    const m=b.dataset.cp, nx=addYm(m,1), pre=m+':', todo=[]; let kept=0;
+    Object.keys(PLD.MAN).forEach(id=>{if(id.indexOf(pre)!==0)return;const ac=id.slice(pre.length);if(PLD.MAN[nx+':'+ac]!=null){kept++;return;}todo.push([ac,PLD.MAN[id]]);});
+    const ml=x=>(+x.slice(5))+'月';
+    if(!todo.length){setStatus(ml(m)+"の手入力で、"+ml(nx)+"にコピーするものはありません"+(kept?"（"+kept+"件は"+ml(nx)+"に入力済み）":""));return;}
+    document.querySelectorAll("#finPL .fn-cp").forEach(x=>x.disabled=true);
+    let ok=0, ng=0;
+    for(const [ac,v] of todo){
+      const {data,error}=await sb.rpc("bt_fin_set_manual",{p_key:VIEW_KEY,p_ym:nx,p_account:ac,p_amount:v});
+      if(error||!data||data.id!==nx+':'+ac){ng++;continue;}
+      ok++; PLD.MAN[data.id]=+data.amount; if(!PLD.manRows.some(r=>r.id===data.id))PLD.manRows.push({id:data.id,ym:nx,account:ac,amount:data.amount});
+    }
+    const sx=window.scrollX,sy=window.scrollY,sl=(document.querySelector("#finPL .fn-tw")||{}).scrollLeft||0;
+    if(nx>pfMonths(PL_FY)[11])PL_FY=pfOf(nx);
+    renderPL(); const tw=document.querySelector("#finPL .fn-tw"); if(tw)tw.scrollLeft=sl; window.scrollTo(sx,sy);
+    setStatus(ml(m)+"→"+ml(nx)+"："+ok+"件コピーしました"+(kept?"（"+kept+"件は入力済みのためそのまま）":"")+(ng?"・"+ng+"件は保存できませんでした":""));
+  });
   async function addSal(){
     const el=$("salNew"), n=(el&&el.value||"").trim();
     if(!n)return;
