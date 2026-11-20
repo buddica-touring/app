@@ -480,7 +480,7 @@ function renderHistory(d){
   if(!tk.length){h+='<div class="empty">この月の完了タスクはありません</div>';}
   else{h+=tk.map(function(x){
     return '<div class="card '+esc(x.type)+' done hist"><div class="r1"><span class="badge '+esc(x.type)+'">'+esc(typeLabel(x.type,x.customer))+'</span>'
-      +'<span style="font-size:12px;color:#64748b;font-weight:700">'+shortDate(x.date)+(x.time?" "+esc(x.time):"")+'</span>'
+      +'<span class="pk" style="font-size:12px;color:#64748b;font-weight:700">'+shortDate(x.date)+(x.time?" "+esc(x.time):"")+'</span>'
       +(x.customer?'<span class="cust">'+esc(x.customer)+'</span>':'')+'</div>'
       +(x.vehicle?'<div class="r2"><span class="veh">🚗 '+esc(x.vehicle)+(x.plate?" "+esc(x.plate):"")+'</span></div>':'')+'</div>';
   }).join("");}
@@ -577,7 +577,7 @@ window.setTFilt=function(f){TFILT=f;if(LASTD)setContent(tasksContent(LASTD));};
 window.setTab=function(tab){
   if(tab==="history"){ openHistory(""); return; }
   if(tab==="shift"){ openShift(""); return; }
-  STAB=tab;if(LASTD)render(LASTD);
+  var _from=MODE;STAB=tab;if(LASTD)render(LASTD);if(_from!=="tasks")load();
 };
 /* 中身だけ差し替える（上部・メニューはそのまま） */
 function setContent(html){var c=document.getElementById("content");if(c)c.innerHTML=html;else shell(html);}
@@ -769,7 +769,7 @@ function nudgeLoad(d,st,cb){try{var ids={};(d.tasks||[]).forEach(function(x){if(
 // ★2026-11-08 お客様がマイページで入れた人数・帰りの便・前日の確認（mypage_info）
 var MINFO={};
 function minfoB(x){var w=x&&x.resv&&MINFO[x.resv];if(!w)return "";var a=[];if(w.people)a.push("👥"+w.people+"名");if(w.flight_out)a.push("✈帰り "+w.flight_out);if(w.confirmed_at)a.push("✓前日確認");if(w.pay_status)a.push(w.pay_status==="paid"?"💳追加分 支払い済":"💳追加分 未払い"+(w.pay_amount?" ¥"+Number(w.pay_amount).toLocaleString():""));if(!a.length)return "";
-  return ' <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+esc(a.join(" "))+'</span>';}
+  return ' <span'+((w.pay_status&&w.pay_status!=="paid")?' class="pk"':'')+' style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'+esc(a.join(" "))+'</span>';}  /* ★2026-11-20 追加分の未払いは閉じた行でも見せる */
 function nudgeB(x){return minfoB(x)+nudgeB0(x);}
 function nudgeB0(x){var w=x&&x.resv&&NUDGE[x.resv];if(!w)return "";var k={arrived:"着きました",late:"遅れます",lost:"見つからない",parked:"停めました"}[w.kind]||"";if(!k)return "";
   var hm=function(v){try{return new Date(new Date(v).getTime()+9*3600e3).toISOString().slice(11,16);}catch(e){return "";}};
@@ -1516,7 +1516,7 @@ a.myp{font-size:12px !important;padding:4px 9px !important;border-radius:8px !im
   function key(c){var a=c.querySelector(".r1"),b=c.querySelector(".r2");return (a?a.textContent:"")+"|"+(b?b.textContent:"");}
   function first(c){var cs=document.querySelectorAll("#app .card:not(.done)");return cs.length&&cs[0]===c;}
   function apply(){var cs=document.querySelectorAll("#app .card");for(var i=0;i<cs.length;i++){var c=cs[i],k=key(c);if(OPEN[k]===undefined?first(c):OPEN[k])c.classList.add("open");else c.classList.remove("open");}}
-  document.addEventListener("click",function(e){var c=e.target.closest&&e.target.closest("#app .card");if(!c)return;if(e.target.closest("button,a,select,input,textarea,label,.spotsw"))return;var k=key(c);OPEN[k]=!c.classList.contains("open");c.classList.toggle("open");},true);
+  document.addEventListener("click",function(e){var c=e.target.closest&&e.target.closest("#app .card");if(!c)return;if(e.target.closest("button,a,select,input,textarea,label,.spotsw,[onclick]"))return;var k=key(c);OPEN[k]=!c.classList.contains("open");c.classList.toggle("open");},true);
   function start(){var a=document.getElementById("app");if(!a)return;apply();new MutationObserver(function(){apply();}).observe(a,{childList:true,subtree:true});}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 })();
@@ -1527,7 +1527,7 @@ a.myp{font-size:12px !important;padding:4px 9px !important;border-radius:8px !im
 (function(){
   var P={go:'<path d="M5 12h13M13 6l6 6-6 6"/>',pin:'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',key:'<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>',card:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>',note:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/>',check:'<path d="M4 12l5 5L20 6"/>',tool:'<path d="M14 6a4 4 0 0 0 5 5l-9 9-3-3 9-9"/>',tire:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',hand:'<path d="M7 11V6a1.5 1.5 0 0 1 3 0v5M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4.5a1.5 1.5 0 0 1 2.6-1.5L7 13"/>'};
   var M=[["回収に向かう","go"],["出発","go"],["到着","pin"],["遅延","clock"],["乗捨","key"],["免許","card"],["引継","note"],["完了","check"],["点検","tool"],["タイヤ","tire"],["承認","hand"]];
-  var EMO=/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2460}-\u{2712}\u{2714}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+  var EMO=/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2474}-\u{2712}\u{2714}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/gu;
   function strip(el){for(var n=el.firstChild;n;n=n.nextSibling){if(n.nodeType===3){var t=n.nodeValue.replace(EMO,"");if(t!==n.nodeValue)n.nodeValue=t.replace(/^\s+/,"");}}}
   function run(root){
     try{
