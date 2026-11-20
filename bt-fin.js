@@ -151,6 +151,14 @@ window.FIN=(function(){
     ["整備費用","mix",["車両整備費","修理費"]],["雑費","mix",["雑費","その他"]],
     ["販管費合計","calc"],["営業利益","calc"]];
   const NOT_IN_PL=["車検費","点検費","保険料"];
+  // 起算＝2026年10月（オーナー指示 2026-11-20「起算開始を 2026 10月から」）：PL は10月〜翌9月を1期として表示
+  const PL_START=2026;
+  const pfOf=ym=>Math.max(PL_START,+ym.slice(5)>=10?+ym.slice(0,4):+ym.slice(0,4)-1);
+  const pfMonths=y=>{const a=[];for(let i=0;i<12;i++)a.push(addYm(y+'-10',i));return a;};
+  function pfSel(id,y){const now=pfOf(ymNow());let o='';for(let k=PL_START;k<=now+1;k++)o+='<option value="'+k+'"'+(k===y?' selected':'')+'>'+k+'年10月〜'+(k+1)+'年9月</option>';return '<select class="fn-fy" id="'+id+'">'+o+'</select>';}
+  // 給与枠（オーナー指示 2026-11-20「給与枠を追加できるように アルバイト 社員 本部 など」）：給与手当＝会計の給与手当＋各枠の合計。枠は bt_pl_manual の account「給与手当/<枠名>」
+  const SAL="給与手当", SAL_DEF=["アルバイト","社員","本部"];
+  function salNames(D){const n=SAL_DEF.slice();(D.manRows||[]).forEach(r=>{const a=String(r.account||"");if(a.indexOf(SAL+"/")===0){const x=a.slice(SAL.length+1);if(x&&n.indexOf(x)<0)n.push(x);}});return n;}
   const FEE_H=0.18, FEE_B=0.16;   // OTA手数料：HANDYMAN 18%／BUDDICA 16%（cost-cpa.html と同じ・2026-10-26 オーナー指示）
   let PLD=null, PL_FY=null;
   async function loadPL(){
@@ -159,7 +167,7 @@ window.FIN=(function(){
     const SP={};(Array.isArray(split)?split:[]).forEach(r=>{const m=String(r.ym||"");if(/^\d{4}-\d{2}$/.test(m))SP[m]=(+r.hdm_rev||0)*FEE_H+(+r.bud_rev||0)*FEE_B;});
     (Array.isArray(cpa)?cpa:[]).forEach(r=>{const m=String(r.ym||"");if(/^\d{4}-\d{2}$/.test(m)&&SP[m]==null)SP[m]=(+r.ota_rev||0)*FEE_H;});
     const MAN={}; man.forEach(r=>{if(r.amount!=null)MAN[r.id]=+r.amount;});
-    return {sales:(mtg&&mtg.data)||{},gen:mtg&&mtg.generated,fee:SP,A:acctAgg(acct),V,MAN};
+    return {sales:(mtg&&mtg.data)||{},gen:mtg&&mtg.generated,fee:SP,A:acctAgg(acct),V,MAN,manRows:man};
   }
   // 稼働フラグの記録が始まる前の月（開店前）は車両費を出さない。記録が終わった先の月は今の車で見込む
   function vehCost(V,ym){const s={lease:0,ins:0,shaken:0,tenken:0};const k0=Object.keys(V.K).sort()[0];if(!k0||ym<k0)return s;fleetOf(V,ym).forEach(v=>{if(!isAct(V,ym,v.code))return;const p=costParts(v);s.lease+=p.lease;s.ins+=p.ins;s.shaken+=p.shaken;s.tenken+=p.tenken;});return s;}
@@ -169,7 +177,8 @@ window.FIN=(function(){
     PL.forEach(([a,k,x])=>{
       if(k==="auto"){o[a]=a==="売上高"?((D.sales[ym]&&D.sales[ym].tot_r)||0):Math.round(D.fee[ym]||0)+ac(x);auto[a]=o[a];}
       else if(k==="veh"){o[a]=Math.round(vc[x]);auto[a]=o[a];}
-      else if(k==="mix"){auto[a]=ac(x);o[a]=auto[a]+(mn(a)||0);}
+      else if(k==="mix"){auto[a]=ac(x);o[a]=auto[a]+(mn(a)||0);
+        if(a===SAL)salNames(D).forEach(n=>{const v=mn(SAL+"/"+n)||0;o[SAL+"/"+n]=v;o[a]+=v;});}
       else if(k==="man"){o[a]=mn(a)||0;}
     });
     o["粗利"]=o["売上高"]-o["売上原価"];
@@ -184,9 +193,9 @@ window.FIN=(function(){
     try{PLD=await loadPL();renderPL();}catch(e){body.innerHTML='<div class="fn-empty">読み込めませんでした：'+esc(e.message||e)+'</div>';}
   }
   function renderPL(){
-    const body=$("finPL"); if(PL_FY==null)PL_FY=fyOf(ymNow()); const M=fyMonths(PL_FY), cur=ymNow(), R=M.map(m=>plMonth(PLD,m));
+    const body=$("finPL"); if(PL_FY==null)PL_FY=pfOf(ymNow()); const M=pfMonths(PL_FY), cur=ymNow(), R=M.map(m=>plMonth(PLD,m));
     const ex=NOT_IN_PL.reduce((s,c)=>s+M.reduce((t,m)=>t+((PLD.A[c]&&PLD.A[c][m]&&PLD.A[c][m].all)||0),0),0);
-    let h='<div class="fn-bar">'+fySel("plFy",PL_FY)+'<button class="btn" id="plReload">🔄 最新に更新</button></div>'
+    let h='<div class="fn-bar">'+pfSel("plFy",PL_FY)+'<button class="btn" id="plReload">🔄 最新に更新</button></div>'
       +'<div class="fn-note"><b class="lg a">自動</b> 売上高＝サマリと同じ（返却月・予約＋予約外）／支払手数料＝OTA手数料（HANDYMAN 18%・BUDDICA 16%）＋会計の支払手数料／リース料・保険料・車検・点検＝車両リストの金額×その月の稼働車　'
       +'<b class="lg m">会計</b> 業務APPの会計（出納帳の出金・カード）を科目ごとに反映。手入力欄に入れた分は上乗せ　<b class="lg w">空欄</b> 手入力（自動にする定義が決まったら順次自動に）</div>';
     h+='<div class="fn-tw"><table class="fn-t fn-m fn-pl"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+m.slice(0,4)+'年'+(+m.slice(5))+'月</th>').join('')+'<th>合計</th></tr></thead><tbody>';
@@ -194,15 +203,33 @@ window.FIN=(function(){
       const tot=R.reduce((s,r)=>s+(r.o[a]||0),0), cls=k==="calc"?(a==="営業利益"?"tot pf":"tot"):(k==="auto"||k==="veh")?"a":k==="mix"?"m":"w";
       h+='<tr class="'+cls+'"><th>'+esc(a)+(k==="auto"||k==="veh"?' <small>自動</small>':'')+'</th>';
       R.forEach((r,i)=>{const m=M[i],v=r.o[a]||0;
-        if(k==="man"||k==="mix"){const mv=PLD.MAN[m+':'+a], au=r.auto[a]||0;
+        if((k==="man"||k==="mix")&&a!==SAL){const mv=PLD.MAN[m+':'+a], au=r.auto[a]||0;
           h+='<td>'+(k==="mix"&&au?'<div class="au" title="会計・カードの合計">'+num(au)+'</div>':'')+(CAN_EDIT?'<input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(a)+'" value="'+(mv!=null?num(mv):'')+'">':(mv!=null?num(mv):''))+'</td>';}
         else h+='<td class="'+(v<0?'neg':'')+'">'+(k==="calc"&&v<0?'('+num(-v)+')':num(v))+'</td>';});
-      h+='<td class="b'+(tot<0?' neg':'')+'">'+(tot<0?'('+num(-tot)+')':num(tot))+'</td></tr>';});
+      h+='<td class="b'+(tot<0?' neg':'')+'">'+(tot<0?'('+num(-tot)+')':num(tot))+'</td></tr>';
+      if(a===SAL){
+        salNames(PLD).forEach(n=>{const ac=SAL+"/"+n, st=R.reduce((s,r)=>s+(r.o[ac]||0),0);
+          h+='<tr class="w sub"><th>└ '+esc(n)+'</th>'+M.map(m=>{const mv=PLD.MAN[m+':'+ac];return '<td><input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(ac)+'" value="'+(mv!=null?num(mv):'')+'"></td>';}).join('')+'<td class="b">'+num(st)+'</td></tr>';});
+        h+='<tr class="w sub"><th colspan="14"><input id="salNew" class="fn-sal" maxlength="20" placeholder="枠の名前（例：パート）"> <button class="btn" id="salAdd">＋給与枠</button></th></tr>';
+      }});
     h+='</tbody></table></div><div class="fn-note">出所：売上＝bt_mtg_h2（'+esc(PLD.gen||'')+'）・OTA手数料＝bt_ota_brand_split・会計＝bt_accounting・車両＝bt_vehicles×bt_vehicle_monthly_kpi・手入力＝bt_pl_manual。車両の金額は今の登録値で各月を計算します。'
       +(ex?'<br>⚠️ 会計・カードの「車検費・点検費・保険料」計 '+yen(ex)+' は、車両リストの車検・点検・保険と重なるため PL には足していません（店舗支出タブには出ています）。':'')+'</div>';
     body.innerHTML=h;
     $("plFy").onchange=e=>{PL_FY=+e.target.value;renderPL();};
+    $("salAdd").onclick=addSal;
     $("plReload").onclick=showPL;
+  }
+  async function addSal(){
+    const el=$("salNew"), n=(el&&el.value||"").trim();
+    if(!n)return;
+    if(!/^[^\/:\u0000-\u001f\u007f]{1,20}$/.test(n)){setStatus("枠の名前に / や : は使えません（20文字まで）");return;}
+    if(salNames(PLD).indexOf(n)>=0){setStatus("「"+n+"」はもうあります");return;}
+    const b=$("salAdd"); if(b)b.disabled=true;
+    const {data,error}=await sb.rpc("bt_fin_set_manual",{p_key:VIEW_KEY,p_ym:PL_FY+"-10",p_account:SAL+"/"+n,p_amount:null});
+    if(b)b.disabled=false;
+    if(error||!data){setStatus("追加できませんでした："+((error&&error.message)||""));return;}
+    PLD.manRows.push({id:data.id,ym:PL_FY+"-10",account:SAL+"/"+n,amount:null});
+    renderPL(); setStatus("給与枠「"+n+"」を追加しました");
   }
   // 手入力1セルだけ書く（id＝'YYYY-MM:科目'）。空欄に戻す＝null（行は消さない）
   document.addEventListener("change",async ev=>{
@@ -214,6 +241,7 @@ window.FIN=(function(){
     el.disabled=false;
     if(error||!data||data.id!==id){el.classList.add("ng");setStatus("保存できませんでした："+((error&&error.message)||"権限がありません"));el.value=old==null?"":num(old);return;}
     if(data.amount==null)delete PLD.MAN[id]; else PLD.MAN[id]=+data.amount;
+    if(!PLD.manRows.some(r=>r.id===id))PLD.manRows.push({id,ym,account:ac,amount:data.amount});
     const sx=window.scrollX,sy=window.scrollY,sl=(document.querySelector("#finPL .fn-tw")||{}).scrollLeft||0;
     renderPL(); const tw=document.querySelector("#finPL .fn-tw"); if(tw)tw.scrollLeft=sl; window.scrollTo(sx,sy);
     setStatus("保存しました："+(+ym.slice(5))+"月 "+ac);
