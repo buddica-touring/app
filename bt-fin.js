@@ -201,7 +201,7 @@ window.FIN=(function(){
     h+='<div class="fn-tw"><table class="fn-t fn-m fn-pl"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+m.slice(0,4)+'年'+(+m.slice(5))+'月<br><button class="fn-cp" data-cp="'+m+'" title="この月の手入力を、翌月の空欄にコピーします（翌月に入っている金額はそのまま）">翌月へ→</button></th>').join('')+'<th>合計</th></tr></thead><tbody>';
     PL.forEach(([a,k])=>{
       const tot=R.reduce((s,r)=>s+(r.o[a]||0),0), cls=k==="calc"?(a==="営業利益"?"tot pf":"tot"):(k==="auto"||k==="veh")?"a":k==="mix"?"m":"w";
-      h+='<tr class="'+cls+'"><th>'+esc(a)+(k==="auto"||k==="veh"?' <small>自動</small>':'')+'</th>';
+      h+='<tr class="'+cls+'"><th>'+esc(a)+(k==="auto"||k==="veh"?' <small>自動</small>':'')+((k==="man"||k==="mix")&&a!==SAL?' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(a)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>':'')+'</th>';
       R.forEach((r,i)=>{const m=M[i],v=r.o[a]||0;
         if((k==="man"||k==="mix")&&a!==SAL){const mv=PLD.MAN[m+':'+a], au=r.auto[a]||0;
           h+='<td>'+(k==="mix"&&au?'<div class="au" title="会計・カードの合計">'+num(au)+'</div>':'')+(CAN_EDIT?'<input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(a)+'" value="'+(mv!=null?num(mv):'')+'">':(mv!=null?num(mv):''))+'</td>';}
@@ -209,7 +209,7 @@ window.FIN=(function(){
       h+='<td class="b'+(tot<0?' neg':'')+'">'+(tot<0?'('+num(-tot)+')':num(tot))+'</td></tr>';
       if(a===SAL){
         salNames(PLD).forEach(n=>{const ac=SAL+"/"+n, st=R.reduce((s,r)=>s+(r.o[ac]||0),0);
-          h+='<tr class="w sub"><th>└ '+esc(n)+'</th>'+M.map(m=>{const mv=PLD.MAN[m+':'+ac];return '<td><input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(ac)+'" value="'+(mv!=null?num(mv):'')+'"></td>';}).join('')+'<td class="b">'+num(st)+'</td></tr>';});
+          h+='<tr class="w sub"><th>└ '+esc(n)+' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(ac)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>'+'</th>'+M.map(m=>{const mv=PLD.MAN[m+':'+ac];return '<td><input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(ac)+'" value="'+(mv!=null?num(mv):'')+'"></td>';}).join('')+'<td class="b">'+num(st)+'</td></tr>';});
         h+='<tr class="w sub"><th colspan="14"><input id="salNew" class="fn-sal" maxlength="20" placeholder="枠の名前（例：パート）"> <button class="btn" id="salAdd">＋給与枠</button></th></tr>';
       }});
     h+='</tbody></table></div><div class="fn-note">出所：売上＝bt_mtg_h2（'+esc(PLD.gen||'')+'）・OTA手数料＝bt_ota_brand_split・会計＝bt_accounting・車両＝bt_vehicles×bt_vehicle_monthly_kpi・手入力＝bt_pl_manual。車両の金額は今の登録値で各月を計算します。'
@@ -237,6 +237,24 @@ window.FIN=(function(){
     if(nx>pfMonths(PL_FY)[11])PL_FY=pfOf(nx);
     renderPL(); const tw=document.querySelector("#finPL .fn-tw"); if(tw)tw.scrollLeft=sl; window.scrollTo(sx,sy);
     setStatus(ml(m)+"→"+ml(nx)+"："+ok+"件コピーしました"+(kept?"（"+kept+"件は入力済みのためそのまま）":"")+(ng?"・"+ng+"件は保存できませんでした":""));
+  });
+  // 科目ごとのコピー（オーナー指示 2026-11-20「各勘定科目にコピ機能」）：表示中の期の中で、入力のある月の金額を右の空いている月に入れる。入っている月は上書きしない
+  document.addEventListener("click",async ev=>{
+    const b=ev.target&&ev.target.closest&&ev.target.closest("#finPL .fn-rcp"); if(!b||!PLD)return;
+    const ac=b.dataset.rcp, M=pfMonths(PL_FY), todo=[]; let last=null;
+    M.forEach(m=>{const v=PLD.MAN[m+':'+ac]; if(v!=null)last=v; else if(last!=null)todo.push([m,last]);});
+    const nm=ac.replace(SAL+"/","給与 ");
+    if(!todo.length){setStatus(nm+"："+(last==null?"まだ金額が入っていません":"右の月はすべて入力済みです"));return;}
+    document.querySelectorAll("#finPL .fn-cp").forEach(x=>x.disabled=true);
+    let ok=0, ng=0;
+    for(const [m,v] of todo){
+      const {data,error}=await sb.rpc("bt_fin_set_manual",{p_key:VIEW_KEY,p_ym:m,p_account:ac,p_amount:v});
+      if(error||!data||data.id!==m+':'+ac){ng++;continue;}
+      ok++; PLD.MAN[data.id]=+data.amount; if(!PLD.manRows.some(r=>r.id===data.id))PLD.manRows.push({id:data.id,ym:m,account:ac,amount:data.amount});
+    }
+    const sx=window.scrollX,sy=window.scrollY,sl=(document.querySelector("#finPL .fn-tw")||{}).scrollLeft||0;
+    renderPL(); const tw=document.querySelector("#finPL .fn-tw"); if(tw)tw.scrollLeft=sl; window.scrollTo(sx,sy);
+    setStatus(nm+"："+ok+"か月にコピーしました"+(ng?"・"+ng+"件は保存できませんでした":""));
   });
   async function addSal(){
     const el=$("salNew"), n=(el&&el.value||"").trim();
