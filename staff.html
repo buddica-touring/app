@@ -96,7 +96,7 @@ a.myp.hdm{background:#0369a1}
 var SB="https://ggqugvyskyiblxiycpci.supabase.co";
 var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdncXVndnlza3lpYmx4aXljcGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc3NjksImV4cCI6MjA5MzY4Mzc2OX0.uNhWcBd_Dl5nzemZDQfJ8mQV6iY73MwystGGpTRPC18";
 var STORE="bt";
-var VER="staff-v3.2-bt";
+var VER="staff-v3.3-bt";
 var TOKEN=new URLSearchParams(location.search).get("t")||"";
 // ===== 📊 個別URL利用計測 — BTは別DBのため計測は main DB(共有 staff_url_events) に直接書く =====
 var SUE=(function(){
@@ -226,6 +226,8 @@ function taskCard(x){
     +(tm?'<span class="tm">'+esc(tm)+'</span>':'')+cust+nudgeB(x)+otaB+hdmB+(x.done?' <span style="color:#059669;font-weight:800;font-size:13px">✓済</span>':'')+mypLink(x)+jpay+'</div>'
     +'<div class="r2">'+veh+pl+(tid?'<span class="tchg" data-tid="'+tid+'"></span>':'')+'</div>'
     +fltRow(x)
+    /* ★2026-11-24 nosh「全店共通」：予約の備考（bt_reservations.memo・サーバーで貸出/返却系だけ・##BCJ:除去済み）を黄色帯で表示（読むだけ） */
+    +(String(x.rmemo||"").split("##BCJ:")[0].trim()?'<div class="rmemo" style="margin-top:7px;padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#78350f;white-space:pre-wrap;line-height:1.5">📝 備考：'+esc(String(x.rmemo).split("##BCJ:")[0].trim())+'</div>':'')
     +opStr
     +(chk?'<div class="r2b" style="margin-top:5px">'+chk+'</div>':'')+btns+(x.done||!window.okqSupBtn?'':window.okqSupBtn(x,typeLabel(t),tm,x.vehicle?(x.vehicle+plate):'',x.place||''))+'</div>';
 }
