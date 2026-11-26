@@ -912,7 +912,7 @@ tr.arcHide{display:none!important}
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>1台あたり月間平均売上＝30日 × 稼働率 × 貸出単価。貸出単価の初期値は、配車表で直近の完了した3か月に返却日がある予約（キャンセルを除く）の売上を貸出延べ日数で割った金額です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
+      <p>予測売上＝（既存台数＋増車台数）× 1台あたり月間平均売上。1台あたり月間平均売上＝30日 × 稼働率 × 貸出単価。貸出単価の初期値は、配車表で直近の完了した3か月に返却日がある予約（キャンセルを除く）の売上を貸出延べ日数で割った金額です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -1829,7 +1829,7 @@ const showPlan=(()=>{
         const identity=node("div",main);
         node("h3",identity,[c.id,c.name].filter(Boolean).join(" "));
         const count=number.format(c.count)+"台";
-        node("p",identity,"既存 "+count+" ／ "+fleetBreakdown(c)+" ／ 月額コスト "+yen.format(c.lease+c.ins)).className="plan-class-baseline";
+        node("p",identity,"既存台数 "+count+" ／ "+fleetBreakdown(c)+" ／ 月額コスト "+yen.format(c.lease+c.ins)).className="plan-class-baseline";
         const controls=node("div",main);
         controls.className="plan-grid plan-class-controls";
         const metrics=node("div",main);
@@ -1860,7 +1860,7 @@ const showPlan=(()=>{
           });
           return el;
         }
-        const fleet=input(controls,"fleet","計画台数（台）",c.count,100000);
+        const addedFleet=input(controls,"addedFleet","増車台数（台）",0,100000);
         const rate=input(controls,"rate","稼働率（%）",0,100,"any");
         const price=input(assumptionsGrid,"price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000);
         const leaseRate=input(assumptionsGrid,"leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000);
@@ -1875,7 +1875,7 @@ const showPlan=(()=>{
         reference.append("の同じブランド・クラスの登録額から算出（円単位で四捨五入）。");
         node("div",evidence,"月額リース "+yen.format(c.lease)+" ÷ "+count+" ＝ "+yen.format(averageLease)+"/台");
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
-        return {c,fleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput};
+        return {c,addedFleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput};
       });
       return {total,rows};
     });
@@ -1889,15 +1889,15 @@ const showPlan=(()=>{
     let revenue=0, lease=existing.lease, insurance=existing.ins;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
-      for(const {c,fleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput} of rows){
-        if(![fleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
+      for(const {c,addedFleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput} of rows){
+        if(![addedFleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
           averageOutput.textContent=salesOutput.textContent=costOutput.textContent="—";
           brandValid=false;
           continue;
         }
         const averageSales=daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber;
-        const sales=Math.round(fleet.valueAsNumber*averageSales);
-        const added=Math.max(0,fleet.valueAsNumber-c.count);
+        const added=addedFleet.valueAsNumber;
+        const sales=Math.round((c.count+added)*averageSales);
         const classLease=c.lease+added*leaseRate.valueAsNumber;
         const classInsurance=c.ins+added*insuranceRate.valueAsNumber;
         lease+=classLease-c.lease;
