@@ -1752,6 +1752,8 @@ const showPlan=(()=>{
         grid.className="plan-grid";
         const key=JSON.stringify([brand,c.id]);
         const values=assumptions.get(key)||{};
+        const averageLease=Math.round(c.lease/c.count);
+        const averageInsurance=Math.round(c.ins/c.count);
 
         function input(field,label,initial,max,step="1"){
           const el=node("input",node("label",grid,label));
@@ -1764,11 +1766,20 @@ const showPlan=(()=>{
           return el;
         }
         if(c.dailyRate==null)node("p",article,"貸出単価の実績値がありません。予測売上を出すには単価を設定してください。");
+        const evidence=node("p",article,"増車費用の試算根拠（初期値）　");
+        const source=node("a",evidence,"車両リスト");
+        source.href="?tab=fleet";
+        source.target="_blank";
+        source.rel="noopener";
+        const count=number.format(c.count)+"台";
+        evidence.append("の同じブランド・クラスの登録額から算出（円単位で四捨五入）。",
+          node("br",evidence),"月額リース "+yen.format(c.lease)+" ÷ "+count+" ＝ "+yen.format(averageLease)+"/台",
+          node("br",evidence),"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
         return {c,fleet:input("fleet","計画台数（台）",c.count,100000),
           rate:input("rate","稼働率（%）",0,100,"any"),
           price:input("price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000),
-          leaseRate:input("leaseRate","増車1台の月額リース料（円）",Math.round(c.lease/c.count),1000000000),
-          insuranceRate:input("insuranceRate","増車1台の月額保険料（円）",Math.round(c.ins/c.count),1000000000),
+          leaseRate:input("leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000),
+          insuranceRate:input("insuranceRate","増車1台の月額保険料（試算・円）",averageInsurance,1000000000),
           output:node("p",article)};
       });
       return {total,rows};
