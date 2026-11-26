@@ -806,6 +806,11 @@ tr.arcHide{display:none!important}
 #planForm label{display:grid;gap:4px;font-weight:700;font-size:12px}
 #planForm input{width:100%;min-height:38px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:16px}
 #planResults strong{font-size:18px;overflow-wrap:anywhere}
+#planBrands fieldset{border:1px solid #e2e8f0;border-radius:10px;margin:12px 0;padding:10px}
+#planBrands legend{font-weight:800}
+#planBrands article{border-top:1px solid #e2e8f0;padding:10px 0}
+#planBrands h3{margin:0 0 6px;font-size:14px}
+#planBrands p{margin:4px 0 8px}
 #planError{color:#991b1b}
 @media(max-width:760px){.wrap .tabbtn[data-v="plan"]{grid-column:span 12;order:7;min-height:40px;font-size:13px}}
 </style>
@@ -852,24 +857,21 @@ tr.arcHide{display:none!important}
       <button type="button" id="planFleetRetry" hidden>再読み込み</button>
       <form id="planForm">
         <div class="plan-grid">
-          <label>計画保有台数（台）<input name="fleet" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
           <label>営業日数（日）<input name="days" type="number" inputmode="numeric" min="1" max="31" step="1" value="30" required></label>
-          <label>稼働率（%）<input name="rate" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
-          <label>貸出単価（円／台日）<input name="price" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
-          <label>増車分の車両費（円／台・月）<input name="vehicle" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
           <label>その他固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
           <label>売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
         </div>
+        <div id="planBrands"></div>
       </form>
     </div>
-    <p id="planError" role="status" hidden>入力欄をすべて埋め、営業日数は1〜31日、比率は0〜100%で入力してください。</p>
+    <p id="planError" role="status" hidden>各入力欄の値を確認してください。営業日数は1〜31日、比率は0〜100%です。</p>
     <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true">
       <div class="card"><div class="lb">月間貸出延べ日数</div><strong id="planRentalDays"></strong></div>
       <div class="card"><div class="lb">月間売上</div><strong id="planRevenue"></strong></div>
       <div class="card"><div class="lb">月間費用</div><strong id="planCost"></strong></div>
       <div class="card"><div class="lb">月間損益</div><strong id="planProfit"></strong></div>
     </div>
-    <p class="sub">売上＝保有台数 × 営業日数 × 稼働率 × 貸出単価。費用＝既存車両のリース料・保険料 ＋ 増車台数 × 1台あたりの車両費 ＋ その他固定費 ＋ 売上 × 売上連動費率。計画保有台数を減らしても、既存車両の月額費用は全額計上します。</p>
+    <p class="sub">クラス別の売上＝計画台数 × 営業日数 × 稼働率 × 貸出単価。車両コスト＝既存車両の月額リース料 ＋ 月額保険料 ＋ 増車分の車両費。既存車両の費用は全額計上し、その他固定費と売上連動費は全体の月間損益に反映します。</p>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
@@ -945,7 +947,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=10"></script>
+<script src="bt-fin.js?v=11"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1711,55 +1713,115 @@ sb.channel("tire-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   renderTire();
 }).subscribe();
 const showPlan=(()=>{
-  const planForm=document.getElementById("planForm");
-  const planResults=document.getElementById("planResults");
-  const planError=document.getElementById("planError");
-  const numberFormat=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
-  const yenFormat=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
-  function renderPlan(){
-    const valid=planForm.checkValidity();
-    planResults.hidden=!valid||!existing;
-    planError.hidden=valid;
-    if(!valid||!existing)return;
-    const {fleet,days,rate,price,vehicle,fixed,fee}=planForm.elements;
-    const rentalDays=fleet.valueAsNumber*days.valueAsNumber*(rate.valueAsNumber/100);
-    const revenue=Math.round(rentalDays*price.valueAsNumber);
-    const additional=Math.max(0,fleet.valueAsNumber-existing.count);
-    const cost=Math.round(existing.lease+existing.ins+additional*vehicle.valueAsNumber+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
-    document.getElementById("planRentalDays").textContent=numberFormat.format(rentalDays)+" 台日";
-    document.getElementById("planRevenue").textContent=yenFormat.format(revenue);
-    document.getElementById("planCost").textContent=yenFormat.format(cost);
-    document.getElementById("planProfit").textContent=yenFormat.format(revenue-cost);
-  }
-  const fleetStatus=document.getElementById("planFleetStatus");
+  const form=document.getElementById("planForm");
+  const results=document.getElementById("planResults");
+  const error=document.getElementById("planError");
+  const status=document.getElementById("planFleetStatus");
   const retry=document.getElementById("planFleetRetry");
-  let existing=null, loading=false, fleetEdited=false;
-  async function refreshFleet(){
+  const brandsNode=document.getElementById("planBrands");
+  const number=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
+  const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
+  const assumptions=new Map();
+  let brands=null, loading=false;
+  function node(tag,parent,value){
+    const el=document.createElement(tag);
+    if(value!==undefined)el.textContent=value;
+    parent.append(el);
+    return el;
+  }
+  function renderBrands(data){
+    brandsNode.replaceChildren();
+    return data.map(({brand,label,classes})=>{
+      const section=node("fieldset",brandsNode);
+      node("legend",section,label);
+      const total=node("p",section);
+      if(!classes.length)node("p",section,"今月の対象車両はありません。");
+      const rows=classes.map(c=>{
+        const article=node("article",section);
+        node("h3",article,[c.id,c.name].filter(Boolean).join(" "));
+        node("p",article,"既存 "+number.format(c.count)+"台 ／ 月額リース "+yen.format(c.lease)+" ／ 月額保険 "+yen.format(c.ins));
+        const grid=node("div",article);
+        grid.className="plan-grid";
+        const key=JSON.stringify([brand,c.id]);
+        const values=assumptions.get(key)||{};
+        function input(field,label,initial,max,step="1"){
+          const el=node("input",node("label",grid,label));
+          Object.assign(el,{type:"number",min:"0",max:String(max),step,required:true,
+            inputMode:step==="1"?"numeric":"decimal",value:String(values[field]??initial)});
+          el.addEventListener("input",()=>{
+            values[field]=el.value;
+            assumptions.set(key,values);
+          });
+          return el;
+        }
+        return {c,fleet:input("fleet","計画台数（台）",c.count,100000),
+          rate:input("rate","稼働率（%）",0,100,"any"),
+          price:input("price","貸出単価（円／台日）",0,1000000000),
+          extra:input("extra","増車分の車両費（円／台・月）",0,1000000000),
+          output:node("p",article)};
+      });
+      return {total,rows};
+    });
+  }
+  function render(){
+    const valid=form.checkValidity();
+    results.hidden=!valid||!brands;
+    error.hidden=valid;
+    if(!brands)return;
+    const {days,fixed,fee}=form.elements;
+    const validDays=days.validity.valid;
+    let rentalDays=0,revenue=0,vehicleCost=0;
+    for(const {total,rows} of brands){
+      let brandRevenue=0,brandCost=0,brandValid=true;
+      for(const {c,fleet,rate,price,extra,output} of rows){
+        if(!validDays||![fleet,rate,price,extra].every(el=>el.validity.valid)){
+          output.textContent="試算結果 —";
+          brandValid=false;
+          continue;
+        }
+        const rental=fleet.valueAsNumber*days.valueAsNumber*(rate.valueAsNumber/100);
+        const sales=Math.round(rental*price.valueAsNumber);
+        const cost=c.lease+c.ins+Math.max(0,fleet.valueAsNumber-c.count)*extra.valueAsNumber;
+        rentalDays+=rental;
+        brandRevenue+=sales;
+        brandCost+=cost;
+        output.textContent="予測売上 "+yen.format(sales)+" ／ 車両コスト "+yen.format(cost);
+      }
+      total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
+      revenue+=brandRevenue;
+      vehicleCost+=brandCost;
+    }
+    if(!valid)return;
+    const cost=Math.round(vehicleCost+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
+    document.getElementById("planRentalDays").textContent=number.format(rentalDays)+" 台日";
+    document.getElementById("planRevenue").textContent=yen.format(revenue);
+    document.getElementById("planCost").textContent=yen.format(cost);
+    document.getElementById("planProfit").textContent=yen.format(revenue-cost);
+  }
+  async function refresh(){
     if(loading)return;
     loading=true;
-    existing=null;
+    brands=null;
+    brandsNode.replaceChildren();
+    status.textContent="既存車両のリース料・保険料を読み込み中…";
     retry.hidden=true;
-    fleetStatus.textContent="既存車両のリース料・保険料を読み込み中…";
-    renderPlan();
+    render();
     try{
-      existing=await FIN.planFleetCosts();
-      if(!fleetEdited)planForm.elements.fleet.value=existing.count;
-      fleetStatus.textContent="既存車両 "+numberFormat.format(existing.count)+"台 ／ 月額リース料 "+yenFormat.format(existing.lease)+" ／ 月額保険料 "+yenFormat.format(existing.ins);
+      brands=renderBrands(await FIN.planFleetCosts());
+      status.textContent="";
     }catch(error){
-      fleetStatus.textContent="既存車両の費用を読み込めませんでした。";
+      brandsNode.replaceChildren();
+      status.textContent="既存車両の費用を読み込めませんでした。";
       retry.hidden=false;
     }finally{
       loading=false;
-      renderPlan();
+      render();
     }
   }
-  retry.addEventListener("click",refreshFleet);
-  planForm.addEventListener("input",event=>{
-    if(event.target===planForm.elements.fleet)fleetEdited=true;
-    renderPlan();
-  });
-  planForm.addEventListener("submit",event=>event.preventDefault());
-  return refreshFleet;
+  retry.addEventListener("click",refresh);
+  form.addEventListener("input",render);
+  form.addEventListener("submit",event=>event.preventDefault());
+  return refresh;
 })();
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");

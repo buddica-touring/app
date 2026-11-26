@@ -317,13 +317,22 @@ window.FIN=(function(){
   }
   document.addEventListener("click",ev=>{if(ev.target&&ev.target.id==="fleetReload")showFleet();});
   async function planFleetCosts(){
-    const vehicles=fleetOf(await loadVehicles(),ymNow());
-    return vehicles.reduce((totals,v)=>{
-      const {lease,ins}=costParts(v);
-      totals.lease+=lease;
-      totals.ins+=ins;
-      return totals;
-    },{count:vehicles.length,lease:0,ins:0});
+    const V=await loadVehicles(), fleet=fleetOf(V,ymNow());
+    return Object.keys(BRL).map(brand=>{
+      const vehicles=fleet.filter(v=>normBrand(v.brand)===brand);
+      const classes=V.classes.flatMap(c=>{
+        const members=vehicles.filter(v=>v.type===c.id);
+        if(!members.length)return [];
+        const totals={id:c.id,name:c.name,count:members.length,lease:0,ins:0};
+        for(const v of members){
+          const {lease,ins}=costParts(v);
+          totals.lease+=lease;
+          totals.ins+=ins;
+        }
+        return [totals];
+      });
+      return {brand,label:BRL[brand],classes};
+    });
   }
   return {showFleet,showSpend,showPL,summary,planFleetCosts};
 })();
