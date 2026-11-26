@@ -835,7 +835,8 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-class{padding:13px 16px;border-top:1px solid var(--plan-line)}
 #viewPlan .plan-class-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.75fr);gap:14px;align-items:center}
 #viewPlan .plan-class-baseline{margin-top:4px}
-#viewPlan .plan-class-controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+#viewPlan .plan-class-controls{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+#viewPlan .plan-fleet-total{display:block;margin-top:5px;color:var(--plan-accent);font-size:12px;font-weight:700}
 #viewPlan .plan-class-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:9px 10px;border-radius:8px;background:#f2f6fb}
 #viewPlan .plan-row-metric strong{display:block;margin-top:3px;font-size:14px;overflow-wrap:anywhere}
 #viewPlan .plan-class-details{margin-top:6px}
@@ -1860,7 +1861,10 @@ const showPlan=(()=>{
           });
           return el;
         }
-        const addedFleet=input(controls,"addedFleet","増車台数（台）",0,100000);
+        const fleetControl=node("div",controls);
+        const addedFleet=input(fleetControl,"addedFleet","増車台数（台）",0,100000);
+        const fleetTotal=node("output",fleetControl);
+        fleetTotal.className="plan-fleet-total";
         const rate=input(controls,"rate","稼働率（%）",0,100,"any");
         const price=input(assumptionsGrid,"price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000);
         const leaseRate=input(assumptionsGrid,"leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000);
@@ -1875,7 +1879,7 @@ const showPlan=(()=>{
         reference.append("の同じブランド・クラスの登録額から算出（円単位で四捨五入）。");
         node("div",evidence,"月額リース "+yen.format(c.lease)+" ÷ "+count+" ＝ "+yen.format(averageLease)+"/台");
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
-        return {c,addedFleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput};
+        return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput};
       });
       return {total,rows};
     });
@@ -1889,15 +1893,17 @@ const showPlan=(()=>{
     let revenue=0, lease=existing.lease, insurance=existing.ins;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
-      for(const {c,addedFleet,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput} of rows){
+      for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput} of rows){
+        const added=addedFleet.valueAsNumber;
+        const total=c.count+added;
+        fleetTotal.textContent="合計台数 "+(addedFleet.validity.valid?number.format(total)+"台":"—");
         if(![addedFleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
           averageOutput.textContent=salesOutput.textContent=costOutput.textContent="—";
           brandValid=false;
           continue;
         }
         const averageSales=daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber;
-        const added=addedFleet.valueAsNumber;
-        const sales=Math.round((c.count+added)*averageSales);
+        const sales=Math.round(total*averageSales);
         const classLease=c.lease+added*leaseRate.valueAsNumber;
         const classInsurance=c.ins+added*insuranceRate.valueAsNumber;
         lease+=classLease-c.lease;
