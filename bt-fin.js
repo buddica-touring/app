@@ -417,5 +417,14 @@ window.FIN=(function(){
       return {brand,label:BRL[brand],classes};
     });
   }
-  return {showFleet,showSpend,showPL,summary,planFleetCosts};
+  async function planFixedExpenses(){
+    const month=ymNow();
+    const {o}=plMonth(await loadPL(),month);
+    // The simulator already calculates these costs separately.
+    const excluded=new Set(["リース料","保険料","支払手数料"]);
+    const items=PL.filter(([account,kind])=>plCostGroup(account,kind)==="fixed"&&!excluded.has(account))
+      .map(([account])=>({account,amount:o[account]||0}));
+    return {month,items,total:items.reduce((sum,item)=>sum+item.amount,0)};
+  }
+  return {showFleet,showSpend,showPL,summary,planFleetCosts,planFixedExpenses};
 })();
