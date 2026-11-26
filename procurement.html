@@ -827,6 +827,12 @@ tr.arcHide{display:none!important}
 @media(max-width:760px){html.plan-tab-open,html.plan-tab-open body,html.plan-tab-open .wrap{overflow-x:clip}#viewPlan .plan-sticky{max-height:48vh;max-height:48dvh}}
 #viewPlan .plan-shared{margin-bottom:16px;border:1px solid var(--plan-line);border-radius:12px;background:white;padding:12px 14px}
 #viewPlan details>summary{width:fit-content;max-width:100%;min-height:32px;line-height:32px;cursor:pointer;color:var(--plan-accent);font-size:13px;font-weight:700}
+#viewPlan .plan-expense-list{display:grid;gap:10px;margin:8px 0}
+#viewPlan .plan-expense-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;background:#f2f6fb;border-radius:8px}
+#viewPlan .plan-expense-row select{width:100%;min-height:42px;border:1px solid #a8bad1;border-radius:8px;background:#fff;font:inherit;color:inherit}
+#viewPlan .plan-expense-row output{display:block;padding:8px 0;font-weight:700;overflow-wrap:anywhere}
+#viewPlan .plan-expense-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:9px 0;color:var(--plan-muted);font-size:12px}
+@media(max-width:540px){#viewPlan .plan-expense-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #viewPlan .plan-shared .plan-grid{grid-template-columns:repeat(2,minmax(0,200px));padding:8px 0}
 #viewPlan label{display:grid;gap:5px;align-content:start;min-width:0;font-size:12px;font-weight:700}
 #viewPlan input{width:100%;min-height:42px;padding:7px 9px;border:1px solid #a8bad1;border-radius:8px;background:#fff;color:var(--plan-ink);font:inherit;font-size:16px}
@@ -904,7 +910,7 @@ tr.arcHide{display:none!important}
             <div class="plan-metric"><span>リース合計</span><strong id="planLease"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planLeaseExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planLeaseAdded"></dd></div></dl></div>
             <div class="plan-metric"><span>保険合計</span><strong id="planInsurance"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planInsuranceExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planInsuranceAdded"></dd></div></dl></div>
             <div class="plan-metric"><span>固定費</span><strong id="planFixed"></strong></div>
-            <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong></div>
+            <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong><dl class="plan-cost-breakdown"><div><dt>OTA手数料（15%）</dt><dd id="planOtaCard"></dd></div><div><dt>その他変動費</dt><dd id="planOtherVariable"></dd></div></dl></div>
             <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
           </div>
           <div id="planFleetCounts" class="plan-grid" aria-label="配車表の当月運用台数" hidden></div>
@@ -914,18 +920,33 @@ tr.arcHide{display:none!important}
         <button class="btn" type="button" id="planFleetRetry" hidden>再読み込み</button>
         <p id="planError" role="status" hidden>各入力欄の値を確認してください。比率は0〜100%です。</p>
           <details class="plan-shared">
-            <summary>共通の費用設定</summary>
+            <summary>支出設定</summary>
             <div class="plan-grid">
               <label>その他固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
-              <label>売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
+              <label>その他の売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
             </div>
+            <div class="plan-expense-summary">
+              <span>OTA手数料（売上 × 15%） <strong id="planOtaExpense">—</strong></span>
+              <span>月間支出合計 <strong id="planExpenseTotal">—</strong></span>
+            </div>
+            <div id="planExpenseRows" class="plan-expense-list"></div>
+            <button type="button" class="btn" id="planAddExpense">＋ 支出項目を追加</button>
+            <template id="planExpenseTemplate">
+              <div class="plan-expense-row">
+                <label>費目<input type="text" placeholder="例：駐車場代"></label>
+                <label>計算方法<select><option value="fixed">月額固定</option><option value="share">売上連動</option></select></label>
+                <label><span class="plan-expense-unit">金額（円／月）</span><input type="number" min="0" max="1000000000" step="1" inputmode="numeric" value="0" required></label>
+                <div>月額<output>¥0</output></div>
+                <button type="button" class="btn">削除</button>
+              </div>
+            </template>
           </details>
       </div>
       <div id="planBrands"></div>
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。増車分の売上は増車台数 × 30日 × 増車の稼働率 × 貸出単価で試算します。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
+      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。増車分の売上は増車台数 × 30日 × 増車の稼働率 × 貸出単価で試算します。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費には売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -1780,6 +1801,9 @@ const showPlan=(()=>{
   const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
   const assumptions=new Map();
   const daysPerMonth=30;
+  const otaRate=0.15;
+  const expenseRows=document.getElementById("planExpenseRows");
+  const expenses=[];
   let brands=null, existing=null, loading=false;
   function node(tag,parent,value){
     const el=document.createElement(tag);
@@ -1787,6 +1811,31 @@ const showPlan=(()=>{
     parent.append(el);
     return el;
   }
+  document.getElementById("planAddExpense").addEventListener("click",()=>{
+    const row=document.getElementById("planExpenseTemplate").content.firstElementChild.cloneNode(true);
+    const mode=row.querySelector("select");
+    const amount=row.querySelector('input[type="number"]');
+    const unit=row.querySelector(".plan-expense-unit");
+    const output=row.querySelector("output");
+    const expense={mode,amount,output};
+    expenses.push(expense);
+    mode.addEventListener("change",()=>{
+      const share=mode.value==="share";
+      unit.textContent=share?"料率（%）":"金額（円／月）";
+      amount.max=share?"100":"1000000000";
+      amount.step=share?"any":"1";
+      amount.inputMode=share?"decimal":"numeric";
+      render();
+    });
+    row.querySelector("button").addEventListener("click",()=>{
+      expenses.splice(expenses.indexOf(expense),1);
+      row.remove();
+      render();
+    });
+    expenseRows.append(row);
+    row.querySelector('input[type="text"]').focus();
+    render();
+  });
   function fleetCounts(classes){
     return classes.reduce((sum,c)=>{
       sum.count+=c.count;
@@ -1966,13 +2015,36 @@ const showPlan=(()=>{
       document.getElementById(id+"Added").textContent=ready?"+"+yen.format(additional):"—";
       document.getElementById(id).textContent=ready?yen.format(baseline+additional):"—";
     }
-    const fixedCost=fixed.valueAsNumber;
-    const variable=Math.round(revenue*(fee.valueAsNumber/100));
+    let fixedValid=fixed.validity.valid, otherVariableValid=revenueValid&&fee.validity.valid;
+    let fixedCost=fixedValid?fixed.valueAsNumber:0;
+    let otherVariable=otherVariableValid?Math.round(revenue*(fee.valueAsNumber/100)):0;
+    for(const {mode,amount,output} of expenses){
+      const share=mode.value==="share";
+      const ready=amount.validity.valid&&(!share||revenueValid);
+      const value=ready?(share?Math.round(revenue*(amount.valueAsNumber/100)):amount.valueAsNumber):0;
+      output.textContent=ready?yen.format(value):"—";
+      if(share){
+        otherVariable+=value;
+        otherVariableValid&&=ready;
+      }else{
+        fixedCost+=value;
+        fixedValid&&=ready;
+      }
+    }
+    const ota=Math.round(revenue*otaRate);
+    const variable=ota+otherVariable;
+    const expenseTotal=lease+insurance+fixedCost+variable;
+    for(const id of ["planOtaCard","planOtaExpense"]){
+      document.getElementById(id).textContent=revenueValid?yen.format(ota):"—";
+    }
+    document.getElementById("planOtherVariable").textContent=otherVariableValid?yen.format(otherVariable):"—";
+    document.getElementById("planExpenseTotal").textContent=valid&&revenueValid?yen.format(expenseTotal):"—";
     const values={planRevenue:revenue,
-      planFixed:fixedCost,planVariable:variable,planProfit:revenue-lease-insurance-fixedCost-variable};
+      planFixed:fixedCost,planVariable:variable,planProfit:revenue-expenseTotal};
     document.getElementById("planProfit").parentElement.classList.toggle("is-negative",valid&&revenueValid&&values.planProfit<0);
+    const readiness={planRevenue:revenueValid,planFixed:fixedValid,planVariable:otherVariableValid,planProfit:valid&&revenueValid};
     for(const [id,value] of Object.entries(values)){
-      document.getElementById(id).textContent=(id==="planFixed"?fixed.validity.valid:valid&&revenueValid)?yen.format(value):"—";
+      document.getElementById(id).textContent=readiness[id]?yen.format(value):"—";
     }
   }
   async function refresh(){
