@@ -405,11 +405,14 @@ window.FIN=(function(){
       const serviceStart=date(v.service_from), serviceEnd=date(v.service_to);
       const swapped=date(meta.swapped_at);
       const group=key(v);
-      const sums=totals.get(group)||{sales:0,days:0,available:0,baseline:0,bookingDays:0,bookingCount:0};
+      const sums=totals.get(group)||{sales:0,days:0,available:0,baseline:0,baselineBookings:0,bookingDays:0,bookingCount:0};
       totals.set(group,sums);
       for(const r of reservations){
         if(r.end<periodStart||r.end>=periodEnd||r.start<swapped)continue;
-        if(current.has(v.code)&&r.sales>0)sums.baseline+=r.sales;
+        if(current.has(v.code)&&r.sales>0){
+          sums.baseline+=r.sales;
+          sums.baselineBookings++;
+        }
         sums.bookingDays+=(r.end-r.start)/day+1;
         sums.bookingCount++;
       }
@@ -453,6 +456,7 @@ window.FIN=(function(){
         const rate=rates?.get(JSON.stringify([brand,c.id]));
         totals.averageBookingDays=rate?.bookingCount?rate.bookingDays/rate.bookingCount:null;
         totals.dailyRate=rate?.days?Math.round(rate.sales/rate.days):null;
+        totals.actualBookingPrice=rate?.baselineBookings?Math.round(rate.baseline/rate.baselineBookings):null;
         totals.monthlySales=rates?Math.round((rate?.baseline||0)/3):null;
         totals.utilization=rate?.available?Math.round(rate.days/rate.available*1000)/10:0;
         return [totals];

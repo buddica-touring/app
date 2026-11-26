@@ -819,7 +819,7 @@ tr.arcHide{display:none!important}
 #planResults{grid-template-columns:repeat(7,minmax(0,1fr))}
 @media(max-width:1240px){#planResults{grid-template-columns:repeat(4,minmax(0,1fr))}}
 #viewPlan .plan-metric{min-width:0;background:#fff;border:1px solid var(--plan-line);border-radius:12px;padding:13px}
-#viewPlan .plan-metric span,#viewPlan .plan-row-metric span{display:block;color:var(--plan-muted);font-size:12px;font-weight:700}
+#viewPlan .plan-metric span{display:block;color:var(--plan-muted);font-size:12px;font-weight:700}
 #viewPlan .plan-metric strong{display:block;margin-top:4px;font-size:clamp(16px,1.65vw,24px);line-height:1.3;overflow-wrap:anywhere}
 #viewPlan .plan-cost-breakdown{display:grid;gap:3px;margin:7px 0 0;color:var(--plan-muted);font-size:12px}
 #viewPlan .plan-cost-breakdown div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 6px}
@@ -872,21 +872,23 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-class-controls{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
 #viewPlan .plan-rate-reset{display:block;margin-top:3px;padding:4px 0;border:0;background:none;color:var(--plan-accent);font:inherit;font-size:11px;text-align:left;cursor:pointer;text-decoration:underline}
 #viewPlan .plan-fleet-total{display:block;margin-top:5px;color:var(--plan-accent);font-size:12px;font-weight:700}
-#viewPlan .plan-class-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:9px 10px;border-radius:8px;background:#f2f6fb}
+#viewPlan .plan-class-results{display:grid;grid-template-columns:minmax(0,1.45fr) repeat(2,minmax(0,1fr));gap:6px 8px;align-items:baseline;padding:9px 10px;border-radius:8px;background:#f2f6fb;font-size:12px}
+#viewPlan .plan-class-results strong{text-align:right;font-size:13px;overflow-wrap:anywhere}
+#viewPlan .plan-class-result-head{color:var(--plan-muted);text-align:right;font-weight:700}
 #viewPlan p.plan-required-rate{margin-top:6px;color:var(--plan-accent);font-size:12px;font-weight:800}
 #viewPlan .plan-class-projection{display:grid;gap:4px;margin-top:8px;font-size:12px}
 #viewPlan .plan-impact-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:5px 7px;border-radius:6px;background:#f2f6fb;overflow-wrap:anywhere}
 #viewPlan .plan-impact-row:nth-child(3){background:#e7eff9;font-weight:700}
+#viewPlan p.plan-class-cost-note{margin-top:5px;color:var(--plan-muted);font-size:11px;line-height:1.5}
 #viewPlan p.plan-comparison-note{margin-top:5px;color:var(--plan-muted);font-size:11px;line-height:1.5}
 #viewPlan .plan-impact-head{background:transparent;color:var(--plan-muted);font-weight:700}
-#viewPlan .plan-row-metric strong{display:block;margin-top:3px;font-size:14px;overflow-wrap:anywhere}
 #viewPlan .plan-class-details{margin-top:6px}
 #viewPlan .plan-class-details .plan-grid{grid-template-columns:repeat(3,minmax(0,210px));margin:4px 0 10px}
 #viewPlan .plan-evidence{display:grid;gap:4px;padding:10px 12px;border-left:3px solid #b5c9e4;background:#f2f6fb;color:var(--plan-muted);font-size:12px;line-height:1.6}
 #viewPlan .plan-no-rate{margin:5px 0 8px;color:#8b450d;font-size:12px}
 #viewPlan .plan-formula{margin-top:14px;color:var(--plan-muted);line-height:1.7}
 @media(max-width:1000px){#planResults{grid-template-columns:repeat(3,minmax(0,1fr))}#viewPlan .plan-class-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#viewPlan .plan-class-estimates{grid-column:1/-1}}
-@media(max-width:540px){#planResults{grid-template-columns:repeat(2,minmax(0,1fr))}#viewPlan #planResults .plan-metric>strong{font-size:clamp(14px,4.6vw,20px)}#viewPlan .plan-class-main,#viewPlan .plan-class-details .plan-grid{grid-template-columns:1fr}#viewPlan .plan-class,#viewPlan .plan-brand-head{padding:12px}#viewPlan .plan-row-metric span{font-size:11px}}
+@media(max-width:540px){#planResults{grid-template-columns:repeat(2,minmax(0,1fr))}#viewPlan #planResults .plan-metric>strong{font-size:clamp(14px,4.6vw,20px)}#viewPlan .plan-class-main,#viewPlan .plan-class-details .plan-grid{grid-template-columns:1fr}#viewPlan .plan-class,#viewPlan .plan-brand-head{padding:12px}#viewPlan .plan-class-results{font-size:11px}}
 @media(max-width:760px){.wrap .tabbtn[data-v="plan"]{grid-column:span 12;order:7;min-height:40px;font-size:13px}}
 </style>
 </head>
@@ -1070,7 +1072,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=20"></script>
+<script src="bt-fin.js?v=21"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -2070,12 +2072,6 @@ const showPlan=(()=>{
     growth.textContent=added==null?"増車 — ／ 増車後 —":
       "増車 +"+number.format(added)+"台 ／ 増車後 "+number.format(base+added)+"台";
   }
-  function rowMetric(parent,label){
-    const metric=node("div",parent);
-    metric.className="plan-row-metric";
-    node("span",metric,label);
-    return node("strong",metric,"—");
-  }
   function impactRow(parent,label,heading=false){
     const row=node("div",parent);
     row.className="plan-impact-row"+(heading?" plan-impact-head":"");
@@ -2121,10 +2117,23 @@ const showPlan=(()=>{
         metrics.className="plan-class-results";
         const averageInsurance=Math.round(c.ins/c.count);
         const averageLease=Math.round(c.lease/c.count);
-        rowMetric(metrics,"既存車1台の月平均売上").textContent=c.monthlySales==null?"—":yen.format(c.monthlySales/c.count);
-        rowMetric(metrics,"保険／台").textContent=yen.format(averageInsurance);
-        rowMetric(metrics,"リース／台").textContent=yen.format(averageLease);
-        const projection=node("div",estimates);
+        node("span",metrics);
+        node("span",metrics,"実績").className="plan-class-result-head";
+        node("span",metrics,"目標・見込み").className="plan-class-result-head";
+        node("span",metrics,"予約単価／件");
+        node("strong",metrics,c.actualBookingPrice==null?"—":yen.format(c.actualBookingPrice));
+        const targetBookingPrice=node("strong",metrics,"—");
+        node("span",metrics,"月間売上／台");
+        node("strong",metrics,c.monthlySales==null?"—":yen.format(c.monthlySales/c.count));
+        const monthlySalesPerCar=node("strong",metrics,"—");
+        node("span",metrics,"月間支出／台");
+        node("strong",metrics,"—");
+        const monthlyCostPerCar=node("strong",metrics,"—");
+        node("p",estimates,"実績は直近の完了した3か月。支出見込みはリース・保険・OTA手数料の合計。").className="plan-class-cost-note";
+        const details=node("details",article);
+        details.className="plan-class-details";
+        node("summary",details,"既存との比較・必要単価・費用設定");
+        const projection=node("div",details);
         projection.className="plan-class-projection";
         impactRow(projection,"月額",true);
         const baseline=impactRow(projection,"既存 "+count);
@@ -2134,12 +2143,9 @@ const showPlan=(()=>{
         const increase=impactRow(projection,"計画−既存");
         const salesBasis=c.monthlySales==null?"既存車の売上実績は取得できていません。":
           "既存車1台の月平均売上＝既存車の月平均売上 "+yen.format(c.monthlySales)+" ÷ "+count+"。";
-        node("p",estimates,salesBasis+" 売上は直近の完了した3か月、保険・リースは現在の月額登録額です。").className="plan-comparison-note";
-        const requiredRate=node("p",estimates);
+        node("p",details,salesBasis+" 売上は直近の完了した3か月、保険・リースは現在の月額登録額です。").className="plan-comparison-note";
+        const requiredRate=node("p",details);
         requiredRate.className="plan-required-rate";
-        const details=node("details",article);
-        details.className="plan-class-details";
-        node("summary",details,"単価・増車費用と試算根拠");
         if(c.dailyRate==null){
           details.open=true;
           node("p",details,"貸出日数の実績がありません。稼働率が0%を超える場合、予約数と売上を試算できません。").className="plan-no-rate";
@@ -2195,7 +2201,7 @@ const showPlan=(()=>{
         reference.append("の同じブランド・クラスの登録額から算出（円単位で四捨五入）。");
         node("div",evidence,"月額リース "+yen.format(c.lease)+" ÷ "+count+" ＝ "+yen.format(averageLease)+"/台");
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
-        return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel};
+        return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel,targetBookingPrice,monthlySalesPerCar,monthlyCostPerCar};
       });
       return {brand,label,total,rows};
     });
@@ -2256,6 +2262,7 @@ const showPlan=(()=>{
     error.hidden=valid;
     if(!brands)return;
     const estimates=calculateSalesPlan();
+    const otaShareReady=otaShare.validity.valid&&officialShare.validity.valid;
     const brandsCsv=[], classesCsv=[], expensesCsv=[];
     let existingRevenue=0, existingRevenueValid=true;
     let revenue=0, addedLease=0, addedInsurance=0;
@@ -2267,7 +2274,7 @@ const showPlan=(()=>{
       let brandRevenue=0,brandCost=0,brandValid=true,brandRevenueValid=true;
       let baseCount=0, brandBaseRevenue=0, brandBaseRevenueValid=true;
       for(const row of rows){
-        const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel}=row;
+        const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel,targetBookingPrice,monthlySalesPerCar,monthlyCostPerCar}=row;
         const {bookings,rentalDays,sales}=estimates.get(row);
         requiredRate.textContent=sales!=null&&bookings>0?
           "必要単価 "+yen.format(sales/bookings)+"/予約 ／ "+yen.format(sales/rentalDays)+"/日":"必要単価 —";
@@ -2286,6 +2293,11 @@ const showPlan=(()=>{
         const salesDifference=sales==null||c.monthlySales==null?null:sales-c.monthlySales;
         const classLease=moreLease==null?null:c.lease+moreLease;
         const classInsurance=moreInsurance==null?null:c.ins+moreInsurance;
+        targetBookingPrice.textContent=sales!=null&&bookings>0?yen.format(sales/bookings):"—";
+        monthlySalesPerCar.textContent=total>0&&sales!=null?yen.format(sales/total):"—";
+        const classOta=sales!=null&&otaShareReady?Math.round(sales*(otaShare.valueAsNumber/100)*otaRate):null;
+        monthlyCostPerCar.textContent=total>0&&classLease!=null&&classInsurance!=null&&classOta!=null?
+          yen.format((classLease+classInsurance+classOta)/total):"—";
         displayImpact(increase,[salesDifference,moreInsurance,moreLease],true);
         displayImpact(combined,[sales,classInsurance,classLease]);
         if(moreLease==null)leaseValid=false;
