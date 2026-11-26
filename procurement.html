@@ -1839,6 +1839,8 @@ const showPlan=(()=>{
   const assumptions=new Map();
   const daysPerMonth=30;
   const otaRate=0.15;
+  const grossBookingTarget=27500;
+  const signedYen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY",signDisplay:"exceptZero"});
   const otaShareKey="bt_plan_ota_share";
   const officialShare=document.getElementById("planOfficialShare");
   const otaShare=document.getElementById("planOtaShare");
@@ -2022,15 +2024,20 @@ const showPlan=(()=>{
       perVehicle.className="plan-count-detail";
       const bookingMetrics=node("p",card);
       bookingMetrics.className="plan-count-detail";
-      fleetCountCards.set(brand,{base:totals.count,growth,perVehicle,bookingMetrics});
+      const target=brand===null?node("p",card):null;
+      if(target)target.className="plan-count-detail";
+      fleetCountCards.set(brand,{base:totals.count,growth,perVehicle,bookingMetrics,target});
     }
     countsNode.hidden=false;
   }
   function showFleetGrowth(brand,added,revenue,estimatedBookings){
-    const {base,growth,perVehicle,bookingMetrics}=fleetCountCards.get(brand);
+    const {base,growth,perVehicle,bookingMetrics,target}=fleetCountCards.get(brand);
     const bookings=estimatedBookings==null?null:Math.round(estimatedBookings);
+    const unitPrice=bookings>0&&revenue!=null?Math.round(revenue/bookings):null;
     bookingMetrics.textContent="試算予約数 "+(bookings==null?"—":number.format(bookings)+"件")
-      +" ／ 平均単価 "+(bookings>0&&revenue!=null?yen.format(revenue/bookings)+"/件":"—");
+      +" ／ 平均単価 "+(unitPrice==null?"—":yen.format(unitPrice)+"/件");
+    if(target)target.textContent="目標単価（グロス） "+yen.format(grossBookingTarget)+"/件 ／ 目標差 "
+      +(unitPrice==null?"—":signedYen.format(unitPrice-grossBookingTarget)+"/件");
     const total=added==null?0:base+added;
     perVehicle.textContent="1台あたり月間売上 "+(total>0&&revenue!=null?yen.format(revenue/total):"—");
     growth.textContent=added==null?"増車 — ／ 増車後 —":
