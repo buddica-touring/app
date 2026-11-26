@@ -1072,7 +1072,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=21"></script>
+<script src="bt-fin.js?v=22"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -2084,9 +2084,16 @@ const showPlan=(()=>{
       cell.textContent=value==null?"—":(increment&&value>0?"+":"")+yen.format(value);
     });
   }
+  function formatHistoryPeriod(start,end){
+    if(!start||!end)return "直近の完了した3か月";
+    const [startYear,startMonth]=start.split("-");
+    const [endYear,endMonth]=end.split("-");
+    return startYear+"年"+Number(startMonth)+"月〜"+(startYear===endYear?"":endYear+"年")+Number(endMonth)+"月";
+  }
   function renderBrands(data){
     brandsNode.replaceChildren();
-    return data.map(({brand,label,classes})=>{
+    return data.map(({brand,label,classes,historyStart,historyEnd})=>{
+      const period=formatHistoryPeriod(historyStart,historyEnd);
       const section=node("section",brandsNode);
       section.className="plan-brand";
       section.dataset.brand=brand;
@@ -2129,7 +2136,7 @@ const showPlan=(()=>{
         node("span",metrics,"月間支出／台");
         node("strong",metrics,"—");
         const monthlyCostPerCar=node("strong",metrics,"—");
-        node("p",estimates,"実績は直近の完了した3か月。支出見込みはリース・保険・OTA手数料の合計。").className="plan-class-cost-note";
+        node("p",estimates,"実績期間 "+period+"（返却月）。支出見込みはリース・保険・OTA手数料の合計。").className="plan-class-cost-note";
         const details=node("details",article);
         details.className="plan-class-details";
         node("summary",details,"既存との比較・必要単価・費用設定");

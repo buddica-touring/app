@@ -369,11 +369,10 @@ window.FIN=(function(){
     try{const D=await loadPL();const out={};yms.forEach(m=>{const {o}=plMonth(D,m);out[m]={sales:o["売上高"],cost:o._cost,profit:o["売上高"]-o._cost};});return out;}catch(e){return null;}
   }
   document.addEventListener("click",ev=>{if(ev.target&&ev.target.id==="fleetReload")showFleet();});
-  async function planDailyRates(V,fleet,ym){
+  async function planDailyRates(V,fleet,ym,startMonth){
     const day=86400000;
     const date=value=>Date.parse(String(value||"").slice(0,10));
     const key=v=>JSON.stringify([normBrand(v.brand),v.type]);
-    const startMonth=addYm(ym,-3);
     const {data,error}=await sb.rpc("bt_vehicle_dashboard_view",{
       p_key:VIEW_KEY,p_from:addYm(ym,-4)+'-01',p_ym:ym
     });
@@ -440,7 +439,8 @@ window.FIN=(function(){
   }
   async function planFleetCosts(){
     const ym=ymNow(), V=await loadVehicles(), fleet=fleetOf(V,ym);
-    const rates=await planDailyRates(V,fleet,ym).catch(()=>null);
+    const historyStart=addYm(ym,-3), historyEnd=addYm(ym,-1);
+    const rates=await planDailyRates(V,fleet,ym,historyStart).catch(()=>null);
     return Object.keys(BRL).map(brand=>{
       const vehicles=fleet.filter(v=>normBrand(v.brand)===brand);
       const classes=V.classes.flatMap(c=>{
@@ -461,7 +461,7 @@ window.FIN=(function(){
         totals.utilization=rate?.available?Math.round(rate.days/rate.available*1000)/10:0;
         return [totals];
       });
-      return {brand,label:BRL[brand],classes};
+      return {brand,label:BRL[brand],classes,historyStart,historyEnd};
     });
   }
   async function planPLExpenses(){
