@@ -974,7 +974,7 @@ tr.arcHide{display:none!important}
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。増車分の売上は増車台数 × 30日 × 増車の稼働率 × 貸出単価で試算します。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費には売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
+      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。クラスの月間試算売上＝（既存台数＋増車台数）× 30日 × クラス全体の想定稼働率 × 貸出単価。差分は試算額から既存実績を引いた金額です。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費には売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -2020,10 +2020,10 @@ const showPlan=(()=>{
         const projection=node("div",estimates);
         projection.className="plan-class-projection";
         impactRow(projection,"月額",true);
-        const baseline=impactRow(projection,"既存");
+        const baseline=impactRow(projection,"既存実績");
         displayImpact(baseline,[c.monthlySales,c.ins,c.lease]);
-        const increase=impactRow(projection,"増車分");
-        const combined=impactRow(projection,"増車後");
+        const increase=impactRow(projection,"差分");
+        const combined=impactRow(projection,"試算合計");
         const details=node("details",article);
         details.className="plan-class-details";
         node("summary",details,"単価・増車費用と試算根拠");
@@ -2049,7 +2049,7 @@ const showPlan=(()=>{
         const addedFleet=input(fleetControl,"addedFleet","増車台数（台）",0,100000);
         const fleetTotal=node("output",fleetControl);
         fleetTotal.className="plan-fleet-total";
-        const rate=input(controls,"rate","増車の稼働率（%）",c.utilization??0,100,"any");
+        const rate=input(controls,"rate","クラス全体の稼働率（%）",c.utilization??0,100,"any");
         const price=input(assumptionsGrid,"price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000);
         const leaseRate=input(assumptionsGrid,"leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000);
         const insuranceRate=input(assumptionsGrid,"insuranceRate","増車1台の月額保険料（試算・円）",averageInsurance,1000000000);
@@ -2090,12 +2090,12 @@ const showPlan=(()=>{
           added===0?0:input.validity.valid?added*input.valueAsNumber:null;
         const moreLease=addedValue(leaseRate);
         const moreInsurance=addedValue(insuranceRate);
-        const moreSales=!addedFleet.validity.valid?null:added===0?0:
-          rate.validity.valid&&price.validity.valid?Math.round(added*daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber):null;
-        const sales=c.monthlySales==null||moreSales==null?null:c.monthlySales+moreSales;
+        const sales=[addedFleet,rate,price].every(input=>input.validity.valid)?
+          Math.round(total*daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber):null;
+        const salesDifference=sales==null||c.monthlySales==null?null:sales-c.monthlySales;
         const classLease=moreLease==null?null:c.lease+moreLease;
         const classInsurance=moreInsurance==null?null:c.ins+moreInsurance;
-        displayImpact(increase,[moreSales,moreInsurance,moreLease],true);
+        displayImpact(increase,[salesDifference,moreInsurance,moreLease],true);
         displayImpact(combined,[sales,classInsurance,classLease]);
         if(moreLease==null)leaseValid=false;
         else addedLease+=moreLease;
