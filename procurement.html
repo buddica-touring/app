@@ -848,13 +848,15 @@ tr.arcHide{display:none!important}
   <section id="viewPlan" style="display:none" aria-labelledby="planTitle">
     <div class="card">
       <h2 id="planTitle">数値計画シミュレーション</h2>
+      <p id="planFleetStatus" role="status"></p>
+      <button type="button" id="planFleetRetry" hidden>再読み込み</button>
       <form id="planForm">
         <div class="plan-grid">
-          <label>保有台数（台）<input name="fleet" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
+          <label>計画保有台数（台）<input name="fleet" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
           <label>営業日数（日）<input name="days" type="number" inputmode="numeric" min="1" max="31" step="1" value="30" required></label>
           <label>稼働率（%）<input name="rate" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
           <label>貸出単価（円／台日）<input name="price" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
-          <label>車両費（円／台・月）<input name="vehicle" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
+          <label>増車分の車両費（円／台・月）<input name="vehicle" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
           <label>その他固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
           <label>売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
         </div>
@@ -867,7 +869,7 @@ tr.arcHide{display:none!important}
       <div class="card"><div class="lb">月間費用</div><strong id="planCost"></strong></div>
       <div class="card"><div class="lb">月間損益</div><strong id="planProfit"></strong></div>
     </div>
-    <p class="sub">売上＝保有台数 × 営業日数 × 稼働率 × 貸出単価。費用＝保有台数 × 1台あたりの車両費 ＋ その他固定費 ＋ 売上 × 売上連動費率。</p>
+    <p class="sub">売上＝保有台数 × 営業日数 × 稼働率 × 貸出単価。費用＝既存車両のリース料・保険料 ＋ 増車台数 × 1台あたりの車両費 ＋ その他固定費 ＋ 売上 × 売上連動費率。計画保有台数を減らしても、既存車両の月額費用は全額計上します。</p>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
@@ -943,7 +945,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=9"></script>
+<script src="bt-fin.js?v=10"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1708,7 +1710,7 @@ sb.channel("tire-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   const ae=document.activeElement; if(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tirePlan||ae.dataset.tireDest))return;
   renderTire();
 }).subscribe();
-{
+const showPlan=(()=>{
   const planForm=document.getElementById("planForm");
   const planResults=document.getElementById("planResults");
   const planError=document.getElementById("planError");
@@ -1716,22 +1718,49 @@ sb.channel("tire-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   const yenFormat=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
   function renderPlan(){
     const valid=planForm.checkValidity();
-    planResults.hidden=!valid;
+    planResults.hidden=!valid||!existing;
     planError.hidden=valid;
-    if(!valid)return;
+    if(!valid||!existing)return;
     const {fleet,days,rate,price,vehicle,fixed,fee}=planForm.elements;
     const rentalDays=fleet.valueAsNumber*days.valueAsNumber*(rate.valueAsNumber/100);
     const revenue=Math.round(rentalDays*price.valueAsNumber);
-    const cost=Math.round(fleet.valueAsNumber*vehicle.valueAsNumber+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
+    const additional=Math.max(0,fleet.valueAsNumber-existing.count);
+    const cost=Math.round(existing.lease+existing.ins+additional*vehicle.valueAsNumber+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
     document.getElementById("planRentalDays").textContent=numberFormat.format(rentalDays)+" 台日";
     document.getElementById("planRevenue").textContent=yenFormat.format(revenue);
     document.getElementById("planCost").textContent=yenFormat.format(cost);
     document.getElementById("planProfit").textContent=yenFormat.format(revenue-cost);
   }
-  planForm.addEventListener("input",renderPlan);
+  const fleetStatus=document.getElementById("planFleetStatus");
+  const retry=document.getElementById("planFleetRetry");
+  let existing=null, loading=false, fleetEdited=false;
+  async function refreshFleet(){
+    if(loading)return;
+    loading=true;
+    existing=null;
+    retry.hidden=true;
+    fleetStatus.textContent="既存車両のリース料・保険料を読み込み中…";
+    renderPlan();
+    try{
+      existing=await FIN.planFleetCosts();
+      if(!fleetEdited)planForm.elements.fleet.value=existing.count;
+      fleetStatus.textContent="既存車両 "+numberFormat.format(existing.count)+"台 ／ 月額リース料 "+yenFormat.format(existing.lease)+" ／ 月額保険料 "+yenFormat.format(existing.ins);
+    }catch(error){
+      fleetStatus.textContent="既存車両の費用を読み込めませんでした。";
+      retry.hidden=false;
+    }finally{
+      loading=false;
+      renderPlan();
+    }
+  }
+  retry.addEventListener("click",refreshFleet);
+  planForm.addEventListener("input",event=>{
+    if(event.target===planForm.elements.fleet)fleetEdited=true;
+    renderPlan();
+  });
   planForm.addEventListener("submit",event=>event.preventDefault());
-  renderPlan();
-}
+  return refreshFleet;
+})();
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
@@ -1751,6 +1780,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewSpend").style.display=v==="spend"?"":"none";
   $("viewPL").style.display=v==="pl"?"":"none";
   $("viewPlan").style.display=v==="plan"?"":"none";
+  if(v==="plan")showPlan();
   if(v==="fleet")FIN.showFleet();   // 車両リスト・店舗支出・PL（オーナー指示 2026-11-20）：開くたびに正本から読む
   if(v==="spend")FIN.showSpend();
   if(v==="pl")FIN.showPL();
