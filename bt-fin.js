@@ -348,8 +348,9 @@ window.FIN=(function(){
       const classes=V.classes.flatMap(c=>{
         const members=vehicles.filter(v=>v.type===c.id);
         if(!members.length)return [];
-        const totals={id:c.id,name:c.name,count:members.length,lease:0,ins:0};
+        const totals={id:c.id,name:c.name,count:members.length,active:0,lease:0,ins:0};
         for(const v of members){
+          if(isAct(V,ym,v.code))totals.active++;
           const {lease,ins}=costParts(v);
           totals.lease+=lease;
           totals.ins+=ins;

@@ -813,6 +813,8 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-metric-profit{background:#19365b;border-color:#19365b;color:white}
 #viewPlan .plan-metric-profit span{color:#e1ecf9}
 #viewPlan .plan-metric-profit.is-negative{background:#8c2d3d;border-color:#8c2d3d}
+#viewPlan #planFleetCounts{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));margin-top:12px}
+#viewPlan .plan-count-detail{margin-top:5px;color:var(--plan-muted);font-size:12px;font-weight:700}
 #viewPlan #planExisting{margin:10px 0 0;color:var(--plan-muted);font-size:12px;line-height:1.6}
 #viewPlan #planFleetStatus:not(:empty),#viewPlan #planError{margin:12px 0}
 #planError{color:#991b1b}
@@ -892,6 +894,7 @@ tr.arcHide{display:none!important}
         <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong></div>
         <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
       </div>
+      <div id="planFleetCounts" class="plan-grid" aria-label="配車表の当月運用台数" hidden></div>
       <p id="planExisting" hidden></p>
     </section>
     <p id="planFleetStatus" role="status"></p>
@@ -986,7 +989,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=12"></script>
+<script src="bt-fin.js?v=13"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1759,6 +1762,7 @@ const showPlan=(()=>{
   const retry=document.getElementById("planFleetRetry");
   const brandsNode=document.getElementById("planBrands");
   const existingNode=document.getElementById("planExisting");
+  const countsNode=document.getElementById("planFleetCounts");
   const number=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
   const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
   const assumptions=new Map();
@@ -1769,6 +1773,32 @@ const showPlan=(()=>{
     if(value!==undefined)el.textContent=value;
     parent.append(el);
     return el;
+  }
+  function fleetCounts(classes){
+    return classes.reduce((sum,c)=>{
+      sum.count+=c.count;
+      sum.active+=c.active;
+      return sum;
+    },{count:0,active:0});
+  }
+  function fleetBreakdown({count,active}){
+    return "稼働 "+number.format(active)+"台 ／ 未稼働 "+number.format(count-active)+"台";
+  }
+  function renderFleetCounts(data){
+    countsNode.replaceChildren();
+    const counts=[
+      {label:"ブランド合算の運用台数",classes:data.flatMap(b=>b.classes)},
+      ...data.map(b=>({label:b.label+" の運用台数",classes:b.classes}))
+    ];
+    for(const {label,classes} of counts){
+      const totals=fleetCounts(classes);
+      const card=node("div",countsNode);
+      card.className="plan-metric";
+      node("span",card,label);
+      node("strong",card,number.format(totals.count)+"台");
+      node("p",card,fleetBreakdown(totals)).className="plan-count-detail";
+    }
+    countsNode.hidden=false;
   }
   function rowMetric(parent,label){
     const metric=node("div",parent);
@@ -1799,7 +1829,7 @@ const showPlan=(()=>{
         const identity=node("div",main);
         node("h3",identity,[c.id,c.name].filter(Boolean).join(" "));
         const count=number.format(c.count)+"台";
-        node("p",identity,"既存 "+count+" ／ 月額コスト "+yen.format(c.lease+c.ins)).className="plan-class-baseline";
+        node("p",identity,"既存 "+count+" ／ "+fleetBreakdown(c)+" ／ 月額コスト "+yen.format(c.lease+c.ins)).className="plan-class-baseline";
         const controls=node("div",main);
         controls.className="plan-grid plan-class-controls";
         const metrics=node("div",main);
@@ -1895,6 +1925,7 @@ const showPlan=(()=>{
     loading=true;
     brands=null;
     existingNode.hidden=true;
+    countsNode.hidden=true;
     brandsNode.replaceChildren();
     status.textContent="既存車両のリース料・保険料を読み込み中…";
     retry.hidden=true;
@@ -1907,6 +1938,7 @@ const showPlan=(()=>{
         return sum;
       },{lease:0,ins:0});
       brands=renderBrands(data);
+      renderFleetCounts(data);
       existingNode.textContent="既存車両コスト（月額） "+yen.format(existing.lease+existing.ins)
         +" ／ リース "+yen.format(existing.lease)+" ／ 保険 "+yen.format(existing.ins);
       existingNode.hidden=false;
