@@ -839,7 +839,12 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-expense-row select{width:100%;min-height:42px;border:1px solid #a8bad1;border-radius:8px;background:#fff;font:inherit;color:inherit}
 #viewPlan .plan-expense-row output{display:block;padding:8px 0;font-weight:700;overflow-wrap:anywhere}
 #viewPlan .plan-pl-fixed{padding:8px 12px;border-radius:8px;background:#f2f6fb;color:var(--plan-muted);font-size:12px}
-#viewPlan .plan-pl-fixed ul{margin:6px 0;padding-left:20px}
+#viewPlan .plan-pl-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0}
+#viewPlan .plan-pl-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,110px) auto;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--plan-line)}
+#viewPlan .plan-pl-row input{min-height:34px;font-size:14px}
+#viewPlan .plan-pl-row button{min-width:30px;min-height:30px}
+#viewPlan #planExpenseTotal{font-size:16px;color:var(--plan-ink)}
+@media(max-width:670px){#viewPlan .plan-pl-columns{grid-template-columns:1fr}}
 #viewPlan .plan-expense-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:9px 0;color:var(--plan-muted);font-size:12px}
 @media(max-width:540px){#viewPlan .plan-expense-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #viewPlan .plan-shared .plan-grid{grid-template-columns:repeat(2,minmax(0,200px));padding:8px 0}
@@ -934,16 +939,24 @@ tr.arcHide{display:none!important}
               <label>追加固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
               <label>その他の売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
             </div>
-            <details class="plan-pl-fixed">
-              <summary>PLの固定費 <strong id="planFixedPLTotal">—</strong></summary>
-              <p id="planFixedPLPeriod"></p>
-              <ul id="planFixedPLItems"></ul>
-              <p>リース料・保険料・支払手数料はシミュレーション側で計上します。</p>
-            </details>
             <div class="plan-expense-summary">
+              <span>リース（月額） <strong id="planLeaseExpense">—</strong></span>
+              <span>保険（月額） <strong id="planInsuranceExpense">—</strong></span>
               <span>OTA手数料（売上 × 15%） <strong id="planOtaExpense">—</strong></span>
-              <span>月間支出合計 <strong id="planExpenseTotal">—</strong></span>
+              <span>月間支出合計（概算） <strong id="planExpenseTotal">—</strong></span>
             </div>
+            <p id="planFixedPLPeriod"></p>
+            <div class="plan-pl-columns">
+              <section class="plan-pl-fixed" aria-label="PLの固定費">
+                <h3>PLの固定費 <strong id="planFixedPLTotal">—</strong></h3>
+                <div id="planFixedPLItems"></div>
+              </section>
+              <section class="plan-pl-fixed" aria-label="PLの変動費">
+                <h3>PLの変動費（月額を手入力）</h3>
+                <div id="planVariablePLItems"></div>
+              </section>
+            </div>
+            <button type="button" class="btn" id="planRestorePLExpenses" hidden>除外したPL科目を戻す</button>
             <div id="planExpenseRows" class="plan-expense-list"></div>
             <button type="button" class="btn" id="planAddExpense">＋ 支出項目を追加</button>
             <template id="planExpenseTemplate">
@@ -952,7 +965,7 @@ tr.arcHide{display:none!important}
                 <label>計算方法<select><option value="fixed">月額固定</option><option value="share">売上連動</option></select></label>
                 <label><span class="plan-expense-unit">金額（円／月）</span><input type="number" min="0" max="1000000000" step="1" inputmode="numeric" value="0" required></label>
                 <div>月額<output>¥0</output></div>
-                <button type="button" class="btn">削除</button>
+                <button type="button" class="btn" aria-label="追加支出を除外">×</button>
               </div>
             </template>
           </details>
@@ -1038,7 +1051,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=17"></script>
+<script src="bt-fin.js?v=18"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1819,7 +1832,10 @@ const showPlan=(()=>{
   const otaRate=0.15;
   const expenseRows=document.getElementById("planExpenseRows");
   const expenses=[];
-  let brands=null, existing=null, plFixed=null, loading=false;
+  let brands=null, existing=null, plExpenses=null, loading=false;
+  const plVariableValues=new Map(), excludedPL=new Set();
+  const includedPLFixed=[], includedPLVariable=[];
+  const restorePL=document.getElementById("planRestorePLExpenses");
   function node(tag,parent,value){
     const el=document.createElement(tag);
     if(value!==undefined)el.textContent=value;
@@ -1851,18 +1867,53 @@ const showPlan=(()=>{
     row.querySelector('input[type="text"]').focus();
     render();
   });
-  function showPLFixed(){
-    const items=document.getElementById("planFixedPLItems");
-    items.replaceChildren();
-    const total=plFixed?yen.format(plFixed.total):"—";
-    document.getElementById("planFixedPLTotal").textContent=total;
-    document.getElementById("planFixedPLCard").textContent=total;
-    document.getElementById("planFixedPLPeriod").textContent=plFixed?
-      plFixed.month.replace("-","年")+"月のPL":"PLの固定費を読み込めませんでした。タブを開き直すと再取得します。";
-    if(!plFixed)return;
-    const nonzero=plFixed.items.filter(item=>item.amount!==0);
-    if(!nonzero.length)node("li",items,"計上額のある固定費はありません。");
-    for(const {account,amount} of nonzero)node("li",items,account+" "+yen.format(amount));
+  restorePL.addEventListener("click",()=>{
+    excludedPL.clear();
+    showPLExpenses();
+    render();
+  });
+  function showPLExpenses(){
+    const fixedItems=document.getElementById("planFixedPLItems");
+    const variableItems=document.getElementById("planVariablePLItems");
+    fixedItems.replaceChildren();
+    variableItems.replaceChildren();
+    includedPLFixed.length=includedPLVariable.length=0;
+    restorePL.hidden=!excludedPL.size;
+    document.getElementById("planFixedPLPeriod").textContent=plExpenses?
+      plExpenses.month.replace("-","年")+"月のPL科目":"PL科目を読み込めませんでした。タブを開き直すと再取得します。";
+    if(!plExpenses)return;
+    function expenseRow(parent,account,renderValue){
+      if(excludedPL.has(account))return;
+      const row=node("div",parent);
+      row.className="plan-pl-row";
+      node("span",row,account);
+      renderValue(row);
+      const remove=node("button",row,"×");
+      remove.type="button";
+      remove.className="btn";
+      remove.setAttribute("aria-label",account+"を試算から除外");
+      remove.addEventListener("click",()=>{
+        excludedPL.add(account);
+        showPLExpenses();
+        render();
+      });
+    }
+    for(const {account,amount} of plExpenses.fixed){
+      expenseRow(fixedItems,account,row=>{
+        includedPLFixed.push(amount);
+        node("strong",row,yen.format(amount));
+      });
+    }
+    for(const account of plExpenses.variable){
+      expenseRow(variableItems,account,row=>{
+        const input=node("input",row);
+        Object.assign(input,{type:"number",min:"0",step:"1",max:"1000000000",inputMode:"numeric",
+          value:plVariableValues.get(account)||""});
+        input.setAttribute("aria-label",account+"の概算月額（円）");
+        input.addEventListener("input",()=>plVariableValues.set(account,input.value));
+        includedPLVariable.push(input);
+      });
+    }
   }
   function fleetCounts(classes){
     return classes.reduce((sum,c)=>{
@@ -2043,9 +2094,20 @@ const showPlan=(()=>{
       document.getElementById(id+"Added").textContent=ready?"+"+yen.format(additional):"—";
       document.getElementById(id).textContent=ready?yen.format(baseline+additional):"—";
     }
-    let fixedValid=!!plFixed&&fixed.validity.valid, otherVariableValid=revenueValid&&fee.validity.valid;
-    let fixedCost=(plFixed?.total||0)+(fixed.validity.valid?fixed.valueAsNumber:0);
+    const importedFixed=includedPLFixed.reduce((sum,n)=>sum+n,0);
+    const importedDisplay=plExpenses?yen.format(importedFixed):"—";
+    for(const id of ["planFixedPLCard","planFixedPLTotal"]){
+      document.getElementById(id).textContent=importedDisplay;
+    }
+    document.getElementById("planLeaseExpense").textContent=leaseValid?yen.format(lease):"—";
+    document.getElementById("planInsuranceExpense").textContent=insuranceValid?yen.format(insurance):"—";
+    let fixedValid=!!plExpenses&&fixed.validity.valid, otherVariableValid=revenueValid&&fee.validity.valid;
+    let fixedCost=importedFixed+(fixed.validity.valid?fixed.valueAsNumber:0);
     let otherVariable=otherVariableValid?Math.round(revenue*(fee.valueAsNumber/100)):0;
+    for(const input of includedPLVariable){
+      otherVariableValid&&=input.validity.valid;
+      if(input.validity.valid&&input.value!=="")otherVariable+=input.valueAsNumber;
+    }
     for(const {mode,amount,output} of expenses){
       const share=mode.value==="share";
       const ready=amount.validity.valid&&(!share||revenueValid);
@@ -2087,9 +2149,9 @@ const showPlan=(()=>{
     retry.hidden=true;
     render();
     try{
-      const [data,fixedExpenses]=await Promise.all([FIN.planFleetCosts(),FIN.planFixedExpenses().catch(()=>null)]);
-      plFixed=fixedExpenses;
-      showPLFixed();
+      const [data,expenseAccounts]=await Promise.all([FIN.planFleetCosts(),FIN.planPLExpenses().catch(()=>null)]);
+      plExpenses=expenseAccounts;
+      showPLExpenses();
       existing=data.flatMap(brand=>brand.classes).reduce((sum,c)=>{
         sum.lease+=c.lease;
         sum.ins+=c.ins;

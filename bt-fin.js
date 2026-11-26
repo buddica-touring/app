@@ -417,14 +417,19 @@ window.FIN=(function(){
       return {brand,label:BRL[brand],classes};
     });
   }
-  async function planFixedExpenses(){
+  async function planPLExpenses(){
     const month=ymNow();
     const {o}=plMonth(await loadPL(),month);
     // The simulator already calculates these costs separately.
     const excluded=new Set(["リース料","保険料","支払手数料"]);
-    const items=PL.filter(([account,kind])=>plCostGroup(account,kind)==="fixed"&&!excluded.has(account))
-      .map(([account])=>({account,amount:o[account]||0}));
-    return {month,items,total:items.reduce((sum,item)=>sum+item.amount,0)};
+    const fixed=[],variable=[];
+    for(const [account,kind] of PL){
+      const group=plCostGroup(account,kind);
+      if(excluded.has(account))continue;
+      if(group==="fixed")fixed.push({account,amount:o[account]||0});
+      if(group==="variable")variable.push(account);
+    }
+    return {month,fixed,variable};
   }
-  return {showFleet,showSpend,showPL,summary,planFleetCosts,planFixedExpenses};
+  return {showFleet,showSpend,showPL,summary,planFleetCosts,planPLExpenses};
 })();
