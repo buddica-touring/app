@@ -810,6 +810,8 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:0 12px;margin-bottom:12px}
 #viewPlan .plan-heading h2{margin-bottom:0}
 #viewPlan .plan-heading button{white-space:nowrap}
+#viewPlan .plan-transfer-actions{display:flex;flex-wrap:wrap;gap:6px}
+#viewPlan #planTransferStatus:not(:empty){margin:0 0 8px;color:var(--plan-muted);font-size:12px}
 #viewPlan h2{font-size:clamp(19px,2vw,27px);line-height:1.4;margin:0 0 18px}
 #viewPlan h3{margin:0;font-size:15px}
 #viewPlan p{margin:0}
@@ -932,8 +934,14 @@ tr.arcHide{display:none!important}
       <div class="plan-sticky">
         <div class="plan-heading">
           <h2 id="planTitle">数値計画シミュレーション</h2>
-          <button id="planExportCsv" class="btn" type="button" disabled>事業計画CSVを出力</button>
+          <div class="plan-transfer-actions">
+            <button id="planExportCsv" class="btn" type="button" disabled>事業計画CSVを出力</button>
+            <button id="planExportConditions" class="btn" type="button" disabled>試算条件を保存</button>
+            <button id="planImportConditions" class="btn" type="button" disabled>試算条件を読み込む</button>
+            <input id="planConditionsFile" type="file" accept=".json,application/json" hidden>
+          </div>
         </div>
+        <p id="planTransferStatus" role="status"></p>
         <section aria-label="月間サマリ">
           <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true" hidden>
             <div class="plan-metric"><span>売上</span><strong id="planRevenue"></strong></div>
@@ -1806,6 +1814,10 @@ const showPlan=(()=>{
   const existingNode=document.getElementById("planExisting");
   const countsNode=document.getElementById("planFleetCounts");
   const exportButton=document.getElementById("planExportCsv");
+  const exportConditions=document.getElementById("planExportConditions");
+  const importConditions=document.getElementById("planImportConditions");
+  const conditionsFile=document.getElementById("planConditionsFile");
+  const transferStatus=document.getElementById("planTransferStatus");
   let csvRows=[];
   const number=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
   const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
@@ -1886,7 +1898,8 @@ const showPlan=(()=>{
     parent.append(el);
     return el;
   }
-  document.getElementById("planAddExpense").addEventListener("click",()=>{
+  const customExpenseKey="bt_plan_custom_expenses";
+  function addExpense(saved,focus=false){
     const row=document.getElementById("planExpenseTemplate").content.firstElementChild.cloneNode(true);
     const mode=row.querySelector("select");
     const amount=row.querySelector('input[type="number"]');
@@ -1895,23 +1908,42 @@ const showPlan=(()=>{
     const name=row.querySelector('input[type="text"]');
     const expense={name,mode,amount,output};
     expenses.push(expense);
-    mode.addEventListener("change",()=>{
+    const updateType=()=>{
       const share=mode.value==="share";
       unit.textContent=share?"料率（%）":"金額（円／月）";
       amount.max=share?"100":"1000000000";
       amount.step=share?"any":"1";
       amount.inputMode=share?"decimal":"numeric";
-      render();
-    });
+    };
+    if(saved){name.value=saved.name;mode.value=saved.mode;amount.value=saved.amount;}
+    updateType();
+    mode.addEventListener("change",()=>{updateType();saveCustomExpenses();render();});
+    row.addEventListener("input",saveCustomExpenses);
     row.querySelector("button").addEventListener("click",()=>{
       expenses.splice(expenses.indexOf(expense),1);
       row.remove();
+      saveCustomExpenses();
       render();
     });
     expenseRows.append(row);
-    name.focus();
-    render();
-  });
+    if(focus)name.focus();
+  }
+  function customExpenseValues(){
+    return expenses.filter(item=>item.amount.validity.valid).map(({name,mode,amount})=>
+      ({name:name.value,mode:mode.value,amount:amount.valueAsNumber}));
+  }
+  function saveCustomExpenses(){
+    try{localStorage.setItem(customExpenseKey,JSON.stringify(customExpenseValues()));}catch(error){}
+  }
+  function validCustomExpense(item){
+    return item&&typeof item.name==="string"&&item.name.length<=500&&
+      (item.mode==="share"?validAmount(item.amount,0,100):item.mode==="fixed"&&validAmount(item.amount,0,1000000000,true));
+  }
+  try{
+    const saved=JSON.parse(localStorage.getItem(customExpenseKey)||"[]");
+    if(Array.isArray(saved))for(const item of saved.filter(validCustomExpense))addExpense(item);
+  }catch(error){}
+  document.getElementById("planAddExpense").addEventListener("click",()=>{addExpense(null,true);saveCustomExpenses();render();});
   restorePL.addEventListener("click",()=>{
     excludedPL.clear();
     savePLExclusions();
@@ -2123,7 +2155,7 @@ const showPlan=(()=>{
         const values=assumptions.get(key)||{};
         function input(parent,field,label,initial,max,step="1"){
           const el=node("input",node("label",parent,label));
-          const storageKey=field==="addedFleet"||field==="rate"?"bt_plan_class:"+key+":"+field:null;
+          const storageKey="bt_plan_class:"+key+":"+field;
           let saved=null;
           if(storageKey){
             try{saved=localStorage.getItem(storageKey);}catch(error){}
@@ -2221,9 +2253,109 @@ const showPlan=(()=>{
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   exportButton.addEventListener("click",exportPlanCsv);
+  function validAmount(value,min,max,integer=false){
+    return Number.isFinite(value)&&value>=min&&value<=max&&(!integer||Number.isSafeInteger(value));
+  }
+  const classFields={
+    addedFleet:[0,100000,true],rate:[0,100,false],price:[0,1000000000,true],
+    leaseRate:[0,1000000000,true],insuranceRate:[0,1000000000,true]
+  };
+  exportConditions.addEventListener("click",()=>{
+    if(exportConditions.disabled)return;
+    const month=plExpenses.month;
+    const forMonth=values=>[...values].flatMap(([key,value])=>{
+      const [savedMonth,account]=JSON.parse(key);
+      return savedMonth===month?[[account,value]]:[];
+    });
+    const scenario={
+      version:1,target:targetInput.valueAsNumber,otaShare:otaShare.valueAsNumber,
+      classes:brands.flatMap(({brand,rows})=>rows.map(row=>({
+        brand,id:row.c.id,
+        values:Object.fromEntries(Object.keys(classFields).map(field=>[field,row[field].valueAsNumber]))
+      }))),
+      fixed:forMonth(plFixedOverrides),variable:forMonth(plVariableValues),excluded:[...excludedPL],
+      expenses:customExpenseValues()
+    };
+    const url=URL.createObjectURL(new Blob([JSON.stringify(scenario,null,2)],{type:"application/json"}));
+    const link=document.createElement("a");
+    link.href=url;
+    link.download="数値計画_試算条件_"+month+".json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    transferStatus.textContent="試算条件を保存しました。同じファイルを別の端末で読み込めます。";
+  });
+  function importPlanConditions(scenario){
+    const validEntries=(items,signed)=>Array.isArray(items)&&items.every(entry=>
+      Array.isArray(entry)&&entry.length===2&&typeof entry[0]==="string"&&
+      Number.isSafeInteger(entry[1])&&(signed||validAmount(entry[1],0,1000000000,true)));
+    if(!scenario||scenario.version!==1||!validAmount(scenario.target,1,1000000000,true)||
+      !validAmount(scenario.otaShare,0,100)||!Array.isArray(scenario.classes)||
+      !scenario.classes.every(item=>item&&typeof item.brand==="string"&&typeof item.id==="string"&&item.values&&
+        Object.entries(classFields).every(([field,[min,max,integer]])=>validAmount(item.values[field],min,max,integer)))||
+      !validEntries(scenario.fixed,true)||!validEntries(scenario.variable,false)||
+      !Array.isArray(scenario.excluded)||!scenario.excluded.every(account=>typeof account==="string")||
+      !Array.isArray(scenario.expenses)||!scenario.expenses.every(validCustomExpense))return false;
+    const month=plExpenses.month;
+    function replaceMonth(values,items){
+      for(const key of values.keys())if(JSON.parse(key)[0]===month)values.delete(key);
+      for(const [account,amount] of items)values.set(JSON.stringify([month,account]),amount);
+    }
+    replaceMonth(plFixedOverrides,scenario.fixed);
+    replaceMonth(plVariableValues,scenario.variable);
+    excludedPL.clear();
+    for(const account of scenario.excluded)excludedPL.add(account);
+    targetInput.value=String(scenario.target);
+    otaShare.value=String(scenario.otaShare);
+    officialShare.value=complement(scenario.otaShare);
+    expenseRows.replaceChildren();
+    expenses.length=0;
+    for(const item of scenario.expenses)addExpense(item);
+    assumptions.clear();
+    const classValues=new Map(scenario.classes.map(item=>[JSON.stringify([item.brand,item.id]),item.values]));
+    try{
+      for(const {brand,rows} of brands){
+        for(const row of rows){
+          const key=JSON.stringify([brand,row.c.id]);
+          const values=classValues.get(key);
+          for(const field of Object.keys(classFields)){
+            const storageKey="bt_plan_class:"+key+":"+field;
+            if(values)localStorage.setItem(storageKey,String(values[field]));
+            else localStorage.removeItem(storageKey);
+          }
+        }
+      }
+      localStorage.setItem(targetKey,targetInput.value);
+      localStorage.setItem(otaShareKey,otaShare.value);
+      localStorage.setItem(plFixedOverridesKey,JSON.stringify(Object.fromEntries(plFixedOverrides)));
+      localStorage.setItem(plVariableKey,JSON.stringify(Object.fromEntries(plVariableValues)));
+    }catch(error){}
+    for(const [key,values] of classValues)assumptions.set(key,values);
+    savePLExclusions();
+    saveCustomExpenses();
+    return true;
+  }
+  importConditions.addEventListener("click",()=>conditionsFile.click());
+  conditionsFile.addEventListener("change",async()=>{
+    const file=conditionsFile.files[0];
+    conditionsFile.value="";
+    if(!file)return;
+    try{
+      if(file.size>1000000)throw Error("size");
+      const scenario=JSON.parse(await file.text());
+      if(!brands||!plExpenses||!importPlanConditions(scenario))throw Error("invalid");
+      await refresh();
+      transferStatus.textContent="試算条件を読み込みました。";
+    }catch(error){
+      transferStatus.textContent="読み込めませんでした。「試算条件を保存」で出力したJSONファイルを選んでください。";
+    }
+  });
   function render(){
     csvRows=[];
     exportButton.disabled=true;
+    exportConditions.disabled=true;
+    importConditions.disabled=!brands||!plExpenses;
     const valid=form.checkValidity();
     results.hidden=!brands;
     error.hidden=valid;
@@ -2381,6 +2513,7 @@ const showPlan=(()=>{
       ["利益","営業利益",allCostsValid?revenue-expenseTotal:null,"売上総利益－販管費合計"]
     ];
     exportButton.disabled=false;
+    exportConditions.disabled=!valid||!plExpenses;
   }
   async function refresh(){
     if(loading)return;
