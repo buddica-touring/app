@@ -960,7 +960,8 @@ tr.arcHide{display:none!important}
                 <div id="planFixedPLItems"></div>
               </section>
               <section class="plan-pl-fixed" aria-label="PLの変動費">
-                <h3>PLの変動費（月額を手入力）</h3>
+                <h3>PLの変動費（月額を手入力） <strong id="planPLVariableTotal">—</strong></h3>
+                <p class="plan-pl-original" id="planPLVariableStatus" aria-live="polite"></p>
                 <div id="planVariablePLItems"></div>
               </section>
             </div>
@@ -1864,6 +1865,13 @@ const showPlan=(()=>{
   const expenses=[];
   let brands=null, existing=null, plExpenses=null, loading=false;
   const plVariableValues=new Map(), excludedPL=new Set();
+  const plVariableKey="bt_plan_variable_expense_values";
+  try{
+    const stored=JSON.parse(localStorage.getItem(plVariableKey)||"{}");
+    for(const [key,value] of Object.entries(stored||{})){
+      if(Number.isSafeInteger(value)&&value>=0&&value<=1000000000)plVariableValues.set(key,value);
+    }
+  }catch(error){}
   const excludedPLKey="bt_plan_excluded_pl_accounts";
   try{
     const saved=JSON.parse(localStorage.getItem(excludedPLKey)||"[]");
@@ -1969,10 +1977,16 @@ const showPlan=(()=>{
     for(const account of plExpenses.variable){
       expenseRow(variableItems,account,row=>{
         const input=node("input",row);
+        const key=JSON.stringify([plExpenses.month,account]);
         Object.assign(input,{type:"number",min:"0",step:"1",max:"1000000000",inputMode:"numeric",
-          value:plVariableValues.get(account)||""});
+          value:plVariableValues.get(key)??""});
         input.setAttribute("aria-label",account+"の概算月額（円）");
-        input.addEventListener("input",()=>plVariableValues.set(account,input.value));
+        input.addEventListener("input",()=>{
+          if(!input.validity.valid)return;
+          if(input.value==="")plVariableValues.delete(key);
+          else plVariableValues.set(key,input.valueAsNumber);
+          try{localStorage.setItem(plVariableKey,JSON.stringify(Object.fromEntries(plVariableValues)));}catch(error){}
+        });
         includedPLVariable.push(input);
       });
     }
@@ -2203,10 +2217,20 @@ const showPlan=(()=>{
     document.getElementById("planInsuranceExpense").textContent=insuranceValid?yen.format(insurance):"—";
     let fixedValid=importedReady, otherVariableValid=true;
     let fixedCost=importedFixed, otherVariable=0;
+    let filledPLVariable=0;
     for(const input of includedPLVariable){
       otherVariableValid&&=input.validity.valid;
-      if(input.validity.valid&&input.value!=="")otherVariable+=input.valueAsNumber;
+      if(input.validity.valid&&input.value!==""){
+        filledPLVariable++;
+        otherVariable+=input.valueAsNumber;
+      }
     }
+    document.getElementById("planPLVariableTotal").textContent=plExpenses&&otherVariableValid?yen.format(otherVariable):"—";
+    const excludedVariable=plExpenses?.variable.filter(account=>excludedPL.has(account))||[];
+    document.getElementById("planPLVariableStatus").textContent=plExpenses?
+      "入力済み "+filledPLVariable+"件 ／ 空欄は計上しません ／ 除外 "+excludedVariable.length+"件"
+        +(excludedVariable.length?"（"+excludedVariable.join("、")+"）":""):
+      "PLの変動費を取得できませんでした。";
     for(const {mode,amount,output} of expenses){
       const share=mode.value==="share";
       const ready=amount.validity.valid&&(!share||revenueValid);
