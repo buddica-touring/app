@@ -800,6 +800,14 @@ tr.arcHide{display:none!important}
 .mn-b{padding:0 16px 12px;border-top:1px solid #f3eee8}.mn-b p{margin:10px 0}.mn-b ul,.mn-b ol{margin:8px 0;padding-left:22px}.mn-b li{margin:3px 0}
 .mn-t{overflow-x:auto}.mn-t table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}.mn-t th{text-align:left;font-size:11px;color:#a8a29e;font-weight:700;padding:6px 8px;border-bottom:1px solid #ece4da}.mn-t td{padding:7px 8px;border-bottom:1px solid #f3eee8;vertical-align:top}
 @media(max-width:700px){.mn-t th{display:none}.mn-t tr{display:block;border-bottom:1px solid #ece4da;padding:6px 0}.mn-t td{display:block;border:0;padding:2px 0}.mn-t td::before{content:attr(data-l);display:block;font-size:10px;color:#a8a29e;font-weight:700}}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr));gap:8px;margin-bottom:8px}
+.plan-grid[hidden]{display:none}
+#viewPlan h2{font-size:17px;margin:0 0 12px}
+#planForm label{display:grid;gap:4px;font-weight:700;font-size:12px}
+#planForm input{width:100%;min-height:38px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:16px}
+#planResults strong{font-size:18px;overflow-wrap:anywhere}
+#planError{color:#991b1b}
+@media(max-width:760px){.wrap .tabbtn[data-v="plan"]{grid-column:span 12;order:7;min-height:40px;font-size:13px}}
 </style>
 </head>
 <body>
@@ -813,6 +821,7 @@ tr.arcHide{display:none!important}
     <button class="tabbtn" data-v="fleet">🚙 車両リスト</button>
     <button class="tabbtn" data-v="spend">🧾 店舗支出</button>
     <button class="tabbtn" data-v="pl">📒 PL</button>
+    <button class="tabbtn" data-v="plan">数値計画シミュレーション</button>
     <button class="tabbtn" data-v="resale">💹 出口シミュ</button>
     <button class="tabbtn" data-v="manual">📖 使い方</button>
   </div>
@@ -836,10 +845,34 @@ tr.arcHide{display:none!important}
   </div><!--/viewProc-->
 
   <div id="viewKarte" style="display:none"><div id="karteBody"><div style="color:#94a3b8;padding:14px">読み込み中…</div></div></div>
+  <section id="viewPlan" style="display:none" aria-labelledby="planTitle">
+    <div class="card">
+      <h2 id="planTitle">数値計画シミュレーション</h2>
+      <form id="planForm">
+        <div class="plan-grid">
+          <label>保有台数（台）<input name="fleet" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
+          <label>営業日数（日）<input name="days" type="number" inputmode="numeric" min="1" max="31" step="1" value="30" required></label>
+          <label>稼働率（%）<input name="rate" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
+          <label>貸出単価（円／台日）<input name="price" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
+          <label>車両費（円／台・月）<input name="vehicle" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
+          <label>その他固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
+          <label>売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
+        </div>
+      </form>
+    </div>
+    <p id="planError" role="status" hidden>入力欄をすべて埋め、営業日数は1〜31日、比率は0〜100%で入力してください。</p>
+    <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true">
+      <div class="card"><div class="lb">月間貸出延べ日数</div><strong id="planRentalDays"></strong></div>
+      <div class="card"><div class="lb">月間売上</div><strong id="planRevenue"></strong></div>
+      <div class="card"><div class="lb">月間費用</div><strong id="planCost"></strong></div>
+      <div class="card"><div class="lb">月間損益</div><strong id="planProfit"></strong></div>
+    </div>
+    <p class="sub">売上＝保有台数 × 営業日数 × 稼働率 × 貸出単価。費用＝保有台数 × 1台あたりの車両費 ＋ その他固定費 ＋ 売上 × 売上連動費率。</p>
+  </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
 <details class="mn-s" open><summary>全体</summary><div class="mn-b">
-<p>上のタブは「サマリ・車両・KPI・点検・車両リスト・店舗支出・PL・出口シミュ・使い方」の9つです。開くと最初にサマリが出ます。</p>
+<p>上のタブは「サマリ・車両・KPI・点検・車両リスト・店舗支出・PL・数値計画シミュレーション・出口シミュ・使い方」の10個です。開くと最初にサマリが出ます。</p>
 <ul><li>車両タブはログインなしで見られます（ログインしていない端末は閲覧のみ）。お客様の情報は出ません。</li><li>数字が変わらないときは、ページを再読み込みしてください（Macは Cmd+Shift+R）。</li><li>車は「車種＋ナンバー下4桁」で表示します（例：アクア 3710）。</li></ul>
 </div></details>
 <details class="mn-s"><summary>サマリ</summary><div class="mn-b">
@@ -1675,6 +1708,30 @@ sb.channel("tire-rt").on("postgres_changes",{event:"*",schema:"public",table:"bt
   const ae=document.activeElement; if(ae&&ae.dataset&&(ae.dataset.tireMemo||ae.dataset.tirePlan||ae.dataset.tireDest))return;
   renderTire();
 }).subscribe();
+{
+  const planForm=document.getElementById("planForm");
+  const planResults=document.getElementById("planResults");
+  const planError=document.getElementById("planError");
+  const numberFormat=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
+  const yenFormat=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
+  function renderPlan(){
+    const valid=planForm.checkValidity();
+    planResults.hidden=!valid;
+    planError.hidden=valid;
+    if(!valid)return;
+    const {fleet,days,rate,price,vehicle,fixed,fee}=planForm.elements;
+    const rentalDays=fleet.valueAsNumber*days.valueAsNumber*(rate.valueAsNumber/100);
+    const revenue=Math.round(rentalDays*price.valueAsNumber);
+    const cost=Math.round(fleet.valueAsNumber*vehicle.valueAsNumber+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
+    document.getElementById("planRentalDays").textContent=numberFormat.format(rentalDays)+" 台日";
+    document.getElementById("planRevenue").textContent=yenFormat.format(revenue);
+    document.getElementById("planCost").textContent=yenFormat.format(cost);
+    document.getElementById("planProfit").textContent=yenFormat.format(revenue-cost);
+  }
+  planForm.addEventListener("input",renderPlan);
+  planForm.addEventListener("submit",event=>event.preventDefault());
+  renderPlan();
+}
 document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tabbtn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   const v=b.dataset.v;
@@ -1693,6 +1750,7 @@ document.querySelectorAll(".tabbtn").forEach(b=>b.addEventListener("click",()=>{
   $("viewFleet").style.display=v==="fleet"?"":"none";
   $("viewSpend").style.display=v==="spend"?"":"none";
   $("viewPL").style.display=v==="pl"?"":"none";
+  $("viewPlan").style.display=v==="plan"?"":"none";
   if(v==="fleet")FIN.showFleet();   // 車両リスト・店舗支出・PL（オーナー指示 2026-11-20）：開くたびに正本から読む
   if(v==="spend")FIN.showSpend();
   if(v==="pl")FIN.showPL();
