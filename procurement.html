@@ -810,6 +810,9 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-metric{min-width:0;background:#fff;border:1px solid var(--plan-line);border-radius:12px;padding:13px}
 #viewPlan .plan-metric span,#viewPlan .plan-row-metric span{display:block;color:var(--plan-muted);font-size:12px;font-weight:700}
 #viewPlan .plan-metric strong{display:block;margin-top:4px;font-size:clamp(16px,1.65vw,24px);line-height:1.3;overflow-wrap:anywhere}
+#viewPlan .plan-cost-breakdown{display:grid;gap:3px;margin:7px 0 0;color:var(--plan-muted);font-size:12px}
+#viewPlan .plan-cost-breakdown div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 6px}
+#viewPlan .plan-cost-breakdown dd{margin:0;font-weight:700}
 #viewPlan .plan-metric-profit{background:#19365b;border-color:#19365b;color:white}
 #viewPlan .plan-metric-profit span{color:#e1ecf9}
 #viewPlan .plan-metric-profit.is-negative{background:#8c2d3d;border-color:#8c2d3d}
@@ -889,8 +892,8 @@ tr.arcHide{display:none!important}
     <section aria-label="月間サマリ">
       <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true" hidden>
         <div class="plan-metric"><span>売上</span><strong id="planRevenue"></strong></div>
-        <div class="plan-metric"><span>リース</span><strong id="planLease"></strong></div>
-        <div class="plan-metric"><span>保険</span><strong id="planInsurance"></strong></div>
+        <div class="plan-metric"><span>リース合計</span><strong id="planLease"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planLeaseExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planLeaseAdded"></dd></div></dl></div>
+        <div class="plan-metric"><span>保険合計</span><strong id="planInsurance"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planInsuranceExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planInsuranceAdded"></dd></div></dl></div>
         <div class="plan-metric"><span>固定費</span><strong id="planFixed"></strong></div>
         <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong></div>
         <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
@@ -1890,13 +1893,22 @@ const showPlan=(()=>{
     error.hidden=valid;
     if(!brands)return;
     const {fixed,fee}=form.elements;
-    let revenue=0, lease=existing.lease, insurance=existing.ins;
+    let revenue=0, addedLease=0, addedInsurance=0;
+    let leaseValid=true, insuranceValid=true;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
       for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,averageOutput,salesOutput,costOutput} of rows){
         const added=addedFleet.valueAsNumber;
         const total=c.count+added;
         fleetTotal.textContent="合計台数 "+(addedFleet.validity.valid?number.format(total)+"台":"—");
+        if(!addedFleet.validity.valid){
+          leaseValid=insuranceValid=false;
+        }else if(added>0){
+          if(leaseRate.validity.valid)addedLease+=added*leaseRate.valueAsNumber;
+          else leaseValid=false;
+          if(insuranceRate.validity.valid)addedInsurance+=added*insuranceRate.valueAsNumber;
+          else insuranceValid=false;
+        }
         if(![addedFleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
           averageOutput.textContent=salesOutput.textContent=costOutput.textContent="—";
           brandValid=false;
@@ -1906,8 +1918,6 @@ const showPlan=(()=>{
         const sales=Math.round(total*averageSales);
         const classLease=c.lease+added*leaseRate.valueAsNumber;
         const classInsurance=c.ins+added*insuranceRate.valueAsNumber;
-        lease+=classLease-c.lease;
-        insurance+=classInsurance-c.ins;
         brandRevenue+=sales;
         brandCost+=classLease+classInsurance;
         averageOutput.textContent=yen.format(averageSales);
@@ -1917,9 +1927,19 @@ const showPlan=(()=>{
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
     }
+    const lease=existing.lease+addedLease;
+    const insurance=existing.ins+addedInsurance;
+    for(const [id,baseline,additional,ready] of [
+      ["planLease",existing.lease,addedLease,leaseValid],
+      ["planInsurance",existing.ins,addedInsurance,insuranceValid]
+    ]){
+      document.getElementById(id+"Existing").textContent=yen.format(baseline);
+      document.getElementById(id+"Added").textContent=ready?"+"+yen.format(additional):"—";
+      document.getElementById(id).textContent=ready?yen.format(baseline+additional):"—";
+    }
     const fixedCost=fixed.valueAsNumber;
     const variable=Math.round(revenue*(fee.valueAsNumber/100));
-    const values={planRevenue:revenue,planLease:lease,planInsurance:insurance,
+    const values={planRevenue:revenue,
       planFixed:fixedCost,planVariable:variable,planProfit:revenue-lease-insurance-fixedCost-variable};
     document.getElementById("planProfit").parentElement.classList.toggle("is-negative",valid&&values.planProfit<0);
     for(const [id,value] of Object.entries(values)){
