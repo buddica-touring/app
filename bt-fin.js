@@ -153,7 +153,24 @@ window.FIN=(function(){
   const PL_FIXED=new Set(["給与手当","賞与","賞与引当金繰入額","業務委託費（内部）","業務委託費（外部）",
     "法定福利費","福利厚生費","通信費","減価償却費","地代家賃","租税公課","諸会費","新聞図書費","リース料","保険料"]);
   const PL_COST_GROUPS={fixed:"固定費",variable:"変動費"};
-  const plCostGroup=(account,kind)=>kind==="calc"||account==="売上高"?"":PL_FIXED.has(account)?"fixed":"variable";
+  const PL_COST_KEY="bt_pl_cost_groups";
+  const plCostOverrides=new Map();
+  try{
+    const stored=JSON.parse(localStorage.getItem(PL_COST_KEY)||"{}");
+    for(const [account,group] of Object.entries(stored||{})){
+      if(group==="fixed"||group==="variable")plCostOverrides.set(account,group);
+    }
+  }catch(error){}
+  function plCostGroup(account,kind){
+    if(kind==="calc"||account==="売上高")return "";
+    return plCostOverrides.get(account)||(PL_FIXED.has(account)?"fixed":"variable");
+  }
+  function plCostSelect(account,group){
+    const options=Object.entries(PL_COST_GROUPS).map(([key,label])=>
+      '<option value="'+key+'"'+(key===group?' selected':'')+'>'+label+'</option>').join('');
+    return '<select class="fn-cost-badge fn-cost-select '+group+'" data-cost-account="'+esc(account)
+      +'" aria-label="'+esc(account)+'の費用区分">'+options+'</select>';
+  }
   const plCostBadge=group=>'<span class="fn-cost-badge '+group+'">'+PL_COST_GROUPS[group]+'</span>';
   // 会計・カードは全科目を PL に入れる（オーナー指示 2026-11-20「カードコストがPL内に全て格納するのが前提。科目で例外があれば別枠で表示し解消確認できるように」）
   //   科目→PL行の割当は下の PL 定義から作る。割当のない科目は雑費に入れ、PL の下の「会計・カードの照合」に例外として出す
@@ -241,7 +258,7 @@ window.FIN=(function(){
     PL.forEach(([a,k])=>{
       const group=plCostGroup(a,k);
       const tot=R.reduce((s,r)=>s+(r.o[a]||0),0), cls=k==="calc"?(a==="営業利益"?"tot pf":"tot"):(k==="auto"||k==="veh")?"a":k==="mix"?"m":"w";
-      h+='<tr class="'+cls+'"><th>'+esc(a)+(group?' '+plCostBadge(group):'')+(k==="auto"||k==="veh"?' <small>自動</small>':'')+((k==="man"||k==="mix")&&a!==SAL?' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(a)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>':'')+'</th>';
+      h+='<tr class="'+cls+'"><th>'+esc(a)+(group?' '+plCostSelect(a,group):'')+(k==="auto"||k==="veh"?' <small>自動</small>':'')+((k==="man"||k==="mix")&&a!==SAL?' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(a)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>':'')+'</th>';
       R.forEach((r,i)=>{const m=M[i],v=r.o[a]||0;
         if((k==="man"||k==="mix")&&a!==SAL){const mv=PLD.MAN[m+':'+a], au=r.auto[a]||0;
           h+='<td>'+(k==="mix"&&au?'<div class="au" title="会計・カードの合計">'+num(au)+'</div>':'')+(CAN_EDIT?'<input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(a)+'" value="'+(mv!=null?num(mv):'')+'">':(mv!=null?num(mv):''))+'</td>';}
@@ -263,6 +280,25 @@ window.FIN=(function(){
     $("salAdd").onclick=addSal;
     $("plReload").onclick=showPL;
   }
+  document.addEventListener("change",ev=>{
+    const select=ev.target;
+    if(!select.matches?.("#finPL .fn-cost-select")||!PLD)return;
+    const account=select.dataset.costAccount, group=select.value;
+    if(group!=="fixed"&&group!=="variable")return;
+    plCostOverrides.set(account,group);
+    try{localStorage.setItem(PL_COST_KEY,JSON.stringify(Object.fromEntries(plCostOverrides)));}catch(error){}
+    const table=document.querySelector("#finPL .fn-tw");
+    const {scrollLeft,scrollTop}=table;
+    const {scrollX,scrollY}=window;
+    renderPL();
+    const updatedTable=document.querySelector("#finPL .fn-tw");
+    updatedTable.scrollLeft=scrollLeft;
+    updatedTable.scrollTop=scrollTop;
+    const updatedSelect=Array.from(updatedTable.querySelectorAll(".fn-cost-select"))
+      .find(el=>el.dataset.costAccount===account);
+    updatedSelect?.focus({preventScroll:true});
+    window.scrollTo(scrollX,scrollY);
+  });
   // 翌月コピー（オーナー指示 2026-11-20「支出を翌月コピ機能追加」）：その月の手入力（bt_pl_manual）を翌月の空欄にだけ写す。翌月に入っている金額は上書きしない
   document.addEventListener("click",async ev=>{
     const b=ev.target&&ev.target.closest&&ev.target.closest("#finPL .fn-cp"); if(!b||!PLD)return;
