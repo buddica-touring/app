@@ -1079,8 +1079,8 @@ function stageIdx(r){
   if(r.pickup_status!=="OK")return 2;
   return 1;   // 準備まだ（またはナンバー未入力）
 }
-let STAGE_OPEN={}; try{STAGE_OPEN=JSON.parse(localStorage.getItem("proc_stage_open")||"{}")||{};}catch(e){STAGE_OPEN={};}   // 既定＝全部たたむ。開いた状態はこの端末だけ記憶
-const stageClosed=k=>!STAGE_OPEN[k];
+let STAGE_OPEN={}; try{STAGE_OPEN=JSON.parse(localStorage.getItem("proc_stage_open")||"{}")||{};}catch(e){STAGE_OPEN={};}   // グループは既定で開き、開閉の選択は端末に記憶する
+const stageClosed=k=>STAGE_OPEN[k]===0;
 function clsOpt(sel){return CLASSES.map(c=>`<option value="${c}" ${c===(sel||"")?"selected":""}>${c||"—"}</option>`).join("");}
 const sb=supabase.createClient(SB_URL,ANON,{realtime:{params:{eventsPerSecond:5}}});
 let ARC_OPEN=false;   // 仕入候補のアーカイブ（オーナー指示 2026-11-01：消さずに下へまとめて折りたたむ。タイヤ・ETCの「（仕入）」行も同じく折りたたみ）
@@ -1125,7 +1125,7 @@ async function load(){
 }
 $("reload").addEventListener("click",()=>load());
 $("dashsum").addEventListener("click",()=>{document.body.classList.toggle("dash-open");renderDash();});   // スマホ：サマリーは既定たたむ
-$("tb").addEventListener("click",e=>{const h=e.target.closest("tr.stg");if(!h)return;const k=h.dataset.g;if(STAGE_OPEN[k])delete STAGE_OPEN[k];else STAGE_OPEN[k]=1;try{localStorage.setItem("proc_stage_open",JSON.stringify(STAGE_OPEN));}catch(_){}render();});
+$("tb").addEventListener("click",e=>{const h=e.target.closest("tr.stg");if(!h)return;const k=h.dataset.g;STAGE_OPEN[k]=stageClosed(k)?1:0;try{localStorage.setItem("proc_stage_open",JSON.stringify(STAGE_OPEN));}catch(_){}render();});
 window.matchMedia("(max-width:760px)").addEventListener("change",e=>{MOB=e.matches;render();});
 $("fbar")&&$("fbar").addEventListener("click",e=>{const c=e.target.closest(".chip[data-f]");if(!c)return;filter=c.dataset.f;render();});
 function counts(){
