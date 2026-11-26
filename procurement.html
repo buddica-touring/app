@@ -845,6 +845,7 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-pl-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0}
 #viewPlan .plan-pl-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,110px) auto;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--plan-line)}
 #viewPlan .plan-pl-row input{min-height:34px;font-size:14px}
+#viewPlan .plan-pl-original{display:block;margin-top:3px;font-size:11px;color:var(--plan-muted)}
 #viewPlan .plan-pl-row button{min-width:30px;min-height:30px}
 #viewPlan #planExpenseTotal{font-size:16px;color:var(--plan-ink)}
 @media(max-width:670px){#viewPlan .plan-pl-columns{grid-template-columns:1fr}}
@@ -926,7 +927,7 @@ tr.arcHide{display:none!important}
             <div class="plan-metric"><span>売上</span><strong id="planRevenue"></strong></div>
             <div class="plan-metric"><span>リース合計</span><strong id="planLease"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planLeaseExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planLeaseAdded"></dd></div></dl></div>
             <div class="plan-metric"><span>保険合計</span><strong id="planInsurance"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planInsuranceExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planInsuranceAdded"></dd></div></dl></div>
-            <div class="plan-metric"><span>固定費</span><strong id="planFixed"></strong><dl class="plan-cost-breakdown"><div><dt>PLから反映</dt><dd id="planFixedPLCard"></dd></div></dl></div>
+            <div class="plan-metric"><span>固定費</span><strong id="planFixed"></strong><dl class="plan-cost-breakdown"><div><dt>PL固定費（試算）</dt><dd id="planFixedPLCard"></dd></div></dl></div>
             <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong><dl class="plan-cost-breakdown"><div><dt>OTA手数料（15%）</dt><dd id="planOtaCard"></dd></div><div><dt>その他変動費</dt><dd id="planOtherVariable"></dd></div></dl></div>
             <div class="plan-metric"><span>支出合計</span><strong id="planExpenseCard"></strong></div>
             <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
@@ -948,7 +949,7 @@ tr.arcHide{display:none!important}
             <p id="planFixedPLPeriod"></p>
             <div class="plan-pl-columns">
               <section class="plan-pl-fixed" aria-label="PLの固定費">
-                <h3>PLの固定費 <strong id="planFixedPLTotal">—</strong></h3>
+                <h3>PLの固定費（編集可） <strong id="planFixedPLTotal">—</strong></h3>
                 <div id="planFixedPLItems"></div>
               </section>
               <section class="plan-pl-fixed" aria-label="PLの変動費">
@@ -1844,6 +1845,14 @@ const showPlan=(()=>{
   function savePLExclusions(){
     try{localStorage.setItem(excludedPLKey,JSON.stringify([...excludedPL]));}catch(error){}
   }
+  const plFixedOverrides=new Map();
+  const plFixedOverridesKey="bt_plan_fixed_expense_overrides";
+  try{
+    const stored=JSON.parse(localStorage.getItem(plFixedOverridesKey)||"{}");
+    for(const [key,value] of Object.entries(stored||{})){
+      if(Number.isSafeInteger(value))plFixedOverrides.set(key,value);
+    }
+  }catch(error){}
   const includedPLFixed=[], includedPLVariable=[];
   const restorePL=document.getElementById("planRestorePLExpenses");
   function node(tag,parent,value){
@@ -1912,8 +1921,20 @@ const showPlan=(()=>{
     }
     for(const {account,amount} of plExpenses.fixed){
       expenseRow(fixedItems,account,row=>{
-        includedPLFixed.push(amount);
-        node("strong",row,yen.format(amount));
+        const valueCell=node("div",row);
+        const input=node("input",valueCell);
+        const key=JSON.stringify([plExpenses.month,account]);
+        Object.assign(input,{type:"number",step:"1",placeholder:String(amount),
+          value:plFixedOverrides.get(key)??""});
+        input.setAttribute("aria-label",account+"の試算月額（円）");
+        node("small",valueCell,"PL原額 "+yen.format(amount)).className="plan-pl-original";
+        input.addEventListener("input",()=>{
+          if(!input.validity.valid)return;
+          if(input.value==="")plFixedOverrides.delete(key);
+          else plFixedOverrides.set(key,input.valueAsNumber);
+          try{localStorage.setItem(plFixedOverridesKey,JSON.stringify(Object.fromEntries(plFixedOverrides)));}catch(error){}
+        });
+        includedPLFixed.push({amount,input});
       });
     }
     for(const account of plExpenses.variable){
@@ -2123,14 +2144,16 @@ const showPlan=(()=>{
       document.getElementById(id+"Added").textContent=ready?"+"+yen.format(additional):"—";
       document.getElementById(id).textContent=ready?yen.format(baseline+additional):"—";
     }
-    const importedFixed=includedPLFixed.reduce((sum,n)=>sum+n,0);
-    const importedDisplay=plExpenses?yen.format(importedFixed):"—";
+    const importedReady=!!plExpenses&&includedPLFixed.every(({input})=>input.validity.valid);
+    const importedFixed=includedPLFixed.reduce((sum,{amount,input})=>
+      sum+(input.validity.valid&&input.value!==""?input.valueAsNumber:amount),0);
+    const importedDisplay=importedReady?yen.format(importedFixed):"—";
     for(const id of ["planFixedPLCard","planFixedPLTotal"]){
       document.getElementById(id).textContent=importedDisplay;
     }
     document.getElementById("planLeaseExpense").textContent=leaseValid?yen.format(lease):"—";
     document.getElementById("planInsuranceExpense").textContent=insuranceValid?yen.format(insurance):"—";
-    let fixedValid=!!plExpenses, otherVariableValid=true;
+    let fixedValid=importedReady, otherVariableValid=true;
     let fixedCost=importedFixed, otherVariable=0;
     for(const input of includedPLVariable){
       otherVariableValid&&=input.validity.valid;
