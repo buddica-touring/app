@@ -55,6 +55,13 @@
   tr[data-st="対応中"]{background:#eff6ff}
   .car{font-weight:800}
   .car small{color:#64748b;font-weight:600}
+  #viewProc .proc-car-main{display:flex;flex:1 1 100%;min-width:0;flex-direction:column;align-items:flex-start;gap:5px}
+  #viewProc .proc-car-main .ro{text-align:left;white-space:normal;overflow-wrap:anywhere}
+  #viewProc .proc-listing-link{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-height:32px;padding:4px 8px;border-radius:7px;background:#1d4ed8;color:#fff;font-size:12px;font-weight:800;text-decoration:none;line-height:1.25}
+  #viewProc .proc-listing-link:hover{background:#1e40af}
+  #viewProc .proc-listing-link:focus-visible{outline:2px solid #1e3a8a;outline-offset:2px}
+  #viewProc .mtoggle{font-family:inherit}
+  @media(max-width:760px){#viewProc .proc-listing-link{min-height:44px;padding:6px 12px;font-size:13px}#viewProc .mtoggle{min-height:44px;animation:none}#viewProc .grpRow:not(.open) .memoflag{display:none}}
   .cell{border:1px solid transparent;background:transparent;border-radius:6px;padding:3px 5px;font-size:13px;width:100%;font-family:inherit}
   textarea.autg{min-height:36px;overflow:hidden}
   .cell:focus{border-color:#93c5fd;background:#fff;outline:none}
@@ -139,15 +146,11 @@
     td.noNo{position:absolute;top:9px;right:12px;padding:0!important;min-height:0!important;font-size:14px;color:#94a3b8;font-weight:800;display:block}
     td.noNo:before{content:""}
     .mtoggle{margin-left:auto;flex-shrink:0}
-    /* ▼折りたたみ：既定は 車種＋進捗(仕入/整備/回収/準備) だけ。タップで全項目 */
+    /* 折りたたみ時は車種・掲載リンク・ナンバー・仕入ステータスのみ表示する。 */
     tr.grpRow:not(.open) td{display:none}
     tr.grpRow:not(.open) td[data-lb="車種"],
     tr.grpRow:not(.open) td[data-lb="ナンバー"],
-    tr.grpRow:not(.open) td[data-lb="仕入"],
-    tr.grpRow:not(.open) td[data-lb="整備"],
-    tr.grpRow:not(.open) td[data-lb="店舗回収"],
-    tr.grpRow:not(.open) td[data-lb="準備"],
-    tr.grpRow:not(.open) td[data-lb="販売開始"]{display:flex}
+    tr.grpRow:not(.open) td[data-lb="仕入"]{display:flex}
     tr.grpRow td[data-lb="車種"]{margin-bottom:0;padding-bottom:2px!important}
     /* ナンバー＝車種見出しの直下に大きく表示（同じ車種を識別できるように） */
     tr.grpRow td[data-lb="ナンバー"]{border-bottom:1px solid #eef2f7!important;margin-bottom:3px;padding:0 0 6px!important}
@@ -1104,6 +1107,13 @@ async function fetchMeta(url){
   catch(e){return {error:String(e)};}
 }
 
+function procurementListingLink(value){
+  try{
+    const url=new URL(value);
+    if(url.protocol==="https:"||url.protocol==="http:")return url.href;
+  }catch(error){}
+  return "";
+}
 function setStatus(t){$("st").textContent=t;}
 async function load(){
   const rb=$("reload"); if(rb)rb.classList.add("spin");
@@ -1186,13 +1196,13 @@ function render(){
   const gcount={},gsec={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;if(isSecured(x))gsec[g]=(gsec[g]||0)+1;});
   let _prevG=null;
   const empty=list.some(r=>!r.archived)?"":'<tr><td colspan="16" class="proc-empty">表示中の仕入候補はありません。上の「＋ URLで追加」から登録できます。</td></tr>';
-  $("tb").innerHTML=empty+list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
+  $("tb").innerHTML=empty+list.map((r,idx)=>{const listingUrl=procurementListingLink(r.url);const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
       if(g==="__arc"){hdr=`<tr class="clsgrp arcg" data-arc="1" style="--cc:#a8a29e;cursor:pointer"><td colspan="16"><span class="cbadge" style="background:#a8a29e">🗄</span>アーカイブ<span class="ccount">${gcount[g]||0}台 ・ ${ARC_OPEN?"▲ 閉じる":"▼ 開く"}</span></td></tr>`;}
       else if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
       else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
     <tr data-st="${esc(r.status)}" data-id="${r.id}" style="--cc:${col}" class="grpRow${isLast?" grpLast":""}${hid} ${openRows.has(r.id)?"open ":""}${/SOLD/i.test(r.price||"")?"sold":""}">
       <td class="noNo" style="color:#94a3b8;font-weight:800">#${r.no||""}</td>
-      <td data-lb="車種" class="car keep">${MOB&&c?`<span class="mcls" style="background:${col}">${c}</span>`:""}<span class="ro" style="font-weight:800;flex:1">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;const ok=/OK/.test(m);return `<span class="memoflag${ok?" ok":""}" title="メモ：${esc(m)}">${ok?"✅":"🚩"} ${esc(p)}</span>`;})():""}<span class="mtoggle" title="タップで進捗予定・メモを入力">📋 予定・メモ <b>▾</b></span></td>
+      <td data-lb="車種" class="car keep">${MOB&&c?`<span class="mcls" style="background:${col}">${c}</span>`:""}<div class="proc-car-main"><span class="ro">${esc(r.model)||'<span style="color:#cbd5e1;font-weight:600">車種未取得</span>'}</span>${listingUrl?`<a class="proc-listing-link" href="${esc(listingUrl)}" target="_blank" rel="noopener">掲載ページを開く <span aria-hidden="true">↗</span></a>`:""}</div>${(r.memo&&String(r.memo).trim())?(()=>{const m=String(r.memo).trim().replace(/\s+/g," ");const p=m.length>18?m.slice(0,18)+"…":m;const ok=/OK/.test(m);return `<span class="memoflag${ok?" ok":""}" title="メモ：${esc(m)}">${ok?"✅":"🚩"} ${esc(p)}</span>`;})():""}<button type="button" class="mtoggle" aria-expanded="${openRows.has(r.id)}"><span>${openRows.has(r.id)?"詳細を閉じる":"詳細を見る"}</span> <b aria-hidden="true">▾</b></button></td>
       <td data-lb="ナンバー">${r.plate?`<span style="font-weight:900;color:#0f172a;font-size:13px" title="${esc(r.plate)}">${esc((String(r.plate).match(/(\d{2,4})\s*$/)||[,r.plate])[1])}</span>`:`<input class="cell" data-f="plate" value="" placeholder="—" style="min-width:0;width:100%;font-size:12px;border:1px dashed #cbd5e1;text-align:center">`}</td>
       <td data-lb="車両状態">${/SOLD/i.test(r.price||"")?`<span class="soldbadge">🔴 SOLD OUT</span>`:`<textarea class="cell autg" data-f="condition" rows="1" placeholder="状態を入力…" style="min-width:0;width:100%;font-size:13px;color:#000;font-weight:700;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px;resize:vertical;line-height:1.45;font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.condition)}</textarea>`}</td>
       <td data-lb="対応概要"><textarea class="cell autg" data-f="action_summary" rows="1" placeholder="対応内容…" style="min-width:0;width:100%;font-size:13px;color:#0f172a;border:1px solid #94a3b8;background:#fff;border-radius:6px;padding:4px 6px;resize:vertical;line-height:1.45;font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.action_summary)}</textarea></td>
@@ -1207,7 +1217,7 @@ function render(){
       <td data-lb="販売開始"><select class="st ${STCLS[r.sale_status]||"stU"}" data-f="sale_status" title="販売開始ステータス">${opt(r.sale_status)}</select></td>
       <td data-lb="車両URL" class="keep"><div style="display:flex;align-items:center;gap:7px;width:100%">
         ${r.url
-          ?`<span class="cp" data-cp="url" title="URLをコピー">📋</span><a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener" title="ページを開く" style="font-size:14px;text-decoration:none">🔗</a><span class="refetch" title="URLから再取得" style="font-size:14px">🔄</span>`
+          ?`<span class="cp" data-cp="url" title="URLをコピー">📋</span><span class="refetch" title="URLから再取得" style="font-size:14px">🔄</span>`
           :`<input class="cell" data-f="url" value="" placeholder="URL貼付→自動取得" style="min-width:0;flex:1;border:1px dashed #93c5fd">`}
       </div></td>
       <td class="delc" data-lb="削除"><span class="arcb" title="${r.archived?"アーカイブから戻す":"アーカイブ（消さずに下へまとめる）"}" style="cursor:pointer;margin-right:6px">${r.archived?"↩️":"🗄"}</span><span class="del" title="この候補を削除">🗑</span></td>
@@ -1242,7 +1252,7 @@ function render(){
     el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id,f=el.dataset.cp,r=rows.find(x=>x.id===id);if(r)copyText(r[f]);});
   });
   $("tb").querySelectorAll(".mtoggle").forEach(el=>{
-    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");tr.classList.toggle("open");if(tr.classList.contains("open")){setTimeout(()=>{tr.querySelectorAll("textarea.autg").forEach(t=>{t.style.height="auto";const h=t.scrollHeight;if(h>4)t.style.height=(h+2)+"px";});},0);}});
+    el.addEventListener("click",e=>{e.stopPropagation();const id=el.closest("tr").dataset.id;if(openRows.has(id))openRows.delete(id);else openRows.add(id);const tr=el.closest("tr");const opened=tr.classList.toggle("open");el.setAttribute("aria-expanded",String(opened));el.querySelector("span").textContent=opened?"詳細を閉じる":"詳細を見る";if(opened){setTimeout(()=>{tr.querySelectorAll("textarea.autg").forEach(t=>{t.style.height="auto";const h=t.scrollHeight;if(h>4)t.style.height=(h+2)+"px";});},0);}});
   });
   $("tb").querySelectorAll(".pdetail [data-df]").forEach(el=>{
     el.addEventListener("change",()=>save(el.closest("tr.detailrow").dataset.id, el.dataset.df, el.value));
