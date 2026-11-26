@@ -2121,7 +2121,7 @@ const showPlan=(()=>{
         metrics.className="plan-class-results";
         const averageInsurance=Math.round(c.ins/c.count);
         const averageLease=Math.round(c.lease/c.count);
-        rowMetric(metrics,"実績売上／台・月").textContent=c.monthlySales==null?"—":yen.format(c.monthlySales/c.count);
+        rowMetric(metrics,"既存車1台の月平均売上").textContent=c.monthlySales==null?"—":yen.format(c.monthlySales/c.count);
         rowMetric(metrics,"保険／台").textContent=yen.format(averageInsurance);
         rowMetric(metrics,"リース／台").textContent=yen.format(averageLease);
         const projection=node("div",estimates);
@@ -2132,7 +2132,9 @@ const showPlan=(()=>{
         const combined=impactRow(projection,"計画");
         const planLabel=combined[0].parentElement.firstElementChild;
         const increase=impactRow(projection,"計画−既存");
-        node("p",estimates,"既存の売上は直近3か月の月平均、保険・リースは現在の登録額です。").className="plan-comparison-note";
+        const salesBasis=c.monthlySales==null?"既存車の売上実績は取得できていません。":
+          "既存車1台の月平均売上＝既存車の月平均売上 "+yen.format(c.monthlySales)+" ÷ "+count+"。";
+        node("p",estimates,salesBasis+" 売上は直近の完了した3か月、保険・リースは現在の月額登録額です。").className="plan-comparison-note";
         const requiredRate=node("p",estimates);
         requiredRate.className="plan-required-rate";
         const details=node("details",article);
