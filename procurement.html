@@ -746,6 +746,7 @@ tr.vrow.open .vtog{transform:rotate(90deg);color:#2563eb}
 #sumBody .bs-tbl{margin-top:6px;font-size:12px}#sumBody .bs-tbl summary{color:#78716c;cursor:pointer}#sumBody .bs-tbl table{border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}#sumBody .bs-tbl th,#sumBody .bs-tbl td{padding:3px 10px;text-align:right;border-top:1px solid #f3eee8}#sumBody .bs-tbl th{color:#a8a29e;font-weight:600}
 
 tr.arcHide{display:none!important}
+#viewProc td.proc-empty{text-align:center;color:#475569;padding:16px;white-space:normal}
 .arcbox{margin-top:10px;border:1px solid #e7e0d8;border-radius:10px;background:#fbf8f4}.arcbox>summary{cursor:pointer;padding:8px 12px;font-size:13px;font-weight:800;color:#78716c}.arcbox[open]>summary{border-bottom:1px solid #e7e0d8}.arcbox .fltblwrap{opacity:.75}
 
 /* 車両リスト・店舗支出・PL（bt-fin.js） */
@@ -893,6 +894,7 @@ tr.arcHide{display:none!important}
 <div class="wrap">
   <h1>🚗 TOURISM 進行管理</h1>
   <div class="tabs">
+    <button class="tabbtn" data-v="proc">🚘 仕入</button>
     <button class="tabbtn" data-v="sum">🏠 サマリ</button>
     <button class="tabbtn" data-v="kpi">📊 KPI</button>
     <button class="tabbtn" data-v="fleet">🚙 車両リスト</button>
@@ -901,7 +903,6 @@ tr.arcHide{display:none!important}
     <button class="tabbtn" data-v="plan">数値計画シミュレーション</button>
     <button class="tabbtn" data-v="karte">🚗 車両</button>
     <button class="tabbtn" data-v="resale">💹 出口シミュ</button>
-    <button class="tabbtn" data-v="proc">🚘 仕入</button>
     <button class="tabbtn on" data-v="insp" hidden>🔧 点検</button>
   </div>
   <div id="viewProcHome" hidden>
@@ -1111,7 +1112,7 @@ window.matchMedia("(max-width:760px)").addEventListener("change",e=>{MOB=e.match
 $("fbar")&&$("fbar").addEventListener("click",e=>{const c=e.target.closest(".chip[data-f]");if(!c)return;filter=c.dataset.f;render();});
 function counts(){
   const c={未対応:0,確認中:0,対応中:0,NG:0,OK:0};
-  rows.forEach(r=>{if(isSample(r))return;c[r.status]=(c[r.status]||0)+1;});
+  rows.forEach(r=>{if(r.archived||isSample(r))return;c[r.status]=(c[r.status]||0)+1;});
   return c;
 }
 const priceNum=s=>{const m=String(s||"").match(/([\d.]+)\s*万円/);return m?parseFloat(m[1]):0;};
@@ -1121,14 +1122,14 @@ function renderDash(){
   const c=counts();
   const ok=c.OK||0;   // 仕入OK
   let secured=0, okSum=0, securedSum=0, piOk=0;
-  rows.forEach(r=>{if(isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++; if(isSecured(r)){secured++; securedSum+=priceNum(r.price);}}}); // 確保=isSecured / 確定価格=仕入OK&整備OKの本体価格合計 / 店舗回収済み数
-  let budgetSum=0, budgetCnt=0; rows.forEach(r=>{if(isSample(r))return;const bn=budgetNum(r.budget);if(bn>0){budgetSum+=bn;budgetCnt++;}}); // 申請予算(概算)合計
+  rows.forEach(r=>{if(r.archived||isSample(r))return; if(r.status==="OK"){okSum+=priceNum(r.price); if(r.pickup_status==="OK")piOk++; if(isSecured(r)){secured++; securedSum+=priceNum(r.price);}}}); // 確保=isSecured / 確定価格=仕入OK&整備OKの本体価格合計 / 店舗回収済み数
+  let budgetSum=0, budgetCnt=0; rows.forEach(r=>{if(r.archived||isSample(r))return;const bn=budgetNum(r.budget);if(bn>0){budgetSum+=bn;budgetCnt++;}}); // 申請予算(概算)合計
   const budgetSumTxt=budgetSum?budgetSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
-  const runnable=rows.filter(isRunnable).length;  // 稼働可能=isRunnable
+  const runnable=rows.filter(r=>!r.archived&&isRunnable(r)).length;  // 稼働可能=isRunnable
   const pct=Math.min(100,Math.round(secured/goal*100));
   const okSumTxt=okSum?okSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
   const securedSumTxt=securedSum?securedSum.toLocaleString(undefined,{maximumFractionDigits:1}):"0";
-  const meigiCard=(()=>{let bud=0,hdm=0;rows.forEach(r=>{if(isSample(r))return;if(!isSecured(r))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
+  const meigiCard=(()=>{let bud=0,hdm=0;rows.forEach(r=>{if(r.archived||isSample(r))return;if(!isSecured(r))return;if(r.pickup==="BD")bud++;else if(r.pickup==="HDM")hdm++;});
      return `<div class="card"><div class="lb">🪪 名義別</div><div class="vv" style="font-size:20px">BD <b style="color:#b45309">${bud}</b> ／ HDM <b style="color:#1d4ed8">${hdm}</b></div><small>BD=BUDDICA・HDM=HANDYMAN／確保 ${bud+hdm}台</small></div>`;})();
   $("dashsum").innerHTML=`<span class="ds-t">📊 サマリー</span><span class="ds-v">✅確保 <b>${secured}</b>/${goal}</span><span class="ds-v">🟢稼働可能 <b>${runnable}</b></span><span class="ds-tg">${document.body.classList.contains("dash-open")?"▲":"▼"}</span>`;
   $("dash").innerHTML=
@@ -1141,7 +1142,7 @@ function renderDash(){
 }
 function opt(sel){return STATUSES.map(s=>`<option ${s===sel?"selected":""}>${s}</option>`).join("");}
 function renderFilterBar(){
-  const real=rows.filter(r=>!isSample(r));
+  const real=rows.filter(r=>!r.archived&&!isSample(r)&&!HIDE_SOLD_20261014.has(r.id));
   const cAll=real.length;
   const cOK=real.filter(r=>r.status==="OK").length;
   const cNG=real.filter(r=>r.status==="NG").length;
@@ -1159,6 +1160,7 @@ function renderFilterBar(){
 function render(){
   renderDash();
   const list=rows.filter(r=>{
+    if(r.archived)return true;
     if(HIDE_SOLD_20261014.has(r.id))return false;   // 10/14 指定の13台だけ非表示（以後の売り切れは表示・データは残す）
     if(filter==="all")return true;
     if(filter==="sold")return /SOLD/i.test(r.price||"");
@@ -1175,7 +1177,8 @@ function render(){
   const gkey=r=>r.archived?"__arc":MOB?STAGES[stageIdx(r)].k:(r.vclass||"");
   const gcount={},gsec={};list.forEach(x=>{const g=gkey(x);gcount[g]=(gcount[g]||0)+1;if(isSecured(x))gsec[g]=(gsec[g]||0)+1;});
   let _prevG=null;
-  $("tb").innerHTML=list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
+  const empty=list.some(r=>!r.archived)?"":'<tr><td colspan="16" class="proc-empty">表示中の仕入候補はありません。上の「＋ URLで追加」から登録できます。</td></tr>';
+  $("tb").innerHTML=empty+list.map((r,idx)=>{const g=gkey(r);const c=r.vclass||"";const col=CLSCOLOR[c]||"#94a3b8";const _nx=list[idx+1];const isLast=!_nx||(gkey(_nx)!==g);const hid=g==="__arc"?(ARC_OPEN?"":" arcHide"):(MOB&&stageClosed(g))?" gHide":"";let hdr="";if(g!==_prevG){_prevG=g;
       if(g==="__arc"){hdr=`<tr class="clsgrp arcg" data-arc="1" style="--cc:#a8a29e;cursor:pointer"><td colspan="16"><span class="cbadge" style="background:#a8a29e">🗄</span>アーカイブ<span class="ccount">${gcount[g]||0}台 ・ ${ARC_OPEN?"▲ 閉じる":"▼ 開く"}</span></td></tr>`;}
       else if(MOB){const st=STAGES.find(s=>s.k===g);hdr=`<tr class="clsgrp stg${stageClosed(g)?"":" sopen"}" data-g="${g}" style="--cc:${st.col}"><td colspan="16"><span class="cbadge" style="background:${st.col}">${st.ic}</span>${st.lb}<span class="ccount">${gcount[g]||0}台</span><span class="stog">${stageClosed(g)?"▼ 開く":"▲ 閉じる"}</span></td></tr>`;}
       else{const lbl=CLSLBL[c]||"クラス未設定";hdr=`<tr class="clsgrp" style="--cc:${col}"><td colspan="16"><span class="cbadge" style="background:${col}">${c||"—"}</span>${lbl}<span class="ccount">確保 ${gsec[g]||0}台 ／ 一覧 ${gcount[g]||0}台</span></td></tr>`;}}return hdr+`
@@ -1209,7 +1212,7 @@ function render(){
       <div class="fld"><label>店舗回収予定</label><input type="date" data-df="pickup_date" value="${esc(r.pickup_date)}"></div>
       <div class="fld"><label>販売開始予定</label><input type="date" data-df="op_start_date" value="${esc(r.op_start_date)}"></div>
       <div class="fld memo"><label>メモ</label><textarea data-df="memo" rows="1" placeholder="メモ・特記事項（名義変更の進捗、書類待ち 等）">${esc(r.memo)}</textarea></div>
-    </div></td></tr>`;}).join("")||`<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:20px">該当なし</td></tr>`;
+    </div></td></tr>`;}).join("");
   // wire
   const _autg=t=>{t.style.height="auto";const _h=t.scrollHeight;if(_h>4)t.style.height=(_h+2)+"px";};
   $("tb").querySelectorAll("input.cell,select.st,textarea.cell").forEach(el=>{
