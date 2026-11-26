@@ -871,7 +871,7 @@ tr.arcHide{display:none!important}
       <div class="card"><div class="lb">月間費用</div><strong id="planCost"></strong></div>
       <div class="card"><div class="lb">月間損益</div><strong id="planProfit"></strong></div>
     </div>
-    <p class="sub">クラス別の売上＝計画台数 × 営業日数 × 稼働率 × 貸出単価。車両コスト＝既存車両の月額リース料 ＋ 月額保険料 ＋ 増車分の車両費。既存車両の費用は全額計上し、その他固定費と売上連動費は全体の月間損益に反映します。</p>
+    <p class="sub">クラス別の売上＝計画台数 × 営業日数 × 稼働率 × 貸出単価。車両コスト＝既存車両の月額リース料 ＋ 月額保険料 ＋ 増車台数 × 増車1台あたりの月額。増車1台あたりの月額は、既存車両のリース料・保険料の平均から自動入力し、手入力でも変更できます。クラスの平均が0円ならブランド全体、次に全車両の平均を使います。既存車両の費用は全額計上し、その他固定費と売上連動費は全体の月間損益に反映します。</p>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
@@ -1729,13 +1729,20 @@ const showPlan=(()=>{
     parent.append(el);
     return el;
   }
+  function averageMonthlyCost(classes){
+    const count=classes.reduce((sum,c)=>sum+c.count,0);
+    const monthly=classes.reduce((sum,c)=>sum+c.lease+c.ins,0);
+    return count ? Math.round(monthly/count) : 0;
+  }
   function renderBrands(data){
+    const fleetAverage=averageMonthlyCost(data.flatMap(b=>b.classes));
     brandsNode.replaceChildren();
     return data.map(({brand,label,classes})=>{
       const section=node("fieldset",brandsNode);
       node("legend",section,label);
       const total=node("p",section);
       if(!classes.length)node("p",section,"今月の対象車両はありません。");
+      const brandAverage=averageMonthlyCost(classes);
       const rows=classes.map(c=>{
         const article=node("article",section);
         node("h3",article,[c.id,c.name].filter(Boolean).join(" "));
@@ -1744,6 +1751,7 @@ const showPlan=(()=>{
         grid.className="plan-grid";
         const key=JSON.stringify([brand,c.id]);
         const values=assumptions.get(key)||{};
+        const extraMonthly=averageMonthlyCost([c])||brandAverage||fleetAverage;
         function input(field,label,initial,max,step="1"){
           const el=node("input",node("label",grid,label));
           Object.assign(el,{type:"number",min:"0",max:String(max),step,required:true,
@@ -1757,7 +1765,7 @@ const showPlan=(()=>{
         return {c,fleet:input("fleet","計画台数（台）",c.count,100000),
           rate:input("rate","稼働率（%）",0,100,"any"),
           price:input("price","貸出単価（円／台日）",0,1000000000),
-          extra:input("extra","増車分の車両費（円／台・月）",0,1000000000),
+          extra:input("extra","増車分の車両費（円／台・月）",extraMonthly,1000000000),
           output:node("p",article)};
       });
       return {total,rows};
