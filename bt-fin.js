@@ -369,33 +369,73 @@ window.FIN=(function(){
     try{const D=await loadPL();const out={};yms.forEach(m=>{const {o}=plMonth(D,m);out[m]={sales:o["売上高"],cost:o._cost,profit:o["売上高"]-o._cost};});return out;}catch(e){return null;}
   }
   document.addEventListener("click",ev=>{if(ev.target&&ev.target.id==="fleetReload")showFleet();});
-  async function planDailyRates(fleet,ym){
-    const from=addYm(ym,-3)+'-01', until=ym+'-01';
+  async function planDailyRates(V,fleet,ym){
+    const day=86400000;
+    const date=value=>Date.parse(String(value||"").slice(0,10));
+    const key=v=>JSON.stringify([normBrand(v.brand),v.type]);
+    const startMonth=addYm(ym,-3);
     const {data,error}=await sb.rpc("bt_vehicle_dashboard_view",{
       p_key:VIEW_KEY,p_from:addYm(ym,-4)+'-01',p_ym:ym
     });
     if(error)throw error;
-    const vehicles=new Map(fleet.map(v=>[v.code,v]));
+    const classes=new Set(V.classes.map(c=>c.id));
+    const vehicles=V.vs.filter(v=>classes.has(v.type));
+    const history=new Map((data.vehicles||[]).map(v=>[v.code,v]));
     const assignments=new Map((data.fleet||[]).map(f=>[f.reservation_id,f.vehicle_code]));
-    const totals=new Map();
+    const bookings=new Map();
     for(const r of data.res||[]){
-      const v=vehicles.get(assignments.get(r.id));
-      if(!v||/cancel|キャンセル/i.test(r.status||"")||!(r.end_date>=from&&r.end_date<until))continue;
-      if(v.swapped_at&&r.start_date<v.swapped_at.slice(0,10))continue;
+      const code=assignments.get(r.id);
+      const start=date(r.start_date), end=date(r.end_date);
+      if(!code||!(end>=start)||/cancel|キャンセル/i.test(r.status||""))continue;
       const sales=Number(r.final_price)||Number(r.price)||Number(r.amount)||0;
-      const days=(Date.parse(r.end_date.slice(0,10))-Date.parse(String(r.start_date||"").slice(0,10)))/86400000+1;
-      if(!(days>0&&sales>0))continue;
-      const key=JSON.stringify([normBrand(v.brand),v.type]);
-      const sums=totals.get(key)||{sales:0,days:0};
-      sums.sales+=sales;
-      sums.days+=days;
-      totals.set(key,sums);
+      if(!bookings.has(code))bookings.set(code,[]);
+      bookings.get(code).push({start,end,sales});
+    }
+    const totals=new Map();
+    const current=new Set(fleet.map(v=>v.code));
+    const periodStart=date(startMonth+'-01'), periodEnd=date(ym+'-01');
+    for(const v of vehicles){
+      const meta=history.get(v.code)||{};
+      const reservations=bookings.get(v.code)||[];
+      const firstBooking=reservations.reduce((first,r)=>Math.min(first,r.start),Infinity);
+      const purchase=date(meta.purchase_date);
+      const registered=date(meta.created_at);
+      const knownStart=Number.isFinite(purchase)?purchase:registered;
+      const inferredStart=Math.min(Number.isFinite(knownStart)?knownStart:Infinity,firstBooking);
+      const serviceStart=date(v.service_from), serviceEnd=date(v.service_to);
+      const swapped=date(meta.swapped_at);
+      const group=key(v);
+      const sums=totals.get(group)||{sales:0,days:0,available:0,baseline:0};
+      totals.set(group,sums);
+      for(const r of reservations){
+        if(current.has(v.code)&&r.end>=periodStart&&r.end<periodEnd&&
+          !(r.start<swapped)&&r.sales>0)sums.baseline+=r.sales;
+      }
+      for(let month=startMonth;month<ym;month=addYm(month,1)){
+        if(!isAct(V,month,v.code))continue;
+        const monthStart=Math.max(date(month+'-01'),date("2026-08-03"));
+        const monthEnd=date(addYm(month,1)+'-01')-day;
+        const from=Math.max(monthStart,Number.isFinite(serviceStart)?serviceStart:inferredStart);
+        const until=Math.min(monthEnd,Number.isFinite(serviceEnd)?serviceEnd:Infinity);
+        if(!(until>=from))continue;
+        sums.available+=(until-from)/day+1;
+        const used=new Set();
+        for(const r of reservations){
+          if(r.start<swapped)continue;
+          const begin=Math.max(r.start,from), end=Math.min(r.end,until);
+          if(end<begin)continue;
+          const perDay=Math.max(0,r.sales)/((r.end-r.start)/day+1);
+          for(let t=begin;t<=end;t+=day)used.add(t);
+          sums.sales+=perDay*((end-begin)/day+1);
+        }
+        sums.days+=used.size;
+      }
     }
     return totals;
   }
   async function planFleetCosts(){
     const ym=ymNow(), V=await loadVehicles(), fleet=fleetOf(V,ym);
-    const rates=await planDailyRates(fleet,ym).catch(()=>null);
+    const rates=await planDailyRates(V,fleet,ym).catch(()=>null);
     return Object.keys(BRL).map(brand=>{
       const vehicles=fleet.filter(v=>normBrand(v.brand)===brand);
       const classes=V.classes.flatMap(c=>{
@@ -409,9 +449,9 @@ window.FIN=(function(){
           totals.ins+=ins;
         }
         const rate=rates?.get(JSON.stringify([brand,c.id]));
-        totals.dailyRate=rate?Math.round(rate.sales/rate.days):null;
-        totals.monthlySales=rates?Math.round((rate?.sales||0)/3):null;
-        totals.utilization=rate?Math.min(100,Math.round(rate.days/(3*30*totals.count)*1000)/10):0;
+        totals.dailyRate=rate?.days?Math.round(rate.sales/rate.days):null;
+        totals.monthlySales=rates?Math.round((rate?.baseline||0)/3):null;
+        totals.utilization=rate?.available?Math.round(rate.days/rate.available*1000)/10:0;
         return [totals];
       });
       return {brand,label:BRL[brand],classes};

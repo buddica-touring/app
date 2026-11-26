@@ -866,6 +866,7 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-class-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.75fr);gap:14px;align-items:center}
 #viewPlan .plan-class-baseline{margin-top:4px}
 #viewPlan .plan-class-controls{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+#viewPlan .plan-rate-reset{display:block;margin-top:3px;padding:4px 0;border:0;background:none;color:var(--plan-accent);font:inherit;font-size:11px;text-align:left;cursor:pointer;text-decoration:underline}
 #viewPlan .plan-fleet-total{display:block;margin-top:5px;color:var(--plan-accent);font-size:12px;font-weight:700}
 #viewPlan .plan-class-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:9px 10px;border-radius:8px;background:#f2f6fb}
 #viewPlan .plan-class-projection{display:grid;gap:4px;margin-top:8px;font-size:12px}
@@ -975,7 +976,7 @@ tr.arcHide{display:none!important}
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。クラスの月間試算売上＝（既存台数＋増車台数）× 30日 × クラス全体の想定稼働率 × 貸出単価。差分は試算額から既存実績を引いた金額です。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費には売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
+      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。クラスの月間試算売上＝（既存台数＋増車台数）× 30日 × クラス全体の想定稼働率 × 貸出単価。差分は試算額から既存実績を引いた金額です。初期稼働率は、直近の完了した3か月の貸出台日 ÷ 当時の貸出可能台日です。貸出可能台日は月別の稼働フラグと運用期間で集計し、運用開始日が未登録の場合は仕入日・登録日・初回予約を参照します。初期単価は同期間の貸出日に配分した予約売上 ÷ 貸出台日です。保存した稼働率は入力値が優先されます。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費には売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -1052,7 +1053,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=18"></script>
+<script src="bt-fin.js?v=19"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -2079,7 +2080,17 @@ const showPlan=(()=>{
         const addedFleet=input(fleetControl,"addedFleet","増車台数（台）",0,100000);
         const fleetTotal=node("output",fleetControl);
         fleetTotal.className="plan-fleet-total";
-        const rate=input(controls,"rate","クラス全体の稼働率（%）",c.utilization??0,100,"any");
+        const rateControl=node("div",controls);
+        const rate=input(rateControl,"rate","クラス全体の稼働率（%）",c.utilization??0,100,"any");
+        const resetRate=node("button",rateControl,"実績初期値 "+number.format(c.utilization??0)+"% に戻す");
+        resetRate.type="button";
+        resetRate.className="plan-rate-reset";
+        resetRate.addEventListener("click",()=>{
+          delete values.rate;
+          try{localStorage.removeItem("bt_plan_class:"+key+":rate");}catch(error){}
+          rate.value=String(c.utilization??0);
+          render();
+        });
         const price=input(assumptionsGrid,"price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000);
         const leaseRate=input(assumptionsGrid,"leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000);
         const insuranceRate=input(assumptionsGrid,"insuranceRate","増車1台の月額保険料（試算・円）",averageInsurance,1000000000);
