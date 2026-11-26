@@ -841,7 +841,10 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-class-controls{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
 #viewPlan .plan-fleet-total{display:block;margin-top:5px;color:var(--plan-accent);font-size:12px;font-weight:700}
 #viewPlan .plan-class-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:9px 10px;border-radius:8px;background:#f2f6fb}
-#viewPlan .plan-class-projection{display:flex;flex-wrap:wrap;gap:4px 12px;padding-top:6px;color:var(--plan-muted);font-size:12px}
+#viewPlan .plan-class-projection{display:grid;gap:4px;margin-top:8px;font-size:12px}
+#viewPlan .plan-impact-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:5px 7px;border-radius:6px;background:#f2f6fb;overflow-wrap:anywhere}
+#viewPlan .plan-impact-row:last-child{background:#e7eff9;font-weight:700}
+#viewPlan .plan-impact-head{background:transparent;color:var(--plan-muted);font-weight:700}
 #viewPlan .plan-row-metric strong{display:block;margin-top:3px;font-size:14px;overflow-wrap:anywhere}
 #viewPlan .plan-class-details{margin-top:6px}
 #viewPlan .plan-class-details .plan-grid{grid-template-columns:repeat(3,minmax(0,210px));margin:4px 0 10px}
@@ -917,7 +920,7 @@ tr.arcHide{display:none!important}
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>予測売上＝（既存台数＋増車台数）× 1台あたり月間平均売上。1台あたり月間平均売上＝30日 × 稼働率 × 貸出単価。貸出単価の初期値は、配車表で直近の完了した3か月に返却日がある予約（キャンセルを除く）の売上を貸出延べ日数で割った金額です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
+      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。増車分の売上は増車台数 × 30日 × 増車の稼働率 × 貸出単価で試算します。初期単価は同期間の予約売上 ÷ 貸出延べ日数です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -994,7 +997,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=13"></script>
+<script src="bt-fin.js?v=14"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1811,6 +1814,18 @@ const showPlan=(()=>{
     node("span",metric,label);
     return node("strong",metric,"—");
   }
+  function impactRow(parent,label,heading=false){
+    const row=node("div",parent);
+    row.className="plan-impact-row"+(heading?" plan-impact-head":"");
+    node("span",row,label);
+    return (heading?["売上","保険","リース"]:["—","—","—"]).map(value=>node("span",row,value));
+  }
+  function displayImpact(cells,values,increment=false){
+    cells.forEach((cell,i)=>{
+      const value=values[i];
+      cell.textContent=value==null?"—":(increment&&value>0?"+":"")+yen.format(value);
+    });
+  }
   function renderBrands(data){
     brandsNode.replaceChildren();
     return data.map(({brand,label,classes})=>{
@@ -1844,14 +1859,16 @@ const showPlan=(()=>{
         metrics.className="plan-class-results";
         const averageInsurance=Math.round(c.ins/c.count);
         const averageLease=Math.round(c.lease/c.count);
-        const averageOutput=rowMetric(metrics,"平均売上／台");
+        rowMetric(metrics,"平均売上／台").textContent=c.monthlySales==null?"—":yen.format(c.monthlySales/c.count);
         rowMetric(metrics,"保険／台").textContent=yen.format(averageInsurance);
         rowMetric(metrics,"リース／台").textContent=yen.format(averageLease);
         const projection=node("div",estimates);
         projection.className="plan-class-projection";
-        const existingSalesOutput=node("span",projection);
-        const salesOutput=node("span",projection);
-        const costOutput=node("span",projection);
+        impactRow(projection,"月額",true);
+        const baseline=impactRow(projection,"既存");
+        displayImpact(baseline,[c.monthlySales,c.ins,c.lease]);
+        const increase=impactRow(projection,"増車分");
+        const combined=impactRow(projection,"増車後");
         const details=node("details",article);
         details.className="plan-class-details";
         node("summary",details,"単価・増車費用と試算根拠");
@@ -1877,7 +1894,7 @@ const showPlan=(()=>{
         const addedFleet=input(fleetControl,"addedFleet","増車台数（台）",0,100000);
         const fleetTotal=node("output",fleetControl);
         fleetTotal.className="plan-fleet-total";
-        const rate=input(controls,"rate","稼働率（%）",0,100,"any");
+        const rate=input(controls,"rate","増車の稼働率（%）",c.utilization??0,100,"any");
         const price=input(assumptionsGrid,"price","平均貸出単価（円／台日）",c.dailyRate??0,1000000000);
         const leaseRate=input(assumptionsGrid,"leaseRate","増車1台の月額リース料（試算・円）",averageLease,1000000000);
         const insuranceRate=input(assumptionsGrid,"insuranceRate","増車1台の月額保険料（試算・円）",averageInsurance,1000000000);
@@ -1891,7 +1908,7 @@ const showPlan=(()=>{
         reference.append("の同じブランド・クラスの登録額から算出（円単位で四捨五入）。");
         node("div",evidence,"月額リース "+yen.format(c.lease)+" ÷ "+count+" ＝ "+yen.format(averageLease)+"/台");
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
-        return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,averageOutput,existingSalesOutput,salesOutput,costOutput};
+        return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined};
       });
       return {total,rows};
     });
@@ -1903,38 +1920,33 @@ const showPlan=(()=>{
     if(!brands)return;
     const {fixed,fee}=form.elements;
     let revenue=0, addedLease=0, addedInsurance=0;
+    let revenueValid=true;
     let leaseValid=true, insuranceValid=true;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
-      for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,averageOutput,existingSalesOutput,salesOutput,costOutput} of rows){
+      for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined} of rows){
         const added=addedFleet.valueAsNumber;
         const total=c.count+added;
         fleetTotal.textContent="合計台数 "+(addedFleet.validity.valid?number.format(total)+"台":"—");
-        if(!addedFleet.validity.valid){
-          leaseValid=insuranceValid=false;
-        }else if(added>0){
-          if(leaseRate.validity.valid)addedLease+=added*leaseRate.valueAsNumber;
-          else leaseValid=false;
-          if(insuranceRate.validity.valid)addedInsurance+=added*insuranceRate.valueAsNumber;
-          else insuranceValid=false;
-        }
-        const salesInputsValid=rate.validity.valid&&price.validity.valid;
-        const averageSales=daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber;
-        averageOutput.textContent=salesInputsValid?yen.format(averageSales):"—";
-        existingSalesOutput.textContent="既存分の予測売上 "+(salesInputsValid?yen.format(Math.round(c.count*averageSales)):"—");
-        if(!salesInputsValid||![addedFleet,leaseRate,insuranceRate].every(el=>el.validity.valid)){
-          salesOutput.textContent="予測売上合計 —";
-          costOutput.textContent="車両コスト合計 —";
-          brandValid=false;
-          continue;
-        }
-        const sales=Math.round(total*averageSales);
-        const classLease=c.lease+added*leaseRate.valueAsNumber;
-        const classInsurance=c.ins+added*insuranceRate.valueAsNumber;
-        brandRevenue+=sales;
-        brandCost+=classLease+classInsurance;
-        salesOutput.textContent="予測売上合計 "+yen.format(sales);
-        costOutput.textContent="車両コスト合計 "+yen.format(classLease+classInsurance);
+        const addedValue=input=>!addedFleet.validity.valid?null:
+          added===0?0:input.validity.valid?added*input.valueAsNumber:null;
+        const moreLease=addedValue(leaseRate);
+        const moreInsurance=addedValue(insuranceRate);
+        const moreSales=!addedFleet.validity.valid?null:added===0?0:
+          rate.validity.valid&&price.validity.valid?Math.round(added*daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber):null;
+        const sales=c.monthlySales==null||moreSales==null?null:c.monthlySales+moreSales;
+        const classLease=moreLease==null?null:c.lease+moreLease;
+        const classInsurance=moreInsurance==null?null:c.ins+moreInsurance;
+        displayImpact(increase,[moreSales,moreInsurance,moreLease],true);
+        displayImpact(combined,[sales,classInsurance,classLease]);
+        if(moreLease==null)leaseValid=false;
+        else addedLease+=moreLease;
+        if(moreInsurance==null)insuranceValid=false;
+        else addedInsurance+=moreInsurance;
+        if(sales==null)revenueValid=false;
+        else brandRevenue+=sales;
+        if(sales==null||classLease==null||classInsurance==null)brandValid=false;
+        else brandCost+=classLease+classInsurance;
       }
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
@@ -1953,9 +1965,9 @@ const showPlan=(()=>{
     const variable=Math.round(revenue*(fee.valueAsNumber/100));
     const values={planRevenue:revenue,
       planFixed:fixedCost,planVariable:variable,planProfit:revenue-lease-insurance-fixedCost-variable};
-    document.getElementById("planProfit").parentElement.classList.toggle("is-negative",valid&&values.planProfit<0);
+    document.getElementById("planProfit").parentElement.classList.toggle("is-negative",valid&&revenueValid&&values.planProfit<0);
     for(const [id,value] of Object.entries(values)){
-      document.getElementById(id).textContent=valid?yen.format(value):"—";
+      document.getElementById(id).textContent=(id==="planFixed"?fixed.validity.valid:valid&&revenueValid)?yen.format(value):"—";
     }
   }
   async function refresh(){

@@ -357,6 +357,8 @@ window.FIN=(function(){
         }
         const rate=rates?.get(JSON.stringify([brand,c.id]));
         totals.dailyRate=rate?Math.round(rate.sales/rate.days):null;
+        totals.monthlySales=rates?Math.round((rate?.sales||0)/3):null;
+        totals.utilization=rate?Math.min(100,Math.round(rate.days/(3*30*totals.count)*1000)/10):0;
         return [totals];
       });
       return {brand,label:BRL[brand],classes};
