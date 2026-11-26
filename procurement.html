@@ -866,17 +866,16 @@ tr.arcHide{display:none!important}
       <p id="planExisting" hidden></p>
       <p id="planFleetStatus" role="status"></p>
       <button type="button" id="planFleetRetry" hidden>再読み込み</button>
-      <p id="planError" role="status" hidden>各入力欄の値を確認してください。営業日数は1〜31日、比率は0〜100%です。</p>
+      <p id="planError" role="status" hidden>各入力欄の値を確認してください。比率は0〜100%です。</p>
       <form id="planForm">
         <div class="plan-grid">
-          <label>営業日数（日）<input name="days" type="number" inputmode="numeric" min="1" max="31" step="1" value="30" required></label>
           <label>その他固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
           <label>売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
         </div>
         <div id="planBrands"></div>
       </form>
     </div>
-    <p class="sub">1台あたり月間平均売上＝営業日数 × 稼働率 × 貸出単価。貸出単価の初期値は、直近3か月の返却済み予約の売上を貸出延べ日数で割った金額です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
+    <p class="sub">1台あたり月間平均売上＝30日 × 稼働率 × 貸出単価。貸出単価の初期値は、配車表で直近の完了した3か月に返却日がある予約（キャンセルを除く）の売上を貸出延べ日数で割った金額です。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
@@ -1728,6 +1727,7 @@ const showPlan=(()=>{
   const number=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
   const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
   const assumptions=new Map();
+  const daysPerMonth=30;
   let brands=null, existing=null, loading=false;
   function node(tag,parent,value){
     const el=document.createElement(tag);
@@ -1779,17 +1779,17 @@ const showPlan=(()=>{
     results.hidden=!brands;
     error.hidden=valid;
     if(!brands)return;
-    const {days,fixed,fee}=form.elements;
+    const {fixed,fee}=form.elements;
     let revenue=0, lease=existing.lease, insurance=existing.ins;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
       for(const {c,fleet,rate,price,leaseRate,insuranceRate,output} of rows){
-        if(!days.validity.valid||![fleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
+        if(![fleet,rate,price,leaseRate,insuranceRate].every(el=>el.validity.valid)){
           output.textContent="試算結果 —";
           brandValid=false;
           continue;
         }
-        const averageSales=days.valueAsNumber*(rate.valueAsNumber/100)*price.valueAsNumber;
+        const averageSales=daysPerMonth*(rate.valueAsNumber/100)*price.valueAsNumber;
         const sales=Math.round(fleet.valueAsNumber*averageSales);
         const added=Math.max(0,fleet.valueAsNumber-c.count);
         const classLease=c.lease+added*leaseRate.valueAsNumber;
