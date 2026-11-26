@@ -2211,7 +2211,7 @@ const showPlan=(()=>{
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
         return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel,targetBookingPrice,monthlySalesPerCar,monthlyCostPerCar};
       });
-      return {brand,label,total,rows};
+      return {brand,total,rows};
     });
   }
   function calculateSalesPlan(){
@@ -2255,7 +2255,7 @@ const showPlan=(()=>{
     const link=document.createElement("a");
     const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
     link.href=url;
-    link.download="事業計画_月間試算_"+today+".csv";
+    link.download="事業計画_月次損益計算書_"+today+".csv";
     document.body.append(link);
     link.click();
     link.remove();
@@ -2270,18 +2270,16 @@ const showPlan=(()=>{
     error.hidden=valid;
     if(!brands)return;
     const estimates=calculateSalesPlan();
-    const brandsCsv=[], classesCsv=[], expensesCsv=[];
-    let existingRevenue=0, existingRevenueValid=true;
+    const expensesCsv=[];
     let revenue=0, addedLease=0, addedInsurance=0;
     let revenueValid=true;
     let leaseValid=true, insuranceValid=true;
     let totalGrowth=0, totalGrowthValid=true, totalBookings=0, totalBookingsValid=true;
-    for(const {brand,label,total,rows} of brands){
+    for(const {brand,total,rows} of brands){
       let brandGrowth=0, brandGrowthValid=true, brandBookings=0, brandBookingsValid=true;
       let brandRevenue=0,brandCost=0,brandValid=true,brandRevenueValid=true;
-      let baseCount=0, brandBaseRevenue=0, brandBaseRevenueValid=true;
       for(const row of rows){
-        const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel,targetBookingPrice,monthlySalesPerCar,monthlyCostPerCar}=row;
+        const {c,addedFleet,fleetTotal,leaseRate,insuranceRate,increase,combined,requiredRate,planLabel,targetBookingPrice,monthlySalesPerCar,monthlyCostPerCar}=row;
         const {bookings,rentalDays,sales}=estimates.get(row);
         requiredRate.textContent=sales!=null&&bookings>0?
           "必要単価 "+yen.format(sales/bookings)+"/予約 ／ "+yen.format(sales/rentalDays)+"/日":"必要単価 —";
@@ -2314,26 +2312,7 @@ const showPlan=(()=>{
         else brandRevenue+=sales;
         if(sales==null||classLease==null||classInsurance==null)brandValid=false;
         else brandCost+=classLease+classInsurance;
-        baseCount+=c.count;
-        if(c.monthlySales==null)brandBaseRevenueValid=false;
-        else brandBaseRevenue+=c.monthlySales;
-        const kind=["クラス別計画",label,[c.id,c.name].filter(Boolean).join(" ")];
-        classesCsv.push(
-          [...kind,"車両台数","台",c.count,addedFleet.validity.valid?added:null,addedFleet.validity.valid?total:null,""],
-          [...kind,"稼働率","%",c.utilization,null,rate.validity.valid?rate.valueAsNumber:null,"基準は直近の完了した3か月"],
-          [...kind,"貸出台日","台日",null,null,rentalDays==null?null:Math.round(rentalDays*100)/100,"30日換算"],
-          [...kind,"予約数","件",null,null,bookings==null?null:Math.round(bookings*100)/100,"配分用の試算値"],
-          [...kind,"売上","円／月",c.monthlySales,salesDifference,sales,"既存は直近の完了した3か月の月平均"],
-          [...kind,"月間売上／台","円／台・月",c.monthlySalesPerCar,null,
-            total>0&&sales!=null?Math.round(sales/total):null,"実績は当時の貸出可能台日で30日換算"],
-          [...kind,"月間車両費／台","円／台・月",Math.round((c.lease+c.ins)/c.count),null,
-            total>0&&classLease!=null&&classInsurance!=null?Math.round((classLease+classInsurance)/total):null,"リース・保険"],
-          [...kind,"リース","円／月",c.lease,moreLease,classLease,""],
-          [...kind,"保険","円／月",c.ins,moreInsurance,classInsurance,""],
-          [...kind,"売上配分用単価","円／日",c.dailyRate,null,price.validity.valid?price.valueAsNumber:null,""],
-          [...kind,"必要単価","円／予約",null,null,sales!=null&&bookings>0?Math.round(sales/bookings):null,""],
-          [...kind,"必要単価","円／日",null,null,sales!=null&&rentalDays>0?Math.round(sales/rentalDays):null,""]
-        );
+
       }
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
@@ -2344,20 +2323,6 @@ const showPlan=(()=>{
       totalBookingsValid&&=brandBookingsValid;
       totalGrowth+=brandGrowth;
       totalGrowthValid&&=brandGrowthValid;
-      existingRevenue+=brandBaseRevenue;
-      existingRevenueValid&&=brandBaseRevenueValid;
-      const count=brandGrowthValid?baseCount+brandGrowth:null;
-      const plannedBookings=brandBookingsValid?Math.round(brandBookings):null;
-      const group=["ブランド別計画",label,""];
-      brandsCsv.push(
-        [...group,"車両台数","台",baseCount,brandGrowthValid?brandGrowth:null,count,""],
-        [...group,"予約数","件",null,null,plannedBookings,""],
-        [...group,"売上","円／月",brandBaseRevenueValid?brandBaseRevenue:null,
-          brandBaseRevenueValid&&brandRevenueValid?brandRevenue-brandBaseRevenue:null,brandRevenueValid?brandRevenue:null,""],
-        [...group,"車両費（リース＋保険）","円／月",null,null,brandValid?brandCost:null,""],
-        [...group,"平均予約単価","円／件",null,null,plannedBookings>0&&brandRevenueValid?Math.round(brandRevenue/plannedBookings):null,""],
-        [...group,"1台あたり売上","円／台・月",null,null,count>0&&brandRevenueValid?Math.round(brandRevenue/count):null,""]
-      );
     }
     showFleetGrowth(null,totalGrowthValid?totalGrowth:null,revenueValid?revenue:null,
       totalBookingsValid?totalBookings:null);
@@ -2385,10 +2350,11 @@ const showPlan=(()=>{
     let filledPLVariable=0;
     for(const {account,amount,input} of includedPLFixed){
       const planned=input.validity.valid?(input.value===""?amount:input.valueAsNumber):null;
-      expensesCsv.push(["支出明細","","",account,"円／月",amount,planned==null?null:planned-amount,planned,"PL固定費"]);
+      expensesCsv.push({account,amount:planned,note:"PL固定費",fromPL:true});
     }
     for(const {account,input} of includedPLVariable){
-      expensesCsv.push(["支出明細","","",account,"円／月",null,null,input.validity.valid&&input.value!==""?input.valueAsNumber:null,"PL変動費・手入力。空欄は計上外"]);
+      expensesCsv.push({account,fromPL:true,amount:input.validity.valid?(input.value===""?0:input.valueAsNumber):null,
+        note:input.value===""?"未入力・計上なし":"PL変動費・手入力"});
       otherVariableValid&&=input.validity.valid;
       if(input.validity.valid&&input.value!==""){
         filledPLVariable++;
@@ -2406,8 +2372,8 @@ const showPlan=(()=>{
       const ready=amount.validity.valid&&(!share||revenueValid);
       const value=ready?(share?Math.round(revenue*(amount.valueAsNumber/100)):amount.valueAsNumber):0;
       output.textContent=ready?yen.format(value):"—";
-      expensesCsv.push(["支出明細","","",name.value.trim()||"追加支出","円／月",null,null,ready?value:null,
-        share?"追加変動費・売上の"+amount.value+"%":"追加固定費"]);
+      expensesCsv.push({account:name.value.trim()||"追加支出",amount:ready?value:null,
+        note:share?"追加変動費・売上の"+amount.value+"%":"追加固定費"});
       if(share){
         otherVariable+=value;
         otherVariableValid&&=ready;
@@ -2438,40 +2404,22 @@ const showPlan=(()=>{
     for(const [id,value] of Object.entries(values)){
       document.getElementById(id).textContent=readiness[id]?yen.format(value):"—";
     }
-    const summary=["月間サマリ","全体",""];
-    const assumptions=["試算条件","全体",""];
-    const fleetBase=fleetCountCards.get(null).base;
-    const fleetPlan=totalGrowthValid?fleetBase+totalGrowth:null;
-    const bookingsPlan=totalBookingsValid?Math.round(totalBookings):null;
+    const costOfSales=expensesCsv.find(item=>item.fromPL&&item.account==="売上原価");
+    const cogs=plExpenses?(costOfSales?costOfSales.amount:0):null;
     csvRows=[
-      ["区分","ブランド","クラス","項目","単位","既存・基準","増減","計画","備考"],
-      [...summary,"試算状況","",null,null,allCostsValid?"計算済み":"未算定項目あり","空欄は未入力・未算定・対象外"],
-      [...summary,"既存＋増車台数","台",fleetBase,totalGrowthValid?totalGrowth:null,fleetPlan,""],
-      [...summary,"予約数","件",null,null,bookingsPlan,""],
-      [...summary,"平均予約単価（グロス）","円／件",null,null,bookingsPlan>0&&revenueValid?Math.round(revenue/bookingsPlan):null,""],
-      [...summary,"売上","円／月",existingRevenueValid?existingRevenue:null,
-        existingRevenueValid&&revenueValid?revenue-existingRevenue:null,revenueValid?revenue:null,"既存は直近の完了した3か月の月平均"],
-      [...summary,"1台あたり売上","円／台・月",null,null,fleetPlan>0&&revenueValid?Math.round(revenue/fleetPlan):null,""],
-      [...summary,"リース","円／月",existing.lease,leaseValid?addedLease:null,leaseValid?lease:null,""],
-      [...summary,"保険","円／月",existing.ins,insuranceValid?addedInsurance:null,insuranceValid?insurance:null,""],
-      [...summary,"固定費","円／月",null,null,fixedValid?fixedCost:null,""],
-      [...summary,"変動費（OTA手数料含む）","円／月",null,null,channelReady&&otherVariableValid?variable:null,""],
-      [...summary,"支出合計","円／月",null,null,allCostsValid?expenseTotal:null,""],
-      [...summary,"粗利","円／月",null,null,allCostsValid?revenue-expenseTotal:null,"売上－支出合計"],
-      [...assumptions,"固定費の参照月","",plExpenses?.month,null,null,""],
-      [...assumptions,"目標予約単価（グロス）","円／件",null,null,targetInput.validity.valid?targetInput.valueAsNumber:null,""],
-      [...assumptions,"月間換算日数","日",null,null,daysPerMonth,""],
-      [...assumptions,"公式予約比率","%",null,null,officialShare.validity.valid?officialShare.valueAsNumber:null,""],
-      [...assumptions,"OTA予約比率","%",null,null,otaShare.validity.valid?otaShare.valueAsNumber:null,""],
-      [...assumptions,"OTA手数料率","%",null,null,otaRate*100,"OTA予約売上に適用"],
-      ...brandsCsv,...classesCsv,
-      ["支出明細","","","リース","円／月",existing.lease,leaseValid?addedLease:null,leaseValid?lease:null,"車両費"],
-      ["支出明細","","","保険","円／月",existing.ins,insuranceValid?addedInsurance:null,insuranceValid?insurance:null,"車両費"],
-      ["支出明細","","","OTA手数料","円／月",null,null,channelReady?ota:null,"OTA売上 × 手数料率"],
-      ...expensesCsv,
-      ...[...(plExpenses?.fixed||[]).map(item=>item.account),...(plExpenses?.variable||[])]
-        .filter(account=>excludedPL.has(account))
-        .map(account=>["支出明細","","",account,"円／月",null,null,null,"試算から除外"])
+      ["区分","勘定科目","月額（円）","備考"],
+      ["売上高","公式予約売上",channelReady?revenue-otaRevenue:null,""],
+      ["売上高","OTA予約売上",channelReady?otaRevenue:null,""],
+      ["売上高","売上高合計",revenueValid?revenue:null,""],
+      ["売上原価","売上原価合計",cogs,costOfSales?.note||(plExpenses?"計上なし":"PL科目未取得")],
+      ["利益","売上総利益",revenueValid&&cogs!=null?revenue-cogs:null,"売上高合計－売上原価合計"],
+      ["販売費及び一般管理費","リース料",leaseValid?lease:null,"既存・増車分を含む"],
+      ["販売費及び一般管理費","保険料",insuranceValid?insurance:null,"既存・増車分を含む"],
+      ["販売費及び一般管理費","支払手数料（OTA）",channelReady?ota:null,"OTA予約売上 × 手数料率"],
+      ...expensesCsv.filter(item=>item!==costOfSales).map(({account,amount,note})=>
+        ["販売費及び一般管理費",account,amount,note]),
+      ["販売費及び一般管理費","販管費合計",allCostsValid?expenseTotal-cogs:null,""],
+      ["利益","営業利益",allCostsValid?revenue-expenseTotal:null,"売上総利益－販管費合計"]
     ];
     exportButton.disabled=false;
   }
