@@ -150,6 +150,11 @@ window.FIN=(function(){
     ["リース料","veh","lease"],["保険料","veh","ins",["保険料"]],["車検","veh","shaken",["車検費"]],["点検","veh","tenken",["点検費"]],
     ["整備費用","mix",["車両整備費","修理費"]],["雑費","mix",["雑費","その他"]],
     ["販管費合計","calc"],["営業利益","calc"]];
+  const PL_FIXED=new Set(["給与手当","賞与","賞与引当金繰入額","業務委託費（内部）","業務委託費（外部）",
+    "法定福利費","福利厚生費","通信費","減価償却費","地代家賃","租税公課","諸会費","新聞図書費","リース料","保険料"]);
+  const PL_COST_GROUPS={fixed:"固定費",variable:"変動費"};
+  const plCostGroup=(account,kind)=>kind==="calc"||account==="売上高"?"":PL_FIXED.has(account)?"fixed":"variable";
+  const plCostBadge=group=>'<span class="fn-cost-badge '+group+'">'+PL_COST_GROUPS[group]+'</span>';
   // 会計・カードは全科目を PL に入れる（オーナー指示 2026-11-20「カードコストがPL内に全て格納するのが前提。科目で例外があれば別枠で表示し解消確認できるように」）
   //   科目→PL行の割当は下の PL 定義から作る。割当のない科目は雑費に入れ、PL の下の「会計・カードの照合」に例外として出す
   const CAT2PL={}; PL.forEach(([a,k,x,y])=>{if(k==="mix"||(k==="auto"&&a==="支払手数料"))(x||[]).forEach(c=>CAT2PL[c]=a);if(k==="veh")(y||[]).forEach(c=>CAT2PL[c]=a);});
@@ -222,13 +227,21 @@ window.FIN=(function(){
   }
   function renderPL(){
     const body=$("finPL"); if(PL_FY==null)PL_FY=pfOf(ymNow()); const M=pfMonths(PL_FY), cur=ymNow(), R=M.map(m=>plMonth(PLD,m));
+    const groupRows=Object.keys(PL_COST_GROUPS).map(group=>{
+      const accounts=PL.filter(([a,k])=>plCostGroup(a,k)===group);
+      const monthly=R.map(r=>accounts.reduce((sum,[a])=>sum+(r.o[a]||0),0));
+      return {group,monthly,total:monthly.reduce((sum,n)=>sum+n,0)};
+    });
     let h='<div class="fn-bar">'+pfSel("plFy",PL_FY)+'<button class="btn" id="plReload">🔄 最新に更新</button></div>'
       +'<div class="fn-note"><b class="lg a">自動</b> 売上高＝サマリと同じ（返却月・予約＋予約外）／支払手数料＝OTA手数料（HANDYMAN 18%・BUDDICA 16%）＋会計の支払手数料／リース料・保険料・車検・点検＝車両リストの金額×その月の稼働車　'
       +'<b class="lg m">会計</b> 業務APPの会計（出納帳の出金・カード）を科目ごとに反映。手入力欄に入れた分は上乗せ　<b class="lg w">空欄</b> 手入力（自動にする定義が決まったら順次自動に）</div>';
+    h+='<div class="fn-cost-totals" aria-label="期の費用区分別合計">'+groupRows.map(({group,total})=>
+      '<div>'+plCostBadge(group)+' <strong>'+yen(total)+'</strong></div>').join('')+'</div>';
     h+='<div class="fn-tw"><table class="fn-t fn-m fn-pl"><thead><tr><th>勘定科目</th>'+M.map(m=>'<th class="'+(m===cur?'now':'')+'">'+m.slice(0,4)+'年'+(+m.slice(5))+'月<br><button class="fn-cp" data-cp="'+m+'" title="この月の手入力を、翌月の空欄にコピーします（翌月に入っている金額はそのまま）">翌月へ→</button></th>').join('')+'<th>合計</th></tr></thead><tbody>';
     PL.forEach(([a,k])=>{
+      const group=plCostGroup(a,k);
       const tot=R.reduce((s,r)=>s+(r.o[a]||0),0), cls=k==="calc"?(a==="営業利益"?"tot pf":"tot"):(k==="auto"||k==="veh")?"a":k==="mix"?"m":"w";
-      h+='<tr class="'+cls+'"><th>'+esc(a)+(k==="auto"||k==="veh"?' <small>自動</small>':'')+((k==="man"||k==="mix")&&a!==SAL?' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(a)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>':'')+'</th>';
+      h+='<tr class="'+cls+'"><th>'+esc(a)+(group?' '+plCostBadge(group):'')+(k==="auto"||k==="veh"?' <small>自動</small>':'')+((k==="man"||k==="mix")&&a!==SAL?' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(a)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>':'')+'</th>';
       R.forEach((r,i)=>{const m=M[i],v=r.o[a]||0;
         if((k==="man"||k==="mix")&&a!==SAL){const mv=PLD.MAN[m+':'+a], au=r.auto[a]||0;
           h+='<td>'+(k==="mix"&&au?'<div class="au" title="会計・カードの合計">'+num(au)+'</div>':'')+(CAN_EDIT?'<input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(a)+'" value="'+(mv!=null?num(mv):'')+'">':(mv!=null?num(mv):''))+'</td>';}
@@ -239,6 +252,10 @@ window.FIN=(function(){
           h+='<tr class="w sub"><th>└ '+esc(n)+' '+'<button class="fn-cp fn-rcp" data-rcp="'+esc(ac)+'" title="この科目の手入力を、右の空いている月にコピーします（入っている月はそのまま）">→</button>'+'</th>'+M.map(m=>{const mv=PLD.MAN[m+':'+ac];return '<td><input class="fn-in pl" inputmode="numeric" data-ym="'+m+'" data-ac="'+esc(ac)+'" value="'+(mv!=null?num(mv):'')+'"></td>';}).join('')+'<td class="b">'+num(st)+'</td></tr>';});
         h+='<tr class="w sub"><th colspan="14"><input id="salNew" class="fn-sal" maxlength="20" placeholder="枠の名前（例：パート）"> <button class="btn" id="salAdd">＋給与枠</button></th></tr>';
       }});
+    for(const {group,monthly,total} of groupRows){
+      h+='<tr class="tot fn-cost-group"><th>'+plCostBadge(group)+' 合計</th>'
+        +monthly.map(n=>'<td>'+num(n)+'</td>').join('')+'<td class="b">'+num(total)+'</td></tr>';
+    }
     h+='</tbody></table></div><div class="fn-note">出所：売上＝bt_mtg_h2（'+esc(PLD.gen||'')+'）・OTA手数料＝bt_ota_brand_split・会計＝bt_accounting・車両＝bt_vehicles×bt_vehicle_monthly_kpi・手入力＝bt_pl_manual。車両の金額は今の登録値で各月を計算します。'
       +'</div>'+reconHtml(M,R);
     body.innerHTML=h;
