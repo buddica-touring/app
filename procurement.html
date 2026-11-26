@@ -811,6 +811,7 @@ tr.arcHide{display:none!important}
 #planBrands article{border-top:1px solid #e2e8f0;padding:10px 0}
 #planBrands h3{margin:0 0 6px;font-size:14px}
 #planBrands p{margin:4px 0 8px}
+.plan-summary-title{font-size:14px;margin:0 0 8px}
 #planError{color:#991b1b}
 @media(max-width:760px){.wrap .tabbtn[data-v="plan"]{grid-column:span 12;order:7;min-height:40px;font-size:13px}}
 </style>
@@ -853,8 +854,19 @@ tr.arcHide{display:none!important}
   <section id="viewPlan" style="display:none" aria-labelledby="planTitle">
     <div class="card">
       <h2 id="planTitle">数値計画シミュレーション</h2>
+      <h3 class="plan-summary-title">月間サマリ</h3>
+      <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true" hidden>
+        <div class="card"><div class="lb">売上</div><strong id="planRevenue"></strong></div>
+        <div class="card"><div class="lb">リース</div><strong id="planLease"></strong></div>
+        <div class="card"><div class="lb">保険</div><strong id="planInsurance"></strong></div>
+        <div class="card"><div class="lb">固定費</div><strong id="planFixed"></strong></div>
+        <div class="card"><div class="lb">変動費</div><strong id="planVariable"></strong></div>
+        <div class="card"><div class="lb">粗利</div><strong id="planProfit"></strong></div>
+      </div>
+      <p id="planExisting" hidden></p>
       <p id="planFleetStatus" role="status"></p>
       <button type="button" id="planFleetRetry" hidden>再読み込み</button>
+      <p id="planError" role="status" hidden>各入力欄の値を確認してください。営業日数は1〜31日、比率は0〜100%です。</p>
       <form id="planForm">
         <div class="plan-grid">
           <label>営業日数（日）<input name="days" type="number" inputmode="numeric" min="1" max="31" step="1" value="30" required></label>
@@ -864,14 +876,7 @@ tr.arcHide{display:none!important}
         <div id="planBrands"></div>
       </form>
     </div>
-    <p id="planError" role="status" hidden>各入力欄の値を確認してください。営業日数は1〜31日、比率は0〜100%です。</p>
-    <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true">
-      <div class="card"><div class="lb">月間貸出延べ日数</div><strong id="planRentalDays"></strong></div>
-      <div class="card"><div class="lb">月間売上</div><strong id="planRevenue"></strong></div>
-      <div class="card"><div class="lb">月間費用</div><strong id="planCost"></strong></div>
-      <div class="card"><div class="lb">月間損益</div><strong id="planProfit"></strong></div>
-    </div>
-    <p class="sub">クラス別の売上＝計画台数 × 営業日数 × 稼働率 × 貸出単価。車両コスト＝既存車両の月額リース料 ＋ 月額保険料 ＋ 増車台数 × 増車1台あたりの月額。増車1台あたりの月額は、同じブランド・クラスの既存車両の月額リース料と保険料の合計を既存台数で割って自動入力します。手入力でも変更できます。既存車両の費用は全額計上し、その他固定費と売上連動費は全体の月間損益に反映します。</p>
+    <p class="sub">クラス別の売上＝計画台数 × 営業日数 × 稼働率 × 貸出単価。車両コスト＝既存車両の月額リース料 ＋ 月額保険料 ＋ 増車台数 × 増車1台あたりの月額。増車1台あたりの月額は、同じブランド・クラスの既存車両の月額リース料と保険料の合計を既存台数で割って自動入力します。手入力でも変更できます。既存車両の費用は全額計上し、増車分はクラスの既存費用の比率でリース・保険に配分します。比率がない場合の手入力額は固定費に含めます。粗利＝売上 − リース − 保険 − 固定費 − 変動費（売上 × 売上連動費率）。</p>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
   <div id="viewManual" style="display:none"><div class="mn"><div class="mn-h">使い方マニュアル <small>2026-11-01 更新・見出しを押すと開閉</small></div>
@@ -1719,10 +1724,11 @@ const showPlan=(()=>{
   const status=document.getElementById("planFleetStatus");
   const retry=document.getElementById("planFleetRetry");
   const brandsNode=document.getElementById("planBrands");
+  const existingNode=document.getElementById("planExisting");
   const number=new Intl.NumberFormat("ja-JP",{maximumFractionDigits:2});
   const yen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"});
   const assumptions=new Map();
-  let brands=null, loading=false;
+  let brands=null, existing=null, loading=false;
   function node(tag,parent,value){
     const el=document.createElement(tag);
     if(value!==undefined)el.textContent=value;
@@ -1735,11 +1741,13 @@ const showPlan=(()=>{
       const section=node("fieldset",brandsNode);
       node("legend",section,label);
       const total=node("p",section);
+      const existingCost=classes.reduce((sum,c)=>sum+c.lease+c.ins,0);
+      node("p",section,"既存車両コスト（月額） "+yen.format(existingCost));
       if(!classes.length)node("p",section,"今月の対象車両はありません。");
       const rows=classes.map(c=>{
         const article=node("article",section);
         node("h3",article,[c.id,c.name].filter(Boolean).join(" "));
-        node("p",article,"既存 "+number.format(c.count)+"台 ／ 月額リース "+yen.format(c.lease)+" ／ 月額保険 "+yen.format(c.ins));
+        node("p",article,"既存 "+number.format(c.count)+"台 ／ 月額合計 "+yen.format(c.lease+c.ins)+" ／ リース "+yen.format(c.lease)+" ／ 保険 "+yen.format(c.ins));
         const grid=node("div",article);
         grid.className="plan-grid";
         const key=JSON.stringify([brand,c.id]);
@@ -1766,49 +1774,65 @@ const showPlan=(()=>{
   }
   function render(){
     const valid=form.checkValidity();
-    results.hidden=!valid||!brands;
+    results.hidden=!brands;
     error.hidden=valid;
     if(!brands)return;
     const {days,fixed,fee}=form.elements;
-    const validDays=days.validity.valid;
-    let rentalDays=0,revenue=0,vehicleCost=0;
+    let revenue=0, lease=existing.lease, insurance=existing.ins, extraFixed=0;
     for(const {total,rows} of brands){
       let brandRevenue=0,brandCost=0,brandValid=true;
       for(const {c,fleet,rate,price,extra,output} of rows){
-        if(!validDays||![fleet,rate,price,extra].every(el=>el.validity.valid)){
+        if(!days.validity.valid||![fleet,rate,price,extra].every(el=>el.validity.valid)){
           output.textContent="試算結果 —";
           brandValid=false;
           continue;
         }
         const rental=fleet.valueAsNumber*days.valueAsNumber*(rate.valueAsNumber/100);
         const sales=Math.round(rental*price.valueAsNumber);
-        const cost=c.lease+c.ins+Math.max(0,fleet.valueAsNumber-c.count)*extra.valueAsNumber;
-        rentalDays+=rental;
+        const additional=Math.max(0,fleet.valueAsNumber-c.count)*extra.valueAsNumber;
+        const existingCost=c.lease+c.ins;
+        if(existingCost){
+          const addedLease=Math.round(additional*c.lease/existingCost);
+          lease+=addedLease;
+          insurance+=additional-addedLease;
+        }else{
+          extraFixed+=additional;
+        }
         brandRevenue+=sales;
-        brandCost+=cost;
-        output.textContent="予測売上 "+yen.format(sales)+" ／ 車両コスト "+yen.format(cost);
+        brandCost+=existingCost+additional;
+        output.textContent="予測売上 "+yen.format(sales)+" ／ 車両コスト "+yen.format(existingCost+additional);
       }
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
-      vehicleCost+=brandCost;
     }
-    if(!valid)return;
-    const cost=Math.round(vehicleCost+fixed.valueAsNumber+revenue*(fee.valueAsNumber/100));
-    document.getElementById("planRentalDays").textContent=number.format(rentalDays)+" 台日";
-    document.getElementById("planRevenue").textContent=yen.format(revenue);
-    document.getElementById("planCost").textContent=yen.format(cost);
-    document.getElementById("planProfit").textContent=yen.format(revenue-cost);
+    const fixedCost=fixed.valueAsNumber+extraFixed;
+    const variable=Math.round(revenue*(fee.valueAsNumber/100));
+    const values={planRevenue:revenue,planLease:lease,planInsurance:insurance,
+      planFixed:fixedCost,planVariable:variable,planProfit:revenue-lease-insurance-fixedCost-variable};
+    for(const [id,value] of Object.entries(values)){
+      document.getElementById(id).textContent=valid?yen.format(value):"—";
+    }
   }
   async function refresh(){
     if(loading)return;
     loading=true;
     brands=null;
+    existingNode.hidden=true;
     brandsNode.replaceChildren();
     status.textContent="既存車両のリース料・保険料を読み込み中…";
     retry.hidden=true;
     render();
     try{
-      brands=renderBrands(await FIN.planFleetCosts());
+      const data=await FIN.planFleetCosts();
+      existing=data.flatMap(brand=>brand.classes).reduce((sum,c)=>{
+        sum.lease+=c.lease;
+        sum.ins+=c.ins;
+        return sum;
+      },{lease:0,ins:0});
+      brands=renderBrands(data);
+      existingNode.textContent="既存車両コスト（月額） "+yen.format(existing.lease+existing.ins)
+        +" ／ リース "+yen.format(existing.lease)+" ／ 保険 "+yen.format(existing.ins);
+      existingNode.hidden=false;
       status.textContent="";
     }catch(error){
       brandsNode.replaceChildren();
