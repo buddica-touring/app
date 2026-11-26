@@ -1831,6 +1831,16 @@ const showPlan=(()=>{
   const expenses=[];
   let brands=null, existing=null, plExpenses=null, loading=false;
   const plVariableValues=new Map(), excludedPL=new Set();
+  const excludedPLKey="bt_plan_excluded_pl_accounts";
+  try{
+    const saved=JSON.parse(localStorage.getItem(excludedPLKey)||"[]");
+    if(Array.isArray(saved)){
+      for(const account of saved)if(typeof account==="string")excludedPL.add(account);
+    }
+  }catch(error){}
+  function savePLExclusions(){
+    try{localStorage.setItem(excludedPLKey,JSON.stringify([...excludedPL]));}catch(error){}
+  }
   const includedPLFixed=[], includedPLVariable=[];
   const restorePL=document.getElementById("planRestorePLExpenses");
   function node(tag,parent,value){
@@ -1866,6 +1876,7 @@ const showPlan=(()=>{
   });
   restorePL.addEventListener("click",()=>{
     excludedPL.clear();
+    savePLExclusions();
     showPLExpenses();
     render();
   });
@@ -1891,6 +1902,7 @@ const showPlan=(()=>{
       remove.setAttribute("aria-label",account+"を試算から除外");
       remove.addEventListener("click",()=>{
         excludedPL.add(account);
+        savePLExclusions();
         showPLExpenses();
         render();
       });
