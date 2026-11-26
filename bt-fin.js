@@ -316,5 +316,14 @@ window.FIN=(function(){
     try{const D=await loadPL();const out={};yms.forEach(m=>{const {o}=plMonth(D,m);out[m]={sales:o["売上高"],cost:o._cost,profit:o["売上高"]-o._cost};});return out;}catch(e){return null;}
   }
   document.addEventListener("click",ev=>{if(ev.target&&ev.target.id==="fleetReload")showFleet();});
-  return {showFleet,showSpend,showPL,summary};
+  async function planFleetCosts(){
+    const vehicles=fleetOf(await loadVehicles(),ymNow());
+    return vehicles.reduce((totals,v)=>{
+      const {lease,ins}=costParts(v);
+      totals.lease+=lease;
+      totals.ins+=ins;
+      return totals;
+    },{count:vehicles.length,lease:0,ins:0});
+  }
+  return {showFleet,showSpend,showPL,summary,planFleetCosts};
 })();
