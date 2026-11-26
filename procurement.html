@@ -2018,12 +2018,16 @@ const showPlan=(()=>{
       node("p",card,fleetBreakdown(totals)).className="plan-count-detail";
       const growth=node("div",card);
       growth.className="plan-count-growth";
-      fleetCountCards.set(brand,{base:totals.count,growth});
+      const perVehicle=node("p",card);
+      perVehicle.className="plan-count-detail";
+      fleetCountCards.set(brand,{base:totals.count,growth,perVehicle});
     }
     countsNode.hidden=false;
   }
-  function showFleetGrowth(brand,added){
-    const {base,growth}=fleetCountCards.get(brand);
+  function showFleetGrowth(brand,added,revenue){
+    const {base,growth,perVehicle}=fleetCountCards.get(brand);
+    const total=added==null?0:base+added;
+    perVehicle.textContent="1台あたり月間売上 "+(total>0&&revenue!=null?yen.format(revenue/total):"—");
     growth.textContent=added==null?"増車 — ／ 増車後 —":
       "増車 +"+number.format(added)+"台 ／ 増車後 "+number.format(base+added)+"台";
   }
@@ -2162,7 +2166,7 @@ const showPlan=(()=>{
     let totalGrowth=0, totalGrowthValid=true;
     for(const {brand,total,rows} of brands){
       let brandGrowth=0, brandGrowthValid=true;
-      let brandRevenue=0,brandCost=0,brandValid=true;
+      let brandRevenue=0,brandCost=0,brandValid=true,brandRevenueValid=true;
       for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined} of rows){
         const added=addedFleet.valueAsNumber;
         const total=c.count+added;
@@ -2184,18 +2188,19 @@ const showPlan=(()=>{
         else addedLease+=moreLease;
         if(moreInsurance==null)insuranceValid=false;
         else addedInsurance+=moreInsurance;
-        if(sales==null)revenueValid=false;
+        if(sales==null)brandRevenueValid=false;
         else brandRevenue+=sales;
         if(sales==null||classLease==null||classInsurance==null)brandValid=false;
         else brandCost+=classLease+classInsurance;
       }
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
-      showFleetGrowth(brand,brandGrowthValid?brandGrowth:null);
+      revenueValid&&=brandRevenueValid;
+      showFleetGrowth(brand,brandGrowthValid?brandGrowth:null,brandRevenueValid?brandRevenue:null);
       totalGrowth+=brandGrowth;
       totalGrowthValid&&=brandGrowthValid;
     }
-    showFleetGrowth(null,totalGrowthValid?totalGrowth:null);
+    showFleetGrowth(null,totalGrowthValid?totalGrowth:null,revenueValid?revenue:null);
     const lease=existing.lease+addedLease;
     const insurance=existing.ins+addedInsurance;
     for(const [id,baseline,additional,ready] of [
