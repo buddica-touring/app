@@ -457,6 +457,9 @@ window.FIN=(function(){
         totals.averageBookingDays=rate?.bookingCount?rate.bookingDays/rate.bookingCount:null;
         totals.dailyRate=rate?.days?Math.round(rate.sales/rate.days):null;
         totals.actualBookingPrice=rate?.baselineBookings?Math.round(rate.baseline/rate.baselineBookings):null;
+        totals.historicalAvailableDays=rate?.available||0;
+        totals.historicalRentalSales=rate?Math.round(rate.sales):null;
+        totals.monthlySalesPerCar=rate?.available?Math.round(rate.sales/rate.available*30):null;
         totals.monthlySales=rates?Math.round((rate?.baseline||0)/3):null;
         totals.utilization=rate?.available?Math.round(rate.days/rate.available*1000)/10:0;
         return [totals];

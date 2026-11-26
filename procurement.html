@@ -995,7 +995,7 @@ tr.arcHide{display:none!important}
     </form>
     <details class="plan-formula">
       <summary>計算方法とデータの出典</summary>
-      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。平均売上／台はその月平均を既存台数で割った額です。全体の月間試算売上＝試算予約数 × 目標単価（グロス）。クラス別の売上は、試算貸出台日 × 配分用の貸出単価で按分します。必要単価はクラスの配分売上を、丸め前の試算予約数または貸出台日で割った目安です。配分用の単価が0円のクラスに予約を見込む場合は、予約数の比率で按分します。「計画−既存」の売上差には、増車台数・設定した稼働率・目標単価の影響が含まれます。初期稼働率は、直近の完了した3か月の貸出台日 ÷ 当時の貸出可能台日です。貸出可能台日は月別の稼働フラグと運用期間で集計し、運用開始日が未登録の場合は仕入日・登録日・初回予約を参照します。初期単価は同期間の貸出日に配分した予約売上 ÷ 貸出台日です。試算予約数は、クラスの試算貸出台日を直近の完了した3か月の平均貸出日数（予約1件あたり）で割り、合算後に四捨五入します。平均単価＝試算売上 ÷ 試算予約数。目標単価の入力値は、このブラウザに保存します。貸出日数の実績がないクラスに貸出を見込む場合は、予約数と平均単価を「—」で表示します。保存した稼働率は入力値が優先されます。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費にはOTA予約の試算売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
+      <p>既存の月間売上は、直近の完了した3か月の配車表で、現在の既存車両に割り当てられた予約売上（キャンセルを除く）の月平均です。月間売上／台の実績は、同期間のクラスの貸出日に配分した売上を当時の貸出可能台日で割り、30日換算した額です。全体の月間試算売上＝試算予約数 × 目標単価（グロス）。クラス別の売上は、試算貸出台日 × 配分用の貸出単価で按分します。必要単価はクラスの配分売上を、丸め前の試算予約数または貸出台日で割った目安です。配分用の単価が0円のクラスに予約を見込む場合は、予約数の比率で按分します。「計画−既存」の売上差には、増車台数・設定した稼働率・目標単価の影響が含まれます。初期稼働率は、直近の完了した3か月の貸出台日 ÷ 当時の貸出可能台日です。貸出可能台日は月別の稼働フラグと運用期間で集計し、運用開始日が未登録の場合は仕入日・登録日・初回予約を参照します。初期単価は同期間の貸出日に配分した予約売上 ÷ 貸出台日です。試算予約数は、クラスの試算貸出台日を直近の完了した3か月の平均貸出日数（予約1件あたり）で割り、合算後に四捨五入します。平均単価＝試算売上 ÷ 試算予約数。目標単価の入力値は、このブラウザに保存します。貸出日数の実績がないクラスに貸出を見込む場合は、予約数と平均単価を「—」で表示します。保存した稼働率は入力値が優先されます。増車分の月額リース料・保険料の初期値は、同じブランド・クラスの既存車両の平均です。粗利＝売上 − リース − 保険 − 固定費 − 変動費。変動費にはOTA予約の試算売上の15%のOTA手数料と、支出設定の売上連動費が含まれます。</p>
     </details>
   </section>
   <div id="viewResale" style="display:none"><div style="text-align:right;margin:0 0 6px"><a href="resale-sim.html?v=1106zg" target="_blank" rel="noopener" style="font-size:12px;color:#64748b">別タブで開く ↗</a></div><iframe id="resaleFrame" data-src="resale-sim.html" title="リセール出口シミュレーター" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid #ece4da;border-radius:12px;background:#fff"></iframe></div>
@@ -1072,7 +1072,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=22"></script>
+<script src="bt-fin.js?v=23"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -2131,12 +2131,12 @@ const showPlan=(()=>{
         node("strong",metrics,c.actualBookingPrice==null?"—":yen.format(c.actualBookingPrice));
         const targetBookingPrice=node("strong",metrics,"—");
         node("span",metrics,"月間売上／台");
-        node("strong",metrics,c.monthlySales==null?"—":yen.format(c.monthlySales/c.count));
+        node("strong",metrics,c.monthlySalesPerCar==null?"—":yen.format(c.monthlySalesPerCar));
         const monthlySalesPerCar=node("strong",metrics,"—");
-        node("span",metrics,"月間支出／台");
-        node("strong",metrics,"—");
+        node("span",metrics,"月間車両費／台");
+        node("strong",metrics,yen.format((c.ins+c.lease)/c.count));
         const monthlyCostPerCar=node("strong",metrics,"—");
-        node("p",estimates,"実績期間 "+period+"（返却月）。支出見込みはリース・保険・OTA手数料の合計。").className="plan-class-cost-note";
+        node("p",estimates,"売上実績 "+period+"。車両費は月額リース・保険。OTA手数料は上段の支出に計上。").className="plan-class-cost-note";
         const details=node("details",article);
         details.className="plan-class-details";
         node("summary",details,"既存との比較・必要単価・費用設定");
@@ -2148,9 +2148,10 @@ const showPlan=(()=>{
         const combined=impactRow(projection,"計画");
         const planLabel=combined[0].parentElement.firstElementChild;
         const increase=impactRow(projection,"計画−既存");
-        const salesBasis=c.monthlySales==null?"既存車の売上実績は取得できていません。":
-          "既存車1台の月平均売上＝既存車の月平均売上 "+yen.format(c.monthlySales)+" ÷ "+count+"。";
-        node("p",details,salesBasis+" 売上は直近の完了した3か月、保険・リースは現在の月額登録額です。").className="plan-comparison-note";
+        const salesBasis=c.monthlySalesPerCar==null?"月間売上／台を算出できる実績がありません。":
+          "月間売上／台の実績＝貸出日に配分した売上 "+yen.format(c.historicalRentalSales)+" ÷ 当時の貸出可能台日 "
+            +number.format(c.historicalAvailableDays)+"台日 × 30日。";
+        node("p",details,salesBasis+" 比較表の既存売上は返却月ベースの月平均。保険・リースは現在の登録額です。").className="plan-comparison-note";
         const requiredRate=node("p",details);
         requiredRate.className="plan-required-rate";
         if(c.dailyRate==null){
@@ -2269,7 +2270,6 @@ const showPlan=(()=>{
     error.hidden=valid;
     if(!brands)return;
     const estimates=calculateSalesPlan();
-    const otaShareReady=otaShare.validity.valid&&officialShare.validity.valid;
     const brandsCsv=[], classesCsv=[], expensesCsv=[];
     let existingRevenue=0, existingRevenueValid=true;
     let revenue=0, addedLease=0, addedInsurance=0;
@@ -2302,9 +2302,8 @@ const showPlan=(()=>{
         const classInsurance=moreInsurance==null?null:c.ins+moreInsurance;
         targetBookingPrice.textContent=sales!=null&&bookings>0?yen.format(sales/bookings):"—";
         monthlySalesPerCar.textContent=total>0&&sales!=null?yen.format(sales/total):"—";
-        const classOta=sales!=null&&otaShareReady?Math.round(sales*(otaShare.valueAsNumber/100)*otaRate):null;
-        monthlyCostPerCar.textContent=total>0&&classLease!=null&&classInsurance!=null&&classOta!=null?
-          yen.format((classLease+classInsurance+classOta)/total):"—";
+        monthlyCostPerCar.textContent=total>0&&classLease!=null&&classInsurance!=null?
+          yen.format((classLease+classInsurance)/total):"—";
         displayImpact(increase,[salesDifference,moreInsurance,moreLease],true);
         displayImpact(combined,[sales,classInsurance,classLease]);
         if(moreLease==null)leaseValid=false;
@@ -2325,6 +2324,10 @@ const showPlan=(()=>{
           [...kind,"貸出台日","台日",null,null,rentalDays==null?null:Math.round(rentalDays*100)/100,"30日換算"],
           [...kind,"予約数","件",null,null,bookings==null?null:Math.round(bookings*100)/100,"配分用の試算値"],
           [...kind,"売上","円／月",c.monthlySales,salesDifference,sales,"既存は直近の完了した3か月の月平均"],
+          [...kind,"月間売上／台","円／台・月",c.monthlySalesPerCar,null,
+            total>0&&sales!=null?Math.round(sales/total):null,"実績は当時の貸出可能台日で30日換算"],
+          [...kind,"月間車両費／台","円／台・月",Math.round((c.lease+c.ins)/c.count),null,
+            total>0&&classLease!=null&&classInsurance!=null?Math.round((classLease+classInsurance)/total):null,"リース・保険"],
           [...kind,"リース","円／月",c.lease,moreLease,classLease,""],
           [...kind,"保険","円／月",c.ins,moreInsurance,classInsurance,""],
           [...kind,"売上配分用単価","円／日",c.dailyRate,null,price.validity.valid?price.valueAsNumber:null,""],
