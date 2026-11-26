@@ -2058,11 +2058,20 @@ const showPlan=(()=>{
         const values=assumptions.get(key)||{};
         function input(parent,field,label,initial,max,step="1"){
           const el=node("input",node("label",parent,label));
+          const storageKey=field==="addedFleet"||field==="rate"?"bt_plan_class:"+key+":"+field:null;
+          let saved=null;
+          if(storageKey){
+            try{saved=localStorage.getItem(storageKey);}catch(error){}
+          }
           Object.assign(el,{type:"number",min:"0",max:String(max),step,required:true,
-            inputMode:step==="1"?"numeric":"decimal",value:String(values[field]??initial)});
+            inputMode:step==="1"?"numeric":"decimal",value:String(values[field]??saved??initial)});
+          if(values[field]===undefined&&saved!==null&&!el.validity.valid)el.value=String(initial);
           el.addEventListener("input",()=>{
             values[field]=el.value;
             assumptions.set(key,values);
+            if(storageKey&&el.validity.valid){
+              try{localStorage.setItem(storageKey,el.value);}catch(error){}
+            }
           });
           return el;
         }
