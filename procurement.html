@@ -945,7 +945,7 @@ tr.arcHide{display:none!important}
             <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
           </div>
           <label class="plan-target">目標単価（グロス・円／予約）<input id="planGrossTarget" type="number" min="1" max="1000000000" step="1" inputmode="numeric" value="27500" required></label>
-          <div id="planFleetCounts" class="plan-grid" aria-label="配車表の当月運用台数" hidden></div>
+          <div id="planFleetCounts" class="plan-grid" aria-label="ブランド別・合算の計画台数" hidden></div>
           <p id="planExisting" hidden></p>
         </section>
         <p id="planFleetStatus" role="status"></p>
@@ -2036,16 +2036,16 @@ const showPlan=(()=>{
     countsNode.replaceChildren();
     fleetCountCards.clear();
     const counts=[
-      {brand:null,label:"ブランド合算の運用台数",classes:data.flatMap(b=>b.classes)},
-      ...data.map(b=>({brand:b.brand,label:b.label+" の運用台数",classes:b.classes}))
+      {brand:null,label:"ブランド合算の計画台数",classes:data.flatMap(b=>b.classes)},
+      ...data.map(b=>({brand:b.brand,label:b.label+" の計画台数",classes:b.classes}))
     ];
     for(const {brand,label,classes} of counts){
       const totals=fleetCounts(classes);
       const card=node("div",countsNode);
       card.className="plan-metric";
       node("span",card,label);
-      node("strong",card,number.format(totals.count)+"台");
-      node("p",card,fleetBreakdown(totals)).className="plan-count-detail";
+      const plannedCount=node("strong",card,"—");
+      node("p",card,"既存 "+number.format(totals.count)+"台（"+fleetBreakdown(totals)+"）").className="plan-count-detail";
       const growth=node("div",card);
       growth.className="plan-count-growth";
       const perVehicle=node("p",card);
@@ -2054,12 +2054,12 @@ const showPlan=(()=>{
       bookingMetrics.className="plan-count-detail";
       const target=brand===null?node("p",card):null;
       if(target)target.className="plan-count-detail";
-      fleetCountCards.set(brand,{base:totals.count,growth,perVehicle,bookingMetrics,target});
+      fleetCountCards.set(brand,{base:totals.count,plannedCount,growth,perVehicle,bookingMetrics,target});
     }
     countsNode.hidden=false;
   }
   function showFleetGrowth(brand,added,revenue,estimatedBookings){
-    const {base,growth,perVehicle,bookingMetrics,target}=fleetCountCards.get(brand);
+    const {base,plannedCount,growth,perVehicle,bookingMetrics,target}=fleetCountCards.get(brand);
     const bookings=estimatedBookings==null?null:Math.round(estimatedBookings);
     const unitPrice=bookings>0&&revenue!=null?Math.round(revenue/bookings):null;
     bookingMetrics.textContent="試算予約数 "+(bookings==null?"—":number.format(bookings)+"件")
@@ -2068,9 +2068,9 @@ const showPlan=(()=>{
     if(target)target.textContent="目標単価（グロス） "+(grossBookingTarget==null?"—":yen.format(grossBookingTarget)+"/件")+" ／ 目標差 "
       +(unitPrice==null||grossBookingTarget==null?"—":signedYen.format(unitPrice-grossBookingTarget)+"/件");
     const total=added==null?0:base+added;
-    perVehicle.textContent="1台あたり月間売上 "+(total>0&&revenue!=null?yen.format(revenue/total):"—");
-    growth.textContent=added==null?"増車 — ／ 増車後 —":
-      "増車 +"+number.format(added)+"台 ／ 増車後 "+number.format(base+added)+"台";
+    plannedCount.textContent=added==null?"—":number.format(total)+"台";
+    perVehicle.textContent="計画1台あたり月間売上 "+(total>0&&revenue!=null?yen.format(revenue/total):"—");
+    growth.textContent=added==null?"増車 —":"増車 +"+number.format(added)+"台";
   }
   function impactRow(parent,label,heading=false){
     const row=node("div",parent);
