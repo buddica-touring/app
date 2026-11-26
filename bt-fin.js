@@ -316,8 +316,33 @@ window.FIN=(function(){
     try{const D=await loadPL();const out={};yms.forEach(m=>{const {o}=plMonth(D,m);out[m]={sales:o["売上高"],cost:o._cost,profit:o["売上高"]-o._cost};});return out;}catch(e){return null;}
   }
   document.addEventListener("click",ev=>{if(ev.target&&ev.target.id==="fleetReload")showFleet();});
+  async function planDailyRates(fleet,ym){
+    const from=addYm(ym,-3)+'-01', until=ym+'-01';
+    const {data,error}=await sb.rpc("bt_vehicle_dashboard_view",{
+      p_key:VIEW_KEY,p_from:addYm(ym,-4)+'-01',p_ym:ym
+    });
+    if(error)throw error;
+    const vehicles=new Map(fleet.map(v=>[v.code,v]));
+    const assignments=new Map((data.fleet||[]).map(f=>[f.reservation_id,f.vehicle_code]));
+    const totals=new Map();
+    for(const r of data.res||[]){
+      const v=vehicles.get(assignments.get(r.id));
+      if(!v||/cancel|キャンセル/i.test(r.status||"")||!(r.end_date>=from&&r.end_date<until))continue;
+      if(v.swapped_at&&r.start_date<v.swapped_at.slice(0,10))continue;
+      const sales=Number(r.final_price)||Number(r.price)||Number(r.amount)||0;
+      const days=(Date.parse(r.end_date.slice(0,10))-Date.parse(String(r.start_date||"").slice(0,10)))/86400000+1;
+      if(!(days>0&&sales>0))continue;
+      const key=JSON.stringify([normBrand(v.brand),v.type]);
+      const sums=totals.get(key)||{sales:0,days:0};
+      sums.sales+=sales;
+      sums.days+=days;
+      totals.set(key,sums);
+    }
+    return totals;
+  }
   async function planFleetCosts(){
-    const V=await loadVehicles(), fleet=fleetOf(V,ymNow());
+    const ym=ymNow(), V=await loadVehicles(), fleet=fleetOf(V,ym);
+    const rates=await planDailyRates(fleet,ym).catch(()=>null);
     return Object.keys(BRL).map(brand=>{
       const vehicles=fleet.filter(v=>normBrand(v.brand)===brand);
       const classes=V.classes.flatMap(c=>{
@@ -329,6 +354,8 @@ window.FIN=(function(){
           totals.lease+=lease;
           totals.ins+=ins;
         }
+        const rate=rates?.get(JSON.stringify([brand,c.id]));
+        totals.dailyRate=rate?Math.round(rate.sales/rate.days):null;
         return [totals];
       });
       return {brand,label:BRL[brand],classes};
