@@ -813,7 +813,8 @@ tr.arcHide{display:none!important}
 #viewPlan p{margin:0}
 #viewPlan .plan-grid{display:grid;gap:12px}
 #viewPlan [hidden]{display:none}
-#planResults{grid-template-columns:repeat(6,minmax(0,1fr))}
+#planResults{grid-template-columns:repeat(7,minmax(0,1fr))}
+@media(max-width:1180px){#planResults{grid-template-columns:repeat(4,minmax(0,1fr))}}
 #viewPlan .plan-metric{min-width:0;background:#fff;border:1px solid var(--plan-line);border-radius:12px;padding:13px}
 #viewPlan .plan-metric span,#viewPlan .plan-row-metric span{display:block;color:var(--plan-muted);font-size:12px;font-weight:700}
 #viewPlan .plan-metric strong{display:block;margin-top:4px;font-size:clamp(16px,1.65vw,24px);line-height:1.3;overflow-wrap:anywhere}
@@ -926,6 +927,7 @@ tr.arcHide{display:none!important}
             <div class="plan-metric"><span>保険合計</span><strong id="planInsurance"></strong><dl class="plan-cost-breakdown"><div><dt>既存</dt><dd id="planInsuranceExisting"></dd></div><div><dt>増車分（試算）</dt><dd id="planInsuranceAdded"></dd></div></dl></div>
             <div class="plan-metric"><span>固定費</span><strong id="planFixed"></strong><dl class="plan-cost-breakdown"><div><dt>PLから反映</dt><dd id="planFixedPLCard"></dd></div></dl></div>
             <div class="plan-metric"><span>変動費</span><strong id="planVariable"></strong><dl class="plan-cost-breakdown"><div><dt>OTA手数料（15%）</dt><dd id="planOtaCard"></dd></div><div><dt>その他変動費</dt><dd id="planOtherVariable"></dd></div></dl></div>
+            <div class="plan-metric"><span>支出合計</span><strong id="planExpenseCard"></strong></div>
             <div class="plan-metric plan-metric-profit"><span>粗利</span><strong id="planProfit"></strong></div>
           </div>
           <div id="planFleetCounts" class="plan-grid" aria-label="配車表の当月運用台数" hidden></div>
@@ -2154,7 +2156,9 @@ const showPlan=(()=>{
     }
     document.getElementById("planOtherVariable").textContent=otherVariableValid?yen.format(otherVariable):"—";
     const allCostsValid=valid&&revenueValid&&fixedValid;
-    document.getElementById("planExpenseTotal").textContent=allCostsValid?yen.format(expenseTotal):"—";
+    const expenseDisplay=allCostsValid?yen.format(expenseTotal):"—";
+    document.getElementById("planExpenseTotal").textContent=expenseDisplay;
+    document.getElementById("planExpenseCard").textContent=expenseDisplay;
     const values={planRevenue:revenue,
       planFixed:fixedCost,planVariable:variable,planProfit:revenue-expenseTotal};
     document.getElementById("planProfit").parentElement.classList.toggle("is-negative",allCostsValid&&values.planProfit<0);
