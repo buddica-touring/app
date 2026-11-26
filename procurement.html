@@ -824,6 +824,7 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-metric-profit span{color:#e1ecf9}
 #viewPlan .plan-metric-profit.is-negative{background:#8c2d3d;border-color:#8c2d3d}
 #viewPlan #planFleetCounts{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));margin-top:12px}
+#viewPlan .plan-count-growth{padding-top:6px;margin-top:5px;border-top:1px solid var(--plan-line);color:var(--plan-accent);font-size:12px;font-weight:800;line-height:1.5}
 #viewPlan .plan-count-detail{margin-top:5px;color:var(--plan-muted);font-size:12px;font-weight:700}
 #viewPlan #planExisting{margin:10px 0 0;color:var(--plan-muted);font-size:12px;line-height:1.6}
 #viewPlan #planFleetStatus:not(:empty),#viewPlan #planError{margin:12px 0}
@@ -935,10 +936,6 @@ tr.arcHide{display:none!important}
         <p id="planError" role="status" hidden>各入力欄の値を確認してください。比率は0〜100%です。</p>
           <details class="plan-shared">
             <summary>支出設定</summary>
-            <div class="plan-grid">
-              <label>追加固定費（円／月）<input name="fixed" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="0" required></label>
-              <label>その他の売上連動費率（%）<input name="fee" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" required></label>
-            </div>
             <div class="plan-expense-summary">
               <span>リース（月額） <strong id="planLeaseExpense">—</strong></span>
               <span>保険（月額） <strong id="planInsuranceExpense">—</strong></span>
@@ -1925,21 +1922,31 @@ const showPlan=(()=>{
   function fleetBreakdown({count,active}){
     return "稼働 "+number.format(active)+"台 ／ 未稼働 "+number.format(count-active)+"台";
   }
+  const fleetCountCards=new Map();
   function renderFleetCounts(data){
     countsNode.replaceChildren();
+    fleetCountCards.clear();
     const counts=[
-      {label:"ブランド合算の運用台数",classes:data.flatMap(b=>b.classes)},
-      ...data.map(b=>({label:b.label+" の運用台数",classes:b.classes}))
+      {brand:null,label:"ブランド合算の運用台数",classes:data.flatMap(b=>b.classes)},
+      ...data.map(b=>({brand:b.brand,label:b.label+" の運用台数",classes:b.classes}))
     ];
-    for(const {label,classes} of counts){
+    for(const {brand,label,classes} of counts){
       const totals=fleetCounts(classes);
       const card=node("div",countsNode);
       card.className="plan-metric";
       node("span",card,label);
       node("strong",card,number.format(totals.count)+"台");
       node("p",card,fleetBreakdown(totals)).className="plan-count-detail";
+      const growth=node("div",card);
+      growth.className="plan-count-growth";
+      fleetCountCards.set(brand,{base:totals.count,growth});
     }
     countsNode.hidden=false;
+  }
+  function showFleetGrowth(brand,added){
+    const {base,growth}=fleetCountCards.get(brand);
+    growth.textContent=added==null?"増車 — ／ 増車後 —":
+      "増車 +"+number.format(added)+"台 ／ 増車後 "+number.format(base+added)+"台";
   }
   function rowMetric(parent,label){
     const metric=node("div",parent);
@@ -2043,7 +2050,7 @@ const showPlan=(()=>{
         node("div",evidence,"月額保険 "+yen.format(c.ins)+" ÷ "+count+" ＝ "+yen.format(averageInsurance)+"/台");
         return {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined};
       });
-      return {total,rows};
+      return {brand,total,rows};
     });
   }
   function render(){
@@ -2051,15 +2058,18 @@ const showPlan=(()=>{
     results.hidden=!brands;
     error.hidden=valid;
     if(!brands)return;
-    const {fixed,fee}=form.elements;
     let revenue=0, addedLease=0, addedInsurance=0;
     let revenueValid=true;
     let leaseValid=true, insuranceValid=true;
-    for(const {total,rows} of brands){
+    let totalGrowth=0, totalGrowthValid=true;
+    for(const {brand,total,rows} of brands){
+      let brandGrowth=0, brandGrowthValid=true;
       let brandRevenue=0,brandCost=0,brandValid=true;
       for(const {c,addedFleet,fleetTotal,rate,price,leaseRate,insuranceRate,increase,combined} of rows){
         const added=addedFleet.valueAsNumber;
         const total=c.count+added;
+        if(addedFleet.validity.valid)brandGrowth+=added;
+        else brandGrowthValid=false;
         fleetTotal.textContent="合計台数 "+(addedFleet.validity.valid?number.format(total)+"台":"—");
         const addedValue=input=>!addedFleet.validity.valid?null:
           added===0?0:input.validity.valid?added*input.valueAsNumber:null;
@@ -2083,7 +2093,11 @@ const showPlan=(()=>{
       }
       total.textContent=brandValid?"ブランド合計　予測売上 "+yen.format(brandRevenue)+" ／ 車両コスト "+yen.format(brandCost):"ブランド合計 —";
       revenue+=brandRevenue;
+      showFleetGrowth(brand,brandGrowthValid?brandGrowth:null);
+      totalGrowth+=brandGrowth;
+      totalGrowthValid&&=brandGrowthValid;
     }
+    showFleetGrowth(null,totalGrowthValid?totalGrowth:null);
     const lease=existing.lease+addedLease;
     const insurance=existing.ins+addedInsurance;
     for(const [id,baseline,additional,ready] of [
@@ -2101,9 +2115,8 @@ const showPlan=(()=>{
     }
     document.getElementById("planLeaseExpense").textContent=leaseValid?yen.format(lease):"—";
     document.getElementById("planInsuranceExpense").textContent=insuranceValid?yen.format(insurance):"—";
-    let fixedValid=!!plExpenses&&fixed.validity.valid, otherVariableValid=revenueValid&&fee.validity.valid;
-    let fixedCost=importedFixed+(fixed.validity.valid?fixed.valueAsNumber:0);
-    let otherVariable=otherVariableValid?Math.round(revenue*(fee.valueAsNumber/100)):0;
+    let fixedValid=!!plExpenses, otherVariableValid=true;
+    let fixedCost=importedFixed, otherVariable=0;
     for(const input of includedPLVariable){
       otherVariableValid&&=input.validity.valid;
       if(input.validity.valid&&input.value!=="")otherVariable+=input.valueAsNumber;
@@ -2133,7 +2146,7 @@ const showPlan=(()=>{
     const values={planRevenue:revenue,
       planFixed:fixedCost,planVariable:variable,planProfit:revenue-expenseTotal};
     document.getElementById("planProfit").parentElement.classList.toggle("is-negative",allCostsValid&&values.planProfit<0);
-    const readiness={planRevenue:revenueValid,planFixed:fixedValid,planVariable:otherVariableValid,planProfit:allCostsValid};
+    const readiness={planRevenue:revenueValid,planFixed:fixedValid,planVariable:revenueValid&&otherVariableValid,planProfit:allCostsValid};
     for(const [id,value] of Object.entries(values)){
       document.getElementById(id).textContent=readiness[id]?yen.format(value):"—";
     }
