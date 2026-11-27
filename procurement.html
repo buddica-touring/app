@@ -815,6 +815,7 @@ tr.arcHide{display:none!important}
 #viewPlan .plan-heading button{white-space:nowrap}
 #viewPlan .plan-transfer-actions{display:flex;flex-wrap:wrap;gap:6px}
 #viewPlan #planTransferStatus:not(:empty){margin:0 0 8px;color:var(--plan-muted);font-size:12px}
+#viewPlan #planSharedInfo:not(:empty){margin:-6px 0 8px;color:var(--plan-muted);font-size:12px}
 #viewPlan h2{font-size:clamp(19px,2vw,27px);line-height:1.4;margin:0 0 18px}
 #viewPlan h3{margin:0;font-size:15px}
 #viewPlan p{margin:0}
@@ -944,6 +945,7 @@ tr.arcHide{display:none!important}
             <input id="planConditionsFile" type="file" accept=".json,application/json" hidden>
           </div>
         </div>
+        <p id="planSharedInfo"></p>
         <p id="planTransferStatus" role="status"></p>
         <section aria-label="月間サマリ">
           <div id="planResults" class="plan-grid" aria-live="polite" aria-atomic="true" hidden>
@@ -1835,39 +1837,143 @@ const showPlan=(()=>{
   const daysPerMonth=30;
   const otaRate=0.15;
   const targetInput=document.getElementById("planGrossTarget");
-  const targetKey="bt_plan_gross_booking_target";
-  try{
-    const saved=localStorage.getItem(targetKey);
-    if(saved!==null){
-      targetInput.value=saved;
-      if(!targetInput.validity.valid)targetInput.value="27500";
+  // 試算条件は全端末共通（オーナー依頼 2026-11-27）：BT の bt_plan_scenario の id='shared' 1行に「上書きした値だけ」を持つ。
+  // 入っていない項目は実績から出した初期値を使う。localStorage（bt_plan_*）は読まず、読込時に消す。後から保存した端末が勝つ。
+  const SHARED_ID="shared";
+  const sharedInfo=document.getElementById("planSharedInfo");
+  let sharedTarget, sharedOtaShare, sharedClasses={}, sharedReady=false, saveTimer=null;
+  const SAVE_FAILED="保存できませんでした";
+  function purgeLegacyPlanStorage(){
+    try{
+      const keys=[];
+      for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith("bt_plan_"))keys.push(k);}
+      for(const k of keys)localStorage.removeItem(k);
+    }catch(error){}
+  }
+  function showSharedUpdated(at){
+    if(!at){sharedInfo.textContent="共有の試算条件・最終更新 —（実績初期値）";return;}
+    const p=Object.fromEntries(new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",
+      hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date(at)).map(x=>[x.type,x.value]));
+    sharedInfo.textContent="共有の試算条件・最終更新 "+p.month+"/"+p.day+" "+p.hour+":"+p.minute;
+  }
+  function sharedData(){
+    const data={version:2};
+    if(sharedTarget!==undefined)data.target=sharedTarget;
+    if(sharedOtaShare!==undefined)data.otaShare=sharedOtaShare;
+    const classes=Object.fromEntries(Object.entries(sharedClasses).filter(([,v])=>Object.keys(v).length));
+    if(Object.keys(classes).length)data.classes=classes;
+    if(plFixedOverrides.size)data.fixed=Object.fromEntries(plFixedOverrides);
+    if(plVariableValues.size)data.variable=Object.fromEntries(plVariableValues);
+    if(excludedPL.size)data.excluded=[...excludedPL];
+    const items=customExpenseValues();
+    if(items.length)data.expenses=items;
+    return data;
+  }
+  // 保存は「この端末で変えた項目だけ」：保存直前に共有行を読み直し、変えた項目の設定/削除だけを重ねて書く（全体上書きをしない）。
+  // updated_at が読んだ時と同じ時だけ更新し、間に別端末が保存していたら読み直してやり直す。同じ項目は後勝ち。
+  const dirty=new Map();
+  let saveChain=Promise.resolve(true);
+  function localValue([head,a,b]){
+    if(head==="target")return sharedTarget;
+    if(head==="otaShare")return sharedOtaShare;
+    if(head==="classes")return sharedClasses[a]?.[b];
+    if(head==="fixed")return plFixedOverrides.get(a);
+    if(head==="variable")return plVariableValues.get(a);
+    if(head==="excluded")return excludedPL.size?[...excludedPL]:undefined;
+    if(head==="expenses"){const items=customExpenseValues();return items.length?items:undefined;}
+  }
+  function isPlainObject(value){return !!value&&typeof value==="object"&&!Array.isArray(value);}
+  function setPath(data,path,value){
+    let target=data;
+    for(const k of path.slice(0,-1)){
+      if(!isPlainObject(target[k]))target[k]={};
+      target=target[k];
     }
-  }catch(error){}
+    if(value===undefined)delete target[path[path.length-1]];
+    else target[path[path.length-1]]=value;
+  }
+  function pruneShared(data){
+    if(isPlainObject(data.classes)){
+      for(const [key,values] of Object.entries(data.classes))if(isPlainObject(values)&&!Object.keys(values).length)delete data.classes[key];
+    }
+    for(const name of ["classes","fixed","variable"])if(isPlainObject(data[name])&&!Object.keys(data[name]).length)delete data[name];
+  }
+  async function writeShared(replaceAll){
+    if(!sharedReady){transferStatus.textContent=SAVE_FAILED;return false;}
+    const paths=[...dirty.values()];
+    dirty.clear();
+    if(!paths.length&&!replaceAll)return true;
+    try{
+      for(let attempt=0;attempt<5;attempt++){
+        const {data:row,error:readError}=await sb.from("bt_plan_scenario").select("data,updated_at").eq("id",SHARED_ID).maybeSingle();
+        if(readError)throw readError;
+        let data;
+        if(replaceAll)data=sharedData();
+        else{
+          data=row&&isPlainObject(row.data)?JSON.parse(JSON.stringify(row.data)):{};
+          for(const path of paths)setPath(data,path,localValue(path));
+          pruneShared(data);
+          data.version=2;
+        }
+        const result=row?
+          await sb.from("bt_plan_scenario").update({data}).eq("id",SHARED_ID).eq("updated_at",row.updated_at).select("updated_at"):
+          await sb.from("bt_plan_scenario").insert({id:SHARED_ID,data}).select("updated_at");
+        if(result.error){
+          if(!row&&result.error.code==="23505")continue;   // 同時に別端末が最初の1行を作った → 読み直す
+          throw result.error;
+        }
+        if(result.data&&result.data.length){
+          if(transferStatus.textContent===SAVE_FAILED)transferStatus.textContent="";
+          showSharedUpdated(result.data[0].updated_at);
+          return true;
+        }
+        // 0件＝読んだ後に別端末が保存した → 読み直して重ね直す
+      }
+      throw Error("conflict");
+    }catch(error){
+      for(const path of paths)if(!dirty.has(JSON.stringify(path)))dirty.set(JSON.stringify(path),path);
+      transferStatus.textContent=SAVE_FAILED;
+      return false;
+    }
+  }
+  // 保存は同時に1本だけ（前の保存が終わってから次を送る）
+  function saveShared(replaceAll=false){
+    clearTimeout(saveTimer);
+    saveTimer=null;
+    if(replaceAll)dirty.clear();
+    const run=saveChain.then(()=>writeShared(replaceAll));
+    saveChain=run;
+    return run;
+  }
+  // 読み直しの前に、待っている保存と送信中の保存を済ませる。false＝保存できなかった（読み直さない）
+  function flushShared(){
+    if(!sharedReady){clearTimeout(saveTimer);saveTimer=null;dirty.clear();return Promise.resolve(true);}
+    return saveTimer||dirty.size?saveShared():saveChain;
+  }
+  function touchShared(path){
+    dirty.set(JSON.stringify(path),path);
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>saveShared(),800);
+  }
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&(saveTimer||dirty.size))saveShared();});
   targetInput.addEventListener("input",()=>{
     if(targetInput.validity.valid){
-      try{localStorage.setItem(targetKey,targetInput.value);}catch(error){}
+      sharedTarget=targetInput.valueAsNumber;
+      touchShared(["target"]);
     }
   });
   const signedYen=new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY",signDisplay:"exceptZero"});
-  const otaShareKey="bt_plan_ota_share";
   const officialShare=document.getElementById("planOfficialShare");
   const otaShare=document.getElementById("planOtaShare");
   function complement(value){
     return String(Math.round((100-value)*100)/100);
   }
-  try{
-    const saved=localStorage.getItem(otaShareKey);
-    if(saved!==null&&saved!==""){
-      otaShare.value=saved;
-      if(!otaShare.validity.valid)otaShare.value="100";
-      officialShare.value=complement(otaShare.valueAsNumber);
-    }
-  }catch(error){}
   for(const [edited,other] of [[officialShare,otaShare],[otaShare,officialShare]]){
     edited.addEventListener("input",()=>{
       other.value=edited.validity.valid?complement(edited.valueAsNumber):"";
       if(edited.validity.valid){
-        try{localStorage.setItem(otaShareKey,otaShare.value);}catch(error){}
+        sharedOtaShare=otaShare.valueAsNumber;
+        touchShared(["otaShare"]);
       }
     });
   }
@@ -1875,31 +1981,10 @@ const showPlan=(()=>{
   const expenses=[];
   let brands=null, existing=null, plExpenses=null, loading=false;
   const plVariableValues=new Map(), excludedPL=new Set();
-  const plVariableKey="bt_plan_variable_expense_values";
-  try{
-    const stored=JSON.parse(localStorage.getItem(plVariableKey)||"{}");
-    for(const [key,value] of Object.entries(stored||{})){
-      if(Number.isSafeInteger(value)&&value>=0&&value<=1000000000)plVariableValues.set(key,value);
-    }
-  }catch(error){}
-  const excludedPLKey="bt_plan_excluded_pl_accounts";
-  try{
-    const saved=JSON.parse(localStorage.getItem(excludedPLKey)||"[]");
-    if(Array.isArray(saved)){
-      for(const account of saved)if(typeof account==="string")excludedPL.add(account);
-    }
-  }catch(error){}
   function savePLExclusions(){
-    try{localStorage.setItem(excludedPLKey,JSON.stringify([...excludedPL]));}catch(error){}
+    touchShared(["excluded"]);
   }
   const plFixedOverrides=new Map();
-  const plFixedOverridesKey="bt_plan_fixed_expense_overrides";
-  try{
-    const stored=JSON.parse(localStorage.getItem(plFixedOverridesKey)||"{}");
-    for(const [key,value] of Object.entries(stored||{})){
-      if(Number.isSafeInteger(value))plFixedOverrides.set(key,value);
-    }
-  }catch(error){}
   const includedPLFixed=[], includedPLVariable=[];
   const restorePL=document.getElementById("planRestorePLExpenses");
   function node(tag,parent,value){
@@ -1908,7 +1993,6 @@ const showPlan=(()=>{
     parent.append(el);
     return el;
   }
-  const customExpenseKey="bt_plan_custom_expenses";
   function addExpense(saved,focus=false){
     const row=document.getElementById("planExpenseTemplate").content.firstElementChild.cloneNode(true);
     const mode=row.querySelector("select");
@@ -1943,16 +2027,12 @@ const showPlan=(()=>{
       ({name:name.value,mode:mode.value,amount:amount.valueAsNumber}));
   }
   function saveCustomExpenses(){
-    try{localStorage.setItem(customExpenseKey,JSON.stringify(customExpenseValues()));}catch(error){}
+    touchShared(["expenses"]);
   }
   function validCustomExpense(item){
     return item&&typeof item.name==="string"&&item.name.length<=500&&
       (item.mode==="share"?validAmount(item.amount,0,100):item.mode==="fixed"&&validAmount(item.amount,0,1000000000,true));
   }
-  try{
-    const saved=JSON.parse(localStorage.getItem(customExpenseKey)||"[]");
-    if(Array.isArray(saved))for(const item of saved.filter(validCustomExpense))addExpense(item);
-  }catch(error){}
   document.getElementById("planAddExpense").addEventListener("click",()=>{addExpense(null,true);saveCustomExpenses();render();});
   restorePL.addEventListener("click",()=>{
     excludedPL.clear();
@@ -2000,7 +2080,7 @@ const showPlan=(()=>{
           if(!input.validity.valid)return;
           if(input.value==="")plFixedOverrides.delete(key);
           else plFixedOverrides.set(key,input.valueAsNumber);
-          try{localStorage.setItem(plFixedOverridesKey,JSON.stringify(Object.fromEntries(plFixedOverrides)));}catch(error){}
+          touchShared(["fixed",key]);
         });
         includedPLFixed.push({account,amount,input});
       });
@@ -2016,7 +2096,7 @@ const showPlan=(()=>{
           if(!input.validity.valid)return;
           if(input.value==="")plVariableValues.delete(key);
           else plVariableValues.set(key,input.valueAsNumber);
-          try{localStorage.setItem(plVariableKey,JSON.stringify(Object.fromEntries(plVariableValues)));}catch(error){}
+          touchShared(["variable",key]);
         });
         includedPLVariable.push({account,input});
       });
@@ -2165,19 +2245,16 @@ const showPlan=(()=>{
         const values=assumptions.get(key)||{};
         function input(parent,field,label,initial,max,step="1"){
           const el=node("input",node("label",parent,label));
-          const storageKey="bt_plan_class:"+key+":"+field;
-          let saved=null;
-          if(storageKey){
-            try{saved=localStorage.getItem(storageKey);}catch(error){}
-          }
           Object.assign(el,{type:"number",min:"0",max:String(max),step,required:true,
-            inputMode:step==="1"?"numeric":"decimal",value:String(values[field]??saved??initial)});
-          if(values[field]===undefined&&saved!==null&&!el.validity.valid)el.value=String(initial);
+            inputMode:step==="1"?"numeric":"decimal",value:String(values[field]??initial)});
+          el.dataset.initial=String(initial);
+          if(values[field]!==undefined&&!el.validity.valid)el.value=String(initial);
           el.addEventListener("input",()=>{
             values[field]=el.value;
             assumptions.set(key,values);
-            if(storageKey&&el.validity.valid){
-              try{localStorage.setItem(storageKey,el.value);}catch(error){}
+            if(el.validity.valid){
+              (sharedClasses[key]||(sharedClasses[key]={}))[field]=el.valueAsNumber;
+              touchShared(["classes",key,field]);
             }
           });
           return el;
@@ -2193,7 +2270,11 @@ const showPlan=(()=>{
         resetRate.className="plan-rate-reset";
         resetRate.addEventListener("click",()=>{
           delete values.rate;
-          try{localStorage.removeItem("bt_plan_class:"+key+":rate");}catch(error){}
+          if(sharedClasses[key]){
+            delete sharedClasses[key].rate;
+            if(!Object.keys(sharedClasses[key]).length)delete sharedClasses[key];
+          }
+          touchShared(["classes",key,"rate"]);
           rate.value=String(c.utilization??0);
           render();
         });
@@ -2296,7 +2377,62 @@ const showPlan=(()=>{
     setTimeout(()=>URL.revokeObjectURL(url),1000);
     transferStatus.textContent="試算条件を保存しました。同じファイルを別の端末で読み込めます。";
   });
+  // 共有行の data（version 2）を検査して、正しい項目だけを取り出す。形が崩れた項目は捨てて初期値に戻す。
+  function sanitizeShared(raw){
+    const out={target:undefined,otaShare:undefined,classes:{},fixed:{},variable:{},excluded:[],expenses:[]};
+    if(!raw||typeof raw!=="object"||Array.isArray(raw))return out;
+    if(validAmount(raw.target,1,1000000000,true))out.target=raw.target;
+    if(validAmount(raw.otaShare,0,100))out.otaShare=raw.otaShare;
+    const isObject=value=>value&&typeof value==="object"&&!Array.isArray(value);
+    if(isObject(raw.classes)){
+      for(const [key,values] of Object.entries(raw.classes)){
+        if(!isObject(values))continue;
+        const kept={};
+        for(const [field,[min,max,integer]] of Object.entries(classFields)){
+          if(validAmount(values[field],min,max,integer))kept[field]=values[field];
+        }
+        if(Object.keys(kept).length)out.classes[key]=kept;
+      }
+    }
+    if(isObject(raw.fixed)){
+      for(const [key,value] of Object.entries(raw.fixed))if(Number.isSafeInteger(value))out.fixed[key]=value;
+    }
+    if(isObject(raw.variable)){
+      for(const [key,value] of Object.entries(raw.variable))if(validAmount(value,0,1000000000,true))out.variable[key]=value;
+    }
+    if(Array.isArray(raw.excluded))out.excluded=raw.excluded.filter(account=>typeof account==="string");
+    if(Array.isArray(raw.expenses))out.expenses=raw.expenses.filter(validCustomExpense);
+    return out;
+  }
+  // 共有の試算条件を画面の入力欄・内部の値へ反映する（入っていない項目は初期値）。
+  function applyShared(d){
+    sharedTarget=d.target;
+    sharedOtaShare=d.otaShare;
+    sharedClasses=d.classes;
+    targetInput.value=String(d.target??targetInput.defaultValue);
+    otaShare.value=String(d.otaShare??otaShare.defaultValue);
+    officialShare.value=complement(otaShare.valueAsNumber);
+    plFixedOverrides.clear();
+    for(const [key,value] of Object.entries(d.fixed))plFixedOverrides.set(key,value);
+    plVariableValues.clear();
+    for(const [key,value] of Object.entries(d.variable))plVariableValues.set(key,value);
+    excludedPL.clear();
+    for(const account of d.excluded)excludedPL.add(account);
+    expenseRows.replaceChildren();
+    expenses.length=0;
+    for(const item of d.expenses)addExpense(item);
+    assumptions.clear();
+    for(const [key,values] of Object.entries(d.classes))assumptions.set(key,Object.assign({},values));
+  }
   function importPlanConditions(scenario){
+    if(scenario&&scenario.version===2){
+      const d=sanitizeShared(scenario);
+      // 中身のないファイルで共有の試算条件を消さない
+      if(d.target===undefined&&d.otaShare===undefined&&!Object.keys(d.classes).length&&!Object.keys(d.fixed).length&&
+        !Object.keys(d.variable).length&&!d.excluded.length&&!d.expenses.length)return false;
+      applyShared(d);
+      return true;
+    }
     const validEntries=(items,signed)=>Array.isArray(items)&&items.every(entry=>
       Array.isArray(entry)&&entry.length===2&&typeof entry[0]==="string"&&
       Number.isSafeInteger(entry[1])&&(signed||validAmount(entry[1],0,1000000000,true)));
@@ -2307,43 +2443,32 @@ const showPlan=(()=>{
       !validEntries(scenario.fixed,true)||!validEntries(scenario.variable,false)||
       !Array.isArray(scenario.excluded)||!scenario.excluded.every(account=>typeof account==="string")||
       !Array.isArray(scenario.expenses)||!scenario.expenses.every(validCustomExpense))return false;
+    // version 1 は全項目入りのファイル。共有には「今の実績初期値と違う値」だけを入れる（初期値が実績に追従するように）。
     const month=plExpenses.month;
     function replaceMonth(values,items){
-      for(const key of values.keys())if(JSON.parse(key)[0]===month)values.delete(key);
-      for(const [account,amount] of items)values.set(JSON.stringify([month,account]),amount);
+      const out={};
+      for(const [key,value] of values)if(JSON.parse(key)[0]!==month)out[key]=value;
+      for(const [account,amount] of items)out[JSON.stringify([month,account])]=amount;
+      return out;
     }
-    replaceMonth(plFixedOverrides,scenario.fixed);
-    replaceMonth(plVariableValues,scenario.variable);
-    excludedPL.clear();
-    for(const account of scenario.excluded)excludedPL.add(account);
-    targetInput.value=String(scenario.target);
-    otaShare.value=String(scenario.otaShare);
-    officialShare.value=complement(scenario.otaShare);
-    expenseRows.replaceChildren();
-    expenses.length=0;
-    for(const item of scenario.expenses)addExpense(item);
-    assumptions.clear();
-    const classValues=new Map(scenario.classes.map(item=>[JSON.stringify([item.brand,item.id]),item.values]));
-    try{
-      for(const {brand,rows} of brands){
-        for(const row of rows){
-          const key=JSON.stringify([brand,row.c.id]);
-          const values=classValues.get(key);
-          for(const field of Object.keys(classFields)){
-            const storageKey="bt_plan_class:"+key+":"+field;
-            if(values)localStorage.setItem(storageKey,String(values[field]));
-            else localStorage.removeItem(storageKey);
-          }
-        }
+    const initials=new Map(brands.flatMap(({brand,rows})=>rows.map(row=>[JSON.stringify([brand,row.c.id]),
+      Object.fromEntries(Object.keys(classFields).map(field=>[field,Number(row[field].dataset.initial)]))])));
+    const classes={};
+    for(const item of scenario.classes){
+      const key=JSON.stringify([item.brand,item.id]);
+      const initial=initials.get(key);
+      const kept={};
+      for(const field of Object.keys(classFields)){
+        if(!initial||item.values[field]!==initial[field])kept[field]=item.values[field];
       }
-      localStorage.setItem(targetKey,targetInput.value);
-      localStorage.setItem(otaShareKey,otaShare.value);
-      localStorage.setItem(plFixedOverridesKey,JSON.stringify(Object.fromEntries(plFixedOverrides)));
-      localStorage.setItem(plVariableKey,JSON.stringify(Object.fromEntries(plVariableValues)));
-    }catch(error){}
-    for(const [key,values] of classValues)assumptions.set(key,values);
-    savePLExclusions();
-    saveCustomExpenses();
+      if(Object.keys(kept).length)classes[key]=kept;
+    }
+    applyShared({
+      target:scenario.target===Number(targetInput.defaultValue)?undefined:scenario.target,
+      otaShare:scenario.otaShare===Number(otaShare.defaultValue)?undefined:scenario.otaShare,
+      classes,fixed:replaceMonth(plFixedOverrides,scenario.fixed),variable:replaceMonth(plVariableValues,scenario.variable),
+      excluded:scenario.excluded,expenses:scenario.expenses
+    });
     return true;
   }
   importConditions.addEventListener("click",()=>conditionsFile.click());
@@ -2355,8 +2480,9 @@ const showPlan=(()=>{
       if(file.size>1000000)throw Error("size");
       const scenario=JSON.parse(await file.text());
       if(!brands||!plExpenses||!importPlanConditions(scenario))throw Error("invalid");
-      await refresh();
-      transferStatus.textContent="試算条件を読み込みました。";
+      const saved=await saveShared(true);   // 読み込んだファイルの内容で共有の試算条件を置き換える
+      await refresh(KEEP_SHARED);
+      transferStatus.textContent=saved?"試算条件を読み込み、共有の試算条件に保存しました。":"試算条件を読み込みましたが、"+SAVE_FAILED+"。";
     }catch(error){
       transferStatus.textContent="読み込めませんでした。「試算条件を保存」で出力したJSONファイルを選んでください。";
     }
@@ -2525,7 +2651,22 @@ const showPlan=(()=>{
     exportButton.disabled=false;
     exportConditions.disabled=!valid||!plExpenses;
   }
-  async function refresh(){
+  const KEEP_SHARED={};   // 読込直後の再描画：共有行を読み直さず、今の値で描く
+  async function loadShared(){
+    try{
+      const {data:row,error:loadError}=await sb.from("bt_plan_scenario").select("data,updated_at").eq("id",SHARED_ID).maybeSingle();
+      if(loadError)throw loadError;
+      applyShared(sanitizeShared(row&&row.data));
+      sharedReady=true;
+      showSharedUpdated(row&&row.updated_at);
+      if(transferStatus.textContent===SAVE_FAILED)transferStatus.textContent="";
+    }catch(error){
+      // 読めない時は保存しない（空の値で共有の試算条件を上書きしないため）
+      sharedReady=false;
+      sharedInfo.textContent="共有の試算条件を読み込めませんでした（この端末の変更は保存されません）";
+    }
+  }
+  async function refresh(mode){
     if(loading)return;
     loading=true;
     brands=null;
@@ -2536,7 +2677,11 @@ const showPlan=(()=>{
     retry.hidden=true;
     render();
     try{
-      const [data,expenseAccounts]=await Promise.all([FIN.planFleetCosts(),FIN.planPLExpenses().catch(()=>null)]);
+      purgeLegacyPlanStorage();
+      // 保存待ち・送信中の入力を先に書いてから読み直す。保存できなかった時は読み直さない（入力を共有の値で消さない）
+      const flushed=await flushShared();
+      const [data,expenseAccounts]=await Promise.all([FIN.planFleetCosts(),FIN.planPLExpenses().catch(()=>null),
+        mode===KEEP_SHARED||!flushed?null:loadShared()]);
       plExpenses=expenseAccounts;
       showPLExpenses();
       existing=data.flatMap(brand=>brand.classes).reduce((sum,c)=>{
