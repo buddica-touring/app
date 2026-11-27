@@ -1042,7 +1042,7 @@ tr.arcHide{display:none!important}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="insp-howto.js?v=1"></script>
-<script src="bt-fin.js?v=23"></script>
+<script src="bt-fin.js?v=24"></script>
 <script src="bt-summary.js?v=9"></script>
 <script src="vehicle-life.js?v=104"></script>
 <script>
@@ -1872,6 +1872,7 @@ const showPlan=(()=>{
   // 保存は「この端末で変えた項目だけ」：保存直前に共有行を読み直し、変えた項目の設定/削除だけを重ねて書く（全体上書きをしない）。
   // updated_at が読んだ時と同じ時だけ更新し、間に別端末が保存していたら読み直してやり直す。同じ項目は後勝ち。
   const dirty=new Map();
+  const PLAN_KEYS=new Set(["version","target","otaShare","classes","fixed","variable","excluded","expenses"]);
   let saveChain=Promise.resolve(true);
   function localValue([head,a,b]){
     if(head==="target")return sharedTarget;
@@ -1908,7 +1909,13 @@ const showPlan=(()=>{
         const {data:row,error:readError}=await sb.from("bt_plan_scenario").select("data,updated_at").eq("id",SHARED_ID).maybeSingle();
         if(readError)throw readError;
         let data;
-        if(replaceAll)data=sharedData();
+        if(replaceAll){
+          // ファイル読込は試算条件だけを置き換える。PL の費用区分（costGroups）など試算条件以外の項目は残す
+          data=sharedData();
+          if(row&&isPlainObject(row.data)){
+            for(const [key,value] of Object.entries(row.data))if(!PLAN_KEYS.has(key))data[key]=value;
+          }
+        }
         else{
           data=row&&isPlainObject(row.data)?JSON.parse(JSON.stringify(row.data)):{};
           for(const path of paths)setPath(data,path,localValue(path));

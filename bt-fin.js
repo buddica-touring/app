@@ -153,14 +153,46 @@ window.FIN=(function(){
   const PL_FIXED=new Set(["給与手当","賞与","賞与引当金繰入額","業務委託費（内部）","業務委託費（外部）",
     "法定福利費","福利厚生費","通信費","減価償却費","地代家賃","租税公課","諸会費","新聞図書費","リース料","保険料"]);
   const PL_COST_GROUPS={fixed:"固定費",variable:"変動費"};
+  // 費用区分の切替は全端末共通（オーナー指示 2026-11-27「PCが正解」）：bt_plan_scenario の id='shared' 行の data.costGroups に
+  // 「既定と違う科目だけ」を持つ。旧の端末保存（localStorage bt_pl_cost_groups）は読まずに消す。書くのは切り替えた1科目だけ。
   const PL_COST_KEY="bt_pl_cost_groups";
+  try{localStorage.removeItem(PL_COST_KEY);}catch(error){}
   const plCostOverrides=new Map();
-  try{
-    const stored=JSON.parse(localStorage.getItem(PL_COST_KEY)||"{}");
-    for(const [account,group] of Object.entries(stored||{})){
-      if(group==="fixed"||group==="variable")plCostOverrides.set(account,group);
+  let costGroupsReady=false;
+  const plainObject=value=>!!value&&typeof value==="object"&&!Array.isArray(value);
+  async function loadCostGroups(){
+    try{
+      const {data:row,error}=await sb.from("bt_plan_scenario").select("data").eq("id","shared").maybeSingle();
+      if(error)throw error;
+      const groups=row&&plainObject(row.data)&&plainObject(row.data.costGroups)?row.data.costGroups:{};
+      plCostOverrides.clear();
+      for(const [account,group] of Object.entries(groups))if(group==="fixed"||group==="variable")plCostOverrides.set(account,group);
+      costGroupsReady=true;
+    }catch(error){costGroupsReady=false;}
+  }
+  // 1科目だけ書く：保存直前に行を読み直し、その科目だけ変えて、読んだ時と updated_at が同じ時だけ更新（ずれたら読み直す）
+  async function saveCostGroup(account,group){
+    if(!costGroupsReady)throw Error("not loaded");
+    for(let attempt=0;attempt<5;attempt++){
+      const {data:row,error:readError}=await sb.from("bt_plan_scenario").select("data,updated_at").eq("id","shared").maybeSingle();
+      if(readError)throw readError;
+      const data=row&&plainObject(row.data)?JSON.parse(JSON.stringify(row.data)):{version:2};
+      const groups=plainObject(data.costGroups)?data.costGroups:{};
+      if(group===(PL_FIXED.has(account)?"fixed":"variable"))delete groups[account];
+      else groups[account]=group;
+      if(Object.keys(groups).length)data.costGroups=groups;
+      else delete data.costGroups;
+      const result=row?
+        await sb.from("bt_plan_scenario").update({data}).eq("id","shared").eq("updated_at",row.updated_at).select("updated_at"):
+        await sb.from("bt_plan_scenario").insert({id:"shared",data}).select("updated_at");
+      if(result.error){
+        if(!row&&result.error.code==="23505")continue;
+        throw result.error;
+      }
+      if(result.data&&result.data.length)return;
     }
-  }catch(error){}
+    throw Error("conflict");
+  }
   function plCostGroup(account,kind){
     if(kind==="calc"||account==="売上高")return "";
     return plCostOverrides.get(account)||(PL_FIXED.has(account)?"fixed":"variable");
@@ -188,7 +220,7 @@ window.FIN=(function(){
   const FEE_H=0.18, FEE_B=0.16;   // OTA手数料：HANDYMAN 18%／BUDDICA 16%（cost-cpa.html と同じ・2026-10-26 オーナー指示）
   let PLD=null, PL_FY=null;
   async function loadPL(){
-    const [mtg,split,cpa,d]=await Promise.all([rpc("bt_mtg_h2"),rpc("bt_ota_brand_split"),rpc("bt_cost_cpa"),view()]);
+    const [mtg,split,cpa,d]=await Promise.all([rpc("bt_mtg_h2"),rpc("bt_ota_brand_split"),rpc("bt_cost_cpa"),view(),loadCostGroups()]);
     const acct=d.acct||[], V=vehOf(d), man=d.manual||[];
     const SP={};(Array.isArray(split)?split:[]).forEach(r=>{const m=String(r.ym||"");if(/^\d{4}-\d{2}$/.test(m))SP[m]=(+r.hdm_rev||0)*FEE_H+(+r.bud_rev||0)*FEE_B;});
     (Array.isArray(cpa)?cpa:[]).forEach(r=>{const m=String(r.ym||"");if(/^\d{4}-\d{2}$/.test(m)&&SP[m]==null)SP[m]=(+r.ota_rev||0)*FEE_H;});
@@ -280,13 +312,18 @@ window.FIN=(function(){
     $("salAdd").onclick=addSal;
     $("plReload").onclick=showPL;
   }
-  document.addEventListener("change",ev=>{
+  document.addEventListener("change",async ev=>{
     const select=ev.target;
     if(!select.matches?.("#finPL .fn-cost-select")||!PLD)return;
     const account=select.dataset.costAccount, group=select.value;
     if(group!=="fixed"&&group!=="variable")return;
+    const before=plCostOverrides.get(account);
     plCostOverrides.set(account,group);
-    try{localStorage.setItem(PL_COST_KEY,JSON.stringify(Object.fromEntries(plCostOverrides)));}catch(error){}
+    try{await saveCostGroup(account,group);}
+    catch(error){
+      if(before)plCostOverrides.set(account,before);else plCostOverrides.delete(account);
+      alert("保存できませんでした。もう一度お試しください。");
+    }
     const table=document.querySelector("#finPL .fn-tw");
     const {scrollLeft,scrollTop}=table;
     const {scrollX,scrollY}=window;
