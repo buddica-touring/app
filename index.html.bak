@@ -19628,9 +19628,24 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
           const linked=sortedTasks.find(x=>x.reservationId===t.reservationId&&(x.type==="PU"||x.type==="BD"||x.type==="PUB"||x.type==="BDB"));
           return linked?linked.time||"":"";
         };
+        // ★選択日に空いている車両（稼働中・予約/メンテなし）
+        const freeVehiclesOnSel=()=>{const d=norm(selDate);return (vehicles||[]).filter(v=>v.active!==false&&!(reservations||[]).some(o=>o&&o.status!=="cancelled"&&fleet&&fleet[o.id]===v.code&&norm(o.lendDate)<=d&&norm(o.returnDate)>=d)&&!(maintenance||[]).some(m=>m.vehicleCode===v.code&&norm(m.startDate)<=d&&norm(m.endDate)>=d));};
         const addWashTask=()=>{
           if(!washAddCat){alert("カテゴリを選択してください");return;}
           if(!washAddVc){alert("車両を選択してください");return;}
+          if(washAddVc==="__FREE__"||washAddVc==="__ALL__"){
+            const targets=washAddVc==="__FREE__"?freeVehiclesOnSel():(vehicles||[]).filter(v=>v.active!==false);
+            if(!targets.length){alert("対象の車両がありません");return;}
+            if(!window.confirm((washAddVc==="__FREE__"?"空いてる車両":"全車両")+" "+targets.length+"台分の洗車タスクを追加しますか？"))return;
+            targets.forEach((veh,i)=>{
+              const nid="wash_manual_"+Date.now()+"_"+i+"_"+Math.random().toString(36).slice(2,6);
+              const nt={_id:nid,type:"洗車",time:washAddTime||"",name:washAddCat+" "+veh.name,memo:washAddMemo||(veh.name+(veh.no?" ("+veh.no+")":"")),people:0,place:"",vehicle:veh.type,assignedVehicle:veh.code,plateNo:veh.no,reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
+              setTasks(ts=>{const next=[...ts,nt];DB._lsSave(next,selDate);return next;});
+              DB.updateTask(nt,selDate); // 1台=新規1件だけ書く
+            });
+            setWashAddCat("");setWashAddVc("");setWashAddTime("");setWashAddMemo("");
+            return;
+          }
           const veh=vehicles.find(v=>v.code===washAddVc);
           const newId="wash_manual_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
           const newTask={_id:newId,type:"洗車",time:washAddTime||"",name:washAddCat+(veh?" "+veh.name:""),memo:washAddMemo||(veh?veh.name+(veh.no?" ("+veh.no+")":""):""),people:0,place:"",vehicle:veh?veh.type:"",assignedVehicle:washAddVc,plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0,usb:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
@@ -19695,6 +19710,8 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 </select>
                 <select value={washAddVc} onChange={e=>setWashAddVc(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両を選択</option>
+                  <option value="__FREE__">🚗 空いてる車両</option>
+                  <option value="__ALL__">🚗 全車両</option>
                   {(vehicles||[]).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}{v.active===false?" ・未稼働":""}</option>)}
                 </select>
                 <select value={washAddTime} onChange={e=>setWashAddTime(e.target.value)} style={{border:"1px solid #D7CCC8",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e293b",background:"#fff",width:75,flexShrink:0}}>
@@ -19784,11 +19801,13 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
         const addOtherTask=()=>{
           if(!otherAddType){alert("タスク種類を選択してください");return;}
           if(!otherAddName&&otherAddType!=="送迎"&&!otherAddVc){alert("内容を入力するか車両を選択してください");return;}
-          const isAllVc=otherAddVc==="__ALL__"; // ★全車両（特定車両に紐づかない）
+          const isFreeVc=otherAddVc==="__FREE__"; // ★空いてる車両（特定車両に紐づかない）
+          const isAllVc=otherAddVc==="__ALL__"||isFreeVc; // ★全車両/空いてる車両（特定車両に紐づかない）
+          const _grpLabel=isFreeVc?"空いてる車両":"全車両";
           const veh=(otherAddVc&&!isAllVc)?vehicles.find(v=>v.code===otherAddVc):null;
           const newId="other_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
-          const displayName=otherAddName||(otherAddType+(isAllVc?" 全車両":(veh?" "+veh.name:"")));
-          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:isAllVc?"全車両":(veh?veh.type:""),assignedVehicle:isAllVc?"":(otherAddVc||""),plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:otherAddAssignee||"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
+          const displayName=otherAddName||(otherAddType+(isAllVc?" "+_grpLabel:(veh?" "+veh.name:"")));
+          const newTask={_id:newId,type:otherAddType,time:otherAddTime||"",name:displayName,memo:otherAddMemo||"",people:0,place:otherAddPlace||"",vehicle:isAllVc?_grpLabel:(veh?veh.type:""),assignedVehicle:isAllVc?"":(otherAddVc||""),plateNo:veh?veh.no:"",reservationId:"",ota:"",tel:"",mail:"",done:false,assignee:otherAddAssignee||"",flight:"",returnDate:"",returnTime:"",returnType:"",colPlace:"",insurance:"",opts:{b:0,c:0,j:0},yakkan:false,line:false,payment:false,manual:true,timeChange:"",typeChange:"",_changed:{}};
           setTasks(ts=>{const next=[...ts,newTask];try{DB.updateTask(newTask,selDate);}catch(e){}return next;}); // ★2026-07-04 その他=新規1件だけ書く
           setOtherAddType("");setOtherAddName("");setOtherAddTime("");setOtherAddPlace("");setOtherAddVc("");setOtherAddMemo("");setOtherAddAssignee("");
         };
@@ -19840,6 +19859,7 @@ function OPScreen({reservations,today,shifts,fleet,onFleetChange,onClose,onGoFle
                 <input value={otherAddName} onChange={e=>setOtherAddName(e.target.value)} placeholder="内容（例: 山田太郎/車両回送）" style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,color:"#1e293b",background:"#fff",flex:"1 1 150px"}}/>
                 <select value={otherAddVc} onChange={e=>setOtherAddVc(e.target.value)} style={{border:"1px solid #c7d2fe",borderRadius:6,padding:"4px 8px",fontSize:isMob?12:11,fontWeight:700,color:"#1e40af",background:"#fff",flex:"1 1 120px"}}>
                   <option value="">🚗 車両（任意）</option>
+                  <option value="__FREE__">🚗 空いてる車両</option>
                   <option value="__ALL__">🚗 全車両</option>
                   {(vehicles||[]).map(v=><option key={v.code} value={v.code}>{v.name}{v.no?" ("+v.no+")":""}{v.active===false?" ・未稼働":""}</option>)}
                 </select>
@@ -25078,7 +25098,7 @@ function VehicleRankingTab({vehicles,data,fleet,store,maintenance}){
   </div>;
 }
 
-const APP_VERSION="v1.0.606-BT";
+const APP_VERSION="v1.0.607-BT";
 // ★ バージョンチェック改修 (2026-05-07)
 // 旧ロジック: stored !== FIXED_OLD_VERSION → iOS PWA で古い app.js が返ると無限ループ
 // 新ロジック: stored !== APP_VERSION + 60秒クールダウンでループ完全防止
